@@ -4,7 +4,7 @@
 
 (let [start (System/nanoTime)]
   (b/build "src"
-    {:main 'shimoji.core
+    {:main 'czlab.shimoji.core
      :output-to "out/shimoji.js"
      :output-dir "out"
      :verbose true})
