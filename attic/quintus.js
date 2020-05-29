@@ -1,31 +1,20 @@
-/*global module:false */
-var quintusCore = function(exportTarget,key) {
+(function(____root) {
   "use strict";
-  let slicer= Array.prototype.slice;
-  let isArray= function(obj) {
-    return Object.prototype.toString.call(obj) === '[object Array]';
-  };
-  let isObject= function(obj) {
-    return Object.prototype.toString.call(obj) === '[object Object]';
-  };
-  let _ = {
-    now: function() { return new Date().getTime(); },
-    keys: function(obj) {
-      return isObject(obj) ? Object.keys(obj) : [];
+  const ARRAY=Array.prototype, OBJECT=Object.prototype;
+  const tostr=OBJECT.toString, slicer= ARRAY.slice;
+  const isObject= (obj) => { return tostr.call(obj) === "[object Object]"; };
+  const isArray= (obj) => { return tostr.call(obj) === "[object Array]"; };
+  const _ = {
+    now: () => { return new Date().getTime(); },
+    keys: (obj) => { return isObject(obj) ? Object.keys(obj) : []; },
+    range: (start,stop,step=1) => {
+      let len = Math.max(0, Math.ceil((stop-start)/step));
+      let res = new Array(len);
+      for(let i=0;i<len;++i) { res[i] = start; start += step; }
+      return res;
     },
-    range: function(start,stop,step) {
-      step = step || 1;
-      let len = Math.max(Math.ceil((stop - start) / step), 0);
-      let idx = 0;
-      let range = new Array(len);
-      while(idx < len) {
-        range[idx++] = start;
-        start += step;
-      }
-      return range;
-    },
-    shuffle: function(obj) {
-      let rx, res = [];
+    shuffle: (obj) => {
+      let rx, res = new Array[obj.length];
       obj.forEach((x,i) => {
         rx = Math.floor(Math.random() * (i+1));
         res[i] = res[rx];
@@ -33,9 +22,9 @@ var quintusCore = function(exportTarget,key) {
       });
       return res;
     },
-    uniq: function(arr) {
-      arr = slicer.call(arr).sort();
+    uniq: (arr) => {
       let res= [], prev= null;
+      arr = slicer.call(arr).sort();
       arr.forEach(a => {
         if(a !== void 0 &&
            a !== prev) res.push(a);
@@ -43,8 +32,8 @@ var quintusCore = function(exportTarget,key) {
       });
       return res;
     },
-    map: function(obj, fn,ctx) {
-      let res= void 0;
+    map: (obj, fn,ctx) => {
+      let res;
       if(isArray(obj))
         res= obj.map(fn,ctx);
       else if(obj) {
@@ -55,7 +44,7 @@ var quintusCore = function(exportTarget,key) {
       return res;
     },
     find: function(obj,fn,ctx,...args) {
-      let res= false;
+      let res;
       if(isArray(obj)) {
         obj.forEach((x,i,c) => {
           res = fn.apply(ctx, [x, i].concat(args));
@@ -75,7 +64,7 @@ var quintusCore = function(exportTarget,key) {
       if(isArray(arr))
         arr.forEach(x => { x[key].apply(x, args); });
     },
-    doseq: function(obj,fn,ctx) {
+    doseq: (obj,fn,ctx) => {
       if(isArray(obj)) {
         obj.forEach(fn,ctx);
       } else if(obj) {
@@ -83,64 +72,58 @@ var quintusCore = function(exportTarget,key) {
           fn.call(ctx, obj[k], k, obj);
       }
     },
-    dissoc: function(obj,key) {
+    dissoc: (obj,key) => {
       let val = obj[key];
       delete obj[key];
       return val;
     },
-    isString: function(obj) {
-      return typeof obj === "string";
+    seq: (arg,sep=",") => {
+      if(typeof arg === "string") arg = arg.replace(/\s+/g,'').split(sep);
+      if(!isArray(arg)) arg = [arg];
+      return arg;
     },
-    isNumber: function(obj) {
-      return Object.prototype.toString.call(obj) === '[object Number]';
-    },
-    isFunction: function(obj) {
-      return Object.prototype.toString.call(obj) === '[object Function]';
-    },
+    isString: (obj) => { return typeof obj === "string"; },
+    isNumber: (obj) => { return tostr.call(obj) === "[object Number]"; },
+    isFunction: (obj) => { return tostr.call(obj) === "[object Function]"; },
     isObject: isObject,
     isArray: isArray,
-    isUndefined: function(obj) {
-      return obj === void 0;
-    },
-    has: function(obj,key) {
-      return Object.prototype.hasOwnProperty.call(obj, key);
-    },
-    patch: function(des,src) {
+    isUndef: (obj) => { return obj === void 0; },
+    isUndefined: (obj) => { return obj === void 0; },
+    has: (obj,key) => { return OBJECT.hasOwnProperty.call(obj, key); },
+    patch: (des,src) => {
       if (src)
         for (let k in src)
           if(des[k] === void 0) des[k] = src[k];
       return des;
     },
-    clone: function(obj) {
-      return Object.assign({},obj);
-    },
-    inject: function(des,src) {
-      return src ? Object.assign(des,src) : des;
-    }
+    clone: (obj) => { return Object.assign({},obj); },
+    inject: (des,src) => { return src ? Object.assign(des,src) : des; }
   };
 
-  var Quintus = exportTarget[key] = function(opts) {
-  var Q = function(selector,scope,options) {
-    return Q.select(selector,scope,options);
+  let Q = function(selector,scope,options) {
+    return Q.select && Q.select(selector,scope,options);
+  };
+
+  Q["_"]= _;
+
+  // The base class implementation (does nothing)
+  let ____john_resig = function(){};
+  ____john_resig.prototype.isA = function(c) {
+    return this.className === c;
   };
   (function(){
     let initializing = false,
         fnTest = /xyz/.test(function(){ var xyz;}) ? /\b_super\b/ : /.*/;
-    // The base Class implementation (does nothing)
-    Q.Class = function(){};
-    Q.Class.prototype.isA = function(className) {
-      return this.className === className;
-    };
-    Q.Class.extend = function(className, props, classMethods) {
+    ____john_resig.extend = function(className, props, classMethods) {
       if(!_.isString(className)) {
         classMethods = props;
         props = className;
         className = null;
       }
-      let _super = this.prototype,
-          ThisClass = this;
+      let _super = this.prototype;
+      let ThisClass = this;
       initializing = true;
-      var prototype = new ThisClass();
+      let prototype = new ThisClass();
       initializing = false;
       function _superFactory(name,fn) {
         return function() {
@@ -161,46 +144,58 @@ var quintusCore = function(exportTarget,key) {
           typeof _super[name] === "function" &&
             fnTest.test(props[name]) ? _superFactory(name,props[name]) : props[name];
       }
-      /* The dummy class constructor */
-      function Class() {
-        /* All construction is actually done in the init method */
+      /* The dummy class constructor function*/
+      function Base() {
         if (!initializing && this.init)
-          this.init.apply(this, arguments);
+          this.init.apply(this, arguments); // init => ctor
       }
       /* Populate our constructed prototype object */
-      Class.prototype = prototype;
+      Base.prototype = prototype;
       /* Enforce the constructor to be what we expect */
-      Class.prototype.constructor = Class;
+      Base.prototype.constructor = Base;
       /* And make this class extendable */
-      Class.extend = Q.Class.extend;
+      Base.extend = ____john_resig.extend;
       if(classMethods)
         Object.assign(Class,classMethods);
       if(className) {
-        Q[className] = Class;
-        Class.prototype.className = className;
-        Class.className = className;
+        Q[className] = Base;
+        Base.prototype.className = className;
+        Base.className = className;
       }
-      return Class;
+      return Base;
     };
   })();
 
-  Q.select = function() {};
-  Q._ = _;
-
-  Q.include = function(mod) {
-    _.doseq(Q._normalizeArg(mod),function(name) {
-      let m = Quintus[name] || name;
-      if(!_.isFunction(m))
-        throw "Invalid Module:" + name;
-      m(Q);
-    });
-    return Q;
+  Q._normalizeArg = function(arg) {
+    if(Q._isString(arg)) {
+      arg = arg.replace(/\s+/g,'').split(",");
+    }
+    if(!Q._isArray(arg)) {
+      arg = [ arg ];
+    }
+    return arg;
   };
 
-  Q._normalizeArg = function(arg) {
-    if(_.isString(arg)) arg = arg.replace(/\s+/g,'').split(",");
-    if(!_.isArray(arg)) arg = [ arg ];
-    return arg;
+  Q.defType = function(clazz, props, classProps) {
+    let child,parent;
+    if(_.isString(clazz)) {
+      parent=____john_resig;
+      child=clazz;
+    } else if(_.isArray(clazz)) {
+      child=clazz[0];
+      parent=clazz[1];
+    }
+    return parent.extend(child,props,classProps);
+  }
+
+  Q.include = function(arg) {
+    _.doseq(Q._normalizeArg(arg),(m) => {
+      let f = Quintus[m] || m;
+      if(!_.isFunction(f))
+        throw "Invalid Module:" + m;
+      f(Q);
+    });
+    return Q;
   };
 
   Q._extend = _.inject;
@@ -224,25 +219,15 @@ var quintusCore = function(exportTarget,key) {
   Q._range = _.range;
 
   let idIndex = 0;
-  Q._uniqueId = function() { return idIndex++; };
+  Q._uniqueId = () => { return ++idIndex; };
 
-  Q.options = Object.assign({
-    imagePath: "images/",
-    audioPath: "audio/",
-    dataPath:  "data/",
-    audioSupported: [ 'mp3','ogg' ],
-    sound: true,
-    frameTimeLimit: 100,
-    autoFocus: true
-  }, opts || {});
-
-  Q.scheduleFrame = function(cb) { return window.requestAnimationFrame(cb); };
-  Q.cancelFrame = function(id) { window.cancelAnimationFrame(id); };
-  Q.gameLoop = function(callback) {
+  Q.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
+  Q.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
+  Q.gameLoop = function(action) {
     Q.lastGameLoopFrame = _.now();
     Q.loop = true;
     Q._loopFrame = 0;
-    Q.gameLoopCallbackWrapper = function() {
+    Q.gameLoopCallbackWrapper = () => {
       let now = _.now();
       ++Q._loopFrame;
       Q.loop = Q.scheduleFrame(Q.gameLoopCallbackWrapper);
@@ -250,7 +235,7 @@ var quintusCore = function(exportTarget,key) {
       /* Prevent fast-forwarding by limiting the length of a single frame. */
       if(dt > Q.options.frameTimeLimit)
         dt = Q.options.frameTimeLimit;
-      callback.call(Q,dt / 1000);
+      action.call(Q, dt / 1000);
       Q.lastGameLoopFrame = now;
     };
     Q.scheduleFrame(Q.gameLoopCallbackWrapper);
@@ -269,27 +254,18 @@ var quintusCore = function(exportTarget,key) {
     }
   };
 
-  Q.Class.extend("Evented",{
+  Q.defType("Evented", {
     on: function(event,cb,ctx) {
-      let me=this;
-      if(_.isArray(event) || event.indexOf(",") !== -1) {
-        event = Q._normalizeArg(event);
-        event.forEach(e => me.on(e,cb,ctx));
-        return;
-      }
-
-      ctx= ctx || this;
-      if(!cb)
-        cb = event;
-      if(_.isString(cb)) { cb = ctx[cb]; }
-
-      this.subs = this.subs || {};
-      this.subs[event] = this.subs[event] || [];
-      this.subs[event].push([ctx, cb]);
-
-      if(ctx) {
-        if(!ctx.binds)
-          ctx.binds = [];
+      if(_.isArray(event) || event.indexOf(",") > -1) {
+        _.seq(event).forEach(e => this.on(e,cb,ctx));
+      } else {
+        ctx= ctx || this;
+        if(!cb) cb = event;
+        if(_.isString(cb)) { cb = ctx[cb]; }
+        this.subs = this.subs || {};
+        this.subs[event] = this.subs[event] || [];
+        this.subs[event].push([ctx, cb]);
+        ctx.binds= ctx.binds || [];
         ctx.binds.push([this,event,cb]);
       }
     },
@@ -302,30 +278,26 @@ var quintusCore = function(exportTarget,key) {
       let ss= this.subs && this.subs[event];
       ctx=ctx || this;
       if(!cb) {
-        //remove-all
-        if(ss) ss.length=0;
+        if(ss) ss.length=0; // remove all
       } else {
         if(_.isString(cb) && ctx[cb]) { cb = ctx[cb]; }
-        if(ss) {
-          // Loop from the end to the beginning, which allows us
-          // to remove elements without having to affect the loop.
+        if(ss)
+          // reverse remove without having to affect the loop.
           for(let i = ss.length-1;i>=0;--i) {
             if(ss[i][0] === ctx)
               if(!cb || cb === ss[i][1]) ss.splice(i,1);
           }
-        }
       }
     },
     debind: function() {
-      let me=this;
       if(this.binds)
-        this.binds.forEach(b => b[0].off(b[1],me));
+        this.binds.forEach(b => b[0].off(b[1],this));
     }
    });
 
   Q.components = {};
 
-  Q.Evented.extend("Component",{
+  Q.defType(["Component", Q.Evented], {
     // Components are created when they are added onto a `Q.GameObject` entity. The entity
     // is directly extended with any methods inside of an `extend` property and then the
     // component itself is added onto the entity as well.
@@ -359,7 +331,7 @@ var quintusCore = function(exportTarget,key) {
     }
   });
 
-  Q.Evented.extend("GameObject",{
+  Q.defType(["GameObject",Q.Evented], {
     has: function(component) {
       return this[component] ? true : false;
     },
@@ -775,7 +747,6 @@ var quintusCore = function(exportTarget,key) {
     let loadedCallback = function(key,obj,force) {
       if(errors) { return; }
 
-      // Prevent double callbacks (I'm looking at you Firefox, canplaythrough
       if(!Q.assets[key]||force) {
         Q.assets[key] = obj;
         --assetsRemaining;
@@ -810,9 +781,6 @@ var quintusCore = function(exportTarget,key) {
     }
   };
 
-  return Q;
-  };
-
   (function() {
     if(typeof window === 'undefined') { return; }
     let lastTime = 0;
@@ -836,13 +804,20 @@ var quintusCore = function(exportTarget,key) {
     }
   })();
 
-  return Quintus;
-};
+  ____root["Quintus"] = function (opts) {
+    Q.options = Object.assign({
+    imagePath: "images/",
+    audioPath: "audio/",
+    dataPath:  "data/",
+    audioSupported: [ 'mp3','ogg' ],
+    sound: true,
+    frameTimeLimit: 100,
+    autoFocus: true
+    }, opts || {});
+    return Q;
+  }
 
-if(typeof exports === 'undefined') {
-  quintusCore(this,"Quintus");
-} else {
-  var Quintus = quintusCore(module,"exports");
-}
+  return ____root["Quintus"];
 
+})((typeof exports === "undefined") ? this : exports);
 

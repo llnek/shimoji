@@ -7,7 +7,7 @@ var quintusScenes = function(Quintus) {
     Q.scenes = {};
     Q.stages = [];
 
-    Q.Class.extend('Scene',{
+    Q.defType("Scene", {
       init: function(sceneFunc,opts) {
         this.opts = opts || {};
         this.sceneFunc = sceneFunc;
@@ -694,7 +694,7 @@ var quintusScenes = function(Quintus) {
 
     Q.activeStage = 0;
 
-    Q.StageSelector = Q.Class.extend({
+    Q.defType("StageSelector",{
       emptyList: [],
 
       init: function(stage,selector) {

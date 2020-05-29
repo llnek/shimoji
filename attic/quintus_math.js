@@ -9,7 +9,7 @@ var quintusMath = function(Q) {
     return Q.matrices2d.length > 0 ? Q.matrices2d.pop().identity() : new Q.Matrix2D();
   };
 
-  Q.Matrix2D = Q.Class.extend({
+  Q.defType("Matrix2D",{
 
     init: function(source) {
       if(source) {

@@ -155,7 +155,7 @@ var quintusAnim = function(Quintus) {
       }
     });
 
-    Q.Tween = Q.Class.extend({
+    Q.defType("Tween",{
       init: function(entity,properties,duration,easing,options) {
         if(_.isObject(easing)) {
           options = easing;

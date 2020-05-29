@@ -3,7 +3,7 @@ var quintusSprites = function(Quintus) {
   "use strict";
   Quintus.Sprites = function(Q) {
     let _ = Q._;
-    Q.Class.extend("SpriteSheet",{
+    Q.defType("SpriteSheet",{
       init: function(name, asset,options) {
         let S= Q.asset(asset);
         if (!S)
