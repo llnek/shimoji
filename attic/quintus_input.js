@@ -1,9 +1,9 @@
-/*global Quintus:false, module:false */
-var quintusInput = function(Quintus) {
+(function(global){
   "use strict";
-  Quintus.Input = function(Q) {
-    let _ = Q._;
-    let KEY_NAMES = Q.KEY_NAMES = {
+  let Mojo = global.Mojo, _ = Mojo._, window = global;
+  Mojo.Input = function(Mo) {
+
+    let KEY_NAMES = Mo.KEY_NAMES = {
       LEFT: 37, RIGHT: 39,
       UP: 38, DOWN: 40,
 
@@ -56,13 +56,13 @@ var quintusInput = function(Quintus) {
     // Clockwise from midnight (a la CSS)
     let DEFAULT_JOYPAD_INPUTS =  [ 'up','right','down','left'];
 
-    Q.inputs = {};
-    Q.joypad = {};
+    Mo.inputs = {};
+    Mo.joypad = {};
 
-    let hasTouch =  !!('ontouchstart' in window);
+    let hasTouch =  !!("ontouchstart" in window);
 
-    Q.canvasToStageX = (x,stage) => {
-      x = x / Q.cssWidth * Q.width;
+    Mo.canvasToStageX = (x,stage) => {
+      x = x / Mo.cssWidth * Mo.width;
       if(stage.viewport) {
         x /= stage.viewport.scale;
         x += stage.viewport.x;
@@ -70,8 +70,8 @@ var quintusInput = function(Quintus) {
       return x;
     };
 
-    Q.canvasToStageY = (y,stage) => {
-      y = y / Q.cssWidth * Q.width;
+    Mo.canvasToStageY = (y,stage) => {
+      y = y / Mo.cssWidth * Mo.width;
       if(stage.viewport) {
         y /= stage.viewport.scale;
         y += stage.viewport.y;
@@ -79,47 +79,45 @@ var quintusInput = function(Quintus) {
       return y;
     };
 
-    Q.InputSystem = Q.Evented.extend({
+    Mo.defType(["InputSystem", Mo.Evented], {
       keys: {},
       keypad: {},
       keyboardEnabled: false,
       touchEnabled: false,
       joypadEnabled: false,
 
-      bindKey: function(key,name) {
-        Q.input.keys[KEY_NAMES[key] || key] = name;
-      },
+      bindKey: (key,name) => { Mo.input.keys[KEY_NAMES[key] || key] = name; },
 
       enableKeyboard: function() {
-        if(this.keyboardEnabled) { return false; }
+        if(this.keyboardEnabled) return false;
 
         // Make selectable and remove an :focus outline
-        Q.el.tabIndex = 0;
-        Q.el.style.outline = 0;
+        Mo.el.tabIndex = 0;
+        Mo.el.style.outline = 0;
 
-        Q.el.addEventListener("keydown",function(e) {
-          if(Q.input.keys[e.keyCode]) {
-            let actionName = Q.input.keys[e.keyCode];
-            Q.inputs[actionName] = true;
-            Q.input.trigger(actionName);
-            Q.input.trigger('keydown',e.keyCode);
+        Mo.el.addEventListener("keydown",function(e) {
+          if(Mo.input.keys[e.keyCode]) {
+            let actionName = Mo.input.keys[e.keyCode];
+            Mo.inputs[actionName] = true;
+            Mo.input.trigger(actionName);
+            Mo.input.trigger("keydown",e.keyCode);
           }
-          if(!e.ctrlKey && !e.metaKey) {
+          if(!e.ctrlKey &&
+             !e.metaKey)
             e.preventDefault();
-          }
         },false);
 
-        Q.el.addEventListener("keyup",function(e) {
-          if(Q.input.keys[e.keyCode]) {
-            let actionName = Q.input.keys[e.keyCode];
-            Q.inputs[actionName] = false;
-            Q.input.trigger(actionName + "Up");
-            Q.input.trigger('keyup',e.keyCode);
+        Mo.el.addEventListener("keyup",function(e) {
+          if(Mo.input.keys[e.keyCode]) {
+            let actionName = Mo.input.keys[e.keyCode];
+            Mo.inputs[actionName] = false;
+            Mo.input.trigger(actionName + "Up");
+            Mo.input.trigger("keyup",e.keyCode);
           }
           e.preventDefault();
         },false);
 
-        if(Q.options.autoFocus) {  Q.el.focus(); }
+        if(Mo.options.autoFocus) {  Mo.el.focus(); }
         this.keyboardEnabled = true;
       },
 
@@ -127,43 +125,43 @@ var quintusInput = function(Quintus) {
         keys = keys || DEFAULT_KEYS;
         _.doseq(keys,function(name,key) {
          this.bindKey(key,name);
-        },Q.input);
+        },Mo.input);
         this.enableKeyboard();
       },
 
       _containerOffset: function() {
-        Q.input.offsetX = 0;
-        Q.input.offsetY = 0;
-        let el = Q.el;
+        Mo.input.offsetX = 0;
+        Mo.input.offsetY = 0;
+        let el = Mo.el;
         do {
-          Q.input.offsetX += el.offsetLeft;
-          Q.input.offsetY += el.offsetTop;
+          Mo.input.offsetX += el.offsetLeft;
+          Mo.input.offsetY += el.offsetTop;
         } while(el = el.offsetParent);
       },
 
       touchLocation: function(touch) {
-        let el = Q.el,
+        let el = Mo.el,
           posX = touch.offsetX,
           posY = touch.offsetY,
           touchX, touchY;
 
-        if(_.isUndefined(posX) ||
-           _.isUndefined(posY)) {
+        if(_.isUndef(posX) ||
+           _.isUndef(posY)) {
           posX = touch.layerX;
           posY = touch.layerY;
         }
 
-        if(_.isUndefined(posX) ||
-           _.isUndefined(posY)) {
-          if(Q.input.offsetX === void 0) {
-            Q.input._containerOffset();
+        if(_.isUndef(posX) ||
+           _.isUndef(posY)) {
+          if(Mo.input.offsetX === void 0) {
+            Mo.input._containerOffset();
           }
-          posX = touch.pageX - Q.input.offsetX;
-          posY = touch.pageY - Q.input.offsetY;
+          posX = touch.pageX - Mo.input.offsetX;
+          posY = touch.pageY - Mo.input.offsetY;
         }
 
-        touchX = Q.width * posX / Q.cssWidth;
-        touchY = Q.height * posY / Q.cssHeight;
+        touchX = Mo.width * posX / Mo.cssWidth;
+        touchY = Mo.height * posY / Mo.cssHeight;
 
         return { x: touchX, y: touchY };
       },
@@ -171,12 +169,12 @@ var quintusInput = function(Quintus) {
       touchControls: function(opts) {
         if(this.touchEnabled) { return false; }
         if(!hasTouch) { return false; }
-        Q.input.keypad = opts = _.inject({
+        Mo.input.keypad = opts = _.inject({
           left: 0,
           gutter:10,
           controls: DEFAULT_TOUCH_CONTROLS,
-          width: Q.width,
-          bottom: Q.height,
+          width: Mo.width,
+          bottom: Mo.height,
           fullHeight: false
         },opts);
 
@@ -184,7 +182,7 @@ var quintusInput = function(Quintus) {
         opts.size = opts.unit - (opts.gutter * 2);
 
         function getKey(touch) {
-          let pos = Q.input.touchLocation(touch),
+          let pos = Mo.input.touchLocation(touch),
               minY = opts.bottom - opts.unit;
           for(let i=0,len=opts.controls.length;i<len;++i) {
             let minX = i * opts.unit + opts.gutter;
@@ -204,8 +202,8 @@ var quintusInput = function(Quintus) {
           // but keep track of all the actions that were on
           for(let i=0,z=opts.controls.length;i<z;++i) {
             actionName = opts.controls[i][0];
-            if(Q.inputs[actionName]) { wasOn[actionName] = true; }
-            Q.inputs[actionName] = false;
+            if(Mo.inputs[actionName]) { wasOn[actionName] = true; }
+            Mo.inputs[actionName] = false;
           }
 
           let touches = event.touches ? event.touches : [ event ];
@@ -215,11 +213,11 @@ var quintusInput = function(Quintus) {
             key = getKey(tch);
             if(key) {
               // Mark this input as on
-              Q.inputs[key] = true;
+              Mo.inputs[key] = true;
               // Either trigger a new action
               // or remove from wasOn list
               if(!wasOn[key])
-                Q.input.trigger(key);
+                Mo.input.trigger(key);
               else
                 delete wasOn[key];
             }
@@ -227,7 +225,7 @@ var quintusInput = function(Quintus) {
           // Any remaining were on the last frame
           // and need to trigger an up action
           for(actionName in wasOn) {
-            Q.input.trigger(actionName + "Up");
+            Mo.input.trigger(actionName + "Up");
           }
           return null;
         }
@@ -238,7 +236,7 @@ var quintusInput = function(Quintus) {
         };
 
         _.doseq(["touchstart","touchend","touchmove","touchcancel"],function(evt) {
-          Q.el.addEventListener(evt,this.touchDispatchHandler);
+          Mo.el.addEventListener(evt,this.touchDispatchHandler);
         },this);
 
         this.touchEnabled = true;
@@ -246,32 +244,32 @@ var quintusInput = function(Quintus) {
 
       disableTouchControls: function() {
         _.doseq(["touchstart","touchend","touchmove","touchcancel"],function(evt) {
-          Q.el.removeEventListener(evt,this.touchDispatchHandler);
+          Mo.el.removeEventListener(evt,this.touchDispatchHandler);
         },this);
 
-        Q.el.removeEventListener('touchstart',this.joypadStart);
-        Q.el.removeEventListener('touchmove',this.joypadMove);
-        Q.el.removeEventListener('touchend',this.joypadEnd);
-        Q.el.removeEventListener('touchcancel',this.joypadEnd);
+        Mo.el.removeEventListener("touchstart",this.joypadStart);
+        Mo.el.removeEventListener("touchmove",this.joypadMove);
+        Mo.el.removeEventListener("touchend",this.joypadEnd);
+        Mo.el.removeEventListener("touchcancel",this.joypadEnd);
         this.touchEnabled = false;
 
         // clear existing inputs
-        for(let input in Q.inputs) {
-          Q.inputs[input] = false;
+        for(let input in Mo.inputs) {
+          Mo.inputs[input] = false;
         }
       },
 
       joypadControls: function(opts) {
         if(this.joypadEnabled) { return false; }
         if(!hasTouch) { return false; }
-        let joypad = Q.joypad = _.patch(opts || {},{
+        let joypad = Mo.joypad = _.patch(opts || {},{
           size: 50,
           trigger: 20,
           center: 25,
           color: "#CCC",
           background: "#000",
           alpha: 0.5,
-          zone: Q.width / 2,
+          zone: Mo.width / 2,
           joypadTouch: null,
           inputs: DEFAULT_JOYPAD_INPUTS,
           triggers: []
@@ -280,7 +278,7 @@ var quintusInput = function(Quintus) {
         this.joypadStart = function(evt) {
           if(joypad.joypadTouch === null) {
             let touch = evt.changedTouches[0],
-                loc = Q.input.touchLocation(touch);
+                loc = Mo.input.touchLocation(touch);
             if(loc.x < joypad.zone) {
               joypad.joypadTouch = touch.identifier;
               joypad.centerX = loc.x;
@@ -297,7 +295,7 @@ var quintusInput = function(Quintus) {
             for(let i=0,z=evt.changedTouches.length;i<z;++i) {
               let touch = evt.changedTouches[i];
               if(touch.identifier === joypad.joypadTouch) {
-                let loc = Q.input.touchLocation(touch),
+                let loc = Mo.input.touchLocation(touch),
                     dx = loc.x - joypad.centerX,
                     dy = loc.y - joypad.centerY,
                     dist = Math.sqrt(dx * dx + dy * dy),
@@ -317,13 +315,13 @@ var quintusInput = function(Quintus) {
                 for(let k=0;k<triggers.length;++k) {
                   let actionName = joypad.inputs[k];
                   if(triggers[k]) {
-                    Q.inputs[actionName] = true;
+                    Mo.inputs[actionName] = true;
                     if(!joypad.triggers[k])
-                      Q.input.trigger(actionName);
+                      Mo.input.trigger(actionName);
                   } else {
-                    Q.inputs[actionName] = false;
+                    Mo.inputs[actionName] = false;
                     if(joypad.triggers[k])
-                      Q.input.trigger(actionName + "Up");
+                      Mo.input.trigger(actionName + "Up");
                   }
                 }
                 _.inject(joypad, {
@@ -349,9 +347,9 @@ var quintusInput = function(Quintus) {
               if(touch.identifier === joypad.joypadTouch) {
                 for(let k=0;k<joypad.triggers.length;++k) {
                   let actionName = joypad.inputs[k];
-                  Q.inputs[actionName] = false;
+                  Mo.inputs[actionName] = false;
                   if(joypad.triggers[k])
-                    Q.input.trigger(actionName + "Up");
+                    Mo.input.trigger(actionName + "Up");
                 }
                 joypad.joypadTouch = null;
                 break;
@@ -361,10 +359,10 @@ var quintusInput = function(Quintus) {
           e.preventDefault();
         };
 
-        Q.el.addEventListener("touchstart",this.joypadStart);
-        Q.el.addEventListener("touchmove",this.joypadMove);
-        Q.el.addEventListener("touchend",this.joypadEnd);
-        Q.el.addEventListener("touchcancel",this.joypadEnd);
+        Mo.el.addEventListener("touchstart",this.joypadStart);
+        Mo.el.addEventListener("touchmove",this.joypadMove);
+        Mo.el.addEventListener("touchend",this.joypadEnd);
+        Mo.el.addEventListener("touchcancel",this.joypadEnd);
 
         this.joypadEnabled = true;
       },
@@ -376,79 +374,75 @@ var quintusInput = function(Quintus) {
         let mouseInputY = options.mouseY || "mouseY";
         let cursor = options.cursor || "off";
         let mouseMoveObj = {};
-        if(cursor !== "on") {
-          if(cursor === "off")
-            Q.el.style.cursor = 'none';
-          else
-            Q.el.style.cursor = cursor;
-        }
+        if(cursor !== "on")
+          Mo.el.style.cursor = (cursor === "off") ? "none" : cursor;
 
-        Q.inputs[mouseInputX] = 0;
-        Q.inputs[mouseInputY] = 0;
+        Mo.inputs[mouseInputX] = 0;
+        Mo.inputs[mouseInputY] = 0;
 
-        Q._mouseMove = function(e) {
+        Mo._mouseMove = function(e) {
           e.preventDefault();
           let touch = e.touches ? e.touches[0] : e;
-          let el = Q.el,
+          let el = Mo.el,
             rect = el.getBoundingClientRect(),
             style = window.getComputedStyle(el),
-            posX = touch.clientX - rect.left - parseInt(style.paddingLeft, 10),
-            posY = touch.clientY - rect.top  - parseInt(style.paddingTop, 10);
+            posX = touch.clientX - rect.left - parseInt(style.paddingLeft);
+            posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
 
-          let stage = Q.stage(stageNum);
-          if(_.isUndefined(posX) ||
-             _.isUndefined(posY)) {
+          let stage = Mo.stage(stageNum);
+          if(_.isUndef(posX) ||
+             _.isUndef(posY)) {
             posX = touch.offsetX;
             posY = touch.offsetY;
           }
-          if(_.isUndefined(posX) ||
-             _.isUndefined(posY)) {
+          if(_.isUndef(posX) ||
+             _.isUndef(posY)) {
             posX = touch.layerX;
             posY = touch.layerY;
           }
-          if(_.isUndefined(posX) ||
-             _.isUndefined(posY)) {
-            if(Q.input.offsetX === void 0) { Q.input._containerOffset(); }
-            posX = touch.pageX - Q.input.offsetX;
-            posY = touch.pageY - Q.input.offsetY;
+          if(_.isUndef(posX) ||
+             _.isUndef(posY)) {
+            if(Mo.input.offsetX === void 0) { Mo.input._containerOffset(); }
+            posX = touch.pageX - Mo.input.offsetX;
+            posY = touch.pageY - Mo.input.offsetY;
           }
           if(stage) {
-            mouseMoveObj.x= Q.canvasToStageX(posX,stage);
-            mouseMoveObj.y= Q.canvasToStageY(posY,stage);
-            Q.inputs[mouseInputX] = mouseMoveObj.x;
-            Q.inputs[mouseInputY] = mouseMoveObj.y;
-            Q.input.trigger('mouseMove',mouseMoveObj);
+            mouseMoveObj.x= Mo.canvasToStageX(posX,stage);
+            mouseMoveObj.y= Mo.canvasToStageY(posY,stage);
+            Mo.inputs[mouseInputX] = mouseMoveObj.x;
+            Mo.inputs[mouseInputY] = mouseMoveObj.y;
+            Mo.input.trigger("mouseMove",mouseMoveObj);
           }
         };
 
-        Q._mouseWheel = function(e) {
+        Mo._mouseWheel = function(e) {
           // http://www.sitepoint.com/html5-javascript-mouse-wheel/
           // cross-browser wheel delta
           e = window.event || e; // old IE support
           let delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
-          Q.input.trigger('mouseWheel', delta);
+          Mo.input.trigger("mouseWheel", delta);
         };
 
-        Q.el.addEventListener('mousemove',Q._mouseMove,true);
-        Q.el.addEventListener('touchstart',Q._mouseMove,true);
-        Q.el.addEventListener('touchmove',Q._mouseMove,true);
-        Q.el.addEventListener('mousewheel',Q._mouseWheel,true);
-        Q.el.addEventListener('DOMMouseScroll',Q._mouseWheel,true);
+        Mo.el.addEventListener("mousemove",Mo._mouseMove,true);
+        Mo.el.addEventListener("touchstart",Mo._mouseMove,true);
+        Mo.el.addEventListener("touchmove",Mo._mouseMove,true);
+        Mo.el.addEventListener("mousewheel",Mo._mouseWheel,true);
+        Mo.el.addEventListener("DOMMouseScroll",Mo._mouseWheel,true);
       },
 
       disableMouseControls: function() {
-        if(Q._mouseMove) {
-          Q.el.removeEventListener("mousemove",Q._mouseMove, true);
-          Q.el.removeEventListener("mousewheel",Q._mouseWheel, true);
-          Q.el.removeEventListener("DOMMouseScroll",Q._mouseWheel, true);
-          Q.el.style.cursor = 'inherit';
-          Q._mouseMove = null;
+        if(Mo._mouseMove) {
+          Mo.el.removeEventListener("mousemove",Mo._mouseMove, true);
+          Mo.el.removeEventListener("mousewheel",Mo._mouseWheel, true);
+          Mo.el.removeEventListener("DOMMouseScroll",Mo._mouseWheel, true);
+          Mo.el.style.cursor = "inherit";
+          Mo._mouseMove = null;
         }
       },
 
       drawButtons: function() {
-        let keypad = Q.input.keypad,
-            ctx = Q.ctx;
+        let keypad = Mo.input.keypad,
+            ctx = Mo.ctx;
         ctx.save();
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -458,7 +452,7 @@ var quintusInput = function(Quintus) {
             ctx.font = "bold " + (keypad.size/2) + "px arial";
             let x = keypad.left + i * keypad.unit + keypad.gutter,
                 y = keypad.bottom - keypad.unit,
-                key = Q.inputs[control[0]];
+                key = Mo.inputs[control[0]];
 
             ctx.fillStyle = keypad.color || "#FFFFFF";
             ctx.globalAlpha = key ? 1.0 : 0.5;
@@ -473,8 +467,8 @@ var quintusInput = function(Quintus) {
         ctx.restore();
       },
       drawCircle: function(x,y,color,size) {
-        let ctx = Q.ctx,
-            joypad = Q.joypad;
+        let ctx = Mo.ctx,
+            joypad = Mo.joypad;
 
         ctx.save();
         ctx.beginPath();
@@ -487,15 +481,15 @@ var quintusInput = function(Quintus) {
       },
 
       drawJoypad: function() {
-        let joypad = Q.joypad;
+        let joypad = Mo.joypad;
         if(joypad.joypadTouch !== null) {
-          Q.input.drawCircle(joypad.centerX,
+          Mo.input.drawCircle(joypad.centerX,
                              joypad.centerY,
                              joypad.background,
                              joypad.size);
 
           if(joypad.x !== null) {
-            Q.input.drawCircle(joypad.x,
+            Mo.input.drawCircle(joypad.x,
                              joypad.y,
                              joypad.color,
                              joypad.center);
@@ -515,22 +509,22 @@ var quintusInput = function(Quintus) {
 
     });
 
-    Q.input = new Q.InputSystem();
+    Mo.input = new Mo.InputSystem();
 
-    Q.controls = function(joypad) {
-      Q.input.keyboardControls();
+    Mo.controls = function(joypad) {
+      Mo.input.keyboardControls();
       if(joypad) {
-        Q.input.touchControls({
-          controls: [ [],[],[],['action','b'],['fire','a']]
+        Mo.input.touchControls({
+          controls: [ [],[],[],["action","b"],["fire","a"]]
         });
-        Q.input.joypadControls();
+        Mo.input.joypadControls();
       } else {
-        Q.input.touchControls();
+        Mo.input.touchControls();
       }
-      return Q;
+      return Mo;
     };
 
-    Q.component("platformerControls", {
+    Mo.component("platformerControls", {
       defaults: {
         speed: 200,
         jumpSpeed: -300,
@@ -556,12 +550,12 @@ var quintusInput = function(Quintus) {
       step: function(dt) {
         let p = this.entity.p;
 
-        if(p.ignoreControls === undefined || !p.ignoreControls) {
+        if(p.ignoreControls === void 0 || !p.ignoreControls) {
           let collision = null;
           // Follow along the current slope, if possible.
-          if(p.collisions !== undefined &&
+          if(p.collisions !== void 0 &&
              p.collisions.length > 0 &&
-             (Q.inputs['left'] || Q.inputs['right'] || p.landed > 0)) {
+             (Mo.inputs["left"] || Mo.inputs["right"] || p.landed > 0)) {
             if(p.collisions.length === 1) {
               collision = p.collisions[0];
             } else {
@@ -580,16 +574,16 @@ var quintusInput = function(Quintus) {
             }
           }
 
-          if(Q.inputs['left']) {
-            p.direction = 'left';
+          if(Mo.inputs["left"]) {
+            p.direction = "left";
             if(collision && p.landed > 0) {
               p.vx = p.speed * collision.normalY;
               p.vy = -p.speed * collision.normalX;
             } else {
               p.vx = -p.speed;
             }
-          } else if(Q.inputs['right']) {
-            p.direction = 'right';
+          } else if(Mo.inputs["right"]) {
+            p.direction = "right";
             if(collision && p.landed > 0) {
               p.vx = -p.speed * collision.normalY;
               p.vy = p.speed * collision.normalX;
@@ -603,18 +597,18 @@ var quintusInput = function(Quintus) {
           }
 
           if(p.landed > 0 &&
-             (Q.inputs['up'] || Q.inputs['action']) && !p.jumping) {
+             (Mo.inputs["up"] || Mo.inputs["action"]) && !p.jumping) {
             p.vy = p.jumpSpeed;
             p.landed = -dt;
             p.jumping = true;
-          } else if(Q.inputs['up'] || Q.inputs['action']) {
-            this.entity.trigger('jump', this.entity);
+          } else if(Mo.inputs["up"] || Mo.inputs["action"]) {
+            this.entity.trigger("jump", this.entity);
             p.jumping = true;
           }
 
-          if(p.jumping && !(Q.inputs['up'] || Q.inputs['action'])) {
+          if(p.jumping && !(Mo.inputs["up"] || Mo.inputs["action"])) {
             p.jumping = false;
-            this.entity.trigger('jumped', this.entity);
+            this.entity.trigger("jumped", this.entity);
             if(p.vy < p.jumpSpeed / 3) {
               p.vy = p.jumpSpeed / 3;
             }
@@ -624,7 +618,7 @@ var quintusInput = function(Quintus) {
       }
     });
 
-    Q.component("stepControls", {
+    Mo.component("stepControls", {
       added: function() {
         let p = this.entity.p;
         if(!p.stepDistance) { p.stepDistance = 32; }
@@ -662,15 +656,15 @@ var quintusInput = function(Quintus) {
         p.diffX = 0;
         p.diffY = 0;
 
-        if(Q.inputs['left']) {
+        if(Mo.inputs["left"]) {
           p.diffX = -p.stepDistance;
-        } else if(Q.inputs['right']) {
+        } else if(Mo.inputs["right"]) {
           p.diffX = p.stepDistance;
         }
 
-        if(Q.inputs['up']) {
+        if(Mo.inputs["up"]) {
           p.diffY = -p.stepDistance;
-        } else if(Q.inputs['down']) {
+        } else if(Mo.inputs["down"]) {
           p.diffY = p.stepDistance;
         }
 
@@ -686,10 +680,5 @@ var quintusInput = function(Quintus) {
     });
   };
 
-};
+})(this);
 
-if(typeof Quintus === 'undefined') {
-  module.exports = quintusInput;
-} else {
-  quintusInput(Quintus);
-}

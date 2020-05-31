@@ -1,52 +1,46 @@
-/*global Quintus:false, module:false */
-
-var quintusTMX = function(Quintus) {
+(function(global){
   "use strict";
-  Quintus.TMX = function(Q) {
-   Q.assetTypes['tmx'] = 'TMX';
-   Q.loadAssetTMX = function(key,src,cb,ecb) {
+  let Mojo = global.Mojo, _= Mojo._;
+  Mojo.TMX = function(Mo) {
+   Mo.assetTypes['tmx'] = 'TMX';
+   Mo.loadAssetTMX = function(key,src,cb,ecb) {
      // Piggyback on loadAssetOther's AJAX call
-     Q.loadAssetOther(key,src,function(key,responseText) {
+     Mo.loadAssetOther(key,src,function(key,responseText) {
        let parser = new DOMParser();
        let doc = parser.parseFromString(responseText, "application/xml");
        cb(key,doc);
      }, ecb);
    };
-   Q._tmxExtractAssetName = function(result) {
+   Mo._tmxExtractAssetName = function(result) {
      let source = result.getAttribute("source"),
      sourceParts = source.split("/");
      // only return the last part of the asset string
      return sourceParts[sourceParts.length - 1];
    };
 
-   Q._tmxExtractSources = function(asset) {
+   Mo._tmxExtractSources = function(asset) {
      let results = asset.querySelectorAll("[source]");
-     return _.map(results,Q._tmxExtractAssetName);
+     return _.map(results,Mo._tmxExtractAssetName);
    };
 
-   Q.loadTMX = function(files,callback,options) {
-     if(_.isString(files)) {
-       files = Q._normalizeArg(files);
-     }
-
+   Mo.loadTMX = function(files,callback,options) {
      let additionalAssets = [];
      let tmxFiles = [];
 
+     files=_.seq(files);
      _.doseq(files,(file) => {
-       if(Q._fileExtension(file) === 'tmx')
+       if(Mo._fileExtension(file) === 'tmx')
        tmxFiles.push(file);
      });
 
-     Q.load(files,function() {
+     Mo.load(files,function() {
        _.doseq(tmxFiles,(tmxFile) => {
-         let sources = Q._tmxExtractSources(Q.asset(tmxFile));
+         let sources = Mo._tmxExtractSources(Mo.asset(tmxFile));
          additionalAssets = additionalAssets.concat(sources);
        });
 
-       if(additionalAssets.length > 0)
-         Q.load(additionalAssets,callback,options);
-       else
-         callback();
+       (additionalAssets.length > 0)
+         ? Mo.load(additionalAssets,callback,options) : callback();
      });
    };
 
@@ -56,8 +50,8 @@ var quintusTMX = function(Quintus) {
    }
 
    function parseProperties(elem) {
-     let propElems = elem.querySelectorAll("property"),
-         props = {};
+     let props={},
+         propElems = elem.querySelectorAll("property"),
 
      for(let i = 0; i < propElems.length; ++i) {
        let propElem = propElems[i];
@@ -66,18 +60,16 @@ var quintusTMX = function(Quintus) {
      return props;
    }
 
-   Q._tmxLoadTilesets = function(tilesets, tileProperties) {
+   Mo._tmxLoadTilesets = function(tilesets, tileProperties) {
      let gidMap = [];
-
      function parsePoint(pt) {
        let pts = pt.split(",");
        return [ parseFloat(pts[0]), parseFloat(pts[1]) ];
      }
-
      tilesets.forEach(tileset => {
        let sheetName = attr(tileset,"name"),
            gid = attr(tileset,"firstgid"),
-           assetName = Q._tmxExtractAssetName(tileset.querySelector("image")),
+           assetName = Mo._tmxExtractAssetName(tileset.querySelector("image")),
            tilesetTileProps = {},
            tilesetProps = { tileW: attr(tileset,"tilewidth"),
                             tileH: attr(tileset,"tileheight"),
@@ -99,29 +91,29 @@ var quintusTMX = function(Quintus) {
        }
        tilesetProps.frameProperties = tilesetTileProps;
        gidMap.push([ gid, sheetName ]);
-       Q.sheet(sheetName, assetName,  tilesetProps);
+       Mo.sheet(sheetName, assetName,  tilesetProps);
      }
 
      return gidMap;
    };
 
-   Q._tmxProcessImageLayer = function(stage,gidMap,tileProperties,layer) {
-     let assetName = Q._tmxExtractAssetName(layer.querySelector("image"));
+   Mo._tmxProcessImageLayer = function(stage,gidMap,tileProperties,layer) {
+     let assetName = Mo._tmxExtractAssetName(layer.querySelector("image"));
      let properties = parseProperties(layer);
      properties.asset = assetName;
-     stage.insert(new Q.Repeater(properties));
+     stage.insert(new Mo.Repeater(properties));
    };
 
    // get the first entry in the gid map that gives
    // a gid offset
-   Q._lookupGid = function(gid,gidMap) {
+   Mo._lookupGid = function(gid,gidMap) {
      let idx = 0;
      while(gidMap[idx+1] &&
            gid >= gidMap[idx+1][0]) { ++idx; }
      return gidMap[idx];
    };
 
-   Q._tmxProcessTileLayer = function(stage,gidMap,tileProperties,layer) {
+   Mo._tmxProcessTileLayer = function(stage,gidMap,tileProperties,layer) {
      let tiles = layer.querySelectorAll("tile"),
          width = attr(layer,'width'),
          height = attr(layer,'height');
@@ -139,7 +131,7 @@ var quintusTMX = function(Quintus) {
            // figure it out by looking up the gid of the tile w/
            // and match to the tilesef
            if(!gidOffset) {
-             gidDetails = Q._lookupGid(attr(tiles[idx],"gid"),gidMap);
+             gidDetails = Mo._lookupGid(attr(tiles[idx],"gid"),gidMap);
              gidOffset = gidDetails[0];
              sheetName = gidDetails[1];
            }
@@ -150,27 +142,26 @@ var quintusTMX = function(Quintus) {
      }
 
      let tileLayerProperties = _.inject({
-       tileW: Q.sheet(sheetName).tileW,
-       tileH: Q.sheet(sheetName).tileH,
+       tileW: Mo.sheet(sheetName).tileW,
+       tileH: Mo.sheet(sheetName).tileH,
        sheet: sheetName,
        tiles: data
        },parseProperties(layer));
 
      let TileLayerClass = tileLayerProperties.Class || 'TileLayer';
 
-     if(tileLayerProperties['collision'])
-       stage.collisionLayer(new Q[TileLayerClass](tileLayerProperties));
-     else
-       stage.insert(new Q[TileLayerClass](tileLayerProperties));
+     (tileLayerProperties['collision'])
+       ? stage.collisionLayer(new Mo[TileLayerClass](tileLayerProperties))
+       : stage.insert(new Mo[TileLayerClass](tileLayerProperties));
    };
 
-   Q._tmxProcessObjectLayer = function(stage,gidMap,tileProperties,layer) {
+   Mo._tmxProcessObjectLayer = function(stage,gidMap,tileProperties,layer) {
      let objects = layer.querySelectorAll("object");
      for(let i=0;i < objects.length;++i) {
        let obj = objects[i],
            gid = attr(obj,"gid"),
-           x = attr(obj,'x'),
-           y = attr(obj,'y'),
+           x = attr(obj,"x"),
+           y = attr(obj,"y"),
            properties = tileProperties[gid],
            overrideProperties = parseProperties(obj);
 
@@ -179,44 +170,39 @@ var quintusTMX = function(Quintus) {
        if(!properties['Class'])
          throw "Missing TMX Object Class for GID:" + gid;
 
-       let className = properties['Class'];
+       let className = properties["Class"];
        if(!className)
          throw "Bad TMX Object Class: " + className + " GID:" + gid;
 
        let p = _.inject(_.inject({ x: x, y: y }, properties), overrideProperties);
        // Offset the sprite
-       let sprite = new Q[className](p);
+       let sprite = new Mo[className](p);
        sprite.p.x += sprite.p.w/2;
        sprite.p.y -= sprite.p.h/2;
        stage.insert(sprite);
      }
    };
 
-   Q._tmxProcessors = { 'objectgroup': Q._tmxProcessObjectLayer,
-                        'layer': Q._tmxProcessTileLayer,
-                        'imagelayer': Q._tmxProcessImageLayer };
+   Mo._tmxProcessors = {"objectgroup": Mo._tmxProcessObjectLayer,
+                        "layer": Mo._tmxProcessTileLayer,
+                        "imagelayer": Mo._tmxProcessImageLayer };
 
-   Q.stageTMX = function(dataAsset,stage) {
-      let data = _.isString(dataAsset) ? Q.asset(dataAsset) : dataAsset;
+   Mo.stageTMX = function(dataAsset,stage) {
+      let data = _.isString(dataAsset) ? Mo.asset(dataAsset) : dataAsset;
       let tileProperties = {};
       // Load Tilesets
       let tilesets = data.getElementsByTagName("tileset");
-      let gidMap = Q._tmxLoadTilesets(tilesets,tileProperties);
+      let gidMap = Mo._tmxLoadTilesets(tilesets,tileProperties);
       // Go through each of the layers
       _.doseq(data.documentElement.childNodes,(layer) => {
         let layerType = layer.tagName;
-        if(Q._tmxProcessors[layerType])
-          Q._tmxProcessors[layerType](stage, gidMap, tileProperties, layer);
+        if(Mo._tmxProcessors[layerType])
+          Mo._tmxProcessors[layerType](stage, gidMap, tileProperties, layer);
       });
     };
 
   };
 
-};
 
+})(this);
 
-if(typeof Quintus === 'undefined') {
-  module.exports = quintusTMX;
-} else {
-  quintusTMX(Quintus);
-}

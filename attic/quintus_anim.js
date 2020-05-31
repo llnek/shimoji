@@ -1,26 +1,25 @@
-/*global Quintus:false, module:false */
-var quintusAnim = function(Quintus) {
+(function(global) {
   "use strict";
-  Quintus.Anim = function(Q) {
-    let _ = Q._;
-    Q._animations = {};
-    Q.animations = function(sprite,animations) {
-      if(!Q._animations[sprite])
-        Q._animations[sprite] = {};
-      _.inject(Q._animations[sprite],animations);
+  let Mojo = global.Mojo, _ = Mojo._;
+  Mojo.Anim = function(Mo) {
+    Mo._animations = {};
+    Mo.animations = (sprite,animations) => {
+      if(!Mo._animations[sprite])
+        Mo._animations[sprite] = {};
+      _.inject(Mo._animations[sprite],animations);
     };
 
-    Q.animation = function(sprite,name) {
-      return Q._animations[sprite] && Q._animations[sprite][name];
+    Mo.animation = (sprite,name) => {
+      return Mo._animations[sprite] && Mo._animations[sprite][name];
     };
 
-    Q.component('animation',{
+    Mo.component("animation", {
       added: function() {
         let p = this.entity.p;
         p.animation = null;
-        p.animationPriority = -1;
         p.animationFrame = 0;
         p.animationTime = 0;
+        p.animationPriority = -1;
         this.entity.on("step","step",this);
       },
       ____entity: {
@@ -32,18 +31,16 @@ var quintusAnim = function(Quintus) {
         let entity = this.entity,
             p = entity.p;
         if(p.animation) {
-          let anim = Q.animation(p.sprite,p.animation),
-              rate = anim.rate || p.rate,
-              stepped = 0;
+          let stepped=0,
+              anim = Mo.animation(p.sprite,p.animation),
+              rate = anim.rate || p.rate;
           p.animationTime += dt;
           if(p.animationChanged) {
             p.animationChanged = false;
-          } else {
-            if(p.animationTime > rate) {
-              stepped = Math.floor(p.animationTime / rate);
-              p.animationTime -= stepped * rate;
-              p.animationFrame += stepped;
-            }
+          } else if(p.animationTime > rate) {
+            stepped = Math.floor(p.animationTime / rate);
+            p.animationTime -= stepped * rate;
+            p.animationFrame += stepped;
           }
           if(stepped > 0) {
             if(p.animationFrame >= anim.frames.length) {
@@ -68,17 +65,16 @@ var quintusAnim = function(Quintus) {
           }
           p.sheet = anim.sheet || p.sheet;
           p.frame = anim.frames[p.animationFrame];
-          if(anim.hasOwnProperty("flip")) { p.flip  = anim.flip; }
+          if(_.has(anim, "flip")) { p.flip  = anim.flip; }
         }
       },
-
       play: function(name,priority,resetFrame) {
         let entity = this.entity,
             p = entity.p;
         priority = priority || 0;
         if(name !== p.animation &&
            priority >= p.animationPriority) {
-          if(resetFrame === undefined) {
+          if(resetFrame === void 0) {
             resetFrame = true;
           }
           p.animation = name;
@@ -95,21 +91,19 @@ var quintusAnim = function(Quintus) {
 
     });
 
-
-    Q.Sprite.extend("Repeater",{
+    Mo.defType(["Repeater", Mo.Sprite], {
       init: function(props) {
         this._super(_.inject(props,{
           speedX: 1,
           speedY: 1,
+          type: 0,
           repeatY: true,
           repeatX: true,
-          renderAlways: true,
-          type: 0
+          renderAlways: true
         }));
         this.p.repeatW = this.p.repeatW || this.p.w;
         this.p.repeatH = this.p.repeatH || this.p.h;
       },
-
       draw: function(ctx) {
         let p = this.p,
             asset = this.asset(),
@@ -122,28 +116,30 @@ var quintusAnim = function(Quintus) {
             curX, curY, startX, endX, endY;
         if(p.repeatX) {
           curX = -offsetX % p.repeatW;
-          if(curX > 0) { curX -= p.repeatW; }
+          if(curX > 0)
+            curX -= p.repeatW;
         } else {
           curX = p.x - viewX;
         }
         if(p.repeatY) {
           curY = -offsetY % p.repeatH;
-          if(curY > 0) { curY -= p.repeatH; }
+          if(curY > 0)
+            curY -= p.repeatH;
         } else {
           curY = p.y - viewY;
         }
 
         startX = curX;
-        endX = Q.width / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatW;
-        endY = Q.height / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatH;
+        endX = Mo.width / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatW;
+        endY = Mo.height / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatH;
 
         while(curY < endY) {
           curX = startX;
           while(curX < endX) {
-            if(sheet)
-              sheet.draw(ctx,curX + viewX,curY + viewY,p.frame);
-            else
+            if(!sheet)
               ctx.drawImage(asset,curX + viewX,curY + viewY);
+            else
+              sheet.draw(ctx,curX + viewX,curY + viewY,p.frame);
             curX += p.repeatW;
             if(!p.repeatX)
             break;
@@ -155,32 +151,31 @@ var quintusAnim = function(Quintus) {
       }
     });
 
-    Q.defType("Tween",{
+    Mo.defType("Tween",{
       init: function(entity,properties,duration,easing,options) {
         if(_.isObject(easing)) {
           options = easing;
-          easing = Q.Easing.Linear;
+          easing = Mo.Easing.Linear;
         }
         if(_.isObject(duration)) {
           options = duration;
           duration = 1;
         }
         this.entity = entity;
-        //this.p = (entity instanceof Q.Stage) ? entity.viewport : entity.p;
+        //this.p = (entity instanceof Mo.Stage) ? entity.viewport : entity.p;
         this.duration = duration || 1;
         this.time = 0;
         this.options = options || {};
         this.delay = this.options.delay || 0;
         this.easing = easing ||
-                      this.options.easing || Q.Easing.Linear;
-        this.startFrame = Q._loopFrame + 1;
+                      this.options.easing || Mo.Easing.Linear;
+        this.startFrame = Mo._loopFrame + 1;
         this.properties = properties;
         this.start = {};
         this.diff = {};
       },
-
       step: function(dt) {
-        if(this.startFrame > Q._loopFrame) { return true; }
+        if(this.startFrame > Mo._loopFrame) { return true; }
         if(this.delay >= dt) {
           this.delay -= dt;
           return true;
@@ -193,10 +188,10 @@ var quintusAnim = function(Quintus) {
           // first time running? Initialize the properties to chaining correctly.
           let entity = this.entity,
               properties = this.properties;
-          this.p = (entity instanceof Q.Stage) ? entity.viewport : entity.p;
+          this.p = (entity instanceof Mo.Stage) ? entity.viewport : entity.p;
           for(let p in properties) {
             this.start[p] = this.p[p];
-            if(!_.isUndefined(this.start[p]))
+            if(!_.isUndef(this.start[p]))
               this.diff[p] = properties[p] - this.start[p];
           }
         }
@@ -206,66 +201,63 @@ var quintusAnim = function(Quintus) {
             location = this.easing(progress);
 
         for(let k in this.start) {
-          if(!_.isUndefined(this.p[k]))
+          if(!_.isUndef(this.p[k]))
             this.p[k] = this.start[k] + this.diff[k] * location;
         }
 
-        if(progress >= 1) {
-          if(this.options.callback) {
+        (progress >= 1) &&
+          this.options.callback &&
             this.options.callback.apply(this.entity);
-          }
-        }
+
         return progress < 1;
       }
     });
 
     // Code ripped directly from Tween.js
     // https://github.com/sole/tween.js/blob/master/src/Tween.js
-    Q.Easing = {
-      Linear: function (k) { return k; },
+    Mo.Easing = {
+      Linear: (k) => { return k; },
       Quadratic: {
-        In: function ( k )  { return k * k; },
-        Out: function ( k ) {return k * ( 2 - k ); },
-        InOut: function ( k ) {
+        In: (k) =>  { return k * k; },
+        Out: (k) => {return k * ( 2 - k ); },
+        InOut: (k) => {
           if ((k *= 2 ) < 1) { return 0.5 * k * k; }
           return -0.5 * (--k * (k - 2) - 1);
         }
       }
     };
 
-    Q.component('tween',{
+    Mo.component('tween',{
       added: function() {
         this._tweens = [];
         this.entity.on("step","step",this);
       },
       ____entity: {
         animate: function(properties,duration,easing,options) {
-          this.tween._tweens.push(new Q.Tween(this,properties,duration,easing,options));
+          this.tween._tweens.push(new Mo.Tween(this,properties,duration,easing,options));
           return this;
         },
         chain: function(properties,duration,easing,options) {
           if(_.isObject(easing)) {
             options = easing;
-            easing = Q.Easing.Linear;
+            easing = Mo.Easing.Linear;
           }
           // Chain an animation to the end
           let tweenCnt = this.tween._tweens.length;
           if(tweenCnt > 0) {
             let lastTween = this.tween._tweens[tweenCnt - 1];
             options = options || {};
-            options['delay'] = lastTween.duration - lastTween.time + lastTween.delay;
+            options.delay = lastTween.duration - lastTween.time + lastTween.delay;
           }
 
           this.animate(properties,duration,easing,options);
           return this;
         },
-
         stop: function() {
           this.tween._tweens.length = 0;
           return this;
         }
       },
-
       step: function(dt) {
         for(let i=0; i < this._tweens.length; ++i) {
           if(!this._tweens[i].step(dt)) {
@@ -280,12 +272,8 @@ var quintusAnim = function(Quintus) {
   };
 
 
-};
 
-if(typeof Quintus === 'undefined') {
-  module.exports = quintusAnim;
-} else {
-  quintusAnim(Quintus);
-}
+
+})(this);
 
 

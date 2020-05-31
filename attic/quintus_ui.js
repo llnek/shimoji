@@ -1,17 +1,13 @@
-/*global Quintus:false, module:false */
-
-var quintusUI = function(Quintus) {
-
+(function(global) {
   "use strict";
+  let Mojo = global.Mojo,
+      _ = Mojo._, document= global.document;
+  Mojo.UI = function(Mo) {
+    if(_.isUndef(Mojo.Touch))
+      throw "Mojo.UI requires Mojo.Touch Module";
 
-  Quintus.UI = function(Q) {
-    if(Q._.isUndefined(Quintus.Touch)) {
-      throw "Quintus.UI requires Quintus.Touch Module";
-    }
-
-    let _ = Q._;
-    Q.UI = {};
-    Q.UI.roundRect = function(ctx, rect) {
+    Mo.UI = {};
+    Mo.UI.roundRect = function(ctx, rect) {
       ctx.beginPath();
       ctx.moveTo(-rect.cx + rect.radius, -rect.cy);
       ctx.lineTo(-rect.cx + rect.w - rect.radius, -rect.cy);
@@ -28,20 +24,21 @@ var quintusUI = function(Quintus) {
       ctx.closePath();
     };
 
-    Q.UI.Container = Q.Sprite.extend("UI.Container", {
+    Mo.defType(["Container", Mo.Sprite], {
       init: function(p,defaults) {
         let match, adjustedP = _.clone(p||{});
-
-        if(p && _.isString(p.w) && (match = p.w.match(/^[0-9]+%$/))) {
-          adjustedP.w = parseInt(p.w,10) * Q.width / 100;
-          adjustedP.x = Q.width/2 - adjustedP.w/2;
+        if(p &&
+           _.isString(p.w) &&
+           (match = p.w.match(/^[0-9]+%$/))) {
+          adjustedP.w = parseInt(p.w) * Mo.width / 100;
+          adjustedP.x = Mo.width/2 - adjustedP.w/2;
         }
-
-        if(p && _.isString(p.h) && (match = p.h.match(/^[0-9]+%$/))) {
-          adjustedP.h = parseInt(p.h,10) * Q.height / 100;
-          adjustedP.y = Q.height /2 - adjustedP.h/2;
+        if(p &&
+           _.isString(p.h) &&
+           (match = p.h.match(/^[0-9]+%$/))) {
+          adjustedP.h = parseInt(p.h) * Mo.height / 100;
+          adjustedP.y = Mo.height /2 - adjustedP.h/2;
         }
-
         this._super(_.patch(adjustedP,defaults),{
           opacity: 1,
           hidden: false, // Set to true to not show the container
@@ -54,7 +51,7 @@ var quintusUI = function(Quintus) {
           shadowColor: false, // Set to a rgba value for the shadow
           outlineWidth: false, // Set to a width to outline text
           outlineColor: "#000",
-          type: Q.SPRITE_NONE
+          type: Mo.SPRITE_NONE
         });
       },
       insert: function(obj) {
@@ -89,8 +86,8 @@ var quintusUI = function(Quintus) {
         this.p.h = maxY - minY + paddingY * 2;
 
         // Since the original dimensions were changed, update the boundaries so that the collision is calculated correctly
-        Q._generatePoints(this, true);
-        Q._generateCollisionPoints(this, true);
+        Mo._generatePoints(this, true);
+        Mo._generateCollisionPoints(this, true);
       },
       addShadow: function(ctx) {
         if(this.p.shadow) {
@@ -100,11 +97,9 @@ var quintusUI = function(Quintus) {
           ctx.shadowColor = this.p.shadowColor || "rgba(0,0,50,0.1)";
         }
       },
-      clearShadow: function(ctx) {
-        ctx.shadowColor = "transparent";
-      },
+      clearShadow: (ctx) => { ctx.shadowColor = "transparent"; },
       drawRadius: function(ctx) {
-        Q.UI.roundRect(ctx,this.p);
+        Mo.UI.roundRect(ctx,this.p);
         this.addShadow(ctx);
         ctx.fill();
         if(this.p.border) {
@@ -119,7 +114,6 @@ var quintusUI = function(Quintus) {
           ctx.fillRect(-this.p.cx,-this.p.cy,
                         this.p.w,this.p.h);
         }
-
         if(this.p.border) {
           this.clearShadow(ctx);
           ctx.lineWidth = this.p.border;
@@ -127,58 +121,47 @@ var quintusUI = function(Quintus) {
                           this.p.w,this.p.h);
         }
       },
-
       draw: function(ctx) {
-        if(this.p.hidden) { return false; }
+        if(this.p.hidden) return false;
         if(!this.p.border && !this.p.fill) { return; }
 
         ctx.globalAlpha = this.p.opacity;
-        if(this.p.frame === 1 && this.p.highlight) {
+        if(this.p.frame === 1 && this.p.highlight)
           ctx.fillStyle = this.p.highlight;
-        } else {
+        else
           ctx.fillStyle = this.p.fill;
-        }
         ctx.strokeStyle = this.p.stroke;
-
-        if(this.p.radius > 0) {
-          this.drawRadius(ctx);
-        } else {
-          this.drawSquare(ctx);
-        }
-
+        (this.p.radius > 0) ? this.drawRadius(ctx) : this.drawSquare(ctx);
       }
-    });
+    }, Mo.UI);
 
-    Q.UI.Text = Q.Sprite.extend("UI.Text", {
+    Mo.defType(["Text", Mo.Sprite], {
       init: function(p,defaultProps) {
         this._super(_.patch(p||{},defaultProps),{
-          type: Q.SPRITE_UI,
+          type: Mo.SPRITE_UI,
           size: 24,
           lineHeight: 1.2,
           align: 'center'
-        });
+        }, Mo.UI);
 
         //this.el = document.createElement("canvas");
         //this.ctx = this.el.getContext("2d");
 
-        if(this.p.label) {
+        if(this.p.label)
           this.calcSize();
-        }
 
         //this.prerender();
       },
-
       calcSize: function() {
         let p = this.p;
-        this.setFont(Q.ctx);
+        this.setFont(Mo.ctx);
         this.splitLabel = p.label.split("\n");
-        var maxLabel = "";
+        let maxLabel = "";
         p.w = 0;
-
         this.splitLabel.forEach(obj => {
-          let metrics = Q.ctx.measureText(obj);
+          let metrics = Mo.ctx.measureText(obj);
           if(metrics.width >  p.w) {
-              p.w = metrics.width;
+            p.w = metrics.width;
           }
         });
 
@@ -188,7 +171,7 @@ var quintusUI = function(Quintus) {
 
         p.cy = 0;
 
-        if(p.align === 'center'){
+        if(p.align === "center"){
            p.cx = p.w / 2;
            p.points = [
               [ -p.cx, 0],
@@ -196,7 +179,7 @@ var quintusUI = function(Quintus) {
               [ p.cx, p.h ],
               [ -p.cx, p.h ]
            ];
-        } else if (p.align === 'right'){
+        } else if (p.align === "right"){
            p.cx = p.w;
            p.points = [
               [ -p.w, 0],
@@ -214,7 +197,6 @@ var quintusUI = function(Quintus) {
            ];
         }
       },
-
       prerender: function() {
         if(this.p.oldLabel === this.p.label) { return; }
         this.p.oldLabel = this.p.label;
@@ -229,7 +211,6 @@ var quintusUI = function(Quintus) {
 
         this.ctx.fillText(this.p.label,0,0);
       },
-
       draw: function(ctx) {
         let p = this.p;
          //this.prerender();
@@ -246,11 +227,7 @@ var quintusUI = function(Quintus) {
           ctx.fillText(obj,0, p.halfLeading + i * p.lineHeightPx);
         };
       },
-
-      asset: function() {
-        return this.el;
-      },
-
+      asset: function() { return this.el; },
       setFont: function(ctx) {
         ctx.textBaseline = "top";
         ctx.font= this.font();
@@ -259,28 +236,27 @@ var quintusUI = function(Quintus) {
         ctx.strokeStyle = this.p.outlineColor || "black";
         ctx.lineWidth = this.p.outlineWidth || 0;
       },
-
       font: function() {
-        if(this.fontString) { return this.fontString; }
-        this.fontString = (this.p.weight || "800") + " " +
-                          (this.p.size || 24) + "px " +
-                          (this.p.family || "Arial");
+        if(!this.fontString)
+          this.fontString = (this.p.weight || "800") + " " +
+                            (this.p.size || 24) + "px " +
+                            (this.p.family || "Arial");
         return this.fontString;
       }
 
     });
 
-    Q.UI.Button = Q.UI.Container.extend("UI.Button", {
+    Mo.defType(["Button", Mo.UI.Container], {
       init: function(p, callback, defaultProps) {
         this._super(_.patch(p||{},defaultProps),{
-          type: Q.SPRITE_UI | Q.SPRITE_DEFAULT,
+          type: Mo.SPRITE_UI | Mo.SPRITE_DEFAULT,
           keyActionName: null
         });
         if(this.p.label && (!this.p.w || !this.p.h)) {
-          Q.ctx.save();
-          this.setFont(Q.ctx);
-          let metrics = Q.ctx.measureText(this.p.label);
-          Q.ctx.restore();
+          Mo.ctx.save();
+          this.setFont(Mo.ctx);
+          let metrics = Mo.ctx.measureText(this.p.label);
+          Mo.ctx.restore();
           if(!this.p.h) {  this.p.h = 24 + 20; }
           if(!this.p.w) { this.p.w = metrics.width + 20; }
         }
@@ -288,30 +264,26 @@ var quintusUI = function(Quintus) {
         if(isNaN(this.p.cx)) { this.p.cx = this.p.w / 2; }
         if(isNaN(this.p.cy)) { this.p.cy = this.p.h / 2; }
         this.callback = callback;
-        this.on('touch',"highlight");
-        this.on('touchEnd',"push");
+        this.on("touch","highlight");
+        this.on("touchEnd","push");
         if(this.p.keyActionName)
-          Q.input.on(this.p.keyActionName,"push",this);
+          Mo.input.on(this.p.keyActionName,"push",this);
       },
-
       highlight: function() {
         if(typeof this.sheet() !== 'undefined' && this.sheet().frames > 1) {
           this.p.frame = 1;
         }
       },
-
       push: function() {
         this.p.frame = 0;
-        if(this.callback) { this.callback(); }
+        this.callback && this.callback();
         this.trigger('click');
       },
-
       draw: function(ctx) {
         this._super(ctx);
 
-        if(this.p.asset || this.p.sheet) {
-          Q.Sprite.prototype.draw.call(this,ctx);
-        }
+        if(this.p.asset || this.p.sheet)
+          Mo.Sprite.prototype.draw.call(this,ctx);
 
         if(this.p.label) {
           ctx.save();
@@ -320,22 +292,18 @@ var quintusUI = function(Quintus) {
           ctx.restore();
         }
       },
-
       setFont: function(ctx) {
         ctx.textBaseline = "middle";
         ctx.font = this.p.font || "400 24px arial";
         ctx.fillStyle = this.p.fontColor || "black";
         ctx.textAlign = "center";
       }
+    }, Mo.UI);
 
-    });
-
-    Q.UI.IFrame = Q.Sprite.extend("UI.IFrame", {
+    Mo.defType(["IFrame", Mo.Sprite], {
       init: function(p) {
-        this._super(p, { opacity: 1, type: Q.SPRITE_UI | Q.SPRITE_DEFAULT });
-
-        Q.wrapper.style.overflow = "hidden";
-
+        this._super(p, { opacity: 1, type: Mo.SPRITE_UI | Mo.SPRITE_DEFAULT });
+        Mo.wrapper.style.overflow = "hidden";
         this.iframe = document.createElement("IFRAME");
         this.iframe.setAttribute("src",this.p.url);
         this.iframe.style.position = "absolute";
@@ -347,13 +315,12 @@ var quintusUI = function(Quintus) {
         if(this.p.background)
           this.iframe.style.backgroundColor = this.p.background;
 
-        Q.wrapper.appendChild(this.iframe);
+        Mo.wrapper.appendChild(this.iframe);
         this.on("inserted",function(parent) {
           this.positionIFrame();
           parent.on("disposed","remove",this);
         });
       },
-
       positionIFrame: function() {
         var x = this.p.x;
         var y = this.p.y;
@@ -361,7 +328,6 @@ var quintusUI = function(Quintus) {
           x -= this.stage.viewport.x;
           y -= this.stage.viewport.y;
         }
-
         if(this.oldX !== x ||
            this.oldY !== y ||
            this.oldOpacity !== this.p.opacity) {
@@ -375,30 +341,28 @@ var quintusUI = function(Quintus) {
           this.oldOpacity = this.p.opacity;
         }
       },
-
       step: function(dt) {
         this._super(dt);
         this.positionIFrame();
       },
-
       remove: function() {
         if(this.iframe) {
-          Q.wrapper.removeChild(this.iframe);
+          Mo.wrapper.removeChild(this.iframe);
           this.iframe = null;
         }
       }
-    });
+    }, Mo.UI);
 
-    Q.UI.HTMLElement = Q.Sprite.extend("UI.HTMLElement", {
+    Mo.defType(["HTMLElement", Mo.Sprite], {
       init: function(p) {
-        this._super(p, { opacity: 1, type: Q.SPRITE_UI  });
+        this._super(p, { opacity: 1, type: Mo.SPRITE_UI  });
 
-        Q.wrapper.style.overflow = "hidden";
+        Mo.wrapper.style.overflow = "hidden";
 
         this.el = document.createElement("div");
         this.el.innerHTML = this.p.html;
 
-        Q.wrapper.appendChild(this.el);
+        Mo.wrapper.appendChild(this.el);
         this.on("inserted",function(parent) {
           this.position();
           parent.on("disposed","remove",this);
@@ -415,26 +379,23 @@ var quintusUI = function(Quintus) {
 
       remove: function() {
         if(this.el) {
-          Q.wrapper.removeChild(this.el);
+          Mo.wrapper.removeChild(this.el);
           this.el= null;
         }
       }
-    });
+    },Mo.UI);
 
-    Q.UI.VerticalLayout = Q.Sprite.extend("UI.VerticalLayout",{
-
+    Mo.defType(["VerticalLayout", Mo.Sprite], {
       init: function(p) {
         this.children = [];
         this._super(p, { type: 0 });
       },
-
       insert: function(sprite) {
         this.stage.insert(sprite,this);
         this.relayout();
         // Bind to dispose
         return sprite;
       },
-
       relayout: function() {
         let totalHeight = 0;
         this.children.forEach(c => {
@@ -444,16 +405,12 @@ var quintusUI = function(Quintus) {
         let totalSepartion = this.p.h - totalHeight;
         // Make sure all elements have the same space between them
       }
-    });
+    },Mo.UI);
 
   };
 
-};
 
-if(typeof Quintus === 'undefined') {
-  module.exports = quintusUI;
-} else {
-  quintusUI(Quintus);
-}
+
+})(this);
 
 

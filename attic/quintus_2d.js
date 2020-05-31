@@ -1,9 +1,9 @@
-/*global Quintus:false, module:false */
-var quintus2D = function(Quintus) {
+(function(global) {
   "use strict";
-  Quintus["2D"] = function(Q) {
-    let _ = Q._;
-    Q.component('viewport',{
+  let Mojo = global.Mojo,
+      _ = Mojo._, document = global.document;
+  Mojo["2D"] = function(Mo) {
+    Mo.component('viewport',{
       added: function() {
         this.entity.on('prerender','prerender',this);
         this.entity.on('render','postrender',this);
@@ -11,18 +11,17 @@ var quintus2D = function(Quintus) {
         this.y = 0;
         this.offsetX = 0;
         this.offsetY = 0;
-        this.centerX = Q.width/2;
-        this.centerY = Q.height/2;
+        this.centerX = Mo.width/2;
+        this.centerY = Mo.height/2;
         this.scale = 1;
       },
-
       ____entity: {
         follow: function(sprite,directions,boundingBox) {
           this.off('poststep',"follow", this.viewport);
           this.viewport.directions = directions || { x: true, y: true };
           this.viewport.following = sprite;
-          if(_.isUndefined(boundingBox) &&
-             this.lists.TileLayer !== undefined) {
+          if(_.isUndef(boundingBox) &&
+             this.lists.TileLayer !== void 0) {
             this.viewport.boundingBox = _.find(this.lists.TileLayer, function(layer) {
               return layer.p.boundingBox ? { minX: 0, maxX: layer.p.w, minY: 0, maxY: layer.p.h } : null;
             });
@@ -32,48 +31,37 @@ var quintus2D = function(Quintus) {
           this.on('poststep',"follow",this.viewport);
           this.viewport.follow(true);
         },
-
         unfollow: function() {
           this.off('poststep',"follow",this.viewport);
         },
-
         centerOn: function(x,y) {
           this.viewport.centerOn(x,y);
         },
-
         moveTo: function(x,y) {
           return this.viewport.moveTo(x,y);
         }
       },
-
       follow: function(first) {
         let followX = _.isFunction(this.directions.x) ? this.directions.x(this.following) : this.directions.x;
         let followY = _.isFunction(this.directions.y) ? this.directions.y(this.following) : this.directions.y;
 
-        this[first === true ? 'centerOn' : 'softCenterOn'](
-                      followX ?
-                        this.following.p.x - this.offsetX :
-                        undefined,
-                      followY ?
-                       this.following.p.y - this.offsetY :
-                       undefined
-                    );
+        this[first === true ? "centerOn" : "softCenterOn"](
+                      followX ? this.following.p.x - this.offsetX : void 0,
+                      followY ? this.following.p.y - this.offsetY : void 0);
       },
-
       offset: function(x,y) {
         this.offsetX = x;
         this.offsetY = y;
       },
-
       softCenterOn: function(x,y) {
         if(x !== void 0) {
-          var dx = (x - Q.width / 2 / this.scale - this.x)/3;
+          let dx = (x - Mo.width / 2 / this.scale - this.x)/3;
           if(this.boundingBox) {
             if(this.x + dx < this.boundingBox.minX) {
               this.x = this.boundingBox.minX / this.scale;
             }
-            else if(this.x + dx > (this.boundingBox.maxX - Q.width) / this.scale) {
-              this.x = Math.max(this.boundingBox.maxX - Q.width, this.boundingBox.minX) / this.scale;
+            else if(this.x + dx > (this.boundingBox.maxX - Mo.width) / this.scale) {
+              this.x = Math.max(this.boundingBox.maxX - Mo.width, this.boundingBox.minX) / this.scale;
             }
             else {
               this.x += dx;
@@ -84,13 +72,13 @@ var quintus2D = function(Quintus) {
           }
         }
         if(y !== void 0) {
-          var dy = (y - Q.height / 2 / this.scale - this.y)/3;
+          let dy = (y - Mo.height / 2 / this.scale - this.y)/3;
           if(this.boundingBox) {
             if(this.y + dy < this.boundingBox.minY) {
               this.y = this.boundingBox.minY / this.scale;
             }
-            else if(this.y + dy > (this.boundingBox.maxY - Q.height) / this.scale) {
-              this.y = Math.max(this.boundingBox.maxY - Q.height, this.boundingBox.minY) / this.scale;
+            else if(this.y + dy > (this.boundingBox.maxY - Mo.height) / this.scale) {
+              this.y = Math.max(this.boundingBox.maxY - Mo.height, this.boundingBox.minY) / this.scale;
             }
             else {
               this.y += dy;
@@ -100,18 +88,15 @@ var quintus2D = function(Quintus) {
             this.y += dy;
           }
         }
-
       },
       centerOn: function(x,y) {
         if(x !== void 0) {
-          this.x = x - Q.width / 2 / this.scale;
+          this.x = x - Mo.width / 2 / this.scale;
         }
         if(y !== void 0) {
-          this.y = y - Q.height / 2 / this.scale;
+          this.y = y - Mo.height / 2 / this.scale;
         }
-
       },
-
       moveTo: function(x,y) {
         if(x !== void 0) {
           this.x = x;
@@ -120,24 +105,21 @@ var quintus2D = function(Quintus) {
           this.y = y;
         }
         return this.entity;
-
       },
-
       prerender: function() {
-        this.centerX = this.x + Q.width / 2 /this.scale;
-        this.centerY = this.y + Q.height / 2 /this.scale;
-        Q.ctx.save();
-        Q.ctx.translate(Math.floor(Q.width/2),Math.floor(Q.height/2));
-        Q.ctx.scale(this.scale,this.scale);
-        Q.ctx.translate(-Math.floor(this.centerX), -Math.floor(this.centerY));
+        this.centerX = this.x + Mo.width / 2 /this.scale;
+        this.centerY = this.y + Mo.height / 2 /this.scale;
+        Mo.ctx.save();
+        Mo.ctx.translate(Math.floor(Mo.width/2),Math.floor(Mo.height/2));
+        Mo.ctx.scale(this.scale,this.scale);
+        Mo.ctx.translate(-Math.floor(this.centerX), -Math.floor(this.centerY));
       },
-
       postrender: function() {
-        Q.ctx.restore();
+        Mo.ctx.restore();
       }
     });
 
-    Q.Sprite.extend("TileLayer",{
+    Mo.defType(["TileLayer",Mo.Sprite], {
       init: function(props) {
         this._super(props,{
           tileW: 32,
@@ -148,7 +130,7 @@ var quintus2D = function(Quintus) {
           renderAlways: true
         });
 
-        if(this.p.dataAsset)
+        this.p.dataAsset &&
           this.load(this.p.dataAsset);
 
         this.setDimensions();
@@ -157,7 +139,7 @@ var quintus2D = function(Quintus) {
         this.p.blockW = this.p.tileW * this.p.blockTileW;
         this.p.blockH = this.p.tileH * this.p.blockTileH;
         this.colBounds = {};
-        this.directions = [ 'top','left','right','bottom'];
+        this.directions = ["top","left","right","bottom"];
         this.tileProperties = {};
 
         this.collisionObject = {
@@ -176,7 +158,7 @@ var quintus2D = function(Quintus) {
 
       // Generate the tileCollisionObject overrides where needed
       _generateCollisionObjects: function() {
-        let me = this;
+        let me=this;
         function returnPoint(pt) {
           return [ pt[0] * me.p.tileW - me.p.tileW/2,
                    pt[1] * me.p.tileH - me.p.tileH/2 ];
@@ -185,27 +167,22 @@ var quintus2D = function(Quintus) {
            this.sheet().frameProperties) {
           let frameProperties = this.sheet().frameProperties;
           for(let k in frameProperties) {
-            let colObj = this.tileCollisionObjects[k] = { p: Q._clone(this.collisionObject.p) };
+            let colObj = this.tileCollisionObjects[k] = { p: Mo._clone(this.collisionObject.p) };
             _.inject(colObj.p,frameProperties[k]);
             if(colObj.p.points)
               colObj.p.points = _.map(colObj.p.points, returnPoint);
-
             this.tileCollisionObjects[k] = colObj;
           }
         }
       },
-
       load: function(dataAsset) {
-        let fileParts = dataAsset.split("."),
-            fileExt = fileParts[fileParts.length-1].toLowerCase(),
-            data;
-        if (fileExt === "json")
-          data = _.isString(dataAsset) ?  Q.asset(dataAsset) : dataAsset;
+        let data, ext= Mo._fileExtension(dataAsset);
+        if (ext === "json")
+          data = _.isString(dataAsset) ?  Mo.asset(dataAsset) : dataAsset;
         else
           throw "file type not supported";
         this.p.tiles = data;
       },
-
       setDimensions: function() {
         let tiles = this.p.tiles;
         if(tiles) {
@@ -221,19 +198,11 @@ var quintus2D = function(Quintus) {
       },
 
       getTileProperty: function(tile, prop) {
-        if(this.tileProperties[tile] !== undefined) {
-          return this.tileProperties[tile][prop];
-        } else {
-          return;
-        }
+        return (this.tileProperties[tile] !== void 0) ? this.tileProperties[tile][prop] : void 0;
       },
 
       getTileProperties: function(tile) {
-        if(this.tileProperties[tile] !== undefined) {
-          return this.tileProperties[tile];
-        } else {
-          return {};
-        }
+        return (this.tileProperties[tile] !== void 0) ? this.tileProperties[tile] : {};
       },
 
       getTilePropertyAt: function(tileX, tileY, prop) {
@@ -245,7 +214,7 @@ var quintus2D = function(Quintus) {
       },
 
       tileHasProperty: function(tile, prop) {
-        return(this.getTileProperty(tile, prop) !== undefined);
+        return this.getTileProperty(tile, prop) !== void 0;
       },
 
       setTile: function(x,y,tile) {
@@ -271,22 +240,18 @@ var quintus2D = function(Quintus) {
 
       // Overload this method to draw tiles at frame 0 or not draw
       // tiles at higher number frames
-      drawableTile: function(tileNum) {
-        return tileNum > 0;
-      },
+      drawableTile: (tileNum) => { return tileNum > 0; },
 
       // Overload this method to control which tiles trigger a collision
       // (defaults to all tiles > number 0)
-      collidableTile: function(tileNum) {
-        return tileNum > 0;
-      },
+      collidableTile: (tileNum) => { return tileNum > 0; },
 
       getCollisionObject: function(tileX, tileY) {
-        var p = this.p,
-            tile = this.getTile(tileX, tileY),
-            colObj;
+        let p = this.p,
+            colObj,
+            tile = this.getTile(tileX, tileY);
 
-        colObj = (this.tileCollisionObjects[tile] !== undefined) ?
+        colObj = (this.tileCollisionObjects[tile] !== void 0) ?
           this.tileCollisionObjects[tile] : this.collisionObject;
 
         colObj.p.x = tileX * p.tileW + p.x + p.tileW/2;
@@ -311,7 +276,7 @@ var quintus2D = function(Quintus) {
           for(let tileX = tileStartX; tileX<=tileEndX; ++tileX) {
             if(this.tilePresent(tileX,tileY)) {
               colObj = this.getCollisionObject(tileX, tileY);
-              col = Q.collision(obj,colObj);
+              col = Mo.collision(obj,colObj);
               if(col && col.magnitude > 0) {
                 if(colObj.p.sensor) {
                   colObj.tile = this.getTile(tileX,tileY);
@@ -329,9 +294,7 @@ var quintus2D = function(Quintus) {
                    normal.tileX = tileX;
                    normal.tileY = tileY;
                    normal.tile = this.getTile(tileX,tileY);
-
-                   if(obj.p.collisions !== undefined)
-                   obj.p.collisions.push(normal);
+                   if(obj.p.collisions !== void 0) obj.p.collisions.push(normal);
                 }
               }
             }
@@ -353,8 +316,8 @@ var quintus2D = function(Quintus) {
            blockOffsetY < 0 ||
            blockOffsetY >= this.p.rows) { return; }
 
-        let canvas = document.createElement('canvas'),
-            ctx = canvas.getContext('2d');
+        let canvas = document.createElement("canvas"),
+            ctx = canvas.getContext("2d");
         canvas.width = p.blockW;
         canvas.height= p.blockH;
         this.blocks[blockY] = this.blocks[blockY] || {};
@@ -396,8 +359,8 @@ var quintus2D = function(Quintus) {
             scale = viewport ? viewport.scale : 1,
             x = viewport ? viewport.x : 0,
             y = viewport ? viewport.y : 0,
-            viewW = Q.width / scale,
-            viewH = Q.height / scale,
+            viewW = Mo.width / scale,
+            viewH = Mo.height / scale,
             startBlockX = Math.floor((x - p.x) / p.blockW),
             startBlockY = Math.floor((y - p.y) / p.blockH),
             endBlockX = Math.floor((x + viewW - p.x) / p.blockW),
@@ -411,10 +374,10 @@ var quintus2D = function(Quintus) {
       }
     });
 
-    Q.gravityY = 9.8*100;
-    Q.gravityX = 0;
+    Mo.gravityY = 9.8*100;
+    Mo.gravityX = 0;
 
-    Q.component('2d',{
+    Mo.component('2d',{
       added: function() {
         let entity = this.entity;
         _.patch(entity.p,{
@@ -423,12 +386,11 @@ var quintus2D = function(Quintus) {
           ax: 0,
           ay: 0,
           gravity: 1,
-          collisionMask: Q.SPRITE_DEFAULT
+          collisionMask: Mo.SPRITE_DEFAULT
         });
         entity.on('step',"step",this);
         entity.on('hit','collision',this);
       },
-
       collision: function(col,last) {
         let entity = this.entity,
             p = entity.p,
@@ -440,8 +402,8 @@ var quintus2D = function(Quintus) {
         }
 
         col.impact = 0;
-        var impactX = Math.abs(p.vx);
-        var impactY = Math.abs(p.vy);
+        let impactX = Math.abs(p.vx);
+        let impactY = Math.abs(p.vy);
 
         p.x -= col.separate[0];
         p.y -= col.separate[1];
@@ -482,8 +444,8 @@ var quintus2D = function(Quintus) {
         while(dtStep > 0) {
           dt = Math.min(1/30,dtStep);
           // Updated based on the velocity and acceleration
-          p.vx += p.ax * dt + (p.gravityX === void 0 ? Q.gravityX : p.gravityX) * dt * p.gravity;
-          p.vy += p.ay * dt + (p.gravityY === void 0 ? Q.gravityY : p.gravityY) * dt * p.gravity;
+          p.vx += p.ax * dt + (p.gravityX === void 0 ? Mo.gravityX : p.gravityX) * dt * p.gravity;
+          p.vy += p.ay * dt + (p.gravityY === void 0 ? Mo.gravityY : p.gravityY) * dt * p.gravity;
           p.x += p.vx * dt;
           p.y += p.vy * dt;
 
@@ -493,7 +455,7 @@ var quintus2D = function(Quintus) {
       }
     });
 
-    Q.component('aiBounce', {
+    Mo.component("aiBounce", {
       added: function() {
         this.entity.on("bump.right","goLeft",this);
         this.entity.on("bump.left","goRight",this);
@@ -501,31 +463,152 @@ var quintus2D = function(Quintus) {
 
       goLeft: function(col) {
         this.entity.p.vx = -col.impact;
-        if(this.entity.p.defaultDirection === 'right')
-          this.entity.p.flip = 'x';
+        if(this.entity.p.defaultDirection === "right")
+          this.entity.p.flip = "x";
         else
           this.entity.p.flip = false;
       },
 
       goRight: function(col) {
         this.entity.p.vx = col.impact;
-        if(this.entity.p.defaultDirection === 'left')
-          this.entity.p.flip = 'x';
+        if(this.entity.p.defaultDirection === "left")
+          this.entity.p.flip = "x";
         else
           this.entity.p.flip = false;
       }
     });
 
+    Mo.overlap = (o1,o2) => {
+      let c1 = o1.c || o1.p || o1;
+      let c2 = o2.c || o2.p || o2;
+
+      let o1x = c1.x - (c1.cx || 0),
+          o1y = c1.y - (c1.cy || 0);
+      let o2x = c2.x - (c2.cx || 0),
+          o2y = c2.y - (c2.cy || 0);
+
+      return !((o1y+c1.h<o2y) || (o1y>o2y+c2.h) ||
+               (o1x+c1.w<o2x) || (o1x>o2x+c2.w));
+    };
+
+    Mo.collision = (function() {
+      let normalX,
+          normalY,
+          offset = [0,0],
+          result1 = { separate: [] },
+          result2 = { separate: [] };
+      function calculateNormal(points,idx) {
+        let pt1 = points[idx],
+            pt2 = points[idx+1] || points[0];
+        normalX = -(pt2[1] - pt1[1]);
+        normalY = pt2[0] - pt1[0];
+        let dist = Math.sqrt(normalX*normalX + normalY*normalY);
+        if(dist > 0) {
+          normalX /= dist;
+          normalY /= dist;
+        }
+      }
+      function dotProductAgainstNormal(point) {
+        return (normalX * point[0]) + (normalY * point[1]);
+      }
+      function collide(o1,o2,flip) {
+        let min1,max1,
+            min2,max2,
+            d1, d2,
+            offsetLength,
+            tmp, i, j,
+            minDist, minDistAbs,
+            shortestDist = Number.POSITIVE_INFINITY,
+            collided = false,
+            p1, p2;
+        let result = flip ? result2 : result1;
+        offset[0] = 0; //o1.x + o1.cx - o2.x - o2.cx;
+        offset[1] = 0; //o1.y + o1.cy - o2.y - o2.cy;
+        // If we have a position matrix, just use those points,
+        if(o1.c) {
+          p1 = o1.c.points;
+        } else {
+          p1 = o1.p.points;
+          offset[0] += o1.p.x;
+          offset[1] += o1.p.y;
+        }
+        if(o2.c) {
+          p2 = o2.c.points;
+        } else {
+          p2 = o2.p.points;
+          offset[0] += -o2.p.x;
+          offset[1] += -o2.p.y;
+        }
+
+        o1 = o1.p;
+        o2 = o2.p;
+
+        for(let i = 0;i<p1.length;++i) {
+          calculateNormal(p1,i);
+          min1 = dotProductAgainstNormal(p1[0]);
+          max1 = min1;
+          for(let j = 1; j<p1.length;++j) {
+            tmp = dotProductAgainstNormal(p1[j]);
+            if(tmp < min1) min1 = tmp;
+            if(tmp > max1) max1 = tmp;
+          }
+          min2 = dotProductAgainstNormal(p2[0]);
+          max2 = min2;
+          for(let j = 1;j<p2.length;++j) {
+            tmp = dotProductAgainstNormal(p2[j]);
+            if(tmp < min2) min2 = tmp;
+            if(tmp > max2) max2 = tmp;
+          }
+          offsetLength = dotProductAgainstNormal(offset);
+          min1 += offsetLength;
+          max1 += offsetLength;
+          d1 = min1 - max2;
+          d2 = min2 - max1;
+          if(d1 > 0 || d2 > 0) { return null; }
+          minDist = (max2 - min1) * -1;
+          if(flip) { minDist *= -1; }
+          minDistAbs = Math.abs(minDist);
+          if(minDistAbs < shortestDist) {
+            result.distance = minDist;
+            result.magnitude = minDistAbs;
+            result.normalX = normalX;
+            result.normalY = normalY;
+            if(result.distance > 0) {
+              result.distance *= -1;
+              result.normalX *= -1;
+              result.normalY *= -1;
+            }
+            collided = true;
+            shortestDist = minDistAbs;
+          }
+        }
+        return collided ? result : null;
+      }
+      function satCollision(o1,o2) {
+        let result1, result2, result;
+        if(!o1.p.points)
+          Mo._generatePoints(o1);
+        if(!o2.p.points)
+          Mo._generatePoints(o2);
+        result1 = collide(o1,o2);
+        if(!result1) { return false; }
+        result2 = collide(o2,o1,true);
+        if(!result2) { return false; }
+        result = (result2.magnitude < result1.magnitude) ? result2 : result1;
+        if(result.magnitude === 0) { return false; }
+        result.separate[0] = result.distance * result.normalX;
+        result.separate[1] = result.distance * result.normalY;
+        return result;
+      }
+      return satCollision;
+    })();
+
+
   };
 
 
-};
 
 
-if(typeof Quintus === 'undefined') {
-  module.exports = quintus2D;
-} else {
-  quintus2D(Quintus);
-}
+})(this);
 
 

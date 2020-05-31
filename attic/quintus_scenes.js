@@ -1,199 +1,41 @@
-/*global Quintus:false, module:false */
-var quintusScenes = function(Quintus) {
+(function(global) {
   "use strict";
 
-  Quintus.Scenes = function(Q) {
-    let _ = Q._;
-    Q.scenes = {};
-    Q.stages = [];
+  let Mojo=global.Mojo, _ = Mojo._;
+  Mojo.Scenes = function(Mo) {
 
-    Q.defType("Scene", {
+    Mo.scenes = {};
+    Mo.stages = [];
+
+    Mo.defType("Scene", {
       init: function(sceneFunc,opts) {
         this.opts = opts || {};
         this.sceneFunc = sceneFunc;
       }
     });
 
-    Q.scene = function(name,sceneFunc,opts) {
-      if(sceneFunc === void 0) {
-        return Q.scenes[name];
-      } else {
+    Mo.scene = (name,sceneFunc,opts) => {
+      if(sceneFunc) {
         if(_.isFunction(sceneFunc)) {
-          sceneFunc = new Q.Scene(sceneFunc,opts);
+          sceneFunc = new Mo.Scene(sceneFunc,opts);
           sceneFunc.name = name;
         }
-        Q.scenes[name] = sceneFunc;
-        return sceneFunc;
+        Mo.scenes[name] = sceneFunc;
       }
+      return Mo.scenes[name];
     };
 
-    Q._nullContainer = {
+    Mo._nullContainer = {
       c: {
         x: 0,
         y: 0,
         angle: 0,
         scale: 1
       },
-      matrix: Q.matrix2d()
+      matrix: Mo.matrix2d()
     };
 
-    Q.collision = (function() {
-      let normalX, normalY,
-          offset = [ 0,0 ],
-          result1 = { separate: [] },
-          result2 = { separate: [] };
-
-      function calculateNormal(points,idx) {
-        let pt1 = points[idx],
-            pt2 = points[idx+1] || points[0];
-
-        normalX = -(pt2[1] - pt1[1]);
-        normalY = pt2[0] - pt1[0];
-
-        let dist = Math.sqrt(normalX*normalX + normalY*normalY);
-        if(dist > 0) {
-          normalX /= dist;
-          normalY /= dist;
-        }
-      }
-
-      function dotProductAgainstNormal(point) {
-        return (normalX * point[0]) + (normalY * point[1]);
-
-      }
-
-      function collide(o1,o2,flip) {
-        let min1,max1,
-            min2,max2,
-            d1, d2,
-            offsetLength,
-            tmp, i, j,
-            minDist, minDistAbs,
-            shortestDist = Number.POSITIVE_INFINITY,
-            collided = false,
-            p1, p2;
-
-        let result = flip ? result2 : result1;
-
-        offset[0] = 0; //o1.x + o1.cx - o2.x - o2.cx;
-        offset[1] = 0; //o1.y + o1.cy - o2.y - o2.cy;
-
-        // If we have a position matrix, just use those points,
-        if(o1.c) {
-          p1 = o1.c.points;
-        } else {
-          p1 = o1.p.points;
-          offset[0] += o1.p.x;
-          offset[1] += o1.p.y;
-        }
-
-        if(o2.c) {
-          p2 = o2.c.points;
-        } else {
-          p2 = o2.p.points;
-          offset[0] += -o2.p.x;
-          offset[1] += -o2.p.y;
-        }
-
-        o1 = o1.p;
-        o2 = o2.p;
-
-        for(let i = 0;i<p1.length;++i) {
-          calculateNormal(p1,i);
-          min1 = dotProductAgainstNormal(p1[0]);
-          max1 = min1;
-          for(let j = 1; j<p1.length;++j) {
-            tmp = dotProductAgainstNormal(p1[j]);
-            if(tmp < min1) { min1 = tmp; }
-            if(tmp > max1) { max1 = tmp; }
-          }
-
-          min2 = dotProductAgainstNormal(p2[0]);
-          max2 = min2;
-
-          for(let j = 1;j<p2.length;++j) {
-            tmp = dotProductAgainstNormal(p2[j]);
-            if(tmp < min2) { min2 = tmp; }
-            if(tmp > max2) { max2 = tmp; }
-          }
-
-          offsetLength = dotProductAgainstNormal(offset);
-          min1 += offsetLength;
-          max1 += offsetLength;
-
-          d1 = min1 - max2;
-          d2 = min2 - max1;
-
-          if(d1 > 0 || d2 > 0) { return null; }
-
-          minDist = (max2 - min1) * -1;
-          if(flip) { minDist *= -1; }
-
-          minDistAbs = Math.abs(minDist);
-
-          if(minDistAbs < shortestDist) {
-            result.distance = minDist;
-            result.magnitude = minDistAbs;
-            result.normalX = normalX;
-            result.normalY = normalY;
-
-            if(result.distance > 0) {
-              result.distance *= -1;
-              result.normalX *= -1;
-              result.normalY *= -1;
-            }
-
-            collided = true;
-            shortestDist = minDistAbs;
-          }
-        }
-
-        // Do return the actual collision
-        return collided ? result : null;
-      }
-
-      function satCollision(o1,o2) {
-        let result1, result2, result;
-
-        if(!o1.p.points)
-          Q._generatePoints(o1);
-
-        if(!o2.p.points)
-          Q._generatePoints(o2);
-
-        result1 = collide(o1,o2);
-        if(!result1) { return false; }
-
-        result2 = collide(o2,o1,true);
-        if(!result2) { return false; }
-
-        result = (result2.magnitude < result1.magnitude) ? result2 : result1;
-
-        if(result.magnitude === 0) { return false; }
-        result.separate[0] = result.distance * result.normalX;
-        result.separate[1] = result.distance * result.normalY;
-
-        return result;
-      }
-
-      return satCollision;
-    }());
-
-    Q.overlap = function(o1,o2) {
-      let c1 = o1.c || o1.p || o1;
-      let c2 = o2.c || o2.p || o2;
-
-      let o1x = c1.x - (c1.cx || 0),
-          o1y = c1.y - (c1.cy || 0);
-      let o2x = c2.x - (c2.cx || 0),
-          o2y = c2.y - (c2.cy || 0);
-
-      return !((o1y+c1.h<o2y) || (o1y>o2y+c2.h) ||
-               (o1x+c1.w<o2x) || (o1x>o2x+c2.w));
-    };
-
-    Q.Stage = Q.GameObject.extend({
-      // Should know whether or not the stage is paused
+    Mo.defType(["Stage",Mo.GameObject],{
       defaults: {
         sort: false,
         gridW: 400,
@@ -201,7 +43,6 @@ var quintusScenes = function(Quintus) {
         x: 0,
         y: 0
       },
-
       init: function(scene,opts) {
         this.scene = scene;
         this.items = [];
@@ -213,8 +54,8 @@ var quintusScenes = function(Quintus) {
 
         this.time = 0;
 
-        this.defaults['w'] = Q.width;
-        this.defaults['h'] = Q.height;
+        this.defaults['w'] = Mo.width;
+        this.defaults['h'] = Mo.height;
 
         this.options = _.inject({},this.defaults);
         if(this.scene)
@@ -224,96 +65,75 @@ var quintusScenes = function(Quintus) {
 
         if(this.options.sort &&
            !_.isFunction(this.options.sort)) {
-          this.options.sort = function(a,b) {
+          this.options.sort = (a,b) => {
             return ((a.p && a.p.z) || -1) - ((b.p && b.p.z) || -1);
           };
         }
       },
-
       disposed: function() {
         this.invoke("debind");
         this.trigger("disposed");
       },
-
       // Needs to be separated out so the current stage can be set
       loadScene: function() {
-        if(this.scene)
-          this.scene.sceneFunc(this);
+        this.scene && this.scene.sceneFunc(this);
       },
-
       // Load an array of assets of the form:
       // [ [ "Player", { x: 15, y: 54 } ],
       //   [ "Enemy",  { x: 54, y: 42 } ] ]
       // Either pass in the array or a string of asset name
       loadAssets: function(asset) {
-        let assetArray = _.isArray(asset) ? asset : Q.asset(asset);
-        for(let i=0;i<assetArray.length;++i) {
-          let spriteClass = assetArray[i][0];
-          let spriteProps = assetArray[i][1];
-          this.insert(new Q[spriteClass](spriteProps));
-        }
+        let arr = _.isArray(asset) ? asset : Mo.asset(asset);
+        arr.forEach(a => {
+          let spriteClass = a[0];
+          let spriteProps = a[1];
+          this.insert(new Mo[spriteClass](spriteProps)); });
       },
-
-      each: function(callback) {
-        for(let i=0,z=this.items.length;i<z;++i)
-          callback.call(this.items[i],arguments[1],arguments[2]);
+      each: function(cb) {
+        let args= _.slice(arguments,1);
+        this.items.forEach(x => cb.apply(x,args));
       },
-
       invoke: function(funcName) {
-        for(let i=0,z=this.items.length;i<z;++i) {
-          this.items[i][funcName].call(
-            this.items[i],arguments[1],arguments[2]
-          );
-        }
+        let args= _.slice(arguments,1);
+        this.items.forEach(x => x[funcName].apply(x,args));
       },
-
       detect: function(func) {
-        for(let i = this.items.length-1;i >= 0; --i) {
-          if(func.call(this.items[i],arguments[1],arguments[2],arguments[3])) {
-            return this.items[i];
-          }
+        let args=_.slice(arguments,1);
+        for(let i = this.items.length-1;i>= 0; --i) {
+          if(func.apply(this.items[i],args))
+          return this.items[i];
         }
         return false;
       },
-
       identify: function(func) {
-        let res;
-        for(let i = this.items.length-1;i >= 0; --i) {
-          if(res= func.call(this.items[i],arguments[1],arguments[2],arguments[3])) {
+        let res, args=_.slice(arguments,1);
+        for(let i = this.items.length-1;i>= 0; --i) {
+          res= func.apply(this.items[i],args);
+          if (res)
             return res;
-          }
         }
         return false;
       },
-
       find: function(id) {
         return this.index[id];
       },
-
       addToLists: function(lists,object) {
-        for(let i=0;i<lists.length;++i) {
-          this.addToList(lists[i],object);
-        }
+        if (_.isArray(lists))
+          lists.forEach(x => this.addToList(x,object));
       },
-
       addToList: function(list, itm) {
-        if(!this.lists[list]) { this.lists[list] = []; }
+        this.lists[list]= this.lists[list] || [];
         this.lists[list].push(itm);
       },
-
       removeFromLists: function(lists, itm) {
-        for(let i=0;i<lists.length;++i) {
-          this.removeFromList(lists[i],itm);
-        }
+        if (_.isArray(lists))
+          lists.forEach(x => this.removeFromList(x,itm));
       },
-
       removeFromList: function(list, itm) {
-        let listIndex = this.lists[list].indexOf(itm);
-        if(listIndex !== -1) {
-          this.lists[list].splice(listIndex,1);
-        }
+        let i = this.lists[list].indexOf(itm);
+        if(i > -1)
+          this.lists[list].splice(i,1);
       },
-
       insert: function(itm,container) {
         this.items.push(itm);
         itm.stage = this;
@@ -324,14 +144,14 @@ var quintusScenes = function(Quintus) {
         itm.grid = {};
 
         // Make sure we have a square of collision points
-        Q._generatePoints(itm);
-        Q._generateCollisionPoints(itm);
+        Mo._generatePoints(itm);
+        Mo._generateCollisionPoints(itm);
 
         if(itm.className)
           this.addToList(itm.className, itm);
 
-        if(itm.activeComponents)
-          this.addToLists(itm.activeComponents, itm);
+        if(itm.features)
+          this.addToLists(itm.features, itm);
 
         if(itm.p)
           this.index[itm.p.id] = itm;
@@ -342,50 +162,42 @@ var quintusScenes = function(Quintus) {
         this.regrid(itm);
         return itm;
       },
-
       remove: function(itm) {
         this.delGrid(itm);
         this.removeList.push(itm);
       },
-
       forceRemove: function(itm) {
         let idx =  this.items.indexOf(itm);
-        if(idx !== -1) {
+        if(idx > -1) {
           this.items.splice(idx,1);
           if(itm.className)
             this.removeFromList(itm.className,itm);
-          if(itm.activeComponents)
-            this.removeFromLists(itm.activeComponents,itm);
+          if(itm.features)
+            this.removeFromLists(itm.features,itm);
           if(itm.container) {
-            let containerIdx = itm.container.children.indexOf(itm);
-            if(containerIdx !== -1)
+            let i = itm.container.children.indexOf(itm);
+            if(i > -1)
               itm.container.children.splice(containerIdx,1);
           }
-
-          if(itm.dispose) { itm.dispose(); }
+          itm.dispose && itm.dispose();
           if(itm.p.id)
             delete this.index[itm.p.id];
-
           this.trigger('removed',itm);
         }
       },
-
       pause: function() {
         this.paused = true;
       },
-
       unpause: function() {
         this.paused = false;
       },
-
       _gridCellCheck: function(type,id,obj,collisionMask) {
-        if(_.isUndefined(collisionMask) ||
-           collisionMask & type) {
+        if(_.isUndef(collisionMask) || collisionMask & type) {
           let obj2 = this.index[id];
           if(obj2 &&
              obj2 !== obj &&
-             Q.overlap(obj,obj2)) {
-            let col= Q.collision(obj,obj2);
+             Mo.overlap(obj,obj2)) {
+            let col= Mo.collision(obj,obj2);
             if(col) {
               col.obj = obj2;
               return col;
@@ -395,12 +207,10 @@ var quintusScenes = function(Quintus) {
           }
         }
       },
-
       gridTest: function(obj,collisionMask) {
-        let grid = obj.grid, gridCell, col;
-
+        let grid = obj.grid, col, gridCell;
         for(let y = grid.Y1;y <= grid.Y2;++y) {
-          if(this.grid[y]) {
+          if(this.grid[y])
             for(let x = grid.X1;x <= grid.X2;++x) {
               gridCell = this.grid[y][x];
               if(gridCell) {
@@ -409,21 +219,17 @@ var quintusScenes = function(Quintus) {
                   return col;
               }
             }
-          }
         }
         return false;
       },
-
       collisionLayer: function(layer) {
         this._collisionLayers.push(layer);
         layer.collisionLayer = true;
         return this.insert(layer);
       },
-
       _collideCollisionLayer: function(obj,collisionMask) {
         let col;
-        for(let i = 0,z = this._collisionLayers.length;i<z;++i) {
-          let layer = this._collisionLayers[i];
+        this._collisionLayers.forEach(layer => {
           if(layer.p.type & collisionMask) {
             col = layer.collide(obj);
             if(col) {
@@ -431,10 +237,9 @@ var quintusScenes = function(Quintus) {
               return col;
             }
           }
-        }
+        });
         return false;
       },
-
       search: function(obj,collisionMask) {
         let col;
         // If the object doesn't have a grid, regrid it
@@ -443,13 +248,11 @@ var quintusScenes = function(Quintus) {
         if(!obj.grid)
           this.regrid(obj,obj.stage !== this);
 
-        collisionMask = _.isUndefined(collisionMask) ? (obj.p && obj.p.collisionMask) : collisionMask;
-
+        collisionMask = _.isUndef(collisionMask) ? (obj.p && obj.p.collisionMask) : collisionMask;
         col = this._collideCollisionLayer(obj,collisionMask);
         col =  col || this.gridTest(obj,collisionMask);
         return col;
       },
-
       _locateObj: {
         p: {
           x: 0,
@@ -460,62 +263,53 @@ var quintusScenes = function(Quintus) {
           h: 1
         }, grid: {}
       },
-
       locate: function(x,y,collisionMask) {
-        let col = null;
-
+        let col;
         this._locateObj.p.x = x;
         this._locateObj.p.y = y;
-
         this.regrid(this._locateObj,true);
-
         col = this._collideCollisionLayer(this._locateObj,collisionMask);
         col =  col || this.gridTest(this._locateObj,collisionMask);
-
-        if(col && col.obj) {
-          return col.obj;
-        } else {
-          return false;
-        }
-
+        return (col && col.obj) ? col.obj : false;
       },
-
       collide: function(obj,options) {
         let col, col2, collisionMask,
             maxCol, curCol, skipEvents;
-        if(_.isObject(options)) {
-          collisionMask = options.collisionMask;
+        if(!_.isObject(options)) {
+          collisionMask = options;
+        } else {
           maxCol = options.maxCol;
           skipEvents = options.skipEvents;
-        } else {
-          collisionMask = options;
+          collisionMask = options.collisionMask;
         }
-        collisionMask = _.isUndefined(collisionMask) ? (obj.p && obj.p.collisionMask) : collisionMask;
+        collisionMask = _.isUndef(collisionMask) ? (obj.p && obj.p.collisionMask) : collisionMask;
         maxCol = maxCol || 3;
 
-        Q._generateCollisionPoints(obj);
+        Mo._generateCollisionPoints(obj);
         this.regrid(obj);
 
         curCol = maxCol;
-        while(curCol > 0 && (col = this._collideCollisionLayer(obj,collisionMask))) {
+        while(curCol > 0 &&
+              (col = this._collideCollisionLayer(obj,collisionMask))) {
           if(!skipEvents) {
             obj.trigger('hit',col);
             obj.trigger('hit.collision',col);
           }
-          Q._generateCollisionPoints(obj);
+          Mo._generateCollisionPoints(obj);
           this.regrid(obj);
           --curCol;
         }
 
         curCol = maxCol;
-        while(curCol > 0 && (col2 = this.gridTest(obj,collisionMask))) {
+        while(curCol > 0 &&
+              (col2 = this.gridTest(obj,collisionMask))) {
           obj.trigger('hit',col2);
           obj.trigger('hit.sprite',col2);
 
           // Do the recipricol collision
           // TODO: extract
           if(!skipEvents) {
-            var obj2 = col2.obj;
+            let obj2 = col2.obj;
             col2.obj = obj;
             col2.normalX *= -1;
             col2.normalY *= -1;
@@ -527,46 +321,40 @@ var quintusScenes = function(Quintus) {
             obj2.trigger('hit.sprite',col2);
           }
 
-          Q._generateCollisionPoints(obj);
+          Mo._generateCollisionPoints(obj);
           this.regrid(obj);
           --curCol;
         }
 
         return col2 || col;
       },
-
       delGrid: function(item) {
         let grid = item.grid;
-
-        for(let y = grid.Y1;y <= grid.Y2;++y) {
-          if(this.grid[y]) {
+        for(let y = grid.Y1;y <= grid.Y2; ++y) {
+          if(this.grid[y])
             for(let x = grid.X1;x <= grid.X2;++x) {
               if(this.grid[y][x])
                 delete this.grid[y][x][item.p.id];
             }
-          }
         }
       },
-
       addGrid: function(item) {
         let grid = item.grid;
-
         for(let y = grid.Y1;y <= grid.Y2;++y) {
-          if(!this.grid[y]) { this.grid[y] = {}; }
+          if(!this.grid[y])
+            this.grid[y] = {};
           for(let x = grid.X1;x <= grid.X2;++x) {
-            if(!this.grid[y][x]) { this.grid[y][x] = {}; }
+            if(!this.grid[y][x])
+              this.grid[y][x] = {};
             this.grid[y][x][item.p.id] = item.p.type;
           }
         }
-
       },
-
       regrid: function(item,skipAdd) {
         if(item.collisionLayer) { return; }
         item.grid = item.grid || {};
 
         let c = item.c || item.p;
-
         let gridX1 = Math.floor((c.x - c.cx) / this.options.gridW),
             gridY1 = Math.floor((c.y - c.cy) / this.options.gridH),
             gridX2 = Math.floor((c.x - c.cx + c.w) / this.options.gridW),
@@ -585,20 +373,18 @@ var quintusScenes = function(Quintus) {
            if(!skipAdd) { this.addGrid(item); }
         }
       },
-
       markSprites: function(items,time) {
         let viewport = this.viewport,
             scale = viewport ? viewport.scale : 1,
             x = viewport ? viewport.x : 0,
             y = viewport ? viewport.y : 0,
-            viewW = Q.width / scale,
-            viewH = Q.height / scale,
+            viewW = Mo.width / scale,
+            viewH = Mo.height / scale,
             gridX1 = Math.floor(x / this.options.gridW),
             gridY1 = Math.floor(y / this.options.gridH),
             gridX2 = Math.floor((x + viewW) / this.options.gridW),
             gridY2 = Math.floor((y + viewH) / this.options.gridH),
             gridRow, gridBlock;
-
         for(let iy=gridY1; iy<=gridY2; ++iy) {
           if((gridRow = this.grid[iy])) {
             for(let ix=gridX1; ix<=gridX2; ++ix) {
@@ -615,86 +401,72 @@ var quintusScenes = function(Quintus) {
           }
         }
       },
-
       updateSprites: function(items,dt,isContainer) {
         let item;
-        for(let i=0,z=items.length;i<z;++i) {
-          item = items[i];
+        for (let i=0,z=items.length;i<z;++i) {
+          item=items[i];
           // If set to visible only, don't step if set to visibleOnly
           if(!isContainer &&
              (item.p.visibleOnly &&
-              (!item.mark ||
-               item.mark < this.time))) { continue; }
+              (!item.mark || item.mark < this.time))) continue;
 
           if(isContainer || !item.container) {
             item.update(dt);
-            Q._generateCollisionPoints(item);
+            Mo._generateCollisionPoints(item);
             this.regrid(item);
           }
         }
       },
-      step:function(dt) {
+      step: function(dt) {
         if(this.paused) { return false; }
-
         this.time += dt;
         this.markSprites(this.items,this.time);
-
         this.trigger("prestep",dt);
         this.updateSprites(this.items,dt);
         this.trigger("step",dt);
-
         if(this.removeList.length > 0) {
-          for(let i=0,z=this.removeList.length;i<z;++i) {
-            this.forceRemove(this.removeList[i]);
-          }
+          this.removeList.forEach(x => this.forceRemove(x));
           this.removeList.length = 0;
         }
         this.trigger('poststep',dt);
       },
-
       hide: function() {
         this.hidden = true;
       },
-
       show: function() {
         this.hidden = false;
       },
-
       stop: function() {
         this.hide();
         this.pause();
       },
-
       start: function() {
         this.show();
         this.unpause();
       },
-
       render: function(ctx) {
         if(this.hidden) { return false; }
-        if(this.options.sort)
+        this.options.sort &&
           this.items.sort(this.options.sort);
         this.trigger("prerender",ctx);
         this.trigger("beforerender",ctx);
 
-        for(let i=0,z=this.items.length;i<z;++i) {
-          let item = this.items[i];
+        this.items.forEach( item => {
           // Don't render sprites with containers (sprites do that themselves)
           // Also don't render if not onscreen
           if(!item.container &&
              (item.p.renderAlways ||
-              item.mark >= this.time)) {
-            item.render(ctx);
-          }
-        }
+              item.mark >= this.time)) { item.render(ctx); } });
+
         this.trigger("render",ctx);
         this.trigger("postrender",ctx);
       }
     });
 
-    Q.activeStage = 0;
+    Mo.activeStage = 0;
 
-    Q.defType("StageSelector",{
+    Mo.defType("StageSelector",{
+
       emptyList: [],
 
       init: function(stage,selector) {
@@ -705,229 +477,174 @@ var quintusScenes = function(Quintus) {
         this.items = this.stage.lists[this.selector] || this.emptyList;
         this.length = this.items.length;
       },
-
-      each: function(callback) {
-        for(let i=0,z=this.items.length;i<z;++i)
-          callback.call(this.items[i],arguments[1],arguments[2]);
+      each: function(cb) {
+        let args=_.slice(arguments,1);
+        this.items.forEach(x => cb.apply(x, args));
         return this;
       },
-
       invoke: function(funcName) {
-        for(let i=0,z=this.items.length;i<z;++i) {
-          this.items[i][funcName].call(
-            this.items[i],arguments[1],arguments[2]
-          );
-        }
+        let args=_.slice(arguments,1);
+        this.items.forEach(x => x[funcName].apply(x, args));
         return this;
       },
-
       trigger: function(name,params) {
         this.invoke("trigger",name,params);
       },
-
       dispose: function() {
         this.invoke("dispose");
       },
-
       detect: function(func) {
-        for(let i = 0,val=null, z=this.items.length; i<z; ++i) {
-          if(func.call(this.items[i],arguments[1],arguments[2])) {
-            return this.items[i];
-          }
-        }
+        let args=_.slice(arguments,1);
+        this.items.forEach(x => { if(func.apply(x, args)) return x; });
         return false;
       },
-
       identify: function(func) {
-        let res= null;
-        for(let i = 0,val=null, z=this.items.length; i<z;++i) {
-          if(res= func.call(this.items[i],arguments[1],arguments[2])) {
-            return res;
-          }
-        }
+        let res, args=_.slice(arguments,1);
+        this.items.forEach(x => { if(res= func.apply(x, args)) return res; });
         return false;
       },
-
       // This hidden utility method extends
       // and object's properties with a source object.
       // Used by the p method to set properties.
       _pObject: function(source) {
         _.inject(this.p,source);
       },
-
       _pSingle: function(property,value) {
         this.p[property] = value;
       },
-
-      set: function(property, value) {
-        // Is value undefined
-        if(value === void 0)
-          this.each(this._pObject,property);
-        else
-          this.each(this._pSingle,property,value);
-
+      set: function(k, v) {
+        (v === void 0) ? this.each(this._pObject,k) : this.each(this._pSingle,k,v);
         return this;
       },
-
       at: function(idx) {
         return this.items[idx];
       },
-
       first: function() {
         return this.items[0];
       },
-
       last: function() {
         return this.items[this.items.length-1];
       }
-
     });
 
     // Maybe add support for different types
     // entity - active collision detection
     //  particle - no collision detection, no adding components to lists / etc
     //
-
     // Q("Player").invoke("shimmer); - needs to return a selector
     // Q(".happy").invoke("sasdfa",'fdsafas',"fasdfas");
     // Q("Enemy").p({ a: "asdfasf"  });
-
-    Q.select = function(selector,scope) {
-      scope = (scope === void 0) ? Q.activeStage : scope;
-      scope = Q.stage(scope);
-      if(_.isNumber(selector)) {
-        return scope.index[selector];
-      } else {
-        return new Q.StageSelector(scope,selector);
+    Mo.select = function(selector,scope) {
+      scope = (scope === void 0) ? Mo.activeStage : scope;
+      scope = Mo.stage(scope);
+      return _.isNumber(selector) ? scope.index[selector] : new Mo.StageSelector(scope,selector);
         // check if is array
         // check is has any commas
            // split into arrays
         // find each of the classes
         // find all the instances of a specific class
-      }
     };
 
-    Q.stage = function(num) {
-      // Use activeStage is num is undefined
-      num = (num === void 0) ? Q.activeStage : num;
-      return Q.stages[num];
+    Mo.stage = function(num) {
+      num = (num === void 0) ? Mo.activeStage : num;
+      return Mo.stages[num];
     };
 
-    Q.stageScene = function(scene,num,options) {
-
+    Mo.stageScene = function(scene,num,options) {
       if(_.isString(scene)) {
-        scene = Q.scene(scene);
+        scene = Mo.scene(scene);
       }
-
-      // If the user skipped the num arg and went straight to options,
-      // swap the two and grab a default for num
       if(_.isObject(num)) {
         options = num;
-        num = _.dissoc(options,"stage") ||
-              (scene && scene.opts.stage) || 0;
+        num = _.dissoc(options,"stage") || (scene && scene.opts.stage) || 0;
       }
-
       // Clone the options arg to prevent modification
       options = _.clone(options);
-
       // Grab the stage class, pulling from options, the scene default, or use
       // the default stage
       let StageClass = (_.dissoc(options,"stageClass")) ||
-                       (scene && scene.opts.stageClass) || Q.Stage;
-
+                       (scene && scene.opts.stageClass) || Mo.Stage;
       // Figure out which stage to use
-      num = _.isUndefined(num) ? ((scene && scene.opts.stage) || 0) : num;
+      num = _.isUndef(num) ? ((scene && scene.opts.stage) || 0) : num;
 
       // Clean up an existing stage if necessary
-      if(Q.stages[num])
-        Q.stages[num].dispose();
+      if(Mo.stages[num])
+        Mo.stages[num].dispose();
 
       // Make this this the active stage and initialize the stage,
       // calling loadScene to popuplate the stage if we have a scene.
-      Q.activeStage = num;
-      let stage = Q.stages[num] = new StageClass(scene,options);
+      Mo.activeStage = num;
+      let stage = Mo.stages[num] = new StageClass(scene,options);
 
       // Load an assets object array
-      if(stage.options.asset)
+      stage.options.asset &&
         stage.loadAssets(stage.options.asset);
 
-      if(scene)
-        stage.loadScene();
+      scene && stage.loadScene();
 
-      Q.activeStage = 0;
+      Mo.activeStage = 0;
 
       // If there's no loop active, run the default stageGameLoop
-      if(!Q.loop)
-        Q.gameLoop(Q.stageGameLoop);
-
+      if(!Mo.loop)
+        Mo.gameLoop(Mo.stageGameLoop);
 
       // Finally return the stage to the user for use if needed
       return stage;
     };
 
-    Q.stageStepLoop = function(dt) {
+    Mo.stageStepLoop = function(dt) {
       let stage;
 
       if(dt < 0) { dt = 1.0/60; }
       if(dt > 1/15) { dt  = 1.0/15; }
 
-      for(let i =0,z=Q.stages.length;i<z;++i) {
-        Q.activeStage = i;
-        stage = Q.stage();
-        if(stage)
+      for(let i =0,z=Mo.stages.length;i<z;++i) {
+        Mo.activeStage = i;
+        stage = Mo.stage();
+        stage &&
           stage.step(dt);
       }
 
-      Q.activeStage = 0;
+      Mo.activeStage = 0;
     };
 
-    Q.stageRenderLoop = function() {
+    Mo.stageRenderLoop = function() {
       let stage;
 
-      if(Q.ctx) { Q.clear(); }
+      Mo.ctx && Mo.clear();
 
-      for(let i =0,z=Q.stages.length;i<z;++i) {
-        Q.activeStage = i;
-        stage = Q.stage();
-        if(stage)
-          stage.render(Q.ctx);
+      for(let i =0,z=Mo.stages.length;i<z;++i) {
+        Mo.activeStage = i;
+        stage = Mo.stage();
+        stage &&
+          stage.render(Mo.ctx);
       }
 
-      if(Q.input && Q.ctx)
-        Q.input.drawCanvas(Q.ctx);
+      Mo.input &&
+        Mo.ctx &&
+          Mo.input.drawCanvas(Mo.ctx);
 
-      Q.activeStage = 0;
+      Mo.activeStage = 0;
     };
 
-    Q.stageGameLoop = function(dt) {
-      Q.stageStepLoop(dt);
-      Q.stageRenderLoop();
+    Mo.stageGameLoop = (dt) => {
+      Mo.stageStepLoop(dt);
+      Mo.stageRenderLoop();
     };
 
-    Q.clearStage = function(num) {
-      if(Q.stages[num]) {
-        Q.stages[num].dispose();
-        Q.stages[num] = null;
+    Mo.clearStage = (num) => {
+      if(Mo.stages[num]) {
+        Mo.stages[num].dispose();
+        Mo.stages[num] = null;
       }
     };
 
-    Q.clearStages = function() {
-      for(let i=0,z=Q.stages.length;i<z;++i) {
-        if(Q.stages[i])
-          Q.stages[i].dispose();
-      }
-      Q.stages.length = 0;
+    Mo.clearStages = function() {
+      Mo.stages.forEach(s => s && s.dispose());
+      Mo.stages.length = 0;
     };
 
   };
 
-
-};
-
-if(typeof Quintus === 'undefined') {
-  module.exports = quintusScenes;
-} else {
-  quintusScenes(Quintus);
-}
-
+})(this);
 

@@ -1,17 +1,14 @@
-/*global Quintus:false, module:false, window: false */
-var quintusTouch = function(Quintus) {
+(function(global) {
   "use strict";
-
-  Quintus.Touch = function(Q) {
-    let _ = Q._;
-
-    if(_.isUndefined(Quintus.Sprites))
-      throw "Quintus.Touch requires Quintus.Sprites Module";
+  let Mojo= global.Mojo, _ = Mojo._, window = global;
+  Mojo.Touch = function(Mo) {
+    if(_.isUndef(Mojo.Sprites))
+      throw "Mojo.Touch requires Mojo.Sprites Module";
 
     let touchStage = [0];
     let touchType = 0;
 
-    Q.Evented.extend("TouchSystem",{
+    Mo.defType(["TouchSystem",Mo.Evented], {
       init: function() {
         let touchSystem = this;
 
@@ -19,71 +16,69 @@ var quintusTouch = function(Quintus) {
         this.boundDrag = (e) => { touchSystem.drag(e); };
         this.boundEnd = (e) => { touchSystem.touchEnd(e); };
 
-        Q.el.addEventListener('touchstart',this.boundTouch);
-        Q.el.addEventListener('mousedown',this.boundTouch);
+        Mo.el.addEventListener('touchstart',this.boundTouch);
+        Mo.el.addEventListener('mousedown',this.boundTouch);
 
-        Q.el.addEventListener('touchmove',this.boundDrag);
-        Q.el.addEventListener('mousemove',this.boundDrag);
+        Mo.el.addEventListener('touchmove',this.boundDrag);
+        Mo.el.addEventListener('mousemove',this.boundDrag);
 
-        Q.el.addEventListener('touchend',this.boundEnd);
-        Q.el.addEventListener('mouseup',this.boundEnd);
-        Q.el.addEventListener('touchcancel',this.boundEnd);
+        Mo.el.addEventListener('touchend',this.boundEnd);
+        Mo.el.addEventListener('mouseup',this.boundEnd);
+        Mo.el.addEventListener('touchcancel',this.boundEnd);
 
-        this.touchPos = new Q.Evented();
+        this.touchPos = new Mo.Evented();
         this.touchPos.grid = {};
         this.touchPos.p = { w:1, h:1, cx: 0, cy: 0 };
         this.activeTouches = {};
         this.touchedObjects = {};
       },
-
       dispose: function() {
-        Q.el.removeEventListener('touchstart',this.boundTouch);
-        Q.el.removeEventListener('mousedown',this.boundTouch);
+        Mo.el.removeEventListener('touchstart',this.boundTouch);
+        Mo.el.removeEventListener('mousedown',this.boundTouch);
 
-        Q.el.removeEventListener('touchmove',this.boundDrag);
-        Q.el.removeEventListener('mousemove',this.boundDrag);
+        Mo.el.removeEventListener('touchmove',this.boundDrag);
+        Mo.el.removeEventListener('mousemove',this.boundDrag);
 
-        Q.el.removeEventListener('touchend',this.boundEnd);
-        Q.el.removeEventListener('mouseup',this.boundEnd);
-        Q.el.removeEventListener('touchcancel',this.boundEnd);
+        Mo.el.removeEventListener('touchend',this.boundEnd);
+        Mo.el.removeEventListener('mouseup',this.boundEnd);
+        Mo.el.removeEventListener('touchcancel',this.boundEnd);
       },
-
       normalizeTouch: function(touch,stage) {
-        let el = Q.el,
+        let el = Mo.el,
           rect = el.getBoundingClientRect(),
           style = window.getComputedStyle(el),
-          posX = touch.clientX - rect.left - parseInt(style.paddingLeft, 10),
-          posY = touch.clientY - rect.top  - parseInt(style.paddingTop, 10);
+          posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
+          posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
 
-        if(_.isUndefined(posX) ||
-           _.isUndefined(posY)) {
+        if(_.isUndef(posX) ||
+           _.isUndef(posY)) {
            posX = touch.offsetX;
            posY = touch.offsetY;
         }
 
-        if(_.isUndefined(posX) ||
-           _.isUndefined(posY)) {
+        if(_.isUndef(posX) ||
+           _.isUndef(posY)) {
           posX = touch.layerX;
           posY = touch.layerY;
         }
 
-        if(_.isUndefined(posX) ||
-           _.isUndefined(posY)) {
-          if(Q.touch.offsetX === void 0) {
-            Q.touch.offsetX = 0;
-            Q.touch.offsetY = 0;
-            el = Q.el;
+        if(_.isUndef(posX) ||
+           _.isUndef(posY)) {
+          if(Mo.touch.offsetX === void 0) {
+            Mo.touch.offsetX = 0;
+            Mo.touch.offsetY = 0;
+            el = Mo.el;
             do {
-              Q.touch.offsetX += el.offsetLeft;
-              Q.touch.offsetY += el.offsetTop;
+              Mo.touch.offsetX += el.offsetLeft;
+              Mo.touch.offsetY += el.offsetTop;
             } while(el = el.offsetParent);
           }
-          posX = touch.pageX - Q.touch.offsetX;
-          posY = touch.pageY - Q.touch.offsetY;
+          posX = touch.pageX - Mo.touch.offsetX;
+          posY = touch.pageY - Mo.touch.offsetY;
         }
 
-        this.touchPos.p.ox = this.touchPos.p.px = posX / Q.cssWidth * Q.width;
-        this.touchPos.p.oy = this.touchPos.p.py = posY / Q.cssHeight * Q.height;
+        this.touchPos.p.ox = this.touchPos.p.px = posX / Mo.cssWidth * Mo.width;
+        this.touchPos.p.oy = this.touchPos.p.py = posY / Mo.cssHeight * Mo.height;
 
         if(stage.viewport) {
           this.touchPos.p.px /= stage.viewport.scale;
@@ -101,11 +96,10 @@ var quintusTouch = function(Quintus) {
 
       touch: function(e) {
         let touches = e.changedTouches || [ e ];
-
         for(let i=0;i<touches.length;++i) {
           for(let stageIdx=0;stageIdx < touchStage.length;++stageIdx) {
             let touch = touches[i],
-                stage = Q.stage(touchStage[stageIdx]);
+                stage = Mo.stage(touchStage[stageIdx]);
 
             if(!stage) { continue; }
 
@@ -134,7 +128,7 @@ var quintusTouch = function(Quintus) {
                 stage: stage
               };
               this.touchedObjects[obj.p.id] = true;
-              obj.trigger('touch', this.activeTouches[touchIdentifier]);
+              obj.trigger("touch", this.activeTouches[touchIdentifier]);
               break;
             }
 
@@ -187,38 +181,32 @@ var quintusTouch = function(Quintus) {
 
     });
 
-    Q.touch = function(type,stage) {
-      Q.untouch();
-      touchType = type || Q.SPRITE_UI;
+    Mo.touch = function(type,stage) {
+      Mo.untouch();
+      touchType = type || Mo.SPRITE_UI;
       touchStage = stage || [2,1,0];
       if(!_.isArray(touchStage)) {
         touchStage = [touchStage];
       }
 
-      if(!Q._touch)
-        Q.touchInput = new Q.TouchSystem();
+      if(!Mo._touch)
+        Mo.touchInput = new Mo.TouchSystem();
 
-      return Q;
+      return Mo;
     };
 
-    Q.untouch = function() {
-      if(Q.touchInput) {
-        Q.touchInput.dispose();
-        delete Q['touchInput'];
+    Mo.untouch = function() {
+      if(Mo.touchInput) {
+        Mo.touchInput.dispose();
+        delete Mo['touchInput'];
       }
-      return Q;
+      return Mo;
     };
 
   };
 
 
-};
 
 
-if(typeof Quintus === 'undefined') {
-  module.exports = quintusTouch;
-} else {
-  quintusTouch(Quintus);
-}
-
+})(this);
 
