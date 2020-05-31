@@ -14,17 +14,6 @@
       }
     });
 
-    Mo.scene = (name,sceneFunc,opts) => {
-      if(sceneFunc) {
-        if(_.isFunction(sceneFunc)) {
-          sceneFunc = new Mo.Scene(sceneFunc,opts);
-          sceneFunc.name = name;
-        }
-        Mo.scenes[name] = sceneFunc;
-      }
-      return Mo.scenes[name];
-    };
-
     Mo._nullContainer = {
       c: {
         x: 0,
@@ -649,6 +638,17 @@
     Mo.clearStages = function() {
       Mo.stages.forEach(s => s && s.dispose());
       Mo.stages.length = 0;
+    };
+
+    Mo.scene = (name,sceneFunc,opts) => {
+      if(sceneFunc) {
+        if(_.isFunction(sceneFunc)) {
+          sceneFunc = new Mo.Scene(sceneFunc,opts);
+          sceneFunc.name = name;
+        }
+        Mo.scenes[name] = sceneFunc;
+      }
+      return Mo.scenes[name];
     };
 
   };
