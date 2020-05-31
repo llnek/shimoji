@@ -228,8 +228,9 @@
         return this.insert(layer);
       },
       _collideCollisionLayer: function(obj,collisionMask) {
-        let col;
-        this._collisionLayers.forEach(layer => {
+        let layer,col;
+        for(let i=0,z=this._collisionLayers.length;i<z;++i) {
+          layer=this._collisionLayers[i];
           if(layer.p.type & collisionMask) {
             col = layer.collide(obj);
             if(col) {
@@ -237,7 +238,7 @@
               return col;
             }
           }
-        });
+        }
         return false;
       },
       search: function(obj,collisionMask) {
@@ -494,13 +495,19 @@
         this.invoke("dispose");
       },
       detect: function(func) {
-        let args=_.slice(arguments,1);
-        this.items.forEach(x => { if(func.apply(x, args)) return x; });
+        let x,args=_.slice(arguments,1);
+        for(let i=0,z=this.items.length;i<z;++i){
+          x=this.items[i];
+          if(func.apply(x, args)) return x;
+        }
         return false;
       },
       identify: function(func) {
-        let res, args=_.slice(arguments,1);
-        this.items.forEach(x => { if(res= func.apply(x, args)) return res; });
+        let x,res, args=_.slice(arguments,1);
+        for(let i=0,z=this.items.length;i<z;++i) {
+          x=this.items[i];
+          if(res= func.apply(x, args)) return res;
+        }
         return false;
       },
       // This hidden utility method extends

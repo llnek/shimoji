@@ -59,11 +59,11 @@
     find: function(obj,fn,ctx,...args) {
       let res;
       if(isArray(obj)) {
-        obj.forEach((x,i,c) => {
-          res = fn.apply(ctx, [x, i].concat(args));
-          if(res)
+        for (let i=0,z=obj.length;i<z;++i) {
+          res = fn.apply(ctx, [obj[i], i].concat(args));
+          if (res)
             return res;
-        });
+        }
       } else if(obj) {
         for(let k in obj) {
           res = fn.apply(ctx, [obj[k], k].concat(args));
@@ -181,16 +181,6 @@
     };
   })();
 
-  Mo._normalizeArg = function(arg) {
-    if(_.isString(arg)) {
-      arg = arg.replace(/\s+/g,'').split(",");
-    }
-    if(!_.isArray(arg)) {
-      arg = [ arg ];
-    }
-    return arg;
-  };
-
   Mo.defType = function(clazz, props, classProps) {
     let child,parent;
     if(_.isString(clazz)) {
@@ -204,7 +194,7 @@
   }
 
   Mo.uses = (arg) => {
-    _.doseq(_.seq(arg), (m) => {
+    _.doseq(arg, (m) => {
       let f = Mojo[m] || m;
       if (_.isFunction(f)) f(Mo); else throw "Invalid Module:" + m; });
     return Mo;
@@ -745,15 +735,34 @@
       window.cancelAnimationFrame = (id) => { clearTimeout(id); };
   })();
 
-  window.Mojo = (opts) => {
-    Mo.options = _.inject({
-      imagePath: "images/",
-      audioPath: "audio/",
-      dataPath:  "data/",
-      sound: true,
-      frameTimeLimit: 100,
-      autoFocus: true,
-      audioSupported: ["mp3","ogg"]}, opts || {}); return Mo; };
+  window.Mojo = function(opts) {
+    Mo.options = _.inject({imagePath: "images/",
+                           dataPath:  "data/",
+                           audioPath: "audio/",
+                           sound: true,
+                           frameTimeLimit: 100,
+                           autoFocus: true,
+                           audioSupported: ["mp3","ogg"]}, opts || {});
+    let ms= [],
+        mods= ["Math", "Sprites", "Scenes",
+               "Input", "Anim", "2D", "Audio", "Touch", "UI"];
+    if (_.isArray(Mo.options.modules) && Mo.options.modules.length > 0) {
+      Mo.options.modules.forEach(m => {
+        if (_.find(mods, (x) => {return x==m;}))
+          ms.push(m);
+        else
+          throw "Unknown module: `" + m + "`";
+      });
+    } else {
+      ms=mods.slice(0);
+    }
+
+    //console.log("Modules: " + ms);
+    ms.forEach(k => Mojo[k](Mo));
+    Mo.options.modules= ms;
+
+    return Mo;
+  };
 
   window.Mojo._ = _;
 
