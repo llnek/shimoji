@@ -173,7 +173,7 @@
       if(className) {
         container=container|| Mo;
         container[className] = Base;
-        console.log("Adding class " + className + " to Mo.");
+        //console.log("Adding class " + className + " to Mo.");
         Base.prototype.className = className;
         Base.className = className;
       }

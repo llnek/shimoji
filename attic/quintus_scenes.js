@@ -177,7 +177,7 @@
           if(itm.container) {
             let i = itm.container.children.indexOf(itm);
             if(i > -1)
-              itm.container.children.splice(containerIdx,1);
+              itm.container.children.splice(i,1);
           }
           itm.dispose && itm.dispose();
           if(itm.p.id)

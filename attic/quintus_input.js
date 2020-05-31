@@ -386,7 +386,7 @@
           let el = Mo.el,
             rect = el.getBoundingClientRect(),
             style = window.getComputedStyle(el),
-            posX = touch.clientX - rect.left - parseInt(style.paddingLeft);
+            posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
             posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
 
           let stage = Mo.stage(stageNum);

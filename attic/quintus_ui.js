@@ -142,7 +142,7 @@
           size: 24,
           lineHeight: 1.2,
           align: 'center'
-        }, Mo.UI);
+        });
 
         //this.el = document.createElement("canvas");
         //this.ctx = this.el.getContext("2d");
@@ -244,7 +244,7 @@
         return this.fontString;
       }
 
-    });
+    }, Mo.UI);
 
     Mo.defType(["Button", Mo.UI.Container], {
       init: function(p, callback, defaultProps) {

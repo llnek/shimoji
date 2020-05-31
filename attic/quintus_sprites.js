@@ -50,14 +50,14 @@
       if(asset) {
         Mo.sheets[name] = new Mo.SpriteSheet(name,asset,options);
       } else {
-        return Q.sheets[name];
+        return Mo.sheets[name];
       }
     };
 
     Mo.compileSheets = function(imageAsset,spriteDataAsset) {
       var data = Mo.asset(spriteDataAsset);
       _.doseq(data,(spriteData,name) => {
-        Q.sheet(name,imageAsset,spriteData);
+        Mo.sheet(name,imageAsset,spriteData);
       });
     };
 
@@ -341,7 +341,7 @@
         this.matrix.identity();
 
         if(this.container)
-          this.matrix.multiply(this.container.matrix);
+          this.matrix.mult(this.container.matrix);
 
         this.matrix.translate(p.x,p.y);
 
