@@ -355,7 +355,7 @@
 
       draw: function(ctx) {
         let p = this.p,
-            viewport = this.stage.viewport,
+            viewport = this.layer.viewport,
             scale = viewport ? viewport.scale : 1,
             x = viewport ? viewport.x : 0,
             y = viewport ? viewport.y : 0,
@@ -449,7 +449,7 @@
           p.x += p.vx * dt;
           p.y += p.vy * dt;
 
-          this.entity.stage.collide(this.entity);
+          this.entity.layer.collide(this.entity);
           dtStep -= dt;
         }
       }

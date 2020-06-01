@@ -389,7 +389,7 @@
             posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
             posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
 
-          let stage = Mo.stage(stageNum);
+          let stage = Mo.layer(stageNum);
           if(_.isUndef(posX) ||
              _.isUndef(posY)) {
             posX = touch.offsetX;

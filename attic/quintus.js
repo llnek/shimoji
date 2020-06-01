@@ -301,7 +301,7 @@
   Mo.components = {};
 
   Mo.defType(["Component", Mo.Evented], {
-    // Components are created when they are added onto a `Mo.GameObject` entity. The entity
+    // Components are created when they are added onto a `Mo.Entity` entity. The entity
     // is directly extended with any methods inside of an `extend` property and then the
     // component itself is added onto the entity as well.
     init: function(entity) {
@@ -310,9 +310,9 @@
       entity[this.name] = this;
       entity.features.push(this.componentName);
 
-      entity.stage &&
-        entity.stage.addToList &&
-          entity.stage.addToList(this.componentName,entity);
+      entity.layer &&
+        entity.layer.addToList &&
+          entity.layer.addToList(this.componentName,entity);
 
       this.entity = entity;
       this.added && this.added();
@@ -325,16 +325,16 @@
       if(idx > -1) {
         this.entity.features.splice(idx,1);
         //WTF, should be remove?
-        this.entity.stage &&
-          this.entity.stage.addToList &&
-            this.entity.stage.addToList(this.componentName,this.entity);
+        this.entity.layer &&
+          this.entity.layer.addToList &&
+            this.entity.layer.addToList(this.componentName,this.entity);
       }
       this.debind();
       this.disposed && this.disposed();
     }
   });
 
-  Mo.defType(["GameObject",Mo.Evented], {
+  Mo.defType(["Entity",Mo.Evented], {
     has: function(co) {
       return _.has(this,co);
     },
@@ -360,7 +360,7 @@
       if(this.isDead) { return; }
       this.trigger('disposed');
       this.debind();
-      this.stage && this.stage.remove && this.stage.remove(this);
+      this.layer && this.layer.remove && this.layer.remove(this);
       this.isDead = true;
       this.disposed && this.disposed();
     }
@@ -374,7 +374,7 @@
     return (Mo.components[name] = Mo.defType(["Comp_"+name,Mo.Component], methods));
   };
 
-  Mo.GameObject.extend("GameState",{
+  Mo.defType(["GameState",Mo.Entity],{
     init: function(p) {
       this.p = _.inject({},p);
       this.listeners = {};

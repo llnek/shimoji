@@ -55,7 +55,7 @@
         });
       },
       insert: function(obj) {
-        this.stage.insert(obj,this);
+        this.layer.insert(obj,this);
         return obj;
       },
       fit: function(paddingY,paddingX) {
@@ -324,9 +324,9 @@
       positionIFrame: function() {
         var x = this.p.x;
         var y = this.p.y;
-        if(this.stage.viewport) {
-          x -= this.stage.viewport.x;
-          y -= this.stage.viewport.y;
+        if(this.layer.viewport) {
+          x -= this.layer.viewport.x;
+          y -= this.layer.viewport.y;
         }
         if(this.oldX !== x ||
            this.oldY !== y ||
@@ -391,7 +391,7 @@
         this._super(p, { type: 0 });
       },
       insert: function(sprite) {
-        this.stage.insert(sprite,this);
+        this.layer.insert(sprite,this);
         this.relayout();
         // Bind to dispose
         return sprite;

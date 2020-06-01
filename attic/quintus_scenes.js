@@ -2,56 +2,32 @@
   "use strict";
 
   let Mojo=global.Mojo, _ = Mojo._;
+  let _defs= {
+    sort: false,
+    gridW: 400,
+    gridH: 400,
+    x: 0,
+    y: 0
+  };
+
   Mojo.Scenes = function(Mo) {
 
+    Mo.activeLayer = 0;
     Mo.scenes = {};
-    Mo.stages = [];
+    Mo.layers = [];
 
-    Mo.defType("Scene", {
-      init: function(sceneFunc,opts) {
-        this.opts = opts || {};
-        this.sceneFunc = sceneFunc;
-      }
-    });
-
-    Mo._nullContainer = {
-      c: {
-        x: 0,
-        y: 0,
-        angle: 0,
-        scale: 1
-      },
-      matrix: Mo.matrix2d()
-    };
-
-    Mo.defType(["Stage",Mo.GameObject],{
-      defaults: {
-        sort: false,
-        gridW: 400,
-        gridH: 400,
-        x: 0,
-        y: 0
-      },
-      init: function(scene,opts) {
-        this.scene = scene;
+    Mo.defType(["Layer",Mo.Entity],{
+      init: function(action,opts) {
+        this.scene = action;
         this.items = [];
         this.lists = {};
         this.index = {};
-        this.removeList = [];
         this.grid = {};
-        this._collisionLayers = [];
-
         this.time = 0;
-
-        this.defaults['w'] = Mo.width;
-        this.defaults['h'] = Mo.height;
-
-        this.options = _.inject({},this.defaults);
-        if(this.scene)
-          _.inject(this.options,scene.opts);
-
-        _.inject(this.options,opts);
-
+        this.removeList = [];
+        this._collisionLayers = [];
+        this.options = _.inject(_.clone(_defs), {w: Mo.width,
+                                                 h: Mo.height}, opts);
         if(this.options.sort &&
            !_.isFunction(this.options.sort)) {
           this.options.sort = (a,b) => {
@@ -63,9 +39,8 @@
         this.invoke("debind");
         this.trigger("disposed");
       },
-      // Needs to be separated out so the current stage can be set
       loadScene: function() {
-        this.scene && this.scene.sceneFunc(this);
+        this.scene(this);
       },
       // Load an array of assets of the form:
       // [ [ "Player", { x: 15, y: 54 } ],
@@ -125,7 +100,7 @@
       },
       insert: function(itm,container) {
         this.items.push(itm);
-        itm.stage = this;
+        itm.layer = this;
         itm.container = container;
         if(container)
           container.children.push(itm);
@@ -234,9 +209,9 @@
         let col;
         // If the object doesn't have a grid, regrid it
         // so we know where to search
-        // and skip adding it to the grid only if it's not on this stage
+        // and skip adding it to the grid only if it's not on this layer
         if(!obj.grid)
-          this.regrid(obj,obj.stage !== this);
+          this.regrid(obj,obj.layer !== this);
 
         collisionMask = _.isUndef(collisionMask) ? (obj.p && obj.p.collisionMask) : collisionMask;
         col = this._collideCollisionLayer(obj,collisionMask);
@@ -453,20 +428,17 @@
       }
     });
 
-    Mo.activeStage = 0;
+    Mo.defType("Spotlight",{
 
-    Mo.defType("StageSelector",{
-
-      emptyList: [],
-
-      init: function(stage,selector) {
-        this.stage = stage;
+      init: function(layer,selector) {
+        this.layer = layer;
         this.selector = selector;
         // Generate an object list from the selector
         // TODO: handle array selectors
-        this.items = this.stage.lists[this.selector] || this.emptyList;
-        this.length = this.items.length;
+        this.items = this.layer.lists[this.selector] || [];
+        //this.length = this.items.length;
       },
+      count: function() { return this.items.length; },
       each: function(cb) {
         let args=_.slice(arguments,1);
         this.items.forEach(x => cb.apply(x, args));
@@ -530,10 +502,9 @@
     // Q("Player").invoke("shimmer); - needs to return a selector
     // Q(".happy").invoke("sasdfa",'fdsafas',"fasdfas");
     // Q("Enemy").p({ a: "asdfasf"  });
-    Mo.select = function(selector,scope) {
-      scope = (scope === void 0) ? Mo.activeStage : scope;
-      scope = Mo.stage(scope);
-      return _.isNumber(selector) ? scope.index[selector] : new Mo.StageSelector(scope,selector);
+    Mo.select = function(selector,layer) {
+      layer = Mo.layer((layer === void 0) ? Mo.activeLayer : layer);
+      return _.isNumber(selector) ? layer.index[selector] : new Mo.Spotlight(layer,selector);
         // check if is array
         // check is has any commas
            // split into arrays
@@ -541,112 +512,103 @@
         // find all the instances of a specific class
     };
 
-    Mo.stage = function(num) {
-      num = (num === void 0) ? Mo.activeStage : num;
-      return Mo.stages[num];
+    Mo.layer = (num) => {
+      return Mo.layers[(num === void 0) ? Mo.activeLayer : num ];
     };
 
-    Mo.stageScene = function(scene,num,options) {
-      if(_.isString(scene)) {
-        scene = Mo.scene(scene);
-      }
+    Mo.runScene = function(scene,num,options) {
+      let _s;
+
+      if (_.isString(scene))
+        _s = Mo.scenes[scene];
+
+      if (!_s)
+        throw "Unknown scene id: " + scene;
+
       if(_.isObject(num)) {
         options = num;
-        num = _.dissoc(options,"stage") || (scene && scene.opts.stage) || 0;
+        num = _.dissoc(options,"layer");
       }
-      // Clone the options arg to prevent modification
-      options = _.clone(options);
-      // Grab the stage class, pulling from options, the scene default, or use
-      // the default stage
-      let StageClass = (_.dissoc(options,"stageClass")) ||
-                       (scene && scene.opts.stageClass) || Mo.Stage;
-      // Figure out which stage to use
-      num = _.isUndef(num) ? ((scene && scene.opts.stage) || 0) : num;
 
-      // Clean up an existing stage if necessary
-      if(Mo.stages[num])
-        Mo.stages[num].dispose();
+      options = _.inject(_.clone(_s.options), options);
+      if (_.isUndef(num))
+        num= options["layer"] || 0;
 
-      // Make this this the active stage and initialize the stage,
-      // calling loadScene to popuplate the stage if we have a scene.
-      Mo.activeStage = num;
-      let stage = Mo.stages[num] = new StageClass(scene,options);
+      Mo.layers[num] && Mo.layers[num].dispose();
+      Mo.activeLayer = num;
+      let y = Mo.layers[num] = new Mo.Layer(_s.scene,options);
 
-      // Load an assets object array
-      stage.options.asset &&
-        stage.loadAssets(stage.options.asset);
+      y.options.asset &&
+        y.loadAssets(y.options.asset);
 
-      scene && stage.loadScene();
+      y.loadScene();
 
-      Mo.activeStage = 0;
+      Mo.activeLayer = 0;
 
-      // If there's no loop active, run the default stageGameLoop
       if(!Mo.loop)
-        Mo.gameLoop(Mo.stageGameLoop);
+        Mo.gameLoop(Mo.runGameLoop);
 
-      // Finally return the stage to the user for use if needed
-      return stage;
+      return y;
     };
 
-    Mo.stageStepLoop = function(dt) {
-      let stage;
+    Mo.runStep = function(dt) {
 
       if(dt < 0) { dt = 1.0/60; }
       if(dt > 1/15) { dt  = 1.0/15; }
 
-      for(let i =0,z=Mo.stages.length;i<z;++i) {
-        Mo.activeStage = i;
-        stage = Mo.stage();
-        stage &&
-          stage.step(dt);
+      let y;
+      for(let i =0,z=Mo.layers.length;i<z;++i) {
+        Mo.activeLayer = i;
+        y = Mo.layer();
+        y && y.step(dt);
       }
 
-      Mo.activeStage = 0;
+      Mo.activeLayer = 0;
     };
 
-    Mo.stageRenderLoop = function() {
-      let stage;
+    Mo.runRender = function() {
 
       Mo.ctx && Mo.clear();
 
-      for(let i =0,z=Mo.stages.length;i<z;++i) {
-        Mo.activeStage = i;
-        stage = Mo.stage();
-        stage &&
-          stage.render(Mo.ctx);
+      let y;
+      for(let i =0,z=Mo.layers.length;i<z;++i) {
+        Mo.activeLayer = i;
+        y = Mo.layer();
+        y && y.render(Mo.ctx);
       }
 
       Mo.input &&
         Mo.ctx &&
           Mo.input.drawCanvas(Mo.ctx);
 
-      Mo.activeStage = 0;
+      Mo.activeLayer = 0;
     };
 
-    Mo.stageGameLoop = (dt) => {
-      Mo.stageStepLoop(dt);
-      Mo.stageRenderLoop();
+    Mo.runGameLoop = (dt) => {
+      Mo.runStep(dt);
+      Mo.runRender();
     };
 
-    Mo.clearStage = (num) => {
-      if(Mo.stages[num]) {
-        Mo.stages[num].dispose();
-        Mo.stages[num] = null;
+    Mo.deleteLayer = (num) => {
+      if(Mo.layers[num]) {
+        Mo.layers[num].dispose();
+        Mo.layers[num] = null;
       }
     };
 
-    Mo.clearStages = function() {
-      Mo.stages.forEach(s => s && s.dispose());
-      Mo.stages.length = 0;
+    Mo.deleteLayers = function() {
+      for(let i=0,z=Mo.layers.length;i<z;++i)
+      Mo.deleteLayer(i);
+      Mo.layers.length = 0;
     };
 
-    Mo.scene = (name,sceneFunc,opts) => {
-      if(sceneFunc) {
-        if(_.isFunction(sceneFunc)) {
-          sceneFunc = new Mo.Scene(sceneFunc,opts);
-          sceneFunc.name = name;
-        }
-        Mo.scenes[name] = sceneFunc;
+    Mo.scene = (name,action,opts) => {
+      if(action) {
+        if(!_.isFunction(action))
+          throw "Expecting scene action function!";
+        Mo.scenes[name] = {name: name,
+                           scene: action,
+                           options: opts || {} };
       }
       return Mo.scenes[name];
     };

@@ -108,9 +108,9 @@
         let p = this.p,
             asset = this.asset(),
             sheet = this.sheet(),
-            scale = this.stage.viewport ? this.stage.viewport.scale : 1,
-            viewX = Math.floor(this.stage.viewport ? this.stage.viewport.x : 0),
-            viewY = Math.floor(this.stage.viewport ? this.stage.viewport.y : 0),
+            scale = this.layer.viewport ? this.layer.viewport.scale : 1,
+            viewX = Math.floor(this.layer.viewport ? this.layer.viewport.x : 0),
+            viewY = Math.floor(this.layer.viewport ? this.layer.viewport.y : 0),
             offsetX = Math.floor(p.x + viewX * this.p.speedX),
             offsetY = Math.floor(p.y + viewY * this.p.speedY),
             curX, curY, startX, endX, endY;
@@ -162,7 +162,7 @@
           duration = 1;
         }
         this.entity = entity;
-        //this.p = (entity instanceof Mo.Stage) ? entity.viewport : entity.p;
+        //this.p = (entity instanceof Mo.Layer) ? entity.viewport : entity.p;
         this.duration = duration || 1;
         this.time = 0;
         this.options = options || {};
@@ -188,7 +188,7 @@
           // first time running? Initialize the properties to chaining correctly.
           let entity = this.entity,
               properties = this.properties;
-          this.p = (entity instanceof Mo.Stage) ? entity.viewport : entity.p;
+          this.p = (entity instanceof Mo.Layer) ? entity.viewport : entity.p;
           for(let p in properties) {
             this.start[p] = this.p[p];
             if(!_.isUndef(this.start[p]))

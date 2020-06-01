@@ -99,7 +99,7 @@
         for(let i=0;i<touches.length;++i) {
           for(let stageIdx=0;stageIdx < touchStage.length;++stageIdx) {
             let touch = touches[i],
-                stage = Mo.stage(touchStage[stageIdx]);
+                stage = Mo.layer(touchStage[stageIdx]);
 
             if(!stage) { continue; }
 
@@ -146,7 +146,7 @@
               touchIdentifier = touch.identifier || 0;
 
           let active = this.activeTouches[touchIdentifier],
-              stage = active && active.stage;
+              stage = active && active.layer;
 
           if(active) {
             let pos = this.normalizeTouch(touch,stage);

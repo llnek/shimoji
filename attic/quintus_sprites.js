@@ -83,6 +83,16 @@
                   [ -halfW,  halfH ]];
     };
 
+    Mo._nullContainer = {
+      c: {
+        x: 0,
+        y: 0,
+        angle: 0,
+        scale: 1
+      },
+      matrix: Mo.matrix2d()
+    };
+
     Mo._generateCollisionPoints = function(obj) {
 
       if(!obj.matrix &&
@@ -162,7 +172,7 @@
           _.invoke(obj.children,"moved");
     };
 
-    Mo.defType(["Sprite",Mo.GameObject], {
+    Mo.defType(["Sprite",Mo.Entity], {
       init: function(props,defProps) {
         this.p = _.inject({
           x: 0,
@@ -328,9 +338,9 @@
         Mo._generateCollisionPoints(this);
 
         // Ugly coupling to stage - workaround?
-        this.stage &&
+        this.layer &&
           (this.children.length > 0) &&
-            this.stage.updateSprites(this.children,dt,true);
+            this.layer.updateSprites(this.children,dt,true);
 
         // Reset collisions if we're tracking them
         if(this.p.collisions)
