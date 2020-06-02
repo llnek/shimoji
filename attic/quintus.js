@@ -56,8 +56,9 @@
       }
       return res;
     },
-    find: function(obj,fn,ctx,...args) {
+    find: function(obj,fn,ctx) {
       let res;
+      let args=slicer.call(arguments,3);
       if(isArray(obj)) {
         for (let i=0,z=obj.length;i<z;++i) {
           res = fn.apply(ctx, [obj[i], i].concat(args));
@@ -73,7 +74,8 @@
       }
       return res;
     },
-    invoke: function(arr,key,...args) {
+    invoke: function(arr,key) {
+      let args=slicer.call(arguments,2);
       if(isArray(arr))
         arr.forEach(x => { x[key].apply(x, args); });
     },
@@ -91,7 +93,8 @@
       return val;
     },
     seq: (arg,sep=",") => {
-      if(typeof arg === "string") arg = arg.replace(/\s+/g,'').split(sep);
+      if(typeof arg === "string")
+        arg = arg.replace(/\s+/g,'').split(sep);
       if(!isArray(arg)) arg = [arg];
       return arg;
     },
@@ -101,8 +104,9 @@
     isObject: isObject,
     isArray: isArray,
     isUndef: (obj) => { return obj === void 0; },
-    //isUndefined: (obj) => { return obj === void 0; },
-    has: (obj,key) => { return OBJECT.hasOwnProperty.call(obj, key); },
+    has: (obj,key) => {
+      return OBJECT.hasOwnProperty.call(obj, key);
+    },
     patch: (des,src) => {
       if (src)
         for (let k in src)
@@ -110,15 +114,19 @@
       return des;
     },
     clone: (obj) => { return Object.assign({},obj); },
-    inject: (des,...src) => {
-      src.forEach(s => Object.assign(des,s));
+    inject: function(des) {
+      let args=slicer.call(arguments,1);
+      args.forEach(s => Object.assign(des,s));
       return des;
     }
   };
 
-  let Mo = function(selector,scope,options) {
+  /*
+  let Mo = function(selector,scope) {
     return Mo.select && Mo.select(selector,scope,options);
   };
+  */
+  let Mo={};
 
   // The base class implementation (does nothing)
   let ____john_resig = function(){};
@@ -200,27 +208,6 @@
     return Mo;
   };
 
-  /*
-  Mo._extend = _.inject;
-  Mo._clone = function(obj) { return Mo._extend({},obj); };
-  Mo._defaults = _.patch;
-  Mo._has = function(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); };
-  Mo._isString = function(obj) { return typeof obj === "string"; };
-  Mo._isNumber = function(obj) { return Object.prototype.toString.call(obj) === '[object Number]'; };
-  Mo._isFunction = function(obj) { return Object.prototype.toString.call(obj) === '[object Function]'; };
-  Mo._isObject = function(obj) { return Object.prototype.toString.call(obj) === '[object Object]'; };
-  Mo._isArray = function(obj) { return Object.prototype.toString.call(obj) === '[object Array]'; };
-  Mo._isUndefined = function(obj) { return obj === void 0; };
-  Mo._popProperty = _.dissoc;
-  Mo._each = _.doseq;
-  Mo._invoke = _.invoke;
-  Mo._detect = _.find;
-  Mo._map = _.map;
-  Mo._uniq = _.uniq;
-  Mo._shuffle = _.shuffle;
-  Mo._keys = _.keys;
-  Mo._range = _.range;
-  */
   let idIndex = 0;
   Mo._uniqueId = () => { return ++idIndex; };
 
@@ -257,13 +244,61 @@
     }
   };
 
+  Mo.EventBus=  {
+    tree: new Map(),
+    sub: function(event,target,cb,ctx) {
+      if(_.isArray(event)) {
+        event.forEach(e => this.sub(e,target,cb,ctx));
+      } else {
+        if(_.isString(cb)) {
+          ctx=ctx || target;
+          cb=ctx[cb];
+        }
+        if (!cb)
+          throw "No callback provided for event sub().";
+        if (!this.tree.has(target))
+          this.tree.set(target,new Map());
+        let m= this.tree.get(target);
+        !m.has(event)
+          && m.set(event,[]);
+        m.get(event).push([cb,ctx]);
+      }
+    },
+    pub: function(event,target,data) {
+      let m= this.tree.get(target);
+      if (m)
+        m= m.get(event);
+      if (m)
+        m.forEach(s => s[0].call(s[1],data));
+    },
+    unsub: function(event,target,cb,ctx) {
+      for(let ss, m= this.tree.get(target);m;m=null) {
+        if(!cb)
+          m.delete(event);
+        else {
+          if(_.isString(cb)) {
+            ctx=ctx || target;
+            cb=ctx[cb];
+          }
+          if(!cb)
+            m.delete(event);
+          else if(ss= m.get(event)) {
+            for(let i= ss.length-1;i>=0;--i)
+              if(ss[i][0] === cb &&
+                 ss[i][1] === ctx) ss.splice(i,1);
+          }
+        }
+      }
+    }
+  };
+
   Mo.defType("Evented", {
     on: function(event,cb,ctx) {
-      if(_.isArray(event) || event.indexOf(",") > -1) {
-        _.seq(event).forEach(e => this.on(e,cb,ctx));
+      if(_.isArray(event)) {
+        event.forEach(e => this.on(e,cb,ctx));
       } else {
-        ctx= ctx || this;
         if(!cb) cb = event;
+        ctx= ctx || this;
         if(_.isString(cb)) { cb = ctx[cb]; }
         this.subs = this.subs || {};
         this.subs[event] = this.subs[event] || [];
@@ -294,7 +329,7 @@
     },
     debind: function() {
       if(this.binds)
-        this.binds.forEach(b => b[0].off(b[1],this));
+        this.binds.forEach(b => b[0].off(b[1],null,this));
     }
    });
 

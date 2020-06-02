@@ -28,18 +28,12 @@
         this._collisionLayers = [];
         this.options = _.inject(_.clone(_defs), {w: Mo.width,
                                                  h: Mo.height}, opts);
-        if(this.options.sort &&
-           !_.isFunction(this.options.sort)) {
-          this.options.sort = (a,b) => {
-            return ((a.p && a.p.z) || -1) - ((b.p && b.p.z) || -1);
-          };
-        }
       },
       disposed: function() {
         this.invoke("debind");
         this.trigger("disposed");
       },
-      loadScene: function() {
+      run: function() {
         this.scene(this);
       },
       // Load an array of assets of the form:
@@ -428,15 +422,12 @@
       }
     });
 
-    Mo.defType("Spotlight",{
+    Mo.defType("Locator",{
 
       init: function(layer,selector) {
         this.layer = layer;
         this.selector = selector;
-        // Generate an object list from the selector
-        // TODO: handle array selectors
         this.items = this.layer.lists[this.selector] || [];
-        //this.length = this.items.length;
       },
       count: function() { return this.items.length; },
       each: function(cb) {
@@ -502,14 +493,9 @@
     // Q("Player").invoke("shimmer); - needs to return a selector
     // Q(".happy").invoke("sasdfa",'fdsafas',"fasdfas");
     // Q("Enemy").p({ a: "asdfasf"  });
-    Mo.select = function(selector,layer) {
-      layer = Mo.layer((layer === void 0) ? Mo.activeLayer : layer);
-      return _.isNumber(selector) ? layer.index[selector] : new Mo.Spotlight(layer,selector);
-        // check if is array
-        // check is has any commas
-           // split into arrays
-        // find each of the classes
-        // find all the instances of a specific class
+    Mo.pin = function(selector,where) {
+      let y= Mo.layer((where === void 0) ? Mo.activeLayer : where);
+      return _.isNumber(selector) ? y.index[selector] : new Mo.Locator(y,selector);
     };
 
     Mo.layer = (num) => {
@@ -517,11 +503,7 @@
     };
 
     Mo.runScene = function(scene,num,options) {
-      let _s;
-
-      if (_.isString(scene))
-        _s = Mo.scenes[scene];
-
+      let _s = _.isString(scene) ? Mo.scenes[scene] : null;
       if (!_s)
         throw "Unknown scene id: " + scene;
 
@@ -541,7 +523,7 @@
       y.options.asset &&
         y.loadAssets(y.options.asset);
 
-      y.loadScene();
+      y.run();
 
       Mo.activeLayer = 0;
 
@@ -551,42 +533,30 @@
       return y;
     };
 
-    Mo.runStep = function(dt) {
+    Mo.runGameLoop = (dt) => {
+      let i, z, y;
 
-      if(dt < 0) { dt = 1.0/60; }
-      if(dt > 1/15) { dt  = 1.0/15; }
+      if(dt < 0) dt = 1.0/60;
+      if(dt > 1.0/15) dt  = 1.0/15;
 
-      let y;
-      for(let i =0,z=Mo.layers.length;i<z;++i) {
+      for(i=0,z=Mo.layers.length;i<z;++i) {
         Mo.activeLayer = i;
         y = Mo.layer();
         y && y.step(dt);
       }
 
       Mo.activeLayer = 0;
-    };
-
-    Mo.runRender = function() {
-
       Mo.ctx && Mo.clear();
 
-      let y;
-      for(let i =0,z=Mo.layers.length;i<z;++i) {
+      for(i =0,z=Mo.layers.length;i<z;++i) {
         Mo.activeLayer = i;
         y = Mo.layer();
         y && y.render(Mo.ctx);
       }
-
       Mo.input &&
         Mo.ctx &&
           Mo.input.drawCanvas(Mo.ctx);
-
       Mo.activeLayer = 0;
-    };
-
-    Mo.runGameLoop = (dt) => {
-      Mo.runStep(dt);
-      Mo.runRender();
     };
 
     Mo.deleteLayer = (num) => {
