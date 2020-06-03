@@ -1,8 +1,8 @@
-(function(global) {
+(function(global, undefined) {
   "use strict";
 
-  if (typeof global.document==="undefined" ||
-      typeof global.document.body==="undefined")
+  if (global.document===undefined ||
+      global.document.body===undefined)
     throw "Invalid environment, cannot run Mojo!";
 
   const ARRAY=Array.prototype,
@@ -12,14 +12,21 @@
         window=global,
         document=global.document;
 
-  const isObject= (obj) => { return tostr.call(obj) === "[object Object]"; };
-  const isArray= (obj) => { return tostr.call(obj) === "[object Array]"; };
-
+  const isObject= (obj) => {
+    return tostr.call(obj) === "[object Object]";
+  };
+  const isArray= (obj) => {
+    return tostr.call(obj) === "[object Array]";
+  };
   const _ = {
     keys: (obj) => { return isObject(obj) ? Object.keys(obj) : []; },
     slice: (a,i) => { return slicer.call(a, i); },
-    now: () => { return new Date().getTime(); },
-    basename: (file) => { return file.replace(/\.(\w{3,4})$/,""); },
+    now: () => { return Date.now(); }, //new Date().getTime(); },
+    fileNoExt: (name) => { return name.replace(/\.(\w{3,4})$/,""); },
+    fileExt: (name) => {
+      let parts = name.split(".");
+      return parts[parts.length-1].toLowerCase();
+    },
     range: (start,stop,step=1) => {
       let len = Math.max(0, Math.ceil((stop-start)/step));
       let res = new Array(len);
@@ -121,32 +128,48 @@
     }
   };
 
-  /*
-  let Mo = function(selector,scope) {
-    return Mo.select && Mo.select(selector,scope,options);
+  let AssetTypes= {tmx: "TMX", png: "Image",
+                   jpg: "Image", gif: "Image", jpeg: "Image",
+                   ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
+  let AudioMimeTypes = {mp3: "audio/mpeg",
+                        m4a: "audio/m4a",
+                        wav: "audio/wav",
+                        ogg: 'audio/ogg; codecs="vorbis"'};
+  let _audioDftExt;
+  let _preloads= [];
+  let _audioAssetExtension = () => {
+    if(!_audioDftExt)
+    { let snd = new Audio();
+      _audioDftExt= _.find(Mo.options.audioSupported,
+        (ext) => {return snd.canPlayType(AudioMimeTypes[ext]) ? ext: null;}); }
+    return _audioDftExt;
   };
-  */
-  let Mo={};
-
+  let _assetUrl = (base,url,devMode) => {
+    let ts = "";
+    if(devMode)
+      ts = (/\?/.test(url) ? "&" : "?") + "_t=" + _.now();
+    ts= url + ts;
+    return (/^https?:\/\//.test(url) || url[0] === "/") ? ts : base + ts;
+  };
+  let Mo={components: {},
+          assets: {},
+          touchDevice: !!("ontouchstart" in document)};
   // The base class implementation (does nothing)
-  let ____john_resig = function(){};
-  ____john_resig.prototype.isA = function(c) {
+  let Resig = function(){};
+  Resig.prototype.isA = function(c) {
     return this.className === c;
   };
   (function(){
-    let initializing = false,
-        fnTest = /xyz/.test(function(){ var xyz;}) ? /\b_super\b/ : /.*/;
-    ____john_resig.extend = function(className, props, container) {
+    let initing = false,
+        fnTest = /xyz/.test(function(){var xyz;}) ? /\b_super\b/ : /.*/;
+    Resig.extend = function(className, props, container) {
       if(!_.isString(className)) {
-        container = props;
-        props = className;
-        className = null;
-      }
+        container = props; props = className; className = null; }
       let _super = this.prototype;
-      let ThisClass = this;
-      initializing = true;
-      let prototype = new ThisClass();
-      initializing = false;
+      let proto,ThisClass = this;
+      initing = true;
+      proto = new ThisClass();
+      initing = false;
       function _superFactory(name,fn) {
         return function() {
           let tmp = this._super;
@@ -162,54 +185,53 @@
       }
       for(let name in props) {
         /* Check if we're overwriting an existing function */
-        prototype[name] = typeof props[name] === "function" &&
+        proto[name] = typeof props[name] === "function" &&
           typeof _super[name] === "function" &&
             fnTest.test(props[name]) ? _superFactory(name,props[name]) : props[name];
       }
       /* The dummy class constructor function*/
-      function Base() {
-        if (!initializing && this.init)
+      function TemplateFn() {
+        if (!initing && this.init)
           this.init.apply(this, arguments); // init => ctor
       }
       /* Populate our constructed prototype object */
-      Base.prototype = prototype;
+      TemplateFn.prototype = proto;
       /* Enforce the constructor to be what we expect */
-      Base.prototype.constructor = Base;
+      TemplateFn.prototype.constructor = TemplateFn;
       /* And make this class extendable */
-      Base.extend = ____john_resig.extend;
-      //if(classMethods) Object.assign(Base,classMethods);
+      TemplateFn.extend = Resig.extend;
       if(className) {
         container=container|| Mo;
-        container[className] = Base;
+        container[className] = TemplateFn;
         //console.log("Adding class " + className + " to Mo.");
-        Base.prototype.className = className;
-        Base.className = className;
+        TemplateFn.prototype.className = className;
+        TemplateFn.className = className;
       }
-      return Base;
+      return TemplateFn;
     };
   })();
 
-  Mo.defType = function(clazz, props, classProps) {
+  Mo.defType = (clazz, props, container) => {
     let child,parent;
     if(_.isString(clazz)) {
-      parent=____john_resig;
+      parent=Resig;
       child=clazz;
-    } else if(_.isArray(clazz)) {
+    }
+    else
+    if(_.isArray(clazz)) {
       child=clazz[0];
       parent=clazz[1];
     }
-    return parent.extend(child,props,classProps);
+    return parent.extend(child,props,container);
   }
 
   Mo.uses = (arg) => {
     _.doseq(arg, (m) => {
       let f = Mojo[m] || m;
-      if (_.isFunction(f)) f(Mo); else throw "Invalid Module:" + m; });
+      if (_.isFunction(f))
+        f(Mo); else throw "Invalid Module:" + m; });
     return Mo;
   };
-
-  let idIndex = 0;
-  Mo._uniqueId = () => { return ++idIndex; };
 
   Mo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
   Mo.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
@@ -244,7 +266,7 @@
     }
   };
 
-  Mo.EventBus=  {
+  Mo.EventBus= {
     tree: new Map(),
     sub: function(event,target,cb,ctx) {
       if(_.isArray(event)) {
@@ -296,8 +318,6 @@
     }
   };
 
-  Mo.components = {};
-
   Mo.defType("Component", {
     // Components are created when they are added onto a `Mo.Entity` entity. The entity
     // is directly extended with any methods inside of an `extend` property and then the
@@ -323,9 +343,14 @@
       if(idx > -1) {
         this.entity.features.splice(idx,1);
         //WTF, should be remove?
+        /*
         this.entity.layer &&
           this.entity.layer.addToList &&
             this.entity.layer.addToList(this.componentName,this.entity);
+            */
+        this.entity.layer &&
+          this.entity.layer.removeFromList &&
+            this.entity.layer.removeFromList(this.componentName,this.entity);
       }
       //this.debind();
       this.disposed && this.disposed();
@@ -369,13 +394,15 @@
       return Mo.components[name];
     methods.name = name;
     methods.componentName = "." + name;
-    return (Mo.components[name] = Mo.defType(["Comp_"+name,Mo.Component], methods));
+    let c= Mo.defType(["Co"+name,Mo.Component], methods);
+    Mo.components[name] = c;
+    return c;
   };
 
-  Mo.defType(["GameState",Mo.Entity],{
+  Mo.defType("GameState", {
     init: function(p) {
-      this.p = _.inject({},p);
       this.listeners = {};
+      this.p = _.clone(p);
     },
     reset: function(p) {
       this.init(p);
@@ -387,12 +414,14 @@
         Mo.EventBus.pub("change." + key,this,value);
       }
     },
+    get: function(prop) {
+      return this.p[prop];
+    },
     set: function(prop,value) {
-      if(_.isObject(prop)) {
-        _.doseq(prop,this._triggerProperty,this);
-      } else {
+      if(!_.isObject(prop))
         this._triggerProperty(value,prop);
-      }
+      else
+        _.doseq(prop,this._triggerProperty,this);
       Mo.EventBus.pub("change",this);
     },
     inc: function(prop,amount) {
@@ -400,17 +429,13 @@
     },
     dec: function(prop,amount) {
       this.set(prop,this.get(prop) - amount);
-    },
-    get: function(prop) {
-      return this.p[prop];
     }
   });
 
   Mo.state = new Mo.GameState();
-  Mo.reset = function() { Mo.state.reset(); };
-  Mo.touchDevice = ("ontouchstart" in document);
+  Mo.reset = () => { Mo.state.reset(); };
 
-  Mo.setup = function(id, options) {
+  Mo.prologue = function(id, options) {
     if(_.isObject(id)) {
       options = id;
       id = null;
@@ -440,7 +465,7 @@
         upsampleHeight = options.upsampleHeight;
 
     if(options.maximize === true ||
-       (Mo.touchDevice && options.maximize === 'touch'))  {
+       (Mo.touchDevice && options.maximize === "touch"))  {
       document.body.style.padding = 0;
       document.body.style.margin = 0;
 
@@ -466,8 +491,9 @@
       Mo.el.width = w * 2;
       Mo.el.height = h * 2;
     }
-    else if(((resampleWidth && w > resampleWidth) ||
-             (resampleHeight && h > resampleHeight)) && Mo.touchDevice) {
+    else
+    if(((resampleWidth && w > resampleWidth) ||
+        (resampleHeight && h > resampleHeight)) && Mo.touchDevice) {
       Mo.el.style.height = h + "px";
       Mo.el.style.width = w + "px";
       Mo.el.width = w / 2;
@@ -489,8 +515,7 @@
       Mo.wrapper.appendChild(Mo.el);
     }
 
-    Mo.el.style.position = 'relative';
-
+    Mo.el.style.position = "relative";
     Mo.ctx = Mo.el.getContext &&
              Mo.el.getContext("2d");
 
@@ -528,7 +553,7 @@
       }
     }
 
-    window.addEventListener('orientationchange',function() {
+    window.addEventListener('orientationchange', () => {
       setTimeout(() => window.scrollTo(0,1), 0);
     });
 
@@ -563,57 +588,26 @@
     return ctx.getImageData(0,0,img.width,img.height);
   };
 
-  Mo.assetTypes = {
-    png: 'Image', jpg: 'Image', gif: 'Image', jpeg: 'Image',
-    ogg: 'Audio', wav: 'Audio', m4a: 'Audio', mp3: 'Audio'
-  };
-
-  Mo._fileExtension = (name) => {
-    let parts = name.split(".");
-    return parts[parts.length-1].toLowerCase();
-  };
-
-  Mo.assetType = (asset) => {
-    let ext = Mo._fileExtension(asset);
-    let type = Mo.assetTypes[ext];
+  Mo.assetType = (url) => {
+    let ext = _.fileExt(url);
+    let type = ext ? AssetTypes[ext] : "";
     if(type === "Audio" &&
        Mo.audio &&
-       Mo.audio.type === "WebAudio") { type = 'WebAudio'; }
+       Mo.audio.type === "WebAudio") { type = "WebAudio"; }
     return type || "Other";
-  };
-
-  Mo.assetUrl = (base,url) => {
-    let ts = "";
-    if(Mo.options.devMode)
-      ts = (/\?/.test(url) ? "&" : "?") + "_t=" + _.now();
-    ts= url + ts;
-    return (/^https?:\/\//.test(url) || url[0] === "/") ? ts : base + ts;
   };
 
   Mo.loadAssetImage = (key,src,cb,ecb) => {
     let img = new Image();
     img.onerror = ecb;
     img.onload = () => cb(key,img);
-    img.src = Mo.assetUrl(Mo.options.imagePath,src);
+    img.src = _assetUrl(Mo.options.imagePath,src,Mo.options.devMode);
     return Mo;
   };
 
-  Mo.audioMimeTypes = {mp3: "audio/mpeg",
-                       m4a: "audio/m4a",
-                       wav: "audio/wav",
-                       ogg: 'audio/ogg; codecs="vorbis"'};
-
-  Mo._audioAssetExtension = () => {
-    if(!Mo._audioAssetPreferredExtension) {
-      let snd = new Audio();
-      Mo._audioAssetPreferredExtension = _.find(Mo.options.audioSupported,
-        (ext) => { return snd.canPlayType(Mo.audioMimeTypes[ext]) ? ext: null; });
-    }
-    return Mo._audioAssetPreferredExtension;
-  };
-
   Mo.loadAssetAudio = function(key,src,cb,ecb) {
-    let ext= Mo._audioAssetExtension();
+    let dev=Mo.options.devMode,
+        ext= _audioAssetExtension();
     if(!Mo.options.sound ||
        !ext||
        !document.createElement("audio").play) { cb(key); }
@@ -623,7 +617,7 @@
       // don't wait for canplaythrough on mobile
       if(!Mo.touchDevice)
         snd.addEventListener('canplaythrough', () => cb(key,snd));
-      snd.src =  Mo.assetUrl(Mo.options.audioPath, _.basename(src)+"."+ ext);
+      snd.src =  _assetUrl(Mo.options.audioPath, _.fileNoExt(src)+"."+ ext, dev);
       snd.load();
     }
 
@@ -632,19 +626,22 @@
 
   Mo.loadAssetWebAudio = function(key,src,cb,ecb) {
     let ajax = new XMLHttpRequest(),
-        base= _.basename(src),
-        ext= Mo._audioAssetExtension();
-    ajax.open("GET", Mo.assetUrl(Mo.options.audioPath,base+"."+ext), true);
+        dev= Mo.options.devMode,
+        base= _.fileNoExt(src),
+        ext= _audioAssetExtension();
+    ajax.open("GET", _assetUrl(Mo.options.audioPath,base+"."+ext,dev), true);
     ajax.responseType = "arraybuffer";
-    ajax.onload = () => { Mo.audioContext.decodeAudioData(ajax.response, (b) => { cb(key,b); }, ecb); };
+    ajax.onload = () => {
+      Mo.audioContext.decodeAudioData(ajax.response, (b) => { cb(key,b); }, ecb);
+    };
     ajax.send();
     return Mo;
   };
 
   Mo.loadAssetOther = function(key,src,cb,ecb) {
-    let parts = src.split("."),
-        ext = parts[parts.length-1].toLowerCase();
-    let ajax = new XMLHttpRequest();
+    let ext = _.fileExt(src),
+        dev=Mo.options.devMode,
+        ajax = new XMLHttpRequest();
     if(document.location.origin === "null" ||
        document.location.origin === "file://") {
       if(!Mo.fileURLAlert) {
@@ -657,14 +654,13 @@
       if(ajax.readyState === 4)
         (ajax.status !== 200) ? ecb() : cb(key, (ext !== "json") ? ajax.responseText : JSON.parse(ajax.responseText));
     };
-    ajax.open("GET", Mo.assetUrl(Mo.options.dataPath,src), true);
+    ajax.open("GET", _assetUrl(Mo.options.dataPath,src,dev), true);
     ajax.send(null);
     return Mo;
   };
 
-  Mo.assets = {};
-  Mo.asset = (name) => { return Mo.assets[name]; };
-  Mo.load = function(assets,cb,options) {
+  Mo.asset= (name) => { return Mo.assets[name]; };
+  Mo.load= function(assets,cb,options) {
     let pcb = options && options.progressCb;
     let bad = options && options.errorCb;
     let assetObj = {};
@@ -701,13 +697,12 @@
     return Mo;
   };
 
-  Mo.preloads = [];
   Mo.preload = (arg,options) => {
     if(!_.isFunction(arg)) {
-      Mo.preloads = Mo.preloads.concat(arg);
+      _preloads = _preloads.concat(arg);
     } else {
-      Mo.load(_.uniq(Mo.preloads),arg,options);
-      Mo.preloads = [];
+      Mo.load(_.uniq(_preloads),arg,options);
+      _preloads = [];
     }
     return Mo;
   };
@@ -742,7 +737,7 @@
                            autoFocus: true,
                            audioSupported: ["mp3","ogg"]}, opts || {});
     let ms= [],
-        mods= ["Math", "Sprites", "Scenes",
+        mods= ["Math", "Sprites", "Scenes", "TMX",
                "Input", "Anim", "2D", "Audio", "Touch", "UI"];
     if (_.isArray(Mo.options.modules) && Mo.options.modules.length > 0) {
       Mo.options.modules.forEach(m => {
@@ -756,8 +751,8 @@
     }
 
     //console.log("Modules: " + ms);
-    ms.forEach(k => Mojo[k](Mo));
     Mo.options.modules= ms;
+    ms.forEach(k => Mojo[k](Mo));
 
     return Mo;
   };

@@ -2,7 +2,6 @@
   "use strict";
   let Mojo = global.Mojo, _= Mojo._;
   Mojo.TMX = function(Mo) {
-   Mo.assetTypes['tmx'] = 'TMX';
    Mo.loadAssetTMX = function(key,src,cb,ecb) {
      // Piggyback on loadAssetOther's AJAX call
      Mo.loadAssetOther(key,src,function(key,responseText) {
@@ -29,7 +28,7 @@
 
      files=_.seq(files);
      _.doseq(files,(file) => {
-       if(Mo._fileExtension(file) === 'tmx')
+       if(_.fileExt(file) === 'tmx')
        tmxFiles.push(file);
      });
 

@@ -176,7 +176,7 @@
         }
       },
       load: function(dataAsset) {
-        let data, ext= Mo._fileExtension(dataAsset);
+        let data, ext= _.fileExt(dataAsset);
         if (ext === "json")
           data = _.isString(dataAsset) ?  Mo.asset(dataAsset) : dataAsset;
         else

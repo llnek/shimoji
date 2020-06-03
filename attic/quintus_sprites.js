@@ -3,6 +3,9 @@
   let Mojo = global.Mojo, _ = Mojo._;
 
   Mojo.Sprites = function(Mo) {
+    let seqNum= 0;
+    let nextID = () => { return ++seqNum; };
+
     Mo.defType("SpriteSheet",{
       init: function(name, asset,options) {
         let S= Mo.asset(asset);
@@ -192,7 +195,7 @@
         _.inject(this.p,props);
 
         this.size();
-        this.p.id = this.p.id || Mo._uniqueId();
+        this.p.id = this.p.id || nextID();
 
         this.refreshMatrix();
       },
