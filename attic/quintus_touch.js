@@ -8,7 +8,7 @@
     let touchStage = [0];
     let touchType = 0;
 
-    Mo.defType(["TouchSystem",Mo.Evented], {
+    Mo.defType("TouchSystem", {
       init: function() {
         let touchSystem = this;
 
@@ -26,7 +26,7 @@
         Mo.el.addEventListener('mouseup',this.boundEnd);
         Mo.el.addEventListener('touchcancel',this.boundEnd);
 
-        this.touchPos = new Mo.Evented();
+        this.touchPos = {};
         this.touchPos.grid = {};
         this.touchPos.p = { w:1, h:1, cx: 0, cy: 0 };
         this.activeTouches = {};
@@ -112,7 +112,7 @@
             if(col || stageIdx === touchStage.length - 1) {
               obj = col && col.obj;
               pos.obj = obj;
-              this.trigger("touch",pos);
+              Mo.EventBus.pub("touch", this, pos);
             }
 
             if(obj && !this.touchedObjects[obj]) {
@@ -128,7 +128,7 @@
                 stage: stage
               };
               this.touchedObjects[obj.p.id] = true;
-              obj.trigger("touch", this.activeTouches[touchIdentifier]);
+              Mo.EventBus.pub("touch", obj, this.activeTouches[touchIdentifier]);
               break;
             }
 
@@ -155,7 +155,7 @@
             active.dx = pos.p.ox - active.sx;
             active.dy = pos.p.oy - active.sy;
 
-            active.obj.trigger('drag', active);
+            Mo.EventBus.pub('drag', active.obj, active);
           }
         }
         e.preventDefault();
@@ -171,7 +171,7 @@
           let active = this.activeTouches[touchIdentifier];
 
           if(active) {
-            active.obj.trigger('touchEnd', active);
+            Mo.EventBus.pub('touchEnd', active.obj, active);
             delete this.touchedObjects[active.obj.p.id];
             this.activeTouches[touchIdentifier] = null;
           }

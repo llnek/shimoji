@@ -20,7 +20,7 @@
         p.animationFrame = 0;
         p.animationTime = 0;
         p.animationPriority = -1;
-        this.entity.on("step","step",this);
+        Mo.EventBus.sub("step",this.entity,"step",this);
       },
       ____entity: {
         play: function(name,priority,resetFrame) {
@@ -46,22 +46,22 @@
             if(p.animationFrame >= anim.frames.length) {
               if(anim.loop === false || anim.next) {
                 p.animationFrame = anim.frames.length - 1;
-                entity.trigger('animEnd');
-                entity.trigger('animEnd.' + p.animation);
+                Mo.EventBus.pub('animEnd',entity);
+                Mo.EventBus.pub('animEnd.' + p.animation,entity);
                 p.animation = null;
                 p.animationPriority = -1;
                 if(anim.trigger)
-                  entity.trigger(anim.trigger,anim.triggerData);
+                  Mo.EventBus.pub(anim.trigger,entity,anim.triggerData);
                 if(anim.next)
                   this.play(anim.next,anim.nextPriority);
                 return;
               } else {
-                entity.trigger('animLoop');
-                entity.trigger('animLoop.' + p.animation);
+                Mo.EventBus.pub('animLoop',entity);
+                Mo.EventBus.pub('animLoop.' + p.animation, entity);
                 p.animationFrame = p.animationFrame % anim.frames.length;
               }
             }
-            entity.trigger("animFrame");
+            Mo.EventBus.pub("animFrame", entity);
           }
           p.sheet = anim.sheet || p.sheet;
           p.frame = anim.frames[p.animationFrame];
@@ -84,8 +84,8 @@
             p.animationFrame = 0;
           }
           p.animationPriority = priority;
-          entity.trigger('anim');
-          entity.trigger('anim.' + p.animation);
+          Mo.EventBus.pub('anim', entity);
+          Mo.EventBus.pub('anim.' + p.animation, entity);
         }
       }
 
@@ -230,7 +230,7 @@
     Mo.component('tween',{
       added: function() {
         this._tweens = [];
-        this.entity.on("step","step",this);
+        Mo.EventBus.sub("step",this.entity,"step",this);
       },
       ____entity: {
         animate: function(properties,duration,easing,options) {

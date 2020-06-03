@@ -250,12 +250,16 @@
       if(_.isArray(event)) {
         event.forEach(e => this.sub(e,target,cb,ctx));
       } else {
+        if (!cb)
+          cb=event;
         if(_.isString(cb)) {
           ctx=ctx || target;
           cb=ctx[cb];
         }
-        if (!cb)
+        if (!cb) {
+          console.log("event = " + event);
           throw "No callback provided for event sub().";
+        }
         if (!this.tree.has(target))
           this.tree.set(target,new Map());
         let m= this.tree.get(target);
@@ -292,50 +296,9 @@
     }
   };
 
-  Mo.defType("Evented", {
-    on: function(event,cb,ctx) {
-      if(_.isArray(event)) {
-        event.forEach(e => this.on(e,cb,ctx));
-      } else {
-        if(!cb) cb = event;
-        ctx= ctx || this;
-        if(_.isString(cb)) { cb = ctx[cb]; }
-        this.subs = this.subs || {};
-        this.subs[event] = this.subs[event] || [];
-        this.subs[event].push([ctx, cb]);
-        ctx.binds= ctx.binds || [];
-        ctx.binds.push([this,event,cb]);
-      }
-    },
-    trigger: function(event,data) {
-      let ss= this.subs && this.subs[event];
-      if (ss)
-        ss.forEach(s => s[1].call(s[0],data));
-    },
-    off: function(event,cb,ctx) {
-      let ss= this.subs && this.subs[event];
-      ctx=ctx || this;
-      if(!cb) {
-        if(ss) ss.length=0; // remove all
-      } else {
-        if(_.isString(cb) && ctx[cb]) { cb = ctx[cb]; }
-        if(ss)
-          // reverse remove without having to affect the loop.
-          for(let i = ss.length-1;i>=0;--i) {
-            if(ss[i][0] === ctx)
-              if(!cb || cb === ss[i][1]) ss.splice(i,1);
-          }
-      }
-    },
-    debind: function() {
-      if(this.binds)
-        this.binds.forEach(b => b[0].off(b[1],null,this));
-    }
-   });
-
   Mo.components = {};
 
-  Mo.defType(["Component", Mo.Evented], {
+  Mo.defType("Component", {
     // Components are created when they are added onto a `Mo.Entity` entity. The entity
     // is directly extended with any methods inside of an `extend` property and then the
     // component itself is added onto the entity as well.
@@ -364,12 +327,12 @@
           this.entity.layer.addToList &&
             this.entity.layer.addToList(this.componentName,this.entity);
       }
-      this.debind();
+      //this.debind();
       this.disposed && this.disposed();
     }
   });
 
-  Mo.defType(["Entity",Mo.Evented], {
+  Mo.defType("Entity", {
     has: function(co) {
       return _.has(this,co);
     },
@@ -378,14 +341,14 @@
       _.seq(components).forEach(name => {
         let C = Mo.components[name];
         if(C && !_.has(this,name))
-          this.trigger('addComponent', new C(this));
+          Mo.EventBus.pub('addComponent', this,new C(this));
       });
       return this;
     },
     del: function(components) {
       _.seq(components).forEach(name => {
         if(this[name]) {
-          this.trigger('delComponent',this[name]);
+          Mo.EventBus.pub('delComponent',this,this[name]);
           this[name].dispose();
         }
       });
@@ -393,8 +356,8 @@
     },
     dispose: function() {
       if(this.isDead) { return; }
-      this.trigger('disposed');
-      this.debind();
+      Mo.EventBus.pub('disposed',this);
+      //this.debind();
       this.layer && this.layer.remove && this.layer.remove(this);
       this.isDead = true;
       this.disposed && this.disposed();
@@ -416,12 +379,12 @@
     },
     reset: function(p) {
       this.init(p);
-      this.trigger("reset");
+      Mo.EventBus.pub("reset",this);
     },
     _triggerProperty: function(value,key) {
       if(this.p[key] !== value) {
         this.p[key] = value;
-        this.trigger("change." + key,value);
+        Mo.EventBus.pub("change." + key,this,value);
       }
     },
     set: function(prop,value) {
@@ -430,7 +393,7 @@
       } else {
         this._triggerProperty(value,prop);
       }
-      this.trigger("change");
+      Mo.EventBus.pub("change",this);
     },
     inc: function(prop,amount) {
       this.set(prop,this.get(prop) + amount);

@@ -79,7 +79,7 @@
       return y;
     };
 
-    Mo.defType(["InputSystem", Mo.Evented], {
+    Mo.defType("InputSystem", {
       keys: {},
       keypad: {},
       keyboardEnabled: false,
@@ -99,8 +99,8 @@
           if(Mo.input.keys[e.keyCode]) {
             let actionName = Mo.input.keys[e.keyCode];
             Mo.inputs[actionName] = true;
-            Mo.input.trigger(actionName);
-            Mo.input.trigger("keydown",e.keyCode);
+            Mo.EventBus.pub(actionName, Mo.input);
+            Mo.EventBus.pub("keydown",Mo.input,e.keyCode);
           }
           if(!e.ctrlKey &&
              !e.metaKey)
@@ -111,8 +111,8 @@
           if(Mo.input.keys[e.keyCode]) {
             let actionName = Mo.input.keys[e.keyCode];
             Mo.inputs[actionName] = false;
-            Mo.input.trigger(actionName + "Up");
-            Mo.input.trigger("keyup",e.keyCode);
+            Mo.EventBus.pub(actionName + "Up", Mo.input);
+            Mo.EventBus.pub("keyup",Mo.input,e.keyCode);
           }
           e.preventDefault();
         },false);
@@ -214,18 +214,18 @@
             if(key) {
               // Mark this input as on
               Mo.inputs[key] = true;
-              // Either trigger a new action
+              // Either send a new action
               // or remove from wasOn list
               if(!wasOn[key])
-                Mo.input.trigger(key);
+                Mo.EventBus.pub(key, Mo.input);
               else
                 delete wasOn[key];
             }
           }
           // Any remaining were on the last frame
-          // and need to trigger an up action
+          // and need to send an up action
           for(actionName in wasOn) {
-            Mo.input.trigger(actionName + "Up");
+            Mo.EventBus.pub(actionName + "Up", Mo.input);
           }
           return null;
         }
@@ -317,11 +317,11 @@
                   if(triggers[k]) {
                     Mo.inputs[actionName] = true;
                     if(!joypad.triggers[k])
-                      Mo.input.trigger(actionName);
+                      Mo.EventBus.pub(actionName, Mo.input);
                   } else {
                     Mo.inputs[actionName] = false;
                     if(joypad.triggers[k])
-                      Mo.input.trigger(actionName + "Up");
+                      Mo.EventBus.pub(actionName + "Up", Mo.input);
                   }
                 }
                 _.inject(joypad, {
@@ -349,7 +349,7 @@
                   let actionName = joypad.inputs[k];
                   Mo.inputs[actionName] = false;
                   if(joypad.triggers[k])
-                    Mo.input.trigger(actionName + "Up");
+                    Mo.EventBus.pub(actionName + "Up", Mo.input);
                 }
                 joypad.joypadTouch = null;
                 break;
@@ -411,7 +411,7 @@
             mouseMoveObj.y= Mo.canvasToStageY(posY,stage);
             Mo.inputs[mouseInputX] = mouseMoveObj.x;
             Mo.inputs[mouseInputY] = mouseMoveObj.y;
-            Mo.input.trigger("mouseMove",mouseMoveObj);
+            Mo.EventBus.pub("mouseMove",Mo.input,mouseMoveObj);
           }
         };
 
@@ -420,7 +420,7 @@
           // cross-browser wheel delta
           e = window.event || e; // old IE support
           let delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
-          Mo.input.trigger("mouseWheel", delta);
+          Mo.EventBus.pub("mouseWheel", Mo.input,delta);
         };
 
         Mo.el.addEventListener("mousemove",Mo._mouseMove,true);
@@ -535,8 +535,8 @@
         let p = this.entity.p;
         _.patch(p,this.defaults);
 
-        this.entity.on("step","step",this);
-        this.entity.on("bump.bottom","landed",this);
+        Mo.EventBus.sub("step",this.entity,"step",this);
+        Mo.EventBus.sub("bump.bottom",this.entity,"landed",this);
 
         p.landed = 0;
         p.direction ='right';
@@ -602,13 +602,13 @@
             p.landed = -dt;
             p.jumping = true;
           } else if(Mo.inputs["up"] || Mo.inputs["action"]) {
-            this.entity.trigger("jump", this.entity);
+            Mo.EventBus.pub("jump", this.entity,this.entity);
             p.jumping = true;
           }
 
           if(p.jumping && !(Mo.inputs["up"] || Mo.inputs["action"])) {
             p.jumping = false;
-            this.entity.trigger("jumped", this.entity);
+            Mo.EventBus.pub("jumped", this.entity,this.entity);
             if(p.vy < p.jumpSpeed / 3) {
               p.vy = p.jumpSpeed / 3;
             }
@@ -624,8 +624,8 @@
         if(!p.stepDistance) { p.stepDistance = 32; }
         if(!p.stepDelay) { p.stepDelay = 0.2; }
         p.stepWait = 0;
-        this.entity.on("step","step",this);
-        this.entity.on("hit", "collision",this);
+        Mo.EventBus.sub("step",this.entity,"step",this);
+        Mo.EventBus.sub("hit", this.entity,"collision",this);
       },
       collision: function(col) {
         let p = this.entity.p;

@@ -250,7 +250,7 @@
            this.p.opacity === 0) { return; }
         if(!ctx) ctx = Mo.ctx;
 
-        this.trigger('predraw',ctx);
+        Mo.EventBus.pub('predraw',this,ctx);
         ctx.save();
 
         if(this.p.opacity !== void 0 && this.p.opacity !== 1) {
@@ -262,9 +262,9 @@
         if(this.p.flip)
           ctx.scale.apply(ctx,this._flipArgs[this.p.flip]);
 
-        this.trigger('beforedraw',ctx);
+        Mo.EventBus.pub('beforedraw',this,ctx);
         this.draw(ctx);
-        this.trigger('draw',ctx);
+        Mo.EventBus.pub('draw',this,ctx);
         ctx.restore();
 
         // Children set up their own complete matrix
@@ -272,7 +272,7 @@
         if(this.p.sort)
           this.children.sort(this._sortChild);
         _.invoke(this.children,"render",ctx);
-        this.trigger('postdraw',ctx);
+        Mo.EventBus.pub('postdraw',this,ctx);
         if(Mo.debug)
           this.debugRender(ctx);
       },
@@ -331,10 +331,10 @@
         }
       },
       update: function(dt) {
-        this.trigger('prestep',dt);
+        Mo.EventBus.pub('prestep',this,dt);
         if(this.step)
           this.step(dt);
-        this.trigger('step',dt);
+        Mo.EventBus.pub('step',this,dt);
         Mo._generateCollisionPoints(this);
 
         // Ugly coupling to stage - workaround?

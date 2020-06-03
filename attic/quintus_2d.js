@@ -5,8 +5,8 @@
   Mojo["2D"] = function(Mo) {
     Mo.component('viewport',{
       added: function() {
-        this.entity.on('prerender','prerender',this);
-        this.entity.on('render','postrender',this);
+        Mo.EventBus.sub('prerender',this.entity,'prerender',this);
+        Mo.EventBus.sub('render',this.entity,'postrender',this);
         this.x = 0;
         this.y = 0;
         this.offsetX = 0;
@@ -28,7 +28,7 @@
           } else {
             this.viewport.boundingBox = boundingBox;
           }
-          this.on('poststep',"follow",this.viewport);
+          Mo.EventBus.sub('poststep',this,"follow",this.viewport);
           this.viewport.follow(true);
         },
         unfollow: function() {
@@ -242,7 +242,7 @@
       // tiles at higher number frames
       drawableTile: (tileNum) => { return tileNum > 0; },
 
-      // Overload this method to control which tiles trigger a collision
+      // Overload this method to control which tiles cause a collision
       // (defaults to all tiles > number 0)
       collidableTile: (tileNum) => { return tileNum > 0; },
 
@@ -280,8 +280,7 @@
               if(col && col.magnitude > 0) {
                 if(colObj.p.sensor) {
                   colObj.tile = this.getTile(tileX,tileY);
-                  if(obj.trigger)
-                    obj.trigger('sensor.tile',colObj);
+                  Mo.EventBus.pub('sensor.tile', obj, colObj);
                 } else if(!normal.collided ||
                           normal.magnitude < col.magnitude ) {
                    normal.collided = true;
@@ -388,8 +387,8 @@
           gravity: 1,
           collisionMask: Mo.SPRITE_DEFAULT
         });
-        entity.on('step',"step",this);
-        entity.on('hit','collision',this);
+        Mo.EventBus.sub('step',entity,"step",this);
+        Mo.EventBus.sub('hit',entity,'collision',this);
       },
       collision: function(col,last) {
         let entity = this.entity,
@@ -397,7 +396,7 @@
             magnitude = 0;
 
         if(col.obj.p && col.obj.p.sensor) {
-          col.obj.trigger("sensor",entity);
+          Mo.EventBus.pub("sensor", col.obj, entity);
           return;
         }
 
@@ -412,26 +411,26 @@
         if(col.normalY < -0.3) {
           if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
           col.impact = impactY;
-          entity.trigger("bump.bottom",col);
-          entity.trigger("bump",col);
+          Mo.EventBus.pub("bump.bottom", entity,col);
+          Mo.EventBus.pub("bump", entity,col);
         }
         if(col.normalY > 0.3) {
           if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
           col.impact = impactY;
-          entity.trigger("bump.top",col);
-          entity.trigger("bump",col);
+          Mo.EventBus.pub("bump.top",entity,col);
+          Mo.EventBus.pub("bump",entity,col);
         }
         if(col.normalX < -0.3) {
           if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
           col.impact = impactX;
-          entity.trigger("bump.right",col);
-          entity.trigger("bump",col);
+          Mo.EventBus.pub("bump.right",entity,col);
+          Mo.EventBus.pub("bump",entity,col);
         }
         if(col.normalX > 0.3) {
           if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
           col.impact = impactX;
-          entity.trigger("bump.left",col);
-          entity.trigger("bump",col);
+          Mo.EventBus.pub("bump.left",entity,col);
+          Mo.EventBus.pub("bump",entity,col);
         }
       },
 
@@ -457,8 +456,8 @@
 
     Mo.component("aiBounce", {
       added: function() {
-        this.entity.on("bump.right","goLeft",this);
-        this.entity.on("bump.left","goRight",this);
+        Mo.EventBus.sub("bump.right",this.entity,"goLeft",this);
+        Mo.EventBus.sub("bump.left",this.entity,"goRight",this);
       },
 
       goLeft: function(col) {

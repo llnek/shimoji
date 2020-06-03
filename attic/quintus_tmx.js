@@ -51,7 +51,7 @@
 
    function parseProperties(elem) {
      let props={},
-         propElems = elem.querySelectorAll("property"),
+         propElems = elem.querySelectorAll("property");
 
      for(let i = 0; i < propElems.length; ++i) {
        let propElem = propElems[i];
@@ -92,7 +92,7 @@
        tilesetProps.frameProperties = tilesetTileProps;
        gidMap.push([ gid, sheetName ]);
        Mo.sheet(sheetName, assetName,  tilesetProps);
-     }
+     });
 
      return gidMap;
    };

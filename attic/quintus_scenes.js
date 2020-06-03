@@ -30,8 +30,8 @@
                                                  h: Mo.height}, opts);
       },
       disposed: function() {
-        this.invoke("debind");
-        this.trigger("disposed");
+        //this.invoke("debind");
+        Mo.EventBus.pub("disposed", this);
       },
       run: function() {
         this.scene(this);
@@ -114,8 +114,8 @@
         if(itm.p)
           this.index[itm.p.id] = itm;
 
-        this.trigger('inserted',itm);
-        itm.trigger('inserted',this);
+        Mo.EventBus.pub('inserted',this, itm);
+        Mo.EventBus.pub('inserted',itm,this);
 
         this.regrid(itm);
         return itm;
@@ -140,7 +140,7 @@
           itm.dispose && itm.dispose();
           if(itm.p.id)
             delete this.index[itm.p.id];
-          this.trigger('removed',itm);
+          Mo.EventBus.pub('removed',this, itm);
         }
       },
       pause: function() {
@@ -251,8 +251,8 @@
         while(curCol > 0 &&
               (col = this._collideCollisionLayer(obj,collisionMask))) {
           if(!skipEvents) {
-            obj.trigger('hit',col);
-            obj.trigger('hit.collision',col);
+            Mo.EventBus.pub('hit',obj, col);
+            Mo.EventBus.pub('hit.collision',obj,col);
           }
           Mo._generateCollisionPoints(obj);
           this.regrid(obj);
@@ -262,8 +262,8 @@
         curCol = maxCol;
         while(curCol > 0 &&
               (col2 = this.gridTest(obj,collisionMask))) {
-          obj.trigger('hit',col2);
-          obj.trigger('hit.sprite',col2);
+          Mo.EventBus.pub('hit',obj,col2);
+          Mo.EventBus.pub('hit.sprite',obj,col2);
 
           // Do the recipricol collision
           // TODO: extract
@@ -276,8 +276,8 @@
             col2.magnitude = 0;
             col2.separate[0] = 0;
             col2.separate[1] = 0;
-            obj2.trigger('hit',col2);
-            obj2.trigger('hit.sprite',col2);
+            Mo.EventBus.pub('hit',obj2,col2);
+            Mo.EventBus.pub('hit.sprite',obj2,col2);
           }
 
           Mo._generateCollisionPoints(obj);
@@ -380,14 +380,14 @@
         if(this.paused) { return false; }
         this.time += dt;
         this.markSprites(this.items,this.time);
-        this.trigger("prestep",dt);
+        Mo.EventBus.pub("prestep",this,dt);
         this.updateSprites(this.items,dt);
-        this.trigger("step",dt);
+        Mo.EventBus.pub("step",this,dt);
         if(this.removeList.length > 0) {
           this.removeList.forEach(x => this.forceRemove(x));
           this.removeList.length = 0;
         }
-        this.trigger('poststep',dt);
+        Mo.EventBus.pub('poststep',this,dt);
       },
       hide: function() {
         this.hidden = true;
@@ -407,8 +407,8 @@
         if(this.hidden) { return false; }
         this.options.sort &&
           this.items.sort(this.options.sort);
-        this.trigger("prerender",ctx);
-        this.trigger("beforerender",ctx);
+        Mo.EventBus.pub("prerender",this,ctx);
+        Mo.EventBus.pub("beforerender",this,ctx);
 
         this.items.forEach( item => {
           // Don't render sprites with containers (sprites do that themselves)
@@ -417,8 +417,8 @@
              (item.p.renderAlways ||
               item.mark >= this.time)) { item.render(ctx); } });
 
-        this.trigger("render",ctx);
-        this.trigger("postrender",ctx);
+        Mo.EventBus.pub("render",this,ctx);
+        Mo.EventBus.pub("postrender",this,ctx);
       }
     });
 
@@ -440,8 +440,9 @@
         this.items.forEach(x => x[funcName].apply(x, args));
         return this;
       },
-      trigger: function(name,params) {
-        this.invoke("trigger",name,params);
+      trigger: function(name,param) {
+        this.items.forEach(x => Mo.EventBus.pub(name, x, param));
+        return this;
       },
       dispose: function() {
         this.invoke("dispose");

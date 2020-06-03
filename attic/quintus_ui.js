@@ -264,10 +264,10 @@
         if(isNaN(this.p.cx)) { this.p.cx = this.p.w / 2; }
         if(isNaN(this.p.cy)) { this.p.cy = this.p.h / 2; }
         this.callback = callback;
-        this.on("touch","highlight");
-        this.on("touchEnd","push");
+        Mo.EventBus.sub("touch",this,"highlight");
+        Mo.EventBus.sub("touchEnd",this,"push");
         if(this.p.keyActionName)
-          Mo.input.on(this.p.keyActionName,"push",this);
+          Mo.EventBus.sub(this.p.keyActionName,Mo.input,"push",this);
       },
       highlight: function() {
         if(typeof this.sheet() !== 'undefined' && this.sheet().frames > 1) {
@@ -277,7 +277,7 @@
       push: function() {
         this.p.frame = 0;
         this.callback && this.callback();
-        this.trigger('click');
+        Mo.EventBus.pub('click',this);
       },
       draw: function(ctx) {
         this._super(ctx);
@@ -316,9 +316,9 @@
           this.iframe.style.backgroundColor = this.p.background;
 
         Mo.wrapper.appendChild(this.iframe);
-        this.on("inserted",function(parent) {
+        Mo.EventBus.sub("inserted",this, function(parent) {
           this.positionIFrame();
-          parent.on("disposed","remove",this);
+          Mo.EventBus.sub("disposed",parent,"remove",this);
         });
       },
       positionIFrame: function() {
@@ -363,10 +363,10 @@
         this.el.innerHTML = this.p.html;
 
         Mo.wrapper.appendChild(this.el);
-        this.on("inserted",function(parent) {
+        Mo.EventBus.sub("inserted",this, function(parent) {
           this.position();
-          parent.on("disposed","remove",this);
-          parent.on("clear","remove",this);
+          Mo.EventBus.sub("disposed", parent,"remove",this);
+          Mo.EventBus.sub("clear", parent,"remove",this);
         });
       },
 
