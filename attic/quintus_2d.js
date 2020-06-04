@@ -176,12 +176,14 @@
         }
       },
       load: function(dataAsset) {
+        /*
         let data, ext= _.fileExt(dataAsset);
         if (ext === "json")
           data = _.isString(dataAsset) ?  Mo.asset(dataAsset) : dataAsset;
         else
           throw "file type not supported";
-        this.p.tiles = data;
+          */
+        this.p.tiles = dataAsset;
       },
       setDimensions: function() {
         let tiles = this.p.tiles;

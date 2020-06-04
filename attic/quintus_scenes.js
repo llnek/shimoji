@@ -16,15 +16,68 @@
     Mo.scenes = {};
     Mo.layers = [];
 
+    let testHit= function(type,id,obj,collisionMask) {
+      if(_.isUndef(collisionMask) || (collisionMask & type)) {
+        let col, obj2 = this.index[id];
+        if(obj2 &&
+           obj2 !== obj &&
+           Mo.overlap(obj,obj2)) {
+          if(col= Mo.collision(obj,obj2)) {
+            col.obj = obj2;
+            return col;
+          } else {
+            return false;
+          }
+        }
+      }
+    };
+
+    let addCache= (L, arg,obj) => {
+      if (_.isArray(arg))
+        arg.forEach(x => addCache(L, x,obj));
+      else {
+        L.cache[arg]= L.cache[arg] || [];
+        L.cache[arg].push(obj);
+      }
+    };
+    let delCache= (L, arg, obj) => {
+      if (_.isArray(arg))
+        arg.forEach(x => delCache(L, x,obj));
+      else {
+        let i = L.cache[arg].indexOf(obj);
+        if(i > -1) L.cache[arg].splice(i,1);
+      }
+    };
+    let delGrid= (L, item) => {
+      let g= item.grid;
+      for(let y = g.Y1;y <= g.Y2; ++y)
+        if(L.grid[y])
+          for(let x = g.X1;x <= g.X2;++x)
+            if(L.grid[y][x])
+              delete L.grid[y][x][item.p.id];
+    };
+    let addGrid= (L, item) => {
+      let g= item.grid;
+      for(let y = g.Y1;y <= g.Y2;++y) {
+        if(!L.grid[y])
+          L.grid[y] = {};
+        for(let x = g.X1;x <= g.X2;++x) {
+          if(!L.grid[y][x])
+            L.grid[y][x] = {};
+          L.grid[y][x][item.p.id] = item.p.type;
+        }
+      }
+    };
+
     Mo.defType(["Layer",Mo.Entity],{
       init: function(action,opts) {
         this.scene = action;
         this.items = [];
-        this.lists = {};
+        this.cache = {};
         this.index = {};
         this.grid = {};
         this.time = 0;
-        this.removeList = [];
+        this.trash = [];
         this._collisionLayers = [];
         this.options = _.inject(_.clone(_defs), {w: Mo.width,
                                                  h: Mo.height}, opts);
@@ -75,63 +128,46 @@
       find: function(id) {
         return this.index[id];
       },
-      addToLists: function(lists,object) {
-        if (_.isArray(lists))
-          lists.forEach(x => this.addToList(x,object));
-      },
-      addToList: function(list, itm) {
-        this.lists[list]= this.lists[list] || [];
-        this.lists[list].push(itm);
-      },
-      removeFromLists: function(lists, itm) {
-        if (_.isArray(lists))
-          lists.forEach(x => this.removeFromList(x,itm));
-      },
-      removeFromList: function(list, itm) {
-        let i = this.lists[list].indexOf(itm);
-        if(i > -1)
-          this.lists[list].splice(i,1);
-      },
       insert: function(itm,container) {
+        itm.container = container;
         this.items.push(itm);
         itm.layer = this;
-        itm.container = container;
+        itm.grid = {};
+
         if(container)
           container.children.push(itm);
-
-        itm.grid = {};
 
         // Make sure we have a square of collision points
         Mo._generatePoints(itm);
         Mo._generateCollisionPoints(itm);
 
         if(itm.className)
-          this.addToList(itm.className, itm);
+          addCache(this, itm.className, itm);
 
         if(itm.features)
-          this.addToLists(itm.features, itm);
+          addCache(this, itm.features, itm);
 
         if(itm.p)
           this.index[itm.p.id] = itm;
 
-        Mo.EventBus.pub('inserted',this, itm);
-        Mo.EventBus.pub('inserted',itm,this);
+        Mo.EventBus.pub("inserted",this, itm);
+        Mo.EventBus.pub("inserted",itm,this);
 
         this.regrid(itm);
         return itm;
       },
       remove: function(itm) {
-        this.delGrid(itm);
-        this.removeList.push(itm);
+        delGrid(this, itm);
+        this.trash.push(itm);
       },
       forceRemove: function(itm) {
         let idx =  this.items.indexOf(itm);
         if(idx > -1) {
           this.items.splice(idx,1);
           if(itm.className)
-            this.removeFromList(itm.className,itm);
+            delCache(this, itm.className,itm);
           if(itm.features)
-            this.removeFromLists(itm.features,itm);
+            delCache(this, itm.features,itm);
           if(itm.container) {
             let i = itm.container.children.indexOf(itm);
             if(i > -1)
@@ -149,35 +185,18 @@
       unpause: function() {
         this.paused = false;
       },
-      _gridCellCheck: function(type,id,obj,collisionMask) {
-        if(_.isUndef(collisionMask) || collisionMask & type) {
-          let obj2 = this.index[id];
-          if(obj2 &&
-             obj2 !== obj &&
-             Mo.overlap(obj,obj2)) {
-            let col= Mo.collision(obj,obj2);
-            if(col) {
-              col.obj = obj2;
-              return col;
-            } else {
-              return false;
-            }
-          }
-        }
-      },
       gridTest: function(obj,collisionMask) {
-        let grid = obj.grid, col, gridCell;
-        for(let y = grid.Y1;y <= grid.Y2;++y) {
+        let col,
+            cells,
+            g=obj.grid;
+        for(let y = g.Y1;y <= g.Y2;++y)
           if(this.grid[y])
-            for(let x = grid.X1;x <= grid.X2;++x) {
-              gridCell = this.grid[y][x];
-              if(gridCell) {
-                col = _.find(gridCell,this._gridCellCheck,this,obj,collisionMask);
+            for(let x = g.X1;x <= g.X2;++x)
+              if(cells = this.grid[y][x]) {
+                col = _.find(cells,testHit,this,obj,collisionMask);
                 if(col)
                   return col;
               }
-            }
-        }
         return false;
       },
       collisionLayer: function(layer) {
@@ -189,28 +208,21 @@
         let layer,col;
         for(let i=0,z=this._collisionLayers.length;i<z;++i) {
           layer=this._collisionLayers[i];
-          if(layer.p.type & collisionMask) {
-            col = layer.collide(obj);
-            if(col) {
+          if(layer.p.type & collisionMask)
+            if(col = layer.collide(obj)) {
               col.obj = layer;
               return col;
             }
-          }
         }
         return false;
       },
       search: function(obj,collisionMask) {
-        let col;
-        // If the object doesn't have a grid, regrid it
-        // so we know where to search
-        // and skip adding it to the grid only if it's not on this layer
         if(!obj.grid)
           this.regrid(obj,obj.layer !== this);
-
-        collisionMask = _.isUndef(collisionMask) ? (obj.p && obj.p.collisionMask) : collisionMask;
-        col = this._collideCollisionLayer(obj,collisionMask);
-        col =  col || this.gridTest(obj,collisionMask);
-        return col;
+        if(_.isUndef(collisionMask))
+          collisionMask = obj.p && obj.p.collisionMask;
+        return this._collideCollisionLayer(obj,collisionMask) ||
+               this.gridTest(obj,collisionMask);
       },
       _locateObj: {
         p: {
@@ -223,17 +235,17 @@
         }, grid: {}
       },
       locate: function(x,y,collisionMask) {
-        let col;
         this._locateObj.p.x = x;
         this._locateObj.p.y = y;
         this.regrid(this._locateObj,true);
-        col = this._collideCollisionLayer(this._locateObj,collisionMask);
-        col =  col || this.gridTest(this._locateObj,collisionMask);
+        let col= this._collideCollisionLayer(this._locateObj,collisionMask);
+        col= col || this.gridTest(this._locateObj,collisionMask);
         return (col && col.obj) ? col.obj : false;
       },
       collide: function(obj,options) {
         let col, col2, collisionMask,
             maxCol, curCol, skipEvents;
+
         if(!_.isObject(options)) {
           collisionMask = options;
         } else {
@@ -241,7 +253,9 @@
           skipEvents = options.skipEvents;
           collisionMask = options.collisionMask;
         }
-        collisionMask = _.isUndef(collisionMask) ? (obj.p && obj.p.collisionMask) : collisionMask;
+
+        if(_.isUndef(collisionMask))
+          collisionMask= obj.p && obj.p.collisionMask;
         maxCol = maxCol || 3;
 
         Mo._generateCollisionPoints(obj);
@@ -264,7 +278,6 @@
               (col2 = this.gridTest(obj,collisionMask))) {
           Mo.EventBus.pub('hit',obj,col2);
           Mo.EventBus.pub('hit.sprite',obj,col2);
-
           // Do the recipricol collision
           // TODO: extract
           if(!skipEvents) {
@@ -279,35 +292,11 @@
             Mo.EventBus.pub('hit',obj2,col2);
             Mo.EventBus.pub('hit.sprite',obj2,col2);
           }
-
           Mo._generateCollisionPoints(obj);
           this.regrid(obj);
           --curCol;
         }
-
         return col2 || col;
-      },
-      delGrid: function(item) {
-        let grid = item.grid;
-        for(let y = grid.Y1;y <= grid.Y2; ++y) {
-          if(this.grid[y])
-            for(let x = grid.X1;x <= grid.X2;++x) {
-              if(this.grid[y][x])
-                delete this.grid[y][x][item.p.id];
-            }
-        }
-      },
-      addGrid: function(item) {
-        let grid = item.grid;
-        for(let y = grid.Y1;y <= grid.Y2;++y) {
-          if(!this.grid[y])
-            this.grid[y] = {};
-          for(let x = grid.X1;x <= grid.X2;++x) {
-            if(!this.grid[y][x])
-              this.grid[y][x] = {};
-            this.grid[y][x][item.p.id] = item.p.type;
-          }
-        }
       },
       regrid: function(item,skipAdd) {
         if(item.collisionLayer) { return; }
@@ -323,13 +312,13 @@
         if(grid.X1 !== gridX1 || grid.X2 !== gridX2 ||
            grid.Y1 !== gridY1 || grid.Y2 !== gridY2) {
 
-           if(grid.X1 !== void 0) { this.delGrid(item); }
+           if(grid.X1 !== void 0) { delGrid(this, item); }
            grid.X1 = gridX1;
            grid.X2 = gridX2;
            grid.Y1 = gridY1;
            grid.Y2 = gridY2;
 
-           if(!skipAdd) { this.addGrid(item); }
+           if(!skipAdd) { addGrid(this,item); }
         }
       },
       markSprites: function(items,time) {
@@ -383,9 +372,9 @@
         Mo.EventBus.pub("prestep",this,dt);
         this.updateSprites(this.items,dt);
         Mo.EventBus.pub("step",this,dt);
-        if(this.removeList.length > 0) {
-          this.removeList.forEach(x => this.forceRemove(x));
-          this.removeList.length = 0;
+        if(this.trash.length > 0) {
+          this.trash.forEach(x => this.forceRemove(x));
+          this.trash.length = 0;
         }
         Mo.EventBus.pub('poststep',this,dt);
       },
@@ -427,7 +416,7 @@
       init: function(layer,selector) {
         this.layer = layer;
         this.selector = selector;
-        this.items = this.layer.lists[this.selector] || [];
+        this.items = this.layer.cache[this.selector] || [];
       },
       count: function() { return this.items.length; },
       each: function(cb) {

@@ -64,8 +64,8 @@
       return res;
     },
     find: function(obj,fn,ctx) {
-      let res;
-      let args=slicer.call(arguments,3);
+      let res,
+          args=slicer.call(arguments,3);
       if(isArray(obj)) {
         for (let i=0,z=obj.length;i<z;++i) {
           res = fn.apply(ctx, [obj[i], i].concat(args));
