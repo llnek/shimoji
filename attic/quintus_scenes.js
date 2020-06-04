@@ -16,6 +16,38 @@
     Mo.scenes = {};
     Mo.layers = [];
 
+    let hitLayer= function(L,obj,collisionMask) {
+      for(let y,c,i=0,z=L.collisionLayers.length;i<z;++i) {
+        y=L.collisionLayers[i];
+        if(y.p.type & collisionMask)
+          if(c= y.collide(obj)) { c.obj = y; return c; }
+      }
+      return false;
+    };
+    let markAll= function(L) {
+      let time=L.time,
+          items= L.items,
+          view= L.viewport,
+          x = view ? view.x : 0,
+          y = view ? view.y : 0,
+          scale = view ? view.scale : 1,
+          viewW = Mo.width / scale,
+          viewH = Mo.height / scale,
+          gridX1 = Math.floor(x / L.options.gridW),
+          gridY1 = Math.floor(y / L.options.gridH),
+          gridX2 = Math.floor((x + viewW) / L.options.gridW),
+          gridY2 = Math.floor((y + viewH) / L.options.gridH),
+          tmp,gridRow, gridBlock;
+      for(let iy=gridY1; iy<=gridY2; ++iy)
+        if(gridRow = L.grid[iy])
+          for(let ix=gridX1; ix<=gridX2; ++ix)
+            if(gridBlock = gridRow[ix])
+              for(let id in gridBlock)
+                if(tmp=L.index[id])
+                { tmp.mark = time;
+                  if(tmp.container)
+                    tmp.container.mark = time; }
+    };
     let testHit= function(type,id,obj,collisionMask) {
       if(_.isUndef(collisionMask) || (collisionMask & type)) {
         let col, obj2 = this.index[id];
@@ -31,7 +63,18 @@
         }
       }
     };
-
+    let hitTest= function(L,obj,collisionMask) {
+      let col, cells, g=obj.grid;
+      for(let y = g.Y1;y <= g.Y2;++y)
+        if(L.grid[y])
+          for(let x = g.X1;x <= g.X2;++x)
+            if(cells = L.grid[y][x]) {
+              col = _.find(cells,testHit,L,obj,collisionMask);
+              if(col)
+                return col;
+            }
+      return false;
+    };
     let addCache= (L, arg,obj) => {
       if (_.isArray(arg))
         arg.forEach(x => addCache(L, x,obj));
@@ -69,18 +112,18 @@
       }
     };
 
-    Mo.defType(["Layer",Mo.Entity],{
-      init: function(action,opts) {
+    Mo.defType(["Layer", Mo.Entity], {
+      init: function(action,options) {
         this.scene = action;
         this.items = [];
         this.cache = {};
-        this.index = {};
         this.grid = {};
         this.time = 0;
         this.trash = [];
-        this._collisionLayers = [];
+        this.index = {}; // can't use new Map() due to js props are strings
+        this.collisionLayers = [];
         this.options = _.inject(_.clone(_defs), {w: Mo.width,
-                                                 h: Mo.height}, opts);
+                                                 h: Mo.height}, options);
       },
       disposed: function() {
         //this.invoke("debind");
@@ -147,7 +190,7 @@
         if(itm.features)
           addCache(this, itm.features, itm);
 
-        if(itm.p)
+        if(itm.p && itm.p.id)
           this.index[itm.p.id] = itm;
 
         Mo.EventBus.pub("inserted",this, itm);
@@ -185,44 +228,18 @@
       unpause: function() {
         this.paused = false;
       },
-      gridTest: function(obj,collisionMask) {
-        let col,
-            cells,
-            g=obj.grid;
-        for(let y = g.Y1;y <= g.Y2;++y)
-          if(this.grid[y])
-            for(let x = g.X1;x <= g.X2;++x)
-              if(cells = this.grid[y][x]) {
-                col = _.find(cells,testHit,this,obj,collisionMask);
-                if(col)
-                  return col;
-              }
-        return false;
-      },
       collisionLayer: function(layer) {
-        this._collisionLayers.push(layer);
+        this.collisionLayers.push(layer);
         layer.collisionLayer = true;
         return this.insert(layer);
-      },
-      _collideCollisionLayer: function(obj,collisionMask) {
-        let layer,col;
-        for(let i=0,z=this._collisionLayers.length;i<z;++i) {
-          layer=this._collisionLayers[i];
-          if(layer.p.type & collisionMask)
-            if(col = layer.collide(obj)) {
-              col.obj = layer;
-              return col;
-            }
-        }
-        return false;
       },
       search: function(obj,collisionMask) {
         if(!obj.grid)
           this.regrid(obj,obj.layer !== this);
         if(_.isUndef(collisionMask))
           collisionMask = obj.p && obj.p.collisionMask;
-        return this._collideCollisionLayer(obj,collisionMask) ||
-               this.gridTest(obj,collisionMask);
+        return hitLayer(this,obj,collisionMask) ||
+               hitTest(this, obj,collisionMask);
       },
       _locateObj: {
         p: {
@@ -238,8 +255,8 @@
         this._locateObj.p.x = x;
         this._locateObj.p.y = y;
         this.regrid(this._locateObj,true);
-        let col= this._collideCollisionLayer(this._locateObj,collisionMask);
-        col= col || this.gridTest(this._locateObj,collisionMask);
+        let col= hitLayer(this,this._locateObj,collisionMask) ||
+                 hitTest(this,this._locateObj,collisionMask);
         return (col && col.obj) ? col.obj : false;
       },
       collide: function(obj,options) {
@@ -263,7 +280,7 @@
 
         curCol = maxCol;
         while(curCol > 0 &&
-              (col = this._collideCollisionLayer(obj,collisionMask))) {
+              (col = hitLayer(this,obj,collisionMask))) {
           if(!skipEvents) {
             Mo.EventBus.pub('hit',obj, col);
             Mo.EventBus.pub('hit.collision',obj,col);
@@ -275,7 +292,7 @@
 
         curCol = maxCol;
         while(curCol > 0 &&
-              (col2 = this.gridTest(obj,collisionMask))) {
+              (col2 = hitTest(this,obj,collisionMask))) {
           Mo.EventBus.pub('hit',obj,col2);
           Mo.EventBus.pub('hit.sprite',obj,col2);
           // Do the recipricol collision
@@ -321,43 +338,12 @@
            if(!skipAdd) { addGrid(this,item); }
         }
       },
-      markSprites: function(items,time) {
-        let viewport = this.viewport,
-            scale = viewport ? viewport.scale : 1,
-            x = viewport ? viewport.x : 0,
-            y = viewport ? viewport.y : 0,
-            viewW = Mo.width / scale,
-            viewH = Mo.height / scale,
-            gridX1 = Math.floor(x / this.options.gridW),
-            gridY1 = Math.floor(y / this.options.gridH),
-            gridX2 = Math.floor((x + viewW) / this.options.gridW),
-            gridY2 = Math.floor((y + viewH) / this.options.gridH),
-            gridRow, gridBlock;
-        for(let iy=gridY1; iy<=gridY2; ++iy) {
-          if((gridRow = this.grid[iy])) {
-            for(let ix=gridX1; ix<=gridX2; ++ix) {
-              if((gridBlock = gridRow[ix])) {
-                for(let id in gridBlock) {
-                  if(this.index[id]) {
-                    this.index[id].mark = time;
-                    if(this.index[id].container)
-                      this.index[id].container.mark = time;
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      updateSprites: function(items,dt,isContainer) {
-        let item;
-        for (let i=0,z=items.length;i<z;++i) {
+      update: function(items,dt,isContainer) {
+        for (let item,i=0,z=items.length;i<z;++i) {
           item=items[i];
-          // If set to visible only, don't step if set to visibleOnly
           if(!isContainer &&
              (item.p.visibleOnly &&
               (!item.mark || item.mark < this.time))) continue;
-
           if(isContainer || !item.container) {
             item.update(dt);
             Mo._generateCollisionPoints(item);
@@ -368,9 +354,9 @@
       step: function(dt) {
         if(this.paused) { return false; }
         this.time += dt;
-        this.markSprites(this.items,this.time);
+        markAll(this);
         Mo.EventBus.pub("prestep",this,dt);
-        this.updateSprites(this.items,dt);
+        this.update(this.items,dt);
         Mo.EventBus.pub("step",this,dt);
         if(this.trash.length > 0) {
           this.trash.forEach(x => this.forceRemove(x));

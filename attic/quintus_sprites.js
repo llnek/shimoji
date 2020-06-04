@@ -340,10 +340,9 @@
         Mo.EventBus.pub('step',this,dt);
         Mo._generateCollisionPoints(this);
 
-        // Ugly coupling to stage - workaround?
         this.layer &&
           (this.children.length > 0) &&
-            this.layer.updateSprites(this.children,dt,true);
+            this.layer.update(this.children,dt,true);
 
         // Reset collisions if we're tracking them
         if(this.p.collisions)
