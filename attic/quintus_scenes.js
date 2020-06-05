@@ -39,18 +39,26 @@
           gridY2 = Math.floor((y + viewH) / L.options.gridH),
           tmp,gridRow, gridBlock;
       for(let iy=gridY1; iy<=gridY2; ++iy)
-        if(gridRow = L.grid[iy])
+        if(L.grid.has(iy)) {
+          gridRow = L.grid.get(iy);
           for(let ix=gridX1; ix<=gridX2; ++ix)
-            if(gridBlock = gridRow[ix])
-              for(let id in gridBlock)
-                if(tmp=L.index[id])
+            if(gridRow.has(ix)) {
+              gridBlock = gridRow.get(ix);
+              if (!gridBlock instanceof Map) {
+                alert("poo");
+              }
+              gridBlock.forEach((v,k) => {
+                if(tmp=L.index.get(k))
                 { tmp.mark = time;
                   if(tmp.container)
                     tmp.container.mark = time; }
+              });
+            }
+        }
     };
     let testHit= function(type,id,obj,collisionMask) {
       if(_.isUndef(collisionMask) || (collisionMask & type)) {
-        let col, obj2 = this.index[id];
+        let col, obj2 = this.index.get(id);
         if(obj2 &&
            obj2 !== obj &&
            Mo.overlap(obj,obj2)) {
@@ -64,50 +72,59 @@
       }
     };
     let hitTest= function(L,obj,collisionMask) {
-      let col, cells, g=obj.grid;
-      for(let y = g.Y1;y <= g.Y2;++y)
-        if(L.grid[y])
-          for(let x = g.X1;x <= g.X2;++x)
-            if(cells = L.grid[y][x]) {
-              col = _.find(cells,testHit,L,obj,collisionMask);
+      let X,Y,col, g=obj.grid;
+      for(let y = g.get("Y1"),yz=g.get("Y2");y <= yz;++y)
+        if(L.grid.has(y)) {
+          Y=L.grid.get(y);
+          for(let x = g.get("X1"),xz=g.get("X2");x <= xz;++x)
+            if(Y.has(x)) {
+              X=Y.get(x);
+              col = _.find(X,testHit,L,obj,collisionMask);
               if(col)
                 return col;
             }
+        }
       return false;
     };
     let addCache= (L, arg,obj) => {
       if (_.isArray(arg))
         arg.forEach(x => addCache(L, x,obj));
       else {
-        L.cache[arg]= L.cache[arg] || [];
-        L.cache[arg].push(obj);
+        if (!L.cache.has(arg)) L.cache.set(arg, []);
+        L.cache.get(arg).push(obj);
       }
     };
     let delCache= (L, arg, obj) => {
       if (_.isArray(arg))
         arg.forEach(x => delCache(L, x,obj));
       else {
-        let i = L.cache[arg].indexOf(obj);
-        if(i > -1) L.cache[arg].splice(i,1);
+        let i = L.cache.get(arg).indexOf(obj);
+        if(i > -1) L.cache.get(arg).splice(i,1);
       }
     };
     let delGrid= (L, item) => {
-      let g= item.grid;
-      for(let y = g.Y1;y <= g.Y2; ++y)
-        if(L.grid[y])
-          for(let x = g.X1;x <= g.X2;++x)
-            if(L.grid[y][x])
-              delete L.grid[y][x][item.p.id];
+      let X,Y,g= item.grid;
+      for(let y = g.get("Y1"),yz= g.get("Y2");y <= yz; ++y)
+        if(L.grid.has(y)) {
+          Y=L.grid.get(y);
+          for(let x = g.get("X1"),xz=g.get("X2");x<=xz;++x)
+            if(Y.has(x)) {
+              X=Y.get(x);
+              X.delete(item.p.id);
+            }
+        }
     };
     let addGrid= (L, item) => {
-      let g= item.grid;
-      for(let y = g.Y1;y <= g.Y2;++y) {
-        if(!L.grid[y])
-          L.grid[y] = {};
-        for(let x = g.X1;x <= g.X2;++x) {
-          if(!L.grid[y][x])
-            L.grid[y][x] = {};
-          L.grid[y][x][item.p.id] = item.p.type;
+      let X,Y,g= item.grid;
+      for(let y = g.get("Y1"),yz=g.get("Y2");y <= yz;++y) {
+        if(!L.grid.has(y))
+          L.grid.set(y, new Map());
+        Y=L.grid.get(y);
+        for(let x = g.get("X1"),xz=g.get("X2");x <= xz;++x) {
+          if(!Y.has(x))
+            Y.set(x, new Map());
+          X=Y.get(x);
+          X.set(item.p.id, item.p.type);
         }
       }
     };
@@ -116,11 +133,11 @@
       init: function(action,options) {
         this.scene = action;
         this.items = [];
-        this.cache = {};
-        this.grid = {};
+        this.cache = new Map();
+        this.grid = new Map();
         this.time = 0;
         this.trash = [];
-        this.index = {}; // can't use new Map() due to js props are strings
+        this.index = new Map();
         this.collisionLayers = [];
         this.options = _.inject(_.clone(_defs), {w: Mo.width,
                                                  h: Mo.height}, options);
@@ -169,13 +186,13 @@
         return false;
       },
       find: function(id) {
-        return this.index[id];
+        return this.index.get(id);
       },
       insert: function(itm,container) {
         itm.container = container;
         this.items.push(itm);
         itm.layer = this;
-        itm.grid = {};
+        itm.grid = new Map();
 
         if(container)
           container.children.push(itm);
@@ -191,7 +208,7 @@
           addCache(this, itm.features, itm);
 
         if(itm.p && itm.p.id)
-          this.index[itm.p.id] = itm;
+          this.index.set(itm.p.id, itm);
 
         Mo.EventBus.pub("inserted",this, itm);
         Mo.EventBus.pub("inserted",itm,this);
@@ -217,8 +234,8 @@
               itm.container.children.splice(i,1);
           }
           itm.dispose && itm.dispose();
-          if(itm.p.id)
-            delete this.index[itm.p.id];
+          if(itm.p.id===0 || itm.p.id)
+            this.index.delete(itm.p.id);
           Mo.EventBus.pub('removed',this, itm);
         }
       },
@@ -317,25 +334,29 @@
       },
       regrid: function(item,skipAdd) {
         if(item.collisionLayer) { return; }
-        item.grid = item.grid || {};
+        if (!item.grid)
+          item.grid= new Map();
 
         let c = item.c || item.p;
         let gridX1 = Math.floor((c.x - c.cx) / this.options.gridW),
             gridY1 = Math.floor((c.y - c.cy) / this.options.gridH),
             gridX2 = Math.floor((c.x - c.cx + c.w) / this.options.gridW),
             gridY2 = Math.floor((c.y - c.cy + c.h) / this.options.gridH),
-            grid = item.grid;
+            g = item.grid;
 
-        if(grid.X1 !== gridX1 || grid.X2 !== gridX2 ||
-           grid.Y1 !== gridY1 || grid.Y2 !== gridY2) {
+        if(g.get("X1") !== gridX1 || g.get("X2") !== gridX2 ||
+           g.get("Y1") !== gridY1 || g.get("Y2") !== gridY2) {
 
-           if(grid.X1 !== void 0) { delGrid(this, item); }
-           grid.X1 = gridX1;
-           grid.X2 = gridX2;
-           grid.Y1 = gridY1;
-           grid.Y2 = gridY2;
+          //if(g.has("X1") !== void 0) { delGrid(this, item); }
+          if(g.has("X1"))
+            delGrid(this, item);
+           g.set("X1", gridX1);
+           g.set("X2", gridX2);
+           g.set("Y1", gridY1);
+           g.set("Y2", gridY2);
 
-           if(!skipAdd) { addGrid(this,item); }
+          if(!skipAdd)
+            addGrid(this,item);
         }
       },
       update: function(items,dt,isContainer) {
@@ -402,7 +423,7 @@
       init: function(layer,selector) {
         this.layer = layer;
         this.selector = selector;
-        this.items = this.layer.cache[this.selector] || [];
+        this.items = this.layer.cache.get(this.selector) || [];
       },
       count: function() { return this.items.length; },
       each: function(cb) {
@@ -471,7 +492,7 @@
     // Q("Enemy").p({ a: "asdfasf"  });
     Mo.pin = function(selector,where) {
       let y= Mo.layer((where === void 0) ? Mo.activeLayer : where);
-      return _.isNumber(selector) ? y.index[selector] : new Mo.Locator(y,selector);
+      return _.isNumber(selector) ? y.index.get(selector) : new Mo.Locator(y,selector);
     };
 
     Mo.layer = (num) => {

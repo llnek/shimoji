@@ -27,8 +27,8 @@
         Mo.el.addEventListener('touchcancel',this.boundEnd);
 
         this.touchPos = {};
-        this.touchPos.grid = {};
-        this.touchPos.p = { w:1, h:1, cx: 0, cy: 0 };
+        this.touchPos.grid = new Map();
+        this.touchPos.p = { id: _.nextID(), w:1, h:1, cx: 0, cy: 0 };
         this.activeTouches = {};
         this.touchedObjects = {};
       },

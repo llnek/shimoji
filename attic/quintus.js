@@ -18,10 +18,14 @@
   const isArray= (obj) => {
     return tostr.call(obj) === "[object Array]";
   };
+  let seqNum= 0;
   const _ = {
-    keys: (obj) => { return isObject(obj) ? Object.keys(obj) : []; },
+    keys: (obj) => {
+      return (obj instanceof Map) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
+    },
     slice: (a,i) => { return slicer.call(a, i); },
     now: () => { return Date.now(); }, //new Date().getTime(); },
+    nextID: () => { return ++seqNum; },
     fileNoExt: (name) => { return name.replace(/\.(\w{3,4})$/,""); },
     fileExt: (name) => {
       let parts = name.split(".");
@@ -53,11 +57,15 @@
       return res;
     },
     map: (obj, fn,ctx) => {
-      let res;
+      let res= [];
       if(isArray(obj))
         res= obj.map(fn,ctx);
+      else if(obj instanceof Map) {
+        obj.forEach((v,k)=> {
+          res.push(fn.call(ctx, v,k,obj));
+        });
+      }
       else if(obj) {
-        res=[];
         for(let k in obj)
           res.push(fn.call(ctx, obj[k],k,obj));
       }
@@ -70,6 +78,14 @@
         for (let i=0,z=obj.length;i<z;++i) {
           res = fn.apply(ctx, [obj[i], i].concat(args));
           if (res)
+            return res;
+        }
+      } else if(obj instanceof Map) {
+        let ks=Array.from(obj.keys());
+        for (let k,i=0,z=ks.length;i<z;++i) {
+          k=ks[i];
+          res = fn.apply(ctx, [obj.get(k), k].concat(args));
+          if(res)
             return res;
         }
       } else if(obj) {
@@ -89,14 +105,22 @@
     doseq: (obj,fn,ctx) => {
       if(isArray(obj)) {
         obj.forEach(fn,ctx);
+      } else if(obj instanceof Map) {
+        obj.forEach((v,k)=> fn.call(ctx,v,k,obj));
       } else if(obj) {
         for(let k in obj)
           fn.call(ctx, obj[k], k, obj);
       }
     },
     dissoc: (obj,key) => {
-      let val = obj[key];
-      delete obj[key];
+      let val;
+      if(obj instanceof Map) {
+        val=obj.get(key);
+        obj.delete(key);
+      } else if (obj) {
+        val = obj[key];
+        delete obj[key];
+      }
       return val;
     },
     seq: (arg,sep=",") => {
@@ -112,7 +136,7 @@
     isArray: isArray,
     isUndef: (obj) => { return obj === void 0; },
     has: (obj,key) => {
-      return OBJECT.hasOwnProperty.call(obj, key);
+      return (obj instanceof Map) ? obj.has(key) : OBJECT.hasOwnProperty.call(obj, key);
     },
     patch: (des,src) => {
       if (src)
