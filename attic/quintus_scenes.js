@@ -1,4 +1,4 @@
-(function(global) {
+(function(global, undefined) {
   "use strict";
 
   let Mojo=global.Mojo, _ = Mojo._;
@@ -25,7 +25,7 @@
       return false;
     };
     let markAll= function(L) {
-      let time=L.time,
+      let time=L.tick,
           items= L.items,
           view= L.viewport,
           x = view ? view.x : 0,
@@ -33,10 +33,10 @@
           scale = view ? view.scale : 1,
           viewW = Mo.width / scale,
           viewH = Mo.height / scale,
-          gridX1 = Math.floor(x / L.options.gridW),
-          gridY1 = Math.floor(y / L.options.gridH),
-          gridX2 = Math.floor((x + viewW) / L.options.gridW),
-          gridY2 = Math.floor((y + viewH) / L.options.gridH),
+          gridX1 = _.floor(x / L.options.gridW),
+          gridY1 = _.floor(y / L.options.gridH),
+          gridX2 = _.floor((x + viewW) / L.options.gridW),
+          gridY2 = _.floor((y + viewH) / L.options.gridH),
           tmp,gridRow, gridBlock;
       for(let iy=gridY1; iy<=gridY2; ++iy)
         if(L.grid.has(iy)) {
@@ -44,9 +44,6 @@
           for(let ix=gridX1; ix<=gridX2; ++ix)
             if(gridRow.has(ix)) {
               gridBlock = gridRow.get(ix);
-              if (!gridBlock instanceof Map) {
-                alert("poo");
-              }
               gridBlock.forEach((v,k) => {
                 if(tmp=L.index.get(k))
                 { tmp.mark = time;
@@ -72,11 +69,11 @@
       }
     };
     let hitTest= function(L,obj,collisionMask) {
-      let X,Y,col, g=obj.grid;
-      for(let y = g.get("Y1"),yz=g.get("Y2");y <= yz;++y)
+      let X,Y,col, g=obj.bbox4;
+      for(let y = g.y1;y <= g.y2;++y)
         if(L.grid.has(y)) {
           Y=L.grid.get(y);
-          for(let x = g.get("X1"),xz=g.get("X2");x <= xz;++x)
+          for(let x = g.x1;x <= g.x2;++x)
             if(Y.has(x)) {
               X=Y.get(x);
               col = _.find(X,testHit,L,obj,collisionMask);
@@ -87,10 +84,10 @@
       return false;
     };
     let addCache= (L, arg,obj) => {
-      if (_.isArray(arg))
+      if(_.isArray(arg))
         arg.forEach(x => addCache(L, x,obj));
       else {
-        if (!L.cache.has(arg)) L.cache.set(arg, []);
+        if(!L.cache.has(arg)) L.cache.set(arg, []);
         L.cache.get(arg).push(obj);
       }
     };
@@ -102,27 +99,23 @@
         if(i > -1) L.cache.get(arg).splice(i,1);
       }
     };
-    let delGrid= (L, item) => {
-      let X,Y,g= item.grid;
-      for(let y = g.get("Y1"),yz= g.get("Y2");y <= yz; ++y)
-        if(L.grid.has(y)) {
-          Y=L.grid.get(y);
-          for(let x = g.get("X1"),xz=g.get("X2");x<=xz;++x)
-            if(Y.has(x)) {
-              X=Y.get(x);
+    let delFromGrid= (L, item) => {
+      let X,Y,g= item.bbox4;
+      for(let y = g.y1;y <= g.y2; ++y)
+        if(Y=L.grid.get(y))
+          for(let x = g.x1;x<=g.x2;++x)
+            if(X=Y.get(x))
               X.delete(item.p.id);
-            }
-        }
     };
-    let addGrid= (L, item) => {
-      let X,Y,g= item.grid;
-      for(let y = g.get("Y1"),yz=g.get("Y2");y <= yz;++y) {
+    let addToGrid= (L, item) => {
+      let X,Y,g= item.bbox4;
+      for(let y = g.y1;y <= g.y2;++y) {
         if(!L.grid.has(y))
-          L.grid.set(y, new Map());
+          L.grid.set(y, _.jsMap());
         Y=L.grid.get(y);
-        for(let x = g.get("X1"),xz=g.get("X2");x <= xz;++x) {
+        for(let x = g.x1;x <= g.x2;++x) {
           if(!Y.has(x))
-            Y.set(x, new Map());
+            Y.set(x, _.jsMap());
           X=Y.get(x);
           X.set(item.p.id, item.p.type);
         }
@@ -133,11 +126,11 @@
       init: function(action,options) {
         this.scene = action;
         this.items = [];
-        this.cache = new Map();
-        this.grid = new Map();
-        this.time = 0;
+        this.cache = _.jsMap();
+        this.grid = _.jsMap();
+        this.tick = 0;
         this.trash = [];
-        this.index = new Map();
+        this.index = _.jsMap();
         this.collisionLayers = [];
         this.options = _.inject(_.clone(_defs), {w: Mo.width,
                                                  h: Mo.height}, options);
@@ -168,23 +161,6 @@
         let args= _.slice(arguments,1);
         this.items.forEach(x => x[funcName].apply(x,args));
       },
-      detect: function(func) {
-        let args=_.slice(arguments,1);
-        for(let i = this.items.length-1;i>= 0; --i) {
-          if(func.apply(this.items[i],args))
-          return this.items[i];
-        }
-        return false;
-      },
-      identify: function(func) {
-        let res, args=_.slice(arguments,1);
-        for(let i = this.items.length-1;i>= 0; --i) {
-          res= func.apply(this.items[i],args);
-          if (res)
-            return res;
-        }
-        return false;
-      },
       find: function(id) {
         return this.index.get(id);
       },
@@ -192,7 +168,7 @@
         itm.container = container;
         this.items.push(itm);
         itm.layer = this;
-        itm.grid = new Map();
+        itm.bbox4 = _.jsMap();
 
         if(container)
           container.children.push(itm);
@@ -217,7 +193,7 @@
         return itm;
       },
       remove: function(itm) {
-        delGrid(this, itm);
+        delFromGrid(this, itm);
         this.trash.push(itm);
       },
       forceRemove: function(itm) {
@@ -234,7 +210,7 @@
               itm.container.children.splice(i,1);
           }
           itm.dispose && itm.dispose();
-          if(itm.p.id===0 || itm.p.id)
+          if(itm.p.id)
             this.index.delete(itm.p.id);
           Mo.EventBus.pub('removed',this, itm);
         }
@@ -251,7 +227,7 @@
         return this.insert(layer);
       },
       search: function(obj,collisionMask) {
-        if(!obj.grid)
+        if(!obj.bbox4)
           this.regrid(obj,obj.layer !== this);
         if(_.isUndef(collisionMask))
           collisionMask = obj.p && obj.p.collisionMask;
@@ -259,21 +235,16 @@
                hitTest(this, obj,collisionMask);
       },
       _locateObj: {
-        p: {
-          x: 0,
-          y: 0,
-          cx: 0,
-          cy: 0,
-          w: 1,
-          h: 1
-        }, grid: {}
+        p: { x: 0, y: 0, cx: 0, cy: 0, w: 1, h: 1 }
       },
       locate: function(x,y,collisionMask) {
-        this._locateObj.p.x = x;
-        this._locateObj.p.y = y;
-        this.regrid(this._locateObj,true);
-        let col= hitLayer(this,this._locateObj,collisionMask) ||
-                 hitTest(this,this._locateObj,collisionMask);
+        let tmp= this._locateObj;
+        tmp.p.x = x;
+        tmp.p.y = y;
+        tmp.bbox4=null;
+        this.regrid(tmp,true);
+        let col= hitLayer(this,tmp,collisionMask) ||
+                 hitTest(this,tmp,collisionMask);
         return (col && col.obj) ? col.obj : false;
       },
       collide: function(obj,options) {
@@ -333,30 +304,32 @@
         return col2 || col;
       },
       regrid: function(item,skipAdd) {
-        if(item.collisionLayer) { return; }
-        if (!item.grid)
-          item.grid= new Map();
+        if(item.collisionLayer)
+        return;
+
+        if(!item.bbox4)
+          item.bbox4= Mo.bbox4();
 
         let c = item.c || item.p;
-        let gridX1 = Math.floor((c.x - c.cx) / this.options.gridW),
-            gridY1 = Math.floor((c.y - c.cy) / this.options.gridH),
-            gridX2 = Math.floor((c.x - c.cx + c.w) / this.options.gridW),
-            gridY2 = Math.floor((c.y - c.cy + c.h) / this.options.gridH),
-            g = item.grid;
+        let gridX1 = _.floor((c.x - c.cx) / this.options.gridW),
+            gridY1 = _.floor((c.y - c.cy) / this.options.gridH),
+            gridX2 = _.floor((c.x - c.cx + c.w) / this.options.gridW),
+            gridY2 = _.floor((c.y - c.cy + c.h) / this.options.gridH),
+            g = item.bbox4;
 
-        if(g.get("X1") !== gridX1 || g.get("X2") !== gridX2 ||
-           g.get("Y1") !== gridY1 || g.get("Y2") !== gridY2) {
+        if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
+           g.y1 !== gridY1 || g.y2 !== gridY2) {
 
-          //if(g.has("X1") !== void 0) { delGrid(this, item); }
-          if(g.has("X1"))
-            delGrid(this, item);
-           g.set("X1", gridX1);
-           g.set("X2", gridX2);
-           g.set("Y1", gridY1);
-           g.set("Y2", gridY2);
+          if(g.x1 !== NaN)
+            delFromGrid(this, item);
+
+          g.x1= gridX1;
+          g.x2= gridX2;
+          g.y1= gridY1;
+          g.y2= gridY2;
 
           if(!skipAdd)
-            addGrid(this,item);
+            addToGrid(this,item);
         }
       },
       update: function(items,dt,isContainer) {
@@ -364,7 +337,7 @@
           item=items[i];
           if(!isContainer &&
              (item.p.visibleOnly &&
-              (!item.mark || item.mark < this.time))) continue;
+              (!item.mark || item.mark < this.tick))) continue;
           if(isContainer || !item.container) {
             item.update(dt);
             Mo._generateCollisionPoints(item);
@@ -374,7 +347,7 @@
       },
       step: function(dt) {
         if(this.paused) { return false; }
-        this.time += dt;
+        this.tick += dt;
         markAll(this);
         Mo.EventBus.pub("prestep",this,dt);
         this.update(this.items,dt);
@@ -411,7 +384,7 @@
           // Also don't render if not onscreen
           if(!item.container &&
              (item.p.renderAlways ||
-              item.mark >= this.time)) { item.render(ctx); } });
+              item.mark >= this.tick)) { item.render(ctx); } });
 
         Mo.EventBus.pub("render",this,ctx);
         Mo.EventBus.pub("postrender",this,ctx);
@@ -442,22 +415,6 @@
       },
       dispose: function() {
         this.invoke("dispose");
-      },
-      detect: function(func) {
-        let x,args=_.slice(arguments,1);
-        for(let i=0,z=this.items.length;i<z;++i){
-          x=this.items[i];
-          if(func.apply(x, args)) return x;
-        }
-        return false;
-      },
-      identify: function(func) {
-        let x,res, args=_.slice(arguments,1);
-        for(let i=0,z=this.items.length;i<z;++i) {
-          x=this.items[i];
-          if(res= func.apply(x, args)) return res;
-        }
-        return false;
       },
       // This hidden utility method extends
       // and object's properties with a source object.

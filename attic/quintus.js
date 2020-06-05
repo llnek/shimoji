@@ -18,11 +18,16 @@
   const isArray= (obj) => {
     return tostr.call(obj) === "[object Array]";
   };
+  const isMap= (obj) => {
+    return tostr.call(obj) === "[object Map]";
+  };
   let seqNum= 0;
   const _ = {
     keys: (obj) => {
-      return (obj instanceof Map) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
+      return isMap(obj) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
     },
+    jsMap: () => { return new Map(); },
+    floor: (v) => { return Math.floor(v); },
     slice: (a,i) => { return slicer.call(a, i); },
     now: () => { return Date.now(); }, //new Date().getTime(); },
     nextID: () => { return ++seqNum; },
@@ -60,7 +65,7 @@
       let res= [];
       if(isArray(obj))
         res= obj.map(fn,ctx);
-      else if(obj instanceof Map) {
+      else if(isMap(obj)) {
         obj.forEach((v,k)=> {
           res.push(fn.call(ctx, v,k,obj));
         });
@@ -80,7 +85,7 @@
           if (res)
             return res;
         }
-      } else if(obj instanceof Map) {
+      } else if(isMap(obj)) {
         let ks=Array.from(obj.keys());
         for (let k,i=0,z=ks.length;i<z;++i) {
           k=ks[i];
@@ -105,7 +110,7 @@
     doseq: (obj,fn,ctx) => {
       if(isArray(obj)) {
         obj.forEach(fn,ctx);
-      } else if(obj instanceof Map) {
+      } else if(isMap(obj)) {
         obj.forEach((v,k)=> fn.call(ctx,v,k,obj));
       } else if(obj) {
         for(let k in obj)
@@ -114,7 +119,7 @@
     },
     dissoc: (obj,key) => {
       let val;
-      if(obj instanceof Map) {
+      if(isMap(obj)) {
         val=obj.get(key);
         obj.delete(key);
       } else if (obj) {
@@ -133,10 +138,11 @@
     isNumber: (obj) => { return tostr.call(obj) === "[object Number]"; },
     isFunction: (obj) => { return tostr.call(obj) === "[object Function]"; },
     isObject: isObject,
+    isMap: isMap,
     isArray: isArray,
     isUndef: (obj) => { return obj === void 0; },
     has: (obj,key) => {
-      return (obj instanceof Map) ? obj.has(key) : OBJECT.hasOwnProperty.call(obj, key);
+      return isMap(obj) ? obj.has(key) : OBJECT.hasOwnProperty.call(obj, key);
     },
     patch: (des,src) => {
       if (src)
@@ -582,6 +588,10 @@
     });
 
     return Mo;
+  };
+
+  Mo.bbox4 = () => {
+    return {x1: NaN, x2: NaN, y1: NaN, y2: NaN};
   };
 
   Mo.clear = () => {

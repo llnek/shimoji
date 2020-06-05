@@ -1,4 +1,4 @@
-(function(global){
+(function(global, undefined){
   "use strict";
   let Mojo = global.Mojo, _ = Mojo._;
 
@@ -128,8 +128,8 @@
           obj.c.points[i][1] = p.y + obj.p.points[i][1];
         }
         c.x = p.x; c.y = p.y;
-        c.cx = p.cx; c.cy = p.cy;
         c.w = p.w; c.h = p.h;
+        c.cx = p.cx; c.cy = p.cy;
       } else {
         let container = obj.container || Mo._nullContainer;
         c.x = container.matrix.transformX(p.x,p.y);
@@ -150,14 +150,14 @@
           let x = obj.c.points[i][0],
           y = obj.c.points[i][1];
 
-          if(x < minX) { minX = x; }
-          if(x > maxX) { maxX = x; }
-          if(y < minY) { minY = y; }
-          if(y > maxY) { maxY = y; }
+          if(x < minX) minX = x;
+          if(x > maxX) maxX = x;
+          if(y < minY) minY = y;
+          if(y > maxY) maxY = y;
         }
 
-        if(minX === maxX) { maxX+=1; }
-        if(minY === maxY) { maxY+=1; }
+        if(minX === maxX) maxX+=1;
+        if(minY === maxY) maxY+=1;
 
         c.cx = c.x - minX;
         c.cy = c.y - minY;

@@ -1,4 +1,4 @@
-(function(global) {
+(function(global, undefined) {
   "use strict";
   let Mojo= global.Mojo, _ = Mojo._, window = global;
   Mojo.Touch = function(Mo) {
@@ -26,8 +26,7 @@
         Mo.el.addEventListener('mouseup',this.boundEnd);
         Mo.el.addEventListener('touchcancel',this.boundEnd);
 
-        this.touchPos = {};
-        this.touchPos.grid = new Map();
+        this.touchPos = {bbox4: new Map()};
         this.touchPos.p = { id: _.nextID(), w:1, h:1, cx: 0, cy: 0 };
         this.activeTouches = {};
         this.touchedObjects = {};
