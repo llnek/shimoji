@@ -27,9 +27,10 @@
       return isMap(obj) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
     },
     jsMap: () => { return new Map(); },
+    jsObj: () => { return {}; },
     floor: (v) => { return Math.floor(v); },
     slice: (a,i) => { return slicer.call(a, i); },
-    now: () => { return Date.now(); }, //new Date().getTime(); },
+    now: () => { return Date.now(); },
     nextID: () => { return ++seqNum; },
     fileNoExt: (name) => { return name.replace(/\.(\w{3,4})$/,""); },
     fileExt: (name) => {
@@ -265,6 +266,14 @@
 
   Mo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
   Mo.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
+
+  Mo.v2 = (x,y) => { return [x||0,y||0]; };
+  Mo.p2 = (px,py) => { return {x: px||0,y: py||0}; };
+
+  Mo.hasTouch= () => {
+    return !!("ontouchstart" in window);
+  };
+
   Mo.gameLoop = function(action) {
     Mo.lastGameLoopFrame = _.now();
     Mo.loop = true;

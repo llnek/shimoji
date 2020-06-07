@@ -1,18 +1,21 @@
-(function(global) {
+(function(global,undefined) {
   "use strict";
+
   let Mojo = global.Mojo,
-      _ = Mojo._, document = global.document;
+      _ = Mojo._,
+      document = global.document;
+
   Mojo["2D"] = function(Mo) {
-    Mo.component('viewport',{
+    Mo.component("viewport",{
       added: function() {
-        Mo.EventBus.sub('prerender',this.entity,'prerender',this);
-        Mo.EventBus.sub('render',this.entity,'postrender',this);
+        Mo.EventBus.sub("prerender",this.entity,"prerender",this);
+        Mo.EventBus.sub("render",this.entity,"postrender",this);
+        this.centerX = Mo.width/2;
+        this.centerY = Mo.height/2;
         this.x = 0;
         this.y = 0;
         this.offsetX = 0;
         this.offsetY = 0;
-        this.centerX = Mo.width/2;
-        this.centerY = Mo.height/2;
         this.scale = 1;
       },
       ____entity: {

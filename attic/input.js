@@ -1,268 +1,223 @@
-(function(global){
+(function(global,undefined){
   "use strict";
-  let Mojo = global.Mojo, _ = Mojo._, window = global;
+  let Mojo = global.Mojo,
+      _ = Mojo._, window = global;
+
+  let KEY_NAMES = {
+    LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
+
+    ZERO: 48, ONE: 49, TWO: 50,
+    THREE: 51, FOUR: 52, FIVE: 53,
+    SIX: 54, SEVEN: 55, EIGHT: 56, NINE: 57,
+
+    A: 65, B: 66, C: 67, D: 68, E: 69, F: 70,
+    G: 71, H: 72, I: 73, J: 74, K: 75, L: 76,
+    M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82,
+    S: 83, T: 84, U: 85, V: 86, W: 87, X: 88,
+    Y: 89, Z: 90,
+
+    ENTER: 13, ESC: 27, BACKSPACE: 8, TAB: 9,
+    SHIFT: 16, CTRL: 17, ALT: 18, SPACE: 32,
+
+    HOME: 36, END: 35,
+    PGGUP: 33, PGDOWN: 34
+  };
+
+  let DEFAULT_KEYS = {
+    LEFT: "left", RIGHT: "right",
+    UP: "up", DOWN: "down",
+    Z: "fire", X: "action", P: "P", S: "S",
+    ESC: "esc", SPACE: "fire", ENTER: "confirm"
+  };
+
+  let TOUCH_CONTROLS = [["left","<" ],
+                        ["right",">" ],
+                        [],
+                        ["action","b"],
+                        ["fire", "a" ]];
+
+  let TOUCH_EVENTS= ["touchstart","touchend",
+                     "touchmove","touchcancel"];
+
+  // Clockwise from midnight (a la CSS)
+  let JOYPAD_INPUTS =  ["up","right","down","left"];
+
   Mojo.Input = function(Mo) {
 
-    let KEY_NAMES = Mo.KEY_NAMES = {
-      LEFT: 37, RIGHT: 39,
-      UP: 38, DOWN: 40,
+    Mo.inputs = _.jsMap();
+    Mo.joypad = _.jsObj();
 
-      ZERO : 48, ONE : 49, TWO : 50,
-      THREE : 51, FOUR : 52, FIVE : 53,
-      SIX : 54, SEVEN : 55, EIGHT : 56,
-      NINE : 57,
-
-      A : 65, B : 66, C : 67,
-      D : 68, E : 69, F : 70,
-      G : 71, H : 72, I : 73,
-      J : 74, K : 75, L : 76,
-      M : 77, N : 78, O : 79,
-      P : 80, Q : 81, R : 82,
-      S : 83, T : 84, U : 85,
-      V : 86, W : 87, X : 88,
-      Y : 89, Z : 90,
-
-      ENTER: 13,
-      ESC: 27,
-      BACKSPACE : 8,
-      TAB : 9,
-      SHIFT : 16,
-      CTRL : 17,
-      ALT : 18,
-      SPACE: 32,
-
-      HOME : 36, END : 35,
-      PGGUP : 33, PGDOWN : 34
+    let _offset;
+    let _containerOffset= () => {
+      _offset.x = 0;
+      _offset.y = 0;
+      for(let el=Mo.el;;)
+      { _offset.x += el.offsetLeft;
+        _offset.y += el.offsetTop;
+        if (el=el.offsetParent) {} else break; }
     };
 
-    let DEFAULT_KEYS = {
-      LEFT: 'left', RIGHT: 'right',
-      UP: 'up',     DOWN: 'down',
-      SPACE: 'fire',
-      Z: 'fire',
-      X: 'action',
-      ENTER: 'confirm',
-      ESC: 'esc',
-      P: 'P',
-      S: 'S'
+    let delEvent=function(evt,f) {
+      Mo.el.removeEventListener(evt,f);
     };
 
-    let DEFAULT_TOUCH_CONTROLS  = [ ['left','<' ],
-                              ['right','>' ],
-                              [],
-                              ['action','b'],
-                              ['fire', 'a' ]];
+    let subEvent=function(evt,f,arg) {
+      if (arg === void 0)
+        Mo.el.addEventListener(evt,f);
+      else
+        Mo.el.addEventListener(evt,f,arg);
+    };
 
-    // Clockwise from midnight (a la CSS)
-    let DEFAULT_JOYPAD_INPUTS =  [ 'up','right','down','left'];
-
-    Mo.inputs = {};
-    Mo.joypad = {};
-
-    let hasTouch =  !!("ontouchstart" in window);
-
-    Mo.canvasToStageX = (x,stage) => {
+    let _canvasToLayerX = (x,layer) => {
       x = x / Mo.cssWidth * Mo.width;
-      if(stage.viewport) {
-        x /= stage.viewport.scale;
-        x += stage.viewport.x;
-      }
-      return x;
+      return layer.viewport ? ((x/layer.viewport.scale)+layer.viewport.x) : x;
     };
 
-    Mo.canvasToStageY = (y,stage) => {
+    let _canvasToLayerY = (y,layer) => {
       y = y / Mo.cssWidth * Mo.width;
-      if(stage.viewport) {
-        y /= stage.viewport.scale;
-        y += stage.viewport.y;
-      }
-      return y;
+      return layer.viewport ? ((y/layer.viewport.scale)+layer.viewport.y) : y;
     };
 
-    Mo.defType("InputSystem", {
-      keys: {},
-      keypad: {},
-      keyboardEnabled: false,
+    Mo.input = {
+      keys: _.jsMap(),
+      keypad: _.jsObj(),
       touchEnabled: false,
       joypadEnabled: false,
-
-      bindKey: (key,name) => { Mo.input.keys[KEY_NAMES[key] || key] = name; },
+      keyboardEnabled: false,
 
       enableKeyboard: function() {
         if(this.keyboardEnabled) return false;
-
         // Make selectable and remove an :focus outline
         Mo.el.tabIndex = 0;
         Mo.el.style.outline = 0;
-
-        Mo.el.addEventListener("keydown",function(e) {
-          if(Mo.input.keys[e.keyCode]) {
-            let actionName = Mo.input.keys[e.keyCode];
-            Mo.inputs[actionName] = true;
-            Mo.EventBus.pub(actionName, Mo.input);
-            Mo.EventBus.pub("keydown",Mo.input,e.keyCode);
+        let action,self=this;
+        subEvent("keydown",(e) => {
+          if(action=self.keys.get(e.keyCode)) {
+            Mo.inputs.set(action, true);
+            Mo.EventBus.pub(action, self);
+            Mo.EventBus.pub("keydown",self,e.keyCode);
           }
-          if(!e.ctrlKey &&
-             !e.metaKey)
-            e.preventDefault();
+          if(!e.ctrlKey && !e.metaKey) e.preventDefault();
         },false);
-
-        Mo.el.addEventListener("keyup",function(e) {
-          if(Mo.input.keys[e.keyCode]) {
-            let actionName = Mo.input.keys[e.keyCode];
-            Mo.inputs[actionName] = false;
-            Mo.EventBus.pub(actionName + "Up", Mo.input);
-            Mo.EventBus.pub("keyup",Mo.input,e.keyCode);
+        subEvent("keyup",(e) => {
+          if(action=self.keys.get(e.keyCode)) {
+            Mo.inputs.set(action, false);
+            Mo.EventBus.pub(action+"Up", self);
+            Mo.EventBus.pub("keyup",self,e.keyCode);
           }
           e.preventDefault();
         },false);
-
-        if(Mo.options.autoFocus) {  Mo.el.focus(); }
+        Mo.options.autoFocus && Mo.el.focus();
         this.keyboardEnabled = true;
       },
-
       keyboardControls: function(keys) {
-        keys = keys || DEFAULT_KEYS;
-        _.doseq(keys,function(name,key) {
-         this.bindKey(key,name);
-        },Mo.input);
+        let self=this;
+        _.doseq(keys||DEFAULT_KEYS, (name,key) => {
+          self.keys.set(KEY_NAMES[key] || key, name);
+        });
         this.enableKeyboard();
       },
-
-      _containerOffset: function() {
-        Mo.input.offsetX = 0;
-        Mo.input.offsetY = 0;
-        let el = Mo.el;
-        do {
-          Mo.input.offsetX += el.offsetLeft;
-          Mo.input.offsetY += el.offsetTop;
-        } while(el = el.offsetParent);
-      },
-
       touchLocation: function(touch) {
         let el = Mo.el,
-          posX = touch.offsetX,
-          posY = touch.offsetY,
-          touchX, touchY;
-
-        if(_.isUndef(posX) ||
-           _.isUndef(posY)) {
-          posX = touch.layerX;
-          posY = touch.layerY;
+            px = touch.offsetX,
+            py = touch.offsetY;
+        if(_.isUndef(px) ||
+           _.isUndef(py)) {
+          px = touch.layerX;
+          py = touch.layerY;
         }
-
-        if(_.isUndef(posX) ||
-           _.isUndef(posY)) {
-          if(Mo.input.offsetX === void 0) {
-            Mo.input._containerOffset();
+        if(_.isUndef(px) ||
+           _.isUndef(py)) {
+          if(_.isUndef(_offset)) {
+            _offset= _.p2();
+            _containerOffset();
           }
-          posX = touch.pageX - Mo.input.offsetX;
-          posY = touch.pageY - Mo.input.offsetY;
+          px = touch.pageX - _offset.x;
+          py = touch.pageY - _offset.y;
         }
-
-        touchX = Mo.width * posX / Mo.cssWidth;
-        touchY = Mo.height * posY / Mo.cssHeight;
-
-        return { x: touchX, y: touchY };
+        return _.p2(Mo.width * px / Mo.cssWidth,
+                    Mo.height * py / Mo.cssHeight);
       },
-
       touchControls: function(opts) {
-        if(this.touchEnabled) { return false; }
-        if(!hasTouch) { return false; }
-        Mo.input.keypad = opts = _.inject({
+        if(!_.hasTouch() ||
+           this.touchEnabled) { return false; }
+        opts = _.inject({
           left: 0,
           gutter:10,
-          controls: DEFAULT_TOUCH_CONTROLS,
           width: Mo.width,
           bottom: Mo.height,
-          fullHeight: false
+          fullHeight: false,
+          controls: TOUCH_CONTROLS
         },opts);
-
         opts.unit = (opts.width / opts.controls.length);
         opts.size = opts.unit - (opts.gutter * 2);
+        this.keypad=opts;
 
-        function getKey(touch) {
-          let pos = Mo.input.touchLocation(touch),
-              minY = opts.bottom - opts.unit;
+        let self=this;
+        let getKey= (touch) => {
+          let pos = self.touchLocation(touch),
+              mx,my = opts.bottom - opts.unit;
           for(let i=0,len=opts.controls.length;i<len;++i) {
-            let minX = i * opts.unit + opts.gutter;
-            if(pos.x >= minX &&
-               pos.x <= (minX+opts.size) &&
+            mx = i * opts.unit + opts.gutter;
+            if(pos.x >= mx &&
+               pos.x <= (mx+opts.size) &&
                (opts.fullHeight ||
-                (pos.y >= minY+opts.gutter &&
-                 pos.y <= (minY+opts.unit-opts.gutter)))) {
+                (pos.y >= my+opts.gutter &&
+                 pos.y <= (my+opts.unit-opts.gutter)))) {
               return opts.controls[i][0];
             }
           }
         }
-
-        function touchDispatch(event) {
-          let wasOn = {}, tch, key, actionName;
+        Mo.input.touchDispatchHandler = (event) => {
+          let touches = event.touches ? event.touches : [event];
+          let wasOn = {}, tch, key, action;
           // Reset all the actions bound to controls
           // but keep track of all the actions that were on
           for(let i=0,z=opts.controls.length;i<z;++i) {
-            actionName = opts.controls[i][0];
-            if(Mo.inputs[actionName]) { wasOn[actionName] = true; }
-            Mo.inputs[actionName] = false;
+            action= opts.controls[i][0];
+            if(Mo.inputs.has(action)) { wasOn[action] = true; }
+            Mo.inputs.set(action,false);
           }
-
-          let touches = event.touches ? event.touches : [ event ];
-
           for(let i=0,z=touches.length;i<z;++i) {
             tch = touches[i];
-            key = getKey(tch);
-            if(key) {
-              // Mark this input as on
-              Mo.inputs[key] = true;
-              // Either send a new action
-              // or remove from wasOn list
-              if(!wasOn[key])
-                Mo.EventBus.pub(key, Mo.input);
-              else
+            if(key = getKey(tch)) {
+              Mo.inputs.set(key, true);
+              if(wasOn[key])
                 delete wasOn[key];
+              else
+                Mo.EventBus.pub(key, self);
             }
           }
           // Any remaining were on the last frame
           // and need to send an up action
-          for(actionName in wasOn) {
-            Mo.EventBus.pub(actionName + "Up", Mo.input);
-          }
-          return null;
-        }
-
-        this.touchDispatchHandler = (e) => {
-          touchDispatch(e);
-          e.preventDefault();
+          for(action in wasOn)
+            Mo.EventBus.pub(action+"Up", self);
+          event.preventDefault();
         };
-
-        _.doseq(["touchstart","touchend","touchmove","touchcancel"],function(evt) {
-          Mo.el.addEventListener(evt,this.touchDispatchHandler);
-        },this);
-
+        _.doseq(TOUCH_EVENTS, (evt) => {
+          subEvent(evt, Mo.input.touchDispatchHandler);
+        });
         this.touchEnabled = true;
       },
-
       disableTouchControls: function() {
-        _.doseq(["touchstart","touchend","touchmove","touchcancel"],function(evt) {
-          Mo.el.removeEventListener(evt,this.touchDispatchHandler);
-        },this);
-
-        Mo.el.removeEventListener("touchstart",this.joypadStart);
-        Mo.el.removeEventListener("touchmove",this.joypadMove);
-        Mo.el.removeEventListener("touchend",this.joypadEnd);
-        Mo.el.removeEventListener("touchcancel",this.joypadEnd);
+        _.doseq(TOUCH_EVENTS,(evt) => {
+          delEvent(evt,Mo.input.touchDispatchHandler);
+        });
+        delEvent("touchstart",this.joypadStart);
+        delEvent("touchmove",this.joypadMove);
+        delEvent("touchend",this.joypadEnd);
+        delEvent("touchcancel",this.joypadEnd);
         this.touchEnabled = false;
-
         // clear existing inputs
-        for(let input in Mo.inputs) {
-          Mo.inputs[input] = false;
-        }
+        Mo.inputs.forEach((v,k) => {
+          Mo.inputs.set(k,false);
+        });
       },
-
       joypadControls: function(opts) {
-        if(this.joypadEnabled) { return false; }
-        if(!hasTouch) { return false; }
-        let joypad = Mo.joypad = _.patch(opts || {},{
+        if(!_.hasTouch() ||
+           this.joypadEnabled) { return false; }
+        let self=this,
+            joypad = _.patch(opts || {},{
           size: 50,
           trigger: 20,
           center: 25,
@@ -271,14 +226,16 @@
           alpha: 0.5,
           zone: Mo.width / 2,
           joypadTouch: null,
-          inputs: DEFAULT_JOYPAD_INPUTS,
-          triggers: []
+          triggers: [],
+          inputs: JOYPAD_INPUTS
         });
 
-        this.joypadStart = function(evt) {
+        Mo.joypad=joypad;
+
+        this.joypadStart = (evt) => {
           if(joypad.joypadTouch === null) {
             let touch = evt.changedTouches[0],
-                loc = Mo.input.touchLocation(touch);
+                loc = self.touchLocation(touch);
             if(loc.x < joypad.zone) {
               joypad.joypadTouch = touch.identifier;
               joypad.centerX = loc.x;
@@ -288,14 +245,13 @@
             }
           }
         };
-
-        this.joypadMove = function(e) {
+        this.joypadMove = (e) => {
           if(joypad.joypadTouch !== null) {
             let evt = e;
             for(let i=0,z=evt.changedTouches.length;i<z;++i) {
               let touch = evt.changedTouches[i];
               if(touch.identifier === joypad.joypadTouch) {
-                let loc = Mo.input.touchLocation(touch),
+                let loc = self.touchLocation(touch),
                     dx = loc.x - joypad.centerX,
                     dy = loc.y - joypad.centerY,
                     dist = Math.sqrt(dx * dx + dy * dy),
@@ -313,15 +269,15 @@
                   dx < -joypad.trigger
                 ];
                 for(let k=0;k<triggers.length;++k) {
-                  let actionName = joypad.inputs[k];
+                  let action= joypad.inputs[k];
                   if(triggers[k]) {
-                    Mo.inputs[actionName] = true;
+                    Mo.inputs.set(action,true);
                     if(!joypad.triggers[k])
-                      Mo.EventBus.pub(actionName, Mo.input);
+                      Mo.EventBus.pub(action, Mo.input);
                   } else {
-                    Mo.inputs[actionName] = false;
+                    Mo.inputs.set(action,false);
                     if(joypad.triggers[k])
-                      Mo.EventBus.pub(actionName + "Up", Mo.input);
+                      Mo.EventBus.pub(action+"Up", Mo.input);
                   }
                 }
                 _.inject(joypad, {
@@ -339,17 +295,17 @@
           e.preventDefault();
         };
 
-        this.joypadEnd = function(e) {
+        this.joypadEnd = (e) => {
           let evt = e;
           if(joypad.joypadTouch !== null) {
             for(let i=0,z=evt.changedTouches.length;i<z;++i) {
               let touch = evt.changedTouches[i];
               if(touch.identifier === joypad.joypadTouch) {
                 for(let k=0;k<joypad.triggers.length;++k) {
-                  let actionName = joypad.inputs[k];
-                  Mo.inputs[actionName] = false;
+                  let action= joypad.inputs[k];
+                  Mo.inputs.set(action,false);
                   if(joypad.triggers[k])
-                    Mo.EventBus.pub(actionName + "Up", Mo.input);
+                    Mo.EventBus.pub(action+"Up", Mo.input);
                 }
                 joypad.joypadTouch = null;
                 break;
@@ -359,90 +315,89 @@
           e.preventDefault();
         };
 
-        Mo.el.addEventListener("touchstart",this.joypadStart);
-        Mo.el.addEventListener("touchmove",this.joypadMove);
-        Mo.el.addEventListener("touchend",this.joypadEnd);
-        Mo.el.addEventListener("touchcancel",this.joypadEnd);
+        subEvent("touchstart",this.joypadStart);
+        subEvent("touchmove",this.joypadMove);
+        subEvent("touchend",this.joypadEnd);
+        subEvent("touchcancel",this.joypadEnd);
 
         this.joypadEnabled = true;
       },
 
       mouseControls: function(options) {
         options = options || {};
-        let stageNum = options.stageNum || 0;
+        let layerNum = options.layerNum || 0;
         let mouseInputX = options.mouseX || "mouseX";
         let mouseInputY = options.mouseY || "mouseY";
         let cursor = options.cursor || "off";
-        let mouseMoveObj = {};
+        let self=this;
+        let mouseMoveObj = _.jsObj();
         if(cursor !== "on")
           Mo.el.style.cursor = (cursor === "off") ? "none" : cursor;
 
-        Mo.inputs[mouseInputX] = 0;
-        Mo.inputs[mouseInputY] = 0;
+        Mo.inputs.set(mouseInputX, 0);
+        Mo.inputs.set(mouseInputY, 0);
 
-        Mo._mouseMove = function(e) {
+        this._mouseMove = function(e) {
           e.preventDefault();
           let touch = e.touches ? e.touches[0] : e;
           let el = Mo.el,
             rect = el.getBoundingClientRect(),
             style = window.getComputedStyle(el),
-            posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
-            posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
-
-          let stage = Mo.layer(stageNum);
-          if(_.isUndef(posX) ||
-             _.isUndef(posY)) {
-            posX = touch.offsetX;
-            posY = touch.offsetY;
+            px = touch.clientX - rect.left - parseInt(style.paddingLeft),
+            py = touch.clientY - rect.top  - parseInt(style.paddingTop);
+          let layer = Mo.layer(layerNum);
+          if(_.isUndef(px) ||
+             _.isUndef(py)) {
+            px = touch.offsetX;
+            py = touch.offsetY;
           }
-          if(_.isUndef(posX) ||
-             _.isUndef(posY)) {
-            posX = touch.layerX;
-            posY = touch.layerY;
+          if(_.isUndef(px) ||
+             _.isUndef(py)) {
+            px = touch.layerX;
+            py = touch.layerY;
           }
-          if(_.isUndef(posX) ||
-             _.isUndef(posY)) {
-            if(Mo.input.offsetX === void 0) { Mo.input._containerOffset(); }
-            posX = touch.pageX - Mo.input.offsetX;
-            posY = touch.pageY - Mo.input.offsetY;
+          if(_.isUndef(px) ||
+             _.isUndef(py)) {
+            if(_.isUndef(_offset)) {
+              _offset= _.p2();
+              _containerOffset();
+            }
+            px = touch.pageX - _offset.x;
+            py = touch.pageY - _offset.y;
           }
-          if(stage) {
-            mouseMoveObj.x= Mo.canvasToStageX(posX,stage);
-            mouseMoveObj.y= Mo.canvasToStageY(posY,stage);
-            Mo.inputs[mouseInputX] = mouseMoveObj.x;
-            Mo.inputs[mouseInputY] = mouseMoveObj.y;
-            Mo.EventBus.pub("mouseMove",Mo.input,mouseMoveObj);
+          if(layer) {
+            mouseMoveObj.x= _canvasToLayerX(px,layer);
+            mouseMoveObj.y= _canvasToLayerY(py,layer);
+            Mo.inputs.set(mouseInputX, mouseMoveObj.x);
+            Mo.inputs.set(mouseInputY, mouseMoveObj.y);
+            Mo.EventBus.pub("mouseMove",self,mouseMoveObj);
           }
         };
-
-        Mo._mouseWheel = function(e) {
+        this._mouseWheel = (e) => {
           // http://www.sitepoint.com/html5-javascript-mouse-wheel/
           // cross-browser wheel delta
           e = window.event || e; // old IE support
           let delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
-          Mo.EventBus.pub("mouseWheel", Mo.input,delta);
+          Mo.EventBus.pub("mouseWheel", self,delta);
         };
-
-        Mo.el.addEventListener("mousemove",Mo._mouseMove,true);
-        Mo.el.addEventListener("touchstart",Mo._mouseMove,true);
-        Mo.el.addEventListener("touchmove",Mo._mouseMove,true);
-        Mo.el.addEventListener("mousewheel",Mo._mouseWheel,true);
-        Mo.el.addEventListener("DOMMouseScroll",Mo._mouseWheel,true);
+        subEvent("mousemove",this._mouseMove,true);
+        subEvent("touchstart",this._mouseMove,true);
+        subEvent("touchmove",this._mouseMove,true);
+        subEvent("mousewheel",this._mouseWheel,true);
+        subEvent("DOMMouseScroll",this._mouseWheel,true);
       },
-
       disableMouseControls: function() {
-        if(Mo._mouseMove) {
-          Mo.el.removeEventListener("mousemove",Mo._mouseMove, true);
-          Mo.el.removeEventListener("mousewheel",Mo._mouseWheel, true);
-          Mo.el.removeEventListener("DOMMouseScroll",Mo._mouseWheel, true);
+        if(this._mouseMove) {
+          delEvent("mousemove",this._mouseMove, true);
+          delEvent("mousewheel",this._mouseWheel, true);
+          delEvent("DOMMouseScroll",this._mouseWheel, true);
           Mo.el.style.cursor = "inherit";
-          Mo._mouseMove = null;
+          this._mouseMove = null;
         }
       },
-
       drawButtons: function() {
-        let keypad = Mo.input.keypad,
-            ctx = Mo.ctx;
+        let ctx = Mo.ctx,
+            keypad = this.keypad;
         ctx.save();
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -452,7 +407,7 @@
             ctx.font = "bold " + (keypad.size/2) + "px arial";
             let x = keypad.left + i * keypad.unit + keypad.gutter,
                 y = keypad.bottom - keypad.unit,
-                key = Mo.inputs[control[0]];
+                key = Mo.inputs.get(control[0]);
 
             ctx.fillStyle = keypad.color || "#FFFFFF";
             ctx.globalAlpha = key ? 1.0 : 0.5;
@@ -483,33 +438,23 @@
       drawJoypad: function() {
         let joypad = Mo.joypad;
         if(joypad.joypadTouch !== null) {
-          Mo.input.drawCircle(joypad.centerX,
-                             joypad.centerY,
-                             joypad.background,
-                             joypad.size);
-
+          this.drawCircle(joypad.centerX,
+                          joypad.centerY,
+                          joypad.background,
+                          joypad.size);
           if(joypad.x !== null) {
-            Mo.input.drawCircle(joypad.x,
-                             joypad.y,
-                             joypad.color,
-                             joypad.center);
+            this.drawCircle(joypad.x,
+                            joypad.y,
+                            joypad.color,
+                            joypad.center);
           }
         }
       },
-
       drawCanvas: function() {
-        if(this.touchEnabled) {
-          this.drawButtons();
-        }
-
-        if(this.joypadEnabled) {
-          this.drawJoypad();
-        }
+        if(this.touchEnabled) this.drawButtons();
+        if(this.joypadEnabled) this.drawJoypad();
       }
-
-    });
-
-    Mo.input = new Mo.InputSystem();
+    };
 
     Mo.controls = function(joypad) {
       Mo.input.keyboardControls();
@@ -530,7 +475,6 @@
         jumpSpeed: -300,
         collisions: []
       },
-
       added: function() {
         let p = this.entity.p;
         _.patch(p,this.defaults);
@@ -555,7 +499,8 @@
           // Follow along the current slope, if possible.
           if(p.collisions !== void 0 &&
              p.collisions.length > 0 &&
-             (Mo.inputs["left"] || Mo.inputs["right"] || p.landed > 0)) {
+             (Mo.inputs.has("left") ||
+              Mo.inputs.has("right") || p.landed > 0)) {
             if(p.collisions.length === 1) {
               collision = p.collisions[0];
             } else {
@@ -574,7 +519,7 @@
             }
           }
 
-          if(Mo.inputs["left"]) {
+          if(Mo.inputs.has("left")) {
             p.direction = "left";
             if(collision && p.landed > 0) {
               p.vx = p.speed * collision.normalY;
@@ -582,7 +527,7 @@
             } else {
               p.vx = -p.speed;
             }
-          } else if(Mo.inputs["right"]) {
+          } else if(Mo.inputs.has("right")) {
             p.direction = "right";
             if(collision && p.landed > 0) {
               p.vx = -p.speed * collision.normalY;
@@ -597,16 +542,19 @@
           }
 
           if(p.landed > 0 &&
-             (Mo.inputs["up"] || Mo.inputs["action"]) && !p.jumping) {
+             (Mo.inputs.has("up") ||
+              Mo.inputs.has("action")) && !p.jumping) {
             p.vy = p.jumpSpeed;
             p.landed = -dt;
             p.jumping = true;
-          } else if(Mo.inputs["up"] || Mo.inputs["action"]) {
+          } else if(Mo.inputs.has("up") ||
+                    Mo.inputs.has("action")) {
             Mo.EventBus.pub("jump", this.entity,this.entity);
             p.jumping = true;
           }
 
-          if(p.jumping && !(Mo.inputs["up"] || Mo.inputs["action"])) {
+          if(p.jumping && !(Mo.inputs.has("up") ||
+                            Mo.inputs.has("action"))) {
             p.jumping = false;
             Mo.EventBus.pub("jumped", this.entity,this.entity);
             if(p.vy < p.jumpSpeed / 3) {
@@ -621,8 +569,8 @@
     Mo.component("stepControls", {
       added: function() {
         let p = this.entity.p;
-        if(!p.stepDistance) { p.stepDistance = 32; }
-        if(!p.stepDelay) { p.stepDelay = 0.2; }
+        if(!p.stepDistance) p.stepDistance = 32;
+        if(!p.stepDelay) p.stepDelay = 0.2;
         p.stepWait = 0;
         Mo.EventBus.sub("step",this.entity,"step",this);
         Mo.EventBus.sub("hit", this.entity,"collision",this);
@@ -656,15 +604,15 @@
         p.diffX = 0;
         p.diffY = 0;
 
-        if(Mo.inputs["left"]) {
+        if(Mo.inputs.has("left")) {
           p.diffX = -p.stepDistance;
-        } else if(Mo.inputs["right"]) {
+        } else if(Mo.inputs.has("right")) {
           p.diffX = p.stepDistance;
         }
 
-        if(Mo.inputs["up"]) {
+        if(Mo.inputs.has("up")) {
           p.diffY = -p.stepDistance;
-        } else if(Mo.inputs["down"]) {
+        } else if(Mo.inputs.has("down")) {
           p.diffY = p.stepDistance;
         }
 
