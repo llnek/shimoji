@@ -1,16 +1,17 @@
-(function(global) {
+(function(global,undefined) {
   "use strict";
   let Mojo = global.Mojo, _ = Mojo._;
+
   Mojo.Anim = function(Mo) {
-    Mo._animations = {};
+    let _animations = {};
     Mo.animations = (sprite,animations) => {
-      if(!Mo._animations[sprite])
-        Mo._animations[sprite] = {};
-      _.inject(Mo._animations[sprite],animations);
+      if(!_animations[sprite])
+        _animations[sprite] = {};
+      _.inject(_animations[sprite],animations);
     };
 
     Mo.animation = (sprite,name) => {
-      return Mo._animations[sprite] && Mo._animations[sprite][name];
+      return _animations[sprite] && _animations[sprite][name];
     };
 
     Mo.component("animation", {
@@ -46,8 +47,8 @@
             if(p.animationFrame >= anim.frames.length) {
               if(anim.loop === false || anim.next) {
                 p.animationFrame = anim.frames.length - 1;
-                Mo.EventBus.pub('animEnd',entity);
-                Mo.EventBus.pub('animEnd.' + p.animation,entity);
+                Mo.EventBus.pub("animEnd",entity);
+                Mo.EventBus.pub("animEnd." + p.animation,entity);
                 p.animation = null;
                 p.animationPriority = -1;
                 if(anim.trigger)
@@ -56,8 +57,8 @@
                   this.play(anim.next,anim.nextPriority);
                 return;
               } else {
-                Mo.EventBus.pub('animLoop',entity);
-                Mo.EventBus.pub('animLoop.' + p.animation, entity);
+                Mo.EventBus.pub("animLoop",entity);
+                Mo.EventBus.pub("animLoop." + p.animation, entity);
                 p.animationFrame = p.animationFrame % anim.frames.length;
               }
             }
@@ -74,7 +75,7 @@
         priority = priority || 0;
         if(name !== p.animation &&
            priority >= p.animationPriority) {
-          if(resetFrame === void 0) {
+          if(resetFrame === undefined) {
             resetFrame = true;
           }
           p.animation = name;
@@ -84,8 +85,8 @@
             p.animationFrame = 0;
           }
           p.animationPriority = priority;
-          Mo.EventBus.pub('anim', entity);
-          Mo.EventBus.pub('anim.' + p.animation, entity);
+          Mo.EventBus.pub("anim", entity);
+          Mo.EventBus.pub("anim." + p.animation, entity);
         }
       }
 

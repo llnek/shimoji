@@ -20,7 +20,7 @@
       },
       ____entity: {
         follow: function(sprite,directions,boundingBox) {
-          this.off('poststep',"follow", this.viewport);
+          Mo.EventBus.unsub("poststep",this,"follow", this.viewport);
           this.viewport.directions = directions || { x: true, y: true };
           this.viewport.following = sprite;
           if(_.isUndef(boundingBox) &&
@@ -35,7 +35,7 @@
           this.viewport.follow(true);
         },
         unfollow: function() {
-          this.off('poststep',"follow",this.viewport);
+          Mo.EventBus.unsub("poststep",this,"follow",this.viewport);
         },
         centerOn: function(x,y) {
           this.viewport.centerOn(x,y);

@@ -154,6 +154,7 @@
     clone: (obj) => { return Object.assign({},obj); },
     inject: function(des) {
       let args=slicer.call(arguments,1);
+      des=des || {};
       args.forEach(s => Object.assign(des,s));
       return des;
     }

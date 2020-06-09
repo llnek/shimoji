@@ -90,8 +90,9 @@
         // Make selectable and remove an :focus outline
         Mo.el.tabIndex = 0;
         Mo.el.style.outline = 0;
-        let action,self=this;
+        let self=this;
         subEvent("keydown",(e) => {
+          let action;
           if(action=self.keys.get(e.keyCode)) {
             Mo.inputs.set(action, true);
             Mo.EventBus.pub(action, self);
@@ -100,6 +101,7 @@
           if(!e.ctrlKey && !e.metaKey) e.preventDefault();
         },false);
         subEvent("keyup",(e) => {
+          let action;
           if(action=self.keys.get(e.keyCode)) {
             Mo.inputs.set(action, false);
             Mo.EventBus.pub(action+"Up", self);
@@ -139,7 +141,7 @@
                     Mo.height * py / Mo.cssHeight);
       },
       touchControls: function(opts) {
-        if(!_.hasTouch() ||
+        if(!Mo.hasTouch() ||
            this.touchEnabled) { return false; }
         opts = _.inject({
           left: 0,
