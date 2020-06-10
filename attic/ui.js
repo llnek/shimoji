@@ -63,8 +63,8 @@
       },
       fit: function(padY,padX) {
         let minObjX, minObjY, maxObjX, maxObjY;
-        let maxY=maxX = -Infinity;
-        let minY=minX = Infinity;
+        let maxX = -Infinity,maxY=maxX;
+        let minX = Infinity,minY=minX;
         this.children.forEach(obj => {
           minObjX = obj.p.x - obj.p.cx,
           minObjY = obj.p.y - obj.p.cy,

@@ -160,7 +160,7 @@
     }
   };
 
-  let AssetTypes= {tmx: "TMX", png: "Image",
+  let AssetTypes= {tmx: "TMX", png: "Image", xml: "Xml", json: "Json",
                    jpg: "Image", gif: "Image", jpeg: "Image",
                    ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
   let AudioMimeTypes = {mp3: "audio/mpeg",
@@ -682,9 +682,8 @@
     return Mo;
   };
 
-  Mo.loadAssetOther = function(key,src,cb,ecb) {
-    let ext = _.fileExt(src),
-        dev=Mo.options.devMode,
+  Mo.ajax = function(key,src,cb,ecb) {
+    let dev=Mo.options.devMode,
         ajax = new XMLHttpRequest();
     if(document.location.origin === "null" ||
        document.location.origin === "file://") {
@@ -694,12 +693,28 @@
       }
       return ecb();
     }
-    ajax.onreadystatechange = function() {
+    ajax.onreadystatechange = () => {
       if(ajax.readyState === 4)
-        (ajax.status !== 200) ? ecb() : cb(key, (ext !== "json") ? ajax.responseText : JSON.parse(ajax.responseText));
+        (ajax.status !== 200) ? ecb() : cb(key, ajax.responseText);
     };
     ajax.open("GET", _assetUrl(Mo.options.dataPath,src,dev), true);
     ajax.send(null);
+    return Mo;
+  };
+
+  Mo.loadAssetOther = function(key,src,cb,ecb) {
+    Mo.ajax(key,src,cb,ecb);
+    return Mo;
+  };
+
+  Mo.loadAssetJson = function(key,src,cb,ecb) {
+    Mo.ajax(key,src,(key,data) => { cb(key,JSON.parse(data)); }, ecb);
+    return Mo;
+  };
+
+  Mo.loadAssetXml = function(key,src,cb,ecb) {
+    Mo.ajax(key,src,(key,data) => {
+      cb(key,new DOMParser().parseFromString(data, "application/xml")); },ecb);
     return Mo;
   };
 
@@ -714,7 +729,9 @@
       (bad || ((a) => {throw "Error Loading: "+a;}))(a); };
 
     _.doseq(_.seq(assets), (a) => {
-      _.isObject(a) ? _.inject(assetObj,a) : (assetObj[a] = a);
+      if(_.isObject(a))
+        _.inject(assetObj,a);
+      else if(a.length >0) assetObj[a] = a;
     });
 
     let sum = _.keys(assetObj).length;

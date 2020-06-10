@@ -24,8 +24,8 @@
           this.viewport.directions = directions || { x: true, y: true };
           this.viewport.following = sprite;
           if(_.isUndef(boundingBox) &&
-             this.lists.TileLayer !== void 0) {
-            this.viewport.boundingBox = _.find(this.lists.TileLayer, function(layer) {
+             this.cache.TileLayer !== void 0) {
+            this.viewport.boundingBox = _.find(this.cache.TileLayer, function(layer) {
               return layer.p.boundingBox ? { minX: 0, maxX: layer.p.w, minY: 0, maxY: layer.p.h } : null;
             });
           } else {
@@ -170,7 +170,7 @@
            this.sheet().frameProperties) {
           let frameProperties = this.sheet().frameProperties;
           for(let k in frameProperties) {
-            let colObj = this.tileCollisionObjects[k] = { p: Mo._clone(this.collisionObject.p) };
+            let colObj = this.tileCollisionObjects[k] = { p: _.clone(this.collisionObject.p) };
             _.inject(colObj.p,frameProperties[k]);
             if(colObj.p.points)
               colObj.p.points = _.map(colObj.p.points, returnPoint);

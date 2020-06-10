@@ -177,7 +177,7 @@
           // but keep track of all the actions that were on
           for(let i=0,z=opts.controls.length;i<z;++i) {
             action= opts.controls[i][0];
-            if(Mo.inputs.has(action)) { wasOn[action] = true; }
+            if(Mo.inputs.get(action)) { wasOn[action] = true; }
             Mo.inputs.set(action,false);
           }
           for(let i=0,z=touches.length;i<z;++i) {
@@ -216,7 +216,7 @@
         });
       },
       joypadControls: function(opts) {
-        if(!_.hasTouch() ||
+        if(!Mo.hasTouch() ||
            this.joypadEnabled) { return false; }
         let self=this,
             joypad = _.patch(opts || {},{
@@ -501,8 +501,8 @@
           // Follow along the current slope, if possible.
           if(p.collisions !== void 0 &&
              p.collisions.length > 0 &&
-             (Mo.inputs.has("left") ||
-              Mo.inputs.has("right") || p.landed > 0)) {
+             (Mo.inputs.get("left") ||
+              Mo.inputs.get("right") || p.landed > 0)) {
             if(p.collisions.length === 1) {
               collision = p.collisions[0];
             } else {
@@ -521,7 +521,7 @@
             }
           }
 
-          if(Mo.inputs.has("left")) {
+          if(Mo.inputs.get("left")) {
             p.direction = "left";
             if(collision && p.landed > 0) {
               p.vx = p.speed * collision.normalY;
@@ -529,7 +529,7 @@
             } else {
               p.vx = -p.speed;
             }
-          } else if(Mo.inputs.has("right")) {
+          } else if(Mo.inputs.get("right")) {
             p.direction = "right";
             if(collision && p.landed > 0) {
               p.vx = -p.speed * collision.normalY;
@@ -544,19 +544,19 @@
           }
 
           if(p.landed > 0 &&
-             (Mo.inputs.has("up") ||
-              Mo.inputs.has("action")) && !p.jumping) {
+             (Mo.inputs.get("up") ||
+              Mo.inputs.get("action")) && !p.jumping) {
             p.vy = p.jumpSpeed;
             p.landed = -dt;
             p.jumping = true;
-          } else if(Mo.inputs.has("up") ||
-                    Mo.inputs.has("action")) {
+          } else if(Mo.inputs.get("up") ||
+                    Mo.inputs.get("action")) {
             Mo.EventBus.pub("jump", this.entity,this.entity);
             p.jumping = true;
           }
 
-          if(p.jumping && !(Mo.inputs.has("up") ||
-                            Mo.inputs.has("action"))) {
+          if(p.jumping && !(Mo.inputs.get("up") ||
+                            Mo.inputs.get("action"))) {
             p.jumping = false;
             Mo.EventBus.pub("jumped", this.entity,this.entity);
             if(p.vy < p.jumpSpeed / 3) {
@@ -606,15 +606,15 @@
         p.diffX = 0;
         p.diffY = 0;
 
-        if(Mo.inputs.has("left")) {
+        if(Mo.inputs.get("left")) {
           p.diffX = -p.stepDistance;
-        } else if(Mo.inputs.has("right")) {
+        } else if(Mo.inputs.get("right")) {
           p.diffX = p.stepDistance;
         }
 
-        if(Mo.inputs.has("up")) {
+        if(Mo.inputs.get("up")) {
           p.diffY = -p.stepDistance;
-        } else if(Mo.inputs.has("down")) {
+        } else if(Mo.inputs.get("down")) {
           p.diffY = p.stepDistance;
         }
 
