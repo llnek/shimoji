@@ -3,12 +3,13 @@
   "use strict";
   let Mojo = global.Mojo,
       _ = Mojo._,
+      is = _.is,
       document= global.document;
 
 
   Mojo.UI = function(Mo) {
-    if(_.isUndef(Mojo.Touch) ||
-       _.isUndef(Mojo.Input))
+    if(is.undef(Mojo.Touch) ||
+       is.undef(Mojo.Input))
       throw "Mojo.UI requires Mojo.Touch & Mojo.Input Modules";
     Mo.UI = _.jsObj();
     Mo.UI.drawRoundRect = (ctx, rect) => {
@@ -32,13 +33,13 @@
       init: function(p,defaults) {
         let match, props= _.inject({},p);
         if(p &&
-           _.isString(p.w) &&
+           is.str(p.w) &&
            (match = p.w.match(/^[0-9]+%$/))) {
           props.w = parseInt(p.w) * Mo.width/100;
           props.x = Mo.width/2 - props.w/2;
         }
         if(p &&
-           _.isString(p.h) &&
+           is.str(p.h) &&
            (match = p.h.match(/^[0-9]+%$/))) {
           props.h = parseInt(p.h) * Mo.height/100;
           props.y = Mo.height/2 - props.h/2;
@@ -85,13 +86,13 @@
           // Since the original dimensions were changed,
           // update the boundaries so that
           // the collision is calculated correctly
-          Mo._generatePoints(this, true);
-          Mo._generateCollisionPoints(this, true);
+          Mo.genPts(this, true);
+          Mo.genContactPts(this, true);
         }
       },
       addShadow: function(ctx) {
         if(this.p.shadow) {
-          let s= _.isNumber(this.p.shadow) ? this.p.shadow : 5;
+          let s= is.num(this.p.shadow) ? this.p.shadow : 5;
           ctx.shadowOffsetX=s;
           ctx.shadowOffsetY=s;
           ctx.shadowColor = this.p.shadowColor || "rgba(0,0,50,0.1)";

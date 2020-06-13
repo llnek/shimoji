@@ -72,7 +72,7 @@
     Mo.SPRITE_UI       = 64;
     Mo.SPRITE_ALL   = 0xFFFF;
 
-    Mo._generatePoints = function(obj,force) {
+    Mo.genPts = function(obj,force) {
       if(obj.p.points && !force)
       return;
       let p = obj.p,
@@ -94,7 +94,7 @@
       matrix: Mo.matrix2d()
     };
 
-    Mo._generateCollisionPoints = function(obj) {
+    Mo.genContactPts= function(obj) {
 
       if(!obj.matrix &&
          !obj.refreshMatrix)
@@ -216,7 +216,7 @@
         this.p.asset = name;
         if(resize) {
           this.size(true);
-          Mo._generatePoints(this,true);
+          Mo.genPts(this,true);
         }
       },
       sheet: function(name,resize) {
@@ -225,7 +225,7 @@
         this.p.sheet = name;
         if(resize) {
           this.size(true);
-          Mo._generatePoints(this,true);
+          Mo.genPts(this,true);
         }
       },
       hide: function() {
@@ -299,7 +299,7 @@
       },
       debugRender: function(ctx) {
         if(!this.p.points)
-          Mo._generatePoints(this);
+          Mo.genPts(this);
         ctx.save();
         this.matrix.setContextTransform(ctx);
         ctx.beginPath();
@@ -336,7 +336,7 @@
         if(this.step)
           this.step(dt);
         Mo.EventBus.pub('step',this,dt);
-        Mo._generateCollisionPoints(this);
+        Mo.genContactPts(this);
 
         this.layer &&
           (this.children.length > 0) &&

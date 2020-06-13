@@ -3,6 +3,7 @@
 
   let Mojo = global.Mojo,
       _ = Mojo._,
+      is = _.is,
       document = global.document;
 
   Mojo["2D"] = function(Mo) {
@@ -23,9 +24,9 @@
           Mo.EventBus.unsub("poststep",this,"follow", this.viewport);
           this.viewport.directions = directions || { x: true, y: true };
           this.viewport.following = sprite;
-          if(_.isUndef(boundingBox) &&
+          if(is.undef(boundingBox) &&
              this.cache.TileLayer !== void 0) {
-            this.viewport.boundingBox = _.find(this.cache.TileLayer, function(layer) {
+            this.viewport.boundingBox = _.some(this.cache.TileLayer, function(layer) {
               return layer.p.boundingBox ? { minX: 0, maxX: layer.p.w, minY: 0, maxY: layer.p.h } : null;
             });
           } else {
@@ -45,8 +46,8 @@
         }
       },
       follow: function(first) {
-        let followX = _.isFunction(this.directions.x) ? this.directions.x(this.following) : this.directions.x;
-        let followY = _.isFunction(this.directions.y) ? this.directions.y(this.following) : this.directions.y;
+        let followX = is.fun(this.directions.x) ? this.directions.x(this.following) : this.directions.x;
+        let followY = is.fun(this.directions.y) ? this.directions.y(this.following) : this.directions.y;
 
         this[first === true ? "centerOn" : "softCenterOn"](
                       followX ? this.following.p.x - this.offsetX : void 0,
@@ -138,15 +139,16 @@
 
         this.setDimensions();
 
-        this.blocks = [];
+        this.directions = ["top","left","right","bottom"];
         this.p.blockW = this.p.tileW * this.p.blockTileW;
         this.p.blockH = this.p.tileH * this.p.blockTileH;
-        this.colBounds = {};
-        this.directions = ["top","left","right","bottom"];
-        this.tileProperties = {};
 
-        this.collisionObject = {
-          p: {
+        this.contactNormal = { separate: []};
+        this.tileProperties = {};
+        this.colBounds = {};
+        this.blocks = [];
+
+        this.contactObj = { p: {
             w: this.p.tileW,
             h: this.p.tileH,
             cx: this.p.tileW/2,
@@ -154,35 +156,35 @@
           }
         };
 
-        this.tileCollisionObjects = {};
-        this.collisionNormal = { separate: []};
-        this._generateCollisionObjects();
+        this.tileContactObjs = {};
+        this._genContactObjs();
       },
-
-      // Generate the tileCollisionObject overrides where needed
-      _generateCollisionObjects: function() {
-        let me=this;
-        function returnPoint(pt) {
-          return [ pt[0] * me.p.tileW - me.p.tileW/2,
-                   pt[1] * me.p.tileH - me.p.tileH/2 ];
-        }
-        if(this.sheet() &&
-           this.sheet().frameProperties) {
-          let frameProperties = this.sheet().frameProperties;
-          for(let k in frameProperties) {
-            let colObj = this.tileCollisionObjects[k] = { p: _.clone(this.collisionObject.p) };
-            _.inject(colObj.p,frameProperties[k]);
-            if(colObj.p.points)
-              colObj.p.points = _.map(colObj.p.points, returnPoint);
-            this.tileCollisionObjects[k] = colObj;
-          }
-        }
+      _genContactObjs: function() {
+        let props= this.sheet() &&
+                   this.sheet().frameProperties,
+            cobj,
+            self=this,
+            rescale= (pt) => {
+              return [pt[0] * self.p.tileW - self.p.tileW/2,
+                      pt[1] * self.p.tileH - self.p.tileH/2 ];
+            };
+        if(props)
+          for(let k in props)
+            if(_.has(props,k)) {
+              cobj=
+              this.tileContactObjs[k] =
+              { p: _.clone(this.contactObj.p) };
+              _.inject(cobj.p, props[k]);
+              if(cobj.p.points)
+                cobj.p.points= _.map(cobj.p.points, rescale);
+              this.tileContactObjs[k] = cobj;
+            }
       },
       load: function(dataAsset) {
         /*
         let data, ext= _.fileExt(dataAsset);
         if (ext === "json")
-          data = _.isString(dataAsset) ?  Mo.asset(dataAsset) : dataAsset;
+          data = is.str(dataAsset) ?  Mo.asset(dataAsset) : dataAsset;
         else
           throw "file type not supported";
           */
@@ -251,13 +253,13 @@
       // (defaults to all tiles > number 0)
       collidableTile: (tileNum) => { return tileNum > 0; },
 
-      getCollisionObject: function(tileX, tileY) {
+      getContactObj: function(tileX, tileY) {
         let p = this.p,
             colObj,
             tile = this.getTile(tileX, tileY);
 
-        colObj = (this.tileCollisionObjects[tile] !== void 0) ?
-          this.tileCollisionObjects[tile] : this.collisionObject;
+        colObj = (this.tileContactObjs[tile] !== void 0) ?
+          this.tileContactObjs[tile] : this.contactObj;
 
         colObj.p.x = tileX * p.tileW + p.x + p.tileW/2;
         colObj.p.y = tileY * p.tileH + p.y + p.tileH/2;
@@ -272,7 +274,7 @@
             tileStartY = Math.floor((objP.y - objP.cy - p.y) / p.tileH),
             tileEndX =  Math.ceil((objP.x - objP.cx + objP.w - p.x) / p.tileW),
             tileEndY =  Math.ceil((objP.y - objP.cy + objP.h - p.y) / p.tileH),
-            normal = this.collisionNormal,
+            normal = this.contactNormal,
             col, colObj;
 
         normal.collided = false;
@@ -280,7 +282,7 @@
         for(let tileY = tileStartY; tileY<=tileEndY; ++tileY) {
           for(let tileX = tileStartX; tileX<=tileEndX; ++tileX) {
             if(this.tilePresent(tileX,tileY)) {
-              colObj = this.getCollisionObject(tileX, tileY);
+              colObj = this.getContactObj(tileX, tileY);
               col = Mo.collision(obj,colObj);
               if(col && col.magnitude > 0) {
                 if(colObj.p.sensor) {
@@ -591,9 +593,9 @@
       function satCollision(o1,o2) {
         let result1, result2, result;
         if(!o1.p.points)
-          Mo._generatePoints(o1);
+          Mo.genPts(o1);
         if(!o2.p.points)
-          Mo._generatePoints(o2);
+          Mo.genPts(o2);
         result1 = collide(o1,o2);
         if(!result1) { return false; }
         result2 = collide(o2,o1,true);

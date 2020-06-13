@@ -1,30 +1,29 @@
 (function(global, undefined) {
   "use strict";
 
-  let Mojo=global.Mojo, _ = Mojo._;
+  let Mojo=global.Mojo, _ = Mojo._, is=_.is;
   let _defs= {
-    sort: false,
+    //sort: false,
     gridW: 400,
     gridH: 400,
-    x: 0,
-    y: 0
+    x:0,
+    y:0
   };
 
   Mojo.Scenes = function(Mo) {
 
+    Mo.scenes = _.jsMap();
     Mo.activeLayer = 0;
-    Mo.scenes = {};
     Mo.layers = [];
 
-    let hitLayer= function(L,obj,collisionMask) {
-      for(let y,c,i=0,z=L.collisionLayers.length;i<z;++i) {
-        y=L.collisionLayers[i];
+    let _hitLayer= function(L,obj,collisionMask) {
+      for(let y,c,i=0,z=L.contactLayers.length;i<z;++i) {
+        y=L.contactLayers[i];
         if(y.p.type & collisionMask)
           if(c= y.collide(obj)) { c.obj = y; return c; }
       }
-      return false;
     };
-    let markAll= function(L) {
+    let _markAll= function(L) {
       let time=L.tick,
           items= L.items,
           view= L.viewport,
@@ -37,77 +36,49 @@
           gridY1 = _.floor(y / L.options.gridH),
           gridX2 = _.floor((x + viewW) / L.options.gridW),
           gridY2 = _.floor((y + viewH) / L.options.gridH),
-          tmp,gridRow, gridBlock;
+          tmp,X,B;
       for(let iy=gridY1; iy<=gridY2; ++iy)
-        if(L.grid.has(iy)) {
-          gridRow = L.grid.get(iy);
+        if(X=_.get(L.grid,iy)) {
           for(let ix=gridX1; ix<=gridX2; ++ix)
-            if(gridRow.has(ix)) {
-              gridBlock = gridRow.get(ix);
-              gridBlock.forEach((v,k) => {
-                if(tmp=L.index.get(k))
+            if(B=_.get(X,ix))
+              B.forEach((v,k) => {
+                if(tmp=_.get(L.index,k))
                 { tmp.mark = time;
                   if(tmp.container)
                     tmp.container.mark = time; }
               });
-            }
         }
     };
-    let testHit= function(type,id,obj,collisionMask) {
-      if(_.isUndef(collisionMask) || (collisionMask & type)) {
-        let col, obj2 = this.index.get(id);
+    let _testHit= function(type,id,obj,collisionMask) {
+      if(is.undef(collisionMask) || (collisionMask & type)) {
+        let col, obj2 = _.get(this.index,id);
         if(obj2 &&
            obj2 !== obj &&
-           Mo.overlap(obj,obj2)) {
+           Mo.overlap(obj,obj2))
           if(col= Mo.collision(obj,obj2)) {
             col.obj = obj2;
             return col;
-          } else {
-            return false;
           }
-        }
       }
     };
-    let hitTest= function(L,obj,collisionMask) {
+    let _hitTest= function(L,obj,collisionMask) {
       let X,Y,col, g=obj.bbox4;
       for(let y = g.y1;y <= g.y2;++y)
-        if(L.grid.has(y)) {
-          Y=L.grid.get(y);
+        if(Y=L.grid.get(y))
           for(let x = g.x1;x <= g.x2;++x)
-            if(Y.has(x)) {
-              X=Y.get(x);
-              col = _.find(X,testHit,L,obj,collisionMask);
-              if(col)
+            if(X=Y.get(x))
+              if(col= _.some(X,_testHit,L,obj,collisionMask))
                 return col;
-            }
-        }
-      return false;
     };
-    let addCache= (L, arg,obj) => {
-      if(_.isArray(arg))
-        arg.forEach(x => addCache(L, x,obj));
-      else {
-        if(!L.cache.has(arg)) L.cache.set(arg, []);
-        L.cache.get(arg).push(obj);
-      }
-    };
-    let delCache= (L, arg, obj) => {
-      if (_.isArray(arg))
-        arg.forEach(x => delCache(L, x,obj));
-      else {
-        let i = L.cache.get(arg).indexOf(obj);
-        if(i > -1) L.cache.get(arg).splice(i,1);
-      }
-    };
-    let delFromGrid= (L, item) => {
+    let _delFromGrid= (L, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2; ++y)
         if(Y=L.grid.get(y))
           for(let x = g.x1;x<=g.x2;++x)
             if(X=Y.get(x))
-              X.delete(item.p.id);
+              _.dissoc(X,item.p.id);
     };
-    let addToGrid= (L, item) => {
+    let _addToGrid= (L, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2;++y) {
         if(!L.grid.has(y))
@@ -117,23 +88,40 @@
           if(!Y.has(x))
             Y.set(x, _.jsMap());
           X=Y.get(x);
-          X.set(item.p.id, item.p.type);
+          _.assoc(X,item.p.id, item.p.type);
         }
       }
     };
 
     Mo.defType(["Layer", Mo.Entity], {
-      init: function(action,options) {
-        this.scene = action;
+      init: function(func,options) {
+        this.scene = func;
         this.items = [];
         this.cache = _.jsMap();
         this.grid = _.jsMap();
         this.tick = 0;
         this.trash = [];
         this.index = _.jsMap();
-        this.collisionLayers = [];
-        this.options = _.inject(_.clone(_defs), {w: Mo.width,
-                                                 h: Mo.height}, options);
+        this.contactLayers = [];
+        this.options = _.inject({},_defs, {w: Mo.width,
+                                           h: Mo.height}, options);
+      },
+      addRelation: function(arg,obj) {
+        if(is.vec(arg))
+          arg.forEach(x => this.addRelation(x,obj));
+        else {
+          if(!_.has(this.cache,arg)) _.assoc(this.cache,arg, []);
+          _.get(this.cache,arg).push(obj);
+        }
+      },
+      delRelation: function(arg, obj) {
+        if(is.vec(arg))
+          arg.forEach(x => this.delRelation(x,obj));
+        else {
+          let a = _.get(this.cache,arg);
+          let i = a ? a.indexOf(obj) : -1;
+          if(i > -1) a.splice(i,1);
+        }
       },
       disposed: function() {
         //this.invoke("debind");
@@ -147,7 +135,7 @@
       //   [ "Enemy",  { x: 54, y: 42 } ] ]
       // Either pass in the array or a string of asset name
       loadAssets: function(asset) {
-        let arr = _.isArray(asset) ? asset : Mo.asset(asset);
+        let arr = is.vec(asset) ? asset : Mo.asset(asset);
         arr.forEach(a => {
           let spriteClass = a[0];
           let spriteProps = a[1];
@@ -162,7 +150,7 @@
         this.items.forEach(x => x[funcName].apply(x,args));
       },
       find: function(id) {
-        return this.index.get(id);
+        return _.get(this.index,id);
       },
       insert: function(itm,container) {
         itm.container = container;
@@ -174,17 +162,17 @@
           container.children.push(itm);
 
         // Make sure we have a square of collision points
-        Mo._generatePoints(itm);
-        Mo._generateCollisionPoints(itm);
+        Mo.genPts(itm);
+        Mo.genContactPts(itm);
 
         if(itm.className)
-          addCache(this, itm.className, itm);
+          this.addRelation(itm.className, itm);
 
         if(itm.features)
-          addCache(this, itm.features, itm);
+          this.addRelation(itm.features, itm);
 
         if(itm.p && itm.p.id)
-          this.index.set(itm.p.id, itm);
+          _.assoc(this.index,itm.p.id, itm);
 
         Mo.EventBus.pub("inserted",this, itm);
         Mo.EventBus.pub("inserted",itm,this);
@@ -193,17 +181,17 @@
         return itm;
       },
       remove: function(itm) {
-        delFromGrid(this, itm);
+        _delFromGrid(this, itm);
         this.trash.push(itm);
       },
       forceRemove: function(itm) {
-        let idx =  this.items.indexOf(itm);
+        let idx = this.items.indexOf(itm);
         if(idx > -1) {
           this.items.splice(idx,1);
           if(itm.className)
-            delCache(this, itm.className,itm);
+            this.delRelation(itm.className,itm);
           if(itm.features)
-            delCache(this, itm.features,itm);
+            this.delRelation(itm.features,itm);
           if(itm.container) {
             let i = itm.container.children.indexOf(itm);
             if(i > -1)
@@ -211,8 +199,8 @@
           }
           itm.dispose && itm.dispose();
           if(itm.p.id)
-            this.index.delete(itm.p.id);
-          Mo.EventBus.pub('removed',this, itm);
+            _.dissoc(this.index,itm.p.id);
+          Mo.EventBus.pub("removed",this, itm);
         }
       },
       pause: function() {
@@ -221,21 +209,23 @@
       unpause: function() {
         this.paused = false;
       },
-      collisionLayer: function(layer) {
-        this.collisionLayers.push(layer);
-        layer.collisionLayer = true;
-        return this.insert(layer);
+      contactLayer: function(obj) {
+        this.contactLayers.push(obj);
+        obj.contactLayer = true;
+        return this.insert(obj);
       },
       search: function(obj,collisionMask) {
         if(!obj.bbox4)
           this.regrid(obj,obj.layer !== this);
-        if(_.isUndef(collisionMask))
+        if(is.undef(collisionMask))
           collisionMask = obj.p && obj.p.collisionMask;
-        return hitLayer(this,obj,collisionMask) ||
-               hitTest(this, obj,collisionMask);
+        return _hitLayer(this,obj,collisionMask) ||
+               _hitTest(this, obj,collisionMask);
       },
       _locateObj: {
-        p: { x: 0, y: 0, cx: 0, cy: 0, w: 1, h: 1 }
+        //x,y => center
+        //cx,cy => x-cx = left,y-cy=top
+        p: {x: 0, y: 0, cx: 0, cy: 0, w: 1, h: 1 }
       },
       locate: function(x,y,collisionMask) {
         let tmp= this._locateObj;
@@ -243,15 +233,16 @@
         tmp.p.y = y;
         tmp.bbox4=null;
         this.regrid(tmp,true);
-        let col= hitLayer(this,tmp,collisionMask) ||
-                 hitTest(this,tmp,collisionMask);
-        return (col && col.obj) ? col.obj : false;
+        let col= _hitLayer(this,tmp,collisionMask) ||
+                 _hitTest(this,tmp,collisionMask);
+        return (col && col.obj) ? col.obj : undefined;
       },
       collide: function(obj,options) {
-        let col, col2, collisionMask,
+        let col, col2,
+            collisionMask,
             maxCol, curCol, skipEvents;
 
-        if(!_.isObject(options)) {
+        if(!is.obj(options)) {
           collisionMask = options;
         } else {
           maxCol = options.maxCol;
@@ -259,28 +250,28 @@
           collisionMask = options.collisionMask;
         }
 
-        if(_.isUndef(collisionMask))
+        if(is.undef(collisionMask))
           collisionMask= obj.p && obj.p.collisionMask;
         maxCol = maxCol || 3;
 
-        Mo._generateCollisionPoints(obj);
+        Mo.genContactPts(obj);
         this.regrid(obj);
 
         curCol = maxCol;
         while(curCol > 0 &&
-              (col = hitLayer(this,obj,collisionMask))) {
+              (col = _hitLayer(this,obj,collisionMask))) {
           if(!skipEvents) {
             Mo.EventBus.pub('hit',obj, col);
             Mo.EventBus.pub('hit.collision',obj,col);
           }
-          Mo._generateCollisionPoints(obj);
+          Mo.genContactPts(obj);
           this.regrid(obj);
           --curCol;
         }
 
         curCol = maxCol;
         while(curCol > 0 &&
-              (col2 = hitTest(this,obj,collisionMask))) {
+              (col2 = _hitTest(this,obj,collisionMask))) {
           Mo.EventBus.pub('hit',obj,col2);
           Mo.EventBus.pub('hit.sprite',obj,col2);
           // Do the recipricol collision
@@ -297,14 +288,14 @@
             Mo.EventBus.pub('hit',obj2,col2);
             Mo.EventBus.pub('hit.sprite',obj2,col2);
           }
-          Mo._generateCollisionPoints(obj);
+          Mo.genContactPts(obj);
           this.regrid(obj);
           --curCol;
         }
         return col2 || col;
       },
       regrid: function(item,skipAdd) {
-        if(item.collisionLayer)
+        if(item.contactLayer)
         return;
 
         if(!item.bbox4)
@@ -321,7 +312,7 @@
            g.y1 !== gridY1 || g.y2 !== gridY2) {
 
           if(g.x1 !== NaN)
-            delFromGrid(this, item);
+            _delFromGrid(this, item);
 
           g.x1= gridX1;
           g.x2= gridX2;
@@ -329,7 +320,7 @@
           g.y2= gridY2;
 
           if(!skipAdd)
-            addToGrid(this,item);
+            _addToGrid(this,item);
         }
       },
       update: function(items,dt,isContainer) {
@@ -340,7 +331,7 @@
               (!item.mark || item.mark < this.tick))) continue;
           if(isContainer || !item.container) {
             item.update(dt);
-            Mo._generateCollisionPoints(item);
+            Mo.genContactPts(item);
             this.regrid(item);
           }
         }
@@ -348,7 +339,7 @@
       step: function(dt) {
         if(this.paused) { return false; }
         this.tick += dt;
-        markAll(this);
+        _markAll(this);
         Mo.EventBus.pub("prestep",this,dt);
         this.update(this.items,dt);
         Mo.EventBus.pub("step",this,dt);
@@ -356,7 +347,7 @@
           this.trash.forEach(x => this.forceRemove(x));
           this.trash.length = 0;
         }
-        Mo.EventBus.pub('poststep',this,dt);
+        Mo.EventBus.pub("poststep",this,dt);
       },
       hide: function() {
         this.hidden = true;
@@ -396,7 +387,7 @@
       init: function(layer,selector) {
         this.layer = layer;
         this.selector = selector;
-        this.items = this.layer.cache.get(this.selector) || [];
+        this.items = _.get(this.layer.cache,this.selector) || [];
       },
       count: function() { return this.items.length; },
       each: function(cb) {
@@ -426,7 +417,8 @@
         this.p[property] = value;
       },
       set: function(k, v) {
-        (v === void 0) ? this.each(this._pObject,k) : this.each(this._pSingle,k,v);
+        (v === undefined)
+          ? this.each(this._pObject,k) : this.each(this._pSingle,k,v);
         return this;
       },
       at: function(idx) {
@@ -447,40 +439,42 @@
     // Q("Player").invoke("shimmer); - needs to return a selector
     // Q(".happy").invoke("sasdfa",'fdsafas',"fasdfas");
     // Q("Enemy").p({ a: "asdfasf"  });
-    Mo.pin = function(selector,where) {
-      let y= Mo.layer((where === void 0) ? Mo.activeLayer : where);
-      return _.isNumber(selector) ? y.index.get(selector) : new Mo.Locator(y,selector);
+    Mo.pin= function(selector) {
+      let args= _.slice(arguments,1),
+          y= Mo.layer(args.length>0 ? args[0] : Mo.activeLayer);
+      return is.num(selector) ? _.get(y.index,selector) : new Mo.Locator(y,selector);
     };
 
     Mo.layer = (num) => {
-      return Mo.layers[(num === void 0) ? Mo.activeLayer : num ];
+      return Mo.layers[(num === undefined) ? Mo.activeLayer : num ];
     };
 
     Mo.runScene = function(scene,num,options) {
-      let _s = _.isString(scene) ? Mo.scenes[scene] : null;
-      if (!_s)
+      let _s = _.get(Mo.scenes,scene);
+      if(!_s)
         throw "Unknown scene id: " + scene;
 
-      if(_.isObject(num)) {
+      if(is.obj(num)) {
         options = num;
         num = _.dissoc(options,"layer");
       }
 
-      options = _.inject(_.clone(_s.options), options);
-      if (_.isUndef(num))
+      options = _.inject({},_s.options,options);
+      if(is.undef(num))
         num= options["layer"] || 0;
 
-      Mo.layers[num] && Mo.layers[num].dispose();
+      let y= Mo.layers[num];
+      y && y.dispose();
+
       Mo.activeLayer = num;
-      let y = Mo.layers[num] = new Mo.Layer(_s.scene,options);
+      y = new Mo.Layer(_s.scene,options);
+      Mo.layers[num] = y;
 
       y.options.asset &&
         y.loadAssets(y.options.asset);
-
       y.run();
 
       Mo.activeLayer = 0;
-
       if(!Mo.loop)
         Mo.gameLoop(Mo.runGameLoop);
 
@@ -490,8 +484,8 @@
     Mo.runGameLoop = (dt) => {
       let i, z, y;
 
-      if(dt < 0) dt = 1.0/60;
-      if(dt > 1.0/15) dt  = 1.0/15;
+      if(dt < 0) dt= 1.0/60;
+      if(dt > 1.0/15) dt= 1.0/15;
 
       for(i=0,z=Mo.layers.length;i<z;++i) {
         Mo.activeLayer = i;
@@ -500,13 +494,14 @@
       }
 
       Mo.activeLayer = 0;
-      Mo.ctx && Mo.clear();
+      Mo.clear();
 
       for(i =0,z=Mo.layers.length;i<z;++i) {
         Mo.activeLayer = i;
         y = Mo.layer();
         y && y.render(Mo.ctx);
       }
+
       Mo.input &&
         Mo.ctx &&
           Mo.input.drawCanvas(Mo.ctx);
@@ -520,7 +515,7 @@
       }
     };
 
-    Mo.deleteLayers = function() {
+    Mo.deleteLayers = () => {
       for(let i=0,z=Mo.layers.length;i<z;++i)
       Mo.deleteLayer(i);
       Mo.layers.length = 0;
@@ -528,16 +523,17 @@
 
     Mo.scene = (name,action,opts) => {
       if(action) {
-        if(!_.isFunction(action))
+        if(!is.fun(action))
           throw "Expecting scene action function!";
-        Mo.scenes[name] = {name: name,
-                           scene: action,
-                           options: opts || {} };
+        _.assoc(Mo.scenes,name, {name: name,
+                                 scene: action,
+                                 options: opts || {} });
       }
-      return Mo.scenes[name];
+      return _.get(Mo.scenes,name);
     };
 
   };
 
 })(this);
+
 

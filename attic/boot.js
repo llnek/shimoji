@@ -1,13 +1,13 @@
 (function(global, undefined) {
   "use strict";
 
-  if (global.document===undefined ||
+  if(global.document===undefined ||
       global.document.body===undefined)
     throw "Invalid environment, cannot run Mojo!";
 
   const ARRAY=Array.prototype,
-        OBJECT=Object.prototype;
-  const slicer= ARRAY.slice,
+        OBJECT=Object.prototype,
+        slicer= ARRAY.slice,
         tostr=OBJECT.toString,
         window=global,
         document=global.document;
@@ -21,6 +21,7 @@
   const isMap= (obj) => {
     return tostr.call(obj) === "[object Map]";
   };
+
   let seqNum= 0;
   const _ = {
     keys: (obj) => {
@@ -34,8 +35,8 @@
     nextID: () => { return ++seqNum; },
     fileNoExt: (name) => { return name.replace(/\.(\w{3,4})$/,""); },
     fileExt: (name) => {
-      let parts = name.split(".");
-      return parts[parts.length-1].toLowerCase();
+      let p= name.split(".");
+      return p[p.length-1].toLowerCase();
     },
     range: (start,stop,step=1) => {
       let len = Math.max(0, Math.ceil((stop-start)/step));
@@ -56,7 +57,7 @@
       let res= [], prev= null;
       arr = slicer.call(arr).sort();
       arr.forEach(a => {
-        if(a !== void 0 &&
+        if(a !== undefined &&
            a !== prev) res.push(a);
         prev = a;
       });
@@ -73,50 +74,67 @@
       }
       else if(obj) {
         for(let k in obj)
+          if(OBJECT.hasOwnProperty.call(obj, k))
           res.push(fn.call(ctx, obj[k],k,obj));
       }
       return res;
     },
     find: function(obj,fn,ctx) {
-      let res,
-          args=slicer.call(arguments,3);
+      let args=slicer.call(arguments,3);
       if(isArray(obj)) {
-        for (let i=0,z=obj.length;i<z;++i) {
-          res = fn.apply(ctx, [obj[i], i].concat(args));
-          if (res)
-            return res;
-        }
+        for (let i=0,z=obj.length;i<z;++i)
+          if(fn.apply(ctx, [obj[i], i].concat(args)))
+            return obj[i];
       } else if(isMap(obj)) {
         let ks=Array.from(obj.keys());
         for (let k,i=0,z=ks.length;i<z;++i) {
           k=ks[i];
-          res = fn.apply(ctx, [obj.get(k), k].concat(args));
-          if(res)
-            return res;
+          if(fn.apply(ctx, [obj.get(k), k].concat(args)))
+          return [k, obj.get(k)];
         }
       } else if(obj) {
         for(let k in obj) {
-          res = fn.apply(ctx, [obj[k], k].concat(args));
-          if(res)
-            return res;
+          if(OBJECT.hasOwnProperty.call(obj, k))
+            if(fn.apply(ctx, [obj[k], k].concat(args)))
+              return [k,obj[k]];
         }
       }
-      return res;
+    },
+    some: function(obj,fn,ctx) {
+      let res,
+          args=slicer.call(arguments,3);
+      if(isArray(obj)) {
+        for (let i=0,z=obj.length;i<z;++i)
+          if(res = fn.apply(ctx, [obj[i], i].concat(args)))
+            return res;
+      } else if(isMap(obj)) {
+        let ks=Array.from(obj.keys());
+        for (let k,i=0,z=ks.length;i<z;++i) {
+          k=ks[i];
+          if(res = fn.apply(ctx, [obj.get(k), k].concat(args)))
+            return res;
+        }
+      } else if(obj) {
+        for(let k in obj)
+          if(OBJECT.hasOwnProperty.call(obj, k))
+            if(res = fn.apply(ctx, [obj[k], k].concat(args)))
+              return res;
+      }
     },
     invoke: function(arr,key) {
       let args=slicer.call(arguments,2);
       if(isArray(arr))
-        arr.forEach(x => { x[key].apply(x, args); });
+        arr.forEach(x => x[key].apply(x, args));
     },
     doseq: (obj,fn,ctx) => {
-      if(isArray(obj)) {
+      if(isArray(obj))
         obj.forEach(fn,ctx);
-      } else if(isMap(obj)) {
+      else if(isMap(obj))
         obj.forEach((v,k)=> fn.call(ctx,v,k,obj));
-      } else if(obj) {
+      else if(obj)
         for(let k in obj)
+          if(OBJECT.hasOwnProperty.call(obj,k))
           fn.call(ctx, obj[k], k, obj);
-      }
     },
     dissoc: (obj,key) => {
       let val;
@@ -129,37 +147,70 @@
       }
       return val;
     },
+    get: (obj,key) => {
+      if(isMap(obj))
+        return obj.get(key);
+      else if(obj)
+        return obj[key];
+    },
+    assoc: (obj,key,value) => {
+      let prev;
+      if(isMap(obj)) {
+        prev=obj.get(key);
+        obj.set(key,value);
+      }
+      else if(obj) {
+        prev=obj[key];
+        obj[key]=value;
+      }
+      return prev;
+    },
     seq: (arg,sep=",") => {
       if(typeof arg === "string")
         arg = arg.replace(/\s+/g,'').split(sep);
       if(!isArray(arg)) arg = [arg];
       return arg;
     },
+    is: {
+      str: (obj) => { return typeof obj === "string"; },
+      num: (obj) => { return tostr.call(obj) === "[object Number]"; },
+      fun: (obj) => { return tostr.call(obj) === "[object Function]"; },
+      obj: isObject,
+      map: isMap,
+      vec: isArray,
+      void0: (obj) => { return obj === void 0; },
+      undef: (obj) => { return obj === undefined; }
+    },
     isString: (obj) => { return typeof obj === "string"; },
     isNumber: (obj) => { return tostr.call(obj) === "[object Number]"; },
-    isFunction: (obj) => { return tostr.call(obj) === "[object Function]"; },
+    isFn: (obj) => { return tostr.call(obj) === "[object Function]"; },
     isObject: isObject,
     isMap: isMap,
     isArray: isArray,
-    isUndef: (obj) => { return obj === void 0; },
+    isV0: (obj) => { return obj === void 0; },
+    isUndef: (obj) => { return obj === undefined; },
     has: (obj,key) => {
       return isMap(obj) ? obj.has(key) : OBJECT.hasOwnProperty.call(obj, key);
     },
     patch: (des,src) => {
-      if (src)
-        for (let k in src)
-          if(des[k] === void 0) des[k] = src[k];
+      des=des || {};
+      if(src)
+        for(let k in src)
+          if(OBJECT.hasOwnProperty.call(src,k) &&
+             des[k] === void 0)
+            des[k] = src[k];
       return des;
     },
     clone: (obj) => { return Object.assign({},obj); },
     inject: function(des) {
       let args=slicer.call(arguments,1);
       des=des || {};
-      args.forEach(s => Object.assign(des,s));
+      args.forEach(s => { if(s) Object.assign(des,s); });
       return des;
     }
-  };
+  }, is=_.is;
 
+  //assets
   let AssetTypes= {tmx: "TMX", png: "Image", xml: "Xml", json: "Json",
                    jpg: "Image", gif: "Image", jpeg: "Image",
                    ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
@@ -169,10 +220,10 @@
                         ogg: 'audio/ogg; codecs="vorbis"'};
   let _audioDftExt;
   let _preloads= [];
-  let _audioAssetExtension = () => {
+  let _audioExt= (choices) => {
     if(!_audioDftExt)
     { let snd = new Audio();
-      _audioDftExt= _.find(Mo.options.audioSupported,
+      _audioDftExt= _.some(choices,
         (ext) => {return snd.canPlayType(AudioMimeTypes[ext]) ? ext: null;}); }
     return _audioDftExt;
   };
@@ -183,26 +234,36 @@
     ts= url + ts;
     return (/^https?:\/\//.test(url) || url[0] === "/") ? ts : base + ts;
   };
-  let Mo={components: {},
-          assets: {},
-          touchDevice: !!("ontouchstart" in document)};
-  // The base class implementation (does nothing)
+
+
+  let Mo=function(selector) {
+    return Mo.pin.apply(this,arguments);
+  };
+
+  Mo.pin= function() {};
+  Mo.components= {};
+  Mo.loaders= {};
+  Mo.assets= {};
+  Mo.touchDevice= !!("ontouchstart" in document);
+
+  //https://johnresig.com/blog/simple-javascript-inheritance/
+  //The base class implementation (does nothing)
   let Resig = function(){};
   Resig.prototype.isA = function(c) {
     return this.className === c;
   };
-  (function(){
-    let initing = false,
-        fnTest = /xyz/.test(function(){var xyz;}) ? /\b_super\b/ : /.*/;
+  (function(initing){
+    let fnTest = /xyz/.test(function(){var xyz;}) ? /\b_super\b/ : /.*/;
     Resig.extend = function(className, props, container) {
-      if(!_.isString(className)) {
+      if(!is.str(className)) {
+        //shift up
         container = props; props = className; className = null; }
-      let _super = this.prototype;
+      let _super = this.prototype; // late-bind
       let proto,ThisClass = this;
       initing = true;
-      proto = new ThisClass();
+      proto = new ThisClass(); // the future parent
       initing = false;
-      function _superFactory(name,fn) {
+      let _superFactory= function(name,fn) {
         return function() {
           let tmp = this._super;
           /* Add a new ._super() method that is the same method */
@@ -216,7 +277,6 @@
         };
       }
       for(let name in props) {
-        /* Check if we're overwriting an existing function */
         proto[name] = typeof props[name] === "function" &&
           typeof _super[name] === "function" &&
             fnTest.test(props[name]) ? _superFactory(name,props[name]) : props[name];
@@ -233,7 +293,7 @@
       /* And make this class extendable */
       TemplateFn.extend = Resig.extend;
       if(className) {
-        container=container|| Mo;
+        container=container || Mo;
         container[className] = TemplateFn;
         //console.log("Adding class " + className + " to Mo.");
         TemplateFn.prototype.className = className;
@@ -245,24 +305,16 @@
 
   Mo.defType = (clazz, props, container) => {
     let child,parent;
-    if(_.isString(clazz)) {
+    if(is.str(clazz)) {
       parent=Resig;
       child=clazz;
     }
     else
-    if(_.isArray(clazz)) {
+    if(is.vec(clazz)) {
       child=clazz[0];
       parent=clazz[1];
     }
     return parent.extend(child,props,container);
-  }
-
-  Mo.uses = (arg) => {
-    _.doseq(arg, (m) => {
-      let f = Mojo[m] || m;
-      if (_.isFunction(f))
-        f(Mo); else throw "Invalid Module:" + m; });
-    return Mo;
   };
 
   Mo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
@@ -271,24 +323,24 @@
   Mo.v2 = (x,y) => { return [x||0,y||0]; };
   Mo.p2 = (px,py) => { return {x: px||0,y: py||0}; };
 
-  Mo.hasTouch= () => {
-    return !!("ontouchstart" in window);
-  };
+  Mo.hasTouch= () => { return Mo.touchDevice;};
 
+  let _loopFrame = 0;
+  let _lastFrame=0;
   Mo.gameLoop = function(action) {
-    Mo.lastGameLoopFrame = _.now();
+    _lastFrame = _.now();
+    _loopFrame = 0;
     Mo.loop = true;
-    Mo._loopFrame = 0;
     Mo.gameLoopCallbackWrapper = () => {
       let now = _.now();
-      ++Mo._loopFrame;
+      ++_loopFrame;
       Mo.loop = Mo.scheduleFrame(Mo.gameLoopCallbackWrapper);
-      let dt = now - Mo.lastGameLoopFrame;
+      let dt = now - _lastFrame;
       /* Prevent fast-forwarding by limiting the length of a single frame. */
       if(dt > Mo.options.frameTimeLimit)
         dt = Mo.options.frameTimeLimit;
       action.call(Mo, dt / 1000);
-      Mo.lastGameLoopFrame = now;
+      _lastFrame = now;
     };
     Mo.scheduleFrame(Mo.gameLoopCallbackWrapper);
     return Mo;
@@ -301,29 +353,29 @@
 
   Mo.resumeGame = () => {
     if(!Mo.loop) {
-      Mo.lastGameLoopFrame = _.now();
+      _lastFrame = _.now();
       Mo.loop = Mo.scheduleFrame(Mo.gameLoopCallbackWrapper);
     }
   };
 
   Mo.EventBus= {
-    tree: new Map(),
+    tree: _.jsMap(),
     sub: function(event,target,cb,ctx) {
-      if(_.isArray(event)) {
+      if(is.vec(event)) {
         event.forEach(e => this.sub(e,target,cb,ctx));
       } else {
         if (!cb)
           cb=event;
-        if(_.isString(cb)) {
+        if(is.str(cb)) {
           ctx=ctx || target;
           cb=ctx[cb];
         }
-        if (!cb) {
-          console.log("event = " + event);
+        if(!cb) {
+          //console.log("event = " + event);
           throw "No callback provided for event sub().";
         }
-        if (!this.tree.has(target))
-          this.tree.set(target,new Map());
+        if(!this.tree.has(target))
+          this.tree.set(target,_.jsMap());
         let m= this.tree.get(target);
         !m.has(event)
           && m.set(event,[]);
@@ -332,9 +384,9 @@
     },
     pub: function(event,target,data) {
       let m= this.tree.get(target);
-      if (m)
+      if(m)
         m= m.get(event);
-      if (m)
+      if(m)
         m.forEach(s => s[0].call(s[1],data));
     },
     unsub: function(event,target,cb,ctx) {
@@ -342,7 +394,7 @@
         if(!cb)
           m.delete(event);
         else {
-          if(_.isString(cb)) {
+          if(is.str(cb)) {
             ctx=ctx || target;
             cb=ctx[cb];
           }
@@ -359,8 +411,9 @@
   };
 
   Mo.defType("Component", {
-    // Components are created when they are added onto a `Mo.Entity` entity. The entity
-    // is directly extended with any methods inside of an `extend` property and then the
+    // Components are created when they are added onto a `Mo.Entity` entity.
+    // The entity is directly extended with any methods inside
+    // of an `____entity` property and then the
     // component itself is added onto the entity as well.
     init: function(entity) {
       if(this.____entity)
@@ -369,8 +422,7 @@
       entity.features.push(this.componentName);
 
       entity.layer &&
-        entity.layer.addToList &&
-          entity.layer.addToList(this.componentName,entity);
+        entity.layer.addRelation(this.componentName,entity);
 
       this.entity = entity;
       this.added && this.added();
@@ -382,15 +434,8 @@
       let idx = this.entity.features.indexOf(this.componentName);
       if(idx > -1) {
         this.entity.features.splice(idx,1);
-        //WTF, should be remove?
-        /*
         this.entity.layer &&
-          this.entity.layer.addToList &&
-            this.entity.layer.addToList(this.componentName,this.entity);
-            */
-        this.entity.layer &&
-          this.entity.layer.removeFromList &&
-            this.entity.layer.removeFromList(this.componentName,this.entity);
+          this.entity.layer.delRelation(this.componentName,this.entity);
       }
       //this.debind();
       this.disposed && this.disposed();
@@ -398,22 +443,20 @@
   });
 
   Mo.defType("Entity", {
-    has: function(co) {
-      return _.has(this,co);
-    },
+    has: function(co) { return _.has(this,co); },
     add: function(components) {
       this.features= this.features || [];
       _.seq(components).forEach(name => {
         let C = Mo.components[name];
         if(C && !_.has(this,name))
-          Mo.EventBus.pub('addComponent', this,new C(this));
+          Mo.EventBus.pub("addComponent", this, new C(this));
       });
       return this;
     },
     del: function(components) {
       _.seq(components).forEach(name => {
         if(this[name]) {
-          Mo.EventBus.pub('delComponent',this,this[name]);
+          Mo.EventBus.pub("delComponent",this,this[name]);
           this[name].dispose();
         }
       });
@@ -421,9 +464,10 @@
     },
     dispose: function() {
       if(this.isDead) { return; }
-      Mo.EventBus.pub('disposed',this);
+      Mo.EventBus.pub("disposed",this);
       //this.debind();
-      this.layer && this.layer.remove && this.layer.remove(this);
+      this.layer &&
+        this.layer.remove(this);
       this.isDead = true;
       this.disposed && this.disposed();
     }
@@ -434,14 +478,14 @@
       return Mo.components[name];
     methods.name = name;
     methods.componentName = "." + name;
-    let c= Mo.defType(["Co"+name,Mo.Component], methods);
+    let c= Mo.defType(["Co"+name, Mo.Component], methods);
     Mo.components[name] = c;
     return c;
   };
 
   Mo.defType("GameState", {
     init: function(p) {
-      this.listeners = {};
+      //this.listeners = {};
       this.p = _.clone(p);
     },
     reset: function(p) {
@@ -458,7 +502,7 @@
       return this.p[prop];
     },
     set: function(prop,value) {
-      if(!_.isObject(prop))
+      if(!is.obj(prop))
         this._triggerProperty(value,prop);
       else
         _.doseq(prop,this._triggerProperty,this);
@@ -473,17 +517,16 @@
   });
 
   Mo.state = new Mo.GameState();
-  Mo.reset = () => { Mo.state.reset(); };
 
   Mo.prologue = function(id, options) {
-    if(_.isObject(id)) {
+    if(is.obj(id)) {
       options = id;
       id = null;
     }
     options = options || {};
     id = id || "mojo";
 
-    Mo.el = _.isString(id) ? document.getElementById(id) : id;
+    Mo.el = is.str(id) ? document.getElementById(id) : id;
     if(!Mo.el) {
       let e= document.createElement("canvas");
       e.setAttribute("id",id);
@@ -495,14 +538,13 @@
 
     let w = parseInt(Mo.el.width),
         h = parseInt(Mo.el.height),
-        elParent = Mo.el.parentNode;
-
-    let maxWidth = options.maxWidth || 5000,
-        maxHeight = options.maxHeight || 5000,
+        elParent = Mo.el.parentNode,
         resampleWidth = options.resampleWidth,
         resampleHeight = options.resampleHeight,
         upsampleWidth = options.upsampleWidth,
-        upsampleHeight = options.upsampleHeight;
+        upsampleHeight = options.upsampleHeight,
+        maxWidth = options.maxWidth || 5000,
+        maxHeight = options.maxHeight || 5000;
 
     if(options.maximize === true ||
        (Mo.touchDevice && options.maximize === "touch"))  {
@@ -532,8 +574,9 @@
       Mo.el.height = h * 2;
     }
     else
-    if(((resampleWidth && w > resampleWidth) ||
-        (resampleHeight && h > resampleHeight)) && Mo.touchDevice) {
+    if(Mo.touchDevice &&
+       ((resampleWidth && w > resampleWidth) ||
+        (resampleHeight && h > resampleHeight))) {
       Mo.el.style.height = h + "px";
       Mo.el.style.width = w + "px";
       Mo.el.width = w / 2;
@@ -547,7 +590,7 @@
 
     if(elParent && !Mo.wrapper) {
       Mo.wrapper = document.createElement("div");
-      Mo.wrapper.id = Mo.el.id + '_container';
+      Mo.wrapper.id = Mo.el.id + "_container";
       Mo.wrapper.style.width = w + "px";
       Mo.wrapper.style.margin = "0 auto";
       Mo.wrapper.style.position = "relative";
@@ -556,15 +599,12 @@
     }
 
     Mo.el.style.position = "relative";
-    Mo.ctx = Mo.el.getContext &&
-             Mo.el.getContext("2d");
-
+    Mo.ctx = Mo.el.getContext("2d");
     Mo.width = parseInt(Mo.el.width);
     Mo.height = parseInt(Mo.el.height);
     Mo.cssWidth = w;
     Mo.cssHeight = h;
 
-    //scale to fit
     if(options.scaleToFit) {
       let factor = 1;
       let winW = window.innerWidth*factor;
@@ -589,37 +629,41 @@
       //center vertically when adjusting to width
       if(gameRatio > winRatio) {
         let topPos = (winH - scaledH)/2;
-        Mo.el.style.top = topPos+'px';
+        Mo.el.style.top = topPos+"px";
       }
     }
 
-    window.addEventListener('orientationchange', () => {
+    window.addEventListener("orientationchange", () => {
       setTimeout(() => window.scrollTo(0,1), 0);
     });
 
     return Mo;
   };
 
+  // a 4 pointed box, left right bottom top
+  // x2 > x1 , y2 > y1
   Mo.bbox4 = () => {
     return {x1: NaN, x2: NaN, y1: NaN, y2: NaN};
   };
 
   Mo.clear = () => {
-    if(Mo.clearColor) {
-      Mo.ctx.globalAlpha = 1;
-      Mo.ctx.fillStyle = Mo.clearColor;
-      Mo.ctx.fillRect(0,0,Mo.width,Mo.height);
-    } else {
-      Mo.ctx.clearRect(0,0,Mo.width,Mo.height);
+    if(Mo.ctx) {
+      if(Mo.clearColor) {
+        Mo.ctx.globalAlpha = 1;
+        Mo.ctx.fillStyle = Mo.clearColor;
+        Mo.ctx.fillRect(0,0,Mo.width,Mo.height);
+      } else {
+        Mo.ctx.clearRect(0,0,Mo.width,Mo.height);
+      }
     }
     return Mo;
   };
 
-  Mo.setImageSmoothing = (enabled) => {
-    Mo.ctx.mozImageSmoothingEnabled = enabled;
-    Mo.ctx.webkitImageSmoothingEnabled = enabled;
-    Mo.ctx.msImageSmoothingEnabled = enabled;
-    Mo.ctx.imageSmoothingEnabled = enabled;
+  Mo.setImageSmoothing = (ok) => {
+    Mo.ctx.mozImageSmoothingEnabled = ok;
+    Mo.ctx.webkitImageSmoothingEnabled = ok;
+    Mo.ctx.msImageSmoothingEnabled = ok;
+    Mo.ctx.imageSmoothingEnabled = ok;
     return Mo;
   };
 
@@ -641,38 +685,39 @@
     return type || "Other";
   };
 
-  Mo.loadAssetImage = (key,src,cb,ecb) => {
+  Mo.loaders.Image = (key,path,cb,ecb) => {
     let img = new Image();
     img.onerror = ecb;
     img.onload = () => cb(key,img);
-    img.src = _assetUrl(Mo.options.imagePath,src,Mo.options.devMode);
+    img.src = _assetUrl(Mo.options.imagePath, path, Mo.options.devMode);
     return Mo;
   };
 
-  Mo.loadAssetAudio = function(key,src,cb,ecb) {
+  Mo.loaders.Audio = function(key,path,cb,ecb) {
     let dev=Mo.options.devMode,
-        ext= _audioAssetExtension();
+        ext= _audioExt(Mo.options.audioFiles);
     if(!Mo.options.sound ||
        !ext||
-       !document.createElement("audio").play) { cb(key); }
-    else {
+       !document.createElement("audio").play) {
+      cb(key);
+    } else {
       let snd=new Audio();
       snd.addEventListener("error",ecb);
       // don't wait for canplaythrough on mobile
       if(!Mo.touchDevice)
-        snd.addEventListener('canplaythrough', () => cb(key,snd));
-      snd.src =  _assetUrl(Mo.options.audioPath, _.fileNoExt(src)+"."+ ext, dev);
+        snd.addEventListener("canplaythrough", () => cb(key,snd));
+      snd.src = _assetUrl(Mo.options.audioPath, _.fileNoExt(path)+"."+ ext, dev);
       snd.load();
     }
 
     return Mo;
   };
 
-  Mo.loadAssetWebAudio = function(key,src,cb,ecb) {
+  Mo.loaders.WebAudio = function(key,path,cb,ecb) {
     let ajax = new XMLHttpRequest(),
+        base= _.fileNoExt(path),
         dev= Mo.options.devMode,
-        base= _.fileNoExt(src),
-        ext= _audioAssetExtension();
+        ext= _audioExt(Mo.options.audioFiles);
     ajax.open("GET", _assetUrl(Mo.options.audioPath,base+"."+ext,dev), true);
     ajax.responseType = "arraybuffer";
     ajax.onload = () => {
@@ -682,7 +727,7 @@
     return Mo;
   };
 
-  Mo.ajax = function(key,src,cb,ecb) {
+  Mo.ajax = function(key,path,cb,ecb) {
     let dev=Mo.options.devMode,
         ajax = new XMLHttpRequest();
     if(document.location.origin === "null" ||
@@ -697,28 +742,29 @@
       if(ajax.readyState === 4)
         (ajax.status !== 200) ? ecb() : cb(key, ajax.responseText);
     };
-    ajax.open("GET", _assetUrl(Mo.options.dataPath,src,dev), true);
+    ajax.open("GET", _assetUrl(Mo.options.dataPath,path,dev), true);
     ajax.send(null);
     return Mo;
   };
 
-  Mo.loadAssetOther = function(key,src,cb,ecb) {
-    Mo.ajax(key,src,cb,ecb);
+  Mo.loaders.Other = function(key,path,cb,ecb) {
+    Mo.ajax(key,path,cb,ecb);
     return Mo;
   };
 
-  Mo.loadAssetJson = function(key,src,cb,ecb) {
-    Mo.ajax(key,src,(key,data) => { cb(key,JSON.parse(data)); }, ecb);
+  Mo.loaders.Json = function(key,path,cb,ecb) {
+    Mo.ajax(key,path,(key,data) => { cb(key,JSON.parse(data)); }, ecb);
     return Mo;
   };
 
-  Mo.loadAssetXml = function(key,src,cb,ecb) {
-    Mo.ajax(key,src,(key,data) => {
+  Mo.loaders.Xml = function(key,path,cb,ecb) {
+    Mo.ajax(key,path,(key,data) => {
       cb(key,new DOMParser().parseFromString(data, "application/xml")); },ecb);
     return Mo;
   };
 
   Mo.asset= (name) => { return Mo.assets[name]; };
+
   Mo.load= function(assets,cb,options) {
     let pcb = options && options.progressCb;
     let bad = options && options.errorCb;
@@ -729,9 +775,9 @@
       (bad || ((a) => {throw "Error Loading: "+a;}))(a); };
 
     _.doseq(_.seq(assets), (a) => {
-      if(_.isObject(a))
+      if(is.obj(a))
         _.inject(assetObj,a);
-      else if(a.length >0) assetObj[a] = a;
+      else if(a.length > 0) assetObj[a] = a;
     });
 
     let sum = _.keys(assetObj).length;
@@ -741,7 +787,8 @@
         if(!Mo.assets[key]||force) {
           Mo.assets[key] = obj;
           --more;
-          if(pcb) pcb(sum - more, sum);
+          if(pcb)
+            pcb(sum - more, sum);
         }
         if(more === 0 && cb) { cb.apply(Mo); }
       }
@@ -752,16 +799,16 @@
       Mo.assets[key] ?
         loaded(key,Mo.assets[key],true)
         :
-        Mo["loadAsset" + type](key,a,loaded,() => { ecb(a); });
+        Mo.loaders[type](key,a,loaded,() => { ecb(a); });
     });
 
     return Mo;
   };
 
   Mo.preload = (arg,options) => {
-    if(!_.isFunction(arg)) {
+    if(!is.fun(arg))
       _preloads = _preloads.concat(arg);
-    } else {
+    else {
       Mo.load(_.uniq(_preloads),arg,options);
       _preloads = [];
     }
@@ -769,7 +816,6 @@
   };
 
   (function() {
-    let lastTime = 0;
     let pfx = ["ms", "moz", "webkit", "o"];
     for(let x = 0; x < pfx.length && !window.requestAnimationFrame; ++x) {
       window.requestAnimationFrame = window[pfx[x]+"RequestAnimationFrame"];
@@ -777,7 +823,8 @@
           window[pfx[x]+"CancelAnimationFrame"] ||
           window[pfx[x]+"CancelRequestAnimationFrame"];
     }
-    if(!window.requestAnimationFrame)
+    if(!window.requestAnimationFrame) {
+      let lastTime = 0;
       window.requestAnimationFrame = (cb, e) => {
         let cur = _.now();
         let delay = Math.max(0, 16 - (cur - lastTime));
@@ -785,6 +832,7 @@
         lastTime = cur+delay;
         return id;
       };
+    }
     if(!window.cancelAnimationFrame)
       window.cancelAnimationFrame = (id) => { clearTimeout(id); };
   })();
@@ -796,24 +844,14 @@
                            sound: true,
                            frameTimeLimit: 100,
                            autoFocus: true,
-                           audioSupported: ["mp3","ogg"]}, opts || {});
-    let ms= [],
-        mods= ["Math", "Sprites", "Scenes", "TMX",
-               "Input", "Anim", "2D", "Audio", "Touch", "UI"];
-    if (_.isArray(Mo.options.modules) && Mo.options.modules.length > 0) {
-      Mo.options.modules.forEach(m => {
-        if (_.find(mods, (x) => {return x==m;}))
-          ms.push(m);
-        else
-          throw "Unknown module: `" + m + "`";
-      });
-    } else {
-      ms=mods.slice(0);
-    }
+                           audioFiles: ["mp3","ogg"]}, opts);
 
-    //console.log("Modules: " + ms);
-    Mo.options.modules= ms;
-    ms.forEach(k => Mojo[k](Mo));
+    let aux=["TMX"];
+
+    ["Math", "Sprites", "Scenes", "2D",
+     "Anim", "Input", "Audio", "Touch", "UI"].forEach(k => Mojo[k](Mo));
+
+    _.seq(Mo.options.modules || []).forEach(m => Mojo[m](Mo));
 
     return Mo;
   };
@@ -823,4 +861,5 @@
   return window.Mojo;
 
 })(this);
+
 

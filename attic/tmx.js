@@ -1,18 +1,18 @@
 (function(global,undefined){
   "use strict";
-  let Mojo = global.Mojo, _= Mojo._;
+  let Mojo = global.Mojo, _= Mojo._, is=_.is;
 
   Mojo.TMX = function(Mo) {
 
-    Mo.loadAssetTMX= (key,src,cb,ecb) => {
-      Mo.loadAssetXml(key,src,
+    Mo.loaders.TMX= (key,src,cb,ecb) => {
+      Mo.loaders.Xml(key,src,
         (k,xml) => { cb(k,xml); }, ecb);
     };
 
     let _extractAssetName = (result) => {
-      let source = result.getAttribute("source"),
-          sourceParts = source.split("/");
-      return sourceParts[sourceParts.length - 1];
+      let s= result.getAttribute("source"),
+          p= s.split("/");
+      return p[p.length - 1];
     };
 
     let _attr = (elem,atr) => {
@@ -22,19 +22,19 @@
 
     let _parseProperties= (elem) => {
       let props={},
-          propElems = elem.querySelectorAll("property");
-      propElems.forEach(pe => {
+          elems= elem.querySelectorAll("property");
+      elems.forEach(pe => {
         props[_attr(pe,"name")] = _attr(pe,"value");
       });
       return props;
     };
 
     let _loadTilesets = function(tilesets, tileProperties) {
-      let gidMap = [];
-      let parsePoint = (pt) => {
-       let pts = pt.split(",");
-       return [parseFloat(pts[0]), parseFloat(pts[1])];
-      };
+      let gidMap = [],
+          parsePoint = (pt) => {
+            let pts = pt.split(",");
+            return [parseFloat(pts[0]), parseFloat(pts[1])];
+          };
       for(let tileset,i=0;i<tilesets.length;++i) {
         tileset = tilesets[i];
         let sheetName = _attr(tileset,"name"),
@@ -46,9 +46,9 @@
                             spacingX: _attr(tileset,"spacing"),
                             spacingY: _attr(tileset,"spacing")};
         tileset.querySelectorAll("tile").forEach(tile => {
-          let tileId = _attr(tile,"id");
-          let tileGid = gid + tileId;
-          let properties = _parseProperties(tile);
+          let tileId = _attr(tile,"id"),
+              tileGid = gid + tileId,
+              properties = _parseProperties(tile);
           if(properties.points)
             properties.points = _.map(properties.points.split(" "),parsePoint);
           // save the properties indexed by GID for creating objects
@@ -57,17 +57,17 @@
           tilesetTileProps[tileId] = properties;
         });
         tilesetProps.frameProperties = tilesetTileProps;
-        gidMap.push([ gid, sheetName ]);
+        gidMap.push([gid, sheetName]);
         Mo.sheet(sheetName, assetName,  tilesetProps);
       };
       return gidMap;
     };
 
-    let _processImageLayer = (stage,gidMap,tileProperties,layer) => {
-      let assetName = _extractAssetName(layer.querySelector("image"));
-      let properties = _parseProperties(layer);
+    let _processImageLayer = (L,gidMap,tileProperties,layer) => {
+      let properties = _parseProperties(layer),
+          assetName = _extractAssetName(layer.querySelector("image"));
       properties.asset = assetName;
-      stage.insert(new Mo.Repeater(properties));
+      L.insert(new Mo.Repeater(properties));
     };
 
     // get the first entry in the gid map that gives
@@ -75,11 +75,11 @@
     let _lookupGid = (gid,gidMap) => {
       let idx = 0;
       while(gidMap[idx+1] &&
-            gid >= gidMap[idx+1][0]) { ++idx; }
+            gid >= gidMap[idx+1][0]) ++idx;
       return gidMap[idx];
     };
 
-    let _processTileLayer = (stage,gidMap,tileProperties,layer) => {
+    let _processTileLayer = (L,gidMap,tileProperties,layer) => {
       let tiles = layer.querySelectorAll("tile"),
           width = _attr(layer,"width"),
           height =_attr(layer,"height"),
@@ -112,14 +112,13 @@
        sheet: sheetName,
        tiles: data
       }, _parseProperties(layer));
-      let TileLayerClass = tileLayerProperties.Class || "TileLayer";
-
-      (tileLayerProperties["collision"])
-        ? stage.collisionLayer(new Mo[TileLayerClass](tileLayerProperties))
-        : stage.insert(new Mo[TileLayerClass](tileLayerProperties));
+      let TCZ = Mo[tileLayerProperties.Class || "TileLayer"];
+      !tileLayerProperties["collision"]
+        ? L.insert(new TCZ(tileLayerProperties))
+        : L.contactLayer(new TCZ(tileLayerProperties));
     };
 
-    let _processObjectLayer= (stage,gidMap,tileProperties,layer) => {
+    let _processObjectLayer= (L,gidMap,tileProperties,layer) => {
       let objects = layer.querySelectorAll("object");
       for(let i=0;i < objects.length;++i) {
         let obj = objects[i],
@@ -130,36 +129,35 @@
             overrideProperties = _parseProperties(obj);
         if(!properties)
           throw "Missing TMX Object props for GID:" + gid;
-        if(!properties["Class"])
-          throw "Missing TMX Object Class for GID:" + gid;
         let className = properties["Class"];
         if(!className)
-          throw "Bad TMX Object Class: " + className + " GID:" + gid;
-        let p = _.inject(_.inject({ x: x, y: y }, properties), overrideProperties);
-        // offset the sprite
+          throw "Missing TMX Object Class for GID:" + gid;
+        let p = _.inject({ x: x, y: y }, properties, overrideProperties);
         let sprite = new Mo[className](p);
+        // offset the sprite
         sprite.p.x += sprite.p.w/2;
         sprite.p.y -= sprite.p.h/2;
-        stage.insert(sprite);
+        L.insert(sprite);
       }
     };
 
     let _tmxProcessors = {objectgroup: _processObjectLayer,
                           layer: _processTileLayer, imagelayer: _processImageLayer };
 
-    Mo.stageTMX = function(dataAsset,stage) {
-      let data = _.isString(dataAsset) ? Mo.asset(dataAsset) : dataAsset;
+    Mo.parseTMX = function(dataAsset,L) {
+      let data = is.str(dataAsset) ? Mo.asset(dataAsset) : dataAsset;
       let tileProperties = {};
       let tilesets = data.getElementsByTagName("tileset");
       let gidMap = _loadTilesets(tilesets,tileProperties);
       _.doseq(data.documentElement.childNodes,(layer) => {
         let tag = layer.tagName;
         _tmxProcessors[tag] &&
-          _tmxProcessors[tag](stage, gidMap, tileProperties, layer);
+          _tmxProcessors[tag](L, gidMap, tileProperties, layer);
       });
     };
 
   };
 
 })(this);
+
 

@@ -1,6 +1,6 @@
 (function(global,undefined) {
   "use strict";
-  let Mojo = global.Mojo, _ = Mojo._;
+  let Mojo = global.Mojo, _ = Mojo._, is=_.is;
 
   Mojo.Anim = function(Mo) {
     let _animations = {};
@@ -154,11 +154,11 @@
 
     Mo.defType("Tween",{
       init: function(entity,properties,duration,easing,options) {
-        if(_.isObject(easing)) {
+        if(is.obj(easing)) {
           options = easing;
           easing = Mo.Easing.Linear;
         }
-        if(_.isObject(duration)) {
+        if(is.obj(duration)) {
           options = duration;
           duration = 1;
         }
@@ -192,7 +192,7 @@
           this.p = (entity instanceof Mo.Layer) ? entity.viewport : entity.p;
           for(let p in properties) {
             this.start[p] = this.p[p];
-            if(!_.isUndef(this.start[p]))
+            if(!is.undef(this.start[p]))
               this.diff[p] = properties[p] - this.start[p];
           }
         }
@@ -202,7 +202,7 @@
             location = this.easing(progress);
 
         for(let k in this.start) {
-          if(!_.isUndef(this.p[k]))
+          if(!is.undef(this.p[k]))
             this.p[k] = this.start[k] + this.diff[k] * location;
         }
 
@@ -239,7 +239,7 @@
           return this;
         },
         chain: function(properties,duration,easing,options) {
-          if(_.isObject(easing)) {
+          if(is.obj(easing)) {
             options = easing;
             easing = Mo.Easing.Linear;
           }

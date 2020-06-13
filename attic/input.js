@@ -1,7 +1,7 @@
 (function(global,undefined){
   "use strict";
   let Mojo = global.Mojo,
-      _ = Mojo._, window = global;
+      _ = Mojo._, is=_.is, window = global;
 
   let KEY_NAMES = {
     LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
@@ -123,14 +123,14 @@
         let el = Mo.el,
             px = touch.offsetX,
             py = touch.offsetY;
-        if(_.isUndef(px) ||
-           _.isUndef(py)) {
+        if(is.undef(px) ||
+           is.undef(py)) {
           px = touch.layerX;
           py = touch.layerY;
         }
-        if(_.isUndef(px) ||
-           _.isUndef(py)) {
-          if(_.isUndef(_offset)) {
+        if(is.undef(px) ||
+           is.undef(py)) {
+          if(is.undef(_offset)) {
             _offset= _.p2();
             _containerOffset();
           }
@@ -348,19 +348,19 @@
             px = touch.clientX - rect.left - parseInt(style.paddingLeft),
             py = touch.clientY - rect.top  - parseInt(style.paddingTop);
           let layer = Mo.layer(layerNum);
-          if(_.isUndef(px) ||
-             _.isUndef(py)) {
+          if(is.undef(px) ||
+             is.undef(py)) {
             px = touch.offsetX;
             py = touch.offsetY;
           }
-          if(_.isUndef(px) ||
-             _.isUndef(py)) {
+          if(is.undef(px) ||
+             is.undef(py)) {
             px = touch.layerX;
             py = touch.layerY;
           }
-          if(_.isUndef(px) ||
-             _.isUndef(py)) {
-            if(_.isUndef(_offset)) {
+          if(is.undef(px) ||
+             is.undef(py)) {
+            if(is.undef(_offset)) {
               _offset= _.p2();
               _containerOffset();
             }

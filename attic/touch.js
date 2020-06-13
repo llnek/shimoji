@@ -1,8 +1,10 @@
 (function(global, undefined) {
   "use strict";
-  let Mojo= global.Mojo, _ = Mojo._, window = global;
+  let Mojo= global.Mojo,
+      _ = Mojo._, is=_.is, window = global;
+
   Mojo.Touch = function(Mo) {
-    if(_.isUndef(Mojo.Sprites))
+    if(is.undef(Mojo.Sprites))
       throw "Mojo.Touch requires Mojo.Sprites Module";
 
     let touchStage = [0];
@@ -49,20 +51,20 @@
           posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
           posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
 
-        if(_.isUndef(posX) ||
-           _.isUndef(posY)) {
+        if(is.undef(posX) ||
+           is.undef(posY)) {
            posX = touch.offsetX;
            posY = touch.offsetY;
         }
 
-        if(_.isUndef(posX) ||
-           _.isUndef(posY)) {
+        if(is.undef(posX) ||
+           is.undef(posY)) {
           posX = touch.layerX;
           posY = touch.layerY;
         }
 
-        if(_.isUndef(posX) ||
-           _.isUndef(posY)) {
+        if(is.undef(posX) ||
+           is.undef(posY)) {
           if(Mo.touch.offsetX === void 0) {
             Mo.touch.offsetX = 0;
             Mo.touch.offsetY = 0;
@@ -184,7 +186,7 @@
       Mo.untouch();
       touchType = type || Mo.SPRITE_UI;
       touchStage = stage || [2,1,0];
-      if(!_.isArray(touchStage)) {
+      if(!is.vec(touchStage)) {
         touchStage = [touchStage];
       }
 
