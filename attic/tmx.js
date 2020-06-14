@@ -56,7 +56,7 @@
           // save the properties indexed by tile number for the frame properties
           tilesetTileProps[tileId] = properties;
         });
-        tilesetProps.frameProperties = tilesetTileProps;
+        tilesetProps.frameInfo= tilesetTileProps;
         gidMap.push([gid, sheetName]);
         Mo.sheet(sheetName, assetName,  tilesetProps);
       };

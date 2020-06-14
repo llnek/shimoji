@@ -1,7 +1,8 @@
-(function (global) {
-  "use strict";
+(function (global, undefined) {
 
-  let Mojo=global.Mojo, _pool = [], _ = Mojo._;
+  "use strict";
+  let Mojo=global.Mojo,
+      _pool = [], _ = Mojo._;
 
   Mojo.Math=function(Mo) {
     Mo.matrix2d = () => {
@@ -58,7 +59,7 @@
         return this.rotate(Math.PI * deg / 180);
       },
       scale: function(sx,sy) {
-        if(sy === void 0) { sy = sx; }
+        if(sy === undefined) { sy = sx; }
         let m = this.m;
         m[0] *= sx;
         m[1] *= sy;

@@ -2,65 +2,7 @@
   "use strict";
   let Mojo = global.Mojo, _ = Mojo._;
 
-  Mojo.Sprites = function(Mo) {
-
-    Mo.defType("SpriteSheet",{
-      init: function(name, asset,options) {
-        let S= Mo.asset(asset);
-        if (!S)
-          throw "Invalid Asset:" + asset;
-        _.inject(this,{
-          name: name,
-          asset: asset,
-          w: S.width,
-          h: S.height,
-          tileW: 64,
-          tileH: 64,
-          sx: 0,
-          sy: 0,
-          spacingX: 0,
-          spacingY: 0,
-          frameProperties: {}
-          }, options);
-        this.cols = this.cols ||
-                    Math.floor((this.w + this.spacingX) / (this.tileW + this.spacingX));
-        this.frames = this.cols * (Math.floor(this.h/(this.tileH + this.spacingY)));
-      },
-      fx: function(frame) {
-        return Math.floor((frame % this.cols) * (this.tileW + this.spacingX) + this.sx);
-      },
-      fy: function(frame) {
-        return Math.floor(Math.floor(frame / this.cols) * (this.tileH + this.spacingY) + this.sy);
-      },
-      draw: function(ctx, x, y, frame) {
-        if(!ctx) ctx = Mo.ctx;
-        ctx.drawImage(Mo.asset(this.asset),
-                      this.fx(frame),
-                      this.fy(frame),
-                      this.tileW,
-                      this.tileH,
-                      Math.floor(x),
-                      Math.floor(y),
-                      this.tileW,
-                      this.tileH);
-      }
-    });
-
-    Mo.sheets = {};
-    Mo.sheet = function(name,asset,options) {
-      if(asset) {
-        Mo.sheets[name] = new Mo.SpriteSheet(name,asset,options);
-      } else {
-        return Mo.sheets[name];
-      }
-    };
-
-    Mo.compileSheets = function(imageAsset,spriteDataAsset) {
-      var data = Mo.asset(spriteDataAsset);
-      _.doseq(data,(spriteData,name) => {
-        Mo.sheet(name,imageAsset,spriteData);
-      });
-    };
+  Mojo.Sprite = function(Mo) {
 
     Mo.SPRITE_NONE     = 0;
     Mo.SPRITE_DEFAULT  = 1;
@@ -72,33 +14,73 @@
     Mo.SPRITE_UI       = 64;
     Mo.SPRITE_ALL   = 0xFFFF;
 
-    Mo.genPts = function(obj,force) {
-      if(obj.p.points && !force)
-      return;
-      let p = obj.p,
-          halfW = p.w/2,
-          halfH = p.h/2;
-      p.points = [[ -halfW, -halfH ],
-                  [  halfW, -halfH ],
-                  [  halfW,  halfH ],
-                  [ -halfW,  halfH ]];
+    Mo.sheets = {};
+
+    Mo.defType("SpriteSheet",{
+      init: function(name, asset,options) {
+        let S= Mo.asset(asset,true);
+        _.inject(this,{name: name,
+                       asset: asset,
+                       w: S.width,
+                       h: S.height,
+                       tileW: 64,
+                       tileH: 64,
+                       sx: 0,
+                       sy: 0,
+                       spacingX: 0,
+                       spacingY: 0,
+                       frameInfo: {}}, options);
+        if(!this.cols)
+          this.cols= _.floor((this.w+this.spacingX) / (this.tileW+this.spacingX));
+        this.frames = this.cols * (_.floor(this.h/(this.tileH + this.spacingY)));
+      },
+      fx: function(frame) {
+        return _.floor((frame % this.cols) * (this.tileW + this.spacingX) + this.sx);
+      },
+      fy: function(frame) {
+        return _.floor(_.floor(frame / this.cols) * (this.tileH + this.spacingY) + this.sy);
+      },
+      draw: function(ctx, x, y, frame) {
+        (ctx || Mo.ctx).drawImage(Mo.asset(this.asset,true),
+                                  this.fx(frame), this.fy(frame),
+                                  this.tileW, this.tileH,
+                                  Math.floor(x), Math.floor(y),
+                                  this.tileW, this.tileH);
+      }
+    });
+
+    Mo.sheet = function(name,asset,options) {
+      if(asset)
+        Mo.sheets[name] = new Mo.SpriteSheet(name,asset,options);
+      return Mo.sheets[name];
     };
 
-    Mo._nullContainer = {
-      c: {
-        x: 0,
-        y: 0,
-        angle: 0,
-        scale: 1
-      },
-      matrix: Mo.matrix2d()
+    Mo.parseSheet = function(imageAsset,spriteData) {
+      var data = Mo.asset(spriteData,true);
+      _.doseq(data,(info,name) => {
+        Mo.sheet(name,imageAsset,info);
+      });
     };
+
+    Mo.genPts = function(obj,force) {
+      if(force ||
+         !obj.p.points) {
+        let p = obj.p,
+            hw = p.w/2,
+            hh = p.h/2;
+        p.points = [Mo.v2(-hw, -hh), Mo.v2(hw, -hh),
+                    Mo.v2(hw, hh), Mo.v2(-hw, hh)];
+      }
+    };
+
+    Mo._nullContainer=
+    {matrix: Mo.matrix2d(),
+     c: {x: 0, y: 0, angle: 0, scale: 1}};
 
     Mo.genContactPts= function(obj) {
 
       if(!obj.matrix &&
-         !obj.refreshMatrix)
-      return;
+         !obj.refreshMatrix) {return;}
 
       if(!obj.c)
         obj.c = { points: [] };
@@ -110,20 +92,20 @@
          c.origX === p.x &&
          c.origY === p.y &&
          c.origScale === p.scale &&
-         c.origAngle === p.angle)
-      return;
+         c.origAngle === p.angle) {return;}
 
       c.origX = p.x;
       c.origY = p.y;
       c.origScale = p.scale;
       c.origAngle = p.angle;
-
       obj.refreshMatrix();
 
       if(!obj.container &&
          (!p.scale || p.scale === 1) && p.angle === 0) {
+        //this just gives the actual bounding box points
+        //of the object
         for(let i=0;i<obj.p.points.length;++i) {
-          obj.c.points[i] = obj.c.points[i] || [];
+          obj.c.points[i] = obj.c.points[i] || Mo.v2();
           obj.c.points[i][0] = p.x + obj.p.points[i][0];
           obj.c.points[i][1] = p.y + obj.p.points[i][1];
         }
@@ -131,23 +113,23 @@
         c.w = p.w; c.h = p.h;
         c.cx = p.cx; c.cy = p.cy;
       } else {
-        let container = obj.container || Mo._nullContainer;
-        c.x = container.matrix.transformX(p.x,p.y);
-        c.y = container.matrix.transformY(p.x,p.y);
-        c.angle = p.angle + container.c.angle;
-        c.scale = (container.c.scale || 1) * (p.scale || 1);
+        let parent = obj.container || Mo._nullContainer;
+        c.x = parent.matrix.transformX(p.x,p.y);
+        c.y = parent.matrix.transformY(p.x,p.y);
+        c.angle = p.angle + parent.c.angle;
+        c.scale = (parent.c.scale || 1) * (p.scale || 1);
 
         let minX = Infinity,
         minY = Infinity,
         maxX = -Infinity,
         maxY = -Infinity;
 
-        for(let i=0;i<obj.p.points.length;++i) {
-          if(!obj.c.points[i]) {
-            obj.c.points[i] = [];
-          }
-          obj.matrix.transformArr(obj.p.points[i],obj.c.points[i]);
-          let x = obj.c.points[i][0],
+        for(let x,y,i=0;i<obj.p.points.length;++i) {
+          if(!obj.c.points[i])
+            obj.c.points[i] = Mo.v2();
+
+          obj.matrix.transformArr(obj.p.points[i], obj.c.points[i]);
+          x = obj.c.points[i][0];
           y = obj.c.points[i][1];
 
           if(x < minX) minX = x;
@@ -174,31 +156,30 @@
     };
 
     Mo.defType(["Sprite",Mo.Entity], {
-      init: function(props,defProps) {
-        this.p = _.inject({
-          x: 0,
-          y: 0,
-          z: 0,
-          opacity: 1,
-          angle: 0,
-          frame: 0,
-          name: "",
-          spriteProperties: {},
-          type: Mo.SPRITE_DEFAULT | Mo.SPRITE_ACTIVE
-        },defProps);
+      init: function(props,defaults) {
+        this.p = _.inject({x: 0,
+                           y: 0,
+                           z: 0,
+                           angle: 0,
+                           frame: 0,
+                           name: "",
+                           opacity: 1,
+                           spriteInfo: {},
+                           type: Mo.SPRITE_DEFAULT |
+                                 Mo.SPRITE_ACTIVE},defaults,props);
 
-        this.matrix = new Mo.Matrix2D();
+        if(this.p.id === undefined)
+        this.p.id = _.nextID();
+
+        this.matrix = Mo.matrix2d();
         this.children = [];
-
-        _.inject(this.p,props);
-
         this.size();
-        this.p.id = this.p.id || _.nextID();
-
         this.refreshMatrix();
       },
       size: function(force) {
-        if(force || (!this.p.w || !this.p.h)) {
+        if(force ||
+           (this.p.w===undefined ||
+            this.p.h===undefined)) {
           if(this.asset()) {
             this.p.w = this.asset().width;
             this.p.h = this.asset().height;
@@ -207,12 +188,17 @@
             this.p.h = this.sheet().tileH;
           }
         }
-        this.p.cx = (force || this.p.cx === void 0) ? (this.p.w / 2) : this.p.cx;
-        this.p.cy = (force || this.p.cy === void 0) ? (this.p.h / 2) : this.p.cy;
+
+        if(force || this.p.cx === undefined)
+        this.p.cx = this.p.w / 2;
+
+        if(force || this.p.cy === undefined)
+        this.p.cy = this.p.h / 2;
       },
       asset: function(name,resize) {
         if(!name)
           return Mo.asset(this.p.asset);
+        //else
         this.p.asset = name;
         if(resize) {
           this.size(true);
@@ -242,19 +228,22 @@
         return ((a.p && a.p.z) || -1) - ((b.p && b.p.z) || -1);
       },
       _flipArgs: {
-        "x":  [ -1,  1],
-        "y":  [  1, -1],
-        "xy": [ -1, -1]
+        x: Mo.v2(-1, 1),
+        y: Mo.v2( 1, -1),
+        xy: Mo.v2(-1, -1)
       },
       render: function(ctx) {
         if(this.p.hidden ||
            this.p.opacity === 0) { return; }
-        if(!ctx) ctx = Mo.ctx;
+
+        if(!ctx)
+          ctx = Mo.ctx;
 
         Mo.EventBus.pub('predraw',this,ctx);
         ctx.save();
 
-        if(this.p.opacity !== void 0 && this.p.opacity !== 1) {
+        if(this.p.opacity !== undefined &&
+           this.p.opacity !== 1) {
           ctx.globalAlpha = this.p.opacity;
         }
 
@@ -263,9 +252,9 @@
         if(this.p.flip)
           ctx.scale.apply(ctx,this._flipArgs[this.p.flip]);
 
-        Mo.EventBus.pub('beforedraw',this,ctx);
+        Mo.EventBus.pub("beforedraw",this,ctx);
         this.draw(ctx);
-        Mo.EventBus.pub('draw',this,ctx);
+        Mo.EventBus.pub("draw",this,ctx);
         ctx.restore();
 
         // Children set up their own complete matrix
@@ -273,7 +262,7 @@
         if(this.p.sort)
           this.children.sort(this._sortChild);
         _.invoke(this.children,"render",ctx);
-        Mo.EventBus.pub('postdraw',this,ctx);
+        Mo.EventBus.pub("postdraw",this,ctx);
         if(Mo.debug)
           this.debugRender(ctx);
       },
@@ -298,8 +287,8 @@
         }
       },
       debugRender: function(ctx) {
-        if(!this.p.points)
-          Mo.genPts(this);
+        if(!this.p.points) Mo.genPts(this);
+        _.assert(ctx,"canvas-context ","is null");
         ctx.save();
         this.matrix.setContextTransform(ctx);
         ctx.beginPath();
@@ -332,10 +321,10 @@
         }
       },
       update: function(dt) {
-        Mo.EventBus.pub('prestep',this,dt);
+        Mo.EventBus.pub("prestep",this,dt);
         if(this.step)
           this.step(dt);
-        Mo.EventBus.pub('step',this,dt);
+        Mo.EventBus.pub("step",this,dt);
         Mo.genContactPts(this);
 
         this.layer &&
@@ -366,13 +355,11 @@
     });
 
     Mo.defType(["MovingSprite", Mo.Sprite], {
-      init: function(props,defProps) {
-        this._super(_.inject({
-          vx: 0,
-          vy: 0,
-          ax: 0,
-          ay: 0
-        },props),defProps);
+      init: function(props,defaults) {
+        this._super(_.inject({vx: 0,
+                              vy: 0,
+                              ax: 0,
+                              ay: 0},props),defaults);
       },
       step: function(dt) {
         let p = this.p;

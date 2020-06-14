@@ -161,7 +161,7 @@
       },
       _genContactObjs: function() {
         let props= this.sheet() &&
-                   this.sheet().frameProperties,
+                   this.sheet().frameInfo,
             cobj,
             self=this,
             rescale= (pt) => {

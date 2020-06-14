@@ -27,6 +27,12 @@
     keys: (obj) => {
       return isMap(obj) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
     },
+    assert: (cond) => {
+      if(cond)
+      {}
+      else
+        throw new Error(slicer.call(arguments,1).join(""));
+    },
     jsMap: () => { return new Map(); },
     jsObj: () => { return {}; },
     floor: (v) => { return Math.floor(v); },
@@ -126,6 +132,9 @@
       if(isArray(arr))
         arr.forEach(x => x[key].apply(x, args));
     },
+    timer: function(f,delay) {
+      return setTimeout(f,delay);
+    },
     doseq: (obj,fn,ctx) => {
       if(isArray(obj))
         obj.forEach(fn,ctx);
@@ -181,14 +190,6 @@
       void0: (obj) => { return obj === void 0; },
       undef: (obj) => { return obj === undefined; }
     },
-    isString: (obj) => { return typeof obj === "string"; },
-    isNumber: (obj) => { return tostr.call(obj) === "[object Number]"; },
-    isFn: (obj) => { return tostr.call(obj) === "[object Function]"; },
-    isObject: isObject,
-    isMap: isMap,
-    isArray: isArray,
-    isV0: (obj) => { return obj === void 0; },
-    isUndef: (obj) => { return obj === undefined; },
     has: (obj,key) => {
       return isMap(obj) ? obj.has(key) : OBJECT.hasOwnProperty.call(obj, key);
     },
@@ -763,7 +764,12 @@
     return Mo;
   };
 
-  Mo.asset= (name) => { return Mo.assets[name]; };
+  Mo.asset= (name,panic) => {
+    let r=Mo.assets[name];
+    if(panic && !r)
+      throw "Unknown Asset:" + name;
+    return r;
+  };
 
   Mo.load= function(assets,cb,options) {
     let pcb = options && options.progressCb;
@@ -848,7 +854,7 @@
 
     let aux=["TMX"];
 
-    ["Math", "Sprites", "Scenes", "2D",
+    ["Math", "Sprite", "Scene", "2D",
      "Anim", "Input", "Audio", "Touch", "UI"].forEach(k => Mojo[k](Mo));
 
     _.seq(Mo.options.modules || []).forEach(m => Mojo[m](Mo));

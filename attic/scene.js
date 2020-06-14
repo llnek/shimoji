@@ -10,7 +10,7 @@
     y:0
   };
 
-  Mojo.Scenes = function(Mo) {
+  Mojo.Scene = function(Mo) {
 
     Mo.scenes = _.jsMap();
     Mo.activeLayer = 0;

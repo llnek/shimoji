@@ -4,8 +4,6 @@
       _ = Mojo._, is=_.is, window = global;
 
   Mojo.Touch = function(Mo) {
-    if(is.undef(Mojo.Sprites))
-      throw "Mojo.Touch requires Mojo.Sprites Module";
 
     let touchStage = [0];
     let touchType = 0;
