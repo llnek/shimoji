@@ -1,27 +1,31 @@
 (function(global,undefined) {
-  "use strict";
-  let Mojo = global.Mojo, _ = Mojo._, is=_.is;
 
-  Mojo.Anim = function(Mo) {
-    let _animations = {};
-    Mo.animations = (sprite,animations) => {
+  "use strict";
+  let MojoH5 = global.MojoH5;
+
+  MojoH5.Anim = function(Mojo) {
+
+    let _ = Mojo.u,
+        is=Mojo.is, _animations = {};
+
+    Mojo.animations = (sprite,animations) => {
       if(!_animations[sprite])
         _animations[sprite] = {};
       _.inject(_animations[sprite],animations);
     };
 
-    Mo.animation = (sprite,name) => {
+    Mojo.animation = (sprite,name) => {
       return _animations[sprite] && _animations[sprite][name];
     };
 
-    Mo.component("animation", {
+    Mojo.feature("animation", {
       added: function() {
         let p = this.entity.p;
         p.animation = null;
         p.animationFrame = 0;
         p.animationTime = 0;
         p.animationPriority = -1;
-        Mo.EventBus.sub("step",this.entity,"step",this);
+        Mojo.EventBus.sub("step",this.entity,"step",this);
       },
       ____entity: {
         play: function(name,priority,resetFrame) {
@@ -33,7 +37,7 @@
             p = entity.p;
         if(p.animation) {
           let stepped=0,
-              anim = Mo.animation(p.sprite,p.animation),
+              anim = Mojo.animation(p.sprite,p.animation),
               rate = anim.rate || p.rate;
           p.animationTime += dt;
           if(p.animationChanged) {
@@ -47,22 +51,22 @@
             if(p.animationFrame >= anim.frames.length) {
               if(anim.loop === false || anim.next) {
                 p.animationFrame = anim.frames.length - 1;
-                Mo.EventBus.pub("animEnd",entity);
-                Mo.EventBus.pub("animEnd." + p.animation,entity);
+                Mojo.EventBus.pub("animEnd",entity);
+                Mojo.EventBus.pub("animEnd." + p.animation,entity);
                 p.animation = null;
                 p.animationPriority = -1;
                 if(anim.trigger)
-                  Mo.EventBus.pub(anim.trigger,entity,anim.triggerData);
+                  Mojo.EventBus.pub(anim.trigger,entity,anim.triggerData);
                 if(anim.next)
                   this.play(anim.next,anim.nextPriority);
                 return;
               } else {
-                Mo.EventBus.pub("animLoop",entity);
-                Mo.EventBus.pub("animLoop." + p.animation, entity);
+                Mojo.EventBus.pub("animLoop",entity);
+                Mojo.EventBus.pub("animLoop." + p.animation, entity);
                 p.animationFrame = p.animationFrame % anim.frames.length;
               }
             }
-            Mo.EventBus.pub("animFrame", entity);
+            Mojo.EventBus.pub("animFrame", entity);
           }
           p.sheet = anim.sheet || p.sheet;
           p.frame = anim.frames[p.animationFrame];
@@ -85,14 +89,14 @@
             p.animationFrame = 0;
           }
           p.animationPriority = priority;
-          Mo.EventBus.pub("anim", entity);
-          Mo.EventBus.pub("anim." + p.animation, entity);
+          Mojo.EventBus.pub("anim", entity);
+          Mojo.EventBus.pub("anim." + p.animation, entity);
         }
       }
 
     });
 
-    Mo.defType(["Repeater", Mo.Sprite], {
+    Mojo.defType(["Repeater", Mojo.Sprite], {
       init: function(props) {
         this._super(_.inject(props,{
           speedX: 1,
@@ -131,8 +135,8 @@
         }
 
         startX = curX;
-        endX = Mo.width / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatW;
-        endY = Mo.height / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatH;
+        endX = Mojo.width / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatW;
+        endY = Mojo.height / Math.abs(scale) / Math.abs(p.scale || 1) + p.repeatH;
 
         while(curY < endY) {
           curX = startX;
@@ -152,31 +156,31 @@
       }
     });
 
-    Mo.defType("Tween",{
+    Mojo.defType("Tween",{
       init: function(entity,properties,duration,easing,options) {
         if(is.obj(easing)) {
           options = easing;
-          easing = Mo.Easing.Linear;
+          easing = Mojo.Easing.Linear;
         }
         if(is.obj(duration)) {
           options = duration;
           duration = 1;
         }
         this.entity = entity;
-        //this.p = (entity instanceof Mo.Layer) ? entity.viewport : entity.p;
+        //this.p = (entity instanceof Mojo.Layer) ? entity.viewport : entity.p;
         this.duration = duration || 1;
         this.time = 0;
         this.options = options || {};
         this.delay = this.options.delay || 0;
         this.easing = easing ||
-                      this.options.easing || Mo.Easing.Linear;
-        this.startFrame = Mo._loopFrame + 1;
+                      this.options.easing || Mojo.Easing.Linear;
+        this.startFrame = Mojo._loopFrame + 1;
         this.properties = properties;
         this.start = {};
         this.diff = {};
       },
       step: function(dt) {
-        if(this.startFrame > Mo._loopFrame) { return true; }
+        if(this.startFrame > Mojo._loopFrame) { return true; }
         if(this.delay >= dt) {
           this.delay -= dt;
           return true;
@@ -189,7 +193,7 @@
           // first time running? Initialize the properties to chaining correctly.
           let entity = this.entity,
               properties = this.properties;
-          this.p = (entity instanceof Mo.Layer) ? entity.viewport : entity.p;
+          this.p = (entity instanceof Mojo.Layer) ? entity.viewport : entity.p;
           for(let p in properties) {
             this.start[p] = this.p[p];
             if(!is.undef(this.start[p]))
@@ -216,7 +220,7 @@
 
     // Code ripped directly from Tween.js
     // https://github.com/sole/tween.js/blob/master/src/Tween.js
-    Mo.Easing = {
+    Mojo.Easing = {
       Linear: (k) => { return k; },
       Quadratic: {
         In: (k) =>  { return k * k; },
@@ -228,20 +232,20 @@
       }
     };
 
-    Mo.component('tween',{
+    Mojo.feature('tween',{
       added: function() {
         this._tweens = [];
-        Mo.EventBus.sub("step",this.entity,"step",this);
+        Mojo.EventBus.sub("step",this.entity,"step",this);
       },
       ____entity: {
         animate: function(properties,duration,easing,options) {
-          this.tween._tweens.push(new Mo.Tween(this,properties,duration,easing,options));
+          this.tween._tweens.push(new Mojo.Tween(this,properties,duration,easing,options));
           return this;
         },
         chain: function(properties,duration,easing,options) {
           if(is.obj(easing)) {
             options = easing;
-            easing = Mo.Easing.Linear;
+            easing = Mojo.Easing.Linear;
           }
           // Chain an animation to the end
           let tweenCnt = this.tween._tweens.length;
@@ -270,6 +274,7 @@
     });
 
 
+    return Mojo;
   };
 
 

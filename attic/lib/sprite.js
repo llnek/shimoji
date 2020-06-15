@@ -1,24 +1,27 @@
 (function(global, undefined){
   "use strict";
-  let Mojo = global.Mojo, _ = Mojo._;
+  let MojoH5 = global.MojoH5;
 
-  Mojo.Sprite = function(Mo) {
+  MojoH5.Sprites = function(Mojo) {
 
-    Mo.SPRITE_NONE     = 0;
-    Mo.SPRITE_DEFAULT  = 1;
-    Mo.SPRITE_PARTICLE = 2;
-    Mo.SPRITE_ACTIVE   = 4;
-    Mo.SPRITE_FRIENDLY = 8;
-    Mo.SPRITE_ENEMY    = 16;
-    Mo.SPRITE_POWERUP  = 32;
-    Mo.SPRITE_UI       = 64;
-    Mo.SPRITE_ALL   = 0xFFFF;
+    let _= Mojo.u,
+        is= Mojo.is;
 
-    Mo.sheets = {};
+    Mojo.SPRITE_NONE     = 0;
+    Mojo.SPRITE_DEFAULT  = 1;
+    Mojo.SPRITE_PARTICLE = 2;
+    Mojo.SPRITE_ACTIVE   = 4;
+    Mojo.SPRITE_FRIENDLY = 8;
+    Mojo.SPRITE_ENEMY    = 16;
+    Mojo.SPRITE_POWERUP  = 32;
+    Mojo.SPRITE_UI       = 64;
+    Mojo.SPRITE_ALL   = 0xFFFF;
 
-    Mo.defType("SpriteSheet",{
+    Mojo.sheets = {};
+
+    Mojo.defType("SpriteSheet",{
       init: function(name, asset,options) {
-        let S= Mo.asset(asset,true);
+        let S= Mojo.asset(asset,true);
         _.inject(this,{name: name,
                        asset: asset,
                        w: S.width,
@@ -41,43 +44,43 @@
         return _.floor(_.floor(frame / this.cols) * (this.tileH + this.spacingY) + this.sy);
       },
       draw: function(ctx, x, y, frame) {
-        (ctx || Mo.ctx).drawImage(Mo.asset(this.asset,true),
+        (ctx || Mojo.ctx).drawImage(Mojo.asset(this.asset,true),
                                   this.fx(frame), this.fy(frame),
                                   this.tileW, this.tileH,
                                   Math.floor(x), Math.floor(y),
                                   this.tileW, this.tileH);
       }
-    });
+    }, Mojo);
 
-    Mo.sheet = function(name,asset,options) {
+    Mojo.sheet = function(name,asset,options) {
       if(asset)
-        Mo.sheets[name] = new Mo.SpriteSheet(name,asset,options);
-      return Mo.sheets[name];
+        Mojo.sheets[name] = new Mojo.SpriteSheet(name,asset,options);
+      return Mojo.sheets[name];
     };
 
-    Mo.parseSheet = function(imageAsset,spriteData) {
-      var data = Mo.asset(spriteData,true);
+    Mojo.parseSheet = function(imageAsset,spriteData) {
+      var data = Mojo.asset(spriteData,true);
       _.doseq(data,(info,name) => {
-        Mo.sheet(name,imageAsset,info);
+        Mojo.sheet(name,imageAsset,info);
       });
     };
 
-    Mo.genPts = function(obj,force) {
+    Mojo.genPts = function(obj,force) {
       if(force ||
          !obj.p.points) {
         let p = obj.p,
             hw = p.w/2,
             hh = p.h/2;
-        p.points = [Mo.v2(-hw, -hh), Mo.v2(hw, -hh),
-                    Mo.v2(hw, hh), Mo.v2(-hw, hh)];
+        p.points = [Mojo.v2(-hw, -hh), Mojo.v2(hw, -hh),
+                    Mojo.v2(hw, hh), Mojo.v2(-hw, hh)];
       }
     };
 
-    Mo._nullContainer=
-    {matrix: Mo.matrix2d(),
+    Mojo._nullContainer=
+    {matrix: Mojo.matrix2d(),
      c: {x: 0, y: 0, angle: 0, scale: 1}};
 
-    Mo.genContactPts= function(obj) {
+    Mojo.genContactPts= function(obj) {
 
       if(!obj.matrix &&
          !obj.refreshMatrix) {return;}
@@ -105,7 +108,7 @@
         //this just gives the actual bounding box points
         //of the object
         for(let i=0;i<obj.p.points.length;++i) {
-          obj.c.points[i] = obj.c.points[i] || Mo.v2();
+          obj.c.points[i] = obj.c.points[i] || Mojo.v2();
           obj.c.points[i][0] = p.x + obj.p.points[i][0];
           obj.c.points[i][1] = p.y + obj.p.points[i][1];
         }
@@ -113,7 +116,7 @@
         c.w = p.w; c.h = p.h;
         c.cx = p.cx; c.cy = p.cy;
       } else {
-        let parent = obj.container || Mo._nullContainer;
+        let parent = obj.container || Mojo._nullContainer;
         c.x = parent.matrix.transformX(p.x,p.y);
         c.y = parent.matrix.transformY(p.x,p.y);
         c.angle = p.angle + parent.c.angle;
@@ -126,7 +129,7 @@
 
         for(let x,y,i=0;i<obj.p.points.length;++i) {
           if(!obj.c.points[i])
-            obj.c.points[i] = Mo.v2();
+            obj.c.points[i] = Mojo.v2();
 
           obj.matrix.transformArr(obj.p.points[i], obj.c.points[i]);
           x = obj.c.points[i][0];
@@ -155,7 +158,7 @@
           _.invoke(obj.children,"moved");
     };
 
-    Mo.defType(["Sprite",Mo.Entity], {
+    Mojo.defType(["Sprite",Mojo.Entity], {
       init: function(props,defaults) {
         this.p = _.inject({x: 0,
                            y: 0,
@@ -165,13 +168,13 @@
                            name: "",
                            opacity: 1,
                            spriteInfo: {},
-                           type: Mo.SPRITE_DEFAULT |
-                                 Mo.SPRITE_ACTIVE},defaults,props);
+                           type: Mojo.SPRITE_DEFAULT |
+                                 Mojo.SPRITE_ACTIVE},defaults,props);
 
         if(this.p.id === undefined)
         this.p.id = _.nextID();
 
-        this.matrix = Mo.matrix2d();
+        this.matrix = Mojo.matrix2d();
         this.children = [];
         this.size();
         this.refreshMatrix();
@@ -197,21 +200,21 @@
       },
       asset: function(name,resize) {
         if(!name)
-          return Mo.asset(this.p.asset);
+          return Mojo.asset(this.p.asset);
         //else
         this.p.asset = name;
         if(resize) {
           this.size(true);
-          Mo.genPts(this,true);
+          Mojo.genPts(this,true);
         }
       },
       sheet: function(name,resize) {
         if(!name)
-          return Mo.sheet(this.p.sheet);
+          return Mojo.sheet(this.p.sheet);
         this.p.sheet = name;
         if(resize) {
           this.size(true);
-          Mo.genPts(this,true);
+          Mojo.genPts(this,true);
         }
       },
       hide: function() {
@@ -228,18 +231,18 @@
         return ((a.p && a.p.z) || -1) - ((b.p && b.p.z) || -1);
       },
       _flipArgs: {
-        x: Mo.v2(-1, 1),
-        y: Mo.v2( 1, -1),
-        xy: Mo.v2(-1, -1)
+        x: Mojo.v2(-1, 1),
+        y: Mojo.v2( 1, -1),
+        xy: Mojo.v2(-1, -1)
       },
       render: function(ctx) {
         if(this.p.hidden ||
            this.p.opacity === 0) { return; }
 
         if(!ctx)
-          ctx = Mo.ctx;
+          ctx = Mojo.ctx;
 
-        Mo.EventBus.pub('predraw',this,ctx);
+        Mojo.EventBus.pub('predraw',this,ctx);
         ctx.save();
 
         if(this.p.opacity !== undefined &&
@@ -252,9 +255,9 @@
         if(this.p.flip)
           ctx.scale.apply(ctx,this._flipArgs[this.p.flip]);
 
-        Mo.EventBus.pub("beforedraw",this,ctx);
+        Mojo.EventBus.pub("beforedraw",this,ctx);
         this.draw(ctx);
-        Mo.EventBus.pub("draw",this,ctx);
+        Mojo.EventBus.pub("draw",this,ctx);
         ctx.restore();
 
         // Children set up their own complete matrix
@@ -262,8 +265,8 @@
         if(this.p.sort)
           this.children.sort(this._sortChild);
         _.invoke(this.children,"render",ctx);
-        Mo.EventBus.pub("postdraw",this,ctx);
-        if(Mo.debug)
+        Mojo.EventBus.pub("postdraw",this,ctx);
+        if(Mojo.debug)
           this.debugRender(ctx);
       },
       center: function() {
@@ -271,8 +274,8 @@
           this.p.x = 0;
           this.p.y = 0;
         } else {
-          this.p.x = Mo.width / 2;
-          this.p.y = Mo.height / 2;
+          this.p.x = Mojo.width / 2;
+          this.p.y = Mojo.height / 2;
         }
       },
       draw: function(ctx) {
@@ -280,14 +283,14 @@
         if(p.sheet) {
           this.sheet().draw(ctx,-p.cx,-p.cy,p.frame);
         } else if(p.asset) {
-          ctx.drawImage(Mo.asset(p.asset),-p.cx,-p.cy);
+          ctx.drawImage(Mojo.asset(p.asset),-p.cx,-p.cy);
         } else if(p.color) {
           ctx.fillStyle = p.color;
           ctx.fillRect(-p.cx,-p.cy,p.w,p.h);
         }
       },
       debugRender: function(ctx) {
-        if(!this.p.points) Mo.genPts(this);
+        if(!this.p.points) Mojo.genPts(this);
         _.assert(ctx,"canvas-context ","is null");
         ctx.save();
         this.matrix.setContextTransform(ctx);
@@ -301,7 +304,7 @@
         ctx.lineTo(this.p.points[0][0],this.p.points[0][1]);
         ctx.stroke();
 
-        if(Mo.debugFill) { ctx.fill(); }
+        if(Mojo.debugFill) { ctx.fill(); }
         ctx.restore();
 
         if(this.c) {
@@ -321,11 +324,11 @@
         }
       },
       update: function(dt) {
-        Mo.EventBus.pub("prestep",this,dt);
+        Mojo.EventBus.pub("prestep",this,dt);
         if(this.step)
           this.step(dt);
-        Mo.EventBus.pub("step",this,dt);
-        Mo.genContactPts(this);
+        Mojo.EventBus.pub("step",this,dt);
+        Mojo.genContactPts(this);
 
         this.layer &&
           (this.children.length > 0) &&
@@ -354,7 +357,7 @@
       }
     });
 
-    Mo.defType(["MovingSprite", Mo.Sprite], {
+    Mojo.defType(["MovingSprite", Mojo.Sprite], {
       init: function(props,defaults) {
         this._super(_.inject({vx: 0,
                               vy: 0,
@@ -372,7 +375,7 @@
       }
     });
 
-    return Mo;
+    return Mojo;
   };
 
 })(this);

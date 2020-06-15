@@ -1,18 +1,16 @@
 (function(global,undefined) {
 
   "use strict";
-  let Mojo = global.Mojo,
-      _ = Mojo._,
-      is = _.is,
+  let MojoH5 = global.MojoH5,
       document= global.document;
 
+  MojoH5.UI = function(Mojo) {
 
-  Mojo.UI = function(Mo) {
-    if(is.undef(Mojo.Touch) ||
-       is.undef(Mojo.Input))
-      throw "Mojo.UI requires Mojo.Touch & Mojo.Input Modules";
-    Mo.UI = _.jsObj();
-    Mo.UI.drawRoundRect = (ctx, rect) => {
+    let _=Mojo.u,
+        is=Mojo.is;
+
+    Mojo.UI = _.jsObj();
+    Mojo.UI.drawRoundRect = (ctx, rect) => {
       ctx.beginPath();
       ctx.moveTo(-rect.cx + rect.radius, -rect.cy);
       ctx.lineTo(-rect.cx + rect.w - rect.radius, -rect.cy);
@@ -29,20 +27,20 @@
       ctx.closePath();
     };
 
-    Mo.defType(["Container", Mo.Sprite], {
+    Mojo.defType(["Container", Mojo.Sprite], {
       init: function(p,defaults) {
         let match, props= _.inject({},p);
         if(p &&
            is.str(p.w) &&
            (match = p.w.match(/^[0-9]+%$/))) {
-          props.w = parseInt(p.w) * Mo.width/100;
-          props.x = Mo.width/2 - props.w/2;
+          props.w = parseInt(p.w) * Mojo.width/100;
+          props.x = Mojo.width/2 - props.w/2;
         }
         if(p &&
            is.str(p.h) &&
            (match = p.h.match(/^[0-9]+%$/))) {
-          props.h = parseInt(p.h) * Mo.height/100;
-          props.y = Mo.height/2 - props.h/2;
+          props.h = parseInt(p.h) * Mojo.height/100;
+          props.y = Mojo.height/2 - props.h/2;
         }
         this._super(_.patch(props,defaults),{
           opacity: 1,
@@ -56,7 +54,7 @@
           shadowColor: false, // Set to a rgba value for the shadow
           outlineWidth: false, // Set to a width to outline text
           outlineColor: "#000",
-          type: Mo.SPRITE_NONE
+          type: Mojo.SPRITE_NONE
         });
       },
       insert: function(obj) {
@@ -86,8 +84,8 @@
           // Since the original dimensions were changed,
           // update the boundaries so that
           // the collision is calculated correctly
-          Mo.genPts(this, true);
-          Mo.genContactPts(this, true);
+          Mojo.genPts(this, true);
+          Mojo.genContactPts(this, true);
         }
       },
       addShadow: function(ctx) {
@@ -100,7 +98,7 @@
       },
       clearShadow: (ctx) => { ctx.shadowColor = "transparent"; },
       drawRadius: function(ctx) {
-        Mo.UI.drawRoundRect(ctx,this.p);
+        Mojo.UI.drawRoundRect(ctx,this.p);
         this.addShadow(ctx);
         ctx.fill();
         if(this.p.border) {
@@ -135,15 +133,15 @@
         ctx.strokeStyle = this.p.stroke;
         (this.p.radius > 0) ? this.drawRadius(ctx) : this.drawSquare(ctx);
       }
-    }, Mo.UI);
+    }, Mojo.UI);
 
-    Mo.defType(["Text", Mo.Sprite], {
+    Mojo.defType(["Text", Mojo.Sprite], {
       init: function(p,defaults) {
         this._super(_.patch(_.inject({},p),defaults),{
           size: 24,
           lineHeight: 1.2,
           align: "center",
-          type: Mo.SPRITE_UI
+          type: Mojo.SPRITE_UI
         });
         //this.el = document.createElement("canvas");
         //this.ctx = this.el.getContext("2d");
@@ -157,9 +155,9 @@
             maxLabel = "";
         p.w = 0;
         this.splitLabel = p.label.split("\n");
-        this.setFont(Mo.ctx);
+        this.setFont(Mojo.ctx);
         this.splitLabel.forEach(obj => {
-          metrics = Mo.ctx.measureText(obj);
+          metrics = Mojo.ctx.measureText(obj);
           if(metrics.width >  p.w) {
             p.w = metrics.width;
           }
@@ -236,30 +234,30 @@
                             (this.p.family || "Arial");
         return this.fontString;
       }
-    }, Mo.UI);
+    }, Mojo.UI);
 
-    Mo.defType(["Button", Mo.UI.Container], {
+    Mojo.defType(["Button", Mojo.UI.Container], {
       init: function(p, callback, defaults) {
         this._super(_.patch(_.inject({},p),defaults),{
           keyActionName: null,
-          type: Mo.SPRITE_UI | Mo.SPRITE_DEFAULT
+          type: Mojo.SPRITE_UI | Mojo.SPRITE_DEFAULT
         });
         if(this.p.label &&
            (!this.p.w || !this.p.h)) {
-          Mo.ctx.save();
-          this.setFont(Mo.ctx);
-          let metrics = Mo.ctx.measureText(this.p.label);
-          Mo.ctx.restore();
+          Mojo.ctx.save();
+          this.setFont(Mojo.ctx);
+          let metrics = Mojo.ctx.measureText(this.p.label);
+          Mojo.ctx.restore();
           if(!this.p.h) this.p.h = 24 + 20;
           if(!this.p.w) this.p.w = metrics.width + 20;
         }
         if(isNaN(this.p.cx)) this.p.cx = this.p.w / 2;
         if(isNaN(this.p.cy)) this.p.cy = this.p.h / 2;
         this.callback = callback;
-        Mo.EventBus.sub("touchEnd",this,"push");
-        Mo.EventBus.sub("touch",this,"highlight");
+        Mojo.EventBus.sub("touchEnd",this,"push");
+        Mojo.EventBus.sub("touch",this,"highlight");
         if(this.p.keyActionName)
-          Mo.EventBus.sub(this.p.keyActionName,Mo.input,"push",this);
+          Mojo.EventBus.sub(this.p.keyActionName,Mojo.input,"push",this);
       },
       highlight: function() {
         if(this.sheet() !== undefined &&
@@ -268,12 +266,12 @@
       push: function() {
         this.p.frame = 0;
         this.callback && this.callback();
-        Mo.EventBus.pub("click",this);
+        Mojo.EventBus.pub("click",this);
       },
       draw: function(ctx) {
         this._super(ctx);
         if(this.p.asset || this.p.sheet)
-          Mo.Sprite.prototype.draw.call(this,ctx);
+          Mojo.Sprite.prototype.draw.call(this,ctx);
         if(this.p.label) {
           ctx.save();
           this.setFont(ctx);
@@ -287,13 +285,13 @@
         ctx.fillStyle = this.p.fontColor || "black";
         ctx.textAlign = "center";
       }
-    }, Mo.UI);
+    }, Mojo.UI);
 
-    Mo.defType(["IFrame", Mo.Sprite], {
+    Mojo.defType(["IFrame", Mojo.Sprite], {
       init: function(p) {
         this._super(p, { opacity: 1,
-                         type: Mo.SPRITE_UI | Mo.SPRITE_DEFAULT });
-        Mo.wrapper.style.overflow = "hidden";
+                         type: Mojo.SPRITE_UI | Mojo.SPRITE_DEFAULT });
+        Mojo.wrapper.style.overflow = "hidden";
         this.iframe = document.createElement("IFRAME");
         this.iframe.setAttribute("src",this.p.url);
         this.iframe.style.position = "absolute";
@@ -305,10 +303,10 @@
         if(this.p.background)
           this.iframe.style.backgroundColor = this.p.background;
 
-        Mo.wrapper.appendChild(this.iframe);
-        Mo.EventBus.sub("inserted",this, function(parent) {
+        Mojo.wrapper.appendChild(this.iframe);
+        Mojo.EventBus.sub("inserted",this, function(parent) {
           this.positionIFrame();
-          Mo.EventBus.sub("disposed",parent,"remove",this);
+          Mojo.EventBus.sub("disposed",parent,"remove",this);
         });
       },
       positionIFrame: function() {
@@ -337,26 +335,26 @@
       },
       remove: function() {
         if(this.iframe) {
-          Mo.wrapper.removeChild(this.iframe);
+          Mojo.wrapper.removeChild(this.iframe);
           this.iframe = null;
         }
       }
-    }, Mo.UI);
+    }, Mojo.UI);
 
-    Mo.defType(["HTMLElement", Mo.Sprite], {
+    Mojo.defType(["HTMLElement", Mojo.Sprite], {
       init: function(p) {
-        this._super(p, { opacity: 1, type: Mo.SPRITE_UI  });
+        this._super(p, { opacity: 1, type: Mojo.SPRITE_UI  });
 
-        Mo.wrapper.style.overflow = "hidden";
+        Mojo.wrapper.style.overflow = "hidden";
 
         this.el = document.createElement("div");
         this.el.innerHTML = this.p.html;
 
-        Mo.wrapper.appendChild(this.el);
-        Mo.EventBus.sub("inserted",this, function(parent) {
+        Mojo.wrapper.appendChild(this.el);
+        Mojo.EventBus.sub("inserted",this, function(parent) {
           this.position();
-          Mo.EventBus.sub("disposed", parent,"remove",this);
-          Mo.EventBus.sub("clear", parent,"remove",this);
+          Mojo.EventBus.sub("disposed", parent,"remove",this);
+          Mojo.EventBus.sub("clear", parent,"remove",this);
         });
       },
 
@@ -367,16 +365,16 @@
       },
       remove: function() {
         if(this.el) {
-          Mo.wrapper.removeChild(this.el);
+          Mojo.wrapper.removeChild(this.el);
           this.el= null;
         }
       }
-    },Mo.UI);
+    },Mojo.UI);
 
-    Mo.defType(["VerticalLayout", Mo.Sprite], {
+    Mojo.defType(["VerticalLayout", Mojo.Sprite], {
       init: function(p) {
         this.children = [];
-        this._super(p, { type: Mo.SPRITE_NONE});
+        this._super(p, { type: Mojo.SPRITE_NONE});
       },
       insert: function(sprite) {
         this.layer.insert(sprite,this);
@@ -393,8 +391,10 @@
         let totalSepartion = this.p.h - totalHeight;
         // Make sure all elements have the same space between them
       }
-    },Mo.UI);
+    },Mojo.UI);
 
+
+    return Mojo;
   };
 
 })(this);

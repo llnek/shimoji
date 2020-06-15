@@ -1,18 +1,18 @@
 (function(global,undefined) {
-  "use strict";
 
-  let Mojo = global.Mojo,
-      _ = Mojo._,
-      is = _.is,
+  "use strict";
+  let MojoH5 = global.MojoH5,
       document = global.document;
 
-  Mojo["2D"] = function(Mo) {
-    Mo.component("viewport",{
+  MojoH5["2D"] = function(Mojo) {
+    let _ = Mojo.u,
+        is = Mojo.is;
+    Mojo.feature("viewport",{
       added: function() {
-        Mo.EventBus.sub("prerender",this.entity,"prerender",this);
-        Mo.EventBus.sub("render",this.entity,"postrender",this);
-        this.centerX = Mo.width/2;
-        this.centerY = Mo.height/2;
+        Mojo.EventBus.sub("prerender",this.entity,"prerender",this);
+        Mojo.EventBus.sub("render",this.entity,"postrender",this);
+        this.centerX = Mojo.width/2;
+        this.centerY = Mojo.height/2;
         this.x = 0;
         this.y = 0;
         this.offsetX = 0;
@@ -21,7 +21,7 @@
       },
       ____entity: {
         follow: function(sprite,directions,boundingBox) {
-          Mo.EventBus.unsub("poststep",this,"follow", this.viewport);
+          Mojo.EventBus.unsub("poststep",this,"follow", this.viewport);
           this.viewport.directions = directions || { x: true, y: true };
           this.viewport.following = sprite;
           if(is.undef(boundingBox) &&
@@ -32,11 +32,11 @@
           } else {
             this.viewport.boundingBox = boundingBox;
           }
-          Mo.EventBus.sub('poststep',this,"follow",this.viewport);
+          Mojo.EventBus.sub('poststep',this,"follow",this.viewport);
           this.viewport.follow(true);
         },
         unfollow: function() {
-          Mo.EventBus.unsub("poststep",this,"follow",this.viewport);
+          Mojo.EventBus.unsub("poststep",this,"follow",this.viewport);
         },
         centerOn: function(x,y) {
           this.viewport.centerOn(x,y);
@@ -59,13 +59,13 @@
       },
       softCenterOn: function(x,y) {
         if(x !== void 0) {
-          let dx = (x - Mo.width / 2 / this.scale - this.x)/3;
+          let dx = (x - Mojo.width / 2 / this.scale - this.x)/3;
           if(this.boundingBox) {
             if(this.x + dx < this.boundingBox.minX) {
               this.x = this.boundingBox.minX / this.scale;
             }
-            else if(this.x + dx > (this.boundingBox.maxX - Mo.width) / this.scale) {
-              this.x = Math.max(this.boundingBox.maxX - Mo.width, this.boundingBox.minX) / this.scale;
+            else if(this.x + dx > (this.boundingBox.maxX - Mojo.width) / this.scale) {
+              this.x = Math.max(this.boundingBox.maxX - Mojo.width, this.boundingBox.minX) / this.scale;
             }
             else {
               this.x += dx;
@@ -76,13 +76,13 @@
           }
         }
         if(y !== void 0) {
-          let dy = (y - Mo.height / 2 / this.scale - this.y)/3;
+          let dy = (y - Mojo.height / 2 / this.scale - this.y)/3;
           if(this.boundingBox) {
             if(this.y + dy < this.boundingBox.minY) {
               this.y = this.boundingBox.minY / this.scale;
             }
-            else if(this.y + dy > (this.boundingBox.maxY - Mo.height) / this.scale) {
-              this.y = Math.max(this.boundingBox.maxY - Mo.height, this.boundingBox.minY) / this.scale;
+            else if(this.y + dy > (this.boundingBox.maxY - Mojo.height) / this.scale) {
+              this.y = Math.max(this.boundingBox.maxY - Mojo.height, this.boundingBox.minY) / this.scale;
             }
             else {
               this.y += dy;
@@ -95,10 +95,10 @@
       },
       centerOn: function(x,y) {
         if(x !== void 0) {
-          this.x = x - Mo.width / 2 / this.scale;
+          this.x = x - Mojo.width / 2 / this.scale;
         }
         if(y !== void 0) {
-          this.y = y - Mo.height / 2 / this.scale;
+          this.y = y - Mojo.height / 2 / this.scale;
         }
       },
       moveTo: function(x,y) {
@@ -111,19 +111,19 @@
         return this.entity;
       },
       prerender: function() {
-        this.centerX = this.x + Mo.width / 2 /this.scale;
-        this.centerY = this.y + Mo.height / 2 /this.scale;
-        Mo.ctx.save();
-        Mo.ctx.translate(Math.floor(Mo.width/2),Math.floor(Mo.height/2));
-        Mo.ctx.scale(this.scale,this.scale);
-        Mo.ctx.translate(-Math.floor(this.centerX), -Math.floor(this.centerY));
+        this.centerX = this.x + Mojo.width / 2 /this.scale;
+        this.centerY = this.y + Mojo.height / 2 /this.scale;
+        Mojo.ctx.save();
+        Mojo.ctx.translate(Math.floor(Mojo.width/2),Math.floor(Mojo.height/2));
+        Mojo.ctx.scale(this.scale,this.scale);
+        Mojo.ctx.translate(-Math.floor(this.centerX), -Math.floor(this.centerY));
       },
       postrender: function() {
-        Mo.ctx.restore();
+        Mojo.ctx.restore();
       }
     });
 
-    Mo.defType(["TileLayer",Mo.Sprite], {
+    Mojo.defType(["TileLayer",Mojo.Sprite], {
       init: function(props) {
         this._super(props,{
           tileW: 32,
@@ -184,7 +184,7 @@
         /*
         let data, ext= _.fileExt(dataAsset);
         if (ext === "json")
-          data = is.str(dataAsset) ?  Mo.asset(dataAsset) : dataAsset;
+          data = is.str(dataAsset) ?  Mojo.asset(dataAsset) : dataAsset;
         else
           throw "file type not supported";
           */
@@ -283,11 +283,11 @@
           for(let tileX = tileStartX; tileX<=tileEndX; ++tileX) {
             if(this.tilePresent(tileX,tileY)) {
               colObj = this.getContactObj(tileX, tileY);
-              col = Mo.collision(obj,colObj);
+              col = Mojo.collision(obj,colObj);
               if(col && col.magnitude > 0) {
                 if(colObj.p.sensor) {
                   colObj.tile = this.getTile(tileX,tileY);
-                  Mo.EventBus.pub('sensor.tile', obj, colObj);
+                  Mojo.EventBus.pub('sensor.tile', obj, colObj);
                 } else if(!normal.collided ||
                           normal.magnitude < col.magnitude ) {
                    normal.collided = true;
@@ -365,8 +365,8 @@
             scale = viewport ? viewport.scale : 1,
             x = viewport ? viewport.x : 0,
             y = viewport ? viewport.y : 0,
-            viewW = Mo.width / scale,
-            viewH = Mo.height / scale,
+            viewW = Mojo.width / scale,
+            viewH = Mojo.height / scale,
             startBlockX = Math.floor((x - p.x) / p.blockW),
             startBlockY = Math.floor((y - p.y) / p.blockH),
             endBlockX = Math.floor((x + viewW - p.x) / p.blockW),
@@ -380,10 +380,10 @@
       }
     });
 
-    Mo.gravityY = 9.8*100;
-    Mo.gravityX = 0;
+    Mojo.gravityY = 9.8*100;
+    Mojo.gravityX = 0;
 
-    Mo.component('2d',{
+    Mojo.feature('2d',{
       added: function() {
         let entity = this.entity;
         _.patch(entity.p,{
@@ -392,10 +392,10 @@
           ax: 0,
           ay: 0,
           gravity: 1,
-          collisionMask: Mo.SPRITE_DEFAULT
+          collisionMask: Mojo.SPRITE_DEFAULT
         });
-        Mo.EventBus.sub('step',entity,"step",this);
-        Mo.EventBus.sub('hit',entity,'collision',this);
+        Mojo.EventBus.sub('step',entity,"step",this);
+        Mojo.EventBus.sub('hit',entity,'collision',this);
       },
       collision: function(col,last) {
         let entity = this.entity,
@@ -403,7 +403,7 @@
             magnitude = 0;
 
         if(col.obj.p && col.obj.p.sensor) {
-          Mo.EventBus.pub("sensor", col.obj, entity);
+          Mojo.EventBus.pub("sensor", col.obj, entity);
           return;
         }
 
@@ -418,26 +418,26 @@
         if(col.normalY < -0.3) {
           if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
           col.impact = impactY;
-          Mo.EventBus.pub("bump.bottom", entity,col);
-          Mo.EventBus.pub("bump", entity,col);
+          Mojo.EventBus.pub("bump.bottom", entity,col);
+          Mojo.EventBus.pub("bump", entity,col);
         }
         if(col.normalY > 0.3) {
           if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
           col.impact = impactY;
-          Mo.EventBus.pub("bump.top",entity,col);
-          Mo.EventBus.pub("bump",entity,col);
+          Mojo.EventBus.pub("bump.top",entity,col);
+          Mojo.EventBus.pub("bump",entity,col);
         }
         if(col.normalX < -0.3) {
           if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
           col.impact = impactX;
-          Mo.EventBus.pub("bump.right",entity,col);
-          Mo.EventBus.pub("bump",entity,col);
+          Mojo.EventBus.pub("bump.right",entity,col);
+          Mojo.EventBus.pub("bump",entity,col);
         }
         if(col.normalX > 0.3) {
           if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
           col.impact = impactX;
-          Mo.EventBus.pub("bump.left",entity,col);
-          Mo.EventBus.pub("bump",entity,col);
+          Mojo.EventBus.pub("bump.left",entity,col);
+          Mojo.EventBus.pub("bump",entity,col);
         }
       },
 
@@ -450,8 +450,8 @@
         while(dtStep > 0) {
           dt = Math.min(1/30,dtStep);
           // Updated based on the velocity and acceleration
-          p.vx += p.ax * dt + (p.gravityX === void 0 ? Mo.gravityX : p.gravityX) * dt * p.gravity;
-          p.vy += p.ay * dt + (p.gravityY === void 0 ? Mo.gravityY : p.gravityY) * dt * p.gravity;
+          p.vx += p.ax * dt + (p.gravityX === void 0 ? Mojo.gravityX : p.gravityX) * dt * p.gravity;
+          p.vy += p.ay * dt + (p.gravityY === void 0 ? Mojo.gravityY : p.gravityY) * dt * p.gravity;
           p.x += p.vx * dt;
           p.y += p.vy * dt;
 
@@ -461,10 +461,10 @@
       }
     });
 
-    Mo.component("aiBounce", {
+    Mojo.feature("aiBounce", {
       added: function() {
-        Mo.EventBus.sub("bump.right",this.entity,"goLeft",this);
-        Mo.EventBus.sub("bump.left",this.entity,"goRight",this);
+        Mojo.EventBus.sub("bump.right",this.entity,"goLeft",this);
+        Mojo.EventBus.sub("bump.left",this.entity,"goRight",this);
       },
 
       goLeft: function(col) {
@@ -484,7 +484,7 @@
       }
     });
 
-    Mo.overlap = (o1,o2) => {
+    Mojo.overlap = (o1,o2) => {
       let c1 = o1.c || o1.p || o1;
       let c2 = o2.c || o2.p || o2;
 
@@ -497,7 +497,7 @@
                (o1x+c1.w<o2x) || (o1x>o2x+c2.w));
     };
 
-    Mo.collision = (function() {
+    Mojo.collision = (function() {
       let normalX,
           normalY,
           offset = [0,0],
@@ -593,9 +593,9 @@
       function satCollision(o1,o2) {
         let result1, result2, result;
         if(!o1.p.points)
-          Mo.genPts(o1);
+          Mojo.genPts(o1);
         if(!o2.p.points)
-          Mo.genPts(o2);
+          Mojo.genPts(o2);
         result1 = collide(o1,o2);
         if(!result1) { return false; }
         result2 = collide(o2,o1,true);
@@ -610,6 +610,7 @@
     })();
 
 
+    return Mojo;
   };
 
 

@@ -1,15 +1,17 @@
 (function (global, undefined) {
-
   "use strict";
-  let Mojo=global.Mojo,
-      _pool = [], _ = Mojo._;
+  let MojoH5=global.MojoH5;
 
-  Mojo.Math=function(Mo) {
-    Mo.matrix2d = () => {
+  MojoH5.Math=function(Mojo) {
+
+    let _ = Mojo.u,
+        _pool = _.jsVec();
+
+    Mojo.matrix2d = () => {
       return _pool.length > 0
-        ? _pool.pop().identity() : new Mo.Matrix2D();
+        ? _pool.pop().identity() : new Mojo.Matrix2D();
     };
-    Mo.defType("Matrix2D",{
+    Mojo.defType("Matrix2D",{
       init: function(source) {
         if(source) {
           this.m = [];
@@ -115,9 +117,9 @@
         ctx.transform(m[0],m[3],m[1],m[4],m[2],m[5]);
       }
     });
-  };
 
-  return Mojo;
+    return Mojo;
+  };
 
 })(this);
 

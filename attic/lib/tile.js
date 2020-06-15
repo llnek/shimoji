@@ -1,11 +1,15 @@
 (function(global,undefined){
+
   "use strict";
-  let Mojo = global.Mojo, _= Mojo._, is=_.is;
+  let MojoH5 = global.MojoH5;
 
-  Mojo.TMX = function(Mo) {
+  MojoH5.Tiles = function(Mojo) {
 
-    Mo.loaders.TMX= (key,src,cb,ecb) => {
-      Mo.loaders.Xml(key,src,
+    let _= Mojo.u,
+        is=Mojo.is;
+
+    Mojo.loaders.Tile= (key,src,cb,ecb) => {
+      Mojo.loaders.Xml(key,src,
         (k,xml) => { cb(k,xml); }, ecb);
     };
 
@@ -58,7 +62,7 @@
         });
         tilesetProps.frameInfo= tilesetTileProps;
         gidMap.push([gid, sheetName]);
-        Mo.sheet(sheetName, assetName,  tilesetProps);
+        Mojo.sheet(sheetName, assetName,  tilesetProps);
       };
       return gidMap;
     };
@@ -67,7 +71,7 @@
       let properties = _parseProperties(layer),
           assetName = _extractAssetName(layer.querySelector("image"));
       properties.asset = assetName;
-      L.insert(new Mo.Repeater(properties));
+      L.insert(new Mojo.Repeater(properties));
     };
 
     // get the first entry in the gid map that gives
@@ -107,12 +111,12 @@
         }
       }
       let tileLayerProperties = _.inject({
-       tileW: Mo.sheet(sheetName).tileW,
-       tileH: Mo.sheet(sheetName).tileH,
+       tileW: Mojo.sheet(sheetName).tileW,
+       tileH: Mojo.sheet(sheetName).tileH,
        sheet: sheetName,
        tiles: data
       }, _parseProperties(layer));
-      let TCZ = Mo[tileLayerProperties.Class || "TileLayer"];
+      let TCZ = Mojo[tileLayerProperties.Class || "TileLayer"];
       !tileLayerProperties["collision"]
         ? L.insert(new TCZ(tileLayerProperties))
         : L.contactLayer(new TCZ(tileLayerProperties));
@@ -133,7 +137,7 @@
         if(!className)
           throw "Missing TMX Object Class for GID:" + gid;
         let p = _.inject({ x: x, y: y }, properties, overrideProperties);
-        let sprite = new Mo[className](p);
+        let sprite = new Mojo[className](p);
         // offset the sprite
         sprite.p.x += sprite.p.w/2;
         sprite.p.y -= sprite.p.h/2;
@@ -144,8 +148,8 @@
     let _tmxProcessors = {objectgroup: _processObjectLayer,
                           layer: _processTileLayer, imagelayer: _processImageLayer };
 
-    Mo.parseTMX = function(dataAsset,L) {
-      let data = is.str(dataAsset) ? Mo.asset(dataAsset) : dataAsset;
+    Mojo.parseTMX = function(dataAsset,L) {
+      let data = is.str(dataAsset) ? Mojo.asset(dataAsset) : dataAsset;
       let tileProperties = {};
       let tilesets = data.getElementsByTagName("tileset");
       let gidMap = _loadTilesets(tilesets,tileProperties);
@@ -156,6 +160,8 @@
       });
     };
 
+
+    return Mojo;
   };
 
 })(this);
