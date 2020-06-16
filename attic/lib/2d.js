@@ -383,7 +383,7 @@
     Mojo.gravityY = 9.8*100;
     Mojo.gravityX = 0;
 
-    Mojo.feature('2d',{
+    Mojo.feature("2d",{
       added: function() {
         let entity = this.entity;
         _.patch(entity.p,{
