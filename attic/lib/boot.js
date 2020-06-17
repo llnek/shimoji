@@ -404,6 +404,20 @@
     Mojo.loaders={};
     Mojo.assets={};
 
+    Mojo.scrollTop = (x,y) => {
+      x=x||0;
+      y=y||1;
+      _.timer(() => { window.scrollTo(x,y); }, 0);
+      return Mojo;
+    };
+
+    Mojo.handleDeviceFlip = () => {
+      window.addEventListener("orientationchange", () => {
+        Mojo.scrollTop();
+      });
+      return Mojo;
+    };
+
     Mojo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
     Mojo.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
     Mojo.p2 = (px,py) => { return {x: px||0,y: py||0}; };

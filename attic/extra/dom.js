@@ -8,44 +8,82 @@
     let _=Mojo.u,
         is=Mojo.is;
 
+    Mojo.domBySelector= (selector) => { document.querySelectorAll(selector); };
+    Mojo.domById= (id) => { return document.getElementById(id); };
+    Mojo.domParent= (e) => { return e ? e.parentNode : undefined; };
+    Mojo.domConj = (child, par) => {
+      (par || document.body).appendChild(child);
+    };
+    Mojo.domByTag= (tag, ns) => {
+      return is.str(ns)
+             ? document.getElementsByTagNameNS(ns,tag)
+             : document.getElementsByTagName(id);
+    };
+    Mojo.domAttrs= function(e, attrs) {
+      if(!is.obj(attrs) && attrs) {
+        //attrs=""+attrs;
+        if(arguments.length > 2)
+          e.setAttribute(attrs, arguments[2]);
+        return e.getAttribute(attrs);
+      }
+      if(attrs)
+        _.doseq(attrs, (v,k) => { e.setAttribute(k,v); });
+      return e;
+    };
+    Mojo.domCss= function(e, styles) {
+      if(!is.obj(styles) && styles) {
+        //styles=""+styles;
+        if(arguments.length > 2)
+          e.style[styles]= arguments[2];
+        return e.style[styles];
+      }
+      if(styles)
+        _.doseq(styles, (v,k) => { e.style[k]= v; });
+      return e;
+    };
+    Mojo.domWrap= (child,wrapper) => {
+      let p=child.parentNode;
+      wrapper.appendChild(child);
+      p.appendChild(wrapper);
+      return wrapper;
+    };
+    Mojo.domCtor = (tag, attrs, styles) => {
+      let e = document.createElement(tag);
+      Mojo.domAttrs(e,attrs);
+      Mojo.domCss(e,styles);
+      return e;
+    };
+
     Mojo.setupDOM = function(id,options) {
       options = options || {};
       id = id || "mojo";
-      Mojo.el = document.getElementById(id);
+      Mojo.el = Mojo.domById(id);
+
       if(!Mojo.el) {
-        Mojo.el=document.createElement("div");
-        Mojo.el.setAttribute("id",id);
-        Mojo.el.style.width= "320px";
-        Mojo.el.style.height= "480px";
-        document.body.appendChild(Mojo.el);
+        Mojo.el=Mojo.domCtor("div", {id: id}, {width: "320px",height:"480px"});
+        Mojo.domConj(Mojo.el);
       }
       if(options.maximize) {
-        let h = window.innerHeight-10;
-        let w = window.innerWidth-1;
-        Mojo.el.style.width= "" + w + "px";
-        Mojo.el.style.height= "" + h + "px";
+        Mojo.domCss(Mojo.el, {width: (window.innerWidth-1) + "px",
+                              height: (window.innerHeight-10) + "px"});
       }
 
-      let parent=Mojo.el.parentNode;
-      let container=document.createElement("div");
-      container.setAttribute("id",id+"_container");
-      container.style.height= Mojo.el.style.height;
-      container.style.width= Mojo.el.style.width;
-      container.style.margin="0 auto";
-      container.appendChild(Mojo.el);
-      parent.appendChild(container);
-      Mojo.wrapper=container;
+      Mojo.wrapper= Mojo.domWrap(
+        Mojo.el,
+        Mojo.domCtor("div",
+                     {id: id+"_Wrapper"},
+                     {margin: "0 auto",
+                      width: Mojo.el.style.width,
+                      height: Mojo.el.style.height}));
 
-      Mojo.el.style.position= "relative";
-      Mojo.el.style.overflow= "hidden";
-      Mojo.width = parseInt(Mojo.el.style.width);
-      Mojo.height = parseInt(Mojo.el.style.height);
+      Mojo.domCss(Mojo.el, {overflow: "hidden",
+                            position: "relative"});
 
-      _.timer(() => { window.scrollTo(0,1); }, 0);
+      _.inject(Mojo, {width: parseInt(Mojo.el.style.width),
+                      height: parseInt(Mojo.el.style.height)});
 
-      window.addEventListener('orientationchange',() => {
-        _.timer(() => { window.scrollTo(0,1); }, 0);
-      });
+      Mojo.handleDeviceFlip();
+      Mojo.scrollTop();
 
       return Mojo;
     };
@@ -53,28 +91,29 @@
     let prefixNames = [ "", "-webkit-", "-moz-", "-ms-" ];
     let has3d = "WebKitCSSMatrix" in window &&
                 "m11" in new window.WebKitCSSMatrix();
-    let dummyStyle= document.createElement("div").style;
+    let dummyStyle= Mojo.domCtor("div").style;
 
     (function() {
-      let translateBuilder= (attribute) => {
+      let translateBuilder= (attr) => {
         return (dom,x,y) => {
-          dom.style[attribute] = "translate(" + _.floor(x) + "px," + _.floor(y) + "px)";
+          Mojo.domCss(dom,attr,
+                      "translate(" + _.floor(x) + "px," + _.floor(y) + "px)");
         };
       };
-      let translate3DBuilder= (attribute) => {
+      let translate3DBuilder= (attr) => {
         return (dom,x,y) => {
-          dom.style[attribute] = "translate3d(" + _.floor(x) + "px," + _.floor(y) + "px,0px)";
+          Mojo.domCss(dom,attr,
+                      "translate3d(" + _.floor(x) + "px," + _.floor(y) + "px,0px)");
         };
       };
-      let scaleBuilder= (attribute) => {
+      let scaleBuilder= (attr) => {
         return (dom,scale) => {
-          dom.style[attribute + "Origin"] = "0% 0%";
-          dom.style[attribute] = "scale(" + scale + ")";
+          Mojo.domCss(dom, attr + "Origin", "0% 0%");
+          Mojo.domCss(dom, attr, "scale(" + scale + ")");
         };
       };
       let fallbackTranslate = (dom,x,y) => {
-        dom.style.left = x + "px";
-        dom.style.top = y + "px";
+        Mojo.domCss(dom, {left: x + "px", top: y + "px"});
       };
 
       let transformMtds = ["transform",
@@ -99,14 +138,14 @@
     })();
 
     (function() {
-      let transitionBuilder= (attribute,prefix) => {
+      let transitionBuilder= (attr,prefix) => {
         return (dom,property,sec,easing) => {
           easing = easing || "";
           if(property === "transform") {
             property = prefix + property;
           }
           sec = sec || "1s";
-          dom.style[attribute] = property + " " + sec + " " + easing;
+          Mojo.domCss(dom, attr, property + " " + sec + " " + easing);
         };
       };
 
@@ -129,16 +168,14 @@
     Mojo.defType(["DOMSprite", Mojo.Sprite], {
       init: function(props) {
         this._super(props);
-        this.dom= document.createElement("div");
-        this.dom.style.width= "" + this.p.w + "px";
-        this.dom.style.height= "" + this.p.h + "px";
-        this.dom.style.zIndex= this.p.z || 0;
-        this.dom.style.position= "absolute";
         this.rp = {};
+        this.dom= Mojo.domCtor("div", {}, {position: "absolute",
+                                           zIndex: this.p.z || 0,
+                                           width: this.p.w + "px",
+                                           height: this.p.h + "px"});
         this.setImage();
         this.setTransform();
       },
-
       setImage: function() {
         let asset;
         if(this.sheet())
@@ -146,7 +183,7 @@
         else
           asset = this.asset();
         if(asset)
-          this.dom.style.backgroundImage = "url(" + asset.src + ")";
+          Mojo.domCss(this.dom, "backgroundImage", "url(" + asset.src + ")");
       },
 
       setTransform: function() {
@@ -154,11 +191,11 @@
         let rp = this.rp;
         if(rp.frame !== p.frame) {
           if(p.sheet)
-            this.dom.style.backgroundPosition =
-                (-this.sheet().fx(p.frame)) + "px " +
-                (-this.sheet().fy(p.frame)) + "px";
+            Mojo.domCss(this.dom,"backgroundPosition",
+                                 (-this.sheet().fx(p.frame)) + "px " +
+                                 (-this.sheet().fy(p.frame)) + "px");
           else
-            this.dom.style.backgroundPosition = "0px 0px";
+            Mojo.domCss(this.dom, "backgroundPosition", "0px 0px");
           rp.frame = p.frame;
         }
         if(rp.x !== p.x || rp.y !== p.y) {
@@ -169,15 +206,14 @@
       },
 
       hide: function() {
-        this.dom.style.display = "none";
+        Mojo.domCss(this.dom, "display", "none");
       },
 
       show: function() {
-        this.dom.style.display = "block";
+        Mojo.domCss(this.dom, "display", "block");
       },
 
-      render:function(ctx) {
-
+      render: function(ctx) {
       },
 
       draw: function(ctx) {
@@ -197,43 +233,34 @@
 
     });
 
-    Mojo.defType(["DOMStage",Mojo.Layer],{
+    Mojo.defType(["DOMLayer",Mojo.Layer],{
       init: function(scene) {
-        this.el=document.createElement("div");
-        this.el.style.top= "0";
-        this.el.style.position="relative";
-        Mojo.el.appendChild(this.el);
-        this.dom = this.el;
+        this.dom= Mojo.domCtor("div", {}, {top: "0",
+                                           position: "relative"});
+        Mojo.domConj(this.dom, Mojo.el);
 
-        let parent=this.el.parentNode;
-        let container=document.createElement("div");
-        container.style.left= "0";
-        container.style.top= "0";
-        container.style.position="absolute";
-        container.appendChild(this.el);
-        parent.appendChild(container);
-        this.wrapper=container;
+        this.wrapper_dom= Mojo.domWrap(this.dom,
+                                       Mojo.domCtor("div",
+                                                    {},
+                                                    {top:"0",
+                                                     left:"0",
+                                                     position:"absolute"}));
         this.scale = 1;
-        this.wrapper_dom = this.wrapper;
         this._super(scene);
       },
-
       insert: function(itm) {
         itm.dom &&
-          this.dom.appendChild(itm.dom);
+          Mojo.domConj(itm.dom,this.dom);
         return this._super(itm);
       },
-
       dispose: function() {
-        this.wrapper.remove();
+        this.wrapper_dom.remove();
         this._super();
       },
-
       rescale: function(scale) {
         this.scale = scale;
         Mojo.scaleDOM(this.wrapper_dom,scale);
       },
-
       centerOn: function(x,y) {
         this.x = Mojo.width/2/this.scale -  x;
         this.y = Mojo.height/2/this.scale - y;
@@ -242,9 +269,9 @@
     });
 
     Mojo.domOnly = function() {
-      Mojo.Layer = Mojo.DOMStage;
-      Mojo.prologue = Mojo.setupDOM;
+      Mojo.Layer = Mojo.DOMLayer;
       Mojo.Sprite = Mojo.DOMSprite;
+      Mojo.prologue = Mojo.setupDOM;
       return Mojo;
     };
 
@@ -252,18 +279,14 @@
       // Expects a sprite sheet, along with cols and rows properties
       init:function(props) {
         let sheet = Mojo.sheet(props.sheet);
-        this._super(_.inject(props,{
-          w: props.cols * sheet.tileW,
-          h: props.rows * sheet.tileH,
-          tileW: sheet.tileW,
-          tileH: sheet.tileH
-        }));
+        this._super(_.inject(props,{tileW: sheet.tileW,
+                                    tileH: sheet.tileH,
+                                    w: props.cols * sheet.tileW,
+                                    h: props.rows * sheet.tileH}));
         this.shown = [];
         this.domTiles = [];
       },
-
       setImage: function() { },
-
       setup: function(tiles,hide) {
         this.tiles = tiles;
         for(let y=0,height=tiles.length;y<height;++y) {
@@ -271,63 +294,57 @@
           this.shown.push([]);
           for(let x=0,width=tiles[0].length;x<width;++x) {
             let domTile = this._addTile(tiles[y][x]);
-            if(hide) { domTile.style.visibility = "hidden"; }
+            if(hide)
+              Mojo.domCss(domTile, "visibility","hidden");
             this.shown.push(hide ? false : true);
             this.domTiles[y].push(domTile);
           }
         }
       },
-
       _addTile: function(frame) {
-        let p = this.p;
-        let div = document.createElement("div");
-        div.style.width = "" + p.tileW + "px";
-        div.style.height = "" + p.tileH + "px";
-        div.style.styleFloat = div.style.cssFloat = "left";
+        let div = Mojo.domCtor("div",{},{width: this.tileW + "px",
+                                         height: this.tileH + "px",
+                                         cssFloat: "left",
+                                         styleFloat: "left"});
         this._setTile(div,frame);
-        this.dom.appendChild(div);
+        Mojo.domConj(div,this.dom);
         return div;
       },
-
       _setTile: function(dom,frame) {
         let asset = Mojo.asset(this.sheet().asset);
-        dom.style.backgroundImage = "url(" + asset.src + ")";
-        dom.style.backgroundPosition = (-this.sheet().fx(frame)) +"px " + (-this.sheet().fy(frame)) + "px";
+        Mojo.domCss(dom, {backgroundImage: "url(" + asset.src + ")",
+                          backgroundPosition: (-this.sheet().fx(frame)) + "px " +
+                                              (-this.sheet().fy(frame)) + "px"});
       },
-
       validTile: function(x,y) {
         return (y >= 0 && y < this.p.rows) &&
                (x >= 0 && x < this.p.cols);
       },
-
       get: function(x,y) { return this.validTile(x,y) ?
                                   this.tiles[y][x] : null; },
 
       getDom: function(x,y) { return this.validTile(x,y) ?
                                      this.domTiles[y][x] : null; },
-
       set: function(x,y,frame) {
         if(!this.validTile(x,y)) { return; }
         this.tiles[y][x] = frame;
         let domTile = this.getDom(x,y);
         this._setFile(domTile,frame);
       },
-
       show: function(x,y) {
         if(!this.validTile(x,y)) { return; }
         if(this.shown[y][x]) { return; }
-        this.getDom(x,y).style.visibility = "visible";
+        Mojo.domCss(this.getDom(x,y), "visibility", "visible");
         this.shown[y][x] = true;
       },
-
       hide: function(x,y) {
         if(!this.validTile(x,y)) { return; }
         if(!this.shown[y][x]) { return; }
-        this.getDom(x,y).style.visibility = "hidden";
+        Mojo.domCss(this.getDom(x,y), "visibility", "hidden");
         this.shown[y][x] = false;
       }
-    });
 
+    });
 
     return Mojo;
   };
