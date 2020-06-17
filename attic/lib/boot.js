@@ -472,14 +472,11 @@
     };
 
     defType("Feature", {
-      // Components are created when they are added onto a `Mojo.Entity` entity.
-      // The entity is directly extended with any methods inside
-      // of an `____entity` property and then the
-      // component itself is added onto the entity as well.
+      // created when they are added onto a `Mojo.Entity` entity.
       init: function(entity) {
+        if(entity[this.name])
+          throw "Entity has feature `"+this.name+"` already!";
         entity[this.name] = this;
-        if(this.____entity)
-          _.inject(entity, this.____entity);
         _.conj(entity.features,this.featureName);
 
         entity.layer &&
@@ -489,8 +486,6 @@
         this.added && this.added();
       },
       dispose: function() {
-        if(this.____entity)
-          _.keys(this.____entity).forEach(k => delete this.entity[k]);
         delete this.entity[this.name];
         let idx = this.entity.features.indexOf(this.featureName);
         if(idx > -1) {
@@ -536,13 +531,15 @@
     }, Mojo);
 
     Mojo.feature = (name,methods) => {
-      if(!methods)
-        return Mojo.features[name];
-      methods.name = name;
-      methods.featureName = "." + name;
-      let c= defType(["Fe_"+name, Mojo.Feature], methods, Mojo);
-      Mojo.features[name] = c;
-      return c;
+      if(methods) {
+        let n="Fe_"+name;
+        if(Mojo[n])
+          throw "Feature `"+name+"` already exists!";
+        methods.name = name;
+        methods.featureName = "."+name;
+        Mojo.features[name] = defType([n, Mojo.Feature], methods, Mojo);
+      }
+      return Mojo.features[name];
     };
 
     defType("GameState", {

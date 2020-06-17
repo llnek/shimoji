@@ -27,11 +27,6 @@
         p.animationPriority = -1;
         Mojo.EventBus.sub("step",this.entity,"step",this);
       },
-      ____entity: {
-        play: function(name,priority,resetFrame) {
-          this.animation.play(name,priority,resetFrame);
-        }
-      },
       step: function(dt) {
         let entity = this.entity,
             p = entity.p;
@@ -58,7 +53,7 @@
                 if(anim.trigger)
                   Mojo.EventBus.pub(anim.trigger,entity,anim.triggerData);
                 if(anim.next)
-                  this.play(anim.next,anim.nextPriority);
+                  this.enact(anim.next,anim.nextPriority);
                 return;
               } else {
                 Mojo.EventBus.pub("animLoop",entity);
@@ -73,7 +68,7 @@
           if(_.has(anim, "flip")) { p.flip  = anim.flip; }
         }
       },
-      play: function(name,priority,resetFrame) {
+      enact: function(name,priority,resetFrame) {
         let entity = this.entity,
             p = entity.p;
         priority = priority || 0;
@@ -237,31 +232,25 @@
         this._tweens = [];
         Mojo.EventBus.sub("step",this.entity,"step",this);
       },
-      ____entity: {
-        animate: function(properties,duration,easing,options) {
-          this.tween._tweens.push(new Mojo.Tween(this,properties,duration,easing,options));
-          return this;
-        },
-        chain: function(properties,duration,easing,options) {
-          if(is.obj(easing)) {
-            options = easing;
-            easing = Mojo.Easing.Linear;
-          }
-          // Chain an animation to the end
-          let tweenCnt = this.tween._tweens.length;
-          if(tweenCnt > 0) {
-            let lastTween = this.tween._tweens[tweenCnt - 1];
-            options = options || {};
-            options.delay = lastTween.duration - lastTween.time + lastTween.delay;
-          }
-
-          this.animate(properties,duration,easing,options);
-          return this;
-        },
-        stop: function() {
-          this.tween._tweens.length = 0;
-          return this;
+      animate: function(properties,duration,easing,options) {
+        this._tweens.push(new Mojo.Tween(this.entity,properties,duration,easing,options));
+      },
+      chain: function(properties,duration,easing,options) {
+        if(is.obj(easing)) {
+          options = easing;
+          easing = Mojo.Easing.Linear;
         }
+        // Chain an animation to the end
+        let tweenCnt = this._tweens.length;
+        if(tweenCnt > 0) {
+          let lastTween = this._tweens[tweenCnt - 1];
+          options = options || {};
+          options.delay = lastTween.duration - lastTween.time + lastTween.delay;
+        }
+        this.animate(properties,duration,easing,options);
+      },
+      stop: function() {
+        this._tweens.length = 0;
       },
       step: function(dt) {
         for(let i=0; i < this._tweens.length; ++i) {

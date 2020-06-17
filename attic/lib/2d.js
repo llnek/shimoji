@@ -19,39 +19,33 @@
         this.offsetY = 0;
         this.scale = 1;
       },
-      ____entity: {
-        follow: function(sprite,directions,boundingBox) {
-          Mojo.EventBus.unsub("poststep",this,"follow", this.viewport);
-          this.viewport.directions = directions || { x: true, y: true };
-          this.viewport.following = sprite;
-          if(is.undef(boundingBox) &&
-             this.cache.TileLayer !== void 0) {
-            this.viewport.boundingBox = _.some(this.cache.TileLayer, function(layer) {
-              return layer.p.boundingBox ? { minX: 0, maxX: layer.p.w, minY: 0, maxY: layer.p.h } : null;
-            });
-          } else {
-            this.viewport.boundingBox = boundingBox;
-          }
-          Mojo.EventBus.sub('poststep',this,"follow",this.viewport);
-          this.viewport.follow(true);
-        },
-        unfollow: function() {
-          Mojo.EventBus.unsub("poststep",this,"follow",this.viewport);
-        },
-        centerOn: function(x,y) {
-          this.viewport.centerOn(x,y);
-        },
-        moveTo: function(x,y) {
-          return this.viewport.moveTo(x,y);
+      follow: function(sprite,directions,boundingBox) {
+        Mojo.EventBus.unsub("poststep",this.entity,"_follow", this);
+        this.directions = directions || { x: true, y: true };
+        this.following = sprite;
+        if(is.undef(boundingBox) &&
+           this.entity.cache.TileLayer !== void 0) {
+          this.boundingBox = _.some(this.entity.cache.TileLayer, function(layer) {
+            return layer.p.boundingBox ? { minX: 0, maxX: layer.p.w, minY: 0, maxY: layer.p.h } : null;
+          });
+        } else {
+          this.boundingBox = boundingBox;
         }
+        Mojo.EventBus.sub("poststep",this.entity,"_follow",this);
+        this._follow(true);
       },
-      follow: function(first) {
-        let followX = is.fun(this.directions.x) ? this.directions.x(this.following) : this.directions.x;
-        let followY = is.fun(this.directions.y) ? this.directions.y(this.following) : this.directions.y;
+      unfollow: function() {
+        Mojo.EventBus.unsub("poststep",this.entity,"_follow",this);
+      },
+      _follow: function(first) {
+        let fx = is.fun(this.directions.x)
+                      ? this.directions.x(this.following) : this.directions.x;
+        let fy = is.fun(this.directions.y)
+                      ? this.directions.y(this.following) : this.directions.y;
 
         this[first === true ? "centerOn" : "softCenterOn"](
-                      followX ? this.following.p.x - this.offsetX : void 0,
-                      followY ? this.following.p.y - this.offsetY : void 0);
+                      fx ? this.following.p.x - this.offsetX : undefined,
+                      fy ? this.following.p.y - this.offsetY : undefined);
       },
       offset: function(x,y) {
         this.offsetX = x;
