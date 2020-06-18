@@ -58,7 +58,7 @@
         });
       },
       insert: function(obj) {
-        return this.layer.insert(obj,this);
+        return this.stage.insert(obj,this);
       },
       fit: function(padY,padX) {
         let minObjX, minObjY, maxObjX, maxObjY;
@@ -312,9 +312,9 @@
       positionIFrame: function() {
         let x = this.p.x,
             y = this.p.y;
-        if(this.layer.camera) {
-          x -= this.layer.camera.x;
-          y -= this.layer.camera.y;
+        if(this.stage.camera) {
+          x -= this.stage.camera.x;
+          y -= this.stage.camera.y;
         }
         if(this.oldX !== x ||
            this.oldY !== y ||
@@ -377,7 +377,7 @@
         this._super(p, { type: Mojo.SPRITE_NONE});
       },
       insert: function(sprite) {
-        this.layer.insert(sprite,this);
+        this.stage.insert(sprite,this);
         this.relayout();
         // Bind to dispose
         return sprite;

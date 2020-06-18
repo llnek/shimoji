@@ -98,7 +98,7 @@
     Mojo.PhysicsEntityDefaults = entityDefaults;
     Mojo.feature("physics",{
       added: function() {
-        if(this.entity.layer)
+        if(this.entity.stage)
           this.inserted();
         else
           Mojo.EventBus.sub("inserted",this.entity,"inserted",this);
@@ -111,7 +111,7 @@
                              ["removed",this.entity,"removed",this]]);
       },
       position: function(x,y) {
-        let L = this.entity.layer;
+        let L = this.entity.stage;
         this._body.SetAwake(true);
         this._body.SetPosition(new B2d.Vec(x / L.world.scale,
                                            y / L.world.scale));
@@ -122,7 +122,7 @@
       },
 
       velocity: function(x,y) {
-        let L= this.entity.layer;
+        let L= this.entity.stage;
         this._body.SetAwake(true);
         this._body.SetLinearVelocity(new B2d.Vec(x / L.world.scale,
                                                  y / L.world.scale));
@@ -130,7 +130,7 @@
 
       inserted: function() {
         let entity = this.entity,
-            L = entity.layer,
+            L = entity.stage,
             scale = L.world.scale,
             p = entity.p,
             ops = entityDefaults,
@@ -179,7 +179,7 @@
 
       step: function() {
         let p = this.entity.p,
-            L = this.entity.layer,
+            L = this.entity.stage,
             pos = this._body.GetPosition(),
             angle = this._body.GetAngle();
         p.x = pos.x * L.world.scale;

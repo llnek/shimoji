@@ -117,7 +117,7 @@
         let p = this.p,
             asset = this.asset(),
             sheet = this.sheet(),
-            port = this.layer.camera,
+            port = this.stage.camera,
             scale = port ? port.scale : 1,
             viewX = Math.floor(port ? port.x : 0),
             viewY = Math.floor(port ? port.y : 0),
@@ -197,7 +197,7 @@
           // first time running? Initialize the properties to chaining correctly.
           let entity = this.entity,
               properties = this.properties;
-          this.p = (entity instanceof Mojo.Layer) ? entity.camera : entity.p;
+          this.p = (entity instanceof Mojo.Stage) ? entity.camera : entity.p;
           for(let p in properties) {
             this.start[p] = this.p[p];
             if(!is.undef(this.start[p]))

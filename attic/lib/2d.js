@@ -29,9 +29,10 @@
         this.directions = directions || { x: true, y: true };
         this.following = sprite;
         if(is.undef(boundingBox) &&
-           this.entity.cache.TileLayer !== void 0) {
-          this.boundingBox = _.some(this.entity.cache.TileLayer, function(layer) {
-            return layer.p.boundingBox ? { minX: 0, maxX: layer.p.w, minY: 0, maxY: layer.p.h } : null;
+           this.entity.cache &&
+           this.entity.cache.TileLayer !== undefined) {
+          this.boundingBox = _.some(this.entity.cache.TileLayer, function(stage) {
+            return stage.p.boundingBox ? { minX: 0, maxX: stage.p.w, minY: 0, maxY: stage.p.h } : null;
           });
         } else {
           this.boundingBox = boundingBox;
@@ -180,13 +181,12 @@
             }
       },
       load: function(dataAsset) {
-        /*
-        let data, ext= _.fileExt(dataAsset);
-        if (ext === "json")
-          data = is.str(dataAsset) ?  Mojo.asset(dataAsset) : dataAsset;
-        else
-          throw "file type not supported";
-          */
+        if(is.str(dataAsset)) {
+          if(_.fileExt(dataAsset) === "json")
+            dataAsset = Mojo.asset(dataAsset);
+          else
+            throw "file type not supported";
+        }
         this.p.tiles = dataAsset;
       },
       setDimensions: function() {
@@ -360,7 +360,7 @@
 
       draw: function(ctx) {
         let p = this.p,
-            port = this.layer.camera,
+            port = this.stage.camera,
             scale = port ? port.scale : 1,
             x = port ? port.x : 0,
             y = port ? port.y : 0,
@@ -458,7 +458,7 @@
           p.x += p.vx * dt;
           p.y += p.vy * dt;
 
-          this.entity.layer.collide(this.entity);
+          this.entity.stage.collide(this.entity);
           dtStep -= dt;
         }
       }

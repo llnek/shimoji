@@ -67,11 +67,11 @@
       return gidMap;
     };
 
-    let _processImageLayer = (L,gidMap,tileProperties,layer) => {
+    let _processImageLayer = (stage,gidMap,tileProperties,layer) => {
       let properties = _parseProperties(layer),
           assetName = _extractAssetName(layer.querySelector("image"));
       properties.asset = assetName;
-      L.insert(new Mojo.Repeater(properties));
+      stage.insert(new Mojo.Repeater(properties));
     };
 
     // get the first entry in the gid map that gives
@@ -83,7 +83,7 @@
       return gidMap[idx];
     };
 
-    let _processTileLayer = (L,gidMap,tileProperties,layer) => {
+    let _processTileLayer = (stage,gidMap,tileProperties,layer) => {
       let tiles = layer.querySelectorAll("tile"),
           width = _attr(layer,"width"),
           height =_attr(layer,"height"),
@@ -118,11 +118,11 @@
       }, _parseProperties(layer));
       let TCZ = Mojo[tileLayerProperties.Class || "TileLayer"];
       !tileLayerProperties["collision"]
-        ? L.insert(new TCZ(tileLayerProperties))
-        : L.contactLayer(new TCZ(tileLayerProperties));
+        ? stage.insert(new TCZ(tileLayerProperties))
+        : stage.contactLayer(new TCZ(tileLayerProperties));
     };
 
-    let _processObjectLayer= (L,gidMap,tileProperties,layer) => {
+    let _processObjectLayer= (stage,gidMap,tileProperties,layer) => {
       let objects = layer.querySelectorAll("object");
       for(let i=0;i < objects.length;++i) {
         let obj = objects[i],
@@ -141,14 +141,14 @@
         // offset the sprite
         sprite.p.x += sprite.p.w/2;
         sprite.p.y -= sprite.p.h/2;
-        L.insert(sprite);
+        stage.insert(sprite);
       }
     };
 
     let _tmxProcessors = {objectgroup: _processObjectLayer,
                           layer: _processTileLayer, imagelayer: _processImageLayer };
 
-    Mojo.parseTMX = function(dataAsset,L) {
+    Mojo.parseTMX = function(dataAsset,stage) {
       let data = is.str(dataAsset) ? Mojo.asset(dataAsset) : dataAsset;
       let tileProperties = {};
       let tilesets = data.getElementsByTagName("tileset");
@@ -156,7 +156,7 @@
       _.doseq(data.documentElement.childNodes,(layer) => {
         let tag = layer.tagName;
         _tmxProcessors[tag] &&
-          _tmxProcessors[tag](L, gidMap, tileProperties, layer);
+          _tmxProcessors[tag](stage, gidMap, tileProperties, layer);
       });
     };
 

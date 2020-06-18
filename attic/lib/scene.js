@@ -9,36 +9,36 @@
         _defs= {gridW: 400, gridH: 400, x:0, y:0, sort: false};
 
     Mojo.scenes = _.jsMap();
-    Mojo.activeLayer = 0;
-    Mojo.layers = [];
+    Mojo.activeStage = 0;
+    Mojo.stages = [];
 
-    let _hitLayer= function(L,obj,collisionMask) {
-      for(let y,c,i=0,z=L.contactLayers.length;i<z;++i) {
-        y=L.contactLayers[i];
+    let _hitLayer= function(stage,obj,collisionMask) {
+      for(let y,c,i=0,z=stage.contactLayers.length;i<z;++i) {
+        y=stage.contactLayers[i];
         if(y.p.type & collisionMask)
           if(c= y.collide(obj)) { c.obj = y; return c; }
       }
     };
-    let _markAll= function(L) {
-      let time=L.tick,
-          items= L.items,
-          view= L.camera,
+    let _markAll= function(stage) {
+      let time=stage.tick,
+          items= stage.items,
+          view= stage.camera,
           x = view ? view.x : 0,
           y = view ? view.y : 0,
           scale = view ? view.scale : 1,
           viewW = Mojo.width / scale,
           viewH = Mojo.height / scale,
-          gridX1 = _.floor(x / L.options.gridW),
-          gridY1 = _.floor(y / L.options.gridH),
-          gridX2 = _.floor((x + viewW) / L.options.gridW),
-          gridY2 = _.floor((y + viewH) / L.options.gridH),
+          gridX1 = _.floor(x / stage.options.gridW),
+          gridY1 = _.floor(y / stage.options.gridH),
+          gridX2 = _.floor((x + viewW) / stage.options.gridW),
+          gridY2 = _.floor((y + viewH) / stage.options.gridH),
           tmp,X,B;
       for(let iy=gridY1; iy<=gridY2; ++iy)
-        if(X=_.get(L.grid,iy)) {
+        if(X=_.get(stage.grid,iy)) {
           for(let ix=gridX1; ix<=gridX2; ++ix)
             if(B=_.get(X,ix))
               B.forEach((v,k) => {
-                if(tmp=_.get(L.index,k))
+                if(tmp=_.get(stage.index,k))
                 { tmp.mark = time;
                   if(tmp.container)
                     tmp.container.mark = time; }
@@ -57,29 +57,29 @@
           }
       }
     };
-    let _hitTest= function(L,obj,collisionMask) {
+    let _hitTest= function(stage,obj,collisionMask) {
       let X,Y,col, g=obj.bbox4;
       for(let y = g.y1;y <= g.y2;++y)
-        if(Y=L.grid.get(y))
+        if(Y=stage.grid.get(y))
           for(let x = g.x1;x <= g.x2;++x)
             if(X=Y.get(x))
-              if(col= _.some(X,_testHit,L,obj,collisionMask))
+              if(col= _.some(X,_testHit,stage,obj,collisionMask))
                 return col;
     };
-    let _delFromGrid= (L, item) => {
+    let _delFromGrid= (stage, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2; ++y)
-        if(Y=L.grid.get(y))
+        if(Y=stage.grid.get(y))
           for(let x = g.x1;x<=g.x2;++x)
             if(X=Y.get(x))
               _.dissoc(X,item.p.id);
     };
-    let _addToGrid= (L, item) => {
+    let _addToGrid= (stage, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2;++y) {
-        if(!L.grid.has(y))
-          L.grid.set(y, _.jsMap());
-        Y=L.grid.get(y);
+        if(!stage.grid.has(y))
+          stage.grid.set(y, _.jsMap());
+        Y=stage.grid.get(y);
         for(let x = g.x1;x <= g.x2;++x) {
           if(!Y.has(x))
             Y.set(x, _.jsMap());
@@ -89,7 +89,7 @@
       }
     };
 
-    Mojo.defType(["Layer", Mojo.Entity], {
+    Mojo.defType(["Stage", Mojo.Entity], {
       init: function(func,options) {
         this.scene = func;
         this.items = [];
@@ -151,7 +151,7 @@
       insert: function(itm,container) {
         itm.container = container;
         this.items.push(itm);
-        itm.layer = this;
+        itm.stage = this;
         itm.bbox4 = _.jsMap();
 
         if(container)
@@ -212,7 +212,7 @@
       },
       search: function(obj,collisionMask) {
         if(!obj.bbox4)
-          this.regrid(obj,obj.layer !== this);
+          this.regrid(obj,obj.stage !== this);
         if(is.undef(collisionMask))
           collisionMask = obj.p && obj.p.collisionMask;
         return _hitLayer(this,obj,collisionMask) ||
@@ -380,10 +380,10 @@
 
     Mojo.defType("Locator",{
 
-      init: function(layer,selector) {
-        this.layer = layer;
+      init: function(stage,selector) {
+        this.stage = stage;
         this.selector = selector;
-        this.items = _.get(this.layer.cache,this.selector) || [];
+        this.items = _.get(this.stage.cache,this.selector) || [];
       },
       count: function() { return this.items.length; },
       each: function(cb) {
@@ -437,12 +437,12 @@
     // Q("Enemy").p({ a: "asdfasf"  });
     Mojo["$"]= function(selector) {
       let args= _.slice(arguments,1),
-          y= Mojo.layer(args.length>0 ? args[0] : Mojo.activeLayer);
+          y= Mojo.stage(args.length>0 ? args[0] : Mojo.activeStage);
       return is.num(selector) ? _.get(y.index,selector) : new Mojo.Locator(y,selector);
     };
 
-    Mojo.layer = (num) => {
-      return Mojo.layers[(num === undefined) ? Mojo.activeLayer : num ];
+    Mojo.stage = (num) => {
+      return Mojo.stages[(num === undefined) ? Mojo.activeStage : num ];
     };
 
     Mojo.runScene = function(scene,num,options) {
@@ -452,25 +452,25 @@
 
       if(is.obj(num)) {
         options = num;
-        num = _.dissoc(options,"layer");
+        num = _.dissoc(options,"stage");
       }
 
       options = _.inject({},_s.options,options);
       if(is.undef(num))
-        num= options["layer"] || 0;
+        num= options["stage"] || 0;
 
-      let y= Mojo.layers[num];
+      let y= Mojo.stages[num];
       y && y.dispose();
 
-      Mojo.activeLayer = num;
-      y = new Mojo.Layer(_s.scene,options);
-      Mojo.layers[num] = y;
+      Mojo.activeStage = num;
+      y = new Mojo.Stage(_s.scene,options);
+      Mojo.stages[num] = y;
 
       y.options.asset &&
         y.loadAssets(y.options.asset);
       y.run();
 
-      Mojo.activeLayer = 0;
+      Mojo.activeStage = 0;
       if(!Mojo.loop)
         Mojo.gameLoop(Mojo.runGameLoop);
 
@@ -483,38 +483,38 @@
       if(dt < 0) dt= 1.0/60;
       if(dt > 1.0/15) dt= 1.0/15;
 
-      for(i=0,z=Mojo.layers.length;i<z;++i) {
-        Mojo.activeLayer = i;
-        y = Mojo.layer();
+      for(i=0,z=Mojo.stages.length;i<z;++i) {
+        Mojo.activeStage = i;
+        y = Mojo.stage();
         y && y.step(dt);
       }
 
-      Mojo.activeLayer = 0;
+      Mojo.activeStage = 0;
       Mojo.clear();
 
-      for(i =0,z=Mojo.layers.length;i<z;++i) {
-        Mojo.activeLayer = i;
-        y = Mojo.layer();
+      for(i =0,z=Mojo.stages.length;i<z;++i) {
+        Mojo.activeStage = i;
+        y = Mojo.stage();
         y && y.render(Mojo.ctx);
       }
 
       Mojo.input &&
         Mojo.ctx &&
           Mojo.input.drawCanvas(Mojo.ctx);
-      Mojo.activeLayer = 0;
+      Mojo.activeStage = 0;
     };
 
-    Mojo.deleteLayer = (num) => {
-      if(Mojo.layers[num]) {
-        Mojo.layers[num].dispose();
-        Mojo.layers[num] = null;
+    Mojo.deleteStage = (num) => {
+      if(Mojo.stages[num]) {
+        Mojo.stages[num].dispose();
+        Mojo.stages[num] = null;
       }
     };
 
-    Mojo.deleteLayers = () => {
-      for(let i=0,z=Mojo.layers.length;i<z;++i)
-      Mojo.deleteLayer(i);
-      Mojo.layers.length = 0;
+    Mojo.deleteStages = () => {
+      for(let i=0,z=Mojo.stages.length;i<z;++i)
+      Mojo.deleteStage(i);
+      Mojo.stages.length = 0;
     };
 
     Mojo.scene = (name,action,opts) => {

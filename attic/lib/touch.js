@@ -99,7 +99,7 @@
         for(let i=0;i<touches.length;++i) {
           for(let idx=0;idx < _touchLayer.length;++idx) {
             let touch = touches[i],
-                L = Mojo.layer(_touchLayer[idx]);
+                L = Mojo.stage(_touchLayer[idx]);
 
             if(!L) { continue; }
 
@@ -125,7 +125,7 @@
                 sy: pos.p.oy,
                 identifier: touchIdentifier,
                 obj: obj,
-                layer: L
+                stage: L
               };
               this.touchedObjects[obj.p.id] = true;
               Mojo.EventBus.pub("touch", obj, this.activeTouches[touchIdentifier]);
@@ -146,7 +146,7 @@
               touchIdentifier = touch.identifier || 0;
 
           let active = this.activeTouches[touchIdentifier],
-              L = active && active.layer;
+              L = active && active.stage;
 
           if(active) {
             let pos = this.normalizeTouch(touch,L);
@@ -184,7 +184,7 @@
     Mojo.touch = function(options) {
       options= options || {};
       _touchType = options.type || Mojo.SPRITE_UI;
-      _touchLayer = options.layer || [2,1,0];
+      _touchLayer = options.stage || [2,1,0];
       Mojo.untouch();
       if(!is.vec(_touchLayer)) {
         _touchLayer = [_touchLayer];

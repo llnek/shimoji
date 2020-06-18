@@ -328,9 +328,9 @@
         Mojo.EventBus.pub("step",this,dt);
         Mojo.genContactPts(this);
 
-        this.layer &&
+        this.stage &&
           (this.children.length > 0) &&
-            this.layer.update(this.children,dt,true);
+            this.stage.update(this.children,dt,true);
 
         // Reset collisions if we're tracking them
         if(this.p.collisions)

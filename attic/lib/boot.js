@@ -553,8 +553,8 @@
         entity[this.name] = this;
         _.conj(entity.features,this.featureName);
 
-        entity.layer &&
-          entity.layer.addRelation(this.featureName,entity);
+        entity.stage &&
+          entity.stage.addRelation(this.featureName,entity);
 
         this.entity = entity;
         this.added && this.added();
@@ -564,8 +564,8 @@
         let idx = this.entity.features.indexOf(this.featureName);
         if(idx > -1) {
           this.entity.features.splice(idx,1);
-          this.entity.layer &&
-            this.entity.layer.delRelation(this.featureName,this.entity);
+          this.entity.stage &&
+            this.entity.stage.delRelation(this.featureName,this.entity);
         }
         this.disposed && this.disposed();
       }
@@ -595,8 +595,8 @@
       dispose: function() {
         if(this.isDead) { return; }
         Mojo.EventBus.pub("disposed",this);
-        this.layer &&
-          this.layer.remove(this);
+        this.stage &&
+          this.stage.remove(this);
         this.isDead = true;
         this.disposed && this.disposed();
       }
