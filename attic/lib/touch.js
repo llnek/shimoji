@@ -7,7 +7,7 @@
     let _= Mojo.u,
         is= Mojo.is,
         _touchType= 0,
-        _touchStage = [0];
+        _touchLayer = [0];
 
     Mojo.defType("TouchSystem", {
       init: function() {
@@ -43,7 +43,7 @@
         Mojo.el.removeEventListener('mouseup',this.boundEnd);
         Mojo.el.removeEventListener('touchcancel',this.boundEnd);
       },
-      normalizeTouch: function(touch,stage) {
+      normalizeTouch: function(touch,L) {
         let el = Mojo.el,
           rect = el.getBoundingClientRect(),
           style = window.getComputedStyle(el),
@@ -80,11 +80,11 @@
         this.touchPos.p.ox = this.touchPos.p.px = posX / Mojo.cssWidth * Mojo.width;
         this.touchPos.p.oy = this.touchPos.p.py = posY / Mojo.cssHeight * Mojo.height;
 
-        if(stage.viewport) {
-          this.touchPos.p.px /= stage.viewport.scale;
-          this.touchPos.p.py /= stage.viewport.scale;
-          this.touchPos.p.px += stage.viewport.x;
-          this.touchPos.p.py += stage.viewport.y;
+        if(L.camera) {
+          this.touchPos.p.px /= L.camera.scale;
+          this.touchPos.p.py /= L.camera.scale;
+          this.touchPos.p.px += L.camera.x;
+          this.touchPos.p.py += L.camera.y;
         }
 
         this.touchPos.p.x = this.touchPos.p.px;
@@ -97,19 +97,19 @@
       touch: function(e) {
         let touches = e.changedTouches || [ e ];
         for(let i=0;i<touches.length;++i) {
-          for(let stageIdx=0;stageIdx < _touchStage.length;++stageIdx) {
+          for(let idx=0;idx < _touchLayer.length;++idx) {
             let touch = touches[i],
-                stage = Mojo.layer(_touchStage[stageIdx]);
+                L = Mojo.layer(_touchLayer[idx]);
 
-            if(!stage) { continue; }
+            if(!L) { continue; }
 
             let touchIdentifier = touch.identifier || 0;
-            let pos = this.normalizeTouch(touch,stage);
+            let pos = this.normalizeTouch(touch,L);
 
-            stage.regrid(pos,true);
-            let col = stage.search(pos,_touchType), obj;
+            L.regrid(pos,true);
+            let col = L.search(pos,_touchType), obj;
 
-            if(col || stageIdx === _touchStage.length - 1) {
+            if(col || idx === _touchLayer.length - 1) {
               obj = col && col.obj;
               pos.obj = obj;
               Mojo.EventBus.pub("touch", this, pos);
@@ -125,7 +125,7 @@
                 sy: pos.p.oy,
                 identifier: touchIdentifier,
                 obj: obj,
-                stage: stage
+                layer: L
               };
               this.touchedObjects[obj.p.id] = true;
               Mojo.EventBus.pub("touch", obj, this.activeTouches[touchIdentifier]);
@@ -146,10 +146,10 @@
               touchIdentifier = touch.identifier || 0;
 
           let active = this.activeTouches[touchIdentifier],
-              stage = active && active.layer;
+              L = active && active.layer;
 
           if(active) {
-            let pos = this.normalizeTouch(touch,stage);
+            let pos = this.normalizeTouch(touch,L);
             active.x = pos.p.px;
             active.y = pos.p.py;
             active.dx = pos.p.ox - active.sx;
@@ -184,10 +184,10 @@
     Mojo.touch = function(options) {
       options= options || {};
       _touchType = options.type || Mojo.SPRITE_UI;
-      _touchStage = options.stage || [2,1,0];
+      _touchLayer = options.layer || [2,1,0];
       Mojo.untouch();
-      if(!is.vec(_touchStage)) {
-        _touchStage = [_touchStage];
+      if(!is.vec(_touchLayer)) {
+        _touchLayer = [_touchLayer];
       }
 
       if(!Mojo._touch)

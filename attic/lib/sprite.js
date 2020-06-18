@@ -260,8 +260,6 @@
         Mojo.EventBus.pub("draw",this,ctx);
         ctx.restore();
 
-        // Children set up their own complete matrix
-        // from the base stage matrix
         if(this.p.sort)
           this.children.sort(this._sortChild);
         _.invoke(this.children,"render",ctx);

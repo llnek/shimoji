@@ -22,7 +22,7 @@
     let _markAll= function(L) {
       let time=L.tick,
           items= L.items,
-          view= L.viewport,
+          view= L.camera,
           x = view ? view.x : 0,
           y = view ? view.y : 0,
           scale = view ? view.scale : 1,

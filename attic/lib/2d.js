@@ -7,7 +7,7 @@
   MojoH5["2D"] = function(Mojo) {
     let _ = Mojo.u,
         is = Mojo.is;
-    Mojo.feature("viewport",{
+    Mojo.feature("camera",{
       added: function() {
         Mojo.EventBus.sub([["prerender",this.entity,"prerender",this],
                            ["render",this.entity,"postrender",this]]);
@@ -360,10 +360,10 @@
 
       draw: function(ctx) {
         let p = this.p,
-            viewport = this.layer.viewport,
-            scale = viewport ? viewport.scale : 1,
-            x = viewport ? viewport.x : 0,
-            y = viewport ? viewport.y : 0,
+            port = this.layer.camera,
+            scale = port ? port.scale : 1,
+            x = port ? port.x : 0,
+            y = port ? port.y : 0,
             viewW = Mojo.width / scale,
             viewH = Mojo.height / scale,
             startBlockX = Math.floor((x - p.x) / p.blockW),

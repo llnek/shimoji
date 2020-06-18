@@ -312,9 +312,9 @@
       positionIFrame: function() {
         let x = this.p.x,
             y = this.p.y;
-        if(this.layer.viewport) {
-          x -= this.layer.viewport.x;
-          y -= this.layer.viewport.y;
+        if(this.layer.camera) {
+          x -= this.layer.camera.x;
+          y -= this.layer.camera.y;
         }
         if(this.oldX !== x ||
            this.oldY !== y ||

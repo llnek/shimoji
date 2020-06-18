@@ -73,12 +73,12 @@
 
     let _canvasToLayerX = (x,layer) => {
       x = x / Mojo.cssWidth * Mojo.width;
-      return layer.viewport ? ((x/layer.viewport.scale)+layer.viewport.x) : x;
+      return layer.camera ? ((x/layer.camera.scale)+layer.camera.x) : x;
     };
 
     let _canvasToLayerY = (y,layer) => {
       y = y / Mojo.cssWidth * Mojo.width;
-      return layer.viewport ? ((y/layer.viewport.scale)+layer.viewport.y) : y;
+      return layer.camera ? ((y/layer.camera.scale)+layer.camera.y) : y;
     };
 
     Mojo.input = {
