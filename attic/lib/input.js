@@ -484,13 +484,16 @@
         let p = this.entity.p;
         _.patch(p,this.defaults);
 
-        Mojo.EventBus.sub("step",this.entity,"step",this);
-        Mojo.EventBus.sub("bump.bottom",this.entity,"landed",this);
+        Mojo.EventBus.sub([["step",this.entity,"step",this],
+                           ["bump.bottom",this.entity,"landed",this]]);
 
         p.landed = 0;
         p.direction ='right';
       },
-
+      disposed:function() {
+        Mojo.EventBus.unsub([["step",this.entity,"step",this],
+                             ["bump.bottom",this.entity,"landed",this]]);
+      },
       landed: function(col) {
         let p = this.entity.p;
         p.landed = 1/5;
@@ -577,8 +580,12 @@
         if(!p.stepDistance) p.stepDistance = 32;
         if(!p.stepDelay) p.stepDelay = 0.2;
         p.stepWait = 0;
-        Mojo.EventBus.sub("step",this.entity,"step",this);
-        Mojo.EventBus.sub("hit", this.entity,"collision",this);
+        Mojo.EventBus.sub([["step",this.entity,"step",this],
+                           ["hit", this.entity,"collision",this]]);
+      },
+      disposed:function() {
+        Mojo.EventBus.unsub([["step",this.entity,"step",this],
+                             ["hit", this.entity,"collision",this]]);
       },
       collision: function(col) {
         let p = this.entity.p;

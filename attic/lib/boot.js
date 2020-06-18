@@ -27,6 +27,13 @@
     keys: (obj) => {
       return isMap(obj) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
     },
+    log: function() {
+      let msg="";
+      if(true) {
+        for(let i=0;i<arguments.length;++i) msg += arguments[i];
+        console.log(msg);
+      }
+    },
     assert: (cond) => {
       if(cond)
       {}
@@ -37,6 +44,8 @@
     jsObj: () => { return {}; },
     jsVec: () => { return []; },
     floor: (v) => { return Math.floor(v); },
+    min: (a,b) => { return Math.min(a,b); },
+    max: (a,b) => { return Math.max(a,b); },
     slice: (a,i) => { return slicer.call(a, i); },
     now: () => { return Date.now(); },
     nextID: () => { return ++seqNum; },
@@ -368,20 +377,28 @@
         m.forEach(s => s[0].call(s[1],data));
     };
     this.unsub= function(event,target,cb,ctx) {
-      for(let ss, m= this.tree.get(target);m;m=null) {
-        if(!cb)
-          m.delete(event);
-        else {
-          if(is.str(cb)) {
-            ctx=ctx || target;
-            cb=ctx[cb];
-          }
+      if(is.vec(event) &&
+         arguments.length===1) {
+        event.forEach(e => {
+          if(is.vec(e))
+            this.unsub.apply(this, e);
+        });
+      } else {
+        for(let ss, m= this.tree.get(target);m;m=null) {
           if(!cb)
             m.delete(event);
-          else if(ss= m.get(event)) {
-            for(let i= ss.length-1;i>=0;--i)
-              if(ss[i][0] === cb &&
-                 ss[i][1] === ctx) ss.splice(i,1);
+          else {
+            if(is.str(cb)) {
+              ctx=ctx || target;
+              cb=ctx[cb];
+            }
+            if(!cb)
+              m.delete(event);
+            else if(ss= m.get(event)) {
+              for(let i= ss.length-1;i>=0;--i)
+                if(ss[i][0] === cb &&
+                  ss[i][1] === ctx) ss.splice(i,1);
+            }
           }
         }
       }
@@ -408,10 +425,15 @@
     Mojo.loaders={};
     Mojo.assets={};
 
+    Mojo.scroll = (x,y) => {
+      window.scrollTo(x||0,y||1);
+      return Mojo;
+    };
+
     Mojo.scrollTop = (x,y) => {
       x=x||0;
       y=y||1;
-      _.timer(() => { window.scrollTo(x,y); }, 0);
+      _.timer(() => { Mojo.scroll(x,y); }, 0);
       return Mojo;
     };
 
@@ -423,11 +445,11 @@
     };
 
     //DOM stuff
-    Mojo.domBySelector= (selector) => { document.querySelectorAll(selector); };
+    Mojo.domBySelector= (selector) => { return document.querySelectorAll(selector); };
     Mojo.domById= (id) => { return document.getElementById(id); };
     Mojo.domParent= (e) => { return e ? e.parentNode : undefined; };
     Mojo.domConj = (child, par) => {
-      (par || document.body).appendChild(child);
+      return (par || document.body).appendChild(child);
     };
     Mojo.domByTag= (tag, ns) => {
       return is.str(ns)
@@ -545,7 +567,6 @@
           this.entity.layer &&
             this.entity.layer.delRelation(this.featureName,this.entity);
         }
-        //this.debind();
         this.disposed && this.disposed();
       }
     }, Mojo);
@@ -574,7 +595,6 @@
       dispose: function() {
         if(this.isDead) { return; }
         Mojo.EventBus.pub("disposed",this);
-        //this.debind();
         this.layer &&
           this.layer.remove(this);
         this.isDead = true;
@@ -596,7 +616,6 @@
 
     defType("GameState", {
       init: function(p) {
-        //this.listeners = {};
         this.p = _.clone(p);
       },
       reset: function(p) {
@@ -606,7 +625,7 @@
       _triggerProperty: function(value,key) {
         if(this.p[key] !== value) {
           this.p[key] = value;
-          Mojo.EventBus.pub("change." + key,this,value);
+          Mojo.EventBus.pub("change."+key,this,value);
         }
       },
       get: function(prop) {
@@ -787,7 +806,7 @@
             if(pcb)
               pcb(sum - more, sum);
           }
-          if(more === 0 && cb) { cb.apply(Mojo); }
+          if(more === 0 && cb) { cb.apply(Mojo, []); }
         }
       };
       //start to load
@@ -812,9 +831,17 @@
     };
 
     ["Math", "Sprites", "Scenes", "2D",
-     "Anim", "Input", "Audio", "Touch", "UI"].forEach(k => MojoH5[k](Mojo));
+      "Anim", "Input", "Audio", "Touch", "UI"].forEach(k => {
+        let f= MojoH5[k];
+        if(!f)
+          _.log("warn: module `"+ k + "` missing."); else f(Mojo);
+      });
 
-    _.seq(Mojo.options.modules || []).forEach(m => MojoH5[m](Mojo));
+    _.seq(Mojo.options.modules || []).forEach(m => {
+      let f= MojoH5[m];
+        if(!f)
+          _.log("warn: module `"+ m + "` missing."); else f(Mojo);
+      });
 
     Mojo.prologue = function(id, options) {
       if(is.obj(id)) {
@@ -826,16 +853,14 @@
 
       Mojo.el = is.str(id) ? document.getElementById(id) : id;
       if(!Mojo.el) {
-        let e= document.createElement("canvas");
-        e.setAttribute("id",id);
-        e.setAttribute("height", options.height || 420);
-        e.setAttribute("width", options.width || 320);
-        document.body.appendChild(e);
-        Mojo.el=e;
+        Mojo.el= Mojo.domCtor("canvas", {id: id,
+                                         width: options.width || 320,
+                                         height: options.height || 420});
+        Mojo.domConj(Mojo.el);
       }
 
-      let w = parseInt(Mojo.el.width),
-          h = parseInt(Mojo.el.height),
+      let w = Mojo.el.width,
+          h = Mojo.el.height,
           elParent = Mojo.el.parentNode,
           resampleWidth = options.resampleWidth,
           resampleHeight = options.resampleHeight,
@@ -846,60 +871,56 @@
 
       if(options.maximize === true ||
          (Mojo.touchDevice && options.maximize === "touch"))  {
-        document.body.style.padding = 0;
-        document.body.style.margin = 0;
+
+        Mojo.domCss(document.body, {padding: 0, margin: 0});
 
         w = options.width ||
-            Math.min(window.innerWidth,maxWidth) - ((options.pageScroll)?17:0);
+            _.min(window.innerWidth,maxWidth) - ((options.pageScroll)?17:0);
         h = options.height ||
-            Math.min(window.innerHeight - 5,maxHeight);
+            _.min(window.innerHeight - 5,maxHeight);
 
         if(Mojo.touchDevice) {
-          Mojo.el.style.height = (h*2) + "px";
-          window.scrollTo(0,1);
-          w = Math.min(window.innerWidth,maxWidth);
-          h = Math.min(window.innerHeight,maxHeight);
+          Mojo.domCss(Mojo.el, "height", (h*2) + "px");
+          Mojo.scroll();
+          w = _.min(window.innerWidth,maxWidth);
+          h = _.min(window.innerHeight,maxHeight);
         }
       } else if(Mojo.touchDevice) {
-        window.scrollTo(0,1);
+        Mojo.scroll();
       }
 
       if((upsampleWidth && w <= upsampleWidth) ||
          (upsampleHeight && h <= upsampleHeight)) {
-        Mojo.el.style.height = h + "px";
-        Mojo.el.style.width = w + "px";
+        //Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
         Mojo.el.width = w * 2;
         Mojo.el.height = h * 2;
       }
-      else
-      if(Mojo.touchDevice &&
-         ((resampleWidth && w > resampleWidth) ||
-          (resampleHeight && h > resampleHeight))) {
-        Mojo.el.style.height = h + "px";
-        Mojo.el.style.width = w + "px";
+      else if(Mojo.touchDevice &&
+              ((resampleWidth && w > resampleWidth) ||
+               (resampleHeight && h > resampleHeight))) {
+        //Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
         Mojo.el.width = w / 2;
         Mojo.el.height = h / 2;
       } else {
-        Mojo.el.style.height = h + "px";
-        Mojo.el.style.width = w + "px";
-        Mojo.el.width = w;
-        Mojo.el.height = h;
+        //Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
+        Mojo.el.width= w;
+        Mojo.el.height= h;
       }
+      Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
 
       if(elParent && !Mojo.wrapper) {
-        Mojo.wrapper = document.createElement("div");
-        Mojo.wrapper.id = Mojo.el.id + "_container";
-        Mojo.wrapper.style.width = w + "px";
-        Mojo.wrapper.style.margin = "0 auto";
-        Mojo.wrapper.style.position = "relative";
-        elParent.insertBefore(Mojo.wrapper,Mojo.el);
-        Mojo.wrapper.appendChild(Mojo.el);
+        Mojo.wrapper=Mojo.domWrap(Mojo.el,
+                                  Mojo.domCtor("div",
+                                               {id: Mojo.el.id+"_Wrapper"},
+                                               {width: w + "px",
+                                                margin: "0 auto",
+                                                position: "relative"}));
       }
 
-      Mojo.el.style.position = "relative";
+      Mojo.domCss(Mojo.el, "position", "relative");
       Mojo.ctx = Mojo.el.getContext("2d");
-      Mojo.width = parseInt(Mojo.el.width);
-      Mojo.height = parseInt(Mojo.el.height);
+      Mojo.width = Mojo.el.width;
+      Mojo.height = Mojo.el.height;
       Mojo.cssWidth = w;
       Mojo.cssHeight = h;
 
@@ -913,21 +934,20 @@
         let scaledW = Mojo.el.width * scaleRatio;
         let scaledH = Mojo.el.height * scaleRatio;
 
-        Mojo.el.style.width = scaledW + "px";
-        Mojo.el.style.height = scaledH + "px";
+        Mojo.domCss(Mojo.el, {width: scaledW + "px",
+                              height: scaledH + "px"});
 
-        if(Mojo.el.parentNode) {
-          Mojo.el.parentNode.style.width = scaledW + "px";
-          Mojo.el.parentNode.style.height = scaledH + "px";
-        }
+        if(Mojo.el.parentNode)
+          Mojo.domCss(Mojo.el.parentNode, {width: scaledW + "px",
+                                           height: scaledH + "px"});
 
-        Mojo.cssWidth = parseInt(scaledW);
-        Mojo.cssHeight = parseInt(scaledH);
+        Mojo.cssHeight = scaledH;
+        Mojo.cssWidth = scaledW;
 
         //center vertically when adjusting to width
         if(gameRatio > winRatio) {
           let topPos = (winH - scaledH)/2;
-          Mojo.el.style.top = topPos+"px";
+          Mojo.domCss(Mojo.el, "top", topPos+"px");
         }
       }
 

@@ -27,6 +27,15 @@
         p.animationPriority = -1;
         Mojo.EventBus.sub("step",this.entity,"step",this);
       },
+      disposed: function() {
+        //you are dead, get rid of stuff you tagged onto the entity
+        let p = this.entity.p;
+        _.dissoc(p,"animation");
+        _.dissoc(p,"animationFrame");
+        _.dissoc(p,"animationTime");
+        _.dissoc(p,"animationPriority");
+        Mojo.EventBus.unsub("step",this.entity,"step",this);
+      },
       step: function(dt) {
         let entity = this.entity,
             p = entity.p;
@@ -162,7 +171,6 @@
           duration = 1;
         }
         this.entity = entity;
-        //this.p = (entity instanceof Mojo.Layer) ? entity.viewport : entity.p;
         this.duration = duration || 1;
         this.time = 0;
         this.options = options || {};
@@ -231,6 +239,9 @@
       added: function() {
         this._tweens = [];
         Mojo.EventBus.sub("step",this.entity,"step",this);
+      },
+      disposed:function() {
+        Mojo.EventBus.unsub("step",this.entity,"step",this);
       },
       animate: function(properties,duration,easing,options) {
         this._tweens.push(new Mojo.Tween(this.entity,properties,duration,easing,options));

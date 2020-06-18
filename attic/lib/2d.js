@@ -9,8 +9,8 @@
         is = Mojo.is;
     Mojo.feature("viewport",{
       added: function() {
-        Mojo.EventBus.sub("prerender",this.entity,"prerender",this);
-        Mojo.EventBus.sub("render",this.entity,"postrender",this);
+        Mojo.EventBus.sub([["prerender",this.entity,"prerender",this],
+                           ["render",this.entity,"postrender",this]]);
         this.centerX = Mojo.width/2;
         this.centerY = Mojo.height/2;
         this.x = 0;
@@ -18,6 +18,11 @@
         this.offsetX = 0;
         this.offsetY = 0;
         this.scale = 1;
+      },
+      disposed:function() {
+        //clean up
+        Mojo.EventBus.unsub([["prerender",this.entity,"prerender",this],
+                             ["render",this.entity,"postrender",this]]);
       },
       follow: function(sprite,directions,boundingBox) {
         Mojo.EventBus.unsub("poststep",this.entity,"_follow", this);
@@ -388,8 +393,12 @@
           gravity: 1,
           collisionMask: Mojo.SPRITE_DEFAULT
         });
-        Mojo.EventBus.sub('step',entity,"step",this);
-        Mojo.EventBus.sub('hit',entity,'collision',this);
+        Mojo.EventBus.sub([["step",entity,"step",this],
+                           ["hit",entity,'collision',this]]);
+      },
+      disposed:function() {
+        Mojo.EventBus.unsub([["step",this.entity,"step",this],
+                             ["hit",this.entity,'collision',this]]);
       },
       collision: function(col,last) {
         let entity = this.entity,
@@ -457,10 +466,13 @@
 
     Mojo.feature("aiBounce", {
       added: function() {
-        Mojo.EventBus.sub("bump.right",this.entity,"goLeft",this);
-        Mojo.EventBus.sub("bump.left",this.entity,"goRight",this);
+        Mojo.EventBus.sub([["bump.right",this.entity,"goLeft",this],
+                           ["bump.left",this.entity,"goRight",this]]);
       },
-
+      disposed:function() {
+        Mojo.EventBus.unsub([["bump.right",this.entity,"goLeft",this],
+                             ["bump.left",this.entity,"goRight",this]]);
+      },
       goLeft: function(col) {
         this.entity.p.vx = -col.impact;
         if(this.entity.p.defaultDirection === "right")

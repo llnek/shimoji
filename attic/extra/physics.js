@@ -45,6 +45,9 @@
         this.scale = this.opts.scale;
         Mojo.EventBus.sub("step",this.entity,"boxStep",this);
       },
+      disposed: function() {
+        Mojo.EventBus.unsub("step",this.entity,"boxStep",this);
+      },
       setCollisionData: function(contact,impulse) {
         let spriteA = contact.GetFixtureA().GetBody().GetUserData(),
             spriteB = contact.GetFixtureB().GetBody().GetUserData();
@@ -99,10 +102,14 @@
           this.inserted();
         else
           Mojo.EventBus.sub("inserted",this.entity,"inserted",this);
-        Mojo.EventBus.sub("step",this.entity,"step",this);
-        Mojo.EventBus.sub("removed",this.entity,"removed",this);
+        Mojo.EventBus.sub([["step",this.entity,"step",this],
+                           ["removed",this.entity,"removed",this]]);
       },
-
+      disposed:function() {
+        Mojo.EventBus.unsub([["inserted",this.entity,"inserted",this],
+                             ["step",this.entity,"step",this],
+                             ["removed",this.entity,"removed",this]]);
+      },
       position: function(x,y) {
         let L = this.entity.layer;
         this._body.SetAwake(true);
