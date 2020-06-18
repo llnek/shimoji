@@ -8,52 +8,6 @@
     let _=Mojo.u,
         is=Mojo.is;
 
-    Mojo.domBySelector= (selector) => { document.querySelectorAll(selector); };
-    Mojo.domById= (id) => { return document.getElementById(id); };
-    Mojo.domParent= (e) => { return e ? e.parentNode : undefined; };
-    Mojo.domConj = (child, par) => {
-      (par || document.body).appendChild(child);
-    };
-    Mojo.domByTag= (tag, ns) => {
-      return is.str(ns)
-             ? document.getElementsByTagNameNS(ns,tag)
-             : document.getElementsByTagName(id);
-    };
-    Mojo.domAttrs= function(e, attrs) {
-      if(!is.obj(attrs) && attrs) {
-        //attrs=""+attrs;
-        if(arguments.length > 2)
-          e.setAttribute(attrs, arguments[2]);
-        return e.getAttribute(attrs);
-      }
-      if(attrs)
-        _.doseq(attrs, (v,k) => { e.setAttribute(k,v); });
-      return e;
-    };
-    Mojo.domCss= function(e, styles) {
-      if(!is.obj(styles) && styles) {
-        //styles=""+styles;
-        if(arguments.length > 2)
-          e.style[styles]= arguments[2];
-        return e.style[styles];
-      }
-      if(styles)
-        _.doseq(styles, (v,k) => { e.style[k]= v; });
-      return e;
-    };
-    Mojo.domWrap= (child,wrapper) => {
-      let p=child.parentNode;
-      wrapper.appendChild(child);
-      p.appendChild(wrapper);
-      return wrapper;
-    };
-    Mojo.domCtor = (tag, attrs, styles) => {
-      let e = document.createElement(tag);
-      Mojo.domAttrs(e,attrs);
-      Mojo.domCss(e,styles);
-      return e;
-    };
-
     Mojo.setupDOM = function(id,options) {
       options = options || {};
       id = id || "mojo";

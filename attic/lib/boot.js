@@ -215,7 +215,7 @@
     undef: (obj) => { return obj === undefined; }
   };
 
-  //assets
+//assets
   let AssetTypes= {tmx: "Tile", png: "Image", xml: "Xml", json: "Json",
                    jpg: "Image", gif: "Image", jpeg: "Image",
                    ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
@@ -335,8 +335,12 @@
   let EventBus= function () {
     this.tree= _.jsMap();
     this.sub= function(event,target,cb,ctx) {
-      if(is.vec(event)) {
-        event.forEach(e => this.sub(e,target,cb,ctx));
+      if(is.vec(event) &&
+         arguments.length===1) {
+        event.forEach(e => {
+          if(is.vec(e))
+            this.sub.apply(this, e);
+        });
       } else {
         if (!cb)
           cb=event;
@@ -417,6 +421,54 @@
       });
       return Mojo;
     };
+
+    //DOM stuff
+    Mojo.domBySelector= (selector) => { document.querySelectorAll(selector); };
+    Mojo.domById= (id) => { return document.getElementById(id); };
+    Mojo.domParent= (e) => { return e ? e.parentNode : undefined; };
+    Mojo.domConj = (child, par) => {
+      (par || document.body).appendChild(child);
+    };
+    Mojo.domByTag= (tag, ns) => {
+      return is.str(ns)
+             ? document.getElementsByTagNameNS(ns,tag)
+             : document.getElementsByTagName(id);
+    };
+    Mojo.domAttrs= function(e, attrs) {
+      if(!is.obj(attrs) && attrs) {
+        //attrs=""+attrs;
+        if(arguments.length > 2)
+          e.setAttribute(attrs, arguments[2]);
+        return e.getAttribute(attrs);
+      }
+      if(attrs)
+        _.doseq(attrs, (v,k) => { e.setAttribute(k,v); });
+      return e;
+    };
+    Mojo.domCss= function(e, styles) {
+      if(!is.obj(styles) && styles) {
+        //styles=""+styles;
+        if(arguments.length > 2)
+          e.style[styles]= arguments[2];
+        return e.style[styles];
+      }
+      if(styles)
+        _.doseq(styles, (v,k) => { e.style[k]= v; });
+      return e;
+    };
+    Mojo.domWrap= (child,wrapper) => {
+      let p=child.parentNode;
+      wrapper.appendChild(child);
+      p.appendChild(wrapper);
+      return wrapper;
+    };
+    Mojo.domCtor = (tag, attrs, styles) => {
+      let e = document.createElement(tag);
+      Mojo.domAttrs(e,attrs);
+      Mojo.domCss(e,styles);
+      return e;
+    };
+
 
     Mojo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
     Mojo.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
@@ -499,8 +551,8 @@
     }, Mojo);
 
     defType("Entity", {
-      has: function(co) { return _.has(this,co); },
-      add: function(features) {
+      hasFeature: function(co) { return _.has(this,co); },
+      addFeature: function(features) {
         if(!this.features)
           this.features= _.jsVec();
         _.seq(features).forEach(name => {
@@ -510,7 +562,7 @@
         });
         return this;
       },
-      del: function(features) {
+      delFeature: function(features) {
         _.seq(features).forEach(name => {
           if(this[name]) {
             Mojo.EventBus.pub("delFeature",this,this[name]);
@@ -879,12 +931,9 @@
         }
       }
 
-      window.addEventListener("orientationchange", () => {
-        _.timer(() => window.scrollTo(0,1), 0);
-      });
-
       Mojo.controls(options.joypad);
       Mojo.touch(options.touch);
+      Mojo.handleDeviceFlip();
 
       if(options.sound !== false)
         Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
