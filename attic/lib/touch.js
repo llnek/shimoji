@@ -183,7 +183,7 @@
 
     Mojo.touch = function(options) {
       options= options || {};
-      _touchType = options.type || Mojo.SPRITE_UI;
+      _touchType = options.type || Mojo.E_UI;
       _touchLayer = options.stage || [2,1,0];
       Mojo.untouch();
       if(!is.vec(_touchLayer)) {

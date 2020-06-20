@@ -2,16 +2,30 @@
   "use strict";
   let MojoH5=global.MojoH5;
 
+  /**
+   * @method
+   */
   MojoH5.Scenes = function(Mojo) {
 
     let _=Mojo.u,
         is=Mojo.is,
         _defs= {gridW: 400, gridH: 400, x:0, y:0, sort: false};
 
+    /**
+     */
     Mojo.scenes = _.jsMap();
+
+    /**
+     */
     Mojo.activeStage = 0;
+
+    /**
+     */
     Mojo.stages = [];
 
+    /**
+     * @function
+     */
     let _hitLayer= function(stage,obj,collisionMask) {
       for(let y,c,i=0,z=stage.contactLayers.length;i<z;++i) {
         y=stage.contactLayers[i];
@@ -19,6 +33,10 @@
           if(c= y.collide(obj)) { c.obj = y; return c; }
       }
     };
+
+    /**
+     * @function
+     */
     let _markAll= function(stage) {
       let time=stage.tick,
           items= stage.items,
@@ -34,7 +52,7 @@
           gridY2 = _.floor((y + viewH) / stage.options.gridH),
           tmp,X,B;
       for(let iy=gridY1; iy<=gridY2; ++iy)
-        if(X=_.get(stage.grid,iy)) {
+        if(X=_.get(stage.grid,iy))
           for(let ix=gridX1; ix<=gridX2; ++ix)
             if(B=_.get(X,ix))
               B.forEach((v,k) => {
@@ -43,11 +61,14 @@
                   if(tmp.container)
                     tmp.container.mark = time; }
               });
-        }
     };
+
+    /**
+     * @function
+     */
     let _testHit= function(type,id,obj,collisionMask) {
       if(is.undef(collisionMask) || (collisionMask & type)) {
-        let col, obj2 = _.get(this.index,id);
+        let col, obj2=_.get(this.index,id);
         if(obj2 &&
            obj2 !== obj &&
            Mojo.overlap(obj,obj2))
@@ -57,6 +78,10 @@
           }
       }
     };
+
+    /**
+     * @function
+     */
     let _hitTest= function(stage,obj,collisionMask) {
       let X,Y,col, g=obj.bbox4;
       for(let y = g.y1;y <= g.y2;++y)
@@ -66,6 +91,10 @@
               if(col= _.some(X,_testHit,stage,obj,collisionMask))
                 return col;
     };
+
+    /**
+     * @function
+     */
     let _delFromGrid= (stage, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2; ++y)
@@ -74,6 +103,10 @@
             if(X=Y.get(x))
               _.dissoc(X,item.p.id);
     };
+
+    /**
+     * @function
+     */
     let _addToGrid= (stage, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2;++y) {
@@ -89,15 +122,31 @@
       }
     };
 
+    /**
+     * @object
+     */
+    let _locateOb= {
+      //x,y => center
+      //cx,cy => x-cx = left,y-cy=top
+      p: {x: 0, y: 0, cx: 0, cy: 0, w: 1, h: 1 }
+    };
+
+    /**
+     * @class Stage
+     */
     Mojo.defType(["Stage", Mojo.Entity], {
       init: function(func,options) {
         this.scene = func;
         this.items = [];
+        // stores relations for fast select like jQuery
         this.cache = _.jsMap();
+        // pin object's location for fast search
         this.grid = _.jsMap();
         this.tick = 0;
         this.trash = [];
+        // fast lookup to get entities
         this.index = _.jsMap();
+        // for tiles
         this.contactLayers = [];
         this.options = _.inject({},_defs, {w: Mojo.width,
                                            h: Mojo.height}, options);
@@ -107,8 +156,9 @@
           arg.forEach(x => this.addRelation(x,obj));
         else {
           if(!_.has(this.cache,arg)) _.assoc(this.cache,arg, []);
-          _.get(this.cache,arg).push(obj);
+          _.conj(_.get(this.cache,arg),obj);
         }
+        return this;
       },
       delRelation: function(arg, obj) {
         if(is.vec(arg))
@@ -118,46 +168,38 @@
           let i = a ? a.indexOf(obj) : -1;
           if(i > -1) a.splice(i,1);
         }
+        return this;
       },
       disposed: function() {
-        //this.invoke("debind");
         Mojo.EventBus.pub("disposed", this);
+        return this;
       },
       run: function() {
-        this.scene(this);
-      },
-      // Load an array of assets of the form:
-      // [ [ "Player", { x: 15, y: 54 } ],
-      //   [ "Enemy",  { x: 54, y: 42 } ] ]
-      // Either pass in the array or a string of asset name
-      loadAssets: function(asset) {
-        let arr = is.vec(asset) ? asset : Mojo.asset(asset);
-        arr.forEach(a => {
-          let spriteClass = a[0];
-          let spriteProps = a[1];
-          this.insert(new Mojo[spriteClass](spriteProps)); });
+        return this.scene(this);
       },
       each: function(cb) {
         let args= _.slice(arguments,1);
         this.items.forEach(x => cb.apply(x,args));
+        return this;
       },
       invoke: function(funcName) {
         let args= _.slice(arguments,1);
         this.items.forEach(x => x[funcName].apply(x,args));
+        return this;
       },
       find: function(id) {
         return _.get(this.index,id);
       },
       insert: function(itm,container) {
-        itm.container = container;
+
         this.items.push(itm);
         itm.stage = this;
         itm.bbox4 = _.jsMap();
 
         if(container)
-          container.children.push(itm);
+          _.conj(container.children,itm);
+        itm.container = container;
 
-        // Make sure we have a square of collision points
         Mojo.genPts(itm);
         Mojo.genContactPts(itm);
 
@@ -168,10 +210,10 @@
           this.addRelation(itm.features, itm);
 
         if(itm.p && itm.p.id)
-          _.assoc(this.index,itm.p.id, itm);
+          _.assoc(this.index, itm.p.id, itm);
 
-        Mojo.EventBus.pub("inserted",this, itm);
-        Mojo.EventBus.pub("inserted",itm,this);
+        Mojo.EventBus.pub([["inserted",this, itm],
+                           ["inserted",itm,this]]);
 
         this.regrid(itm);
         return itm;
@@ -179,6 +221,7 @@
       remove: function(itm) {
         _delFromGrid(this, itm);
         this.trash.push(itm);
+        return this;
       },
       forceRemove: function(itm) {
         let idx = this.items.indexOf(itm);
@@ -198,33 +241,31 @@
             _.dissoc(this.index,itm.p.id);
           Mojo.EventBus.pub("removed",this, itm);
         }
+        return this;
       },
       pause: function() {
         this.paused = true;
+        return this;
       },
       unpause: function() {
         this.paused = false;
+        return this;
       },
       contactLayer: function(obj) {
-        this.contactLayers.push(obj);
+        _.conj(this.contactLayers,obj);
         obj.contactLayer = true;
         return this.insert(obj);
       },
       search: function(obj,collisionMask) {
         if(!obj.bbox4)
-          this.regrid(obj,obj.stage !== this);
+          this.regrid(obj, obj.stage !== this);
         if(is.undef(collisionMask))
           collisionMask = obj.p && obj.p.collisionMask;
         return _hitLayer(this,obj,collisionMask) ||
                _hitTest(this, obj,collisionMask);
       },
-      _locateObj: {
-        //x,y => center
-        //cx,cy => x-cx = left,y-cy=top
-        p: {x: 0, y: 0, cx: 0, cy: 0, w: 1, h: 1 }
-      },
       locate: function(x,y,collisionMask) {
-        let tmp= this._locateObj;
+        let tmp= _locateObj;
         tmp.p.x = x;
         tmp.p.y = y;
         tmp.bbox4=null;
@@ -256,10 +297,9 @@
         curCol = maxCol;
         while(curCol > 0 &&
               (col = _hitLayer(this,obj,collisionMask))) {
-          if(!skipEvents) {
-            Mojo.EventBus.pub('hit',obj, col);
-            Mojo.EventBus.pub('hit.collision',obj,col);
-          }
+          if(!skipEvents)
+            Mojo.EventBus.pub([["hit",obj, col],
+                               ["hit.collision",obj,col]]);
           Mojo.genContactPts(obj);
           this.regrid(obj);
           --curCol;
@@ -268,8 +308,8 @@
         curCol = maxCol;
         while(curCol > 0 &&
               (col2 = _hitTest(this,obj,collisionMask))) {
-          Mojo.EventBus.pub('hit',obj,col2);
-          Mojo.EventBus.pub('hit.sprite',obj,col2);
+          Mojo.EventBus.pub([["hit",obj,col2],
+                             ["hit.sprite",obj,col2]]);
           // Do the recipricol collision
           // TODO: extract
           if(!skipEvents) {
@@ -281,8 +321,8 @@
             col2.magnitude = 0;
             col2.separate[0] = 0;
             col2.separate[1] = 0;
-            Mojo.EventBus.pub('hit',obj2,col2);
-            Mojo.EventBus.pub('hit.sprite',obj2,col2);
+            Mojo.EventBus.pub([["hit",obj2,col2],
+                               ["hit.sprite",obj2,col2]]);
           }
           Mojo.genContactPts(obj);
           this.regrid(obj);
@@ -331,6 +371,7 @@
             this.regrid(item);
           }
         }
+        return this;
       },
       step: function(dt) {
         if(this.paused) { return false; }
@@ -344,46 +385,54 @@
           this.trash.length = 0;
         }
         Mojo.EventBus.pub("poststep",this,dt);
+        return this;
       },
       hide: function() {
         this.hidden = true;
+        return this;
       },
       show: function() {
         this.hidden = false;
+        return this;
       },
       stop: function() {
         this.hide();
         this.pause();
+        return this;
       },
       start: function() {
         this.show();
         this.unpause();
+        return this;
       },
       render: function(ctx) {
         if(this.hidden) { return false; }
         this.options.sort &&
           this.items.sort(this.options.sort);
-        Mojo.EventBus.pub("prerender",this,ctx);
-        Mojo.EventBus.pub("beforerender",this,ctx);
-
+        Mojo.EventBus.pub([["prerender",this,ctx],
+                           ["beforerender",this,ctx]]);
         this.items.forEach( item => {
           // Don't render sprites with containers (sprites do that themselves)
           // Also don't render if not onscreen
           if(!item.container &&
              (item.p.renderAlways ||
-              item.mark >= this.tick)) { item.render(ctx); } });
-
-        Mojo.EventBus.pub("render",this,ctx);
-        Mojo.EventBus.pub("postrender",this,ctx);
+              item.mark >= this.tick)) { item.render(ctx); }
+        });
+        Mojo.EventBus.pub([["render",this,ctx],
+                           ["postrender",this,ctx]]);
+        return this;
       }
     });
 
+    /**
+     * @class Locator
+     */
     Mojo.defType("Locator",{
 
       init: function(stage,selector) {
         this.stage = stage;
         this.selector = selector;
-        this.items = _.get(this.stage.cache,this.selector) || [];
+        this.items = _.get(this.stage.cache, this.selector) || [];
       },
       count: function() { return this.items.length; },
       each: function(cb) {
@@ -401,7 +450,7 @@
         return this;
       },
       dispose: function() {
-        this.invoke("dispose");
+        return this.invoke("dispose");
       },
       // This hidden utility method extends
       // and object's properties with a source object.
@@ -441,10 +490,16 @@
       return is.num(selector) ? _.get(y.index,selector) : new Mojo.Locator(y,selector);
     };
 
+    /**
+     * @method
+     */
     Mojo.stage = (num) => {
       return Mojo.stages[(num === undefined) ? Mojo.activeStage : num ];
     };
 
+    /**
+     * @method
+     */
     Mojo.runScene = function(scene,num,options) {
       let _s = _.get(Mojo.scenes,scene);
       if(!_s)
@@ -466,17 +521,19 @@
       y = new Mojo.Stage(_s.scene,options);
       Mojo.stages[num] = y;
 
-      y.options.asset &&
-        y.loadAssets(y.options.asset);
       y.run();
 
       Mojo.activeStage = 0;
+
       if(!Mojo.loop)
         Mojo.gameLoop(Mojo.runGameLoop);
 
       return y;
     };
 
+    /**
+     * @method
+     */
     Mojo.runGameLoop = (dt) => {
       let i, z, y;
 
@@ -504,6 +561,9 @@
       Mojo.activeStage = 0;
     };
 
+    /**
+     * @method
+     */
     Mojo.deleteStage = (num) => {
       if(Mojo.stages[num]) {
         Mojo.stages[num].dispose();
@@ -511,22 +571,29 @@
       }
     };
 
+    /**
+     * @method
+     */
     Mojo.deleteStages = () => {
       for(let i=0,z=Mojo.stages.length;i<z;++i)
       Mojo.deleteStage(i);
       Mojo.stages.length = 0;
     };
 
+    /**
+     * @method
+     */
     Mojo.scene = (name,action,opts) => {
       if(action) {
         if(!is.fun(action))
           throw "Expecting scene action function!";
         _.assoc(Mojo.scenes,name, {name: name,
-                                 scene: action,
-                                 options: opts || {} });
+                                   scene: action,
+                                   options: opts || {} });
       }
       return _.get(Mojo.scenes,name);
     };
+
 
     return Mojo;
   };

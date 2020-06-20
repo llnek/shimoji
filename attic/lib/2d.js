@@ -1,26 +1,30 @@
 (function(global,undefined) {
-
   "use strict";
+
   let MojoH5 = global.MojoH5,
       document = global.document;
 
   MojoH5["2D"] = function(Mojo) {
+
     let _ = Mojo.u,
         is = Mojo.is;
+
+    /**
+     * @object
+     */
     Mojo.feature("camera",{
       added: function() {
         Mojo.EventBus.sub([["prerender",this.entity,"prerender",this],
                            ["render",this.entity,"postrender",this]]);
         this.centerX = Mojo.width/2;
         this.centerY = Mojo.height/2;
+        this.scale = 1;
         this.x = 0;
         this.y = 0;
         this.offsetX = 0;
         this.offsetY = 0;
-        this.scale = 1;
       },
-      disposed:function() {
-        //clean up
+      disposed: function() {
         Mojo.EventBus.unsub([["prerender",this.entity,"prerender",this],
                              ["render",this.entity,"postrender",this]]);
       },
@@ -31,17 +35,18 @@
         if(is.undef(boundingBox) &&
            this.entity.cache &&
            this.entity.cache.TileLayer !== undefined) {
-          this.boundingBox = _.some(this.entity.cache.TileLayer, function(stage) {
+          this.boundingBox = _.some(this.entity.cache.TileLayer, (stage) => {
             return stage.p.boundingBox ? { minX: 0, maxX: stage.p.w, minY: 0, maxY: stage.p.h } : null;
           });
         } else {
           this.boundingBox = boundingBox;
         }
         Mojo.EventBus.sub("poststep",this.entity,"_follow",this);
-        this._follow(true);
+        return this._follow(true);
       },
       unfollow: function() {
         Mojo.EventBus.unsub("poststep",this.entity,"_follow",this);
+        return this;
       },
       _follow: function(first) {
         let fx = is.fun(this.directions.x)
@@ -49,80 +54,74 @@
         let fy = is.fun(this.directions.y)
                       ? this.directions.y(this.following) : this.directions.y;
 
-        this[first === true ? "centerOn" : "softCenterOn"](
+        return this[first === true ? "centerOn" : "softCenterOn"](
                       fx ? this.following.p.x - this.offsetX : undefined,
                       fy ? this.following.p.y - this.offsetY : undefined);
       },
       offset: function(x,y) {
         this.offsetX = x;
         this.offsetY = y;
+        return this;
       },
       softCenterOn: function(x,y) {
-        if(x !== void 0) {
+        if(x !== undefined) {
           let dx = (x - Mojo.width / 2 / this.scale - this.x)/3;
           if(this.boundingBox) {
-            if(this.x + dx < this.boundingBox.minX) {
+            if(this.x + dx < this.boundingBox.minX)
               this.x = this.boundingBox.minX / this.scale;
-            }
-            else if(this.x + dx > (this.boundingBox.maxX - Mojo.width) / this.scale) {
-              this.x = Math.max(this.boundingBox.maxX - Mojo.width, this.boundingBox.minX) / this.scale;
-            }
-            else {
+            else if(this.x + dx > (this.boundingBox.maxX - Mojo.width) / this.scale)
+              this.x = _.max(this.boundingBox.maxX - Mojo.width, this.boundingBox.minX) / this.scale;
+            else
               this.x += dx;
-            }
-          }
-          else {
+          } else {
             this.x += dx;
           }
         }
-        if(y !== void 0) {
+        if(y !== undefined) {
           let dy = (y - Mojo.height / 2 / this.scale - this.y)/3;
           if(this.boundingBox) {
-            if(this.y + dy < this.boundingBox.minY) {
+            if(this.y + dy < this.boundingBox.minY)
               this.y = this.boundingBox.minY / this.scale;
-            }
-            else if(this.y + dy > (this.boundingBox.maxY - Mojo.height) / this.scale) {
-              this.y = Math.max(this.boundingBox.maxY - Mojo.height, this.boundingBox.minY) / this.scale;
-            }
-            else {
+            else if(this.y + dy > (this.boundingBox.maxY - Mojo.height) / this.scale)
+              this.y = _.max(this.boundingBox.maxY - Mojo.height, this.boundingBox.minY) / this.scale;
+            else
               this.y += dy;
-            }
-          }
-          else {
+          } else {
             this.y += dy;
           }
         }
+        return this;
       },
       centerOn: function(x,y) {
-        if(x !== void 0) {
+        if(x !== undefined)
           this.x = x - Mojo.width / 2 / this.scale;
-        }
-        if(y !== void 0) {
+        if(y !== undefined)
           this.y = y - Mojo.height / 2 / this.scale;
-        }
+        return this;
       },
       moveTo: function(x,y) {
-        if(x !== void 0) {
-          this.x = x;
-        }
-        if(y !== void 0) {
-          this.y = y;
-        }
-        return this.entity;
+        if(x !== undefined) this.x = x;
+        if(y !== undefined) this.y = y;
+        return this;
       },
       prerender: function() {
         this.centerX = this.x + Mojo.width / 2 /this.scale;
         this.centerY = this.y + Mojo.height / 2 /this.scale;
         Mojo.ctx.save();
-        Mojo.ctx.translate(Math.floor(Mojo.width/2),Math.floor(Mojo.height/2));
+        Mojo.ctx.translate(_.floor(Mojo.width/2),_.floor(Mojo.height/2));
         Mojo.ctx.scale(this.scale,this.scale);
-        Mojo.ctx.translate(-Math.floor(this.centerX), -Math.floor(this.centerY));
+        Mojo.ctx.translate(-_.floor(this.centerX), -_.floor(this.centerY));
+        return this;
       },
       postrender: function() {
         Mojo.ctx.restore();
+        return this;
       }
     });
 
+    /**
+     * @class TileLayer
+     */
     Mojo.defType(["TileLayer",Mojo.Sprite], {
       init: function(props) {
         this._super(props,{
@@ -130,8 +129,8 @@
           tileH: 32,
           blockTileW: 10,
           blockTileH: 10,
-          type: 1,
-          renderAlways: true
+          renderAlways: true,
+          type: Mojo.E_DEFAULT
         });
 
         this.p.dataAsset &&
@@ -143,7 +142,7 @@
         this.p.blockW = this.p.tileW * this.p.blockTileW;
         this.p.blockH = this.p.tileH * this.p.blockTileH;
 
-        this.contactNormal = { separate: []};
+        this.contactNormal = { separate: [] };
         this.tileProperties = {};
         this.colBounds = {};
         this.blocks = [];
@@ -198,83 +197,69 @@
           this.p.h = this.p.rows * this.p.tileH;
         }
       },
-
       getTile: function(tileX,tileY) {
         return this.p.tiles[tileY] && this.p.tiles[tileY][tileX];
       },
-
       getTileProperty: function(tile, prop) {
-        return (this.tileProperties[tile] !== void 0) ? this.tileProperties[tile][prop] : void 0;
+        if(tile &&
+           this.tileProperties[tile])
+          return this.tileProperties[tile][prop];
       },
-
       getTileProperties: function(tile) {
-        return (this.tileProperties[tile] !== void 0) ? this.tileProperties[tile] : {};
+        return (tile && this.tileProperties[tile]) ? this.tileProperties[tile] : {};
       },
-
       getTilePropertyAt: function(tileX, tileY, prop) {
         return this.getTileProperty(this.getTile(tileX, tileY), prop);
       },
-
       getTilePropertiesAt: function(tileX, tileY) {
         return this.getTileProperties(this.getTile(tileX, tileY));
       },
-
       tileHasProperty: function(tile, prop) {
-        return this.getTileProperty(tile, prop) !== void 0;
+        return !!this.getTileProperty(tile, prop);
       },
-
       setTile: function(x,y,tile) {
         let p = this.p,
-            blockX = Math.floor(x/p.blockTileW),
-            blockY = Math.floor(y/p.blockTileH);
-
+            blockX = _.floor(x/p.blockTileW),
+            blockY = _.floor(y/p.blockTileH);
         if(x >= 0 && x < this.p.cols &&
            y >= 0 && y < this.p.rows) {
-
           this.p.tiles[y][x] = tile;
-
-          if(this.blocks[blockY]) {
+          if(this.blocks[blockY])
             this.blocks[blockY][blockX] = null;
-          }
         }
       },
-
       tilePresent: function(tileX,tileY) {
         return this.p.tiles[tileY] &&
                this.collidableTile(this.p.tiles[tileY][tileX]);
       },
-
       // Overload this method to draw tiles at frame 0 or not draw
       // tiles at higher number frames
       drawableTile: (tileNum) => { return tileNum > 0; },
-
       // Overload this method to control which tiles cause a collision
       // (defaults to all tiles > number 0)
       collidableTile: (tileNum) => { return tileNum > 0; },
-
       getContactObj: function(tileX, tileY) {
         let p = this.p,
             colObj,
             tile = this.getTile(tileX, tileY);
 
-        colObj = (this.tileContactObjs[tile] !== void 0) ?
-          this.tileContactObjs[tile] : this.contactObj;
+        colObj = (tile && this.tileContactObjs[tile])
+                 ? this.tileContactObjs[tile] : this.contactObj;
 
         colObj.p.x = tileX * p.tileW + p.x + p.tileW/2;
         colObj.p.y = tileY * p.tileH + p.y + p.tileH/2;
 
         return colObj;
       },
-
       collide: function(obj) {
-        let p = this.p,
+        let col, colObj,
+            p = this.p,
             objP = obj.c || obj.p,
-            tileStartX = Math.floor((objP.x - objP.cx - p.x) / p.tileW),
-            tileStartY = Math.floor((objP.y - objP.cy - p.y) / p.tileH),
-            tileEndX =  Math.ceil((objP.x - objP.cx + objP.w - p.x) / p.tileW),
-            tileEndY =  Math.ceil((objP.y - objP.cy + objP.h - p.y) / p.tileH),
             normal = this.contactNormal,
-            col, colObj;
+            tileStartX = _.floor((objP.x - objP.cx - p.x) / p.tileW),
+            tileStartY = _.floor((objP.y - objP.cy - p.y) / p.tileH),
+            tileEndX =  _.ceil((objP.x - objP.cx + objP.w - p.x) / p.tileW),
+            tileEndY =  _.ceil((objP.y - objP.cy + objP.h - p.y) / p.tileH);
 
         normal.collided = false;
 
@@ -286,29 +271,28 @@
               if(col && col.magnitude > 0) {
                 if(colObj.p.sensor) {
                   colObj.tile = this.getTile(tileX,tileY);
-                  Mojo.EventBus.pub('sensor.tile', obj, colObj);
+                  Mojo.EventBus.pub("sensor.tile", obj, colObj);
                 } else if(!normal.collided ||
-                          normal.magnitude < col.magnitude ) {
-                   normal.collided = true;
-                   normal.separate[0] = col.separate[0];
-                   normal.separate[1] = col.separate[1];
-                   normal.magnitude = col.magnitude;
-                   normal.distance = col.distance;
-                   normal.normalX = col.normalX;
-                   normal.normalY = col.normalY;
-                   normal.tileX = tileX;
-                   normal.tileY = tileY;
-                   normal.tile = this.getTile(tileX,tileY);
-                   if(obj.p.collisions !== void 0) obj.p.collisions.push(normal);
+                          normal.magnitude < col.magnitude) {
+                  normal.collided = true;
+                  normal.separate[0] = col.separate[0];
+                  normal.separate[1] = col.separate[1];
+                  normal.magnitude = col.magnitude;
+                  normal.distance = col.distance;
+                  normal.normalX = col.normalX;
+                  normal.normalY = col.normalY;
+                  normal.tileX = tileX;
+                  normal.tileY = tileY;
+                  normal.tile = this.getTile(tileX,tileY);
+                  if(obj.p.collisions)
+                    _.conj(obj.p.collisions,normal);
                 }
               }
             }
           }
         }
-
         return normal.collided ? normal : false;
       },
-
       prerenderBlock: function(blockX,blockY) {
         let p = this.p,
             tiles = p.tiles,
@@ -321,43 +305,34 @@
            blockOffsetY < 0 ||
            blockOffsetY >= this.p.rows) { return; }
 
-        let canvas = document.createElement("canvas"),
+        let canvas = Mojo.domCtor("canvas"),
             ctx = canvas.getContext("2d");
         canvas.width = p.blockW;
         canvas.height= p.blockH;
         this.blocks[blockY] = this.blocks[blockY] || {};
         this.blocks[blockY][blockX] = canvas;
-
-        for(let y=0;y<p.blockTileH;++y) {
-          if(tiles[y+blockOffsetY]) {
-            for(let x=0;x<p.blockTileW;++x) {
-              if(this.drawableTile(tiles[y+blockOffsetY][x+blockOffsetX])) {
+        for(let y=0;y<p.blockTileH;++y)
+          if(tiles[y+blockOffsetY])
+            for(let x=0;x<p.blockTileW;++x)
+              if(this.drawableTile(tiles[y+blockOffsetY][x+blockOffsetX]))
                 sheet.draw(ctx,
                            x*p.tileW,
                            y*p.tileH,
                            tiles[y+blockOffsetY][x+blockOffsetX]);
-              }
-            }
-          }
-        }
       },
-
       drawBlock: function(ctx, blockX, blockY) {
         let p = this.p,
-            startX = Math.floor(blockX * p.blockW + p.x),
-            startY = Math.floor(blockY * p.blockH + p.y);
+            startX = _.floor(blockX * p.blockW + p.x),
+            startY = _.floor(blockY * p.blockH + p.y);
 
         if(!this.blocks[blockY] ||
-           !this.blocks[blockY][blockX]) {
+           !this.blocks[blockY][blockX])
           this.prerenderBlock(blockX,blockY);
-        }
 
         if(this.blocks[blockY] &&
-           this.blocks[blockY][blockX]) {
+           this.blocks[blockY][blockX])
           ctx.drawImage(this.blocks[blockY][blockX],startX,startY);
-        }
       },
-
       draw: function(ctx) {
         let p = this.p,
             port = this.stage.camera,
@@ -366,37 +341,37 @@
             y = port ? port.y : 0,
             viewW = Mojo.width / scale,
             viewH = Mojo.height / scale,
-            startBlockX = Math.floor((x - p.x) / p.blockW),
-            startBlockY = Math.floor((y - p.y) / p.blockH),
-            endBlockX = Math.floor((x + viewW - p.x) / p.blockW),
-            endBlockY = Math.floor((y + viewH - p.y) / p.blockH);
+            startBlockX = _.floor((x - p.x) / p.blockW),
+            startBlockY = _.floor((y - p.y) / p.blockH),
+            endBlockX = _.floor((x + viewW - p.x) / p.blockW),
+            endBlockY = _.floor((y + viewH - p.y) / p.blockH);
 
-        for(let iy=startBlockY;iy<=endBlockY;++iy) {
-          for(var ix=startBlockX;ix<=endBlockX;++ix) {
-            this.drawBlock(ctx,ix,iy);
-          }
-        }
+        for(let iy=startBlockY;iy<=endBlockY;++iy)
+          for(let ix=startBlockX;ix<=endBlockX;++ix) this.drawBlock(ctx,ix,iy);
       }
     });
 
     Mojo.gravityY = 9.8*100;
     Mojo.gravityX = 0;
 
+    /**
+     * @object
+     */
     Mojo.feature("2d",{
       added: function() {
-        let entity = this.entity;
-        _.patch(entity.p,{
+        let ent= this.entity;
+        _.patch(ent.p,{
           vx: 0,
           vy: 0,
           ax: 0,
           ay: 0,
           gravity: 1,
-          collisionMask: Mojo.SPRITE_DEFAULT
+          collisionMask: Mojo.E_DEFAULT
         });
-        Mojo.EventBus.sub([["step",entity,"step",this],
-                           ["hit",entity,'collision',this]]);
+        Mojo.EventBus.sub([["step",ent,"step",this],
+                           ["hit",ent,'collision',this]]);
       },
-      disposed:function() {
+      disposed: function() {
         Mojo.EventBus.unsub([["step",this.entity,"step",this],
                              ["hit",this.entity,'collision',this]]);
       },
@@ -411,8 +386,8 @@
         }
 
         col.impact = 0;
-        let impactX = Math.abs(p.vx);
-        let impactY = Math.abs(p.vy);
+        let impactX = _.abs(p.vx),
+            impactY = _.abs(p.vy);
 
         p.x -= col.separate[0];
         p.y -= col.separate[1];
@@ -421,29 +396,28 @@
         if(col.normalY < -0.3) {
           if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
           col.impact = impactY;
-          Mojo.EventBus.pub("bump.bottom", entity,col);
-          Mojo.EventBus.pub("bump", entity,col);
+          Mojo.EventBus.pub([["bump.bottom", entity,col],
+                             ["bump", entity,col]]);
         }
         if(col.normalY > 0.3) {
           if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
           col.impact = impactY;
-          Mojo.EventBus.pub("bump.top",entity,col);
-          Mojo.EventBus.pub("bump",entity,col);
+          Mojo.EventBus.pub([["bump.top",entity,col],
+                             ["bump",entity,col]]);
         }
         if(col.normalX < -0.3) {
           if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
           col.impact = impactX;
-          Mojo.EventBus.pub("bump.right",entity,col);
-          Mojo.EventBus.pub("bump",entity,col);
+          Mojo.EventBus.pub([["bump.right",entity,col],
+                             ["bump",entity,col]]);
         }
         if(col.normalX > 0.3) {
           if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
           col.impact = impactX;
-          Mojo.EventBus.pub("bump.left",entity,col);
-          Mojo.EventBus.pub("bump",entity,col);
+          Mojo.EventBus.pub([["bump.left",entity,col],
+                             ["bump",entity,col]]);
         }
       },
-
       step: function(dt) {
         let p = this.entity.p,
             dtStep = dt;
@@ -451,10 +425,10 @@
         // reduce the max dtStep if necessary to prevent
         // skipping through objects.
         while(dtStep > 0) {
-          dt = Math.min(1/30,dtStep);
+          dt = _.min(1/30,dtStep);
           // Updated based on the velocity and acceleration
-          p.vx += p.ax * dt + (p.gravityX === void 0 ? Mojo.gravityX : p.gravityX) * dt * p.gravity;
-          p.vy += p.ay * dt + (p.gravityY === void 0 ? Mojo.gravityY : p.gravityY) * dt * p.gravity;
+          p.vx += p.ax * dt + (p.gravityX === undefined ? Mojo.gravityX : p.gravityX) * dt * p.gravity;
+          p.vy += p.ay * dt + (p.gravityY === undefined ? Mojo.gravityY : p.gravityY) * dt * p.gravity;
           p.x += p.vx * dt;
           p.y += p.vy * dt;
 
@@ -464,6 +438,9 @@
       }
     });
 
+    /**
+     * @object
+     */
     Mojo.feature("aiBounce", {
       added: function() {
         Mojo.EventBus.sub([["bump.right",this.entity,"goLeft",this],
@@ -480,7 +457,6 @@
         else
           this.entity.p.flip = false;
       },
-
       goRight: function(col) {
         this.entity.p.vx = col.impact;
         if(this.entity.p.defaultDirection === "left")
@@ -490,6 +466,9 @@
       }
     });
 
+    /**
+     * @method
+     */
     Mojo.overlap = (o1,o2) => {
       let c1 = o1.c || o1.p || o1;
       let c2 = o2.c || o2.p || o2;
@@ -503,27 +482,30 @@
                (o1x+c1.w<o2x) || (o1x>o2x+c2.w));
     };
 
+    /**
+     * @method
+     */
     Mojo.collision = (function() {
       let normalX,
           normalY,
           offset = [0,0],
           result1 = { separate: [] },
           result2 = { separate: [] };
-      function calculateNormal(points,idx) {
+      let calculateNormal= (points,idx) => {
         let pt1 = points[idx],
             pt2 = points[idx+1] || points[0];
         normalX = -(pt2[1] - pt1[1]);
         normalY = pt2[0] - pt1[0];
-        let dist = Math.sqrt(normalX*normalX + normalY*normalY);
+        let dist = _.sqrt(normalX*normalX + normalY*normalY);
         if(dist > 0) {
           normalX /= dist;
           normalY /= dist;
         }
-      }
-      function dotProductAgainstNormal(point) {
+      };
+      let dotProductAgainstNormal = (point) => {
         return (normalX * point[0]) + (normalY * point[1]);
-      }
-      function collide(o1,o2,flip) {
+      };
+      let collide = (o1,o2,flip) => {
         let min1,max1,
             min2,max2,
             d1, d2,
@@ -579,7 +561,7 @@
           if(d1 > 0 || d2 > 0) { return null; }
           minDist = (max2 - min1) * -1;
           if(flip) { minDist *= -1; }
-          minDistAbs = Math.abs(minDist);
+          minDistAbs = _.abs(minDist);
           if(minDistAbs < shortestDist) {
             result.distance = minDist;
             result.magnitude = minDistAbs;
@@ -595,8 +577,9 @@
           }
         }
         return collided ? result : null;
-      }
-      function satCollision(o1,o2) {
+      };
+      //satCollision
+      return (o1,o2) => {
         let result1, result2, result;
         if(!o1.p.points)
           Mojo.genPts(o1);
@@ -611,10 +594,8 @@
         result.separate[0] = result.distance * result.normalX;
         result.separate[1] = result.distance * result.normalY;
         return result;
-      }
-      return satCollision;
+      };
     })();
-
 
     return Mojo;
   };

@@ -27,13 +27,6 @@
     keys: (obj) => {
       return isMap(obj) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
     },
-    log: function() {
-      let msg="";
-      if(true) {
-        for(let i=0;i<arguments.length;++i) msg += arguments[i];
-        console.log(msg);
-      }
-    },
     assert: (cond) => {
       if(cond)
       {}
@@ -44,6 +37,9 @@
     jsObj: () => { return {}; },
     jsVec: () => { return []; },
     floor: (v) => { return Math.floor(v); },
+    ceil: (v) => { return Math.ceil(v); },
+    abs: (v) => { return Math.abs(v); },
+    sqrt: (v) => { return Math.sqrt(v); },
     min: (a,b) => { return Math.min(a,b); },
     max: (a,b) => { return Math.max(a,b); },
     slice: (a,i) => { return slicer.call(a, i); },
@@ -189,7 +185,7 @@
     },
     seq: (arg,sep=",") => {
       if(typeof arg === "string")
-        arg = arg.replace(/\s+/g,'').split(sep);
+        arg = arg.split(sep).map(s => s.trim()).filter(s => s.length>0);
       if(!isArray(arg)) arg = [arg];
       return arg;
     },
@@ -370,11 +366,19 @@
       }
     };
     this.pub= function(event,target,data) {
-      let m= this.tree.get(target);
-      if(m)
-        m= m.get(event);
-      if(m)
-        m.forEach(s => s[0].call(s[1],data));
+      if(is.vec(event) &&
+         arguments.length===1) {
+        event.forEach(e => {
+          if(is.vec(e))
+            this.pub.apply(this, e);
+        });
+      } else {
+        let m= this.tree.get(target);
+        if(m)
+          m= m.get(event);
+        if(m)
+          m.forEach(s => s[0].call(s[1],data));
+      }
     };
     this.unsub= function(event,target,cb,ctx) {
       if(is.vec(event) &&
@@ -409,12 +413,31 @@
     let aux=["Tiles"];
     let Mojo= {};
     Mojo.options = _.inject({imagePath: "images/",
-                           dataPath:  "data/",
-                           audioPath: "audio/",
-                           sound: true,
-                           frameTimeLimit: 100,
-                           autoFocus: true,
-                           audioFiles: ["mp3","ogg"]}, opts);
+                             dataPath:  "data/",
+                             audioPath: "audio/",
+                             sound: true,
+                             frameTimeLimit: 100,
+                             autoFocus: true,
+                             audioFiles: ["mp3","ogg"]}, opts);
+
+    // entity types
+    Mojo.E_NONE     = 0;
+    Mojo.E_DEFAULT  = 1;
+    Mojo.E_PARTICLE = 2;
+    Mojo.E_ACTIVE   = 4;
+    Mojo.E_FRIENDLY = 8;
+    Mojo.E_ENEMY    = 16;
+    Mojo.E_POWERUP  = 32;
+    Mojo.E_UI       = 64;
+    Mojo.E_ALL   = 0xFFFF;
+
+    Mojo.log= function() {
+      let msg="";
+      if(Mojo.options.debug) {
+        for(let i=0;i<arguments.length;++i) msg += arguments[i];
+        console.log(msg);
+      }
+    };
 
     Mojo.touchDevice= !!("ontouchstart" in document);
     Mojo["$"]= function(selector) {};
@@ -830,28 +853,31 @@
       return Mojo;
     };
 
-    ["Math", "Sprites", "Scenes", "2D",
-      "Anim", "Input", "Audio", "Touch", "UI"].forEach(k => {
-        let f= MojoH5[k];
-        if(!f)
-          _.log("warn: module `"+ k + "` missing."); else f(Mojo);
-      });
+    // install modules
+    //core modules
+    ["Math", "Sprites", "Scenes"].forEach(k => MojoH5[k](Mojo));
+    //optional/other modules
+    ["Audio", "UI", "Anim",
+     "2D", "Input", "Touch"].concat(_.seq(Mojo.options.modules||"")).forEach(k => {
+      let f= MojoH5[k];
+      if(!f)
+        Mojo.log("warn: module `"+ k + "` missing."); else f(Mojo);
+    });
 
-    _.seq(Mojo.options.modules || []).forEach(m => {
-      let f= MojoH5[m];
-        if(!f)
-          _.log("warn: module `"+ m + "` missing."); else f(Mojo);
-      });
-
+    /**
+     * @method
+     */
     Mojo.prologue = function(id, options) {
+
       if(is.obj(id)) {
         options = id;
         id = null;
       }
+
       options = options || {};
       id = id || "mojo";
 
-      Mojo.el = is.str(id) ? document.getElementById(id) : id;
+      Mojo.el = is.str(id) ? Mojo.domById(id) : id;
       if(!Mojo.el) {
         Mojo.el= Mojo.domCtor("canvas", {id: id,
                                          width: options.width || 320,

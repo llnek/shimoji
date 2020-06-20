@@ -54,7 +54,7 @@
           shadowColor: false, // Set to a rgba value for the shadow
           outlineWidth: false, // Set to a width to outline text
           outlineColor: "#000",
-          type: Mojo.SPRITE_NONE
+          type: Mojo.E_NONE
         });
       },
       insert: function(obj) {
@@ -141,7 +141,7 @@
           size: 24,
           lineHeight: 1.2,
           align: "center",
-          type: Mojo.SPRITE_UI
+          type: Mojo.E_UI
         });
         //this.el = document.createElement("canvas");
         //this.ctx = this.el.getContext("2d");
@@ -240,7 +240,7 @@
       init: function(p, callback, defaults) {
         this._super(_.patch(_.inject({},p),defaults),{
           keyActionName: null,
-          type: Mojo.SPRITE_UI | Mojo.SPRITE_DEFAULT
+          type: Mojo.E_UI | Mojo.E_DEFAULT
         });
         if(this.p.label &&
            (!this.p.w || !this.p.h)) {
@@ -290,7 +290,7 @@
     Mojo.defType(["IFrame", Mojo.Sprite], {
       init: function(p) {
         this._super(p, { opacity: 1,
-                         type: Mojo.SPRITE_UI | Mojo.SPRITE_DEFAULT });
+                         type: Mojo.E_UI | Mojo.E_DEFAULT });
         Mojo.wrapper.style.overflow = "hidden";
         this.iframe = document.createElement("IFRAME");
         this.iframe.setAttribute("src",this.p.url);
@@ -343,7 +343,7 @@
 
     Mojo.defType(["HTMLElement", Mojo.Sprite], {
       init: function(p) {
-        this._super(p, { opacity: 1, type: Mojo.SPRITE_UI  });
+        this._super(p, { opacity: 1, type: Mojo.E_UI  });
 
         Mojo.wrapper.style.overflow = "hidden";
 
@@ -374,7 +374,7 @@
     Mojo.defType(["VerticalLayout", Mojo.Sprite], {
       init: function(p) {
         this.children = [];
-        this._super(p, { type: Mojo.SPRITE_NONE});
+        this._super(p, { type: Mojo.E_NONE});
       },
       insert: function(sprite) {
         this.stage.insert(sprite,this);
