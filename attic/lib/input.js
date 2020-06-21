@@ -71,14 +71,14 @@
         Mojo.el.addEventListener(evt,f,arg);
     };
 
-    Mojo.canvasToStageX = (x,stage) => {
+    Mojo.canvasToSceneX = (x,scene) => {
       x = x / Mojo.cssWidth * Mojo.width;
-      return stage.camera ? ((x/stage.camera.scale)+stage.camera.x) : x;
+      return scene.camera ? ((x/scene.camera.scale)+scene.camera.x) : x;
     };
 
-    Mojo.canvasToStageY = (y,stage) => {
+    Mojo.canvasToSceneY = (y,scene) => {
       y = y / Mojo.cssWidth * Mojo.width;
-      return stage.camera ? ((y/stage.camera.scale)+stage.camera.y) : y;
+      return scene.camera ? ((y/scene.camera.scale)+scene.camera.y) : y;
     };
 
     Mojo.input = {
@@ -330,7 +330,7 @@
 
       mouseControls: function(options) {
         options = options || {};
-        let stageNum = options.stageNum || 0;
+        let slot = options.slot || 0;
         let mouseInputX = options.mouseX || "mouseX";
         let mouseInputY = options.mouseY || "mouseY";
         let cursor = options.cursor || "off";
@@ -350,7 +350,7 @@
             style = window.getComputedStyle(el),
             px = touch.clientX - rect.left - parseInt(style.paddingLeft),
             py = touch.clientY - rect.top  - parseInt(style.paddingTop);
-          let stage = Mojo.stage(stageNum);
+          let scene = Mojo.scene(slot);
           if(is.undef(px) ||
              is.undef(py)) {
             px = touch.offsetX;
@@ -370,9 +370,9 @@
             px = touch.pageX - _offset.x;
             py = touch.pageY - _offset.y;
           }
-          if(stage) {
-            mouseMoveObj.x= Mojo.canvasToStageX(px,stage);
-            mouseMoveObj.y= Mojo.canvasToStageY(py,stage);
+          if(scene) {
+            mouseMoveObj.x= Mojo.canvasToSceneX(px,scene);
+            mouseMoveObj.y= Mojo.canvasToSceneY(py,scene);
             Mojo.inputs.set(mouseInputX, mouseMoveObj.x);
             Mojo.inputs.set(mouseInputY, mouseMoveObj.y);
             Mojo.EventBus.pub("mouseMove",self,mouseMoveObj);

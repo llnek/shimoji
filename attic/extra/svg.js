@@ -134,7 +134,7 @@
       }
     });
 
-    Mojo.defType(["SVGStage",Mojo.Stage],{
+    Mojo.defType(["SVGScene",Mojo.Scene],{
       init: function(scene) {
         this.svg = document.createElementNS(SVG_NS,'svg');
         this.svg.setAttribute('width',Mojo.width);
@@ -192,7 +192,7 @@
     });
 
     Mojo.svgOnly=function() {
-      Mojo.Stage = Mojo.SVGStage;
+      Mojo.Scene = Mojo.SVGScene;
       Mojo.prologue = Mojo.setupSVG;
       Mojo.Sprite = Mojo.SVGSprite;
       return Mojo;

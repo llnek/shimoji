@@ -187,7 +187,7 @@
 
     });
 
-    Mojo.defType(["DOMStage",Mojo.Stage],{
+    Mojo.defType(["DOMScene",Mojo.Scene],{
       init: function(scene) {
         this.dom= Mojo.domCtor("div", {}, {top: "0",
                                            position: "relative"});
@@ -223,7 +223,7 @@
     });
 
     Mojo.domOnly = function() {
-      Mojo.Stage = Mojo.DOMStage;
+      Mojo.Scene = Mojo.DOMScene;
       Mojo.Sprite = Mojo.DOMSprite;
       Mojo.prologue = Mojo.setupDOM;
       return Mojo;

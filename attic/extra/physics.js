@@ -98,7 +98,7 @@
     Mojo.PhysicsEntityDefaults = entityDefaults;
     Mojo.feature("physics",{
       added: function() {
-        if(this.entity.stage)
+        if(this.entity.scene)
           this.inserted();
         else
           Mojo.EventBus.sub("inserted",this.entity,"inserted",this);
@@ -111,7 +111,7 @@
                              ["removed",this.entity,"removed",this]]);
       },
       position: function(x,y) {
-        let L = this.entity.stage;
+        let L = this.entity.scene;
         this._body.SetAwake(true);
         this._body.SetPosition(new B2d.Vec(x / L.world.scale,
                                            y / L.world.scale));
@@ -122,7 +122,7 @@
       },
 
       velocity: function(x,y) {
-        let L= this.entity.stage;
+        let L= this.entity.scene;
         this._body.SetAwake(true);
         this._body.SetLinearVelocity(new B2d.Vec(x / L.world.scale,
                                                  y / L.world.scale));
@@ -130,7 +130,7 @@
 
       inserted: function() {
         let entity = this.entity,
-            L = entity.stage,
+            L = entity.scene,
             scale = L.world.scale,
             p = entity.p,
             ops = entityDefaults,
@@ -173,13 +173,13 @@
 
       removed: function() {
         let entity = this.entity,
-            L = entity.stage;
+            L = entity.scene;
         L.world.destroyBody(this._body);
       },
 
       step: function() {
         let p = this.entity.p,
-            L = this.entity.stage,
+            L = this.entity.scene,
             pos = this._body.GetPosition(),
             angle = this._body.GetAngle();
         p.x = pos.x * L.world.scale;

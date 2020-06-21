@@ -35,8 +35,8 @@
         if(is.undef(boundingBox) &&
            this.entity.cache &&
            this.entity.cache.TileLayer !== undefined) {
-          this.boundingBox = _.some(this.entity.cache.TileLayer, (stage) => {
-            return stage.p.boundingBox ? { minX: 0, maxX: stage.p.w, minY: 0, maxY: stage.p.h } : null;
+          this.boundingBox = _.some(this.entity.cache.TileLayer, (scene) => {
+            return scene.p.boundingBox ? { minX: 0, maxX: scene.p.w, minY: 0, maxY: scene.p.h } : null;
           });
         } else {
           this.boundingBox = boundingBox;
@@ -335,7 +335,7 @@
       },
       draw: function(ctx) {
         let p = this.p,
-            port = this.stage.camera,
+            port = this.scene.camera,
             scale = port ? port.scale : 1,
             x = port ? port.x : 0,
             y = port ? port.y : 0,
@@ -432,7 +432,7 @@
           p.x += p.vx * dt;
           p.y += p.vy * dt;
 
-          this.entity.stage.collide(this.entity);
+          this.entity.scene.collide(this.entity);
           dtStep -= dt;
         }
       }

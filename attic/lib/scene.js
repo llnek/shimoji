@@ -9,26 +9,17 @@
 
     let _=Mojo.u,
         is=Mojo.is,
+        _activeScene = 0,
+        _sceneQueue = _.jsVec(),
+        _sceneFuncs = _.jsMap(),
         _defs= {gridW: 400, gridH: 400, x:0, y:0, sort: false};
-
-    /**
-     */
-    Mojo.scenes = _.jsMap();
-
-    /**
-     */
-    Mojo.activeStage = 0;
-
-    /**
-     */
-    Mojo.stages = [];
 
     /**
      * @function
      */
-    let _hitLayer= function(stage,obj,collisionMask) {
-      for(let y,c,i=0,z=stage.contactLayers.length;i<z;++i) {
-        y=stage.contactLayers[i];
+    let _hitLayer= function(scene,obj,collisionMask) {
+      for(let y,c,i=0,z=scene.contactLayers.length;i<z;++i) {
+        y=scene.contactLayers[i];
         if(y.p.type & collisionMask)
           if(c= y.collide(obj)) { c.obj = y; return c; }
       }
@@ -37,26 +28,26 @@
     /**
      * @function
      */
-    let _markAll= function(stage) {
-      let time=stage.tick,
-          items= stage.items,
-          view= stage.camera,
+    let _markAll= function(scene) {
+      let time=scene.tick,
+          items= scene.items,
+          view= scene.camera,
           x = view ? view.x : 0,
           y = view ? view.y : 0,
           scale = view ? view.scale : 1,
           viewW = Mojo.width / scale,
           viewH = Mojo.height / scale,
-          gridX1 = _.floor(x / stage.options.gridW),
-          gridY1 = _.floor(y / stage.options.gridH),
-          gridX2 = _.floor((x + viewW) / stage.options.gridW),
-          gridY2 = _.floor((y + viewH) / stage.options.gridH),
+          gridX1 = _.floor(x / scene.options.gridW),
+          gridY1 = _.floor(y / scene.options.gridH),
+          gridX2 = _.floor((x + viewW) / scene.options.gridW),
+          gridY2 = _.floor((y + viewH) / scene.options.gridH),
           tmp,X,B;
       for(let iy=gridY1; iy<=gridY2; ++iy)
-        if(X=_.get(stage.grid,iy))
+        if(X=_.get(scene.grid,iy))
           for(let ix=gridX1; ix<=gridX2; ++ix)
             if(B=_.get(X,ix))
               B.forEach((v,k) => {
-                if(tmp=_.get(stage.index,k))
+                if(tmp=_.get(scene.index,k))
                 { tmp.mark = time;
                   if(tmp.container)
                     tmp.container.mark = time; }
@@ -82,23 +73,23 @@
     /**
      * @function
      */
-    let _hitTest= function(stage,obj,collisionMask) {
+    let _hitTest= function(scene,obj,collisionMask) {
       let X,Y,col, g=obj.bbox4;
       for(let y = g.y1;y <= g.y2;++y)
-        if(Y=stage.grid.get(y))
+        if(Y=scene.grid.get(y))
           for(let x = g.x1;x <= g.x2;++x)
             if(X=Y.get(x))
-              if(col= _.some(X,_testHit,stage,obj,collisionMask))
+              if(col= _.some(X,_testHit,scene,obj,collisionMask))
                 return col;
     };
 
     /**
      * @function
      */
-    let _delFromGrid= (stage, item) => {
+    let _delFromGrid= (scene, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2; ++y)
-        if(Y=stage.grid.get(y))
+        if(Y=scene.grid.get(y))
           for(let x = g.x1;x<=g.x2;++x)
             if(X=Y.get(x))
               _.dissoc(X,item.p.id);
@@ -107,12 +98,12 @@
     /**
      * @function
      */
-    let _addToGrid= (stage, item) => {
+    let _addToGrid= (scene, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2;++y) {
-        if(!stage.grid.has(y))
-          stage.grid.set(y, _.jsMap());
-        Y=stage.grid.get(y);
+        if(!scene.grid.has(y))
+          scene.grid.set(y, _.jsMap());
+        Y=scene.grid.get(y);
         for(let x = g.x1;x <= g.x2;++x) {
           if(!Y.has(x))
             Y.set(x, _.jsMap());
@@ -125,18 +116,18 @@
     /**
      * @object
      */
-    let _locateOb= {
+    let _locateObj= {
       //x,y => center
       //cx,cy => x-cx = left,y-cy=top
       p: {x: 0, y: 0, cx: 0, cy: 0, w: 1, h: 1 }
     };
 
     /**
-     * @class Stage
+     * @class Scene
      */
-    Mojo.defType(["Stage", Mojo.Entity], {
+    Mojo.defType(["Scene", Mojo.Entity], {
       init: function(func,options) {
-        this.scene = func;
+        this.sceneFunc = func;
         this.items = [];
         // stores relations for fast select like jQuery
         this.cache = _.jsMap();
@@ -175,7 +166,7 @@
         return this;
       },
       run: function() {
-        return this.scene(this);
+        return this.sceneFunc(this);
       },
       each: function(cb) {
         let args= _.slice(arguments,1);
@@ -193,7 +184,7 @@
       insert: function(itm,container) {
 
         this.items.push(itm);
-        itm.stage = this;
+        itm.scene = this;
         itm.bbox4 = _.jsMap();
 
         if(container)
@@ -258,7 +249,7 @@
       },
       search: function(obj,collisionMask) {
         if(!obj.bbox4)
-          this.regrid(obj, obj.stage !== this);
+          this.regrid(obj, obj.scene !== this);
         if(is.undef(collisionMask))
           collisionMask = obj.p && obj.p.collisionMask;
         return _hitLayer(this,obj,collisionMask) ||
@@ -429,10 +420,10 @@
      */
     Mojo.defType("Locator",{
 
-      init: function(stage,selector) {
-        this.stage = stage;
+      init: function(scene,selector) {
+        this.scene = scene;
         this.selector = selector;
-        this.items = _.get(this.stage.cache, this.selector) || [];
+        this.items = _.get(this.scene.cache, this.selector) || [];
       },
       count: function() { return this.items.length; },
       each: function(cb) {
@@ -486,44 +477,44 @@
     // Q("Enemy").p({ a: "asdfasf"  });
     Mojo["$"]= function(selector) {
       let args= _.slice(arguments,1),
-          y= Mojo.stage(args.length>0 ? args[0] : Mojo.activeStage);
+          y= Mojo.scene(args.length>0 ? args[0] : _activeScene);
       return is.num(selector) ? _.get(y.index,selector) : new Mojo.Locator(y,selector);
     };
 
     /**
      * @method
      */
-    Mojo.stage = (num) => {
-      return Mojo.stages[(num === undefined) ? Mojo.activeStage : num ];
+    Mojo.scene = (num) => {
+      return _sceneQueue[(num === undefined) ? _activeScene : num ];
     };
 
     /**
      * @method
      */
-    Mojo.runScene = function(scene,num,options) {
-      let _s = _.get(Mojo.scenes,scene);
+    Mojo.runScene = function(name,num,options) {
+      let _s = _.get(_sceneFuncs,name);
       if(!_s)
-        throw "Unknown scene id: " + scene;
+        throw "Unknown scene id: " + name;
 
       if(is.obj(num)) {
         options = num;
-        num = _.dissoc(options,"stage");
+        num = _.dissoc(options,"slot");
       }
 
-      options = _.inject({},_s.options,options);
+      options = _.inject({},_s[1],options);
       if(is.undef(num))
-        num= options["stage"] || 0;
+        num= options["slot"] || 0;
 
-      let y= Mojo.stages[num];
+      let y= _sceneQueue[num];
       y && y.dispose();
 
-      Mojo.activeStage = num;
-      y = new Mojo.Stage(_s.scene,options);
-      Mojo.stages[num] = y;
+      _activeScene = num;
+      y = new Mojo.Scene(_s[0],options);
+      _sceneQueue[num] = y;
 
       y.run();
 
-      Mojo.activeStage = 0;
+      _activeScene = 0;
 
       if(!Mojo.loop)
         Mojo.gameLoop(Mojo.runGameLoop);
@@ -540,58 +531,56 @@
       if(dt < 0) dt= 1.0/60;
       if(dt > 1.0/15) dt= 1.0/15;
 
-      for(i=0,z=Mojo.stages.length;i<z;++i) {
-        Mojo.activeStage = i;
-        y = Mojo.stage();
+      for(i=0,z=_sceneQueue.length;i<z;++i) {
+        _activeScene = i;
+        y = Mojo.scene();
         y && y.step(dt);
       }
 
-      Mojo.activeStage = 0;
+      _activeScene = 0;
       Mojo.clear();
 
-      for(i =0,z=Mojo.stages.length;i<z;++i) {
-        Mojo.activeStage = i;
-        y = Mojo.stage();
+      for(i =0,z=_sceneQueue.length;i<z;++i) {
+        _activeScene = i;
+        y = Mojo.scene();
         y && y.render(Mojo.ctx);
       }
 
       Mojo.input &&
         Mojo.ctx &&
           Mojo.input.drawCanvas(Mojo.ctx);
-      Mojo.activeStage = 0;
+      _activeScene = 0;
     };
 
     /**
      * @method
      */
-    Mojo.deleteStage = (num) => {
-      if(Mojo.stages[num]) {
-        Mojo.stages[num].dispose();
-        Mojo.stages[num] = null;
+    Mojo.removeScene = (num) => {
+      if(_sceneQueue[num]) {
+        _sceneQueue[num].dispose();
+        _sceneQueue[num] = null;
       }
     };
 
     /**
      * @method
      */
-    Mojo.deleteStages = () => {
-      for(let i=0,z=Mojo.stages.length;i<z;++i)
-      Mojo.deleteStage(i);
-      Mojo.stages.length = 0;
+    Mojo.removeScenes = () => {
+      for(let i=0,z=_sceneQueue.length;i<z;++i)
+      Mojo.removeScene(i);
+      _sceneQueue.length = 0;
     };
 
     /**
      * @method
      */
-    Mojo.scene = (name,action,opts) => {
+    Mojo.defSceneAct = (name,action,opts) => {
       if(action) {
         if(!is.fun(action))
           throw "Expecting scene action function!";
-        _.assoc(Mojo.scenes,name, {name: name,
-                                   scene: action,
-                                   options: opts || {} });
+        _.assoc(_sceneFuncs,name, [action, opts || {}]);
       }
-      return _.get(Mojo.scenes,name);
+      return _.get(_sceneFuncs,name);
     };
 
 

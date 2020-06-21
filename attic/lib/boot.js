@@ -576,8 +576,8 @@
         entity[this.name] = this;
         _.conj(entity.features,this.featureName);
 
-        entity.stage &&
-          entity.stage.addRelation(this.featureName,entity);
+        entity.scene &&
+          entity.scene.addRelation(this.featureName,entity);
 
         this.entity = entity;
         this.added && this.added();
@@ -587,8 +587,8 @@
         let idx = this.entity.features.indexOf(this.featureName);
         if(idx > -1) {
           this.entity.features.splice(idx,1);
-          this.entity.stage &&
-            this.entity.stage.delRelation(this.featureName,this.entity);
+          this.entity.scene &&
+            this.entity.scene.delRelation(this.featureName,this.entity);
         }
         this.disposed && this.disposed();
       }
@@ -618,8 +618,8 @@
       dispose: function() {
         if(this.isDead) { return; }
         Mojo.EventBus.pub("disposed",this);
-        this.stage &&
-          this.stage.remove(this);
+        this.scene &&
+          this.scene.remove(this);
         this.isDead = true;
         this.disposed && this.disposed();
       }
@@ -874,7 +874,7 @@
         id = null;
       }
 
-      options = options || {};
+      options = _.inject(Mojo.options, options || {});
       id = id || "mojo";
 
       Mojo.el = is.str(id) ? Mojo.domById(id) : id;
