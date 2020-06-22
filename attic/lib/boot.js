@@ -429,6 +429,7 @@
     Mojo.E_ENEMY    = 16;
     Mojo.E_POWERUP  = 32;
     Mojo.E_UI       = 64;
+    Mojo.E_PASSIVE  = 128;
     Mojo.E_ALL   = 0xFFFF;
 
     Mojo.log= function() {

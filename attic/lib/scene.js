@@ -126,8 +126,7 @@
      * @class Scene
      */
     Mojo.defType(["Scene", Mojo.Entity], {
-      init: function(func,options) {
-        this.sceneFunc = func;
+      init: function(funcObj,options) {
         this.items = [];
         // stores relations for fast select like jQuery
         this.cache = _.jsMap();
@@ -141,6 +140,7 @@
         this.contactLayers = [];
         this.options = _.inject({},_defs, {w: Mojo.width,
                                            h: Mojo.height}, options);
+        _.inject(this,funcObj);
       },
       addRelation: function(arg,obj) {
         if(is.vec(arg))
@@ -166,7 +166,9 @@
         return this;
       },
       run: function() {
-        return this.sceneFunc(this);
+        let rc= this.setup && this.setup();
+        this.setup= null;
+        return rc;
       },
       each: function(cb) {
         let args= _.slice(arguments,1);
@@ -366,6 +368,7 @@
       },
       step: function(dt) {
         if(this.paused) { return false; }
+        this.prestep && this.prestep(dt);
         this.tick += dt;
         _markAll(this);
         Mojo.EventBus.pub("prestep",this,dt);
@@ -375,6 +378,7 @@
           this.trash.forEach(x => this.forceRemove(x));
           this.trash.length = 0;
         }
+        this.poststep && this.poststep(dt);
         Mojo.EventBus.pub("poststep",this,dt);
         return this;
       },
@@ -398,6 +402,7 @@
       },
       render: function(ctx) {
         if(this.hidden) { return false; }
+        this.prerender && this.prerender(ctx);
         this.options.sort &&
           this.items.sort(this.options.sort);
         Mojo.EventBus.pub([["prerender",this,ctx],
@@ -409,6 +414,7 @@
              (item.p.renderAlways ||
               item.mark >= this.tick)) { item.render(ctx); }
         });
+        this.postrender && this.postrender(ctx);
         Mojo.EventBus.pub([["render",this,ctx],
                            ["postrender",this,ctx]]);
         return this;
@@ -574,11 +580,14 @@
     /**
      * @method
      */
-    Mojo.defSceneAct = (name,action,opts) => {
-      if(action) {
-        if(!is.fun(action))
-          throw "Expecting scene action function!";
-        _.assoc(_sceneFuncs,name, [action, opts || {}]);
+    Mojo.defScene = (name,action,opts) => {
+      if(is.fun(action)) {
+        action= {setup: action};
+      }
+      if(is.obj(action)) {
+        if(!is.fun(action.setup))
+          throw "Expecting scene setup function!";
+        _.assoc(_sceneFuncs,name,[action, opts||{}]);
       }
       return _.get(_sceneFuncs,name);
     };
