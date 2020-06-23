@@ -165,8 +165,12 @@
         Mojo.EventBus.pub("disposed", this);
         return this;
       },
-      run: function() {
+      slotIndex: function() {
+        return this._slot;
+      },
+      run: function(slotNum) {
         let rc= this.setup && this.setup();
+        this._slot = slotNum;
         this.setup= null;
         return rc;
       },
@@ -517,11 +521,9 @@
       _activeScene = num;
       y = new Mojo.Scene(_s[0],options);
       _sceneQueue[num] = y;
-
-      y.run();
+      y.run(num);
 
       _activeScene = 0;
-
       if(!Mojo.loop)
         Mojo.gameLoop(Mojo.runGameLoop);
 
