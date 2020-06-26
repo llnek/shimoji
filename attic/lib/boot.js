@@ -5,12 +5,11 @@
      global.document.body===undefined)
     throw "Invalid environment, cannot run MojoH5!";
 
-  const ARRAY=Array.prototype,
-        OBJECT=Object.prototype,
-        slicer= ARRAY.slice,
-        tostr=OBJECT.toString,
-        window=global,
-        document=global.document;
+  const window=global,
+        OBJ=Object.prototype,
+        tostr=OBJ.toString,
+        document=global.document,
+        slicer=Array.prototype.slice;
 
   const isObject= (obj) => {
     return tostr.call(obj) === "[object Object]";
@@ -25,12 +24,11 @@
   let seqNum= 0;
   const _ = {
     keys: (obj) => {
-      return isMap(obj) ? Array.from(obj.keys()) : (isObject(obj) ? Object.keys(obj) : []);
+      return isMap(obj) ? Array.from(obj.keys())
+                        : (isObject(obj) ? Object.keys(obj) : []);
     },
     assert: (cond) => {
-      if(cond)
-      {}
-      else
+      if(!cond)
         throw new Error(slicer.call(arguments,1).join(""));
     },
     jsMap: () => { return new Map(); },
@@ -45,28 +43,44 @@
     slice: (a,i) => { return slicer.call(a, i); },
     now: () => { return Date.now(); },
     nextID: () => { return ++seqNum; },
-    fileNoExt: (name) => { return name.replace(/\.(\w{3,4})$/,""); },
+    fileNoExt: (name) => {
+      let pos= name.lastIndexOf(".");
+      return pos > 0 ? name.substring(0,pos) : name;
+    },
     fileExt: (name) => {
-      let p= name.split(".");
-      return p[p.length-1].toLowerCase();
+      let pos= name.lastIndexOf(".");
+      return pos > 0 ? name.substring(pos+1).toLowerCase() : "";
     },
     range: (start,stop,step=1) => {
-      let len = Math.max(0, Math.ceil((stop-start)/step));
-      let res = new Array(len);
-      for(let i=0;i<len;++i) { res[i] = start; start += step; }
+      if(typeof stop==="undefined") {
+        stop=start;
+        start=0;
+        step=1;
+      }
+      let len = (stop-start)/step;
+      let res=[];
+      len = Math.ceil(len);
+      len = Math.max(0, len);
+      res.length=len;
+      for(let i=0;i<len;++i) {
+        res[i] = start;
+        start += step;
+      }
       return res;
     },
     shuffle: (obj) => {
-      let rx, res = new Array[obj.length];
-      obj.forEach((x,i) => {
-        rx = Math.floor(Math.random() * (i+1));
-        res[i] = res[rx];
-        res[rx] = x;
-      });
+      let res=slicer.call(obj,0);
+      for(let x,j,i= res.length-1; i>0; --i) {
+        j = Math.floor(Math.random() * (i+1));
+        x = res[i];
+        res[i] = res[j];
+        res[j] = x;
+      }
       return res;
     },
     uniq: (arr) => {
-      let res= [], prev= null;
+      let res= [],
+          prev= null;
       arr = slicer.call(arr).sort();
       arr.forEach(a => {
         if(a !== undefined &&
@@ -86,7 +100,7 @@
       }
       else if(obj) {
         for(let k in obj)
-          if(OBJECT.hasOwnProperty.call(obj, k))
+          if(OBJ.hasOwnProperty.call(obj, k))
           res.push(fn.call(ctx, obj[k],k,obj));
       }
       return res;
@@ -106,7 +120,7 @@
         }
       } else if(obj) {
         for(let k in obj) {
-          if(OBJECT.hasOwnProperty.call(obj, k))
+          if(OBJ.hasOwnProperty.call(obj, k))
             if(fn.apply(ctx, [obj[k], k].concat(args)))
               return [k,obj[k]];
         }
@@ -128,7 +142,7 @@
         }
       } else if(obj) {
         for(let k in obj)
-          if(OBJECT.hasOwnProperty.call(obj, k))
+          if(OBJ.hasOwnProperty.call(obj, k))
             if(res = fn.apply(ctx, [obj[k], k].concat(args)))
               return res;
       }
@@ -148,7 +162,7 @@
         obj.forEach((v,k)=> fn.call(ctx,v,k,obj));
       else if(obj)
         for(let k in obj)
-          if(OBJECT.hasOwnProperty.call(obj,k))
+          if(OBJ.hasOwnProperty.call(obj,k))
           fn.call(ctx, obj[k], k, obj);
     },
     dissoc: (obj,key) => {
@@ -190,23 +204,30 @@
       return arg;
     },
     has: (obj,key) => {
-      return isMap(obj) ? obj.has(key) : OBJECT.hasOwnProperty.call(obj, key);
+      return isMap(obj) ? obj.has(key) : OBJ.hasOwnProperty.call(obj, key);
     },
     patch: (des,src) => {
       des=des || {};
       if(src)
         for(let k in src)
-          if(OBJECT.hasOwnProperty.call(src,k) &&
+          if(OBJ.hasOwnProperty.call(src,k) &&
              des[k] === void 0)
             des[k] = src[k];
       return des;
     },
-    clone: (obj) => { return Object.assign({},obj); },
+    clone: (obj) => {
+      return Object.assign({},obj);
+    },
     inject: function(des) {
       let args=slicer.call(arguments,1);
       des=des || {};
-      args.forEach(s => { if(s) Object.assign(des,s); });
+      args.forEach(s => {
+        if(s) Object.assign(des,s);
+      });
       return des;
+    },
+    subEvent: (event,target,cb,arg) => {
+      return target.addEventListener(event,cb,arg);
     }
   },
   is= {
@@ -219,22 +240,23 @@
     void0: (obj) => { return obj === void 0; },
     undef: (obj) => { return obj === undefined; }
   };
-
-//assets
-  let AssetTypes= {tmx: "Tile", png: "Image", xml: "Xml", json: "Json",
-                   jpg: "Image", gif: "Image", jpeg: "Image",
-                   ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
-  let AudioMimeTypes = {mp3: "audio/mpeg",
-                        m4a: "audio/m4a",
-                        wav: "audio/wav",
-                        ogg: 'audio/ogg; codecs="vorbis"'};
+  //assets
+  let _audioTypes= {mp3: "audio/mpeg",
+                    m4a: "audio/m4a",
+                    wav: "audio/wav",
+                    ogg: 'audio/ogg; codecs="vorbis"'};
+  let _assetTypes= {tmx: "Tile", png: "Image", xml: "Xml", json: "Json",
+                    jpg: "Image", gif: "Image", jpeg: "Image",
+                    ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
   let _audioDftExt;
   let _preloads= [];
   let _audioExt= (choices) => {
-    if(!_audioDftExt)
-    { let snd = new Audio();
-      _audioDftExt= _.some(choices,
-        (ext) => {return snd.canPlayType(AudioMimeTypes[ext]) ? ext: null;}); }
+    if(!_audioDftExt) {
+      let snd = new Audio();
+      _audioDftExt= _.some(choices, (ext) => {
+        return snd.canPlayType(_audioTypes[ext]) ? ext: null;
+      });
+    }
     return _audioDftExt;
   };
   let _assetUrl = (base,url,devMode) => {
@@ -259,7 +281,7 @@
       window.requestAnimationFrame = (cb, e) => {
         let cur = _.now();
         let delay = Math.max(0, 16 - (cur - lastTime));
-        let id = setTimeout(() => cb(cur+delay), delay);
+        let id = _.timer(() => cb(cur+delay), delay);
         lastTime = cur+delay;
         return id;
       };
@@ -315,7 +337,8 @@
       /* And make this class extendable */
       TemplateFn.extend = Resig.extend;
       if(className) {
-        container[className] = TemplateFn;
+        if(isObject(container))
+          container[className] = TemplateFn;
         TemplateFn.className = className;
         TemplateFn.prototype.className = className;
       }
@@ -409,18 +432,17 @@
     };
   };
 
+  let _aux=["Tiles"];
   window.MojoH5 = function(opts) {
-    let aux=["Tiles"];
-    let Mojo= {};
-    Mojo.options = _.inject({imagePath: "images/",
-                             dataPath:  "data/",
-                             audioPath: "audio/",
-                             sound: true,
-                             frameTimeLimit: 100,
-                             autoFocus: true,
-                             audioFiles: ["mp3","ogg"]}, opts);
+    let Mojo= {o: _.inject({imagePath: "images/",
+                            dataPath:  "data/",
+                            audioPath: "audio/",
+                            sound: true,
+                            maxFrameTime: 100,
+                            autoFocus: true,
+                            audioFiles: ["mp3","ogg"]}, opts)};
 
-    // entity types
+    // entity types for collision detections
     Mojo.E_NONE     = 0;
     Mojo.E_DEFAULT  = 1;
     Mojo.E_PARTICLE = 2;
@@ -432,28 +454,62 @@
     Mojo.E_PASSIVE  = 128;
     Mojo.E_ALL   = 0xFFFF;
 
+    /**
+     * @function
+     */
     Mojo.log= function() {
       let msg="";
-      if(Mojo.options.debug) {
-        for(let i=0;i<arguments.length;++i) msg += arguments[i];
+      if(Mojo.o.debug)
+        for(let i=0;i<arguments.length;++i)
+        msg += arguments[i];
+      if(msg)
         console.log(msg);
-      }
     };
 
+    /**
+     * @property
+     */
     Mojo.touchDevice= !!("ontouchstart" in document);
+    /**
+     * @function
+     */
     Mojo["$"]= function(selector) {};
+    /**
+     * @property
+     */
     Mojo.EventBus=new EventBus();
+    /**
+     * @property
+     */
     Mojo.is=is;
+    /**
+     * @property
+     */
     Mojo.u=_;
+    /**
+     * @property
+     */
     Mojo.features= {};
+    /**
+     * @property
+     */
     Mojo.loaders={};
+    /**
+     * @property
+     */
     Mojo.assets={};
 
+    /**
+     * @function
+     */
     Mojo.scroll = (x,y) => {
-      window.scrollTo(x||0,y||1);
+      window.scrollTo(x||0, y||1);
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.scrollTop = (x,y) => {
       x=x||0;
       y=y||1;
@@ -461,25 +517,47 @@
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.handleDeviceFlip = () => {
-      window.addEventListener("orientationchange", () => {
+      _.subEvent("orientationchange", window, () => {
         Mojo.scrollTop();
       });
       return Mojo;
     };
 
+    //------------------------------------------------------------------------
     //DOM stuff
+    /**
+     * @function
+     */
     Mojo.domBySelector= (selector) => { return document.querySelectorAll(selector); };
+    /**
+     * @function
+     */
     Mojo.domById= (id) => { return document.getElementById(id); };
+    /**
+     * @function
+     */
     Mojo.domParent= (e) => { return e ? e.parentNode : undefined; };
+    /**
+     * @function
+     */
     Mojo.domConj = (child, par) => {
       return (par || document.body).appendChild(child);
     };
+    /**
+     * @function
+     */
     Mojo.domByTag= (tag, ns) => {
       return is.str(ns)
              ? document.getElementsByTagNameNS(ns,tag)
              : document.getElementsByTagName(id);
     };
+    /**
+     * @function
+     */
     Mojo.domAttrs= function(e, attrs) {
       if(!is.obj(attrs) && attrs) {
         //attrs=""+attrs;
@@ -491,6 +569,9 @@
         _.doseq(attrs, (v,k) => { e.setAttribute(k,v); });
       return e;
     };
+    /**
+     * @function
+     */
     Mojo.domCss= function(e, styles) {
       if(!is.obj(styles) && styles) {
         //styles=""+styles;
@@ -502,12 +583,18 @@
         _.doseq(styles, (v,k) => { e.style[k]= v; });
       return e;
     };
+    /**
+     * @function
+     */
     Mojo.domWrap= (child,wrapper) => {
       let p=child.parentNode;
       wrapper.appendChild(child);
       p.appendChild(wrapper);
       return wrapper;
     };
+    /**
+     * @function
+     */
     Mojo.domCtor = (tag, attrs, styles) => {
       let e = document.createElement(tag);
       Mojo.domAttrs(e,attrs);
@@ -515,53 +602,72 @@
       return e;
     };
 
-
+    /**
+     * @function
+     */
     Mojo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
+    /**
+     * @function
+     */
     Mojo.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
+    /**
+     * @function
+     */
     Mojo.p2 = (px,py) => { return {x: px||0,y: py||0}; };
-    Mojo.v2 = (x,y) => { return [x||0,y||0]; };
+    /**
+     * @function
+     */
+    Mojo.v2 = (x,y) => { return [x||0, y||0]; };
+    /**
+     * @function
+     */
     Mojo.hasTouch= () => { return Mojo.touchDevice;};
 
+    /**
+     * @function
+     */
     Mojo.defType= (clazz, props, container) => {
-      let child,parent;
-      if(is.str(clazz)) {
-        parent=Resig;
-        child=clazz;
-      }
-      else
-      if(is.vec(clazz)) {
-        child=clazz[0];
-        parent=clazz[1];
-      }
-      return parent.extend(child,props,container||Mojo);
+      return defType(clazz,
+                     props,
+                     (typeof container==="undefined") ? Mojo : container);
     };
 
+    // set up game loop
     let _loopFrame = 0;
     let _lastFrame=0;
+    /**
+     * @function
+     */
     Mojo.gameLoop = function(action) {
       _lastFrame = _.now();
       _loopFrame = 0;
-      Mojo.loop = true;
+      //Mojo.loop = true;
       Mojo.gameLoopCallbackWrapper = () => {
         let now = _.now();
         ++_loopFrame;
         Mojo.loop = Mojo.scheduleFrame(Mojo.gameLoopCallbackWrapper);
         let dt = now - _lastFrame;
         /* Prevent fast-forwarding by limiting the length of a single frame. */
-        if(dt > Mojo.options.frameTimeLimit)
-          dt = Mojo.options.frameTimeLimit;
-        action.call(Mojo, dt / 1000);
+        if(dt>Mojo.o.maxFrameTime)
+          dt = Mojo.o.maxFrameTime;
+        action.call(Mojo, dt/1000);
         _lastFrame = now;
       };
-      Mojo.scheduleFrame(Mojo.gameLoopCallbackWrapper);
+      Mojo.loop=Mojo.scheduleFrame(Mojo.gameLoopCallbackWrapper);
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.pauseGame = () => {
       if(Mojo.loop) Mojo.cancelFrame(Mojo.loop);
       Mojo.loop = null;
     };
 
+    /**
+     * @function
+     */
     Mojo.resumeGame = () => {
       if(!Mojo.loop) {
         _lastFrame = _.now();
@@ -569,75 +675,100 @@
       }
     };
 
+    /**
+     * @class
+     */
     defType("Feature", {
-      // created when they are added onto a `Mojo.Entity` entity.
+      // created when they are added onto an entity.
       init: function(entity) {
         if(entity[this.name])
           throw "Entity has feature `"+this.name+"` already!";
         entity[this.name] = this;
         _.conj(entity.features,this.featureName);
 
-        entity.scene &&
-          entity.scene.addRelation(this.featureName,entity);
+        if(entity.scene)
+          entity.scene.link(this.featureName,entity);
 
         this.entity = entity;
         this.added && this.added();
       },
       dispose: function() {
         delete this.entity[this.name];
-        let idx = this.entity.features.indexOf(this.featureName);
-        if(idx > -1) {
-          this.entity.features.splice(idx,1);
-          this.entity.scene &&
-            this.entity.scene.delRelation(this.featureName,this.entity);
+        let i = this.entity.features.indexOf(this.featureName);
+        if(i > -1) {
+          this.entity.features.splice(i,1);
+          if(this.entity.scene)
+            this.entity.scene.unlink(this.featureName,this.entity);
         }
         this.disposed && this.disposed();
       }
     }, Mojo);
 
+    /**
+     * @abstract
+     * @class
+     */
     defType("Entity", {
       hasFeature: function(co) { return _.has(this,co); },
       addFeature: function(features) {
         if(!this.features)
           this.features= _.jsVec();
         _.seq(features).forEach(name => {
-          let C = Mojo.features[name];
-          if(C && !_.has(this,name))
-            Mojo.EventBus.pub("addFeature", this, new C(this));
-        });
-        return this;
-      },
-      delFeature: function(features) {
-        _.seq(features).forEach(name => {
-          if(this[name]) {
-            Mojo.EventBus.pub("delFeature",this,this[name]);
-            this[name].dispose();
+          if(!_.has(this,name)) {
+            let C = Mojo.features[name];
+            let z = C ? new C(this) : null;
+            if(z)
+              Mojo.EventBus.pub("addFeature", this, z);
           }
         });
         return this;
       },
+      delFeature: function(features) {
+        let f;
+        _.seq(features).forEach(name => {
+          if(f=this[name]) {
+            Mojo.EventBus.pub("delFeature",this,f);
+            f.dispose();
+          }
+        });
+        return this;
+      },
+      add: function(child) {
+        throw "Fatal: calling pure virtual method.";
+      },
+      del: function(child) {
+        throw "Fatal: calling pure virtual method.";
+      },
+      init: function() {
+      },
       dispose: function() {
         if(this.isDead) { return; }
         Mojo.EventBus.pub("disposed",this);
-        this.scene &&
+        if(this.scene)
           this.scene.remove(this);
         this.isDead = true;
         this.disposed && this.disposed();
       }
     }, Mojo);
 
-    Mojo.feature = (name,methods) => {
-      if(methods) {
+    /**
+     * @function
+     */
+    Mojo.feature = (name,body) => {
+      if(body) {
         let n="Fe_"+name;
         if(Mojo[n])
           throw "Feature `"+name+"` already exists!";
-        methods.name = name;
-        methods.featureName = "."+name;
-        Mojo.features[name] = defType([n, Mojo.Feature], methods, Mojo);
+        body.name = name;
+        body.featureName = "."+name;
+        Mojo.features[name] = defType([n, Mojo.Feature], body, Mojo);
       }
       return Mojo.features[name];
     };
 
+    /**
+     * @class
+     */
     defType("GameState", {
       init: function(p) {
         this.p = _.clone(p);
@@ -670,27 +801,39 @@
       }
     }, Mojo);
 
+    /**
+     * @property
+     * @public
+     */
     Mojo.state = new Mojo.GameState();
 
-    // a 4 pointed box, left right bottom top
-    // x2 > x1 , y2 > y1
+    /**A 4 pointed box, left right top bottom
+     * x2 > x1 , y2 > y1.
+     * @function
+     */
     Mojo.bbox4 = () => {
       return {x1: NaN, x2: NaN, y1: NaN, y2: NaN};
     };
 
+    /**
+     * @function
+     */
     Mojo.clear = () => {
       if(Mojo.ctx) {
+        let op="clearRect";
         if(Mojo.clearColor) {
           Mojo.ctx.globalAlpha = 1;
           Mojo.ctx.fillStyle = Mojo.clearColor;
-          Mojo.ctx.fillRect(0,0,Mojo.width,Mojo.height);
-        } else {
-          Mojo.ctx.clearRect(0,0,Mojo.width,Mojo.height);
+          op="fillRect";
         }
+        Mojo.ctx[op](0,0,Mojo.width,Mojo.height);
       }
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.setImageSmoothing = (ok) => {
       if(Mojo.ctx) {
         Mojo.ctx.msImageSmoothingEnabled = ok;
@@ -701,8 +844,11 @@
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.imageData = (img) => {
-      let canvas = document.createElement("canvas");
+      let canvas = Mojo.domCtor("canvas");
       let ctx = canvas.getContext("2d");
       canvas.width = img.width;
       canvas.height = img.height;
@@ -710,49 +856,62 @@
       return ctx.getImageData(0,0,img.width,img.height);
     };
 
+    /**
+     * @function
+     */
     Mojo.assetType = (url) => {
       let ext = _.fileExt(url);
-      let type = ext ? AssetTypes[ext] : "";
+      let type = ext ? _assetTypes[ext] : "";
       if(type === "Audio" &&
          Mojo.audio &&
-         Mojo.audio.type === "WebAudio") { type = "WebAudio"; }
+         Mojo.audio.type === "WebAudio") {
+        type = "WebAudio";
+      }
       return type || "Other";
     };
 
+    /**
+     * @function
+     */
     Mojo.loaders.Image = (key,path,cb,ecb) => {
       let img = new Image();
       img.onerror = ecb;
       img.onload = () => cb(key,img);
-      img.src = _assetUrl(Mojo.options.imagePath, path, Mojo.options.devMode);
+      img.src = _assetUrl(Mojo.o.imagePath, path, Mojo.o.devMode);
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.loaders.Audio = function(key,path,cb,ecb) {
-      let dev=Mojo.options.devMode,
-          ext= _audioExt(Mojo.options.audioFiles);
-      if(!Mojo.options.sound ||
+      let dev=Mojo.o.devMode,
+          ext= _audioExt(Mojo.o.audioFiles);
+      if(!Mojo.o.sound ||
          !ext||
-         !document.createElement("audio").play) {
+         !Mojo.domCtor("audio").play) {
         cb(key);
       } else {
         let snd=new Audio();
-        snd.addEventListener("error",ecb);
+        _.subEvent("error",snd, ecb);
         // don't wait for canplaythrough on mobile
         if(!Mojo.touchDevice)
-          snd.addEventListener("canplaythrough", () => cb(key,snd));
-        snd.src = _assetUrl(Mojo.options.audioPath, _.fileNoExt(path)+"."+ ext, dev);
+          _.subEvent("canplaythrough", snd, () => cb(key,snd));
+        snd.src = _assetUrl(Mojo.o.audioPath, _.fileNoExt(path)+"."+ ext, dev);
         snd.load();
       }
-
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.loaders.WebAudio = function(key,path,cb,ecb) {
-      let ajax = new XMLHttpRequest(),
+      let dev= Mojo.o.devMode,
           base= _.fileNoExt(path),
-          dev= Mojo.options.devMode,
-          ext= _audioExt(Mojo.options.audioFiles);
-      ajax.open("GET", _assetUrl(Mojo.options.audioPath,base+"."+ext,dev), true);
+          ajax = new XMLHttpRequest(),
+          ext= _audioExt(Mojo.o.audioFiles);
+      ajax.open("GET", _assetUrl(Mojo.o.audioPath,base+"."+ext,dev), true);
       ajax.responseType = "arraybuffer";
       ajax.onload = () => {
         Mojo.audioContext.decodeAudioData(ajax.response, (b) => { cb(key,b); }, ecb);
@@ -761,8 +920,11 @@
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.ajax = function(key,path,cb,ecb) {
-      let dev=Mojo.options.devMode,
+      let dev=Mojo.o.devMode,
           ajax = new XMLHttpRequest();
       if(document.location.origin === "null" ||
          document.location.origin === "file://") {
@@ -776,27 +938,39 @@
         if(ajax.readyState === 4)
           (ajax.status !== 200) ? ecb() : cb(key, ajax.responseText);
       };
-      ajax.open("GET", _assetUrl(Mojo.options.dataPath,path,dev), true);
+      ajax.open("GET", _assetUrl(Mojo.o.dataPath,path,dev), true);
       ajax.send(null);
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.loaders.Other = function(key,path,cb,ecb) {
-      Mojo.ajax(key,path,cb,ecb);
-      return Mojo;
+      return Mojo.ajax(key,path,cb,ecb);
     };
 
+    /**
+     * @function
+     */
     Mojo.loaders.Json = function(key,path,cb,ecb) {
-      Mojo.ajax(key,path,(key,data) => { cb(key,JSON.parse(data)); }, ecb);
-      return Mojo;
+      return Mojo.ajax(key,path,(key,data) => {
+        cb(key,JSON.parse(data));
+      }, ecb);
     };
 
+    /**
+     * @function
+     */
     Mojo.loaders.Xml = function(key,path,cb,ecb) {
-      Mojo.ajax(key,path,(key,data) => {
-        cb(key,new DOMParser().parseFromString(data, "application/xml")); },ecb);
-      return Mojo;
+      return Mojo.ajax(key,path,(key,data) => {
+        cb(key,new DOMParser().parseFromString(data, "application/xml"));
+      },ecb);
     };
 
+    /**
+     * @function
+     */
     Mojo.asset= (name,panic) => {
       let r=Mojo.assets[name];
       if(panic && !r)
@@ -804,6 +978,9 @@
       return r;
     };
 
+    /**
+     * @function
+     */
     Mojo.load= function(assets,cb,options) {
       let pcb = options && options.progressCb;
       let bad = options && options.errorCb;
@@ -844,6 +1021,9 @@
       return Mojo;
     };
 
+    /**
+     * @function
+     */
     Mojo.preload = (arg,options) => {
       if(!is.fun(arg))
         _preloads = _preloads.concat(arg);
@@ -854,19 +1034,24 @@
       return Mojo;
     };
 
-    // install modules
+    //------------------------------------------------------------------------
+    //installing all modules
     //core modules
     ["Math", "Sprites", "Scenes"].forEach(k => MojoH5[k](Mojo));
     //optional/other modules
-    ["Audio", "UI", "Anim",
-     "2D", "Input", "Touch"].concat(_.seq(Mojo.options.modules||"")).forEach(k => {
+    ["Audio",
+     "UI",
+     "Anim",
+     "2D",
+     "Input",
+     "Touch"].concat(_.seq(Mojo.o.modules||"")).forEach(k => {
       let f= MojoH5[k];
       if(!f)
-        Mojo.log("warn: module `"+ k + "` missing."); else f(Mojo);
+        Mojo.log("warn: module `",k,"` missing."); else f(Mojo);
     });
 
     /**
-     * @method
+     * @function
      */
     Mojo.prologue = function(id, options) {
 
@@ -875,14 +1060,14 @@
         id = null;
       }
 
-      options = _.inject(Mojo.options, options || {});
+      options = _.inject(Mojo.o, options || {});
       id = id || "mojo";
 
       Mojo.el = is.str(id) ? Mojo.domById(id) : id;
       if(!Mojo.el) {
         Mojo.el= Mojo.domCtor("canvas", {id: id,
                                          width: options.width || 320,
-                                         height: options.height || 420});
+                                         height: options.height || 480});
         Mojo.domConj(Mojo.el);
       }
 
@@ -918,22 +1103,19 @@
 
       if((upsampleWidth && w <= upsampleWidth) ||
          (upsampleHeight && h <= upsampleHeight)) {
-        //Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
         Mojo.el.width = w * 2;
         Mojo.el.height = h * 2;
       }
       else if(Mojo.touchDevice &&
               ((resampleWidth && w > resampleWidth) ||
                (resampleHeight && h > resampleHeight))) {
-        //Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
         Mojo.el.width = w / 2;
         Mojo.el.height = h / 2;
       } else {
-        //Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
         Mojo.el.width= w;
         Mojo.el.height= h;
       }
-      Mojo.domCss(Mojo.el, {height: h + "px", width: w + "px"});
+      Mojo.domCss(Mojo.el, {height: h+"px", width: w+"px"});
 
       if(elParent && !Mojo.wrapper) {
         Mojo.wrapper=Mojo.domWrap(Mojo.el,
@@ -953,20 +1135,22 @@
 
       if(options.scaleToFit) {
         let factor = 1;
-        let winW = window.innerWidth*factor;
-        let winH = window.innerHeight*factor;
-        let winRatio = winW/winH;
-        let gameRatio = Mojo.el.width/Mojo.el.height;
-        let scaleRatio = gameRatio < winRatio ? winH/Mojo.el.height : winW/Mojo.el.width;
-        let scaledW = Mojo.el.width * scaleRatio;
-        let scaledH = Mojo.el.height * scaleRatio;
+            winW = window.innerWidth*factor,
+            winH = window.innerHeight*factor,
+            winRatio = winW/winH,
+            scaleRatio = winW/Mojo.el.width,
+            gameRatio = Mojo.el.width/Mojo.el.height;
+        if(gameRatio < winRatio)
+          scaleRatio= winH/Mojo.el.height;
+        let scaledW = Mojo.el.width * scaleRatio,
+            scaledH = Mojo.el.height * scaleRatio;
 
         Mojo.domCss(Mojo.el, {width: scaledW + "px",
                               height: scaledH + "px"});
 
         if(Mojo.el.parentNode)
-          Mojo.domCss(Mojo.el.parentNode, {width: scaledW + "px",
-                                           height: scaledH + "px"});
+          Mojo.domCss(Mojo.el.parentNode, {width: scaledW+"px",
+                                           height: scaledH+"px"});
 
         Mojo.cssHeight = scaledH;
         Mojo.cssWidth = scaledW;

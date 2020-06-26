@@ -159,7 +159,7 @@
           break;
         }
       }
-    });
+    }, Mojo);
 
     Mojo.defType("Tween",{
       init: function(entity,properties,duration,easing,options) {
@@ -174,10 +174,10 @@
         this.entity = entity;
         this.duration = duration || 1;
         this.time = 0;
-        this.options = options || {};
-        this.delay = this.options.delay || 0;
+        this.o= options || {};
+        this.delay = this.o.delay || 0;
         this.easing = easing ||
-                      this.options.easing || Mojo.Easing.Linear;
+                      this.o.easing || Mojo.Easing.Linear;
         this.startFrame = Mojo._loopFrame + 1;
         this.properties = properties;
         this.start = {};
@@ -215,12 +215,12 @@
         }
 
         (progress >= 1) &&
-          this.options.callback &&
-            this.options.callback.apply(this.entity);
+          this.o.callback &&
+            this.o.callback.apply(this.entity);
 
         return progress < 1;
       }
-    });
+    }, Mojo);
 
     // Code ripped directly from Tween.js
     // https://github.com/sole/tween.js/blob/master/src/Tween.js

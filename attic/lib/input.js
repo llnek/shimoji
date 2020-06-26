@@ -112,7 +112,7 @@
           }
           e.preventDefault();
         },false);
-        Mojo.options.autoFocus && Mojo.el.focus();
+        Mojo.o.autoFocus && Mojo.el.focus();
         this.keyboardEnabled = true;
       },
       keyboardControls: function(keys) {

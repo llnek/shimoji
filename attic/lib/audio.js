@@ -8,7 +8,7 @@
     let _ = Mojo.u,
         _channels= [],
         _actives= _.jsMap(),
-        _channelMax= Mojo.options.channelMax || 10;
+        _channelMax= Mojo.o.channelMax || 10;
 
     let _soundId=1,
         _audioSounds= _.jsMap(),

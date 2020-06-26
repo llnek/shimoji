@@ -119,7 +119,7 @@
       let TCZ = Mojo[tileLayerProperties.Class || "TileLayer"];
       !tileLayerProperties["collision"]
         ? scene.insert(new TCZ(tileLayerProperties))
-        : scene.contactLayer(new TCZ(tileLayerProperties));
+        : scene.addOverlay(new TCZ(tileLayerProperties));
     };
 
     let _processObjectLayer= (scene,gidMap,tileProperties,layer) => {

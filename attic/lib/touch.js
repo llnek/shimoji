@@ -179,7 +179,7 @@
         e.preventDefault();
       }
 
-    });
+    }, Mojo);
 
     Mojo.touch = function(options) {
       options= options || {};

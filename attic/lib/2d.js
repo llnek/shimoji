@@ -349,7 +349,7 @@
         for(let iy=startBlockY;iy<=endBlockY;++iy)
           for(let ix=startBlockX;ix<=endBlockX;++ix) this.drawBlock(ctx,ix,iy);
       }
-    });
+    }, Mojo);
 
     Mojo.gravityY = 9.8*100;
     Mojo.gravityX = 0;

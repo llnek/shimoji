@@ -2,24 +2,39 @@
   "use strict";
   let MojoH5=global.MojoH5;
 
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not found.";
+
   /**
-   * @method
+   * @module
    */
   MojoH5.Scenes = function(Mojo) {
 
     let _=Mojo.u,
         is=Mojo.is,
+      /**
+       * @private
+       */
         _activeScene = 0,
+      /**
+       * @private
+       */
         _sceneQueue = _.jsVec(),
+      /**
+       * @private
+       */
         _sceneFuncs = _.jsMap(),
+      /**
+       * @private
+       */
         _defs= {gridW: 400, gridH: 400, x:0, y:0, sort: false};
 
     /**
      * @function
      */
     let _hitLayer= function(scene,obj,collisionMask) {
-      for(let y,c,i=0,z=scene.contactLayers.length;i<z;++i) {
-        y=scene.contactLayers[i];
+      for(let y,c,i=0,z=scene.overlays.length;i<z;++i) {
+        y=scene.overlays[i];
         if(y.p.type & collisionMask)
           if(c= y.collide(obj)) { c.obj = y; return c; }
       }
@@ -29,7 +44,8 @@
      * @function
      */
     let _markAll= function(scene) {
-      let time=scene.tick,
+      let tmp,X,B,
+          time=scene.tick,
           items= scene.items,
           view= scene.camera,
           x = view ? view.x : 0,
@@ -37,11 +53,10 @@
           scale = view ? view.scale : 1,
           viewW = Mojo.width / scale,
           viewH = Mojo.height / scale,
-          gridX1 = _.floor(x / scene.options.gridW),
-          gridY1 = _.floor(y / scene.options.gridH),
-          gridX2 = _.floor((x + viewW) / scene.options.gridW),
-          gridY2 = _.floor((y + viewH) / scene.options.gridH),
-          tmp,X,B;
+          gridX1 = _.floor(x / scene.o.gridW),
+          gridY1 = _.floor(y / scene.o.gridH),
+          gridX2 = _.floor((x + viewW) / scene.o.gridW),
+          gridY2 = _.floor((y + viewH) / scene.o.gridH);
       for(let iy=gridY1; iy<=gridY2; ++iy)
         if(X=_.get(scene.grid,iy))
           for(let ix=gridX1; ix<=gridX2; ++ix)
@@ -58,7 +73,7 @@
      * @function
      */
     let _testHit= function(type,id,obj,collisionMask) {
-      if(is.undef(collisionMask) || (collisionMask & type)) {
+      if(is.undef(collisionMask) ||(collisionMask & type)) {
         let col, obj2=_.get(this.index,id);
         if(obj2 &&
            obj2 !== obj &&
@@ -86,7 +101,7 @@
     /**
      * @function
      */
-    let _delFromGrid= (scene, item) => {
+    let _degrid= (scene, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2; ++y)
         if(Y=scene.grid.get(y))
@@ -98,7 +113,7 @@
     /**
      * @function
      */
-    let _addToGrid= (scene, item) => {
+    let _engrid= (scene, item) => {
       let X,Y,g= item.bbox4;
       for(let y = g.y1;y <= g.y2;++y) {
         if(!scene.grid.has(y))
@@ -114,7 +129,8 @@
     };
 
     /**
-     * @object
+     * @private
+     * @var
      */
     let _locateObj= {
       //x,y => center
@@ -128,32 +144,31 @@
     Mojo.defType(["Scene", Mojo.Entity], {
       init: function(funcObj,options) {
         this.items = [];
-        // stores relations for fast select like jQuery
+        //stores relations for fast select like jQuery
         this.cache = _.jsMap();
-        // pin object's location for fast search
+        //pin object's location for fast search
         this.grid = _.jsMap();
         this.tick = 0;
         this.trash = [];
-        // fast lookup to get entities
+        this.overlays = [];
+        //fast lookup to get entities
         this.index = _.jsMap();
-        // for tiles
-        this.contactLayers = [];
-        this.options = _.inject({},_defs, {w: Mojo.width,
-                                           h: Mojo.height}, options);
+        this.o = _.inject({},_defs, {w: Mojo.width,
+                                     h: Mojo.height}, options);
         _.inject(this,funcObj);
       },
-      addRelation: function(arg,obj) {
+      link: function(arg,obj) {
         if(is.vec(arg))
-          arg.forEach(x => this.addRelation(x,obj));
+          arg.forEach(x => this.link(x,obj));
         else {
           if(!_.has(this.cache,arg)) _.assoc(this.cache,arg, []);
           _.conj(_.get(this.cache,arg),obj);
         }
         return this;
       },
-      delRelation: function(arg, obj) {
+      unlink: function(arg, obj) {
         if(is.vec(arg))
-          arg.forEach(x => this.delRelation(x,obj));
+          arg.forEach(x => this.unlink(x,obj));
         else {
           let a = _.get(this.cache,arg);
           let i = a ? a.indexOf(obj) : -1;
@@ -161,16 +176,37 @@
         }
         return this;
       },
+      addOverlay: function(obj) {
+        _.conj(this.overlays,obj);
+        obj.movable= false;
+        return this.insert(obj);
+      },
+      search: function(obj,collisionMask) {
+        if(is.undef(collisionMask))
+          collisionMask = obj.p && obj.p.collisionMask;
+        if(!obj.bbox4)
+          this.regrid(obj, obj.scene !== this);
+        return _hitLayer(this,obj,collisionMask) ||
+               _hitTest(this, obj,collisionMask);
+      },
+      locate: function(x,y,collisionMask) {
+        let tmp= _locateObj;
+        tmp.p.x = x;
+        tmp.p.y = y;
+        tmp.bbox4=null;
+        this.regrid(tmp, true);
+        let col= _hitLayer(this,tmp,collisionMask) ||
+                 _hitTest(this,tmp,collisionMask);
+        if(col && col.obj)
+          return col.obj;
+      },
       disposed: function() {
         Mojo.EventBus.pub("disposed", this);
         return this;
       },
-      slotIndex: function() {
-        return this._slot;
-      },
-      run: function(slotNum) {
+      run: function() {
+        //you can(should) only call this once
         let rc= this.setup && this.setup();
-        this._slot = slotNum;
         this.setup= null;
         return rc;
       },
@@ -188,51 +224,45 @@
         return _.get(this.index,id);
       },
       insert: function(itm,container) {
-
         this.items.push(itm);
         itm.scene = this;
-        itm.bbox4 = _.jsMap();
+        itm.bbox4 = Mojo.bbox4();
 
         if(container)
-          _.conj(container.children,itm);
-        itm.container = container;
-
-        Mojo.genPts(itm);
-        Mojo.genContactPts(itm);
+          container.add(itm);
 
         if(itm.className)
-          this.addRelation(itm.className, itm);
+          this.link(itm.className, itm);
 
         if(itm.features)
-          this.addRelation(itm.features, itm);
+          this.link(itm.features, itm);
 
         if(itm.p && itm.p.id)
           _.assoc(this.index, itm.p.id, itm);
 
+        Mojo.genPts(itm);
+        this.regrid(itm);
+
         Mojo.EventBus.pub([["inserted",this, itm],
                            ["inserted",itm,this]]);
 
-        this.regrid(itm);
         return itm;
       },
       remove: function(itm) {
-        _delFromGrid(this, itm);
+        _degrid(this, itm);
         this.trash.push(itm);
         return this;
       },
       forceRemove: function(itm) {
-        let idx = this.items.indexOf(itm);
-        if(idx > -1) {
-          this.items.splice(idx,1);
+        let n = this.items.indexOf(itm);
+        if(n > -1) {
+          this.items.splice(n,1);
           if(itm.className)
-            this.delRelation(itm.className,itm);
+            this.unlink(itm.className,itm);
           if(itm.features)
-            this.delRelation(itm.features,itm);
-          if(itm.container) {
-            let i = itm.container.children.indexOf(itm);
-            if(i > -1)
-              itm.container.children.splice(i,1);
-          }
+            this.unlink(itm.features,itm);
+          if(itm.container)
+            itm.container.del(itm);
           itm.dispose && itm.dispose();
           if(itm.p.id)
             _.dissoc(this.index,itm.p.id);
@@ -248,104 +278,26 @@
         this.paused = false;
         return this;
       },
-      contactLayer: function(obj) {
-        _.conj(this.contactLayers,obj);
-        obj.contactLayer = true;
-        return this.insert(obj);
-      },
-      search: function(obj,collisionMask) {
-        if(!obj.bbox4)
-          this.regrid(obj, obj.scene !== this);
-        if(is.undef(collisionMask))
-          collisionMask = obj.p && obj.p.collisionMask;
-        return _hitLayer(this,obj,collisionMask) ||
-               _hitTest(this, obj,collisionMask);
-      },
-      locate: function(x,y,collisionMask) {
-        let tmp= _locateObj;
-        tmp.p.x = x;
-        tmp.p.y = y;
-        tmp.bbox4=null;
-        this.regrid(tmp,true);
-        let col= _hitLayer(this,tmp,collisionMask) ||
-                 _hitTest(this,tmp,collisionMask);
-        return (col && col.obj) ? col.obj : undefined;
-      },
-      collide: function(obj,options) {
-        let col, col2,
-            collisionMask,
-            maxCol, curCol, skipEvents;
-
-        if(!is.obj(options)) {
-          collisionMask = options;
-        } else {
-          maxCol = options.maxCol;
-          skipEvents = options.skipEvents;
-          collisionMask = options.collisionMask;
-        }
-
-        if(is.undef(collisionMask))
-          collisionMask= obj.p && obj.p.collisionMask;
-        maxCol = maxCol || 3;
-
-        Mojo.genContactPts(obj);
-        this.regrid(obj);
-
-        curCol = maxCol;
-        while(curCol > 0 &&
-              (col = _hitLayer(this,obj,collisionMask))) {
-          if(!skipEvents)
-            Mojo.EventBus.pub([["hit",obj, col],
-                               ["hit.collision",obj,col]]);
-          Mojo.genContactPts(obj);
-          this.regrid(obj);
-          --curCol;
-        }
-
-        curCol = maxCol;
-        while(curCol > 0 &&
-              (col2 = _hitTest(this,obj,collisionMask))) {
-          Mojo.EventBus.pub([["hit",obj,col2],
-                             ["hit.sprite",obj,col2]]);
-          // Do the recipricol collision
-          // TODO: extract
-          if(!skipEvents) {
-            let obj2 = col2.obj;
-            col2.obj = obj;
-            col2.normalX *= -1;
-            col2.normalY *= -1;
-            col2.distance = 0;
-            col2.magnitude = 0;
-            col2.separate[0] = 0;
-            col2.separate[1] = 0;
-            Mojo.EventBus.pub([["hit",obj2,col2],
-                               ["hit.sprite",obj2,col2]]);
-          }
-          Mojo.genContactPts(obj);
-          this.regrid(obj);
-          --curCol;
-        }
-        return col2 || col;
-      },
       regrid: function(item,skipAdd) {
-        if(item.contactLayer)
-        return;
+        if(item.movable===false) { return item; }
+
+        Mojo.genContactPts(item);
 
         if(!item.bbox4)
           item.bbox4= Mojo.bbox4();
 
         let c = item.c || item.p;
-        let gridX1 = _.floor((c.x - c.cx) / this.options.gridW),
-            gridY1 = _.floor((c.y - c.cy) / this.options.gridH),
-            gridX2 = _.floor((c.x - c.cx + c.w) / this.options.gridW),
-            gridY2 = _.floor((c.y - c.cy + c.h) / this.options.gridH),
+        let gridX1 = _.floor((c.x - c.cx) / this.o.gridW),
+            gridY1 = _.floor((c.y - c.cy) / this.o.gridH),
+            gridX2 = _.floor((c.x - c.cx + c.w) / this.o.gridW),
+            gridY2 = _.floor((c.y - c.cy + c.h) / this.o.gridH),
             g = item.bbox4;
 
         if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
            g.y1 !== gridY1 || g.y2 !== gridY2) {
 
           if(g.x1 !== NaN)
-            _delFromGrid(this, item);
+            _degrid(this, item);
 
           g.x1= gridX1;
           g.x2= gridX2;
@@ -353,18 +305,21 @@
           g.y2= gridY2;
 
           if(!skipAdd)
-            _addToGrid(this,item);
+            _engrid(this,item);
         }
+
+        return item;
       },
       update: function(items,dt,isContainer) {
         for (let item,i=0,z=items.length;i<z;++i) {
           item=items[i];
           if(!isContainer &&
              (item.p.visibleOnly &&
-              (!item.mark || item.mark < this.tick))) continue;
+              (!item.mark || item.mark < this.tick))) {
+            continue;
+          }
           if(isContainer || !item.container) {
             item.update(dt);
-            Mojo.genContactPts(item);
             this.regrid(item);
           }
         }
@@ -407,8 +362,8 @@
       render: function(ctx) {
         if(this.hidden) { return false; }
         this.prerender && this.prerender(ctx);
-        this.options.sort &&
-          this.items.sort(this.options.sort);
+        this.o.sort &&
+          this.items.sort(this.o.sort);
         Mojo.EventBus.pub([["prerender",this,ctx],
                            ["beforerender",this,ctx]]);
         this.items.forEach( item => {
@@ -422,8 +377,62 @@
         Mojo.EventBus.pub([["render",this,ctx],
                            ["postrender",this,ctx]]);
         return this;
+      },
+      collide: function(obj,options) {
+        let col, col2,
+            collisionMask,
+            maxCol, curCol, skipEvents;
+
+        if(!is.obj(options)) {
+          collisionMask = options;
+        } else {
+          maxCol = options.maxCol;
+          skipEvents = options.skipEvents;
+          collisionMask = options.collisionMask;
+        }
+
+        if(is.undef(collisionMask))
+          collisionMask= obj.p && obj.p.collisionMask;
+        maxCol = maxCol || 3;
+
+        this.regrid(obj);
+
+        curCol = maxCol;
+        while(curCol > 0 &&
+              (col = _hitLayer(this,obj,collisionMask))) {
+          if(!skipEvents)
+            Mojo.EventBus.pub([["hit",obj, col],
+                               ["hit.collision",obj,col]]);
+          this.regrid(obj);
+          --curCol;
+        }
+
+        curCol = maxCol;
+        while(curCol > 0 &&
+              (col2 = _hitTest(this,obj,collisionMask))) {
+          Mojo.EventBus.pub([["hit",obj,col2],
+                             ["hit.sprite",obj,col2]]);
+          // Do the recipricol collision
+          // TODO: extract
+          if(!skipEvents) {
+            let obj2 = col2.obj;
+            col2.obj = obj;
+            col2.normalX *= -1;
+            col2.normalY *= -1;
+            col2.distance = 0;
+            col2.magnitude = 0;
+            col2.separate[0] = 0;
+            col2.separate[1] = 0;
+            Mojo.EventBus.pub([["hit",obj2,col2],
+                               ["hit.sprite",obj2,col2]]);
+          }
+          this.regrid(obj);
+          --curCol;
+        }
+        return col2 || col;
       }
-    });
+    }, Mojo);
+
 
     /**
      * @class Locator
@@ -476,7 +485,7 @@
       last: function() {
         return this.items[this.items.length-1];
       }
-    });
+    }, Mojo);
 
     // Maybe add support for different types
     // entity - active collision detection
@@ -516,12 +525,15 @@
         num= options["slot"] || 0;
 
       let y= _sceneQueue[num];
+      let F= Mojo.Scene;
+
       y && y.dispose();
 
       _activeScene = num;
-      y = new Mojo.Scene(_s[0],options);
+      y = new F(_s[0],_.inject(options,{slot: num}));
       _sceneQueue[num] = y;
-      y.run(num);
+
+      y.run();
 
       _activeScene = 0;
       if(!Mojo.loop)

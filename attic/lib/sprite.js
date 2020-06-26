@@ -2,136 +2,150 @@
   "use strict";
   let MojoH5 = global.MojoH5;
 
-  MojoH5.Sprites = function(Mojo) {
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not found.";
 
+  /**
+   * @module
+   */
+  MojoH5.Sprites = function(Mojo) {
     let _= Mojo.u,
         is= Mojo.is,
         _pool= _.jsVec();
 
-    let Transform2D = Mojo.defType("",{
-      init: function(source) {
-        this.m= new Array(6);
-        source ? this.clone(source) : this.identity();
-      },
-      identity: function() {
-        let m = this.m;
-        m[0] = 1; m[1] = 0; m[2] = 0;
-        m[3] = 0; m[4] = 1; m[5] = 0;
-        return this;
-      },
-      clone: function(src) {
-        for(let i=0;i<this.m.length;++i)
-        this.m[i]=src.m[i];
-        return this;
-      },
-      mult: function(other) {
-        let a = this.m,
-            b = other.m;
-        let m11 = a[0]*b[0] + a[1]*b[3];
-        let m12 = a[0]*b[1] + a[1]*b[4];
-        let m13 = a[0]*b[2] + a[1]*b[5] + a[2];
-        let m21 = a[3]*b[0] + a[4]*b[3];
-        let m22 = a[3]*b[1] + a[4]*b[4];
-        let m23 = a[3]*b[2] + a[4]*b[5] + a[5];
+    /**
+     * @see https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Transformations
+     * @see https://www.w3resource.com/html5-canvas/html5-canvas-matrix-transforms.php
+     * @private
+     * @class
+     */
+    let Xform2D = (function(A,C,E,B,D,F,Z) {
+      return Mojo.defType("Xfrom2D", {
+        init: function(source) {
+          this.m= new Array(Z);
+          source ? this.clone(source) : this.identity();
+        },
+        identity: function() {
+          //a,b,c,d,e,f = [a c e] = [1 0 0]
+          //              [b d f] = [0 1 0]
+          //              [0 0 1] = [0 0 1]
+          //a = horz scaling //c = vert skewing //e = horz moving (dx)
+          //b = horz skewing //d = vert scaling //f = vert moving (dy)
+          let m = this.m;
+          m[A] = 1; m[C] = 0; m[E] = 0;
+          m[B] = 0; m[D] = 1; m[F] = 0;
+          return this;
+        },
+        clone: function(src) {
+          for(let i=0;i<this.m.length;++i)
+          this.m[i]=src.m[i];
+          return this;
+        },
+        mult: function(other) {
+          //basic Matrix3x3 X Matrix3x3 stuff
+          let m = this.m,
+              n = other.m;
+          let a = m[A]*n[A] + m[C]*n[B],
+              c = m[A]*n[C] + m[C]*n[D],
+              e = m[A]*n[E] + m[C]*n[F] + m[E],
+              b = m[B]*n[A] + m[4]*n[B],
+              d = m[B]*n[C] + m[4]*n[D],
+              f = m[B]*n[E] + m[4]*n[F] + m[F];
 
-        a[0]=m11; a[1]=m12; a[2] = m13;
-        a[3]=m21; a[4]=m22; a[5] = m23;
-        return this;
-      },
-      rotate: function(rad) {
-        if(rad === 0) { return this; }
-        let m=this.m,
-            cos = Math.cos(rad),
-            sin = Math.sin(rad);
-        let m11 = m[0]*cos  + m[1]*sin;
-        let m12 = m[0]*-sin + m[1]*cos;
-        let m21 = m[3]*cos  + m[4]*sin;
-        let m22 = m[3]*-sin + m[4]*cos;
-        m[0] = m11; m[1] = m12; // m[2] == m[2]
-        m[3] = m21; m[4] = m22; // m[5] == m[5]
-        return this;
-      },
-      rot: function(deg) {
-        return this.rotate(Math.PI * deg / 180);
-      },
-      scale: function(sx,sy) {
-        if(sy === undefined) { sy = sx; }
-        let m = this.m;
-        m[0] *= sx;
-        m[1] *= sy;
-        m[3] *= sx;
-        m[4] *= sy;
-        return this;
-      },
-      translate: function(tx,ty) {
-        let m = this.m;
-        m[2] += m[0]*tx + m[1]*ty;
-        m[5] += m[3]*tx + m[4]*ty;
-        return this;
-      },
-      transform: function(x,y) {
-        return [x * this.m[0] + y * this.m[1] + this.m[2],
-                x * this.m[3] + y * this.m[4] + this.m[5]];
-      },
-      transformPt: function(obj) {
-        let x = obj.x, y = obj.y;
-        obj.x = x * this.m[0] + y * this.m[1] + this.m[2];
-        obj.y = x * this.m[3] + y * this.m[4] + this.m[5];
-        return obj;
-      },
-      transformArr: function(inPt,outPt) {
-        let x = inPt[0], y = inPt[1];
-        if (outPt === undefined) outPt= [0,0];
-        outPt[0] = x * this.m[0] + y * this.m[1] + this.m[2];
-        outPt[1] = x * this.m[3] + y * this.m[4] + this.m[5];
-        return outPt;
-      },
-      transformX: function(x,y) {
-        return x * this.m[0] + y * this.m[1] + this.m[2];
-      },
-      transformY: function(x,y) {
-        return x * this.m[3] + y * this.m[4] + this.m[5];
-      },
-      release: function() {
-        _pool.push(this);
-        return null;
-      },
-      setContextTransform: function(ctx) {
-        let m=this.m;
-        // source:
-        //  m[0] m[1] m[2]
-        //  m[3] m[4] m[5]
-        //  0     0   1
-        //
-        // destination:
-        //  m11  m21  dx
-        //  m12  m22  dy
-        //  0    0    1
-        //  setTransform(m11, m12, m21, m22, dx, dy)
-        //a (m11) Horizontal scaling. A value of 1 results in no scaling.
-        //b (m12) Vertical skewing.
-        //c (m21) Horizontal skewing.
-        //d (m22) Vertical scaling. A value of 1 results in no scaling.
-        //e (dx) Horizontal translation (moving).
-        //f (dy) Vertical translation (moving).
-        ctx.transform(m[0],m[3],m[1],m[4],m[2],m[5]);
-      }
-    });
+          m[A]=a; m[C]=c; m[E] = e;
+          m[B]=b; m[D]=d; m[F] = f;
+          return this;
+        },
+        rot: function(deg) {
+          return this.rotate(Math.PI * deg / 180);
+        },
+        rotate: function(rad) {
+          if(rad === 0) { return this; }
+          let m=this.m,
+              cos = Math.cos(rad),
+              sin = Math.sin(rad);
+          let a = m[A]*cos  + m[C]*sin;
+          let c = m[A]*-sin + m[C]*cos;
+          let b = m[B]*cos  + m[D]*sin;
+          let d = m[B]*-sin + m[D]*cos;
+          m[A] = a; m[C] = c;
+          m[B] = b; m[D] = d;
+          return this;
+        },
+        scale: function(sx,sy) {
+          if(sy === undefined) { sy = sx; }
+          let m = this.m;
+          m[A] *= sx;
+          m[C] *= sy;
+          m[B] *= sx;
+          m[D] *= sy;
+          return this;
+        },
+        translate: function(tx,ty) {
+          let m = this.m;
+          m[E] += m[A]*tx + m[C]*ty;
+          m[F] += m[B]*tx + m[D]*ty;
+          return this;
+        },
+        transformX: function(x,y) {
+          return x * this.m[A] + y * this.m[C] + this.m[E];
+        },
+        transformY: function(x,y) {
+          return x * this.m[B] + y * this.m[D] + this.m[F];
+        },
+        transform: function(x,y) {
+          // x' = ax + cy + e
+          // y' = bx + dy + f
+          return [this.transformX(x,y), this.transformY(x,y)];
+        },
+        transformPt: function(obj) {
+          let rc= this.transform(obj.x, obj.y);
+          obj.x = rc[0];
+          obj.y = rc[1];
+          return obj;
+        },
+        transformArr: function(inPt,outPt) {
+          let rc= this.transform(inPt[0], inPt[1]);
+          if(outPt===undefined)
+            outPt=rc;
+          else {
+            outPt[0] = rc[0];
+            outPt[1] = rc[1];
+          }
+          return outPt;
+        },
+        release: function() {
+          _pool.push(this.identity());
+        },
+        setContextTransform: function(ctx) {
+          let m=this.m;
+          ctx.transform(m[A],m[B],m[C],m[D],m[E],m[F]);
+        }
+      }, 0);
+    })(0,1,2,3,4,5,6);
 
+    /**
+     * @private
+     * @function
+     */
     let transformMatrix = () => {
-      return _pool.length > 0
-             ? _pool.pop().identity() : new Transform2D();
+      return _pool.length > 0 ? _pool.pop() : new Xform2D();
     };
 
     /**
-     * @object sheets
+     * @public
+     * @property {Map}
      */
     Mojo.sheets = _.jsObj();
 
     /**
-     * @class SpriteSheet
+     * @public
+     * @class
      */
     Mojo.defType("SpriteSheet",{
+      /**
+       * @constructs
+       */
       init: function(name, asset,options) {
         //asset = a.png
         let S= Mojo.asset(asset,true);
@@ -163,7 +177,7 @@
                                     this.tileW,
                                     this.tileH);
       }
-    });
+    }, Mojo);
 
     /**
      * @method
@@ -301,6 +315,7 @@
      */
     Mojo.defType(["Sprite", Mojo.Entity], {
       init: function(props,defaults) {
+        this._super();
         this.p = _.inject({x: 0,
                            y: 0,
                            z: 0,
@@ -318,6 +333,19 @@
         this.children = [];
         this.size();
         this.refreshMatrix();
+      },
+      add: function(child) {
+        _.conj(this.children,child);
+        child.container=this;
+        return this;
+      },
+      del: function(child) {
+        let n= this.children.indexOf(child);
+        if(n > -1) {
+          this.children.splice(n,1);
+          child.container=null;
+        }
+        return this;
       },
       size: function(force) {
         if(force ||
@@ -433,7 +461,7 @@
       debugRender: function(ctx) {
 
         if(!ctx ||
-           !Mojo.options.debug) {return this;}
+           !Mojo.o.debug) {return this;}
 
         !this.p.points &&
           Mojo.genPts(this);
@@ -451,7 +479,7 @@
         pps.forEach(pt => ctx.lineTo(pt[0],pt[1]));
         ctx.lineTo(p0[0],p0[1]);
         ctx.stroke();
-        if(Mojo.options.debugFill) { ctx.fill(); }
+        if(Mojo.o.debugFill) { ctx.fill(); }
         ctx.restore();
 
         if(this.c) {
@@ -502,7 +530,7 @@
       moved: function() {
         this.p.moved = true;
       }
-    });
+    }, Mojo);
 
     /**
      * @class MovingSprite
@@ -523,7 +551,7 @@
         p.x += p.vx * dt;
         p.y += p.vy * dt;
       }
-    });
+    }, Mojo);
 
     return Mojo;
   };
