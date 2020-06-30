@@ -1,28 +1,41 @@
 (function(global, undefined) {
-
   "use strict";
   let MojoH5=global.MojoH5;
 
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not loaded.";
+
+  /**
+   * @public
+   * @function
+   */
   MojoH5.Audio = function(Mojo) {
 
     let _ = Mojo.u,
         _channels= [],
+        _soundId=1,
         _actives= _.jsMap(),
-        _channelMax= Mojo.o.channelMax || 10;
-
-    let _soundId=1,
         _audioSounds= _.jsMap(),
+        _channelMax= Mojo.o.channelMax || 10,
         _delSound= (id) => { _.dissoc(_audioSounds,id); };
 
+    /**
+     * @public
+     * @property {object}
+     */
     Mojo.audio = {play: function() {},
-                stop: function() {}};
+                  stop: function() {}};
 
+    /**
+     * @public
+     * @property {boolean}
+     */
     Mojo.hasWebAudio = typeof AudioContext !== "undefined" ||
-                     typeof webkitAudioContext !== "undefined";
+                       typeof webkitAudioContext !== "undefined";
 
     if(Mojo.hasWebAudio)
       Mojo.audioContext = (typeof AudioContext !== "undefined")
-                        ? new AudioContext() : new window.webkitAudioContext();
+                          ? new AudioContext() : new window.webkitAudioContext();
 
     let _debounceQ= (now,s,options) => {
       // if currently being debounced, do nothing
@@ -32,18 +45,21 @@
 
       // if debounce - millisecs to debounce this sound
       if(options && options["debounce"])
-        _.assoc(_actives,
-                s, now + options["debounce"]);
+        _.assoc(_actives, s, now+options["debounce"]);
       else
         _.dissoc(_actives,s);
 
       return false;
     };
 
+    /**
+     * @public
+     * @function
+     */
     Mojo.enableWebAudioSound = function() {
       Mojo.audio.type = "WebAudio";
-      // Play a single sound, optionally debounced
-      // to prevent repeated plays in a short time
+      //Play a single sound, optionally debounced
+      //to prevent repeated plays in a short time
       Mojo.audio.play = function(s,options) {
         let now = _.now();
         if (!_debounceQ(now, s,options)) {
@@ -70,13 +86,16 @@
       };
     };
 
+    /**
+     * @public
+     * @function
+     */
     Mojo.enableHTML5Sound = function() {
       Mojo.audio.type = "HTML5";
-      for(let i=0;i<_channelMax;++i) {
+      for(let i=0;i<_channelMax;++i)
         _channels.push({finished: -1,
                         loop: false,
                         channel: new Audio()});
-      }
       // Play a single sound, optionally debounced
       // to prevent repeated plays in a short time
       Mojo.audio.play = function(s,options) {

@@ -1,21 +1,28 @@
 (function(global,undefined) {
   "use strict";
-
   let MojoH5 = global.MojoH5,
       document = global.document;
 
-  MojoH5["2D"] = function(Mojo) {
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not loaded.";
+
+  /**
+   * @public
+   * @function
+   */
+  MojoH5["2d"] = function(Mojo) {
 
     let _ = Mojo.u,
-        is = Mojo.is;
+        is = Mojo.is,
+        EBus= Mojo.EventBus;
 
-    /**
-     * @object
-     */
+    //register a feature
     Mojo.feature("camera",{
+      _sx: function() { return Mojo.width/2/this.scale; },
+      _sy: function() { return Mojo.height/2/this.scale; },
       added: function() {
-        Mojo.EventBus.sub([["prerender",this.entity,"prerender",this],
-                           ["render",this.entity,"postrender",this]]);
+        EBus.sub([["prerender",this.entity,"prerender",this],
+                  ["render",this.entity,"postrender",this]]);
         this.centerX = Mojo.width/2;
         this.centerY = Mojo.height/2;
         this.scale = 1;
@@ -25,27 +32,29 @@
         this.offsetY = 0;
       },
       disposed: function() {
-        Mojo.EventBus.unsub([["prerender",this.entity,"prerender",this],
-                             ["render",this.entity,"postrender",this]]);
+        EBus.unsub([["prerender",this.entity,"prerender",this],
+                    ["render",this.entity,"postrender",this]]);
       },
       follow: function(sprite,directions,boundingBox) {
-        Mojo.EventBus.unsub("poststep",this.entity,"_follow", this);
-        this.directions = directions || { x: true, y: true };
+        EBus.unsub("poststep",this.entity,"_follow", this);
+        this.directions = directions || {x: true, y: true};
         this.following = sprite;
-        if(is.undef(boundingBox) &&
+        this.boundingBox = boundingBox;
+        if(boundingBox===undefined &&
            this.entity.cache &&
            this.entity.cache.TileLayer !== undefined) {
-          this.boundingBox = _.some(this.entity.cache.TileLayer, (scene) => {
-            return scene.p.boundingBox ? { minX: 0, maxX: scene.p.w, minY: 0, maxY: scene.p.h } : null;
+          this.boundingBox = _.some(this.entity.cache.TileLayer, (itm) => {
+            return itm.p.boundingBox ? {minX: 0,
+                                        minY: 0,
+                                        maxX: itm.p.w,
+                                        maxY: itm.p.h } : null;
           });
-        } else {
-          this.boundingBox = boundingBox;
         }
-        Mojo.EventBus.sub("poststep",this.entity,"_follow",this);
+        EBus.sub("poststep",this.entity,"_follow",this);
         return this._follow(true);
       },
       unfollow: function() {
-        Mojo.EventBus.unsub("poststep",this.entity,"_follow",this);
+        EBus.unsub("poststep",this.entity,"_follow",this);
         return this;
       },
       _follow: function(first) {
@@ -53,7 +62,6 @@
                       ? this.directions.x(this.following) : this.directions.x;
         let fy = is.fun(this.directions.y)
                       ? this.directions.y(this.following) : this.directions.y;
-
         return this[first === true ? "centerOn" : "softCenterOn"](
                       fx ? this.following.p.x - this.offsetX : undefined,
                       fy ? this.following.p.y - this.offsetY : undefined);
@@ -65,12 +73,15 @@
       },
       softCenterOn: function(x,y) {
         if(x !== undefined) {
-          let dx = (x - Mojo.width / 2 / this.scale - this.x)/3;
+          let dx = (x - this._sx() - this.x)/3;
           if(this.boundingBox) {
-            if(this.x + dx < this.boundingBox.minX)
-              this.x = this.boundingBox.minX / this.scale;
-            else if(this.x + dx > (this.boundingBox.maxX - Mojo.width) / this.scale)
-              this.x = _.max(this.boundingBox.maxX - Mojo.width, this.boundingBox.minX) / this.scale;
+            let mx= this.boundingBox.minX,
+                wx= this.boundingBox.maxX - Mojo.width;
+            if(this.x + dx < mx)
+              this.x = mx/this.scale;
+            else
+            if(this.x + dx > wx/this.scale)
+              this.x = _.max(wx, mx)/this.scale;
             else
               this.x += dx;
           } else {
@@ -78,12 +89,15 @@
           }
         }
         if(y !== undefined) {
-          let dy = (y - Mojo.height / 2 / this.scale - this.y)/3;
+          let dy = (y - this._sy() - this.y)/3;
           if(this.boundingBox) {
-            if(this.y + dy < this.boundingBox.minY)
-              this.y = this.boundingBox.minY / this.scale;
-            else if(this.y + dy > (this.boundingBox.maxY - Mojo.height) / this.scale)
-              this.y = _.max(this.boundingBox.maxY - Mojo.height, this.boundingBox.minY) / this.scale;
+            let my= this.boundingBox.minY,
+                hy= this.boundingBox.maxY - Mojo.height;
+            if(this.y + dy < my)
+              this.y = my/this.scale;
+            else
+            if(this.y + dy > hy/this.scale)
+              this.y = _.max(hy, my)/this.scale;
             else
               this.y += dy;
           } else {
@@ -94,9 +108,9 @@
       },
       centerOn: function(x,y) {
         if(x !== undefined)
-          this.x = x - Mojo.width / 2 / this.scale;
+          this.x = x - this._sx();
         if(y !== undefined)
-          this.y = y - Mojo.height / 2 / this.scale;
+          this.y = y - this._sy();
         return this;
       },
       moveTo: function(x,y) {
@@ -105,8 +119,8 @@
         return this;
       },
       prerender: function() {
-        this.centerX = this.x + Mojo.width / 2 /this.scale;
-        this.centerY = this.y + Mojo.height / 2 /this.scale;
+        this.centerX = this.x + this._sx();
+        this.centerY = this.y + this._sy();
         Mojo.ctx.save();
         Mojo.ctx.translate(_.floor(Mojo.width/2),_.floor(Mojo.height/2));
         Mojo.ctx.scale(this.scale,this.scale);
@@ -120,18 +134,17 @@
     });
 
     /**
-     * @class TileLayer
+     * @public
+     * @class
      */
     Mojo.defType(["TileLayer",Mojo.Sprite], {
       init: function(props) {
-        this._super(props,{
-          tileW: 32,
-          tileH: 32,
-          blockTileW: 10,
-          blockTileH: 10,
-          renderAlways: true,
-          type: Mojo.E_DEFAULT
-        });
+        this._super(props,{tileW: 32,
+                           tileH: 32,
+                           blockTileW: 10,
+                           blockTileH: 10,
+                           renderAlways: true,
+                           type: Mojo.E_DEFAULT});
 
         this.p.dataAsset &&
           this.load(this.p.dataAsset);
@@ -147,13 +160,10 @@
         this.colBounds = {};
         this.blocks = [];
 
-        this.contactObj = { p: {
-            w: this.p.tileW,
-            h: this.p.tileH,
-            cx: this.p.tileW/2,
-            cy: this.p.tileH/2
-          }
-        };
+        this.contactObj = {p: {w: this.p.tileW,
+                               h: this.p.tileH,
+                               cx: this.p.tileW/2,
+                               cy: this.p.tileH/2}};
 
         this.tileContactObjs = {};
         this._genContactObjs();
@@ -171,8 +181,7 @@
           for(let k in props)
             if(_.has(props,k)) {
               cobj=
-              this.tileContactObjs[k] =
-              { p: _.clone(this.contactObj.p) };
+              this.tileContactObjs[k] = {p: _.clone(this.contactObj.p)};
               _.inject(cobj.p, props[k]);
               if(cobj.p.points)
                 cobj.p.points= _.map(cobj.p.points, rescale);
@@ -271,7 +280,7 @@
               if(col && col.magnitude > 0) {
                 if(colObj.p.sensor) {
                   colObj.tile = this.getTile(tileX,tileY);
-                  Mojo.EventBus.pub("sensor.tile", obj, colObj);
+                  EBus.pub("sensor.tile", obj, colObj);
                 } else if(!normal.collided ||
                           normal.magnitude < col.magnitude) {
                   normal.collided = true;
@@ -339,8 +348,8 @@
             scale = port ? port.scale : 1,
             x = port ? port.x : 0,
             y = port ? port.y : 0,
-            viewW = Mojo.width / scale,
-            viewH = Mojo.height / scale,
+            viewW = Mojo.width/scale,
+            viewH = Mojo.height/scale,
             startBlockX = _.floor((x - p.x) / p.blockW),
             startBlockY = _.floor((y - p.y) / p.blockH),
             endBlockX = _.floor((x + viewW - p.x) / p.blockW),
@@ -368,20 +377,19 @@
           gravity: 1,
           collisionMask: Mojo.E_DEFAULT
         });
-        Mojo.EventBus.sub([["step",ent,"step",this],
-                           ["hit",ent,'collision',this]]);
+        EBus.sub([["step",ent,"step",this],
+                  ["hit",ent,'collision',this]]);
       },
       disposed: function() {
-        Mojo.EventBus.unsub([["step",this.entity,"step",this],
-                             ["hit",this.entity,'collision',this]]);
+        EBus.unsub([["step",this.entity,"step",this],
+                    ["hit",this.entity,'collision',this]]);
       },
       collision: function(col,last) {
-        let entity = this.entity,
-            p = entity.p,
-            magnitude = 0;
+        let magnitude = 0,
+            p = this.entity.p;
 
         if(col.obj.p && col.obj.p.sensor) {
-          Mojo.EventBus.pub("sensor", col.obj, entity);
+          EBus.pub("sensor", col.obj, this.entity);
           return;
         }
 
@@ -396,31 +404,31 @@
         if(col.normalY < -0.3) {
           if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
           col.impact = impactY;
-          Mojo.EventBus.pub([["bump.bottom", entity,col],
-                             ["bump", entity,col]]);
+          EBus.pub([["bump.bottom", this.entity,col],
+                    ["bump", this.entity,col]]);
         }
         if(col.normalY > 0.3) {
           if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
           col.impact = impactY;
-          Mojo.EventBus.pub([["bump.top",entity,col],
-                             ["bump",entity,col]]);
+          EBus.pub([["bump.top",this.entity,col],
+                    ["bump",this.entity,col]]);
         }
         if(col.normalX < -0.3) {
           if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
           col.impact = impactX;
-          Mojo.EventBus.pub([["bump.right",entity,col],
-                             ["bump",entity,col]]);
+          EBus.pub([["bump.right",this.entity,col],
+                    ["bump",this.entity,col]]);
         }
         if(col.normalX > 0.3) {
           if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
           col.impact = impactX;
-          Mojo.EventBus.pub([["bump.left",entity,col],
-                             ["bump",entity,col]]);
+          EBus.pub([["bump.left",this.entity,col],
+                    ["bump",this.entity,col]]);
         }
       },
       step: function(dt) {
-        let p = this.entity.p,
-            dtStep = dt;
+        let dtStep = dt,
+            p = this.entity.p;
         // TODO: check the entity's magnitude of vx and vy,
         // reduce the max dtStep if necessary to prevent
         // skipping through objects.
@@ -438,17 +446,15 @@
       }
     });
 
-    /**
-     * @object
-     */
+    //register feature
     Mojo.feature("aiBounce", {
       added: function() {
-        Mojo.EventBus.sub([["bump.right",this.entity,"goLeft",this],
-                           ["bump.left",this.entity,"goRight",this]]);
+        EBus.sub([["bump.right",this.entity,"goLeft",this],
+                  ["bump.left",this.entity,"goRight",this]]);
       },
       disposed:function() {
-        Mojo.EventBus.unsub([["bump.right",this.entity,"goLeft",this],
-                             ["bump.left",this.entity,"goRight",this]]);
+        EBus.unsub([["bump.right",this.entity,"goLeft",this],
+                    ["bump.left",this.entity,"goRight",this]]);
       },
       goLeft: function(col) {
         this.entity.p.vx = -col.impact;
@@ -466,8 +472,170 @@
       }
     });
 
+    let _pctrl_defaults= {speed: 200, jumpSpeed: -300, collisions: []};
+    //register feature
+    Mojo.feature("platformerControls", {
+      added: function() {
+        let p = this.entity.p;
+        _.patch(p,_pctrl_defaults);
+
+        EBus.sub([["step",this.entity,"step",this],
+                  ["bump.bottom",this.entity,"landed",this]]);
+
+        p.landed = 0;
+        p.direction ="right";
+      },
+      disposed:function() {
+        EBus.unsub([["step",this.entity,"step",this],
+                    ["bump.bottom",this.entity,"landed",this]]);
+      },
+      landed: function(col) {
+        this.entity.p.landed= 1/5;
+      },
+      step: function(dt) {
+        let p = this.entity.p;
+
+        if(p.ignoreControls===undefined || !p.ignoreControls) {
+          let collision = null;
+          // Follow along the current slope, if possible.
+          if(p.collisions !== undefined &&
+             p.collisions.length > 0 &&
+             (_.get(Mojo.inputs,"left") ||
+              _.get(Mojo.inputs,"right") || p.landed > 0)) {
+            if(p.collisions.length === 1) {
+              collision = p.collisions[0];
+            } else {
+              // If there's more than one possible slope, follow slope with negative Y normal
+              collision = null;
+              for(let i = 0; i < p.collisions.length; ++i) {
+                if(p.collisions[i].normalY < 0)
+                collision = p.collisions[i];
+              }
+            }
+            // Don't climb up walls.
+            if(collision !== null &&
+               collision.normalY > -0.3 &&
+               collision.normalY < 0.3) {
+              collision = null;
+            }
+          }
+
+          if(_.get(Mojo.inputs,"left")) {
+            p.direction = "left";
+            if(collision && p.landed > 0) {
+              p.vx = p.speed * collision.normalY;
+              p.vy = -p.speed * collision.normalX;
+            } else {
+              p.vx = -p.speed;
+            }
+          } else if(_.get(Mojo.inputs,"right")) {
+            p.direction = "right";
+            if(collision && p.landed > 0) {
+              p.vx = -p.speed * collision.normalY;
+              p.vy = p.speed * collision.normalX;
+            } else {
+              p.vx = p.speed;
+            }
+          } else {
+            p.vx = 0;
+            if(collision && p.landed > 0)
+            p.vy = 0;
+          }
+
+          if(p.landed > 0 &&
+             (_.get(Mojo.inputs,"up") ||
+              _.get(Mojo.inputs,"action")) && !p.jumping) {
+            p.vy = p.jumpSpeed;
+            p.landed = -dt;
+            p.jumping = true;
+          } else if(_.get(Mojo.inputs,"up") ||
+                    _.get(Mojo.inputs,"action")) {
+            EBus.pub("jump", this.entity,this.entity);
+            p.jumping = true;
+          }
+
+          if(p.jumping && !(_.get(Mojo.inputs,"up") ||
+                            _.get(Mojo.inputs,"action"))) {
+            p.jumping = false;
+            EBus.pub("jumped", this.entity,this.entity);
+            if(p.vy < p.jumpSpeed/3) {
+              p.vy = p.jumpSpeed/3;
+            }
+          }
+        }
+        p.landed -= dt;
+      }
+    });
+
+    //register feature
+    Mojo.feature("stepControls", {
+      added: function() {
+        let p = this.entity.p;
+        if(!p.stepDistance) p.stepDistance = 32;
+        if(!p.stepDelay) p.stepDelay = 0.2;
+        p.stepWait = 0;
+        EBus.sub([["step",this.entity,"step",this],
+                  ["hit", this.entity,"collision",this]]);
+      },
+      disposed:function() {
+        EBus.unsub([["step",this.entity,"step",this],
+                    ["hit", this.entity,"collision",this]]);
+      },
+      collision: function(col) {
+        let p = this.entity.p;
+        if(p.stepping) {
+          p.stepping = false;
+          p.x = p.origX;
+          p.y = p.origY;
+        }
+      },
+      step: function(dt) {
+        let p = this.entity.p,
+            moved = false;
+        p.stepWait -= dt;
+
+        if(p.stepping) {
+          p.x += p.diffX * dt / p.stepDelay;
+          p.y += p.diffY * dt / p.stepDelay;
+        }
+
+        if(p.stepWait > 0) { return; }
+
+        if(p.stepping) {
+          p.x = p.destX;
+          p.y = p.destY;
+        }
+
+        p.stepping = false;
+        p.diffX = 0;
+        p.diffY = 0;
+
+        if(_.get(Mojo.inputs,"left")) {
+          p.diffX = -p.stepDistance;
+        } else if(_.get(Mojo.inputs,"right")) {
+          p.diffX = p.stepDistance;
+        }
+
+        if(_.get(Mojo.inputs,"up")) {
+          p.diffY = -p.stepDistance;
+        } else if(_.get(Mojo.inputs,"down")) {
+          p.diffY = p.stepDistance;
+        }
+
+        if(p.diffY || p.diffX ) {
+          p.stepping = true;
+          p.origX = p.x;
+          p.origY = p.y;
+          p.destX = p.x + p.diffX;
+          p.destY = p.y + p.diffY;
+          p.stepWait = p.stepDelay;
+        }
+      }
+    });
+
     /**
-     * @method
+     * @public
+     * @function
      */
     Mojo.overlap = (o1,o2) => {
       let c1 = o1.c || o1.p || o1;
@@ -483,7 +651,8 @@
     };
 
     /**
-     * @method
+     * @public
+     * @function
      */
     Mojo.collision = (function() {
       let normalX,
@@ -512,10 +681,10 @@
             offsetLength,
             tmp, i, j,
             minDist, minDistAbs,
-            shortestDist = Number.POSITIVE_INFINITY,
+            p1, p2,
             collided = false,
-            p1, p2;
-        let result = flip ? result2 : result1;
+            shortestDist = _.POS_INF,
+            result = flip ? result2 : result1;
         offset[0] = 0; //o1.x + o1.cx - o2.x - o2.cx;
         offset[1] = 0; //o1.y + o1.cy - o2.y - o2.cy;
         // If we have a position matrix, just use those points,

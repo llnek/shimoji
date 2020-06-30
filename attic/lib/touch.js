@@ -3,68 +3,81 @@
   let window=global,
       MojoH5= global.MojoH5;
 
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not loaded.";
+
+  /**
+   * @public
+   * @function
+   */
   MojoH5.Touch = function(Mojo) {
+
     let _= Mojo.u,
         is= Mojo.is,
         _touchType= 0,
-        _touchLayer = [0];
+        _touchLayer = [0],
+        _activeTouches = {},
+        _touchedObjects = {},
+        EBus = Mojo.EventBus;
 
+    /**
+     * @public
+     * @class
+     */
     Mojo.defType("TouchSystem", {
+      /**
+       * @constructs
+       */
       init: function() {
-        let touchSystem = this;
+        let self = this;
 
-        this.boundTouch = (e) => { touchSystem.touch(e); };
-        this.boundDrag = (e) => { touchSystem.drag(e); };
-        this.boundEnd = (e) => { touchSystem.touchEnd(e); };
+        this.boundTouch = (e) => { self.touch(e); };
+        this.boundDrag = (e) => { self.drag(e); };
+        this.boundEnd = (e) => { self.touchEnd(e); };
 
-        Mojo.el.addEventListener('touchstart',this.boundTouch);
-        Mojo.el.addEventListener('mousedown',this.boundTouch);
+        _.addEvent([["touchstart",Mojo.el,this.boundTouch],
+                    ["mousedown",Mojo.el,this.boundTouch],
+                    ["touchmove",Mojo.el,this.boundDrag],
+                    ["mousemove",Mojo.el,this.boundDrag],
+                    ["touchend",Mojo.el,this.boundEnd],
+                    ["mouseup",Mojo.el,this.boundEnd],
+                    ["touchcancel",Mojo.el,this.boundEnd]]);
 
-        Mojo.el.addEventListener('touchmove',this.boundDrag);
-        Mojo.el.addEventListener('mousemove',this.boundDrag);
-
-        Mojo.el.addEventListener('touchend',this.boundEnd);
-        Mojo.el.addEventListener('mouseup',this.boundEnd);
-        Mojo.el.addEventListener('touchcancel',this.boundEnd);
-
-        this.touchPos = {bbox4: new Map()};
-        this.touchPos.p = { id: _.nextID(), w:1, h:1, cx: 0, cy: 0 };
-        this.activeTouches = {};
-        this.touchedObjects = {};
+        //ducktype it for collision detection
+        this.touchPos = {bbox4: _.jsMap(),
+                         p: { id: _.nextID(), w:1, h:1, cx: 0, cy: 0 }};
       },
       dispose: function() {
-        Mojo.el.removeEventListener('touchstart',this.boundTouch);
-        Mojo.el.removeEventListener('mousedown',this.boundTouch);
-
-        Mojo.el.removeEventListener('touchmove',this.boundDrag);
-        Mojo.el.removeEventListener('mousemove',this.boundDrag);
-
-        Mojo.el.removeEventListener('touchend',this.boundEnd);
-        Mojo.el.removeEventListener('mouseup',this.boundEnd);
-        Mojo.el.removeEventListener('touchcancel',this.boundEnd);
+        _.delEvent([["touchstart",Mojo.el,this.boundTouch],
+                    ["mousedown",Mojo.el,this.boundTouch],
+                    ["touchmove",Mojo.el,this.boundDrag],
+                    ["mousemove",Mojo.el,this.boundDrag],
+                    ["touchend",Mojo.el,this.boundEnd],
+                    ["mouseup",Mojo.el,this.boundEnd],
+                    ["touchcancel",Mojo.el,this.boundEnd]]);
       },
-      normalizeTouch: function(touch,L) {
+      _repos: function(touch,L) {
         let el = Mojo.el,
-          rect = el.getBoundingClientRect(),
-          style = window.getComputedStyle(el),
-          posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
-          posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
+            rect = el.getBoundingClientRect(),
+            style = window.getComputedStyle(el),
+            posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
+            posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
 
-        if(is.undef(posX) ||
-           is.undef(posY)) {
+        if(posX===undefined ||
+           posY===undefined) {
            posX = touch.offsetX;
            posY = touch.offsetY;
         }
 
-        if(is.undef(posX) ||
-           is.undef(posY)) {
+        if(posX===undefined ||
+           posY===undefined) {
           posX = touch.layerX;
           posY = touch.layerY;
         }
 
-        if(is.undef(posX) ||
-           is.undef(posY)) {
-          if(Mojo.touch.offsetX === void 0) {
+        if(posX===undefined ||
+           posY===undefined) {
+          if(Mojo.touch.offsetX === undefined) {
             Mojo.touch.offsetX = 0;
             Mojo.touch.offsetY = 0;
             el = Mojo.el;
@@ -77,8 +90,10 @@
           posY = touch.pageY - Mojo.touch.offsetY;
         }
 
-        this.touchPos.p.ox = this.touchPos.p.px = posX / Mojo.cssWidth * Mojo.width;
-        this.touchPos.p.oy = this.touchPos.p.py = posY / Mojo.cssHeight * Mojo.height;
+        this.touchPos.p.ox =
+        this.touchPos.p.px = posX / Mojo.cssWidth * Mojo.width;
+        this.touchPos.p.oy =
+        this.touchPos.p.py = posY / Mojo.cssHeight * Mojo.height;
 
         if(L.camera) {
           this.touchPos.p.px /= L.camera.scale;
@@ -87,13 +102,12 @@
           this.touchPos.p.py += L.camera.y;
         }
 
+        this.touchPos.obj = null;
         this.touchPos.p.x = this.touchPos.p.px;
         this.touchPos.p.y = this.touchPos.p.py;
 
-        this.touchPos.obj = null;
         return this.touchPos;
       },
-
       touch: function(e) {
         let touches = e.changedTouches || [ e ];
         for(let i=0;i<touches.length;++i) {
@@ -103,77 +117,66 @@
 
             if(!L) { continue; }
 
-            let touchIdentifier = touch.identifier || 0;
-            let pos = this.normalizeTouch(touch,L);
-
+            let touchId= touch.identifier || 0;
+            let pos = this._repos(touch,L);
             L.regrid(pos,true);
-            let col = L.search(pos,_touchType), obj;
+            let obj, col = L.search(pos,_touchType);
 
             if(col || idx === _touchLayer.length - 1) {
               obj = col && col.obj;
               pos.obj = obj;
-              Mojo.EventBus.pub("touch", this, pos);
+              EBus.pub("touch", this, pos);
             }
 
-            if(obj && !this.touchedObjects[obj]) {
-              this.activeTouches[touchIdentifier] = {
+            if(obj && !_touchedObjects[obj]) {
+              _activeTouches[touchId] = {
                 x: pos.p.px,
                 y: pos.p.py,
-                origX: obj.p.x,
-                origY: obj.p.y,
                 sx: pos.p.ox,
                 sy: pos.p.oy,
-                identifier: touchIdentifier,
                 obj: obj,
-                scene: L
+                scene: L,
+                origX: obj.p.x,
+                origY: obj.p.y,
+                identifier: touchId
               };
-              this.touchedObjects[obj.p.id] = true;
-              Mojo.EventBus.pub("touch", obj, this.activeTouches[touchIdentifier]);
+              _touchedObjects[obj.p.id] = true;
+              EBus.pub("touch", obj, _activeTouches[touchId]);
               break;
             }
-
           }
-
         }
         //e.preventDefault();
       },
-
       drag: function(e) {
         let touches = e.changedTouches || [ e ];
-
         for(let i=0;i<touches.length;++i) {
           let touch = touches[i],
-              touchIdentifier = touch.identifier || 0;
-
-          let active = this.activeTouches[touchIdentifier],
+              touchId= touch.identifier || 0;
+          let active = _activeTouches[touchId],
               L = active && active.scene;
 
           if(active) {
-            let pos = this.normalizeTouch(touch,L);
+            let pos = this._repos(touch,L);
             active.x = pos.p.px;
             active.y = pos.p.py;
             active.dx = pos.p.ox - active.sx;
             active.dy = pos.p.oy - active.sy;
-
-            Mojo.EventBus.pub('drag', active.obj, active);
+            EBus.pub("drag", active.obj, active);
           }
         }
         e.preventDefault();
       },
-
       touchEnd: function(e) {
         let touches = e.changedTouches || [ e ];
-
         for(let i=0;i<touches.length;++i) {
           let touch = touches[i],
-              touchIdentifier = touch.identifier || 0;
-
-          let active = this.activeTouches[touchIdentifier];
-
+              touchId= touch.identifier || 0;
+          let active = _activeTouches[touchId];
           if(active) {
-            Mojo.EventBus.pub('touchEnd', active.obj, active);
-            delete this.touchedObjects[active.obj.p.id];
-            this.activeTouches[touchIdentifier] = null;
+            EBus.pub("touchEnd", active.obj, active);
+            _.assoc(_activeTouches,touchId,null);
+            _.dissoc(_touchedObjects,active.obj.p.id);
           }
         }
         e.preventDefault();
@@ -181,26 +184,32 @@
 
     }, Mojo);
 
-    Mojo.touch = function(options) {
-      options= options || {};
-      _touchType = options.type || Mojo.E_UI;
-      _touchLayer = options.scene || [2,1,0];
-      Mojo.untouch();
-      if(!is.vec(_touchLayer)) {
-        _touchLayer = [_touchLayer];
-      }
+    /**
+     * @public
+     * @function
+     */
+    Mojo.touch = function(arg) {
+      arg= arg || {};
+      if(!is.num(arg.scene))
+        _touchLayer = [2,1,0];
+      else
+        _touchLayer = [arg.scene];
+      _touchType = arg.type || Mojo.E_ALL; //Mojo.E_UI;
 
-      if(!Mojo._touch)
+      Mojo.untouch();
+      if(!Mojo.touchInput)
         Mojo.touchInput = new Mojo.TouchSystem();
 
       return Mojo;
     };
 
+    /**
+     * @public
+     * @function
+     */
     Mojo.untouch = function() {
-      if(Mojo.touchInput) {
-        Mojo.touchInput.dispose();
-        delete Mojo['touchInput'];
-      }
+      if(Mojo.touchInput)
+        _.dissoc(Mojo, "touchInput").dispose();
       return Mojo;
     };
 

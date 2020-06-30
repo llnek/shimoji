@@ -311,20 +311,20 @@
     };
 
     /**
+     * @public
      * @class Sprite
      */
     Mojo.defType(["Sprite", Mojo.Entity], {
       init: function(props,defaults) {
-        this._super();
-        this.p = _.inject({x: 0,
-                           y: 0,
-                           z: 0,
-                           angle: 0,
-                           frame: 0,
-                           name: "",
-                           opacity: 1,
-                           type: Mojo.E_DEFAULT |
-                                 Mojo.E_ACTIVE},defaults,props);
+        this._super(_.inject({x: 0,
+                              y: 0,
+                              z: 0,
+                              angle: 0,
+                              frame: 0,
+                              name: "",
+                              opacity: 1,
+                              type: Mojo.E_DEFAULT |
+                              Mojo.E_ACTIVE},defaults,props));
 
         if(this.p.id === undefined)
         this.p.id = _.nextID();
@@ -533,21 +533,20 @@
     }, Mojo);
 
     /**
-     * @class MovingSprite
+     * @public
+     * @class
      */
-    Mojo.defType(["MovingSprite", Mojo.Sprite], {
+    Mojo.defType(["MovableSprite", Mojo.Sprite], {
       init: function(props,defaults) {
-        this._super(_.inject({vx: 0,
-                              vy: 0,
-                              ax: 0,
-                              ay: 0},props),defaults);
+        this._super(props, _.inject({vx: 0,
+                                     vy: 0,
+                                     ax: 0,
+                                     ay: 0},defaults));
       },
-      step: function(dt) {
+      motion: function(dt) {
         let p = this.p;
-
         p.vx += p.ax * dt;
         p.vy += p.ay * dt;
-
         p.x += p.vx * dt;
         p.y += p.vy * dt;
       }

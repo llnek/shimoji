@@ -143,6 +143,7 @@
      */
     Mojo.defType(["Scene", Mojo.Entity], {
       init: function(funcObj,options) {
+        this._super();
         this.items = [];
         //stores relations for fast select like jQuery
         this.cache = _.jsMap();

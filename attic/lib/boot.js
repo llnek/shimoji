@@ -23,6 +23,8 @@
 
   let seqNum= 0;
   const _ = {
+    POS_INF: Number.POSITIVE_INFINITY,
+    NEG_INF: Number.NEGATIVE_INFINITY,
     keys: (obj) => {
       return isMap(obj) ? Array.from(obj.keys())
                         : (isObject(obj) ? Object.keys(obj) : []);
@@ -30,6 +32,9 @@
     assert: (cond) => {
       if(!cond)
         throw new Error(slicer.call(arguments,1).join(""));
+    },
+    inst: (type,obj) => {
+      return obj instanceof type;
     },
     jsMap: () => { return new Map(); },
     jsObj: () => { return {}; },
@@ -165,16 +170,23 @@
           if(OBJ.hasOwnProperty.call(obj,k))
           fn.call(ctx, obj[k], k, obj);
     },
-    dissoc: (obj,key) => {
-      let val;
-      if(isMap(obj)) {
-        val=obj.get(key);
-        obj.delete(key);
-      } else if (obj) {
-        val = obj[key];
-        delete obj[key];
+    dissoc: function(obj,key) {
+      if(arguments.length > 2) {
+        let prev,i=1;
+        for(;i<arguments.length;++i)
+          prev=this.dissoc(obj,arguments[i]);
+        return prev;
+      } else {
+        let val;
+        if(isMap(obj)) {
+          val=obj.get(key);
+          obj.delete(key);
+        } else if (obj) {
+          val = obj[key];
+          delete obj[key];
+        }
+        return val;
       }
-      return val;
     },
     get: (obj,key) => {
       if(isMap(obj))
@@ -182,17 +194,28 @@
       else if(obj)
         return obj[key];
     },
-    assoc: (obj,key,value) => {
-      let prev;
-      if(isMap(obj)) {
-        prev=obj.get(key);
-        obj.set(key,value);
+    assoc: function(obj,key,value) {
+      if(arguments.length>3) {
+        if(((arguments.length-1)%2) !== 0)
+          throw "ArityError: expecting even count of args.";
+        let prev, i=1;
+        for(;i < arguments.length;) {
+          prev= this.assoc(obj,arguments[i],arguments[i+1]);
+          i+=2;
+        }
+        return prev;
+      } else {
+        let prev;
+        if(isMap(obj)) {
+          prev=obj.get(key);
+          obj.set(key,value);
+        }
+        else if(obj) {
+          prev=obj[key];
+          obj[key]=value;
+        }
+        return prev;
       }
-      else if(obj) {
-        prev=obj[key];
-        obj[key]=value;
-      }
-      return prev;
     },
     conj: (coll,obj) => {
       return coll.push(obj);
@@ -226,8 +249,17 @@
       });
       return des;
     },
-    subEvent: (event,target,cb,arg) => {
-      return target.addEventListener(event,cb,arg);
+    addEvent: function(event,target,cb,arg) {
+      if(isArray(event) && arguments.length===1)
+        event.forEach(e => this.addEvent.apply(this, e));
+      else
+        target.addEventListener(event,cb,arg);
+    },
+    delEvent: function(event,target,cb,arg) {
+      if(isArray(event) && arguments.length===1)
+        event.forEach(e => this.delEvent.apply(this, e));
+      else
+        target.removeEventListener(event,cb,arg);
     }
   },
   is= {
@@ -440,7 +472,7 @@
                             sound: true,
                             maxFrameTime: 100,
                             autoFocus: true,
-                            audioFiles: ["mp3","ogg"]}, opts)};
+                            audioFiles: ["wav", "mp3","ogg"]}, opts)};
 
     // entity types for collision detections
     Mojo.E_NONE     = 0;
@@ -521,7 +553,7 @@
      * @function
      */
     Mojo.handleDeviceFlip = () => {
-      _.subEvent("orientationchange", window, () => {
+      _.addEvent("orientationchange", window, () => {
         Mojo.scrollTop();
       });
       return Mojo;
@@ -739,7 +771,8 @@
       del: function(child) {
         throw "Fatal: calling pure virtual method.";
       },
-      init: function() {
+      init: function(p) {
+        this.p= p || {};
       },
       dispose: function() {
         if(this.isDead) { return; }
@@ -893,10 +926,10 @@
         cb(key);
       } else {
         let snd=new Audio();
-        _.subEvent("error",snd, ecb);
+        _.addEvent("error",snd, ecb);
         // don't wait for canplaythrough on mobile
         if(!Mojo.touchDevice)
-          _.subEvent("canplaythrough", snd, () => cb(key,snd));
+          _.addEvent("canplaythrough", snd, () => cb(key,snd));
         snd.src = _assetUrl(Mojo.o.audioPath, _.fileNoExt(path)+"."+ ext, dev);
         snd.load();
       }
@@ -1042,7 +1075,7 @@
     ["Audio",
      "UI",
      "Anim",
-     "2D",
+     "2d",
      "Input",
      "Touch"].concat(_.seq(Mojo.o.modules||"")).forEach(k => {
       let f= MojoH5[k];
@@ -1134,7 +1167,7 @@
       Mojo.cssHeight = h;
 
       if(options.scaleToFit) {
-        let factor = 1;
+        let factor = 1,
             winW = window.innerWidth*factor,
             winH = window.innerHeight*factor,
             winRatio = winW/winH,
@@ -1162,9 +1195,9 @@
         }
       }
 
-      Mojo.controls(options.joypad);
-      Mojo.touch(options.touch);
+      //options= {touch: {}, joyad: {}}
       Mojo.handleDeviceFlip();
+      Mojo.controls(options);
 
       if(options.sound !== false)
         Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
