@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global, undefined) {
   "use strict";
   let MojoH5=global.MojoH5;
@@ -6,8 +20,7 @@
     throw "Fatal: MojoH5 not loaded.";
 
   /**
-   * @public
-   * @function
+   * @module
    */
   MojoH5.Audio = function(Mojo) {
 
@@ -38,16 +51,16 @@
                           ? new AudioContext() : new window.webkitAudioContext();
 
     let _debounceQ= (now,s,options) => {
-      // if currently being debounced, do nothing
+      //if currently being debounced, do nothing
       if(_actives.has(s) &&
          _actives.get(s) > now)
       return true;
 
-      // if debounce - millisecs to debounce this sound
-      if(options && options["debounce"])
-        _.assoc(_actives, s, now+options["debounce"]);
-      else
+      //if debounce - millisecs to debounce this sound
+      if(!(options && options["debounce"]))
         _.dissoc(_actives,s);
+      else
+        _.assoc(_actives, s, now+options["debounce"]);
 
       return false;
     };
@@ -77,7 +90,6 @@
           _.assoc(_audioSounds, sid, src);
         }
       };
-
       Mojo.audio.stop = (s) => {
         _.doseq(_audioSounds, (snd,k) => {
           if(!s || s === snd.assetName)
@@ -99,23 +111,24 @@
       // Play a single sound, optionally debounced
       // to prevent repeated plays in a short time
       Mojo.audio.play = function(s,options) {
-        let now = _.now();
-        if (!_debounceQ(now,s,options))
+        let ass,now = _.now();
+        if(!_debounceQ(now,s,options)) {
+          ass=Mojo.asset(s,true);
           _.some(_channels, (c) => {
             if (!c["loop"] && c["finished"] < now) {
-              c["channel"].src = Mojo.asset(s).src;
+              c["channel"].src = ass.src;
               if(options && options["loop"]) {
                 c["loop"]=true;
                 c["channel"].loop = true;
               } else
-                c["finished"]= now + Mojo.asset(s).duration*1000;
+                c["finished"]= now + ass.duration*1000;
               c["channel"].load();
               c["channel"].play();
               return true;
             }
           });
+        }
       };
-
       Mojo.audio.stop = function(s) {
         let src,tm = _.now();
         if(s)

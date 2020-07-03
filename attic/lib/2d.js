@@ -137,7 +137,7 @@
      * @public
      * @class
      */
-    Mojo.defType(["TileLayer",Mojo.Sprite], {
+    Mojo.deftype(["TileLayer",Mojo.Sprite], {
       init: function(props) {
         this._super(props,{tileW: 32,
                            tileH: 32,

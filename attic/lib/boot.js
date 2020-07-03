@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global, undefined) {
   "use strict";
 
@@ -11,14 +25,17 @@
         document=global.document,
         slicer=Array.prototype.slice;
 
-  const isObject= (obj) => {
-    return tostr.call(obj) === "[object Object]";
+  const isStr= (obj) => {
+    return typeof obj === "string";
+  };
+  const isMap= (obj) => {
+    return tostr.call(obj) === "[object Map]";
   };
   const isArray= (obj) => {
     return tostr.call(obj) === "[object Array]";
   };
-  const isMap= (obj) => {
-    return tostr.call(obj) === "[object Map]";
+  const isObject= (obj) => {
+    return tostr.call(obj) === "[object Object]";
   };
 
   let seqNum= 0;
@@ -29,12 +46,19 @@
       return isMap(obj) ? Array.from(obj.keys())
                         : (isObject(obj) ? Object.keys(obj) : []);
     },
-    assert: (cond) => {
-      if(!cond)
-        throw new Error(slicer.call(arguments,1).join(""));
+    assert: function(cond) {
+      if(!cond) {
+        if(arguments.length < 2)
+          throw "Assertion error.";
+        else
+          throw slicer.call(arguments,1).join("");
+      }
     },
     inst: (type,obj) => {
       return obj instanceof type;
+    },
+    isPerc: (s) => {
+      return isStr(s) && s.match(/^[0-9]+%$/);
     },
     jsMap: () => { return new Map(); },
     jsObj: () => { return {}; },
@@ -113,22 +137,21 @@
     find: function(obj,fn,ctx) {
       let args=slicer.call(arguments,3);
       if(isArray(obj)) {
-        for (let i=0,z=obj.length;i<z;++i)
+        for(let i=0,z=obj.length;i<z;++i)
           if(fn.apply(ctx, [obj[i], i].concat(args)))
             return obj[i];
       } else if(isMap(obj)) {
         let ks=Array.from(obj.keys());
-        for (let k,i=0,z=ks.length;i<z;++i) {
+        for(let k,i=0,z=ks.length;i<z;++i) {
           k=ks[i];
           if(fn.apply(ctx, [obj.get(k), k].concat(args)))
           return [k, obj.get(k)];
         }
       } else if(obj) {
-        for(let k in obj) {
-          if(OBJ.hasOwnProperty.call(obj, k))
-            if(fn.apply(ctx, [obj[k], k].concat(args)))
-              return [k,obj[k]];
-        }
+        for(let k in obj)
+          if(OBJ.hasOwnProperty.call(obj, k) &&
+             fn.apply(ctx, [obj[k], k].concat(args)))
+            return [k,obj[k]];
       }
     },
     some: function(obj,fn,ctx) {
@@ -233,8 +256,7 @@
       des=des || {};
       if(src)
         for(let k in src)
-          if(OBJ.hasOwnProperty.call(src,k) &&
-             des[k] === void 0)
+          if(OBJ.hasOwnProperty.call(src,k) && des[k] === undefined)
             des[k] = src[k];
       return des;
     },
@@ -272,6 +294,9 @@
     void0: (obj) => { return obj === void 0; },
     undef: (obj) => { return obj === undefined; }
   };
+
+  //private stuff
+  //
   //assets
   let _audioTypes= {mp3: "audio/mpeg",
                     m4a: "audio/m4a",
@@ -280,13 +305,14 @@
   let _assetTypes= {tmx: "Tile", png: "Image", xml: "Xml", json: "Json",
                     jpg: "Image", gif: "Image", jpeg: "Image",
                     ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
+
   let _audioDftExt;
   let _preloads= [];
   let _audioExt= (choices) => {
     if(!_audioDftExt) {
       let snd = new Audio();
-      _audioDftExt= _.some(choices, (ext) => {
-        return snd.canPlayType(_audioTypes[ext]) ? ext: null;
+      _audioDftExt= _.find(choices, (ext) => {
+        return snd.canPlayType(_audioTypes[ext]);
       });
     }
     return _audioDftExt;
@@ -309,12 +335,12 @@
           window[pfx[x]+"CancelRequestAnimationFrame"];
     }
     if(!window.requestAnimationFrame) {
-      let lastTime = 0;
+      let last= 0;
       window.requestAnimationFrame = (cb, e) => {
-        let cur = _.now();
-        let delay = Math.max(0, 16 - (cur - lastTime));
-        let id = _.timer(() => cb(cur+delay), delay);
-        lastTime = cur+delay;
+        let cur = _.now(),
+            delay = Math.max(0, 16 - (cur - last)),
+            id = _.timer(() => cb(cur+delay), delay);
+        last= cur+delay;
         return id;
       };
     }
@@ -341,32 +367,30 @@
       initing = false;
       let _superFactory= function(name,fn) {
         return function() {
-          let tmp = this._super;
-          /* Add a new ._super() method that is the same method */
-          /* but on the super-class */
+          let rc,tmp = this._super;
+          //Add a new _super() method that is the same method
+          //but on the super-class
           this._super = _super[name];
-          /* The method only need to be bound temporarily, so we */
-          /* remove it when we're done executing */
-          let ret = fn.apply(this, arguments);
-          this._super = tmp;
-          return ret;
+          rc = fn.apply(this, arguments); this._super = tmp; return rc;
         };
       }
-      for(let name in props) {
-        proto[name] = typeof props[name] === "function" &&
-          typeof _super[name] === "function" &&
-            fnTest.test(props[name]) ? _superFactory(name,props[name]) : props[name];
-      }
-      /* The dummy class constructor function*/
+      _.doseq(props, (v,k) => {
+        if(_.has(props,k))
+          proto[k] = is.fun(v) &&
+                     is.fun(_super[k]) &&
+                     fnTest.test(v) ? _superFactory(k,v) : v;
+      });
+      //The dummy class constructor function
       function TemplateFn() {
-        if (!initing && this.init)
-          this.init.apply(this, arguments); // init => ctor
+        if(!initing && this.init)
+          //init=>ctor
+          this.init.apply(this, arguments);
       }
-      /* Populate our constructed prototype object */
+      //Populate our constructed prototype object
       TemplateFn.prototype = proto;
-      /* Enforce the constructor to be what we expect */
+      //Enforce the constructor to be what we expect
       TemplateFn.prototype.constructor = TemplateFn;
-      /* And make this class extendable */
+      //Make this class extendable
       TemplateFn.extend = Resig.extend;
       if(className) {
         if(isObject(container))
@@ -378,7 +402,11 @@
     };
   })();
 
-  let defType= (clazz, props, container) => {
+  /**Local deftype
+   * @private
+   * @function
+   */
+  let _deftype= (clazz, props, container) => {
       let child,parent;
       if(is.str(clazz)) {
         parent=Resig;
@@ -392,6 +420,9 @@
       return parent.extend(child,props,container);
   };
 
+  /**
+   * @constructor
+   */
   let EventBus= function () {
     this.tree= _.jsMap();
     this.sub= function(event,target,cb,ctx) {
@@ -465,16 +496,15 @@
   };
 
   let _aux=["Tiles"];
-  window.MojoH5 = function(opts) {
-    let Mojo= {o: _.inject({imagePath: "images/",
-                            dataPath:  "data/",
-                            audioPath: "audio/",
-                            sound: true,
-                            maxFrameTime: 100,
-                            autoFocus: true,
-                            audioFiles: ["wav", "mp3","ogg"]}, opts)};
+  window.MojoH5 = function() {
 
-    // entity types for collision detections
+    let Mojo={},
+        modules = _.slice(arguments);
+
+    /**entity types for collision detections
+     * @public
+     * @property {number}
+     */
     Mojo.E_NONE     = 0;
     Mojo.E_DEFAULT  = 1;
     Mojo.E_PARTICLE = 2;
@@ -487,6 +517,13 @@
     Mojo.E_ALL   = 0xFFFF;
 
     /**
+     * @public
+     * @class
+     */
+    //Mojo.EventBus= EventBus;
+
+    /**
+     * @public
      * @function
      */
     Mojo.log= function() {
@@ -499,39 +536,48 @@
     };
 
     /**
+     * @public
      * @property
      */
     Mojo.touchDevice= !!("ontouchstart" in document);
     /**
+     * @public
      * @function
      */
     Mojo["$"]= function(selector) {};
     /**
+     * @public
      * @property
      */
     Mojo.EventBus=new EventBus();
     /**
-     * @property
+     * @public
+     * @property {object}
      */
     Mojo.is=is;
     /**
-     * @property
+     * @public
+     * @property {object}
      */
     Mojo.u=_;
     /**
-     * @property
+     * @public
+     * @property {object}
      */
-    Mojo.features= {};
+    Mojo.assets={};
     /**
-     * @property
+     * @public
+     * @property {object}
      */
     Mojo.loaders={};
     /**
-     * @property
+     * @private
+     * @property {object}
      */
-    Mojo.assets={};
+    Mojo._features= _.jsMap();
 
     /**
+     * @public
      * @function
      */
     Mojo.scroll = (x,y) => {
@@ -540,6 +586,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.scrollTop = (x,y) => {
@@ -550,6 +597,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.handleDeviceFlip = () => {
@@ -562,24 +610,29 @@
     //------------------------------------------------------------------------
     //DOM stuff
     /**
+     * @public
      * @function
      */
-    Mojo.domBySelector= (selector) => { return document.querySelectorAll(selector); };
+    Mojo.domBySelector= (sel) => { return document.querySelectorAll(sel); };
     /**
+     * @public
      * @function
      */
     Mojo.domById= (id) => { return document.getElementById(id); };
     /**
+     * @public
      * @function
      */
     Mojo.domParent= (e) => { return e ? e.parentNode : undefined; };
     /**
+     * @public
      * @function
      */
     Mojo.domConj = (child, par) => {
       return (par || document.body).appendChild(child);
     };
     /**
+     * @public
      * @function
      */
     Mojo.domByTag= (tag, ns) => {
@@ -588,11 +641,11 @@
              : document.getElementsByTagName(id);
     };
     /**
+     * @public
      * @function
      */
     Mojo.domAttrs= function(e, attrs) {
       if(!is.obj(attrs) && attrs) {
-        //attrs=""+attrs;
         if(arguments.length > 2)
           e.setAttribute(attrs, arguments[2]);
         return e.getAttribute(attrs);
@@ -602,11 +655,11 @@
       return e;
     };
     /**
+     * @public
      * @function
      */
     Mojo.domCss= function(e, styles) {
       if(!is.obj(styles) && styles) {
-        //styles=""+styles;
         if(arguments.length > 2)
           e.style[styles]= arguments[2];
         return e.style[styles];
@@ -616,6 +669,7 @@
       return e;
     };
     /**
+     * @public
      * @function
      */
     Mojo.domWrap= (child,wrapper) => {
@@ -625,6 +679,7 @@
       return wrapper;
     };
     /**
+     * @public
      * @function
      */
     Mojo.domCtor = (tag, attrs, styles) => {
@@ -635,61 +690,70 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
     /**
+     * @public
      * @function
      */
     Mojo.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
     /**
+     * @public
      * @function
      */
-    Mojo.p2 = (px,py) => { return {x: px||0,y: py||0}; };
+    Mojo.p2 = (px,py) => { return {x: px||0, y: py||0}; };
     /**
+     * @public
      * @function
      */
     Mojo.v2 = (x,y) => { return [x||0, y||0]; };
     /**
+     * @public
      * @function
      */
     Mojo.hasTouch= () => { return Mojo.touchDevice;};
 
     /**
+     * @public
      * @function
      */
-    Mojo.defType= (clazz, props, container) => {
-      return defType(clazz,
-                     props,
-                     (typeof container==="undefined") ? Mojo : container);
+    Mojo.deftype= (clazz, props, container) => {
+      return _deftype(clazz,
+                      props,
+                      (typeof container==="undefined") ? Mojo : container);
     };
 
+    //------------------------------------------------------------------------
     // set up game loop
-    let _loopFrame = 0;
-    let _lastFrame=0;
+    let _lastFrame=0,
+        _loopFrame = 0;
     /**
+     * @public
      * @function
      */
     Mojo.gameLoop = function(action) {
       _lastFrame = _.now();
       _loopFrame = 0;
-      //Mojo.loop = true;
-      Mojo.gameLoopCallbackWrapper = () => {
+      Mojo.glwrapper = () => {
         let now = _.now();
         ++_loopFrame;
-        Mojo.loop = Mojo.scheduleFrame(Mojo.gameLoopCallbackWrapper);
+        Mojo.loop = Mojo.scheduleFrame(Mojo.glwrapper);
         let dt = now - _lastFrame;
-        /* Prevent fast-forwarding by limiting the length of a single frame. */
+        //TODO: need to think about this one
+        //limit the length of a single frame.
         if(dt>Mojo.o.maxFrameTime)
           dt = Mojo.o.maxFrameTime;
         action.call(Mojo, dt/1000);
         _lastFrame = now;
       };
-      Mojo.loop=Mojo.scheduleFrame(Mojo.gameLoopCallbackWrapper);
+      Mojo.loop=Mojo.scheduleFrame(Mojo.glwrapper);
       return Mojo;
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.pauseGame = () => {
@@ -698,41 +762,56 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.resumeGame = () => {
       if(!Mojo.loop) {
         _lastFrame = _.now();
-        Mojo.loop = Mojo.scheduleFrame(Mojo.gameLoopCallbackWrapper);
+        Mojo.loop = Mojo.scheduleFrame(Mojo.glwrapper);
       }
     };
 
     /**
+     * @public
      * @class
      */
-    defType("Feature", {
-      // created when they are added onto an entity.
+    _deftype("Feature", {
+      //created when they are added onto an entity.
+      /**
+       * @constructs
+       */
       init: function(entity) {
         if(entity[this.name])
           throw "Entity has feature `"+this.name+"` already!";
-        entity[this.name] = this;
+
+        if(!entity.features)
+          entity.features= [];
+
+        //tag this feature => becomes property of entity
+        _.assoc(entity,this.name, this);
         _.conj(entity.features,this.featureName);
 
+        //enable fast lookup
         if(entity.scene)
           entity.scene.link(this.featureName,entity);
 
+        //finalize feature addition
         this.entity = entity;
-        this.added && this.added();
+        if(this.added) this.added();
       },
+      /**clean up
+       */
       dispose: function() {
-        delete this.entity[this.name];
+        //reverse all that was done
+        _.dissoc(this.entity,this.name);
         let i = this.entity.features.indexOf(this.featureName);
         if(i > -1) {
           this.entity.features.splice(i,1);
           if(this.entity.scene)
             this.entity.scene.unlink(this.featureName,this.entity);
         }
-        this.disposed && this.disposed();
+        if(this.disposed) this.disposed();
       }
     }, Mojo);
 
@@ -740,15 +819,13 @@
      * @abstract
      * @class
      */
-    defType("Entity", {
+    _deftype("Entity", {
       hasFeature: function(co) { return _.has(this,co); },
       addFeature: function(features) {
-        if(!this.features)
-          this.features= _.jsVec();
         _.seq(features).forEach(name => {
           if(!_.has(this,name)) {
-            let C = Mojo.features[name];
-            let z = C ? new C(this) : null;
+            let C = _.get(Mojo._features,name),
+                z = C ? new C(this) : null;
             if(z)
               Mojo.EventBus.pub("addFeature", this, z);
           }
@@ -756,9 +833,9 @@
         return this;
       },
       delFeature: function(features) {
-        let f;
         _.seq(features).forEach(name => {
-          if(f=this[name]) {
+          let f= this[name];
+          if(_.inst(Mojo.Feature, f)) {
             Mojo.EventBus.pub("delFeature",this,f);
             f.dispose();
           }
@@ -771,20 +848,27 @@
       del: function(child) {
         throw "Fatal: calling pure virtual method.";
       },
+      /**
+       * @constructs
+       */
       init: function(p) {
+        //this.features= [];
         this.p= p || {};
       },
+      /**clean up
+      */
       dispose: function() {
         if(this.isDead) { return; }
         Mojo.EventBus.pub("disposed",this);
         if(this.scene)
           this.scene.remove(this);
         this.isDead = true;
-        this.disposed && this.disposed();
+        if(this.disposed) this.disposed();
       }
     }, Mojo);
 
     /**
+     * @public
      * @function
      */
     Mojo.feature = (name,body) => {
@@ -794,15 +878,17 @@
           throw "Feature `"+name+"` already exists!";
         body.name = name;
         body.featureName = "."+name;
-        Mojo.features[name] = defType([n, Mojo.Feature], body, Mojo);
+        _.assoc(Mojo._features,name,
+                _deftype([n, Mojo.Feature], body, Mojo));
       }
-      return Mojo.features[name];
+      return _.get(Mojo._features,name);
     };
 
     /**
+     * @public
      * @class
      */
-    defType("GameState", {
+    _deftype("GameState", {
       init: function(p) {
         this.p = _.clone(p);
       },
@@ -810,14 +896,14 @@
         this.init(p);
         Mojo.EventBus.pub("reset",this);
       },
+      get: function(prop) {
+        return _.get(this.p,prop);
+      },
       _triggerProperty: function(value,key) {
         if(this.p[key] !== value) {
-          this.p[key] = value;
+          _.assoc(this.p, key, value);
           Mojo.EventBus.pub("change."+key,this,value);
         }
-      },
-      get: function(prop) {
-        return this.p[prop];
       },
       set: function(prop,value) {
         if(!is.obj(prop))
@@ -849,6 +935,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.clear = () => {
@@ -865,6 +952,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.setImageSmoothing = (ok) => {
@@ -878,23 +966,25 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.imageData = (img) => {
-      let canvas = Mojo.domCtor("canvas");
-      let ctx = canvas.getContext("2d");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      let cv = Mojo.domCtor("canvas"),
+          ctx = cv.getContext("2d");
+      cv.width = img.width;
+      cv.height = img.height;
       ctx.drawImage(img,0,0);
       return ctx.getImageData(0,0,img.width,img.height);
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.assetType = (url) => {
-      let ext = _.fileExt(url);
-      let type = ext ? _assetTypes[ext] : "";
+      let ext = _.fileExt(url),
+          type = ext ? _assetTypes[ext] : "";
       if(type === "Audio" &&
          Mojo.audio &&
          Mojo.audio.type === "WebAudio") {
@@ -904,6 +994,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.loaders.Image = (key,path,cb,ecb) => {
@@ -915,6 +1006,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.loaders.Audio = function(key,path,cb,ecb) {
@@ -937,6 +1029,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.loaders.WebAudio = function(key,path,cb,ecb) {
@@ -954,6 +1047,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.ajax = function(key,path,cb,ecb) {
@@ -977,6 +1071,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.loaders.Other = function(key,path,cb,ecb) {
@@ -984,6 +1079,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.loaders.Json = function(key,path,cb,ecb) {
@@ -993,61 +1089,66 @@
     };
 
     /**
+     * @public
      * @function
      */
+    let _domp= new DOMParser();
     Mojo.loaders.Xml = function(key,path,cb,ecb) {
       return Mojo.ajax(key,path,(key,data) => {
-        cb(key,new DOMParser().parseFromString(data, "application/xml"));
+        cb(key, _domp.parseFromString(data, "application/xml"));
       },ecb);
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.asset= (name,panic) => {
-      let r=Mojo.assets[name];
+      let r= _.get(Mojo.assets, name);
       if(panic && !r)
-        throw "Unknown Asset:" + name;
+        throw "Error: unknown asset:" + name;
       return r;
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.load= function(assets,cb,options) {
-      let pcb = options && options.progressCb;
-      let bad = options && options.errorCb;
-      let assetObj = {};
-      let errors = 0;
-      let ecb = (a) => {
-        ++errors;
-        (bad || ((a) => {throw "Error Loading: "+a;}))(a);
-      };
-
+      options= options || {};
+      let pcb = options.progressCb;
+      let bad = options.errorCb;
+      let assetObj = {},
+          errors = 0,
+          ecb = (a) => {
+            ++errors;
+            (bad || ((a) => {throw "Error Loading: "+a;}))(a);
+          };
       _.doseq(_.seq(assets), (a) => {
         if(is.obj(a))
-          _.inject(assetObj,a);
+          _.inject(assetObj, a);
         else if(a.length > 0) assetObj[a] = a;
       });
 
-      let sum = _.keys(assetObj).length;
-      let more=sum;
-      let loaded = (key,obj,force) => {
-        if(errors < 1) {
-          if(!Mojo.assets[key]||force) {
-            Mojo.assets[key] = obj;
-            --more;
-            if(pcb)
-              pcb(sum - more, sum);
-          }
-          if(more === 0 && cb) { cb.apply(Mojo, []); }
-        }
-      };
+      let sum = _.keys(assetObj).length,
+          type,
+          more=sum,
+          loaded = (key,obj,force) => {
+            if(errors < 1) {
+              if(!Mojo.assets[key]||force) {
+                _.assoc(Mojo.assets,key, obj);
+                --more;
+                if(pcb)
+                  pcb(sum - more, sum);
+              }
+              if(more === 0 && cb) { cb.apply(Mojo, []); }
+            }
+          };
       //start to load
       _.doseq(assetObj, (a,key) => {
-        let type = Mojo.assetType(a);
+        type = Mojo.assetType(a);
         Mojo.assets[key]
-          ? loaded(key,Mojo.assets[key],true)
+          ? loaded(key, _.get(Mojo.assets,key), true)
           : Mojo.loaders[type](key,a,loaded,() => { ecb(a); });
       });
 
@@ -1055,6 +1156,7 @@
     };
 
     /**
+     * @public
      * @function
      */
     Mojo.preload = (arg,options) => {
@@ -1067,17 +1169,28 @@
       return Mojo;
     };
 
+    /**
+     * @public
+     * @property {object}
+     */
+    Mojo.o = {imagePath: "images/",
+              dataPath:  "data/",
+              audioPath: "audio/",
+              sound: true,
+              maxFrameTime: 100,
+              autoFocus: true,
+              audioFiles: ["wav", "mp3","ogg"]};
+
     //------------------------------------------------------------------------
     //installing all modules
     //core modules
-    ["Math", "Sprites", "Scenes"].forEach(k => MojoH5[k](Mojo));
+    ["Sprites", "Scenes"].forEach(k => MojoH5[k](Mojo));
     //optional/other modules
     ["Audio",
-     "UI",
      "Anim",
      "2d",
      "Input",
-     "Touch"].concat(_.seq(Mojo.o.modules||"")).forEach(k => {
+     "Touch"].concat(modules).forEach(k => {
       let f= MojoH5[k];
       if(!f)
         Mojo.log("warn: module `",k,"` missing."); else f(Mojo);
@@ -1107,12 +1220,12 @@
       let w = Mojo.el.width,
           h = Mojo.el.height,
           elParent = Mojo.el.parentNode,
+          maxWidth = options.maxWidth || 5000,
+          maxHeight = options.maxHeight || 5000,
           resampleWidth = options.resampleWidth,
           resampleHeight = options.resampleHeight,
           upsampleWidth = options.upsampleWidth,
-          upsampleHeight = options.upsampleHeight,
-          maxWidth = options.maxWidth || 5000,
-          maxHeight = options.maxHeight || 5000;
+          upsampleHeight = options.upsampleHeight;
 
       if(options.maximize === true ||
          (Mojo.touchDevice && options.maximize === "touch"))  {
@@ -1161,10 +1274,12 @@
 
       Mojo.domCss(Mojo.el, "position", "relative");
       Mojo.ctx = Mojo.el.getContext("2d");
-      Mojo.width = Mojo.el.width;
-      Mojo.height = Mojo.el.height;
       Mojo.cssWidth = w;
       Mojo.cssHeight = h;
+      Mojo.width = Mojo.el.width;
+      Mojo.height = Mojo.el.height;
+      Mojo.width_div2=Mojo.width/2;
+      Mojo.height_div2=Mojo.height/2;
 
       if(options.scaleToFit) {
         let factor = 1,
@@ -1195,7 +1310,7 @@
         }
       }
 
-      //options= {touch: {}, joyad: {}}
+      //e.g. options= {touch: {}, joyad: {}}
       Mojo.handleDeviceFlip();
       Mojo.controls(options);
 

@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window= global,
@@ -49,8 +63,9 @@
                         ["right",">" ],
                         [],
                         ["action","b"],
-                        ["fire", "a" ]];
-
+                        ["fire", "a" ]],
+      JOYPAD_CONTROLS= [[],[],[],
+                        ["action","b"], ["fire","a"]];
   /**
    * @private
    * @var {array}
@@ -65,8 +80,7 @@
   let JOYPAD_INPUTS =  ["up","right","down","left"];
 
   /**
-   * @public
-   * @function
+   * @module
    */
   MojoH5.Input = function(Mojo) {
 
@@ -101,7 +115,7 @@
      * @function
      */
     Mojo.canvasToSceneX = (x,scene) => {
-      x = x / Mojo.cssWidth * Mojo.width;
+      x = x/Mojo.cssWidth*Mojo.width;
       return scene.camera ? ((x/scene.camera.scale)+scene.camera.x) : x;
     };
 
@@ -110,7 +124,7 @@
      * @function
      */
     Mojo.canvasToSceneY = (y,scene) => {
-      y = y / Mojo.cssWidth * Mojo.width;
+      y = y/Mojo.cssWidth*Mojo.width;
       return scene.camera ? ((y/scene.camera.scale)+scene.camera.y) : y;
     };
 
@@ -132,12 +146,11 @@
        */
       enableKeyboard: function() {
         if(this.keyboardEnabled) return false;
-        // Make selectable and remove an :focus outline
+        //Make selectable and remove an :focus outline
         Mojo.domAttrs(Mojo.el, {tabIndex: 0});
-        Mojo.domCss(Mojo.el,{outline: 0});
-        let self=this;
+        Mojo.domCss(Mojo.el, {outline: 0});
+        let action,self=this;
         _.addEvent("keydown", Mojo.el, (e) => {
-          let action;
           if(action=self.keys.get(e.keyCode)) {
             _.assoc(Mojo.inputs, action, true);
             EBus.pub([[action, self],
@@ -146,7 +159,6 @@
           if(!e.ctrlKey && !e.metaKey) e.preventDefault();
         },false);
         _.addEvent("keyup",Mojo.el, (e) => {
-          let action;
           if(action=self.keys.get(e.keyCode)) {
             _.assoc(Mojo.inputs,action, false);
             EBus.pub([[action+"Up", self],
@@ -189,9 +201,7 @@
            this.touchEnabled) { return false; }
         opts = opts || {};
         opts=
-        _.inject({controls: joypad ?
-                            [[],[],[],
-                             ["action","b"], ["fire","a"]] : TOUCH_CONTROLS}, opts);
+        _.inject({controls: joypad ? JOYPAD_CONTROLS : TOUCH_CONTROLS}, opts);
         this.keypad=
         opts = _.inject({left: 0,
                          gutter:10,
@@ -273,9 +283,9 @@
                                color: "#CCC",
                                background: "#000",
                                alpha: 0.5,
-                               zone: Mojo.width / 2,
                                joypadTouch: null,
                                triggers: [],
+                               zone: Mojo.width_div2,
                                inputs: JOYPAD_INPUTS},opts);
         Mojo.joypad=joypad;
         this.joypadStart = (evt) => {
@@ -283,11 +293,11 @@
             let touch = evt.changedTouches[0],
                 loc = self._tloc(touch);
             if(loc.x < joypad.zone) {
-              joypad.joypadTouch = touch.identifier;
               joypad.centerX = loc.x;
               joypad.centerY = loc.y;
               joypad.x = null;
               joypad.y = null;
+              joypad.joypadTouch = touch.identifier;
             }
           }
         };
@@ -418,7 +428,7 @@
           // http://www.sitepoint.com/html5-javascript-mouse-wheel/
           // cross-browser wheel delta
           e = window.event || e; // old IE support
-          let delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
+          let delta = _.max(-1, _.min(1, (e.wheelDelta || -e.detail)));
           EBus.pub("mouseWheel", self,delta);
         };
         _.addEvent([["mousemove",Mojo.el,this._mouseMove,true],
@@ -446,7 +456,7 @@
           let control = keypad.controls[i];
           if(control[0]) {
             ctx.font = "bold " + (keypad.size/2) + "px arial";
-            let key = Mojo.inputs.get(control[0]),
+            let key = _.get(Mojo.inputs,control[0]),
                 y = keypad.bottom - keypad.unit,
                 x = keypad.left + i * keypad.unit + keypad.gutter;
 
@@ -500,11 +510,8 @@
 
       options= options || {};
 
-      if(!Mojo.touchDevice) {
-        Mojo.input.mouseControls(options.mouse);
-        Mojo.input.keyboardControls(options.keys);
-      }
-
+      Mojo.input.keyboardControls(options.keys);
+      Mojo.input.mouseControls(options.mouse);
       Mojo.touch(options.touch);
 
       if(Mojo.touchDevice) {

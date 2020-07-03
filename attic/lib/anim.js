@@ -1,5 +1,18 @@
-(function(global,undefined) {
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
+(function(global,undefined) {
   "use strict";
   let MojoH5 = global.MojoH5;
 
@@ -7,14 +20,12 @@
     throw "Fatal: MojoH5 not loaded.";
 
   /**
-   * @public
-   * @function
+   * @module
    */
   MojoH5.Anim = function(Mojo) {
-
-    let EBus= Mojo.EventBus,
-      _ = Mojo.u,
-      is=Mojo.is,
+    let _ = Mojo.u,
+        is=Mojo.is,
+        EBus= Mojo.EventBus,
       /**
        * @private
        * @var {map}
@@ -25,9 +36,9 @@
      * @public
      * @function
      */
-    Mojo.animations = (name,info) => {
+    Mojo.defAnim = (name,info) => {
       if(!_.get(_animations,name))
-        _.assoc(_animations,name, {});
+        _.assoc(_animations, name, {});
       _.inject(_.get(_animations,name),info);
     };
 
@@ -36,8 +47,7 @@
      * @function
      */
     Mojo.animation = (name,selector) => {
-      let a= _.get(_animations,name);
-      return a && a[selector];
+      return _.get(_.get(_animations,name), selector);
     };
 
     //register a feature
@@ -49,6 +59,7 @@
         p.animationTime=0;
         p.animationPriority= -1;
         EBus.sub("step",this.entity,"step",this);
+        return this;
       },
       disposed: function() {
         //you are dead, get rid of stuff you tagged onto the entity
@@ -62,8 +73,8 @@
       step: function(dt) {
         let p = this.entity.p;
         if(!p.animation)
-        return;
-        let anim = Mojo.animation(p.sprite,p.animation),
+        return this;
+        let anim = Mojo.animation(p.sprite, p.animation),
             rate = anim.rate || p.rate,
             stepped=0;
 
@@ -80,14 +91,14 @@
             if(anim.loop === false || anim.next) {
               p.animationFrame = anim.frames.length - 1;
               EBus.pub("animEnd",this.entity);
-              EBus.pub("animEnd." + p.animation,this.entity);
+              EBus.pub("animEnd."+p.animation,this.entity);
               p.animation = null;
               p.animationPriority = -1;
               if(anim.trigger)
                 EBus.pub(anim.trigger,this.entity,anim.triggerData);
               if(anim.next)
                 this.enact(anim.next,anim.nextPriority);
-              return;
+              return this;
             }
             EBus.pub("animLoop",this.entity);
             EBus.pub("animLoop." + p.animation, this.entity);
@@ -99,17 +110,15 @@
           p.sheet = anim.sheet;
         p.frame = anim.frames[p.animationFrame];
         if(_.has(anim, "flip")) { p.flip  = anim.flip; }
+        return this;
       },
       enact: function(name,priority,resetFrame) {
         let p = this.entity.p;
-
         priority = priority || 0;
         if(name !== p.animation &&
            priority >= p.animationPriority) {
-
           if(resetFrame === undefined)
           resetFrame = true;
-
           p.animation = name;
           if(resetFrame) {
             p.animationChanged = true;
@@ -120,6 +129,7 @@
           EBus.pub("anim", this.entity);
           EBus.pub("anim." + p.animation, this.entity);
         }
+        return this;
       }
     });
 
@@ -127,7 +137,10 @@
      * @public
      * @function
      */
-    Mojo.defType(["Repeater", Mojo.Sprite], {
+    Mojo.deftype(["Repeater", Mojo.Sprite], {
+      /**
+       * @constructs
+       */
       init: function(props) {
         this._super(props, {speedX: 1,
                             speedY: 1,
@@ -188,7 +201,10 @@
      * @public
      * @function
      */
-    Mojo.defType("Tween",{
+    Mojo.deftype("Tween",{
+      /**
+       * @constructs
+       */
       init: function(entity,properties,duration,easing,options) {
         if(is.obj(easing)) {
           options = easing;
@@ -276,6 +292,7 @@
       added: function() {
         this._tweens = [];
         EBus.sub("step",this.entity,"step",this);
+        return this;
       },
       disposed:function() {
         EBus.unsub("step",this.entity,"step",this);
@@ -284,6 +301,7 @@
         _.conj(this._tweens,
                new Mojo.Tween(this.entity,
                               properties,duration,easing,options));
+        return this;
       },
       chain: function(properties,duration,easing,options) {
         if(is.obj(easing)) {
@@ -297,10 +315,11 @@
           options = options || {};
           options.delay = lastTween.duration - lastTween.time + lastTween.delay;
         }
-        this.animate(properties,duration,easing,options);
+        return this.animate(properties,duration,easing,options);
       },
       stop: function() {
         this._tweens.length = 0;
+        return this;
       },
       step: function(dt) {
         for(let i=0; i < this._tweens.length; ++i)
@@ -308,6 +327,7 @@
             this._tweens.splice(i,1);
             --i;
           }
+        return this;
       }
     });
 

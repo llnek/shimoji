@@ -119,7 +119,7 @@
 
     })();
 
-    Mojo.defType(["DOMSprite", Mojo.Sprite], {
+    Mojo.deftype(["DOMSprite", Mojo.Sprite], {
       init: function(props) {
         this._super(props);
         this.rp = {};
@@ -187,7 +187,7 @@
 
     });
 
-    Mojo.defType(["DOMScene",Mojo.Scene],{
+    Mojo.deftype(["DOMScene",Mojo.Scene],{
       init: function(scene) {
         this.dom= Mojo.domCtor("div", {}, {top: "0",
                                            position: "relative"});
@@ -229,7 +229,7 @@
       return Mojo;
     };
 
-    Mojo.defType(["DOMTileMap", Mojo.DOMSprite], {
+    Mojo.deftype(["DOMTileMap", Mojo.DOMSprite], {
       // Expects a sprite sheet, along with cols and rows properties
       init:function(props) {
         let sheet = Mojo.sheet(props.sheet);

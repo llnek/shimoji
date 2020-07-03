@@ -49,7 +49,7 @@
       return Mojo;
     };
 
-    Mojo.defType(["SVGSprite",Mojo.Sprite],{
+    Mojo.deftype(["SVGSprite",Mojo.Sprite],{
       init: function(props) {
         this._super(_.patch(props,{shape: 'block',
           color: 'black',
@@ -134,7 +134,7 @@
       }
     });
 
-    Mojo.defType(["SVGScene",Mojo.Scene],{
+    Mojo.deftype(["SVGScene",Mojo.Scene],{
       init: function(scene) {
         this.svg = document.createElementNS(SVG_NS,'svg');
         this.svg.setAttribute('width',Mojo.width);
