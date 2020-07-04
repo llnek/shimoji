@@ -344,6 +344,7 @@
                               frame: 0,
                               name: "",
                               opacity: 1,
+                              vx: 0, vy: 0, ax: 0, ay: 0,
                               type: Mojo.E_DEFAULT |
                                     Mojo.E_ACTIVE},defaults,props));
 
