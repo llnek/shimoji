@@ -17,29 +17,32 @@
 
   if(global.document===undefined ||
      global.document.body===undefined)
-    throw "Invalid environment, cannot run MojoH5!";
+    throw "Fatal: invalid environment, cannot run MojoH5.";
 
+  //local vars
   const window=global,
         OBJ=Object.prototype,
         tostr=OBJ.toString,
         document=global.document,
         slicer=Array.prototype.slice;
 
-  const isStr= (obj) => {
-    return typeof obj === "string";
-  };
-  const isMap= (obj) => {
-    return tostr.call(obj) === "[object Map]";
-  };
-  const isArray= (obj) => {
-    return tostr.call(obj) === "[object Array]";
-  };
-  const isObject= (obj) => {
-    return tostr.call(obj) === "[object Object]";
-  };
+  //local functions
+  const isStr= (obj) => { return typeof obj === "string"; };
+  const isMap= (obj) => { return tostr.call(obj) === "[object Map]"; };
+  const isArray= (obj) => { return tostr.call(obj) === "[object Array]"; };
+  const isObject= (obj) => { return tostr.call(obj) === "[object Object]"; };
 
-  let seqNum= 0;
-  const _ = {
+  /**
+   * @private
+   * @var {number}
+   */
+  let _seqNum= 0;
+
+  /**
+   * @private
+   * @var {object}
+   */
+  const _= {
     POS_INF: Number.POSITIVE_INFINITY,
     NEG_INF: Number.NEGATIVE_INFINITY,
     keys: (obj) => {
@@ -58,7 +61,7 @@
       return obj instanceof type;
     },
     isPerc: (s) => {
-      return isStr(s) && s.match(/^[0-9]+%$/);
+      return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/);
     },
     jsMap: () => { return new Map(); },
     jsObj: () => { return {}; },
@@ -71,7 +74,7 @@
     max: (a,b) => { return Math.max(a,b); },
     slice: (a,i) => { return slicer.call(a, i); },
     now: () => { return Date.now(); },
-    nextID: () => { return ++seqNum; },
+    nextId: () => { return ++_seqNum; },
     fileNoExt: (name) => {
       let pos= name.lastIndexOf(".");
       return pos > 0 ? name.substring(0,pos) : name;
@@ -86,8 +89,8 @@
         start=0;
         step=1;
       }
-      let len = (stop-start)/step;
-      let res=[];
+      let res=[],
+          len = (stop-start)/step;
       len = Math.ceil(len);
       len = Math.max(0, len);
       res.length=len;
@@ -212,10 +215,12 @@
       }
     },
     get: (obj,key) => {
-      if(isMap(obj))
-        return obj.get(key);
-      else if(obj)
-        return obj[key];
+      if(typeof key !== "undefined") {
+        if(isMap(obj))
+          return obj.get(key);
+        else if(obj)
+          return obj[key];
+      }
     },
     assoc: function(obj,key,value) {
       if(arguments.length>3) {
@@ -240,8 +245,13 @@
         return prev;
       }
     },
+    disj: (coll,obj) => {
+      let i = coll ? coll.indexOf(obj) : -1;
+      if(i > -1) coll.splice(i,1);
+      return i > -1;
+    },
     conj: (coll,obj) => {
-      return coll.push(obj);
+      return coll && coll.push(obj);
     },
     seq: (arg,sep=",") => {
       if(typeof arg === "string")
@@ -250,7 +260,7 @@
       return arg;
     },
     has: (obj,key) => {
-      return isMap(obj) ? obj.has(key) : OBJ.hasOwnProperty.call(obj, key);
+      return isMap(obj) ? obj.has(key) : (obj ? OBJ.hasOwnProperty.call(obj, key) : undefined);
     },
     patch: (des,src) => {
       des=des || {};
@@ -295,9 +305,9 @@
     undef: (obj) => { return obj === undefined; }
   };
 
-  //private stuff
-  //
-  //assets
+  //local vars
+  let _preloads= [];
+  let _audioDftExt;
   let _audioTypes= {mp3: "audio/mpeg",
                     m4a: "audio/m4a",
                     wav: "audio/wav",
@@ -306,8 +316,7 @@
                     jpg: "Image", gif: "Image", jpeg: "Image",
                     ogg: "Audio", wav: "Audio", m4a: "Audio", mp3: "Audio"};
 
-  let _audioDftExt;
-  let _preloads= [];
+  //local functions
   let _audioExt= (choices) => {
     if(!_audioDftExt) {
       let snd = new Audio();
@@ -325,169 +334,95 @@
     return (/^https?:\/\//.test(url) || url[0] === "/") ? ts : base + ts;
   };
 
-  //sort out game looper
-  (function() {
-    let pfx = ["ms", "moz", "webkit", "o"];
-    for(let x = 0; x < pfx.length && !window.requestAnimationFrame; ++x) {
-      window.requestAnimationFrame = window[pfx[x]+"RequestAnimationFrame"];
-      window.cancelAnimationFrame =
-          window[pfx[x]+"CancelAnimationFrame"] ||
-          window[pfx[x]+"CancelRequestAnimationFrame"];
-    }
-    if(!window.requestAnimationFrame) {
-      let last= 0;
-      window.requestAnimationFrame = (cb, e) => {
-        let cur = _.now(),
-            delay = Math.max(0, 16 - (cur - last)),
-            id = _.timer(() => cb(cur+delay), delay);
-        last= cur+delay;
-        return id;
-      };
-    }
-    if(!window.cancelAnimationFrame)
-      window.cancelAnimationFrame = (id) => { clearTimeout(id); };
-  })();
-
   //https://johnresig.com/blog/simple-javascript-inheritance/
-  //The base class implementation (does nothing)
+  //base class implementation (does nothing)
   let Resig = function(){};
   Resig.prototype.isA = function(c) {
     return this.className === c;
   };
-  (function(initing){
-    let fnTest = /xyz/.test(function(){var xyz;}) ? /\b_super\b/ : /.*/;
-    Resig.extend = function(className, props, container) {
-      if(!is.str(className)) {
-        //shift up
-        container = props; props = className; className = null; }
-      let _super = this.prototype; // late-bind
+  (function(initing) {
+    let qfn= /xyz/.test(function(){var xyz;}) ? /\b_super\b/ : /.*/;
+    Resig.extend = function(clazz, props, container) {
+      if(!is.str(clazz)) {
+        container = props; props = clazz; clazz = null; }
+      let parent = this.prototype; // late-bind
       let proto,ThisClass = this;
       initing = true;
       proto = new ThisClass(); // the future parent
       initing = false;
-      let _superFactory= function(name,fn) {
+      let _sfac= (name,fn) => {
         return function() {
           let rc,tmp = this._super;
-          //Add a new _super() method that is the same method
-          //but on the super-class
-          this._super = _super[name];
-          rc = fn.apply(this, arguments); this._super = tmp; return rc;
+          this._super = parent[name];
+          rc = fn.apply(this, arguments);
+          this._super = tmp;
+          return rc;
         };
-      }
+      };
       _.doseq(props, (v,k) => {
         if(_.has(props,k))
           proto[k] = is.fun(v) &&
-                     is.fun(_super[k]) &&
-                     fnTest.test(v) ? _superFactory(k,v) : v;
-      });
-      //The dummy class constructor function
-      function TemplateFn() {
-        if(!initing && this.init)
-          //init=>ctor
-          this.init.apply(this, arguments);
+                     is.fun(parent[k]) && qfn.test(v) ? _sfac(k,v) : v; });
+      //dummy class constructor function
+      function Klass() {
+        if(!initing && this.init) this.init.apply(this, arguments); }
+      Klass.extend= Resig.extend;
+      Klass.prototype = proto;
+      Klass.prototype.constructor = Klass;
+      if(clazz) {
+        Klass.className = clazz;
+        Klass.prototype.className = clazz;
+        if(isObject(container)) container[clazz] = Klass;
       }
-      //Populate our constructed prototype object
-      TemplateFn.prototype = proto;
-      //Enforce the constructor to be what we expect
-      TemplateFn.prototype.constructor = TemplateFn;
-      //Make this class extendable
-      TemplateFn.extend = Resig.extend;
-      if(className) {
-        if(isObject(container))
-          container[className] = TemplateFn;
-        TemplateFn.className = className;
-        TemplateFn.prototype.className = className;
-      }
-      return TemplateFn;
+      return Klass;
     };
   })();
 
-  /**Local deftype
+  /**
    * @private
    * @function
    */
-  let _deftype= (clazz, props, container) => {
-      let child,parent;
-      if(is.str(clazz)) {
-        parent=Resig;
-        child=clazz;
-      }
-      else
-      if(is.vec(clazz)) {
-        child=clazz[0];
-        parent=clazz[1];
-      }
-      return parent.extend(child,props,container);
-  };
-
-  /**
-   * @constructor
-   */
-  let EventBus= function () {
-    this.tree= _.jsMap();
-    this.sub= function(event,target,cb,ctx) {
-      if(is.vec(event) &&
-         arguments.length===1) {
-        event.forEach(e => {
-          if(is.vec(e))
-            this.sub.apply(this, e);
-        });
-      } else {
-        if (!cb)
-          cb=event;
-        if(is.str(cb)) {
-          ctx=ctx || target;
-          cb=ctx[cb];
+  let _eventBus= () => {
+    let _tree= _.jsMap();
+    return {
+      sub: function(event,target,cb,ctx) {
+        if(is.vec(event) && arguments.length===1) {
+          event.forEach(e => { if(is.vec(e)) this.sub.apply(this, e); });
+        } else {
+          if (!cb) cb=event;
+          if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+          if(!cb) throw "Error: no callback for sub()";
+          if(!_tree.has(target)) _tree.set(target, _.jsMap());
+          let m= _tree.get(target);
+          !m.has(event) && m.set(event,[]);
+          m.get(event).push([cb,ctx]);
         }
-        if(!cb) {
-          //console.log("event = " + event);
-          throw "No callback provided for event sub().";
+      },
+      pub: function(event,target,data) {
+        if(is.vec(event) && arguments.length===1) {
+          event.forEach(e => { if(is.vec(e)) this.pub.apply(this, e); });
+        } else {
+          let m= _tree.get(target);
+          if(m) m= m.get(event);
+          if(m) m.forEach(s => s[0].call(s[1],data));
         }
-        if(!this.tree.has(target))
-          this.tree.set(target,_.jsMap());
-        let m= this.tree.get(target);
-        !m.has(event)
-          && m.set(event,[]);
-        m.get(event).push([cb,ctx]);
-      }
-    };
-    this.pub= function(event,target,data) {
-      if(is.vec(event) &&
-         arguments.length===1) {
-        event.forEach(e => {
-          if(is.vec(e))
-            this.pub.apply(this, e);
-        });
-      } else {
-        let m= this.tree.get(target);
-        if(m)
-          m= m.get(event);
-        if(m)
-          m.forEach(s => s[0].call(s[1],data));
-      }
-    };
-    this.unsub= function(event,target,cb,ctx) {
-      if(is.vec(event) &&
-         arguments.length===1) {
-        event.forEach(e => {
-          if(is.vec(e))
-            this.unsub.apply(this, e);
-        });
-      } else {
-        for(let ss, m= this.tree.get(target);m;m=null) {
-          if(!cb)
-            m.delete(event);
-          else {
-            if(is.str(cb)) {
-              ctx=ctx || target;
-              cb=ctx[cb];
-            }
+      },
+      unsub: function(event,target,cb,ctx) {
+        if(is.vec(event) && arguments.length===1) {
+          event.forEach(e => { if(is.vec(e)) this.unsub.apply(this, e); });
+        } else {
+          for(let ss, m= _tree.get(target);m;m=null) {
             if(!cb)
               m.delete(event);
-            else if(ss= m.get(event)) {
-              for(let i= ss.length-1;i>=0;--i)
-                if(ss[i][0] === cb &&
-                  ss[i][1] === ctx) ss.splice(i,1);
+            else {
+              if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+              if(!cb)
+                m.delete(event);
+              else if(ss= m.get(event)) {
+                for(let i= ss.length-1;i>=0;--i)
+                  if(ss[i][0] === cb &&
+                     ss[i][1] === ctx) ss.splice(i,1);
+              }
             }
           }
         }
@@ -495,13 +430,17 @@
     };
   };
 
-  let _aux=["Tiles"];
-  window.MojoH5 = function() {
+  //Let's go
+  //let _aux=["Tiles"];
+  /**
+   * @public
+   * @function
+   */
+  window.MojoH5 = function(cmdArg) {
 
-    let Mojo={},
-        modules = _.slice(arguments);
+    let Mojo={};
 
-    /**entity types for collision detections
+    /**types and collision masks
      * @public
      * @property {number}
      */
@@ -517,10 +456,76 @@
     Mojo.E_ALL   = 0xFFFF;
 
     /**
-     * @public
-     * @class
+     * @private
+     * @function
      */
-    //Mojo.EventBus= EventBus;
+    let sort_out_game_looper= () => {
+      let c= "cancelAnimationFrame",
+          r= "requestAnimationFrame",
+          pfx = ["ms", "moz", "webkit", "o"];
+      for(let i=0; i<pfx.length && !window[r]; ++i) {
+        window[r]= window[pfx[i]+"RequestAnimationFrame"];
+        window[c]= window[pfx[i]+"CancelAnimationFrame"] ||
+                   window[pfx[i]+"CancelRequestAnimationFrame"];
+      }
+      if(!window[c]) window[c]= (id) => { clearTimeout(id); };
+      if(window[r]) {
+        Mojo.log("Using native requestAnimationFrame()");
+      } else {
+        Mojo.log("Using non-native requestAnimationFrame()");
+        let last= 0;
+        window[r]= (cb) => {
+          let cur = _.now(),
+              delay = Math.max(0, 16 - (cur-last)),
+              id = _.timer(() => cb(cur+delay), delay);
+          last= cur+delay;
+          return id;
+        };
+      }
+    };
+
+    /**
+     * @private
+     * @var {map}
+     */
+    let _db = _.jsMap();
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.link= (arg,obj) => {
+      if(is.vec(arg))
+        arg.forEach(x => Mojo.link(x,obj));
+      else {
+        if(!_.has(_db,arg)) _.assoc(_db,arg, []);
+        _.conj(_.get(_db,arg),obj);
+        Mojo.log("linked `"+arg+"` to "+obj);
+      }
+    };
+    Mojo.unlink= (arg, obj) => {
+      if(is.vec(arg))
+        arg.forEach(x => Mojo.unlink(x,obj));
+      else {
+        _.disj(_.get(_db,arg), obj);
+        Mojo.log("unlinked `"+arg+"` to "+obj);
+      }
+    };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.dbReset = () => {
+      _db = _.jsMap();
+    };
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.dbFind = (selector) => {
+      return _.get(_db,selector);
+    };
 
     /**
      * @public
@@ -540,41 +545,54 @@
      * @property
      */
     Mojo.touchDevice= !!("ontouchstart" in document);
+
     /**
      * @public
      * @function
      */
-    Mojo["$"]= function(selector) {};
+    Mojo["$"]= (selector) => {};
+
     /**
      * @public
-     * @property
+     * @property {object}
      */
-    Mojo.EventBus=new EventBus();
+    Mojo.EventBus= _eventBus();
+
     /**
      * @public
      * @property {object}
      */
     Mojo.is=is;
+
     /**
      * @public
      * @property {object}
      */
     Mojo.u=_;
+
     /**
      * @public
      * @property {object}
      */
     Mojo.assets={};
+
     /**
      * @public
      * @property {object}
      */
     Mojo.loaders={};
-    /**
+
+    /**Holds entity <-> features.
      * @private
-     * @property {object}
+     * @var {map}
      */
-    Mojo._features= _.jsMap();
+    let _feCache= _.jsMap();
+
+    /**Holds feature types.
+     * @private
+     * @var {map}
+     */
+    let _features= _.jsMap();
 
     /**
      * @public
@@ -605,6 +623,22 @@
         Mojo.scrollTop();
       });
       return Mojo;
+    };
+
+    /**
+     * @public
+     * @function
+      */
+    Mojo.cancelFrame = (id) => {
+      window.cancelAnimationFrame(id);
+    };
+
+    /**
+     * @public
+     * @function
+      */
+    Mojo.scheduleFrame = (cb) => {
+      return window.requestAnimationFrame(cb);
     };
 
     //------------------------------------------------------------------------
@@ -693,22 +727,20 @@
      * @public
      * @function
      */
-    Mojo.scheduleFrame = (cb) => { return window.requestAnimationFrame(cb); };
-    /**
-     * @public
-     * @function
-     */
-    Mojo.cancelFrame = (id) => { window.cancelAnimationFrame(id); };
-    /**
-     * @public
-     * @function
-     */
     Mojo.p2 = (px,py) => { return {x: px||0, y: py||0}; };
+
     /**
      * @public
      * @function
      */
     Mojo.v2 = (x,y) => { return [x||0, y||0]; };
+
+    /**
+     * @public
+     * @property {object}
+     */
+    Mojo.gravity= Mojo.p2();
+
     /**
      * @public
      * @function
@@ -719,10 +751,18 @@
      * @public
      * @function
      */
-    Mojo.deftype= (clazz, props, container) => {
-      return _deftype(clazz,
-                      props,
-                      (typeof container==="undefined") ? Mojo : container);
+    Mojo.defType= (clazz, props, container) => {
+      let child,parent;
+      if(is.str(clazz)) {
+        parent=Resig;
+        child=clazz;
+      }
+      else
+      if(is.vec(clazz)) {
+        child=clazz[0];
+        parent=clazz[1];
+      }
+      return parent.extend(child,props,container);
     };
 
     //------------------------------------------------------------------------
@@ -733,16 +773,16 @@
      * @public
      * @function
      */
-    Mojo.gameLoop = function(action) {
+    Mojo.gameLoop = (action) => {
       _lastFrame = _.now();
       _loopFrame = 0;
-      Mojo.glwrapper = () => {
+      Mojo.glwrapper = (ptInTime) => {
+        //console.log("pint in time = " + ptInTime);
         let now = _.now();
         ++_loopFrame;
         Mojo.loop = Mojo.scheduleFrame(Mojo.glwrapper);
         let dt = now - _lastFrame;
-        //TODO: need to think about this one
-        //limit the length of a single frame.
+        //some upperbound to stop frame fast forwarding
         if(dt>Mojo.o.maxFrameTime)
           dt = Mojo.o.maxFrameTime;
         action.call(Mojo, dt/1000);
@@ -774,73 +814,106 @@
 
     /**
      * @public
+     * @function
+     */
+    Mojo.resetGame = () => {
+      Mojo.dbReset();
+    };
+
+    /**
+     * @public
      * @class
      */
-    _deftype("Feature", {
-      //created when they are added onto an entity.
+    Mojo.defType("Feature", {
       /**
        * @constructs
        */
-      init: function(entity) {
-        if(entity[this.name])
-          throw "Entity has feature `"+this.name+"` already!";
-
-        if(!entity.features)
-          entity.features= [];
-
-        //tag this feature => becomes property of entity
-        _.assoc(entity,this.name, this);
-        _.conj(entity.features,this.featureName);
-
-        //enable fast lookup
-        if(entity.scene)
-          entity.scene.link(this.featureName,entity);
-
-        //finalize feature addition
-        this.entity = entity;
-        if(this.added) this.added();
+      init: function() {
+        Mojo.log("created instanceof feature `"+this.name+"`");
       },
-      /**clean up
-       */
+      _addTo: function(entity) {
+        let m=_.get(_feCache,this.name);
+        if(!m)
+          _.assoc(_feCache,this.name, m=_.jsMap());
+        if(_.get(m,entity.p.id))
+          throw "Error: feature `"+this.name+"` already exists in entity#"+entity.p.id;
+        _.assoc(m,entity.p.id,this);
+        this.entity=entity;
+        this.added && this.added();
+      },
       dispose: function() {
-        //reverse all that was done
-        _.dissoc(this.entity,this.name);
-        let i = this.entity.features.indexOf(this.featureName);
-        if(i > -1) {
-          this.entity.features.splice(i,1);
-          if(this.entity.scene)
-            this.entity.scene.unlink(this.featureName,this.entity);
-        }
-        if(this.disposed) this.disposed();
+        this.disposed && this.disposed();
+        this.entity=null;
       }
     }, Mojo);
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.hasf= (ent,co) => {
+      return _.has(_.get(_feCache,co), ent.p.id);
+    };
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.getf= (ent,co) => {
+      return _.get(_.get(_feCache,co), ent.p.id);
+    };
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.addf= (ent,features) => {
+      _.seq(features).forEach(name => {
+        if(!Mojo.hasf(ent,name)) {
+          let c,C= _.get(_features,name);
+          if(!C)
+            throw "Error: unknown feature: `"+name+"`";
+          if(!C._pool) C._pool=[];
+          c= C._pool.length>0 ? C._pool.pop() : new C();
+          c._addTo(ent);
+          Mojo.link(c.featureName,ent);
+          Mojo.EventBus.pub("addFeature", ent, c);
+        }
+      });
+      return ent;
+    };
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.delf= (ent,features) => {
+      _.seq(features).forEach(name => {
+        let m= _.get(_feCache,name),
+            c= _.dissoc(m,ent.p.id);
+        if(c) {
+          Mojo.log("removed feature `"+name+"` from e#"+ ent.p.id);
+          Mojo.EventBus.pub("delFeature",ent,c);
+          c.dispose();
+          Mojo.unlink(c.featureName, ent);
+          _.conj(_.get(_features,name)._pool,c);
+        }
+      });
+      return ent;
+    };
 
     /**
      * @abstract
      * @class
      */
-    _deftype("Entity", {
-      hasFeature: function(co) { return _.has(this,co); },
-      addFeature: function(features) {
-        _.seq(features).forEach(name => {
-          if(!_.has(this,name)) {
-            let C = _.get(Mojo._features,name),
-                z = C ? new C(this) : null;
-            if(z)
-              Mojo.EventBus.pub("addFeature", this, z);
-          }
-        });
-        return this;
-      },
-      delFeature: function(features) {
-        _.seq(features).forEach(name => {
-          let f= this[name];
-          if(_.inst(Mojo.Feature, f)) {
-            Mojo.EventBus.pub("delFeature",this,f);
-            f.dispose();
-          }
-        });
-        return this;
+    Mojo.defType("Entity", {
+      /**
+       * @constructs
+       */
+      init: function(p) {
+        this.p= p || {};
+        if(!this.p.id)
+          this.p.id= _.nextId();
       },
       add: function(child) {
         throw "Fatal: calling pure virtual method.";
@@ -848,22 +921,12 @@
       del: function(child) {
         throw "Fatal: calling pure virtual method.";
       },
-      /**
-       * @constructs
-       */
-      init: function(p) {
-        //this.features= [];
-        this.p= p || {};
-      },
-      /**clean up
-      */
       dispose: function() {
-        if(this.isDead) { return; }
-        Mojo.EventBus.pub("disposed",this);
-        if(this.scene)
-          this.scene.remove(this);
-        this.isDead = true;
-        if(this.disposed) this.disposed();
+        if(!this.isDead) {
+          this.isDead = true;
+          this.disposed && this.disposed();
+          Mojo.delf(this, _.keys(_features));
+        }
       }
     }, Mojo);
 
@@ -871,35 +934,38 @@
      * @public
      * @function
      */
-    Mojo.feature = (name,body) => {
+    Mojo.defFeature = (name,body) => {
       if(body) {
-        let n="Fe_"+name;
-        if(Mojo[n])
-          throw "Feature `"+name+"` already exists!";
+        if(_.has(_features,name))
+          throw "Error: feature `"+name+"` already defined.";
+        //_.assert(is.fun(body.added),
+        //"Invalid feature, require method `added`.");
         body.name = name;
         body.featureName = "."+name;
-        _.assoc(Mojo._features,name,
-                _deftype([n, Mojo.Feature], body, Mojo));
+        _.assoc(_features,name,
+                Mojo.defType(["Fe_"+name, Mojo.Feature], body));
       }
-      return _.get(Mojo._features,name);
+      return _.get(_features,name);
     };
 
     /**
      * @public
      * @class
      */
-    _deftype("GameState", {
+    Mojo.defType("GameState", {
+      /**
+       * @constructs
+       */
       init: function(p) {
         this.p = _.clone(p);
       },
       reset: function(p) {
         this.init(p);
-        Mojo.EventBus.pub("reset",this);
       },
       get: function(prop) {
         return _.get(this.p,prop);
       },
-      _triggerProperty: function(value,key) {
+      _chgp: function(value,key) {
         if(this.p[key] !== value) {
           _.assoc(this.p, key, value);
           Mojo.EventBus.pub("change."+key,this,value);
@@ -907,31 +973,41 @@
       },
       set: function(prop,value) {
         if(!is.obj(prop))
-          this._triggerProperty(value,prop);
+          this._chgp(value,prop);
         else
-          _.doseq(prop,this._triggerProperty,this);
+          _.doseq(prop,this._chgp,this);
         Mojo.EventBus.pub("change",this);
       },
       inc: function(prop,amount) {
-        this.set(prop,this.get(prop) + amount);
+        let v= this.get(prop);
+        if(is.num(v))
+          this.set(prop,v + amount);
       },
       dec: function(prop,amount) {
-        this.set(prop,this.get(prop) - amount);
+        let v=this.get(prop);
+        if(is.num(v))
+          this.set(prop,v - amount);
       }
     }, Mojo);
 
     /**
-     * @property
      * @public
+     * @property
      */
     Mojo.state = new Mojo.GameState();
 
     /**A 4 pointed box, left right top bottom
      * x2 > x1 , y2 > y1.
+     * @public
      * @function
      */
-    Mojo.bbox4 = () => {
-      return {x1: NaN, x2: NaN, y1: NaN, y2: NaN};
+    Mojo.bbox4 = function(/* x1,x2,y1,y2 */) {
+      return arguments.length===4
+        ? {x1: arguments[0],
+           x2: arguments[1],
+           y1: arguments[2],
+           y2: arguments[3]}
+        : {x1: NaN, x2: NaN, y1: NaN, y2: NaN};
     };
 
     /**
@@ -997,67 +1073,15 @@
      * @public
      * @function
      */
-    Mojo.loaders.Image = (key,path,cb,ecb) => {
-      let img = new Image();
-      img.onerror = ecb;
-      img.onload = () => cb(key,img);
-      img.src = _assetUrl(Mojo.o.imagePath, path, Mojo.o.devMode);
-      return Mojo;
-    };
-
-    /**
-     * @public
-     * @function
-     */
-    Mojo.loaders.Audio = function(key,path,cb,ecb) {
-      let dev=Mojo.o.devMode,
-          ext= _audioExt(Mojo.o.audioFiles);
-      if(!Mojo.o.sound ||
-         !ext||
-         !Mojo.domCtor("audio").play) {
-        cb(key);
-      } else {
-        let snd=new Audio();
-        _.addEvent("error",snd, ecb);
-        // don't wait for canplaythrough on mobile
-        if(!Mojo.touchDevice)
-          _.addEvent("canplaythrough", snd, () => cb(key,snd));
-        snd.src = _assetUrl(Mojo.o.audioPath, _.fileNoExt(path)+"."+ ext, dev);
-        snd.load();
-      }
-      return Mojo;
-    };
-
-    /**
-     * @public
-     * @function
-     */
-    Mojo.loaders.WebAudio = function(key,path,cb,ecb) {
-      let dev= Mojo.o.devMode,
-          base= _.fileNoExt(path),
-          ajax = new XMLHttpRequest(),
-          ext= _audioExt(Mojo.o.audioFiles);
-      ajax.open("GET", _assetUrl(Mojo.o.audioPath,base+"."+ext,dev), true);
-      ajax.responseType = "arraybuffer";
-      ajax.onload = () => {
-        Mojo.audioContext.decodeAudioData(ajax.response, (b) => { cb(key,b); }, ecb);
-      };
-      ajax.send();
-      return Mojo;
-    };
-
-    /**
-     * @public
-     * @function
-     */
-    Mojo.ajax = function(key,path,cb,ecb) {
+    Mojo.ajax= (key,path,cb,ecb) => {
+      Mojo.log("ajax loading: "+path);
       let dev=Mojo.o.devMode,
           ajax = new XMLHttpRequest();
       if(document.location.origin === "null" ||
          document.location.origin === "file://") {
         if(!Mojo.fileURLAlert) {
           Mojo.fileURLAlert = true;
-          alert("Error: Loading assets is not supported from file:// urls!");
+          throw "Error: file:// loading is not supported";
         }
         return ecb();
       }
@@ -1071,32 +1095,67 @@
     };
 
     /**
-     * @public
-     * @function
-     */
-    Mojo.loaders.Other = function(key,path,cb,ecb) {
-      return Mojo.ajax(key,path,cb,ecb);
-    };
-
-    /**
-     * @public
-     * @function
-     */
-    Mojo.loaders.Json = function(key,path,cb,ecb) {
-      return Mojo.ajax(key,path,(key,data) => {
-        cb(key,JSON.parse(data));
-      }, ecb);
-    };
-
-    /**
-     * @public
-     * @function
+     * @private
+     * @var {DOMParser}
      */
     let _domp= new DOMParser();
-    Mojo.loaders.Xml = function(key,path,cb,ecb) {
-      return Mojo.ajax(key,path,(key,data) => {
-        cb(key, _domp.parseFromString(data, "application/xml"));
-      },ecb);
+
+    /**
+     * @public
+     * @property {object}
+     */
+    Mojo.loaders = {
+      Image: (key,path,cb,ecb) => {
+        Mojo.log("loading image: "+path);
+        let img = new Image();
+        img.onerror = ecb;
+        img.onload = () => cb(key,img);
+        img.src = _assetUrl(Mojo.o.imagePath, path, Mojo.o.devMode);
+        return Mojo;
+      },
+      Audio: (key,path,cb,ecb) => {
+        Mojo.log("loading audio: "+path);
+        let dev=Mojo.o.devMode,
+            ext= _audioExt(Mojo.o.audioFiles);
+        if(!Mojo.o.sound || !ext|| !Mojo.domCtor("audio").play) {
+          cb(key);
+        } else {
+          let snd=new Audio();
+          _.addEvent("error",snd, ecb);
+          if(!Mojo.touchDevice)
+            _.addEvent("canplaythrough", snd, () => cb(key,snd));
+          snd.src = _assetUrl(Mojo.o.audioPath, _.fileNoExt(path)+"."+ ext, dev);
+          snd.load();
+        }
+        return Mojo;
+      },
+      WebAudio: (key,path,cb,ecb) => {
+        Mojo.log("loading web-audio: "+path);
+        let dev= Mojo.o.devMode,
+            base= _.fileNoExt(path),
+            ajax = new XMLHttpRequest(),
+            ext= _audioExt(Mojo.o.audioFiles);
+        ajax.open("GET", _assetUrl(Mojo.o.audioPath,base+"."+ext,dev), true);
+        ajax.responseType = "arraybuffer";
+        ajax.onload = () => {
+          Mojo.audioContext.decodeAudioData(ajax.response, (b) => { cb(key,b); }, ecb);
+        };
+        ajax.send();
+        return Mojo;
+      },
+      Other: (key,path,cb,ecb) => {
+        return Mojo.ajax(key,path,cb,ecb);
+      },
+      Json: (key,path,cb,ecb) => {
+        return Mojo.ajax(key,path,(key,data) => {
+          cb(key,JSON.parse(data));
+        }, ecb);
+      },
+      Xml: (key,path,cb,ecb) => {
+        return Mojo.ajax(key,path,(key,data) => {
+          cb(key, _domp.parseFromString(data, "application/xml"));
+        },ecb);
+      }
     };
 
     /**
@@ -1106,7 +1165,7 @@
     Mojo.asset= (name,panic) => {
       let r= _.get(Mojo.assets, name);
       if(panic && !r)
-        throw "Error: unknown asset:" + name;
+        throw "Error: unknown asset `"+name+"`";
       return r;
     };
 
@@ -1116,20 +1175,17 @@
      */
     Mojo.load= function(assets,cb,options) {
       options= options || {};
-      let pcb = options.progressCb;
-      let bad = options.errorCb;
       let assetObj = {},
           errors = 0,
-          ecb = (a) => {
-            ++errors;
-            (bad || ((a) => {throw "Error Loading: "+a;}))(a);
-          };
+          bad = options.errorCb,
+          pcb = options.progressCb,
+          err= (a) => {throw "Error: can't load: "+a;},
+          ecb = (a) => { ++errors; (bad || err)(a); };
       _.doseq(_.seq(assets), (a) => {
         if(is.obj(a))
           _.inject(assetObj, a);
         else if(a.length > 0) assetObj[a] = a;
       });
-
       let sum = _.keys(assetObj).length,
           type,
           more=sum,
@@ -1139,9 +1195,9 @@
                 _.assoc(Mojo.assets,key, obj);
                 --more;
                 if(pcb)
-                  pcb(sum - more, sum);
+                  pcb(sum-more, sum);
               }
-              if(more === 0 && cb) { cb.apply(Mojo, []); }
+              if(more===0 && cb) { cb.apply(Mojo, []); }
             }
           };
       //start to load
@@ -1173,76 +1229,78 @@
      * @public
      * @property {object}
      */
-    Mojo.o = {imagePath: "images/",
-              dataPath:  "data/",
-              audioPath: "audio/",
-              sound: true,
-              maxFrameTime: 100,
-              autoFocus: true,
-              audioFiles: ["wav", "mp3","ogg"]};
+    Mojo.o = _.inject({imagePath: "images/",
+                       dataPath:  "data/",
+                       audioPath: "audio/",
+                       sound: true,
+                       id: "mojo",
+                       maxFrameTime: 100,
+                       autoFocus: true,
+                       audioFiles: ["wav", "mp3","ogg"]}, cmdArg);
 
     //------------------------------------------------------------------------
+    //prologue
+    let id = Mojo.o.id,
+        libs = _.seq(Mojo.o.modules || "");
+
+    sort_out_game_looper();
+
     //installing all modules
     //core modules
-    ["Sprites", "Scenes"].forEach(k => MojoH5[k](Mojo));
+    ["Sprites", "Scenes"].forEach(k => {
+      Mojo.log("installing module: "+k);
+      MojoH5[k](Mojo);
+    });
+
     //optional/other modules
     ["Audio",
      "Anim",
      "2d",
      "Input",
-     "Touch"].concat(modules).forEach(k => {
-      let f= MojoH5[k];
-      if(!f)
-        Mojo.log("warn: module `",k,"` missing."); else f(Mojo);
+     "Touch"].concat(libs).forEach(k => {
+       let f= MojoH5[k];
+       if(f) {
+         Mojo.log("installing module: "+k);
+         f(Mojo);
+       } else {
+         Mojo.log("warn: module `",k,"` missing");
+       }
     });
 
-    /**
-     * @function
-     */
-    Mojo.prologue = function(id, options) {
-
-      if(is.obj(id)) {
-        options = id;
-        id = null;
-      }
-
-      options = _.inject(Mojo.o, options || {});
-      id = id || "mojo";
-
+    let _prologue=function() {
       Mojo.el = is.str(id) ? Mojo.domById(id) : id;
       if(!Mojo.el) {
         Mojo.el= Mojo.domCtor("canvas", {id: id,
-                                         width: options.width || 320,
-                                         height: options.height || 480});
+                                         width: Mojo.o.width || 320,
+                                         height: Mojo.o.height || 480});
         Mojo.domConj(Mojo.el);
       }
 
       let w = Mojo.el.width,
           h = Mojo.el.height,
           elParent = Mojo.el.parentNode,
-          maxWidth = options.maxWidth || 5000,
-          maxHeight = options.maxHeight || 5000,
-          resampleWidth = options.resampleWidth,
-          resampleHeight = options.resampleHeight,
-          upsampleWidth = options.upsampleWidth,
-          upsampleHeight = options.upsampleHeight;
+          maxWidth = Mojo.o.maxWidth || 5000,
+          maxHeight = Mojo.o.maxHeight || 5000,
+          resampleWidth = Mojo.o.resampleWidth,
+          resampleHeight = Mojo.o.resampleHeight,
+          upsampleWidth = Mojo.o.upsampleWidth,
+          upsampleHeight = Mojo.o.upsampleHeight;
 
-      if(options.maximize === true ||
-         (Mojo.touchDevice && options.maximize === "touch"))  {
+      if(Mojo.o.maximize === true ||
+         (Mojo.touchDevice && Mojo.o.maximize === "touch"))  {
 
         Mojo.domCss(document.body, {padding: 0, margin: 0});
-
-        w = options.width ||
-            _.min(window.innerWidth,maxWidth) - ((options.pageScroll)?17:0);
-        h = options.height ||
+        w = Mojo.o.width ||
+            _.min(window.innerWidth,maxWidth) - ((Mojo.o.pageScroll)?17:0);
+        h = Mojo.o.height ||
             _.min(window.innerHeight - 5,maxHeight);
-
         if(Mojo.touchDevice) {
           Mojo.domCss(Mojo.el, "height", (h*2) + "px");
           Mojo.scroll();
           w = _.min(window.innerWidth,maxWidth);
           h = _.min(window.innerHeight,maxHeight);
         }
+
       } else if(Mojo.touchDevice) {
         Mojo.scroll();
       }
@@ -1261,6 +1319,7 @@
         Mojo.el.width= w;
         Mojo.el.height= h;
       }
+
       Mojo.domCss(Mojo.el, {height: h+"px", width: w+"px"});
 
       if(elParent && !Mojo.wrapper) {
@@ -1281,7 +1340,7 @@
       Mojo.width_div2=Mojo.width/2;
       Mojo.height_div2=Mojo.height/2;
 
-      if(options.scaleToFit) {
+      if(Mojo.o.scaleToFit) {
         let factor = 1,
             winW = window.innerWidth*factor,
             winH = window.innerHeight*factor,
@@ -1312,18 +1371,19 @@
 
       //e.g. options= {touch: {}, joyad: {}}
       Mojo.handleDeviceFlip();
-      Mojo.controls(options);
+      Mojo.controls(Mojo.o);
 
-      if(options.sound !== false)
+      if(Mojo.o.sound !== false)
         Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
-
-      return Mojo;
     };
+
+    if(!Mojo.o.outliner)
+      _prologue();
+    else
+      Mojo[Mojo.o.outliner].prologue(Mojo);
 
     return (window.Mojo=Mojo);
   };
-
-  return window.MojoH5;
 
 })(this);
 

@@ -115,8 +115,9 @@
      * @function
      */
     Mojo.canvasToSceneX = (x,scene) => {
+      let cam=Mojo.getf(scene,"camera");
       x = x/Mojo.cssWidth*Mojo.width;
-      return scene.camera ? ((x/scene.camera.scale)+scene.camera.x) : x;
+      return cam ? ((x/cam.scale)+cam.x) : x;
     };
 
     /**
@@ -124,8 +125,9 @@
      * @function
      */
     Mojo.canvasToSceneY = (y,scene) => {
+      let cam=Mojo.getf(scene,"camera");
       y = y/Mojo.cssWidth*Mojo.width;
-      return scene.camera ? ((y/scene.camera.scale)+scene.camera.y) : y;
+      return cam ? ((y/cam.scale)+cam.y) : y;
     };
 
     /**
@@ -510,11 +512,14 @@
 
       options= options || {};
 
-      Mojo.input.keyboardControls(options.keys);
-      Mojo.input.mouseControls(options.mouse);
-      Mojo.touch(options.touch);
+      if(options.keys!==false)
+        Mojo.input.keyboardControls(options.keys);
+      if(options.mouse!==false)
+        Mojo.input.mouseControls(options.mouse);
+      if(options.touch!==false)
+        Mojo.touch(options.touch);
 
-      if(Mojo.touchDevice) {
+      if(options.touch!==false && Mojo.touchDevice) {
         if(options.touch)
           Mojo.input.touchControls(options.touch,options.joypad);
         if(options.joypad)

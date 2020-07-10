@@ -16,6 +16,9 @@
   "use strict";
   let MojoH5 = global.MojoH5;
 
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not loaded.";
+
   /**
    * @module
    */
@@ -36,10 +39,10 @@
      * @private
      * @function
      */
-    let _extractAssetName = (result) => {
-      let s= result.getAttribute("source"),
-          p= s.split("/");
-      return p[p.length - 1];
+    let _getImage = (obj) => {
+      let s= obj.querySelector("image"),
+          p= s && s.getAttribute("source").split("/");
+      return p && p.length > 0 && p[p.length-1];
     };
 
     /**
@@ -67,49 +70,9 @@
      * @private
      * @function
      */
-    let _loadTilesets = function(tilesets, tileProperties) {
-      let gidMap = [],
-          parsePoint = (pt) => {
-            let pts = pt.split(",");
-            return [parseFloat(pts[0]), parseFloat(pts[1])];
-          };
-      for(let tileset,i=0;i<tilesets.length;++i) {
-        tileset = tilesets[i];
-        let sheetName = _attr(tileset,"name"),
-            gid = _attr(tileset,"firstgid"),
-            tilesetTileProps = {},
-            assetName = _extractAssetName(tileset.querySelector("image")),
-            tilesetProps = {tileW: _attr(tileset,"tilewidth"),
-                            tileH: _attr(tileset,"tileheight"),
-                            spacingX: _attr(tileset,"spacing"),
-                            spacingY: _attr(tileset,"spacing")};
-        tileset.querySelectorAll("tile").forEach(tile => {
-          let tileId = _attr(tile,"id"),
-              tileGid = gid + tileId,
-              properties = _parseProperties(tile);
-          if(properties.points)
-            properties.points = _.map(properties.points.split(" "),parsePoint);
-          // save the properties indexed by GID for creating objects
-          tileProperties[tileGid] = properties;
-          // save the properties indexed by tile number for the frame properties
-          tilesetTileProps[tileId] = properties;
-        });
-        tilesetProps.frameInfo= tilesetTileProps;
-        _.conj(gidMap,[gid, sheetName]);
-        Mojo.sheet(sheetName, assetName,  tilesetProps);
-      };
-      return gidMap;
-    };
-
-    /**
-     * @private
-     * @function
-     */
-    let _processImageLayer = (scene,gidMap,tileProperties,layer) => {
-      let properties = _parseProperties(layer),
-          assetName = _extractAssetName(layer.querySelector("image"));
-      properties.asset = assetName;
-      scene.insert(new Mojo.Repeater(properties));
+    let _parsePoint = (pt) => {
+      let pts = pt.split(",");
+      return [parseFloat(pts[0]), parseFloat(pts[1])];
     };
 
     //get the first entry in the gid map that gives
@@ -121,79 +84,117 @@
       return gidMap[idx];
     };
 
-    let _processTileLayer = (scene,gidMap,tileProperties,layer) => {
-      let tiles = layer.querySelectorAll("tile"),
-          width = _attr(layer,"width"),
-          height =_attr(layer,"height"),
-          gidDetails, gidOffset, sheetName, idx=0, data = [];
-      for(let y=0;y<height;++y) {
-        data[y] = [];
-        for(let gid, x=0;x<width;++x) {
-          if((gid = _attr(tiles[idx],"gid"))===0)
-            _.conj(data[y], null);
-          else {
-            // If we don't know what tileset this map is associated with
-            // figure it out by looking up the gid of the tile w/
-            // and match to the tilesef
-            if(!gidOffset) {
-              gidDetails = _lookupGid(_attr(tiles[idx],"gid"),gidMap);
-              gidOffset = gidDetails[0];
-              sheetName = gidDetails[1];
+    /**
+     * @private
+     * @function
+     */
+    let _scanTilesets = function(tilesets, tileProperties) {
+      let gidMap = [];
+      for(let ts,i=0;i<tilesets.length;++i) {
+        ts = tilesets[i];
+        let tsProps = {},
+            name = _attr(ts,"name"),
+            gid = _attr(ts,"firstgid");
+        ts.querySelectorAll("tile").forEach(tile => {
+          let tileId = _attr(tile,"id"),
+              tileGid = gid + tileId,
+              properties = _parseProperties(tile);
+          if(properties.points)
+            properties.points = _.map(properties.points.split(" "),_parsePoint);
+          //local
+          tsProps[tileId] = properties;
+          //global
+          tileProperties[tileGid] = properties;
+        });
+        _.conj(gidMap,[gid, name]);
+        Mojo.sheet(name,
+                   _getImage(ts),
+                   {tileW: _attr(ts,"tilewidth"),
+                    tileH: _attr(ts,"tileheight"),
+                    frameInfo: tsProps,
+                    spacingX: _attr(ts,"spacing"),
+                    spacingY: _attr(ts,"spacing")});
+      };
+      return gidMap;
+    };
+
+    let _scanners= {
+      imagelayer: (scene,node) => {
+        let p = _parseProperties(node),
+            assetName = _getImage(node);
+        p.asset = assetName;
+        scene.insert(new Mojo.Repeater(p));
+      },
+      layer: (scene,classFactory,gidMap,node) => {
+        let tiles = node.querySelectorAll("tile"),
+            width = _attr(node,"width"),
+            height =_attr(node,"height"),
+            gidDetails, gidOffset, sheetName, idx=0, data = [];
+        for(let y=0;y<height;++y) {
+          data[y] = [];
+          for(let gid, x=0;x<width;++x) {
+            if((gid = _attr(tiles[idx],"gid"))===0)
+              _.conj(data[y], null);
+            else {
+              if(!gidOffset) {
+                gidDetails = _lookupGid(gid,gidMap);//_attr(tiles[idx],"gid"),gidMap);
+                gidOffset = gidDetails[0];
+                sheetName = gidDetails[1];
+              }
+              _.conj(data[y],(gid - gidOffset));
             }
-            _.conj(data[y],(gid - gidOffset));
+            ++idx;
           }
-          ++idx;
         }
+        let C, obj, sht= Mojo.sheet(sheetName),
+            tileLayerProps = _.inject({tileW: sht.tileW,
+                                       tileH: sht.tileH,
+                                       tiles: data,
+                                       sheet: sheetName}, _parseProperties(node));
+        if(tileLayerProps.Class)
+          C=classFactory[tileLayerProps.Class];
+        else
+          C=Mojo.TileLayer;
+        obj= new C(tileLayerProps);
+        tileLayerProps["collision"] ? scene.addOverlay(obj) : scene.insert(obj);
+      },
+      objectgroup: (scene,classFactory,gidMap,gidProps,node) => {
+        node.querySelectorAll("object").forEach(obj => {
+          let gid = _attr(obj,"gid"),
+              props = gidProps[gid],
+              clazz= props && props["Class"],
+              C = clazz && classFactory[clazz],
+              sprite, overrides = _parseProperties(obj);
+          if(!props) throw "Error: missing TMX Object props for GID:" + gid;
+          if(!clazz) throw "Error: missing TMX Object Class for GID:" + gid;
+          if(!C) throw "Error: unknown Class `"+clazz+"` for GID:" + gid;
+          sprite = new C(_.inject({x: _attr(obj,"x"),
+                                   y: _attr(obj,"y")}, props, overrides));
+          sprite.p.x += sprite.p.w/2;
+          sprite.p.y -= sprite.p.h/2;
+          scene.insert(sprite);
+        });
       }
-      let sht= Mojo.sheet(sheetName),
-          tileLayerProps =
-          _.inject({tileW: sht.tileW,
-                    tileH: sht.tileH,
-                    tiles: data,
-                    sheet: sheetName}, _parseProperties(layer)),
-          TCZ = Mojo[tileLayerProps.Class || "TileLayer"];
-      !tileLayerProps["collision"]
-        ? scene.insert(new TCZ(tileLayerProps))
-        : scene.addOverlay(new TCZ(tileLayerProps));
     };
 
-    let _processObjectLayer= (scene,gidMap,tileProperties,layer) => {
-      layer.querySelectorAll("object").forEach(obj => {
-        let gid = _attr(obj,"gid"),
-            x = _attr(obj,"x"),
-            y = _attr(obj,"y"),
-            props = tileProperties[gid],
-            overrideProps = _parseProperties(obj);
-        if(!props)
-          throw "Missing TMX Object props for GID:" + gid;
-        let className = props["Class"];
-        if(!className)
-          throw "Missing TMX Object Class for GID:" + gid;
-        let p = _.inject({ x: x, y: y }, props, overrideProps),
-            sprite = new Mojo[className](p);
-        // offset the sprite
-        sprite.p.x += sprite.p.w/2;
-        sprite.p.y -= sprite.p.h/2;
-        scene.insert(sprite);
-      });
-    };
-
-    let _tmxProcessors = {imagelayer: _processImageLayer,
-                          layer: _processTileLayer,
-                          objectgroup: _processObjectLayer};
-    Mojo.parseTMX = function(dataAsset,scene) {
+    /**
+     * @public
+     * @function
+     */
+    Mojo.parseTMX = function(dataAsset,scene,classFactory) {
       let data = is.str(dataAsset) ? Mojo.asset(dataAsset) : dataAsset,
-          tag,
-          tileProperties = {},
-          tilesets = data.getElementsByTagName("tileset"),
-          gidMap = _loadTilesets(tilesets,tileProperties);
-      _.doseq(data.documentElement.childNodes, (layer) => {
-        tag = layer.tagName;
-        if(_tmxProcessors[tag])
-          _tmxProcessors[tag](scene, gidMap, tileProperties, layer);
+          tag, gidProps = {},
+          gidMap = _scanTilesets(data.getElementsByTagName("tileset"), gidProps);
+      _.doseq(data.documentElement.childNodes, (node) => {
+        tag=node.tagName;
+        if(tag==="layer")
+          _scanners[tag](scene,classFactory,gidMap,node);
+        else if(tag==="imagelayer")
+          _scanners[tag](scene,node);
+        else if(tag==="objectgroup")
+          _scanners[tag](scene,classFactory,gidMap,gidProps,node);
       });
     };
-
 
     return Mojo;
   };

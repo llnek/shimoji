@@ -18,7 +18,7 @@
       MojoH5= global.MojoH5;
 
   if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded.";
+    throw "Fatal: MojoH5 not loaded";
 
   /**
    * @module
@@ -28,16 +28,16 @@
     let _= Mojo.u,
         is= Mojo.is,
         _touchLayer = [0],
-        _activeTouches = {},
-        _touchedObjects = {},
         EBus = Mojo.EventBus,
-        _touchType= Mojo.E_NONE;
+        _touchType= Mojo.E_NONE,
+        _activeTouches = _.jsMap(),
+        _touchedObjects = _.jsMap();
 
     /**
      * @public
      * @class
      */
-    Mojo.deftype("TouchSystem", {
+    Mojo.defType("TouchSystem", {
       /**
        * @constructs
        */
@@ -48,48 +48,42 @@
         this.boundDrag = (e) => { self.drag(e); };
         this.boundEnd = (e) => { self.touchEnd(e); };
 
-        _.addEvent([["touchstart",Mojo.el,this.boundTouch],
-                    ["mousedown",Mojo.el,this.boundTouch],
-                    ["touchmove",Mojo.el,this.boundDrag],
+        _.addEvent([["mouseup",Mojo.el,this.boundEnd],
                     ["mousemove",Mojo.el,this.boundDrag],
+                    ["mousedown",Mojo.el,this.boundTouch],
+                    ["touchstart",Mojo.el,this.boundTouch],
+                    ["touchmove",Mojo.el,this.boundDrag],
                     ["touchend",Mojo.el,this.boundEnd],
-                    ["mouseup",Mojo.el,this.boundEnd],
                     ["touchcancel",Mojo.el,this.boundEnd]]);
 
         //ducktype it for collision detection
-        this.touchPos = {bbox4: _.jsMap(),
-                         p: { id: _.nextID(), w:1, h:1, cx: 0, cy: 0}};
+        this.touchPos = {bbox4: Mojo.bbox4(),
+                         p: { id: _.nextId(), w:1, h:1, cx: 0, cy: 0}};
       },
       dispose: function() {
-        _.delEvent([["touchstart",Mojo.el,this.boundTouch],
-                    ["mousedown",Mojo.el,this.boundTouch],
-                    ["touchmove",Mojo.el,this.boundDrag],
+        _.delEvent([["mouseup",Mojo.el,this.boundEnd],
                     ["mousemove",Mojo.el,this.boundDrag],
+                    ["mousedown",Mojo.el,this.boundTouch],
+                    ["touchstart",Mojo.el,this.boundTouch],
+                    ["touchmove",Mojo.el,this.boundDrag],
                     ["touchend",Mojo.el,this.boundEnd],
-                    ["mouseup",Mojo.el,this.boundEnd],
                     ["touchcancel",Mojo.el,this.boundEnd]]);
       },
       _repos: function(touch,L) {
         let el = Mojo.el,
             rect = el.getBoundingClientRect(),
             style = window.getComputedStyle(el),
-            posX = touch.clientX - rect.left - parseInt(style.paddingLeft),
-            posY = touch.clientY - rect.top  - parseInt(style.paddingTop);
-
-        if(posX===undefined ||
-           posY===undefined) {
+            posY = touch.clientY - rect.top  - parseInt(style.paddingTop),
+            posX = touch.clientX - rect.left - parseInt(style.paddingLeft);
+        if(posX===undefined || posY===undefined) {
            posX = touch.offsetX;
            posY = touch.offsetY;
         }
-
-        if(posX===undefined ||
-           posY===undefined) {
+        if(posX===undefined || posY===undefined) {
           posX = touch.layerX;
           posY = touch.layerY;
         }
-
-        if(posX===undefined ||
-           posY===undefined) {
+        if(posX===undefined || posY===undefined) {
           if(Mojo.touch.offsetX === undefined) {
             Mojo.touch.offsetX = 0;
             Mojo.touch.offsetY = 0;
@@ -108,11 +102,12 @@
         this.touchPos.p.oy =
         this.touchPos.p.py = posY / Mojo.cssHeight * Mojo.height;
 
-        if(L.camera) {
-          this.touchPos.p.px /= L.camera.scale;
-          this.touchPos.p.py /= L.camera.scale;
-          this.touchPos.p.px += L.camera.x;
-          this.touchPos.p.py += L.camera.y;
+        let cam= Mojo.getf(L,"camera");
+        if(cam) {
+          this.touchPos.p.px /= cam.scale;
+          this.touchPos.p.py /= cam.scale;
+          this.touchPos.p.px += cam.x;
+          this.touchPos.p.py += cam.y;
         }
 
         this.touchPos.obj = null;
@@ -127,22 +122,19 @@
           for(let idx=0;idx < _touchLayer.length;++idx) {
             let touch = touches[i],
                 L = Mojo.scene(_touchLayer[idx]);
-
             if(!L) { continue; }
-
-            let touchId= touch.identifier || 0;
-            let pos = this._repos(touch,L);
+            let touchId= touch.identifier || 0,
+                obj,col,pos = this._repos(touch,L);
             L.regrid(pos,true);
-            let obj, col = L.search(pos,_touchType);
-
-            if(col || idx === _touchLayer.length - 1) {
+            col = L.search(pos,_touchType);
+            if(col || idx === _touchLayer.length-1) {
               obj = col && col.obj;
               pos.obj = obj;
               EBus.pub("touch", this, pos);
             }
 
-            if(obj && !_touchedObjects[obj]) {
-              _activeTouches[touchId] = {
+            if(obj && obj.p && !_.has(_touchedObjects,obj.p.id)) {
+              _.assoc(_activeTouches,touchId, {
                 x: pos.p.px,
                 y: pos.p.py,
                 sx: pos.p.ox,
@@ -152,9 +144,9 @@
                 origX: obj.p.x,
                 origY: obj.p.y,
                 identifier: touchId
-              };
-              _touchedObjects[obj.p.id] = true;
-              EBus.pub("touch", obj, _activeTouches[touchId]);
+              });
+              _.assoc(_touchedObjects,obj.p.id, true);
+              EBus.pub("touch", obj, _.get(_activeTouches,touchId));
               break;
             }
           }
@@ -165,13 +157,12 @@
       drag: function(e) {
         let touches = e.changedTouches || [ e ];
         for(let i=0;i<touches.length;++i) {
-          let touch = touches[i],
-              touchId= touch.identifier || 0;
-          let active = _activeTouches[touchId],
+          let pos, touch = touches[i],
+              touchId= touch.identifier || 0,
+              active = _.get(_activeTouches,touchId),
               L = active && active.scene;
-
           if(active) {
-            let pos = this._repos(touch,L);
+            pos = this._repos(touch,L);
             active.x = pos.p.px;
             active.y = pos.p.py;
             active.dx = pos.p.ox - active.sx;
@@ -186,8 +177,8 @@
         let touches = e.changedTouches || [ e ];
         for(let i=0;i<touches.length;++i) {
           let touch = touches[i],
-              touchId= touch.identifier || 0;
-          let active = _activeTouches[touchId];
+              touchId= touch.identifier || 0,
+              active = _.get(_activeTouches,touchId);
           if(active) {
             EBus.pub("touchEnd", active.obj, active);
             _.assoc(_activeTouches,touchId,null);
@@ -207,7 +198,7 @@
     Mojo.touch = function(arg) {
       arg= arg || {};
       if(!is.num(arg.scene))
-        _touchLayer = [2,1,0];
+        _touchLayer = [5,4,3,2,1,0];
       else
         _touchLayer = [arg.scene];
       _touchType = arg.type || Mojo.E_ALL; //Mojo.E_UI;

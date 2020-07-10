@@ -1,10 +1,24 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined) {
   "use strict";
   let MojoH5 = global.MojoH5,
       document = global.document;
 
   if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded.";
+    throw "Fatal: MojoH5 not loaded";
 
   /**
    * @public
@@ -16,20 +30,19 @@
         is = Mojo.is,
         EBus= Mojo.EventBus;
 
-    //register a feature
-    Mojo.feature("camera",{
-      _sx: function() { return Mojo.width/2/this.scale; },
-      _sy: function() { return Mojo.height/2/this.scale; },
+    Mojo.defFeature("camera",{
+      _sx: function() { return Mojo.width_div2/this.scale; },
+      _sy: function() { return Mojo.height_div2/this.scale; },
       added: function() {
         EBus.sub([["prerender",this.entity,"prerender",this],
                   ["render",this.entity,"postrender",this]]);
-        this.centerX = Mojo.width/2;
-        this.centerY = Mojo.height/2;
         this.scale = 1;
         this.x = 0;
         this.y = 0;
         this.offsetX = 0;
         this.offsetY = 0;
+        this.centerX = Mojo.width_div2;
+        this.centerY = Mojo.height_div2;
       },
       disposed: function() {
         EBus.unsub([["prerender",this.entity,"prerender",this],
@@ -41,13 +54,11 @@
         this.following = sprite;
         this.boundingBox = boundingBox;
         if(boundingBox===undefined &&
-           this.entity.cache &&
-           this.entity.cache.TileLayer !== undefined) {
-          this.boundingBox = _.some(this.entity.cache.TileLayer, (itm) => {
-            return itm.p.boundingBox ? {minX: 0,
-                                        minY: 0,
-                                        maxX: itm.p.w,
-                                        maxY: itm.p.h } : null;
+           _.inst(Mojo.Scene,this.entity) &&
+          this.entity.overlays.length > 0) {
+          this.boundingBox = _.some(this.entity.overlays, (obj) => {
+            if(obj.p && obj.p.boundingBox)
+              return {minX: 0, minY: 0, maxX: obj.p.w, maxY: obj.p.h };
           });
         }
         EBus.sub("poststep",this.entity,"_follow",this);
@@ -122,7 +133,7 @@
         this.centerX = this.x + this._sx();
         this.centerY = this.y + this._sy();
         Mojo.ctx.save();
-        Mojo.ctx.translate(_.floor(Mojo.width/2),_.floor(Mojo.height/2));
+        Mojo.ctx.translate(_.floor(Mojo.width_div2),_.floor(Mojo.height_div2));
         Mojo.ctx.scale(this.scale,this.scale);
         Mojo.ctx.translate(-_.floor(this.centerX), -_.floor(this.centerY));
         return this;
@@ -137,7 +148,7 @@
      * @public
      * @class
      */
-    Mojo.deftype(["TileLayer",Mojo.Sprite], {
+    Mojo.defType(["TileLayer",Mojo.Sprite], {
       init: function(props) {
         this._super(props,{tileW: 32,
                            tileH: 32,
@@ -190,10 +201,11 @@
       },
       load: function(dataAsset) {
         if(is.str(dataAsset)) {
-          if(_.fileExt(dataAsset) === "json")
+          let ext;
+          if((ext=_.fileExt(dataAsset)) === "json")
             dataAsset = Mojo.asset(dataAsset);
           else
-            throw "file type not supported";
+            throw "Error: file type `"+ext+"` not supported";
         }
         this.p.tiles = dataAsset;
       },
@@ -344,7 +356,7 @@
       },
       draw: function(ctx) {
         let p = this.p,
-            port = this.scene.camera,
+            port = Mojo.getf(this.scene,"camera"),
             scale = port ? port.scale : 1,
             x = port ? port.x : 0,
             y = port ? port.y : 0,
@@ -360,70 +372,58 @@
       }
     }, Mojo);
 
-    Mojo.gravityY = 9.8*100;
-    Mojo.gravityX = 0;
+    Mojo.gravity.x=0;
+    Mojo.gravity.y = 9.8*100;
 
     /**
      * @object
      */
-    Mojo.feature("2d",{
+    Mojo.defFeature("2d",{
       added: function() {
-        let ent= this.entity;
-        _.patch(ent.p,{
-          vx: 0,
-          vy: 0,
-          ax: 0,
-          ay: 0,
-          gravity: 1,
-          collisionMask: Mojo.E_DEFAULT
-        });
-        EBus.sub([["step",ent,"step",this],
-                  ["hit",ent,'collision',this]]);
+        this.entity.p.gravity=1;
+        EBus.sub([["step",this.entity,"step",this],
+                  ["hit",this.entity,'collision',this]]);
       },
       disposed: function() {
         EBus.unsub([["step",this.entity,"step",this],
                     ["hit",this.entity,'collision',this]]);
       },
       collision: function(col,last) {
-        let magnitude = 0,
-            p = this.entity.p;
-
+        let p = this.entity.p;
         if(col.obj.p && col.obj.p.sensor) {
           EBus.pub("sensor", col.obj, this.entity);
-          return;
-        }
-
-        col.impact = 0;
-        let impactX = _.abs(p.vx),
+        } else {
+        let magnitude=0,
+            impactX = _.abs(p.vx),
             impactY = _.abs(p.vy);
-
-        p.x -= col.separate[0];
-        p.y -= col.separate[1];
-
-        // Top collision
-        if(col.normalY < -0.3) {
-          if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
-          col.impact = impactY;
-          EBus.pub([["bump.bottom", this.entity,col],
-                    ["bump", this.entity,col]]);
-        }
-        if(col.normalY > 0.3) {
-          if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
-          col.impact = impactY;
-          EBus.pub([["bump.top",this.entity,col],
-                    ["bump",this.entity,col]]);
-        }
-        if(col.normalX < -0.3) {
-          if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
-          col.impact = impactX;
-          EBus.pub([["bump.right",this.entity,col],
-                    ["bump",this.entity,col]]);
-        }
-        if(col.normalX > 0.3) {
-          if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
-          col.impact = impactX;
-          EBus.pub([["bump.left",this.entity,col],
-                    ["bump",this.entity,col]]);
+          col.impact = 0;
+          p.x -= col.separate[0];
+          p.y -= col.separate[1];
+          // Top collision
+          if(col.normalY < -0.3) {
+            if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
+            col.impact = impactY;
+            EBus.pub([["bump.bottom", this.entity,col],
+                      ["bump", this.entity,col]]);
+          }
+          if(col.normalY > 0.3) {
+            if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
+            col.impact = impactY;
+            EBus.pub([["bump.top",this.entity,col],
+                      ["bump",this.entity,col]]);
+          }
+          if(col.normalX < -0.3) {
+            if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
+            col.impact = impactX;
+            EBus.pub([["bump.right",this.entity,col],
+                      ["bump",this.entity,col]]);
+          }
+          if(col.normalX > 0.3) {
+            if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
+            col.impact = impactX;
+            EBus.pub([["bump.left",this.entity,col],
+                      ["bump",this.entity,col]]);
+          }
         }
       },
       step: function(dt) {
@@ -435,20 +435,19 @@
         while(dtStep > 0) {
           dt = _.min(1/30,dtStep);
           // Updated based on the velocity and acceleration
-          p.vx += p.ax * dt + (p.gravityX === undefined ? Mojo.gravityX : p.gravityX) * dt * p.gravity;
-          p.vy += p.ay * dt + (p.gravityY === undefined ? Mojo.gravityY : p.gravityY) * dt * p.gravity;
+          p.vx += p.ax * dt + (p.gravityX === undefined ? Mojo.gravity.x : p.gravityX) * dt * p.gravity;
+          p.vy += p.ay * dt + (p.gravityY === undefined ? Mojo.gravity.y : p.gravityY) * dt * p.gravity;
           p.x += p.vx * dt;
           p.y += p.vy * dt;
-
           this.entity.scene.collide(this.entity);
           dtStep -= dt;
         }
       }
     });
 
-    //register feature
-    Mojo.feature("aiBounce", {
+    Mojo.defFeature("aiBounce", {
       added: function() {
+        this.defaultDirection = Mojo.D_RIGHT;
         EBus.sub([["bump.right",this.entity,"goLeft",this],
                   ["bump.left",this.entity,"goRight",this]]);
       },
@@ -458,122 +457,115 @@
       },
       goLeft: function(col) {
         this.entity.p.vx = -col.impact;
-        if(this.entity.p.defaultDirection === "right")
+        if(this.defaultDirection === Mojo.D_RIGHT)
           this.entity.p.flip = "x";
         else
           this.entity.p.flip = false;
       },
       goRight: function(col) {
         this.entity.p.vx = col.impact;
-        if(this.entity.p.defaultDirection === "left")
+        if(this.defaultDirection === Mojo.D_LEFT)
           this.entity.p.flip = "x";
         else
           this.entity.p.flip = false;
       }
     });
 
-    let _pctrl_defaults= {speed: 200, jumpSpeed: -300, collisions: []};
-    //register feature
-    Mojo.feature("platformerControls", {
+    Mojo.defFeature("platformer", {
       added: function() {
-        let p = this.entity.p;
-        _.patch(p,_pctrl_defaults);
-
+        this.jumpSpeed= -300;
+        this.jumping=false;
+        this.landed = 0;
         EBus.sub([["step",this.entity,"step",this],
-                  ["bump.bottom",this.entity,"landed",this]]);
-
-        p.landed = 0;
-        p.direction ="right";
+                  ["bump.bottom",this.entity,"onLanded",this]]);
       },
       disposed:function() {
         EBus.unsub([["step",this.entity,"step",this],
-                    ["bump.bottom",this.entity,"landed",this]]);
+                    ["bump.bottom",this.entity,"onLanded",this]]);
       },
-      landed: function(col) {
-        this.entity.p.landed= 1/5;
+      onLanded: function(col) {
+        this.landed= 1/5;
       },
       step: function(dt) {
         let p = this.entity.p;
-
         if(p.ignoreControls===undefined || !p.ignoreControls) {
-          let collision = null;
+          let col= null;
           // Follow along the current slope, if possible.
           if(p.collisions !== undefined &&
              p.collisions.length > 0 &&
              (_.get(Mojo.inputs,"left") ||
-              _.get(Mojo.inputs,"right") || p.landed > 0)) {
+              _.get(Mojo.inputs,"right") || this.landed > 0)) {
             if(p.collisions.length === 1) {
-              collision = p.collisions[0];
+              col= p.collisions[0];
             } else {
               // If there's more than one possible slope, follow slope with negative Y normal
-              collision = null;
+              col= null;
               for(let i = 0; i < p.collisions.length; ++i) {
                 if(p.collisions[i].normalY < 0)
-                collision = p.collisions[i];
+                col= p.collisions[i];
               }
             }
             // Don't climb up walls.
-            if(collision !== null &&
-               collision.normalY > -0.3 &&
-               collision.normalY < 0.3) {
-              collision = null;
+            if(col !== null &&
+               col.normalY > -0.3 &&
+               col.normalY < 0.3) {
+              col= null;
             }
           }
 
           if(_.get(Mojo.inputs,"left")) {
-            p.direction = "left";
-            if(collision && p.landed > 0) {
-              p.vx = p.speed * collision.normalY;
-              p.vy = -p.speed * collision.normalX;
+            p.direction = Mojo.D_LEFT;//"left";
+            if(col && this.landed > 0) {
+              p.vx = p.speed * col.normalY;
+              p.vy = -p.speed * col.normalX;
             } else {
               p.vx = -p.speed;
             }
           } else if(_.get(Mojo.inputs,"right")) {
-            p.direction = "right";
-            if(collision && p.landed > 0) {
-              p.vx = -p.speed * collision.normalY;
-              p.vy = p.speed * collision.normalX;
+            p.direction = Mojo.D_RIGHT;//"right";
+            if(col && this.landed > 0) {
+              p.vx = -p.speed * col.normalY;
+              p.vy = p.speed * col.normalX;
             } else {
               p.vx = p.speed;
             }
           } else {
             p.vx = 0;
-            if(collision && p.landed > 0)
+            if(col && this.landed > 0)
             p.vy = 0;
           }
 
-          if(p.landed > 0 &&
+          if(this.landed > 0 &&
              (_.get(Mojo.inputs,"up") ||
-              _.get(Mojo.inputs,"action")) && !p.jumping) {
-            p.vy = p.jumpSpeed;
-            p.landed = -dt;
-            p.jumping = true;
+              _.get(Mojo.inputs,"action")) && !this.jumping) {
+            p.vy = this.jumpSpeed;
+            this.landed = -dt;
+            this.jumping = true;
           } else if(_.get(Mojo.inputs,"up") ||
                     _.get(Mojo.inputs,"action")) {
             EBus.pub("jump", this.entity,this.entity);
-            p.jumping = true;
+            this.jumping = true;
           }
 
-          if(p.jumping && !(_.get(Mojo.inputs,"up") ||
-                            _.get(Mojo.inputs,"action"))) {
-            p.jumping = false;
+          if(this.jumping && !(_.get(Mojo.inputs,"up") ||
+                               _.get(Mojo.inputs,"action"))) {
+            this.jumping = false;
             EBus.pub("jumped", this.entity,this.entity);
-            if(p.vy < p.jumpSpeed/3) {
-              p.vy = p.jumpSpeed/3;
+            if(p.vy < this.jumpSpeed/3) {
+              p.vy = this.jumpSpeed/3;
             }
           }
         }
-        p.landed -= dt;
+        this.landed -= dt;
       }
     });
 
-    //register feature
-    Mojo.feature("stepControls", {
+    Mojo.defFeature("stepper", {
       added: function() {
         let p = this.entity.p;
-        if(!p.stepDistance) p.stepDistance = 32;
-        if(!p.stepDelay) p.stepDelay = 0.2;
-        p.stepWait = 0;
+        if(!this.stepDistance) this.stepDistance = 32;
+        if(!this.stepDelay) this.stepDelay = 0.2;
+        this.stepWait = 0;
         EBus.sub([["step",this.entity,"step",this],
                   ["hit", this.entity,"collision",this]]);
       },
@@ -583,8 +575,8 @@
       },
       collision: function(col) {
         let p = this.entity.p;
-        if(p.stepping) {
-          p.stepping = false;
+        if(this.stepping) {
+          this.stepping = false;
           p.x = p.origX;
           p.y = p.origY;
         }
@@ -592,43 +584,43 @@
       step: function(dt) {
         let p = this.entity.p,
             moved = false;
-        p.stepWait -= dt;
+        this.stepWait -= dt;
 
-        if(p.stepping) {
-          p.x += p.diffX * dt / p.stepDelay;
-          p.y += p.diffY * dt / p.stepDelay;
+        if(this.stepping) {
+          p.x += p.diffX * dt / this.stepDelay;
+          p.y += p.diffY * dt / this.stepDelay;
         }
 
-        if(p.stepWait > 0) { return; }
+        if(this.stepWait > 0) { return; }
 
-        if(p.stepping) {
+        if(this.stepping) {
           p.x = p.destX;
           p.y = p.destY;
         }
 
-        p.stepping = false;
+        this.stepping = false;
         p.diffX = 0;
         p.diffY = 0;
 
         if(_.get(Mojo.inputs,"left")) {
-          p.diffX = -p.stepDistance;
+          p.diffX = -this.stepDistance;
         } else if(_.get(Mojo.inputs,"right")) {
-          p.diffX = p.stepDistance;
+          p.diffX = this.stepDistance;
         }
 
         if(_.get(Mojo.inputs,"up")) {
-          p.diffY = -p.stepDistance;
+          p.diffY = -this.stepDistance;
         } else if(_.get(Mojo.inputs,"down")) {
-          p.diffY = p.stepDistance;
+          p.diffY = this.stepDistance;
         }
 
         if(p.diffY || p.diffX ) {
-          p.stepping = true;
+          this.stepping = true;
           p.origX = p.x;
           p.origY = p.y;
           p.destX = p.x + p.diffX;
           p.destY = p.y + p.diffY;
-          p.stepWait = p.stepDelay;
+          this.stepWait = this.stepDelay;
         }
       }
     });
@@ -657,7 +649,7 @@
     Mojo.collision = (function() {
       let normalX,
           normalY,
-          offset = [0,0],
+          offset = Mojo.v2(),
           result1 = { separate: [] },
           result2 = { separate: [] };
       let calculateNormal= (points,idx) => {

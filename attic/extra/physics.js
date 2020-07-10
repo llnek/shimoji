@@ -1,11 +1,31 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined) {
 
   let MojoH5=global.MojoH5;
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not loaded";
 
+  /**
+   * @module
+   */
   MojoH5.Physics = function(Mojo) {
 
-    let _ = Mojo.u;
-    let B2d = {World: Box2D.Dynamics.b2World,
+    let _ = Mojo.u,
+      EBus=Mojo.EventBus,
+      B2d = {World: Box2D.Dynamics.b2World,
                Vec: Box2D.Common.Math.b2Vec2,
                BodyDef: Box2D.Dynamics.b2BodyDef,
                Body: Box2D.Dynamics.b2Body,
@@ -23,7 +43,7 @@
 
     Mojo.PhysicsDefaults = defOpts;
     Mojo.B2d=B2d;
-    Mojo.feature("world",{
+    Mojo.defFeature("world",{
       added: function() {
         this.opts = _.inject({},defOpts);
         this._gravity = new B2d.Vec(this.opts.gravityX,
@@ -43,10 +63,10 @@
 
         this.col = {};
         this.scale = this.opts.scale;
-        Mojo.EventBus.sub("step",this.entity,"boxStep",this);
+        EBus.sub("step",this.entity,"boxStep",this);
       },
       disposed: function() {
-        Mojo.EventBus.unsub("step",this.entity,"boxStep",this);
+        EBus.unsub("step",this.entity,"boxStep",this);
       },
       setCollisionData: function(contact,impulse) {
         let spriteA = contact.GetFixtureA().GetBody().GetUserData(),
@@ -59,23 +79,23 @@
       },
       beginContact: function(contact) {
         this.setCollisionData(contact,null);
-        Mojo.EventBus.pub("contact",this.col.a,this.col.b);
-        Mojo.EventBus.pub("contact",this.col.b,this.col.a);
-        Mojo.EventBus.pub("contact",this.entity,this.col);
+        EBus.pub([["contact",this.col.a,this.col.b],
+                  ["contact",this.col.b,this.col.a],
+                  ["contact",this.entity,this.col]]);
       },
       endContact: function(contact) {
         this.setCollisionData(contact,null);
-        Mojo.EventBus.pub("endContact",this.col.a,this.col.b);
-        Mojo.EventBus.pub("endContact",this.col.b,this.col.a);
-        Mojo.EventBus.pub("endContact",this.entity,this.col);
+        EBus.pub([["endContact",this.col.a,this.col.b],
+                  ["endContact",this.col.b,this.col.a],
+                  ["endContact",this.entity,this.col]]);
       },
       postSolve: function(contact, impulse) {
         this.setCollisionData(contact,impulse);
         this.col["sprite"] = this.col.b;
-        Mojo.EventBus.pub("impulse",this.col.a,this.col);
+        EBus.pub("impulse",this.col.a,this.col);
         this.col["sprite"] = this.col.a;
-        Mojo.EventBus.pub("impulse",this.col.b,this.col);
-        Mojo.EventBus.pub("impulse",this.entity,this.col);
+        EBus.pub([["impulse",this.col.b,this.col],
+                  ["impulse",this.entity,this.col]]);
       },
       createBody: function(def) {
         return this._world.CreateBody(def);
@@ -96,25 +116,26 @@
                           restitution: 0.1 };
 
     Mojo.PhysicsEntityDefaults = entityDefaults;
-    Mojo.feature("physics",{
+    Mojo.defFeature("physics",{
       added: function() {
         if(this.entity.scene)
           this.inserted();
         else
-          Mojo.EventBus.sub("inserted",this.entity,"inserted",this);
-        Mojo.EventBus.sub([["step",this.entity,"step",this],
-                           ["removed",this.entity,"removed",this]]);
+          EBus.sub("inserted",this.entity,"inserted",this);
+        EBus.sub([["step",this.entity,"step",this],
+                  ["removed",this.entity,"removed",this]]);
       },
       disposed:function() {
-        Mojo.EventBus.unsub([["inserted",this.entity,"inserted",this],
-                             ["step",this.entity,"step",this],
-                             ["removed",this.entity,"removed",this]]);
+        EBus.unsub([["inserted",this.entity,"inserted",this],
+                    ["step",this.entity,"step",this],
+                    ["removed",this.entity,"removed",this]]);
       },
       position: function(x,y) {
-        let L = this.entity.scene;
+        let L = this.entity.scene,
+            world=Mojo.getf(L,"world");
         this._body.SetAwake(true);
-        this._body.SetPosition(new B2d.Vec(x / L.world.scale,
-                                           y / L.world.scale));
+        this._body.SetPosition(new B2d.Vec(x / world.scale,
+                                           y / world.scale));
       },
 
       angle: function(angle) {
@@ -122,16 +143,18 @@
       },
 
       velocity: function(x,y) {
-        let L= this.entity.scene;
+        let L= this.entity.scene,
+            world=Mojo.getf(L,"world");
         this._body.SetAwake(true);
-        this._body.SetLinearVelocity(new B2d.Vec(x / L.world.scale,
-                                                 y / L.world.scale));
+        this._body.SetLinearVelocity(new B2d.Vec(x / world.scale,
+                                                 y / world.scale));
       },
 
       inserted: function() {
         let entity = this.entity,
             L = entity.scene,
-            scale = L.world.scale,
+            world=Mojo.getf(L,"world"),
+            scale = world.scale,
             p = entity.p,
             ops = entityDefaults,
             def = this._def = new B2d.BodyDef(),
@@ -144,7 +167,7 @@
                    B2d.Body.b2_dynamicBody;
         def.active = true;
 
-        this._body = L.world.createBody(def);
+        this._body = world.createBody(def);
         this._body.SetUserData(entity);
         fixtureDef.density = p.density || ops.density;
         fixtureDef.friction = p.friction || ops.friction;
@@ -174,16 +197,17 @@
       removed: function() {
         let entity = this.entity,
             L = entity.scene;
-        L.world.destroyBody(this._body);
+        Mojo.getf(L,"world").destroyBody(this._body);
       },
 
       step: function() {
         let p = this.entity.p,
             L = this.entity.scene,
+            world=Mojo.getf(L,"world"),
             pos = this._body.GetPosition(),
             angle = this._body.GetAngle();
-        p.x = pos.x * L.world.scale;
-        p.y = pos.y * L.world.scale;
+        p.x = pos.x * world.scale;
+        p.y = pos.y * world.scale;
         p.angle = angle / Math.PI * 180;
       }
     });
@@ -195,3 +219,6 @@
 
 
 })(this);
+
+
+

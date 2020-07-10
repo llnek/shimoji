@@ -17,15 +17,16 @@
   let MojoH5 = global.MojoH5;
 
   if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded.";
+    throw "Fatal: MojoH5 not loaded";
 
   /**
    * @module
    */
   MojoH5.Anim = function(Mojo) {
+
     let _ = Mojo.u,
-        is=Mojo.is,
-        EBus= Mojo.EventBus,
+      is=Mojo.is,
+      EBus= Mojo.EventBus,
       /**
        * @private
        * @var {map}
@@ -36,10 +37,11 @@
      * @public
      * @function
      */
-    Mojo.defAnim = (name,info) => {
-      if(!_.get(_animations,name))
-        _.assoc(_animations, name, {});
-      _.inject(_.get(_animations,name),info);
+    Mojo.defAnimation = (name,info) => {
+      let m= _.get(_animations,name);
+      if(!m)
+        _.assoc(_animations, name, m= {});
+      _.inject(m, info);
     };
 
     /**
@@ -50,84 +52,80 @@
       return _.get(_.get(_animations,name), selector);
     };
 
-    //register a feature
-    Mojo.feature("animation", {
+    /**
+     * @public
+     * @function
+     */
+    Mojo.defFeature("animation", {
       added: function() {
-        let p = this.entity.p;
-        p.animation=null;
-        p.animationFrame=0;
-        p.animationTime=0;
-        p.animationPriority= -1;
+        this.animation=null;
+        this.animationFrame=0;
+        this.animationTime=0;
+        this.animationPriority= -1;
         EBus.sub("step",this.entity,"step",this);
-        return this;
       },
       disposed: function() {
-        //you are dead, get rid of stuff you tagged onto the entity
-        let p = this.entity.p;
-        _.dissoc(p,"animation");
-        _.dissoc(p,"animationFrame");
-        _.dissoc(p,"animationTime");
-        _.dissoc(p,"animationPriority");
         EBus.unsub("step",this.entity,"step",this);
       },
       step: function(dt) {
-        let p = this.entity.p;
-        if(!p.animation)
-        return this;
-        let anim = Mojo.animation(p.sprite, p.animation),
-            rate = anim.rate || p.rate,
-            stepped=0;
-
-        p.animationTime += dt;
-        if(p.animationChanged) {
-          p.animationChanged = false;
-        } else if(p.animationTime > rate) {
-          stepped = _.floor(p.animationTime/rate);
-          p.animationTime -= stepped * rate;
-          p.animationFrame += stepped;
+        if(this.animation) {
+          let p= this.entity.p,
+              a= Mojo.animation(p.sprite, this.animation);
+          this._step(p,a,dt);
+        }
+      },
+      _step: function(p,anim,dt) {
+        let stepped=0,
+            flen=anim.frames.length,
+            rate = anim.rate || p.rate;
+        this.animationTime += dt;
+        if(this.animationChanged) {
+          this.animationChanged = false;
+        } else if(this.animationTime > rate) {
+          stepped = _.floor(this.animationTime/rate);
+          this.animationTime -= stepped * rate;
+          this.animationFrame += stepped;
         }
         if(stepped>0) {
-          if(p.animationFrame >= anim.frames.length) {
+          if(this.animationFrame >= flen) {
             if(anim.loop === false || anim.next) {
-              p.animationFrame = anim.frames.length - 1;
-              EBus.pub("animEnd",this.entity);
-              EBus.pub("animEnd."+p.animation,this.entity);
-              p.animation = null;
-              p.animationPriority = -1;
+              this.animationFrame = flen-1;
+              EBus.pub([["animEnd",this.entity]
+                        ["animEnd."+this.animation,this.entity]]);
+              this.animation = null;
+              this.animationPriority = -1;
               if(anim.trigger)
                 EBus.pub(anim.trigger,this.entity,anim.triggerData);
               if(anim.next)
                 this.enact(anim.next,anim.nextPriority);
-              return this;
+              return;
             }
-            EBus.pub("animLoop",this.entity);
-            EBus.pub("animLoop." + p.animation, this.entity);
-            p.animationFrame = p.animationFrame % anim.frames.length;
+            EBus.pub([["animLoop",this.entity]
+                      ["animLoop."+this.animation, this.entity]]);
+            this.animationFrame = this.animationFrame % flen;
           }
           EBus.pub("animFrame", this.entity);
         }
         if(anim.sheet)
           p.sheet = anim.sheet;
-        p.frame = anim.frames[p.animationFrame];
+        p.frame = anim.frames[this.animationFrame];
         if(_.has(anim, "flip")) { p.flip  = anim.flip; }
-        return this;
       },
       enact: function(name,priority,resetFrame) {
-        let p = this.entity.p;
         priority = priority || 0;
-        if(name !== p.animation &&
-           priority >= p.animationPriority) {
-          if(resetFrame === undefined)
+        if(name !== this.animation &&
+           priority >= this.animationPriority) {
+          if(resetFrame===undefined)
           resetFrame = true;
-          p.animation = name;
+          this.animation = name;
           if(resetFrame) {
-            p.animationChanged = true;
-            p.animationTime = 0;
-            p.animationFrame = 0;
+            this.animationChanged = true;
+            this.animationTime = 0;
+            this.animationFrame = 0;
           }
-          p.animationPriority = priority;
-          EBus.pub("anim", this.entity);
-          EBus.pub("anim." + p.animation, this.entity);
+          this.animationPriority = priority;
+          EBus.pub([["anim", this.entity]
+                    ["anim."+this.animation, this.entity]]);
         }
         return this;
       }
@@ -137,7 +135,7 @@
      * @public
      * @function
      */
-    Mojo.deftype(["Repeater", Mojo.Sprite], {
+    Mojo.defType(["Repeater", Mojo.Sprite], {
       /**
        * @constructs
        */
@@ -153,15 +151,17 @@
       },
       draw: function(ctx) {
         let p = this.p,
-            curX, curY, startX, endX, endY,
             asset = this.asset(),
             sheet = this.sheet(),
-            port = this.scene.camera,
-            scale = port ? port.scale : 1,
+            scale=1,
+            curX, curY, startX, endX, endY,
+            port = Mojo.getf(this.scene,"camera"),
             viewX = _.floor(port ? port.x : 0),
             viewY = _.floor(port ? port.y : 0),
             offsetX = _.floor(p.x + viewX * this.p.speedX),
             offsetY = _.floor(p.y + viewY * this.p.speedY);
+        if(port)
+          scale = port.scale;
         if(p.repeatX) {
           curX = -offsetX % p.repeatW;
           if(curX > 0)
@@ -201,7 +201,7 @@
      * @public
      * @function
      */
-    Mojo.deftype("Tween",{
+    Mojo.defType("Tween",{
       /**
        * @constructs
        */
@@ -216,35 +216,31 @@
         }
         this.entity = entity;
         this.time = 0;
+        this.start = {};
+        this.diff = {};
         this.o= _.clone(options);
         this.duration = duration || 1;
         this.delay = this.o.delay || 0;
-        this.startFrame = Mojo._loopFrame + 1;
         this.properties = properties;
-        this.start = {};
-        this.diff = {};
+        this.startFrame = Mojo._loopFrame + 1;
         this.easing = easing ||
                       this.o.easing || Mojo.Easing.Linear;
       },
       step: function(dt) {
         if(this.startFrame > Mojo._loopFrame) { return true; }
-        if(this.delay >= dt) {
-          this.delay -= dt;
-          return true;
-        }
+        if(this.delay >= dt) { this.delay -= dt; return true; }
         if(this.delay > 0) {
           dt -= this.delay;
           this.delay = 0;
         }
         if(this.time === 0) {
           // first time running? Initialize the properties to chaining correctly.
-          let properties = this.properties;
-
-          if(this.entity.camera)
-            this.p= this.entity.camera;
+          let properties = this.properties,
+              cam= Mojo.getf(this.entity,"camera");
+          if(cam)
+            this.p= cam;
           else
             this.p = this.entity.p;
-
           for(let k in properties)
             if(_.has(properties,k)) {
               this.start[k] = this.p[k];
@@ -287,12 +283,10 @@
       }
     };
 
-    //register a feature
-    Mojo.feature("tween",{
+    Mojo.defFeature("tween",{
       added: function() {
         this._tweens = [];
         EBus.sub("step",this.entity,"step",this);
-        return this;
       },
       disposed:function() {
         EBus.unsub("step",this.entity,"step",this);

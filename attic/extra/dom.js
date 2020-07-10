@@ -1,31 +1,50 @@
-(function(global, undefined){
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-  let MOjoH5=global.MojoH5,
+(function(global, undefined) {
+  "use strict";
+  let MojoH5=global.MojoH5,
       window=global,
       document=window.document;
+
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not loaded";
 
   MojoH5.DOM = function(Mojo) {
     let _=Mojo.u,
         is=Mojo.is;
 
-    Mojo.setupDOM = function(id,options) {
-      options = options || {};
-      id = id || "mojo";
-      Mojo.el = Mojo.domById(id);
+    Mojo.DOM={};
+    Mojo.DOM.prologue = function(Mojo) {
+      //overrides
+      Mojo.Scene = Mojo.DOMScene;
+      Mojo.Sprite = Mojo.DOMSprite;
+      Mojo.MovableSprite=Mojo.DOMSprite;
 
+      Mojo.el = Mojo.domById(Mojo.o.id);
       if(!Mojo.el) {
-        Mojo.el=Mojo.domCtor("div", {id: id}, {width: "320px",height:"480px"});
+        Mojo.el=Mojo.domCtor("div", {id: Mojo.o.id}, {width: "320px",height:"480px"});
         Mojo.domConj(Mojo.el);
       }
-      if(options.maximize) {
+      if(Mojo.o.maximize)
         Mojo.domCss(Mojo.el, {width: (window.innerWidth-1) + "px",
                               height: (window.innerHeight-10) + "px"});
-      }
 
       Mojo.wrapper= Mojo.domWrap(
         Mojo.el,
         Mojo.domCtor("div",
-                     {id: id+"_Wrapper"},
+                     {id: Mojo.o.id+"_Wrapper"},
                      {margin: "0 auto",
                       width: Mojo.el.style.width,
                       height: Mojo.el.style.height}));
@@ -37,7 +56,11 @@
                       height: parseInt(Mojo.el.style.height)});
 
       Mojo.handleDeviceFlip();
+      Mojo.controls(Mojo.o);
       Mojo.scrollTop();
+
+      if(Mojo.o.sound !== false)
+        Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
 
       return Mojo;
     };
@@ -119,7 +142,7 @@
 
     })();
 
-    Mojo.deftype(["DOMSprite", Mojo.Sprite], {
+    Mojo.defType(["DOMSprite", Mojo.MovableSprite], {
       init: function(props) {
         this._super(props);
         this.rp = {};
@@ -185,9 +208,9 @@
         this.dom.remove();
       }
 
-    });
+    },Mojo);
 
-    Mojo.deftype(["DOMScene",Mojo.Scene],{
+    Mojo.defType(["DOMScene",Mojo.Scene],{
       init: function(scene) {
         this.dom= Mojo.domCtor("div", {}, {top: "0",
                                            position: "relative"});
@@ -207,6 +230,7 @@
           Mojo.domConj(itm.dom,this.dom);
         return this._super(itm);
       },
+      //remove: function(itm) { },
       dispose: function() {
         this.wrapper_dom.remove();
         this._super();
@@ -220,16 +244,9 @@
         this.y = Mojo.height/2/this.scale - y;
         Mojo.positionDOM(this.dom,this.x,this.y);
       }
-    });
+    },Mojo);
 
-    Mojo.domOnly = function() {
-      Mojo.Scene = Mojo.DOMScene;
-      Mojo.Sprite = Mojo.DOMSprite;
-      Mojo.prologue = Mojo.setupDOM;
-      return Mojo;
-    };
-
-    Mojo.deftype(["DOMTileMap", Mojo.DOMSprite], {
+    Mojo.defType(["DOMTileMap", Mojo.DOMSprite], {
       // Expects a sprite sheet, along with cols and rows properties
       init:function(props) {
         let sheet = Mojo.sheet(props.sheet);
@@ -298,7 +315,7 @@
         this.shown[y][x] = false;
       }
 
-    });
+    },Mojo);
 
     return Mojo;
   };

@@ -1,55 +1,82 @@
-(function(global,undefined) {
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
+(function(global,undefined) {
   "use strict";
-  let SVG_NS ="http://www.w3.org/2000/svg";
-  let window=global,
+  let SVG_NS ="http://www.w3.org/2000/svg",
+      MojoH5=global.MojoH5,
+      window=global,
       document=window.document;
 
+  if(!MojoH5)
+    throw "Fatal: MojoH5 not loaded";
+
+  /**
+   * @module
+   */
   MojoH5.SVG = function(Mojo) {
     let _=Mojo.u,
-        is=Mojo.is;
+        is=Mojo.is, EBus=Mojo.EventBus;
 
-    Mojo.setupSVG = function(id,options) {
-      options = options || {};
-      id = id || "mojo";
-      Mojo.svg =is.str(id) ? document.getElementById(id) : id;
+    Mojo.SVG={};
+    Mojo.SVG.prologue = function(Mojo) {
+      //overrides
+      Mojo.Scene = Mojo.SVGScene;
+      Mojo.Sprite = Mojo.SVGSprite;
+      Mojo.MovableSprite = Mojo.SVGSprite;
 
+      Mojo.svg =is.str(Mojo.o.id) ? Mojo.domById(Mojo.o.id) : Mojo.o.id;
       if(!Mojo.svg) {
         Mojo.svg = document.createElementNS(SVG_NS,"svg");
-        Mojo.svg.setAttribute("width",320);
-        Mojo.svg.setAttribute("height",420);
-        document.body.appendChild(Mojo.svg);
+        Mojo.domAttrs(Mojo.svg, {width: 320, height: 420});
+        Mojo.domConj(Mojo.svg,document.body);
       }
 
-      if(options.maximize) {
+      if(Mojo.o.maximize) {
         let h = window.innerHeight-10;
         let w = window.innerWidth-1;
-        Mojo.svg.setAttribute("width",w);
-        Mojo.svg.setAttribute("height",h);
+        Mojo.domAttrs(Mojo.svg, {width: w, height: h});
       }
 
       Mojo.height = Mojo.svg.getAttribute("height");
       Mojo.width = Mojo.svg.getAttribute("width");
 
       let parent=Mojo.svg.parentNode;
-      let container=document.createElement("div");
-      container.setAttribute("id",id+"_container");
-      container.style.height=Mojo.height;
-      container.style.width=Mojo.width;
-      container.style.margin="0 auto";
-      container.appendChild(Mojo.svg);
-      parent.appendChild(container);
+      let container=Mojo.domCtor("div");
+      Mojo.domAttrs(container, "id", Mojo.o.id+"_container");
+      Mojo.domCss(container, {height: Mojo.height+"px",
+                              width: Mojo.width+"px",
+                              margin: "0 auto"});
+      Mojo.domConj(Mojo.svg,container);
+      Mojo.domConj(container,parent);
       Mojo.wrapper=container;
 
-      _.timer(() => { window.scrollTo(0,1); }, 0);
-      window.addEventListener('orientationchange',() => {
-        _.timer(() => { window.scrollTo(0,1); }, 0);
-      });
+      Mojo.scrollTop();
+      Mojo.handleDeviceFlip();
+      Mojo.controls(Mojo.o);
+
+      if(Mojo.o.sound !== false)
+        Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
 
       return Mojo;
     };
 
-    Mojo.deftype(["SVGSprite",Mojo.Sprite],{
+    /**
+     * @public
+     * @class
+     */
+    Mojo.defType(["SVGSprite",Mojo.MovableSprite],{
       init: function(props) {
         this._super(_.patch(props,{shape: 'block',
           color: 'black',
@@ -63,13 +90,11 @@
         this.rp = {};
         this.setTransform();
       },
-
       set: function(attr) {
         _.doseq(attr,function(value,key) {
           this.svg.setAttribute(key,value);
         },this);
       },
-
       createShape: function() {
         let p = this.p;
         switch(p.shape) {
@@ -99,7 +124,6 @@
           });
         }
       },
-
       setTransform: function() {
         let p = this.p;
         let rp = this.rp;
@@ -112,42 +136,45 @@
                                   "," + p.cx +
                                   "," + p.cy +
                                   ")";
-          this.svg.setAttribute('transform',transform);
+          this.svg &&
+            this.svg.setAttribute('transform',transform);
           rp.angle = p.angle;
           rp.x = p.x;
           rp.y = p.y;
         }
       },
       render: function(ctx) {
-
-        Mojo.EventBus.pub('predraw',this,ctx);
-        Mojo.EventBus.pub('beforedraw',this,ctx);
+        EBus.pub([["predraw",this,ctx]
+                  ["beforedraw",this,ctx]]);
         this.draw(ctx);
-        Mojo.EventBus.pub('beforedraw',this,ctx);
+        EBus.pub("beforedraw",this,ctx);
       },
       draw: function(ctx) {
       },
-
       step: function(dt) {
-        Mojo.EventBus.pub('step',this,dt);
+        EBus.pub("step",this,dt);
         this.setTransform();
       }
-    });
+    },Mojo);
 
-    Mojo.deftype(["SVGScene",Mojo.Scene],{
+    /**
+     * @public
+     * @class
+     */
+    Mojo.defType(["SVGScene",Mojo.Scene],{
       init: function(scene) {
-        this.svg = document.createElementNS(SVG_NS,'svg');
-        this.svg.setAttribute('width',Mojo.width);
-        this.svg.setAttribute('height',Mojo.height);
+        this.svg = document.createElementNS(SVG_NS,"svg");
+        this.svg.setAttribute("width",Mojo.width);
+        this.svg.setAttribute("height",Mojo.height);
         Mojo.svg.appendChild(this.svg);
-
         this.viewBox = { x: 0, y: 0, w: Mojo.width, h: Mojo.height };
         this._super(scene);
       },
       //addRelation: function() { return this; },
       //delRelation: function() { return this; },
-      remove:function(itm){
+      remove:function(itm) {
         if(itm.svg) { this.svg.removeChild(itm.svg); }
+        itm.svg=null;
         return this._super(itm);
       },
       insert: function(itm) {
@@ -168,7 +195,6 @@
           this.setViewBox();
         }
       },
-
       centerOn: function(x,y) {
         this.viewBox.cx = x;
         this.viewBox.cy = y;
@@ -176,27 +202,18 @@
         this.viewBox.y = y - this.viewBox.h/2;
         this.setViewBox();
       },
-
       setViewBox: function() {
-        this.svg.setAttribute('viewBox',
+        this.svg.setAttribute("viewBox",
                               this.viewBox.x + " " + this.viewBox.y + " " +
                               this.viewBox.w + " " + this.viewBox.h);
       },
-
       browserToWorld: function(x,y) {
         var m = this.svg.getScreenCTM();
         var p = this.svg.createSVGPoint();
         p.x = x; p.y = y;
         return p.matrixTransform(m.inverse());
       }
-    });
-
-    Mojo.svgOnly=function() {
-      Mojo.Scene = Mojo.SVGScene;
-      Mojo.prologue = Mojo.setupSVG;
-      Mojo.Sprite = Mojo.SVGSprite;
-      return Mojo;
-    };
+    },Mojo);
 
     return Mojo;
   };

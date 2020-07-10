@@ -12,18 +12,20 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-(function(global, undefined){
+(function(global, undefined) {
   "use strict";
+
   let Inf= Infinity,
       MojoH5 = global.MojoH5;
 
   if(!MojoH5)
-    throw "Fatal: MojoH5 not found.";
+    throw "Fatal: MojoH5 not loaded";
 
   /**
    * @module
    */
   MojoH5.Sprites = function(Mojo) {
+
     let _= Mojo.u,
         is= Mojo.is,
         _pool= [],
@@ -36,7 +38,7 @@
      * @class
      */
     let Xform2D = (function(A,C,E,B,D,F,Z) {
-      return Mojo.deftype("Xfrom2D", {
+      return Mojo.defType("Xfrom2D", {
         init: function(source) {
           this.m= new Array(Z);
           source ? this.clone(source) : this.identity();
@@ -137,7 +139,7 @@
           let m=this.m;
           ctx.transform(m[A],m[B],m[C],m[D],m[E],m[F]);
         }
-      }, 0);
+      });
     })(0,1,2,3,4,5,6);
 
     /**
@@ -150,15 +152,15 @@
 
     /**
      * @private
-     * @property {map}
+     * @var {map}
      */
-    Mojo._sheets = _.jsMap();
+    let _sheets = _.jsMap();
 
     /**Represents an individual element within a sprite-sheet.
      * @public
      * @class
      */
-    Mojo.deftype("SpriteSheet",{
+    Mojo.defType("SpriteSheet",{
       /**
        * @constructs
        */
@@ -198,9 +200,9 @@
      */
     Mojo.sheet = (name,asset,options) => {
       if(asset)
-        _.assoc(Mojo._sheets,name,
+        _.assoc(_sheets,name,
                 new Mojo.SpriteSheet(name,asset,options));
-      return _.get(Mojo._sheets,name);
+      return _.get(_sheets,name);
     };
 
     /**Extracts & split individual elements from a sprite sheet.
@@ -220,7 +222,8 @@
      */
     Mojo.genPts = (obj,force) => {
       if(force ||
-         obj.p.points === undefined) {
+         obj.p.points === undefined ||
+         obj.p.points.length===0) {
         let hw = obj.p.w/2,
             hh = obj.p.h/2;
         obj.p.points = [Mojo.v2(-hw, -hh), Mojo.v2(hw, -hh),
@@ -228,13 +231,12 @@
       }
     };
 
-    /**
+    /**A Dummy
      * @private
      * @var {object}
      */
-    let _nullContainer=
-    {matrix: txMatrix(),
-     c: {x: 0, y: 0, angle: 0, scale: 1}};
+    let _nullContainer= {matrix: txMatrix(),
+                         c: {x: 0, y: 0, angle: 0, scale: 1}};
 
     /**
      * @public
@@ -249,8 +251,11 @@
 
       let p = obj.p,
           c = obj.c,
-          pps= p.points,
-          cps= c.points;
+          cps= c.points,
+          pps= p.points;
+
+      if(!pps)
+        return;
 
       if(!p.moved &&
          c.origX === p.x &&
@@ -262,6 +267,7 @@
       c.origY = p.y;
       c.origScale = p.scale;
       c.origAngle = p.angle;
+
       obj.refreshMatrix();
 
       if(!obj.container &&
@@ -280,10 +286,10 @@
         c.cx = p.cx;
         c.cy = p.cy;
       } else {
-        let minX = Infinity,
-            minY = Infinity,
-            maxX = -Infinity,
-            maxY = -Infinity,
+        let minX = _.POS_INF,
+            minY = _.POS_INF,
+            maxX = _.NEG_INF,
+            maxY = _.NEG_INF,
             parent = obj.container || _nullContainer;
 
         c.x = parent.matrix.transformX(p.x,p.y);
@@ -322,35 +328,57 @@
      * @private
      * @var {object}
      */
-    let _flipArgs= {
-      x: Mojo.v2(-1, 1),
-      y: Mojo.v2( 1, -1),
-      xy: Mojo.v2(-1, -1)
+    let _flipArgs= {x: Mojo.v2(-1, 1),
+                    y: Mojo.v2( 1, -1),
+                    xy: Mojo.v2(-1, -1) };
+
+    /**
+     * @public
+     * @property {number}
+     */
+    Mojo.D_RIGHT =10;
+    Mojo.D_LEFT =20;
+    Mojo.D_UP =30;
+    Mojo.D_DOWN =40;
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.dirToStr = (dir) => {
+      switch(dir) {
+        case Mojo.D_RIGHT: return "right";
+        case Mojo.D_LEFT: return "left";
+        case Mojo.D_UP: return "up";
+        case Mojo.D_DOWN: return "down";
+      }
+      return "";
+    };
+
+    /**
+     * @private
+     * @function
+     */
+    let _sortChild= (a,b) => {
+        return ((a.p && a.p.z) || -1) - ((b.p && b.p.z) || -1);
     };
 
     /**
      * @public
      * @class Sprite
      */
-    Mojo.deftype(["Sprite", Mojo.Entity], {
+    Mojo.defType(["Sprite", Mojo.Entity], {
       /**
        * @constructs
        */
       init: function(props,defaults) {
-        this._super(_.inject({x: 0,
-                              y: 0,
-                              z: 0,
+        this._super(_.inject({x: 0, y: 0, z: 0,
                               angle: 0,
                               frame: 0,
+                              flip: null,
                               name: "",
                               opacity: 1,
-                              vx: 0, vy: 0, ax: 0, ay: 0,
-                              type: Mojo.E_DEFAULT |
-                                    Mojo.E_ACTIVE},defaults,props));
-
-        if(this.p.id === undefined)
-        this.p.id = _.nextID();
-
+                              type: Mojo.E_DEFAULT},defaults,props));
         this.matrix = txMatrix();
         this.children = [];
         this.size();
@@ -363,16 +391,14 @@
         p.x += p.vx * dt;
         p.y += p.vy * dt;
       },
-      add: function(child) {
-        _.conj(this.children,child);
-        _.assoc(child,"container",this);
+      add: function(ch) {
+        _.conj(this.children,ch);
+        _.assoc(ch,"container",this);
         return this;
       },
-      del: function(child) {
-        let n= this.children.indexOf(child);
-        if(n > -1) {
-          this.children.splice(n,1);
-          _.dissoc(child,"container");
+      del: function(ch) {
+        if(_.disj(this.children, ch)) {
+          _.dissoc(ch,"container");
         }
         return this;
       },
@@ -391,11 +417,11 @@
 
         // distance from center to left
         if(force || this.p.cx === undefined)
-        this.p.cx = this.p.w / 2;
+        this.p.cx = this.p.w/2;
 
         // distance from center to top
         if(force || this.p.cy === undefined)
-        this.p.cy = this.p.h / 2;
+        this.p.cy = this.p.h/2;
 
         return this;
       },
@@ -431,9 +457,6 @@
         _.inject(this.p, props);
         return this;
       },
-      _sortChild: (a,b) => {
-        return ((a.p && a.p.z) || -1) - ((b.p && b.p.z) || -1);
-      },
       render: function(ctx) {
         if(this.p.hidden ||
            this.p.opacity === 0) { return; }
@@ -461,7 +484,9 @@
 
         if(this.p.sort)
           this.children.sort(this._sortChild);
+
         _.invoke(this.children,"render",ctx);
+
         EBus.pub("postdraw",this,ctx);
         this.debugRender(ctx);
         return this;
@@ -560,8 +585,23 @@
       }
     }, Mojo);
 
+    /**
+     * @public
+     * @class
+     */
+    Mojo.defType(["MovableSprite", Mojo.Sprite], {
+      init: function(p,defaults) {
+        this._super(p,_.inject({vx: 0, vy: 0, ax: 0, ay: 0,
+                                speed: 0, gravity: 0,
+                                direction: null,
+                                collisions: [],
+                                type: Mojo.E_DEFAULT | Mojo.E_ACTIVE},defaults));
+      }
+    },Mojo);
+
     //---------- ui stuff, for now, lives in here  ---------------------------
     Mojo.UI = {};
+
     /**
      * @public
      * @function
@@ -587,7 +627,7 @@
      * @public
      * @class
      */
-    Mojo.deftype(["Container", Mojo.Sprite], {
+    Mojo.defType(["Container", Mojo.Sprite], {
       /**
        * @constructs
        */
@@ -644,9 +684,8 @@
           this.p.w = maxX - minX + padX*2;
           this.p.h = maxY - minY + padY*2;
 
-          //resync all points
-          Mojo.genPts(this, true);
-          Mojo.genContactPts(this, true);
+          Mojo.genPts(this,true);
+          Mojo.genContactPts(this);
         }
         return this;
       },
@@ -708,7 +747,7 @@
      * @public
      * @class
      */
-    Mojo.deftype(["Text", Mojo.Sprite], {
+    Mojo.defType(["Text", Mojo.Sprite], {
       /**
        * @constructs
        */
@@ -811,7 +850,7 @@
      * @public
      * @class
      */
-    Mojo.deftype(["Button", Mojo.UI.Container], {
+    Mojo.defType(["Button", Mojo.UI.Container], {
       /**
        * @constructs
        */
@@ -871,7 +910,7 @@
      * @public
      * @class
      */
-    Mojo.deftype(["IFrame", Mojo.Sprite], {
+    Mojo.defType(["IFrame", Mojo.Sprite], {
       init: function(p) {
         this._super(p, {opacity: 1,
                         type: Mojo.E_UI | Mojo.E_DEFAULT });
@@ -892,9 +931,10 @@
       positionIFrame: function() {
         let x = this.p.x,
             y = this.p.y;
-        if(this.scene.camera) {
-          x -= this.scene.camera.x;
-          y -= this.scene.camera.y;
+            cam=Mojo.getf(this.scene,"camera");
+        if(cam) {
+          x -= cam.x;
+          y -= cam.y;
         }
         if(this.oldX !== x ||
            this.oldY !== y ||
@@ -925,7 +965,7 @@
      * @public
      * @class
      */
-    Mojo.deftype(["HTMLElement", Mojo.Sprite], {
+    Mojo.defType(["HTMLElement", Mojo.Sprite], {
       init: function(p) {
         this._super(p, {opacity: 1, type: Mojo.E_UI});
         Mojo.domCss(Mojo.wrapper, "overflow", "hidden");
@@ -956,7 +996,7 @@
      * @public
      * @class
      */
-    Mojo.deftype(["VerticalLayout", Mojo.Sprite], {
+    Mojo.defType(["VerticalLayout", Mojo.Sprite], {
       init: function(p) {
         this.children = [];
         this._super(p, { type: Mojo.E_NONE});
@@ -976,7 +1016,6 @@
         // Make sure all elements have the same space between them
       }
     },Mojo.UI);
-
 
 
     return Mojo;

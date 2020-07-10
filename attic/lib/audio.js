@@ -17,7 +17,7 @@
   let MojoH5=global.MojoH5;
 
   if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded.";
+    throw "Fatal: MojoH5 not loaded";
 
   /**
    * @module
