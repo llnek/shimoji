@@ -55,13 +55,7 @@
       _.inject(Mojo, {width: parseInt(Mojo.el.style.width),
                       height: parseInt(Mojo.el.style.height)});
 
-      Mojo.handleDeviceFlip();
-      Mojo.controls(Mojo.o);
       Mojo.scrollTop();
-
-      if(Mojo.o.sound !== false)
-        Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
-
       return Mojo;
     };
 

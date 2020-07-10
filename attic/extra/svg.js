@@ -61,14 +61,7 @@
       Mojo.domConj(Mojo.svg,container);
       Mojo.domConj(container,parent);
       Mojo.wrapper=container;
-
       Mojo.scrollTop();
-      Mojo.handleDeviceFlip();
-      Mojo.controls(Mojo.o);
-
-      if(Mojo.o.sound !== false)
-        Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
-
       return Mojo;
     };
 

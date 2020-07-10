@@ -436,8 +436,9 @@
    * @public
    * @function
    */
-  window.MojoH5 = function(cmdArg) {
+  let MojoH5 = function(cmdArg) {
 
+    //the OBJECT!
     let Mojo={};
 
     /**types and collision masks
@@ -1240,7 +1241,8 @@
 
     //------------------------------------------------------------------------
     //prologue
-    let id = Mojo.o.id,
+    let domQ, svgQ,
+        id = Mojo.o.id,
         libs = _.seq(Mojo.o.modules || "");
 
     sort_out_game_looper();
@@ -1262,6 +1264,8 @@
        if(f) {
          Mojo.log("installing module: "+k);
          f(Mojo);
+         if(k==="DOM") domQ=true;
+         if(k==="SVG") svgQ=true;
        } else {
          Mojo.log("warn: module `",k,"` missing");
        }
@@ -1368,22 +1372,30 @@
           Mojo.domCss(Mojo.el, "top", topPos+"px");
         }
       }
-
-      //e.g. options= {touch: {}, joyad: {}}
-      Mojo.handleDeviceFlip();
-      Mojo.controls(Mojo.o);
-
-      if(Mojo.o.sound !== false)
-        Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
     };
 
-    if(!Mojo.o.outliner)
-      _prologue();
-    else
-      Mojo[Mojo.o.outliner].prologue(Mojo);
+    domQ ? Mojo.DOM.prologue(Mojo) : (svgQ ? Mojo.SVG.prologue(Mojo) : _prologue(Mojo));
+
+    //e.g. options= {touch: {}, joyad: {}}
+    Mojo.handleDeviceFlip();
+    Mojo.controls(Mojo.o);
+
+    if(Mojo.o.sound !== false)
+      Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
 
     return (window.Mojo=Mojo);
   };
+
+  /**
+   * @public
+   * @function
+   */
+  window.MojoH5=MojoH5;
+
+  //starts here
+  window.addEventListener("load", function(_) {
+    MojoH5.Config.start(MojoH5(MojoH5.Config));
+  });
 
 })(this);
 
