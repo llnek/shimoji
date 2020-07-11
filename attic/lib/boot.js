@@ -389,40 +389,49 @@
         if(is.vec(event) && arguments.length===1) {
           event.forEach(e => { if(is.vec(e)) this.sub.apply(this, e); });
         } else {
-          if (!cb) cb=event;
-          if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-          if(!cb) throw "Error: no callback for sub()";
-          if(!_tree.has(target)) _tree.set(target, _.jsMap());
-          let m= _tree.get(target);
-          !m.has(event) && m.set(event,[]);
-          m.get(event).push([cb,ctx]);
+          //handle multiple events in one string
+          _.seq(event).forEach(e => {
+            if (!cb) cb=e;
+            if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+            if(!cb) throw "Error: no callback for sub()";
+            if(!_tree.has(target)) _tree.set(target, _.jsMap());
+            let m= _tree.get(target);
+            !m.has(e) && m.set(e,[]);
+            m.get(e).push([cb,ctx]);
+          });
         }
       },
       pub: function(event,target,data) {
         if(is.vec(event) && arguments.length===1) {
           event.forEach(e => { if(is.vec(e)) this.pub.apply(this, e); });
         } else {
-          let m= _tree.get(target);
-          if(m) m= m.get(event);
-          if(m) m.forEach(s => s[0].call(s[1],data));
+          let m,t= _tree.get(target);
+          if(t)
+            _.seq(event).forEach(e => {
+              if(m= t.get(e))
+                m.forEach(s => s[0].call(s[1],data));
+            });
         }
       },
       unsub: function(event,target,cb,ctx) {
         if(is.vec(event) && arguments.length===1) {
           event.forEach(e => { if(is.vec(e)) this.unsub.apply(this, e); });
         } else {
-          for(let ss, m= _tree.get(target);m;m=null) {
+          let ss,
+            es=_.seq(event),
+            t= _tree.get(target);
+          if(t) {
             if(!cb)
-              m.delete(event);
+              es.forEach(e => t.delete(e));
             else {
               if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-              if(!cb)
-                m.delete(event);
-              else if(ss= m.get(event)) {
-                for(let i= ss.length-1;i>=0;--i)
-                  if(ss[i][0] === cb &&
-                     ss[i][1] === ctx) ss.splice(i,1);
-              }
+              es.forEach(e => {
+                if(!cb)
+                  t.delete(e);
+                else if(ss= t.get(e))
+                  for(let i= ss.length-1;i>=0;--i)
+                    if(ss[i][0] === cb && ss[i][1] === ctx) ss.splice(i,1);
+              });
             }
           }
         }
