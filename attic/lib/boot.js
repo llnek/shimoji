@@ -1397,6 +1397,9 @@
     if(Mojo.o.sound !== false)
       Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
 
+    //container for game
+    Mojo.Game={};
+
     return (window.Mojo=Mojo);
   };
 
