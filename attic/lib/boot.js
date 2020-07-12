@@ -337,9 +337,7 @@
   //https://johnresig.com/blog/simple-javascript-inheritance/
   //base class implementation (does nothing)
   let Resig = function(){};
-  Resig.prototype.isA = function(c) {
-    return this.className === c;
-  };
+  //Resig.prototype.isA = function(c) { return this.className === c; };
   (function(initing) {
     let qfn= /xyz/.test(function(){var xyz;}) ? /\b_super\b/ : /.*/;
     Resig.extend = function(clazz, props, container) {
@@ -1252,6 +1250,7 @@
     //prologue
     let domQ, svgQ,
         id = Mojo.o.id,
+        bin={},
         libs = _.seq(Mojo.o.modules || "");
 
     sort_out_game_looper();
@@ -1260,6 +1259,7 @@
     //core modules
     ["Sprites", "Scenes"].forEach(k => {
       Mojo.log("installing module: "+k);
+      bin[k]=true;
       MojoH5[k](Mojo);
     });
 
@@ -1267,11 +1267,13 @@
     ["Audio",
      "Anim",
      "2d",
+     "Tiles",
      "Input",
      "Touch"].concat(libs).forEach(k => {
        let f= MojoH5[k];
-       if(f) {
+       if(f && !bin[k]) {
          Mojo.log("installing module: "+k);
+         bin[k]=true;
          f(Mojo);
          if(k==="DOM") domQ=true;
          if(k==="SVG") svgQ=true;
@@ -1382,6 +1384,9 @@
         }
       }
     };
+
+    if(domQ && svgQ)
+      throw "Fatal: cannot load both DOM and SVG.";
 
     domQ ? Mojo.DOM.prologue(Mojo) : (svgQ ? Mojo.SVG.prologue(Mojo) : _prologue(Mojo));
 
