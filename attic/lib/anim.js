@@ -153,15 +153,17 @@
         let p = this.p,
             asset = this.asset(),
             sheet = this.sheet(),
-            scale=1,
+            scale=[1,1],
             curX, curY, startX, endX, endY,
             port = Mojo.getf(this.scene,"camera"),
             viewX = _.floor(port ? port.x : 0),
             viewY = _.floor(port ? port.y : 0),
             offsetX = _.floor(p.x + viewX * this.p.speedX),
             offsetY = _.floor(p.y + viewY * this.p.speedY);
-        if(port)
-          scale = port.scale;
+        if(port) {
+          scale[0] = port.scale[0];
+          scale[1]=port.scale[1];
+        }
         if(p.repeatX) {
           curX = -offsetX % p.repeatW;
           if(curX > 0)
@@ -178,8 +180,8 @@
         }
 
         startX = curX;
-        endX = Mojo.width / _.abs(scale) / _.abs(p.scale || 1) + p.repeatW;
-        endY = Mojo.height / _.abs(scale) / _.abs(p.scale || 1) + p.repeatH;
+        endX = Mojo.width / _.abs(scale[0]) / _.abs(p.scale[0]) + p.repeatW;
+        endY = Mojo.height / _.abs(scale[1]) / _.abs(p.scale[1]) + p.repeatH;
 
         while(curY < endY) {
           curX = startX;
@@ -235,28 +237,42 @@
         }
         if(this.time === 0) {
           // first time running? Initialize the properties to chaining correctly.
-          let properties = this.properties,
-              cam= Mojo.getf(this.entity,"camera");
-          if(cam)
-            this.p= cam;
-          else
-            this.p = this.entity.p;
-          for(let k in properties)
-            if(_.has(properties,k)) {
-              this.start[k] = this.p[k];
-              if(this.start[k] !== undefined)
-                this.diff[k] = properties[k] - this.start[k];
+          let v,cam= Mojo.getf(this.entity,"camera");
+          this.p= cam ? cam : this.entity.p;
+          _.keys(this.properties).forEach(k => {
+            v=this.p[k];
+            if(is.vec(v)) {
+              _.assert(k==="scale","Ooops, only scale can be array");
+              v=v.slice();
             }
+            this.start[k] = v;
+            if(v  !== undefined) {
+              v= this.properties[k];
+              if(k==="scale") {
+                this.diff[k]=[v[0] - this.start[k][0],
+                              v[1] - this.start[k][1]];
+              } else {
+                this.diff[k] = v  - this.start[k];
+              }
+            };
+          });
         }
         this.time += dt;
 
         let progress = _.min(1, this.time/this.duration),
-            location = this.easing(progress);
+            v, location = this.easing(progress);
 
-        for(let k in this.start)
-          if(_.has(this.start,k))
-            if(this.p[k] !== undefined)
-              this.p[k] = this.start[k] + this.diff[k] * location;
+        _.keys(this.start).forEach(k => {
+          if(this.p[k] !== undefined) {
+            v=this.start[k];
+            if(k==="scale") {
+              this.p[k][0] = v[0] + this.diff[k][0] * location;
+              this.p[k][1] = v[1] + this.diff[k][1] * location;
+            }
+            else
+              this.p[k] = v + this.diff[k] * location;
+          }
+        });
 
         (progress >= 1) &&
           this.o.callback &&

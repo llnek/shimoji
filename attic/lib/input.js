@@ -117,7 +117,7 @@
     Mojo.canvasToSceneX = (x,scene) => {
       let cam=Mojo.getf(scene,"camera");
       x = x/Mojo.cssWidth*Mojo.width;
-      return cam ? ((x/cam.scale)+cam.x) : x;
+      return cam ? ((x/cam.scale[0])+cam.x) : x;
     };
 
     /**
@@ -127,7 +127,7 @@
     Mojo.canvasToSceneY = (y,scene) => {
       let cam=Mojo.getf(scene,"camera");
       y = y/Mojo.cssWidth*Mojo.width;
-      return cam ? ((y/cam.scale)+cam.y) : y;
+      return cam ? ((y/cam.scale[1])+cam.y) : y;
     };
 
     /**

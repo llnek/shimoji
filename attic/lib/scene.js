@@ -50,14 +50,18 @@
      */
     let _markAll= function(scene) {
       let tmp,X,B,
+          scale=[1,1],
           time=scene.tick,
           items= scene.items,
           view= Mojo.getf(scene,"camera"),
           x = view ? view.x : 0,
-          y = view ? view.y : 0,
-          scale = view ? view.scale : 1,
-          viewW = Mojo.width/scale,
-          viewH = Mojo.height/scale,
+          y = view ? view.y : 0;
+
+      scale[0] = view ? view.scale[0] : 1;
+      scale[1] = view ? view.scale[1] : 1;
+
+      let viewW = Mojo.width/scale[0],
+          viewH = Mojo.height/scale[1],
           gridX1 = _.floor(x/scene.o.gridW),
           gridY1 = _.floor(y/scene.o.gridH),
           gridX2 = _.floor((x+viewW)/scene.o.gridW),
@@ -361,7 +365,11 @@
       },
       render: function(ctx) {
         if(this.hidden) { return false; }
-        this.prerender && this.prerender(ctx);
+        if(this.prerender) {
+          ctx.save();
+          this.prerender(ctx);
+          ctx.restore();
+        }
         this.o.sort &&
           this.items.sort(this.o.sort);
         EBus.pub([["prerender",this,ctx],
@@ -373,7 +381,11 @@
              (item.p.renderAlways ||
               item.mark >= this.tick)) { item.render(ctx); }
         });
-        this.postrender && this.postrender(ctx);
+        if(this.postrender) {
+          ctx.save();
+          this.postrender(ctx);
+          ctx.restore();
+        }
         EBus.pub([["render",this,ctx],
                   ["postrender",this,ctx]]);
         return this;

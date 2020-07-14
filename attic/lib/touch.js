@@ -104,8 +104,8 @@
 
         let cam= Mojo.getf(L,"camera");
         if(cam) {
-          this.touchPos.p.px /= cam.scale;
-          this.touchPos.p.py /= cam.scale;
+          this.touchPos.p.px /= cam.scale[0];
+          this.touchPos.p.py /= cam.scale[1];
           this.touchPos.p.px += cam.x;
           this.touchPos.p.py += cam.y;
         }

@@ -32,6 +32,25 @@
   const isArray= (obj) => { return tostr.call(obj) === "[object Array]"; };
   const isObject= (obj) => { return tostr.call(obj) === "[object Object]"; };
 
+  // https://github.com/bryc/code/blob/master/jshash/PRNGs.md
+  // xoshiro128+ (128-bit state generator in 32-bit)
+  let xoshiro128p = (function () {
+    //Using the same value for each seed is _screamingly_ wrong
+    //but this is 'good enough' for a toy function.
+    let a = Date.now(), b = Date.now(), c = Date.now(), d = Date.now();
+    return () => {
+      let t = b << 9,
+          r = a + d
+          c = c ^ a
+          d = d ^ b
+          b = b ^ c
+          a = a ^ d
+          c = c ^ t
+          d = (d << 11) | (d >>> 21);
+      return (r >>> 0) / 4294967296;
+    };
+  })();
+
   /**
    * @private
    * @var {number}
@@ -65,7 +84,12 @@
     },
     jsMap: () => { return new Map(); },
     jsObj: () => { return {}; },
-    jsVec: () => { return []; },
+    jsVec: function() {
+      let rc= [];
+      for(let i=0;i<arguments.length;++i)
+        rc.push(arguments[i]);
+      return rc;
+    },
     floor: (v) => { return Math.floor(v); },
     ceil: (v) => { return Math.ceil(v); },
     abs: (v) => { return Math.abs(v); },
@@ -73,6 +97,10 @@
     min: (a,b) => { return Math.min(a,b); },
     max: (a,b) => { return Math.max(a,b); },
     slice: (a,i) => { return slicer.call(a, i); },
+    fill: (a,v) => {
+      for(let i=0;i<a.length;++i) a[i]=v;
+      return a;
+    },
     now: () => { return Date.now(); },
     nextId: () => { return ++_seqNum; },
     fileNoExt: (name) => {
@@ -1004,6 +1032,15 @@
      */
     Mojo.state = new Mojo.GameState();
 
+    /**
+     * @public
+     * @function
+     */
+    Mojo.scaleXY = (src,des) => {
+      return [(des ? des[0] : Mojo.width)/src[0],
+              (des ? des[1] : Mojo.height)/src[1]];
+    };
+
     /**A 4 pointed box, left right top bottom
      * x2 > x1 , y2 > y1.
      * @public
@@ -1016,6 +1053,31 @@
            y1: arguments[2],
            y2: arguments[3]}
         : {x1: NaN, x2: NaN, y1: NaN, y2: NaN};
+    };
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.bboxCenter= (b4) => {
+      if(is.num(b4.x1))
+        return Mojo.v2(b4.x1+((b4.x2-b4.x1)/2),b4.y1+((b4.y2-b4.y1)/2));
+    };
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.bboxSize= (b4) => {
+      return Mojo.v2(b4.x2-b4.x1, b4.y2-b4.y1);
+    };
+
+    /**
+     * @public
+     * @function
+     */
+    Mojo.screenCenter = () => {
+      return Mojo.v2(Mojo.width/2,Mojo.height/2);
     };
 
     /**
@@ -1255,6 +1317,9 @@
 
     sort_out_game_looper();
 
+    //container for game
+    Mojo.Game={};
+
     //installing all modules
     //core modules
     ["Sprites", "Scenes"].forEach(k => {
@@ -1396,9 +1461,6 @@
 
     if(Mojo.o.sound !== false)
       Mojo.hasWebAudio ? Mojo.enableWebAudioSound() : Mojo.enableHTML5Sound();
-
-    //container for game
-    Mojo.Game={};
 
     return (window.Mojo=Mojo);
   };

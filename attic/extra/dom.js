@@ -80,7 +80,7 @@
       let scaleBuilder= (attr) => {
         return (dom,scale) => {
           Mojo.domCss(dom, attr + "Origin", "0% 0%");
-          Mojo.domCss(dom, attr, "scale(" + scale + ")");
+          Mojo.domCss(dom, attr, "scale(" + scale[0]+","+scale[1] + ")");
         };
       };
       let fallbackTranslate = (dom,x,y) => {
@@ -216,7 +216,7 @@
                                                     {top:"0",
                                                      left:"0",
                                                      position:"absolute"}));
-        this.scale = 1;
+        this.scale = [1,1];
         this._super(scene);
       },
       insert: function(itm) {
@@ -230,12 +230,13 @@
         this._super();
       },
       rescale: function(scale) {
-        this.scale = scale;
+        this.scale[0] = scale[0];
+        this.scale[1] = scale[1];
         Mojo.scaleDOM(this.wrapper_dom,scale);
       },
       centerOn: function(x,y) {
-        this.x = Mojo.width/2/this.scale -  x;
-        this.y = Mojo.height/2/this.scale - y;
+        this.x = Mojo.width/2/this.scale[0] -  x;
+        this.y = Mojo.height/2/this.scale[1] - y;
         Mojo.positionDOM(this.dom,this.x,this.y);
       }
     },Mojo);

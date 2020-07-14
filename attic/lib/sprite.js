@@ -236,7 +236,8 @@
      * @var {object}
      */
     let _nullContainer= {matrix: txMatrix(),
-                         c: {x: 0, y: 0, angle: 0, scale: 1}};
+                         c: {x: 0, y: 0, angle: 0,
+                             origScale: [1,1], scale: [1,1]}};
 
     /**
      * @public
@@ -247,7 +248,7 @@
       if(!obj.refreshMatrix) {return;}
 
       if(!obj.c)
-        obj.c = { points: [] };
+        obj.c = { points: [], scale: [1,1], origScale: [1,1] };
 
       let p = obj.p,
           c = obj.c,
@@ -260,19 +261,22 @@
       if(!p.moved &&
          c.origX === p.x &&
          c.origY === p.y &&
-         c.origScale === p.scale &&
+         c.origScale[0] === p.scale[0] &&
+         c.origScale[1] === p.scale[1] &&
          c.origAngle === p.angle) {return;}
 
       c.origX = p.x;
       c.origY = p.y;
-      c.origScale = p.scale;
+      c.origScale[0] = p.scale[0];
+      c.origScale[1] = p.scale[1];
       c.origAngle = p.angle;
 
       obj.refreshMatrix();
 
       if(!obj.container &&
          p.angle === 0 &&
-         (!p.scale || p.scale === 1)) {
+         p.scale[0] === 1 &&
+         p.scale[1] === 1) {
         //the actual bounding box points of the object
         for(let i=0;i<pps.length;++i) {
           cps[i] = cps[i] || Mojo.v2();
@@ -295,7 +299,8 @@
         c.x = parent.matrix.transformX(p.x,p.y);
         c.y = parent.matrix.transformY(p.x,p.y);
         c.angle = p.angle + parent.c.angle;
-        c.scale = (parent.c.scale || 1) * (p.scale || 1);
+        c.scale[0] = parent.c.scale[0] * p.scale[0];
+        c.scale[1] = parent.c.scale[1] * p.scale[1];
 
         for(let x,y,i=0;i<pps.length;++i) {
           cps[i]= obj.matrix.transformArr(pps[i], cps[i]);
@@ -378,6 +383,7 @@
                               flip: null,
                               name: "",
                               opacity: 1,
+                              scale: [1,1],
                               type: Mojo.E_DEFAULT},defaults,props));
         this.matrix = txMatrix();
         this.children = [];
@@ -423,7 +429,7 @@
         if(force || this.p.cy === undefined)
         this.p.cy = this.p.h/2;
 
-        return this;
+        return Mojo.v2(this.p.w,this.p.h);
       },
       asset: function(name,resize) {
         if(name) {
@@ -574,10 +580,7 @@
           this.matrix.mult(this.container.matrix);
 
         this.matrix.translate(p.x,p.y);
-
-        if(p.scale)
-          this.matrix.scale(p.scale,p.scale);
-
+        this.matrix.scale(p.scale[0],p.scale[1]);
         this.matrix.rot(p.angle);
       },
       moved: function() {
@@ -753,6 +756,7 @@
        */
       init: function(p,defaults) {
         this._super(p, _.inject({size: 24,
+                                 weight: "normal",
                                  lineHeight: 1.2,
                                  align: "center",
                                  type: Mojo.E_UI}, defaults));

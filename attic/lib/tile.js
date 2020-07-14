@@ -228,12 +228,13 @@
           ctx.drawImage(row[bX],startX,startY);
       },
       draw: function(ctx) {
-        let port = Mojo.getf(this.scene,"camera"),
-            scale = port ? port.scale : 1,
-            x = port ? port.x : 0,
+        let port = Mojo.getf(this.scene,"camera");
+        let scale= [port ? port.scale[0] : 1,
+                    port ? port.scale[1] : 1];
+        let x = port ? port.x : 0,
             y = port ? port.y : 0,
-            viewW = Mojo.width/scale,
-            viewH = Mojo.height/scale,
+            viewW = Mojo.width/scale[0],
+            viewH = Mojo.height/scale[1],
             p=this.p,
             startX = _.floor((x - p.x) / p.blockW),
             startY = _.floor((y - p.y) / p.blockH),

@@ -37,7 +37,7 @@
 
     let defOpts = Mojo.PhysicsDefaults = {gravityX: 0,
                                           gravityY: 9.8,
-                                          scale: 30,
+                                          scale: [30,30],
                                           velocityIterations: 8,
                                           positionIterations: 3};
 
@@ -62,7 +62,12 @@
         this._world.SetContactListener(this._listener);
 
         this.col = {};
-        this.scale = this.opts.scale;
+        this.scale= [1,1];
+        if(this.opts.scale) {
+          this.scale[0]= this.opts.scale[0];
+          this.scale[1]= this.opts.scale[1];
+        }
+
         EBus.sub("step",this.entity,"boxStep",this);
       },
       disposed: function() {
@@ -134,8 +139,8 @@
         let L = this.entity.scene,
             world=Mojo.getf(L,"world");
         this._body.SetAwake(true);
-        this._body.SetPosition(new B2d.Vec(x / world.scale,
-                                           y / world.scale));
+        this._body.SetPosition(new B2d.Vec(x / world.scale[0],
+                                           y / world.scale[1]));
       },
 
       angle: function(angle) {
@@ -146,22 +151,22 @@
         let L= this.entity.scene,
             world=Mojo.getf(L,"world");
         this._body.SetAwake(true);
-        this._body.SetLinearVelocity(new B2d.Vec(x / world.scale,
-                                                 y / world.scale));
+        this._body.SetLinearVelocity(new B2d.Vec(x / world.scale[0],
+                                                 y / world.scale[1]));
       },
 
       inserted: function() {
         let entity = this.entity,
             L = entity.scene,
             world=Mojo.getf(L,"world"),
-            scale = world.scale,
+            scale = world.scale.slice(),
             p = entity.p,
             ops = entityDefaults,
             def = this._def = new B2d.BodyDef(),
             fixtureDef = this._fixture = new B2d.FixtureDef();
 
-        def.position.x = p.x / scale;
-        def.position.y = p.y / scale;
+        def.position.x = p.x / scale[0];
+        def.position.y = p.y / scale[1];
         def.type = p.type === "static" ?
                    B2d.Body.b2_staticBody :
                    B2d.Body.b2_dynamicBody;
@@ -176,15 +181,15 @@
         switch(p.shape) {
           case "block":
             fixtureDef.shape = new B2d.PolygonShape();
-            fixtureDef.shape.SetAsBox(p.w/2/scale, p.h/2/scale);
+            fixtureDef.shape.SetAsBox(p.w/2/scale[0], p.h/2/scale[1]);
             break;
           case "circle":
-            fixtureDef.shape = new B2d.CircleShape(p.r/scale);
+            fixtureDef.shape = new B2d.CircleShape(p.r/scale[0]);
             break;
           case "polygon":
             fixtureDef.shape = new B2d.PolygonShape();
             let pointsObj = _.map(p.points,function(pt) {
-              return { x: pt[0] / scale, y: pt[1] / scale };
+              return { x: pt[0] / scale[0], y: pt[1] / scale[1] };
             });
             fixtureDef.shape.SetAsArray(pointsObj, p.points.length);
             break;
@@ -206,8 +211,8 @@
             world=Mojo.getf(L,"world"),
             pos = this._body.GetPosition(),
             angle = this._body.GetAngle();
-        p.x = pos.x * world.scale;
-        p.y = pos.y * world.scale;
+        p.x = pos.x * world.scale[0];
+        p.y = pos.y * world.scale[1];
         p.angle = angle / Math.PI * 180;
       }
     });

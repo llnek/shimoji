@@ -31,12 +31,12 @@
         EBus= Mojo.EventBus;
 
     Mojo.defFeature("camera",{
-      _sx: function() { return Mojo.width_div2/this.scale; },
-      _sy: function() { return Mojo.height_div2/this.scale; },
+      _sx: function() { return Mojo.width_div2/this.scale[0]; },
+      _sy: function() { return Mojo.height_div2/this.scale[1]; },
       added: function() {
         EBus.sub([["prerender",this.entity,"prerender",this],
                   ["render",this.entity,"postrender",this]]);
-        this.scale = 1;
+        this.scale = [1,1];
         this.x = 0;
         this.y = 0;
         this.offsetX = 0;
@@ -89,10 +89,10 @@
             let mx= this.boundingBox.minX,
                 wx= this.boundingBox.maxX - Mojo.width;
             if(this.x + dx < mx)
-              this.x = mx/this.scale;
+              this.x = mx/this.scale[0];
             else
-            if(this.x + dx > wx/this.scale)
-              this.x = _.max(wx, mx)/this.scale;
+            if(this.x + dx > wx/this.scale[0])
+              this.x = _.max(wx, mx)/this.scale[0];
             else
               this.x += dx;
           } else {
@@ -105,10 +105,10 @@
             let my= this.boundingBox.minY,
                 hy= this.boundingBox.maxY - Mojo.height;
             if(this.y + dy < my)
-              this.y = my/this.scale;
+              this.y = my/this.scale[1];
             else
-            if(this.y + dy > hy/this.scale)
-              this.y = _.max(hy, my)/this.scale;
+            if(this.y + dy > hy/this.scale[1])
+              this.y = _.max(hy, my)/this.scale[1];
             else
               this.y += dy;
           } else {
@@ -134,7 +134,7 @@
         this.centerY = this.y + this._sy();
         Mojo.ctx.save();
         Mojo.ctx.translate(_.floor(Mojo.width_div2),_.floor(Mojo.height_div2));
-        Mojo.ctx.scale(this.scale,this.scale);
+        Mojo.ctx.scale(this.scale[0],this.scale[1]);
         Mojo.ctx.translate(-_.floor(this.centerX), -_.floor(this.centerY));
         return this;
       },
