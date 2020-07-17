@@ -1334,7 +1334,7 @@
                        id: "mojo",
                        maxFrameTime: 100,
                        autoFocus: true,
-                       audioFiles: ["wav", "mp3","ogg"]}, cmdArg);
+                       audioFiles: ["mp3","ogg","wav"]}, cmdArg);
 
     //------------------------------------------------------------------------
     //prologue

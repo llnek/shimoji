@@ -142,7 +142,7 @@ MojoH5.Config= {
   //width: 320, height: 480,
   //scaleToFit: true,
   start: function(Mojo) {
-    Mojo.load(["bgblack.jpg","z.png","x.png","o.png"], function() {
+    Mojo.load(["bgblack.jpg","z.png","x.png","o.png","x.mp3","o.mp3","end.mp3"], function() {
       Mojo.u.inject(Mojo.Game, {DIM:3, X:88, O:79});
       Mojo.runScene("Splash");
     });

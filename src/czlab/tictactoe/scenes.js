@@ -4,6 +4,15 @@ MojoH5.GameScenes = function(Mojo) {
       G= Mojo.Game,
       EBus = Mojo.EventBus;
 
+  G.playSnd= (snd) => {
+    let s,c= Mojo.state.get("pcur");
+    if (c===G.X) s="x.mp3";
+    if (c===G.O) s="o.mp3";
+    if(snd)
+      s=snd;
+    if(s)
+      Mojo.audio.play(s);
+  }
 
   /**
    * @public
@@ -60,6 +69,7 @@ MojoH5.GameScenes = function(Mojo) {
       new Mojo.UI.Button({label: "or",fontColor:"white"}),
       new Mojo.UI.Button({label: "Quit",fill:"#ccc"}, cb2));
     box.lockLayout();
+    G.playSnd("end.mp3");
   });
 
   Mojo.defScene("StartMenu", function() {

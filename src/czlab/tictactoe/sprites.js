@@ -49,6 +49,8 @@ MojoH5.GameSprites = function(Mojo) {
 
       cells[pos] = this.pnum;
       EBus.pub("ai.moved",this.scene,pos);
+      G.playSnd();
+
       rc= G.checkState();
       if(rc===0)
         G.switchPlayer();
@@ -84,6 +86,7 @@ MojoH5.GameSprites = function(Mojo) {
 
       EBus.unsub("touch",this);
       this.p.marked=true;
+      G.playSnd();
 
       if(cells[this.p.gpos] !== 0)
         throw "Fatal: cell marked already!!!!";
