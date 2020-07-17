@@ -15,6 +15,7 @@ pom.xml.asc
 pom.xml
 frameworks
 lib
+ext
 
 *.class
 *.asc
