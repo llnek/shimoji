@@ -76,6 +76,12 @@
           throw slicer.call(arguments,1).join("");
       }
     },
+    rand: () => { return Math.random(); },
+    randInt: () => { return Math.random() * 0xffffff; },
+    randMinus1To1: () => { return (Math.random() - 0.5) * 2; },
+    randBetween: (min,max) => {
+      return Math.floor(Math.random() * (max - min + 1) + min);
+    },
     inst: (type,obj) => {
       return obj instanceof type;
     },
@@ -97,6 +103,28 @@
     min: (a,b) => { return Math.min(a,b); },
     max: (a,b) => { return Math.max(a,b); },
     slice: (a,i) => { return slicer.call(a, i); },
+    every: (c,v) => {
+      for(let i=0;i<c.length;++i)
+        if(c[i] !== v) return false;
+      return c.length>0;
+    },
+    notAny: (c,v) => {
+      for(let i=0;i<c.length;++i)
+        if(c[i] === v) return false;
+      return c.length>0;
+    },
+    copy: (src,des) => {
+      if(src.length===des.length)
+        for(let i=0;i<src.length;++i) des[i]=src[i];
+      return des;
+    },
+    append: (src,des) => {
+      if(typeof des === "undefined")
+        des= src.slice();
+      else
+        for(let i=0;i<src.length;++i) des.push(src[i]);
+      return des;
+    },
     fill: (a,v) => {
       for(let i=0;i<a.length;++i) a[i]=v;
       return a;

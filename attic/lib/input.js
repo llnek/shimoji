@@ -384,6 +384,7 @@
         let cursor = options.cursor || "off";
         let self=this;
         let mouseMoveObj = _.jsObj();
+
         if(cursor !== "on")
           Mojo.domCss(Mojo.el,{cursor: (cursor === "off") ? "none" : cursor});
 

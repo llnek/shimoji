@@ -156,6 +156,9 @@
      */
     let _sheets = _.jsMap();
 
+    Mojo.calcTextSize = (label) => {
+    };
+
     /**Represents an individual element within a sprite-sheet.
      * @public
      * @class
@@ -383,8 +386,8 @@
                               flip: null,
                               name: "",
                               opacity: 1,
-                              scale: [1,1],
                               type: Mojo.E_DEFAULT},defaults,props));
+        this.p.scale = this.p.scale ? this.p.scale.slice() : [1,1];
         this.matrix = txMatrix();
         this.children = [];
         this.size();
@@ -396,6 +399,12 @@
         p.vy += p.ay * dt;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
+      },
+      reposX: function(x) { this.p.x=x; },
+      reposY: function(y) { this.p.y=y; },
+      repos: function(x,y) {
+        this.p.x=x;
+        this.p.y=y;
       },
       add: function(ch) {
         _.conj(this.children,ch);
@@ -421,13 +430,17 @@
           }
         }
 
+        //DONT DO THIS HERE!
+        //if(this.p.w===undefined) this.p.w=0;
+        //if(this.p.h===undefined) this.p.h=0;
+
         // distance from center to left
-        if(force || this.p.cx === undefined)
-        this.p.cx = this.p.w/2;
+        if((force || this.p.cx === undefined) &&
+           this.p.w !== undefined) this.p.cx = this.p.w/2;
 
         // distance from center to top
-        if(force || this.p.cy === undefined)
-        this.p.cy = this.p.h/2;
+        if((force || this.p.cy === undefined) &&
+           this.p.h !== undefined) this.p.cy = this.p.h/2;
 
         return Mojo.v2(this.p.w,this.p.h);
       },
@@ -870,8 +883,8 @@
           if(!this.p.h) this.p.h = 24 + 20;
           if(!this.p.w) this.p.w = metrics.width + 20;
         }
-        if(isNaN(this.p.cx)) this.p.cx = this.p.w/2;
-        if(isNaN(this.p.cy)) this.p.cy = this.p.h/2;
+        if(this.p.cx===undefined) this.p.cx = this.p.w/2;
+        if(this.p.cy===undefined) this.p.cy = this.p.h/2;
         this.callback = callback;
         EBus.sub("touchEnd",this,"push");
         EBus.sub("touch",this,"highlight");
@@ -885,7 +898,7 @@
       },
       push: function() {
         this.p.frame = 0;
-        this.callback && this.callback();
+        this.callback && this.callback(this);
         EBus.pub("click",this);
         return this;
       },
@@ -1000,27 +1013,71 @@
      * @public
      * @class
      */
-    Mojo.defType(["VerticalLayout", Mojo.Sprite], {
+    Mojo.defType(["VerticalLayout", Mojo.UI.Container], {
       init: function(p) {
-        this.children = [];
-        this._super(p, { type: Mojo.E_NONE});
+        this._super(p, {padY: 10, fit: 20});
       },
-      insert: function(sprite) {
-        this.scene.insert(sprite,this);
-        this.relayout();
-        return sprite;
+      openLayout: function() {
+        this.items=[];
       },
-      relayout: function() {
-        let totalHeight = 0;
-        this.children.forEach(c => {
-          totalHeight += c.p.h || 0;
+      addLayout: function(sprite) {
+        if(this.items)
+          for(let i=0;i<arguments.length;++i)
+            _.conj(this.items,arguments[i]);
+      },
+      lockLayout: function() {
+        let h=0;
+        this.items.forEach(m => {
+          if(h>0) h += this.p.padY;
+          h += m.p.h;
         });
-        // Center?
-        let totalSeparation = this.p.h - totalHeight;
-        // Make sure all elements have the same space between them
+        for(let top,m,i=0; i<this.items.length; ++i) {
+          m=this.items[i];
+          if(i===0)
+            top= -h/2 + m.p.h/2;
+          m.repos(0,top);
+          this.insert(m);
+          top += m.p.h + this.p.padY;
+        };
+        if(this.p.fit)
+          this.fit(this.p.fit);
       }
     },Mojo.UI);
 
+    /**
+     * @public
+     * @class
+     */
+    Mojo.defType(["HorizontalLayout", Mojo.UI.Container], {
+      init: function(p) {
+        this._super(p, {padX: 10, fit: 20});
+      },
+      openLayout: function() {
+        this.items=[];
+      },
+      addLayout: function(sprite) {
+        if(this.items)
+          for(let i=0;i<arguments.length;++i)
+            _.conj(this.items,arguments[i]);
+      },
+      lockLayout: function() {
+        let w=0;
+        this.items.forEach(m => {
+          if(w>0) w += this.p.padX;
+          w += m.p.w;
+        });
+        for(let left,m,i=0;i <this.items.length;++i) {
+          m=this.items[i];
+          if(i===0)
+            left= -w/2 + m.p.w/2;
+          m.repos(left,0);
+          this.insert(m);
+          left += m.p.w + this.p.padX;
+        }
+        if(this.p.fit)
+          this.fit(this.p.fit);
+      }
+    },Mojo.UI);
 
     return Mojo;
   };
