@@ -1026,18 +1026,18 @@
             _.conj(this.items,arguments[i]);
       },
       lockLayout: function() {
-        let h=0;
+        let top,h=0;
         this.items.forEach(m => {
           if(h>0) h += this.p.padY;
           h += m.p.h;
         });
-        for(let top,m,i=0; i<this.items.length; ++i) {
+        top= -h/2;
+        for(let m,i=0; i<this.items.length; ++i) {
           m=this.items[i];
-          if(i===0)
-            top= -h/2 + m.p.h/2;
+          top += m.p.h/2;
           m.repos(0,top);
           this.insert(m);
-          top += m.p.h + this.p.padY;
+          top += m.p.h/2 + this.p.padY;
         };
         if(this.p.fit)
           this.fit(this.p.fit);
@@ -1061,18 +1061,18 @@
             _.conj(this.items,arguments[i]);
       },
       lockLayout: function() {
-        let w=0;
+        let left,w=0;
         this.items.forEach(m => {
           if(w>0) w += this.p.padX;
           w += m.p.w;
         });
-        for(let left,m,i=0;i <this.items.length;++i) {
+        left= -w/2;
+        for(let m,i=0;i <this.items.length;++i) {
           m=this.items[i];
-          if(i===0)
-            left= -w/2 + m.p.w/2;
+          left += m.p.w/2;
           m.repos(left,0);
           this.insert(m);
-          left += m.p.w + this.p.padX;
+          left += m.p.w/2 + this.p.padX;
         }
         if(this.p.fit)
           this.fit(this.p.fit);
