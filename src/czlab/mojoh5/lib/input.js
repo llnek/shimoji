@@ -1,536 +1,471 @@
-/* Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
-
 (function(global,undefined){
   "use strict";
-  let window= global,
-      MojoH5 = global.MojoH5;
-
+  let window=global,
+    MojoH5=window.MojoH5;
   if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded.";
-
+    throw "Fatal: MojoH5 not loaded";
   /**
-   * @private
-   * @var {object}
-   */
-  let KEY_NAMES = {
-    LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
-
-    ZERO: 48, ONE: 49, TWO: 50,
-    THREE: 51, FOUR: 52, FIVE: 53,
-    SIX: 54, SEVEN: 55, EIGHT: 56, NINE: 57,
-
-    A: 65, B: 66, C: 67, D: 68, E: 69, F: 70,
-    G: 71, H: 72, I: 73, J: 74, K: 75, L: 76,
-    M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82,
-    S: 83, T: 84, U: 85, V: 86, W: 87, X: 88,
-    Y: 89, Z: 90,
-
-    ENTER: 13, ESC: 27, BACKSPACE: 8, TAB: 9,
-    SHIFT: 16, CTRL: 17, ALT: 18, SPACE: 32,
-
-    HOME: 36, END: 35,
-    PGGUP: 33, PGDOWN: 34
-  };
-
-  /**
-   * @private
-   * @var {object}
-   */
-  let DEFAULT_KEYS = {
-    LEFT: "left", RIGHT: "right",
-    UP: "up", DOWN: "down",
-    Z: "fire", X: "action", P: "P", S: "S",
-    ESC: "esc", SPACE: "fire", ENTER: "confirm"
-  };
-
-  /**
-   * @private
-   * @var {object}
-   */
-  let TOUCH_CONTROLS = [["left","<" ],
-                        ["right",">" ],
-                        [],
-                        ["action","b"],
-                        ["fire", "a" ]],
-      JOYPAD_CONTROLS= [[],[],[],
-                        ["action","b"], ["fire","a"]];
-  /**
-   * @private
-   * @var {array}
-   */
-  let TOUCH_EVENTS= ["touchstart","touchend",
-                     "touchmove","touchcancel"];
-
-  /**Clockwise from midnight (a la CSS)
-   * @private
-   * @var {array}
-   */
-  let JOYPAD_INPUTS =  ["up","right","down","left"];
-
-  /**
+   * @public
    * @module
    */
-  MojoH5.Input = function(Mojo) {
-
-    let _= Mojo.u,
-        is= Mojo.is,
-        EBus=Mojo.EventBus;
-
-    /**
-     * @public
-     * @property {map}
-     */
-    Mojo.inputs = _.jsMap();
-    /**
-     * @public
-     * @property {object}
-     */
-    Mojo.joypad = _.jsObj();
-
-
-    let _offset;
-    let _containerOffset= () => {
-      _offset.x = 0;
-      _offset.y = 0;
-      for(let el=Mojo.el;;)
-      { _offset.x += el.offsetLeft;
-        _offset.y += el.offsetTop;
-        if (el=el.offsetParent) {} else break; }
+  MojoH5.Input=function(Mojo) {
+    let _=Mojo.u,
+      is=Mojo.is,
+      _element=Mojo.canvas,
+      _scale=Mojo.scale,
+      _pointers = [],
+      _buttons = [],
+      _draggableSprites = [];
+    const _I= {
+      get scale() { return _scale; },
+      set scale(v) {
+        _scale = v;
+        _.doseq(_pointers, p=> p.scale = v);
+      }
     };
-
     /**
      * @public
      * @function
      */
-    Mojo.canvasToSceneX = (x,scene) => {
-      let cam=Mojo.getf(scene,"camera");
-      x = x/Mojo.cssWidth*Mojo.width;
-      return cam ? ((x/cam.scale[0])+cam.x) : x;
+    _I.makeDraggable= function(...sprites) {
+      if(sprites.length===1 && is.vec(sprites[0])) {
+        sprites=sprites[0];
+      }
+      sprites.forEach(s => {
+        _.conj(_draggableSprites,s);
+        if(s.draggable === undefined) {
+          s.draggable = true;
+          s._localDraggable= true;
+        }
+      });
     };
-
     /**
      * @public
      * @function
      */
-    Mojo.canvasToSceneY = (y,scene) => {
-      let cam=Mojo.getf(scene,"camera");
-      y = y/Mojo.cssWidth*Mojo.width;
-      return cam ? ((y/cam.scale[1])+cam.y) : y;
+    _I.makeUndraggable=function(...sprites) {
+      if(sprites.length===1 && is.vec(sprites[0])) {
+        sprites=sprites[0];
+      }
+      sprites.forEach(s => {
+        _.disj(_draggableSprites,s);
+        if(s._localDraggable) s.draggable = false;
+      });
     };
-
     /**
      * @public
-     * @property {object}
+     * @function
      */
-    Mojo.input = {
-
-      keys: _.jsMap(),
-      keypad: _.jsObj(),
-      touchEnabled: false,
-      joypadEnabled: false,
-      keyboardEnabled: false,
-
-      /**
-       * @public
-       * @function
-       */
-      enableKeyboard: function() {
-        if(this.keyboardEnabled) return false;
-        //Make selectable and remove an :focus outline
-        Mojo.domAttrs(Mojo.el, {tabIndex: 0});
-        Mojo.domCss(Mojo.el, {outline: 0});
-        let action,self=this;
-        _.addEvent("keydown", Mojo.el, (e) => {
-          if(action=self.keys.get(e.keyCode)) {
-            _.assoc(Mojo.inputs, action, true);
-            EBus.pub([[action, self],
-                      ["keydown",self,e.keyCode]]);
-          }
-          if(!e.ctrlKey && !e.metaKey) e.preventDefault();
-        },false);
-        _.addEvent("keyup",Mojo.el, (e) => {
-          if(action=self.keys.get(e.keyCode)) {
-            _.assoc(Mojo.inputs,action, false);
-            EBus.pub([[action+"Up", self],
-                      ["keyup",self,e.keyCode]]);
-          }
-          e.preventDefault();
-        },false);
-        if(Mojo.o.autoFocus) Mojo.el.focus();
-        this.keyboardEnabled = true;
-      },
-      keyboardControls: function(keys) {
-        _.doseq(keys||DEFAULT_KEYS, (name,key) => {
-          _.assoc(this.keys, KEY_NAMES[key] || key, name);
-        });
-        this.enableKeyboard();
-      },
-      _tloc: function(touch) {
-        let el = Mojo.el,
-            px = touch.offsetX,
-            py = touch.offsetY;
-        if(px===undefined ||
-           py===undefined) {
-          px = touch.layerX;
-          py = touch.layerY;
+    _I.addGlobPos=function(s) {
+      if(s.gx === undefined)
+        Object.defineProperty(
+          s, "gx", { get() { return s.getGlobalPosition().x; } });
+      if(s.gy === undefined)
+        Object.defineProperty(
+          s, "gy", { get() { return s.getGlobalPosition().y; } });
+    };
+    /**
+     * @public
+     * @function
+     */
+    _I.makePointer=function(element, scale) {
+      let ptr= {
+        element: element || _element,
+        _scale: scale || _scale,
+        _x: 0,
+        _y: 0,
+        width: 1,
+        height: 1,
+        isDown: false,
+        isUp: true,
+        tapped: false,
+        downTime: 0,
+        elapsedTime: 0,
+        press: undefined,
+        release: undefined,
+        tap: undefined,
+        dragSprite: null,
+        dragOffsetX: 0,
+        dragOffsetY: 0,
+        _visible: true,
+        get x() { return this._x / this.scale; },
+        get y() { return this._y / this.scale; },
+        get centerX() { return this.x; },
+        get centerY() { return this.y; },
+        get position() { return { x: this.x, y: this.y }; },
+        get scale() { return this._scale; },
+        set scale(v) { this._scale = v; },
+        get cursor() { return this.element.style.cursor; },
+        set cursor(v) { this.element.style.cursor = v; },
+        get visible() { return this._visible; },
+        set visible(v) {
+          this.cursor = v ? "auto" : "none";
+            this._visible = v;
         }
-        if(px===undefined ||
-           py===undefined) {
-          if(_offset===undefined) {
-            _offset= _.p2();
-            _containerOffset();
-          }
-          px = touch.pageX - _offset.x;
-          py = touch.pageY - _offset.y;
+      };
+      ptr.moveHandler= function(event) {
+        let t = event.target;
+        this._x = (event.pageX - t.offsetLeft);
+        this._y = (event.pageY - t.offsetTop);
+        event.preventDefault();
+      };
+      ptr.touchmoveHandler= function(event) {
+        let t = event.target;
+        this._x = (event.targetTouches[0].pageX - t.offsetLeft);
+        this._y = (event.targetTouches[0].pageY - t.offsetTop);
+        event.preventDefault();
+      };
+      ptr.downHandler= function(event) {
+        this.isDown = true;
+        this.isUp = false;
+        this.tapped = false;
+        this.downTime = _.now();
+        this.press && this.press();
+        event.preventDefault();
+      };
+      ptr.touchstartHandler= function(event) {
+        let t = event.target;
+        this._x = event.targetTouches[0].pageX - t.offsetLeft;
+        this._y = event.targetTouches[0].pageY - t.offsetTop;
+        this.downTime = _.now();
+        this.isDown = true;
+        this.isUp = false;
+        this.tapped = false;
+        this.press && this.press();
+        event.preventDefault();
+      };
+      ptr.upHandler= function(event) {
+        this.elapsedTime = Math.abs(this.downTime - _.now());
+        if(this.elapsedTime <= 200 && this.tapped === false) {
+          this.tapped = true;
+          this.tap && this.tap();
         }
-        return _.p2(Mojo.width * px / Mojo.cssWidth,
-                    Mojo.height * py / Mojo.cssHeight);
-      },
-      touchControls: function(opts,joypad) {
-        if(!Mojo.hasTouch() ||
-           this.touchEnabled) { return false; }
-        opts = opts || {};
-        opts=
-        _.inject({controls: joypad ? JOYPAD_CONTROLS : TOUCH_CONTROLS}, opts);
-        this.keypad=
-        opts = _.inject({left: 0,
-                         gutter:10,
-                         fullHeight: false,
-                         width: Mojo.width,
-                         bottom: Mojo.height}, opts);
-        opts.unit = (opts.width / opts.controls.length);
-        opts.size = opts.unit - (opts.gutter * 2);
+        this.isUp = true;
+        this.isDown = false;
+        this.release && this.release();
+        //`event.preventDefault();` needs to be disabled to prevent <input> range sliders
+        //from getting trapped in Firefox (and possibly Safari)
+        //event.preventDefault();
+      };
+      ptr.touchendHandler= function(event) {
+        this.elapsedTime = Math.abs(this.downTime - _.now());
+        if(this.elapsedTime <= 200 && this.tapped === false) {
+          this.tapped = true;
+          this.tap && this.tap();
+        }
+        this.isUp = true;
+        this.isDown = false;
+        this.release && this.release();
+        //event.preventDefault();
+      };
+      ptr.hitTestSprite= function(sprite) {
+        _I.addGlobPos(sprite);
+        let hit = false,
+          xAnchorOffset=0,
+          yAnchorOffset=0;
+        if(sprite.anchor !== undefined) {
+          xAnchorOffset = sprite.width * sprite.anchor.x;
+          yAnchorOffset = sprite.height * sprite.anchor.y;
+        }
+        if(!sprite.circular) {
+          let left = sprite.gx - xAnchorOffset,
+            right = sprite.gx + sprite.width - xAnchorOffset,
+            top = sprite.gy - yAnchorOffset,
+            bottom = sprite.gy + sprite.height - yAnchorOffset;
+          hit = this.x > left && this.x < right && this.y > top && this.y < bottom;
+        } else {
+          let vx = this.x - (sprite.gx + (sprite.width / 2) - xAnchorOffset),
+              vy = this.y - (sprite.gy + (sprite.width / 2) - yAnchorOffset),
+              distance = Math.sqrt(vx * vx + vy * vy);
+          hit = distance < sprite.width / 2;
+        }
+        return hit;
+      };
 
-        let self=this,
-            getKey= (touch) => {
-              let pos = self._tloc(touch),
-                  mx,my = opts.bottom - opts.unit;
-              for(let i=0,len=opts.controls.length;i<len;++i) {
-                mx = i * opts.unit + opts.gutter;
-                if(pos.x >= mx &&
-                   pos.x <= (mx+opts.size) &&
-                   (opts.fullHeight ||
-                    (pos.y >= my+opts.gutter &&
-                     pos.y <= (my+opts.unit-opts.gutter)))) {
-                  return opts.controls[i][0];
-                }
-              }
-            };
-
-        Mojo.input.touchDispatchHandler = (event) => {
-          let wasOn = {}, tch, key, action,
-              touches = event.touches ? event.touches : [event];
-          // Reset all the actions bound to controls
-          // but keep track of all the actions that were on
-          for(let i=0,z=opts.controls.length;i<z;++i) {
-            action= opts.controls[i][0];
-            if(Mojo.inputs.get(action)) { wasOn[action] = true; }
-            _.assoc(Mojo.inputs,action,false);
-          }
-          for(let i=0,z=touches.length;i<z;++i) {
-            tch = touches[i];
-            if(key = getKey(tch)) {
-              _.assoc(Mojo.inputs,key,true);
-              if(wasOn[key])
-                _.dissoc(wasOn,key);
-              else
-                EBus.pub(key, self);
-            }
-          }
-          // Any remaining were on the last frame
-          // and need to send an up action
-          for(action in wasOn)
-            if(_.has(wasOn,action))
-              EBus.pub(action+"Up", self);
-          event.preventDefault();
-        };
-        _.doseq(TOUCH_EVENTS, (evt) => {
-          _.addEvent(evt, Mojo.el, Mojo.input.touchDispatchHandler);
-        });
-        this.touchEnabled = true;
-      },
-      disableTouchControls: function() {
-        _.doseq(TOUCH_EVENTS,(evt) => {
-          _.delEvent(evt,Mojo.el, Mojo.input.touchDispatchHandler);
-        });
-        _.delEvent([["touchstart",Mojo.el,this.joypadStart],
-                    ["touchmove",Mojo.el,this.joypadMove],
-                    ["touchend",Mojo.el,this.joypadEnd],
-                    ["touchcancel",Mojo.el,this.joypadEnd]]);
-        // clear existing inputs
-        _.keys(Mojo.inputs).forEach(k => {
-          _.assoc(Mojo.inputs,k,false);
-        });
-        this.touchEnabled = false;
-      },
-      joypadControls: function(opts) {
-        if(!Mojo.hasTouch() ||
-           this.joypadEnabled) { return false; }
-        let self=this,
-            joypad = _.inject({size: 50,
-                               trigger: 20,
-                               center: 25,
-                               color: "#CCC",
-                               background: "#000",
-                               alpha: 0.5,
-                               joypadTouch: null,
-                               triggers: [],
-                               zone: Mojo.width_div2,
-                               inputs: JOYPAD_INPUTS},opts);
-        Mojo.joypad=joypad;
-        this.joypadStart = (evt) => {
-          if(joypad.joypadTouch === null) {
-            let touch = evt.changedTouches[0],
-                loc = self._tloc(touch);
-            if(loc.x < joypad.zone) {
-              joypad.centerX = loc.x;
-              joypad.centerY = loc.y;
-              joypad.x = null;
-              joypad.y = null;
-              joypad.joypadTouch = touch.identifier;
-            }
-          }
-        };
-        this.joypadMove = (e) => {
-          if(joypad.joypadTouch !== null) {
-            let evt = e;
-            for(let i=0,z=evt.changedTouches.length;i<z;++i) {
-              let touch = evt.changedTouches[i];
-              if(touch.identifier === joypad.joypadTouch) {
-                let loc = self._tloc(touch),
-                    dx = loc.x - joypad.centerX,
-                    dy = loc.y - joypad.centerY,
-                    dist = _.sqrt(dx * dx + dy * dy),
-                    overage = _.max(1,dist / joypad.size),
-                    ang =  Math.atan2(dx,dy);
-                if(overage > 1) {
-                  dx /= overage;
-                  dy /= overage;
-                  dist /= overage;
-                }
-                let triggers = [dy < -joypad.trigger,
-                                dx > joypad.trigger,
-                                dy > joypad.trigger,
-                                dx < -joypad.trigger];
-                for(let k=0;k<triggers.length;++k) {
-                  let action= joypad.inputs[k];
-                  if(triggers[k]) {
-                    _.assoc(Mojo.inputs,action,true);
-                    if(!joypad.triggers[k])
-                      EBus.pub(action, Mojo.input);
-                  } else {
-                    _.assoc(Mojo.inputs,action,false);
-                    if(joypad.triggers[k])
-                      EBus.pub(action+"Up", Mojo.input);
-                  }
-                }
-                _.inject(joypad, {dx: dx,
-                                  dy: dy,
-                                  dist: dist,
-                                  ang: ang,
-                                  triggers: triggers,
-                                  x: joypad.centerX + dx,
-                                  y: joypad.centerY + dy});
+      _.addEvent("mousemove", element, ptr.moveHandler.bind(ptr), false);
+      _.addEvent("mousedown", element,ptr.downHandler.bind(ptr), false);
+      //Add the `mouseup` event to the `window` to
+      //catch a mouse button release outside of the canvas area
+      _.addEvent("mouseup", window, ptr.upHandler.bind(ptr), false);
+      _.addEvent("touchmove", element, ptr.touchmoveHandler.bind(ptr), false);
+      _.addEvent("touchstart", element, ptr.touchstartHandler.bind(ptr), false);
+      //Add the `touchend` event to the `window` object to
+      //catch a mouse button release outside of the canvas area
+      _.addEvent("touchend", window, ptr.touchendHandler.bind(ptr), false);
+      //Disable the default pan and zoom actions on the `canvas`
+      element.style.touchAction = "none";
+      _.conj(_pointers,ptr);
+      return ptr;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _I.updateDragAndDrop=function(draggableSprites) {
+      _pointers.forEach(ptr => {
+        if(ptr.isDown) {
+          if(!ptr.dragSprite) {
+            for(let s,i=draggableSprites.length-1; i>=0; --i) {
+              s= draggableSprites[i];
+              if(s.draggable && ptr.hitTestSprite(s)) {
+                ptr.dragOffsetX = ptr.x - s.gx;
+                ptr.dragOffsetY = ptr.y - s.gy;
+                ptr.dragSprite = s;
+                //The next two lines re-order the `sprites` array so that the
+                //selected sprite is displayed above all the others.
+                //First, splice the sprite out of its current position in
+                //its parent's `children` array
+                let cs = s.parent.children;
+                _.disj(cs,s);
+                //Next, push the `dragSprite` to the end of its `children` array so that it's
+                //displayed last, above all the other sprites
+                _.conj(cs,s);
+                //Reorganize the `draggableSpites` array in the same way
+                _.disj(draggableSprites,s);
+                _conj(draggableSprites,s);
                 break;
               }
             }
-          }
-          e.preventDefault();
-        };
-
-        this.joypadEnd = (e) => {
-          let evt = e;
-          if(joypad.joypadTouch !== null) {
-            for(let i=0,z=evt.changedTouches.length;i<z;++i) {
-              let touch = evt.changedTouches[i];
-              if(touch.identifier === joypad.joypadTouch) {
-                for(let k=0;k<joypad.triggers.length;++k) {
-                  let action= joypad.inputs[k];
-                  _.assoc(Mojo.inputs,action,false);
-                  if(joypad.triggers[k])
-                    EBus.pub(action+"Up", Mojo.input);
-                }
-                joypad.joypadTouch = null;
-                break;
-              }
-            }
-          }
-          e.preventDefault();
-        };
-
-        _.addEvent([["touchstart",Mojo.el,this.joypadStart],
-                    ["touchmove",Mojo.el,this.joypadMove],
-                    ["touchend",Mojo.el,this.joypadEnd],
-                    ["touchcancel",Mojo.el,this.joypadEnd]]);
-        this.joypadEnabled = true;
-      },
-      mouseControls: function(options) {
-        options = options || {};
-        let slot = options.slot || 0;
-        let mouseInputX = options.mouseX || "mouseX";
-        let mouseInputY = options.mouseY || "mouseY";
-        let cursor = options.cursor || "off";
-        let self=this;
-        let mouseMoveObj = _.jsObj();
-
-        if(cursor !== "on")
-          Mojo.domCss(Mojo.el,{cursor: (cursor === "off") ? "none" : cursor});
-
-        _.assoc(Mojo.inputs,mouseInputX, 0, mouseInputY, 0);
-
-        this._mouseMove = function(e) {
-          e.preventDefault();
-          let touch = e.touches ? e.touches[0] : e;
-          let el = Mojo.el,
-            rect = el.getBoundingClientRect(),
-            style = window.getComputedStyle(el),
-            px = touch.clientX - rect.left - parseInt(style.paddingLeft),
-            py = touch.clientY - rect.top  - parseInt(style.paddingTop);
-          let scene = Mojo.scene(slot);
-          if(px===undefined ||
-             py===undefined) {
-            px = touch.offsetX;
-            py = touch.offsetY;
-          }
-          if(px===undefined ||
-             py===undefined) {
-            px = touch.layerX;
-            py = touch.layerY;
-          }
-          if(px===undefined ||
-             py===undefined) {
-            if(_offset===undefined) {
-              _offset= _.p2();
-              _containerOffset();
-            }
-            px = touch.pageX - _offset.x;
-            py = touch.pageY - _offset.y;
-          }
-          if(scene) {
-            mouseMoveObj.x= Mojo.canvasToSceneX(px,scene);
-            mouseMoveObj.y= Mojo.canvasToSceneY(py,scene);
-            _.assoc(Mojo.inputs,
-                    mouseInputX, mouseMoveObj.x,
-                    mouseInputY, mouseMoveObj.y);
-            EBus.pub("mouseMove",self,mouseMoveObj);
-          }
-        };
-        this._mouseWheel = (e) => {
-          // http://www.sitepoint.com/html5-javascript-mouse-wheel/
-          // cross-browser wheel delta
-          e = window.event || e; // old IE support
-          let delta = _.max(-1, _.min(1, (e.wheelDelta || -e.detail)));
-          EBus.pub("mouseWheel", self,delta);
-        };
-        _.addEvent([["mousemove",Mojo.el,this._mouseMove,true],
-                    ["touchstart",Mojo.el,this._mouseMove,true],
-                    ["touchmove",Mojo.el,this._mouseMove,true],
-                    ["mousewheel",Mojo.el,this._mouseWheel,true],
-                    ["DOMMouseScroll",Mojo.el,this._mouseWheel,true]]);
-      },
-      disableMouseControls: function() {
-        if(this._mouseMove) {
-          _.delEvent([["mousemove",Mojo.el,this._mouseMove, true],
-                      ["mousewheel",Mojo.el,this._mouseWheel, true],
-                      ["DOMMouseScroll",Mojo.el,this._mouseWheel, true]]);
-          Mojo.domCss(Mojo.el,{cursor: "inherit"});
-          this._mouseMove = null;
-        }
-      },
-      drawButtons: function() {
-        let ctx = Mojo.ctx,
-            keypad = this.keypad;
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        for(let i=0;i<keypad.controls.length;++i) {
-          let control = keypad.controls[i];
-          if(control[0]) {
-            ctx.font = "bold " + (keypad.size/2) + "px arial";
-            let key = _.get(Mojo.inputs,control[0]),
-                y = keypad.bottom - keypad.unit,
-                x = keypad.left + i * keypad.unit + keypad.gutter;
-
-            ctx.fillStyle = keypad.color || "#FFFFFF";
-            ctx.globalAlpha = key ? 1.0 : 0.5;
-            ctx.fillRect(x,y,keypad.size,keypad.size);
-
-            ctx.fillStyle = keypad.text || "#000000";
-            ctx.fillText(control[1], x+keypad.size/2, y+keypad.size/2);
+          } else {
+            //If the pointer is down and it has a `dragSprite`, make the sprite follow the pointer's
+            //position, with the calculated offset
+            ptr.dragSprite.x = ptr.x - ptr.dragOffsetX;
+            ptr.dragSprite.y = ptr.y - ptr.dragOffsetY;
           }
         }
-        ctx.restore();
-      },
-      drawCircle: function(x,y,color,size) {
-        let ctx = Mojo.ctx;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.globalAlpha=Mojo.joypad.alpha;
-        ctx.fillStyle = color;
-        ctx.arc(x, y, size, 0, Math.PI*2, true);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      },
-      drawJoypad: function() {
-        let pad = Mojo.joypad;
-        if(pad.joypadTouch !== null) {
-          this.drawCircle(pad.centerX,
-                          pad.centerY,
-                          pad.background,
-                          pad.size);
-          if(is.num(pad.x))
-            this.drawCircle(pad.x,
-                            pad.y,
-                            pad.color,
-                            pad.center);
-        }
-      },
-      drawCanvas: function() {
-        if(this.touchEnabled) this.drawButtons();
-        if(this.joypadEnabled) this.drawJoypad();
-      }
+        if(ptr.isUp)
+          ptr.dragSprite = null;
+        //Change the mouse arrow pointer to a hand if it's over a
+        //draggable sprite
+        draggableSprites.some(s => {
+          if(s.draggable && ptr.hitTestSprite(s)) {
+            if(ptr.visible) ptr.cursor = "pointer";
+            return true;
+          } else {
+            if(ptr.visible) ptr.cursor = "auto";
+            return false;
+          }
+        });
+      });
     };
-
     /**
      * @public
      * @function
      */
-    Mojo.controls = function(options) {
-
-      options= options || {};
-
-      if(options.keys!==false)
-        Mojo.input.keyboardControls(options.keys);
-      if(options.mouse!==false)
-        Mojo.input.mouseControls(options.mouse);
-      if(options.touch!==false)
-        Mojo.touch(options.touch);
-
-      if(options.touch!==false && Mojo.touchDevice) {
-        if(options.touch)
-          Mojo.input.touchControls(options.touch,options.joypad);
-        if(options.joypad)
-          Mojo.input.joypadControls(options.joypad);
+    _I.makeInteractive=function(o) {
+      //The `press`,`release`, `over`, `out` and `tap` methods. They're `undefined`
+      //for now, but they can be defined in the game program
+      o.press = o.press || undefined;
+      o.release = o.release || undefined;
+      o.over = o.over || undefined;
+      o.out = o.out || undefined;
+      o.tap = o.tap || undefined;
+      //The `state` property tells you the button's
+      //current state. Set its initial state to "up"
+      o.state = "up";
+      //The `action` property tells you whether its being pressed or
+      //released
+      o.action = "";
+      //The `pressed` and `hoverOver` Booleans are mainly for internal
+      //use in this code to help figure out the correct state.
+      //`pressed` is a Boolean that helps track whether or not
+      //the sprite has been pressed down
+      o.pressed = false;
+      //`hoverOver` is a Boolean which checks whether the pointer
+      //has hovered over the sprite
+      o.hoverOver = false;
+      //tinkType is a string that will be set to "button" if the
+      //user creates an object using the `button` function
+      o.tinkType = "";
+      //Set `enabled` to true to allow for interactivity
+      //Set `enabled` to false to disable interactivity
+      o.enabled = true;
+      //Add the sprite to the global `buttons` array so that it can
+      //be updated each frame in the `updateButtons method
+      _.conj(_buttons,o);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _I.updateButtons=function() {
+      _pointers.forEach(ptr => {
+        ptr.shouldBeHand = false;
+        _buttons.forEach(o => {
+          if(o.enabled) {
+            let hit = ptr.hitTestSprite(o);
+            if(ptr.isUp) {
+              o.state = "up";
+              if(o.tinkType === "button") o.gotoAndStop(0);
+            }
+            if(hit) {
+              o.state = "over";
+              if(o.totalFrames && o.totalFrames === 3 && o.tinkType === "button") {
+                o.gotoAndStop(1);
+              }
+              if(ptr.isDown) {
+                o.state = "down";
+                if(o.tinkType === "button")
+                  (o.totalFrames === 3) ? o.gotoAndStop(2) : o.gotoAndStop(1);
+              }
+              ptr.shouldBeHand = true;
+              if(ptr.visible) ptr.cursor = "pointer";
+            } else {
+              if(ptr.visible) ptr.cursor = "auto";
+            }
+            if(o.state === "down") {
+              if(!o.pressed) {
+                o.press && o.press();
+                o.pressed = true;
+                o.action = "pressed";
+              }
+            }
+            if(o.state === "over") {
+              if(o.pressed) {
+                o.release && o.release();
+                o.pressed = false;
+                o.action = "released";
+                if(ptr.tapped && o.tap) o.tap();
+              }
+              if(!o.hoverOver) {
+                o.over && o.over();
+                o.hoverOver = true;
+              }
+            }
+            if(o.state === "up") {
+              if(o.pressed) {
+                o.release && o.release();
+                o.pressed = false;
+                o.action = "released";
+              }
+              if(o.hoverOver) {
+                o.out && o.out();
+                o.hoverOver = false;
+              }
+            }
+          }
+        });
+        ptr.cursor = ptr.shouldBeHand ? "pointer" : "auto";
+      });
+    };
+    /**
+     * @public
+     * @function
+     */
+    _I.button= function(source, x = 0, y = 0) {
+      let o, s0=source[0];
+      if(is.str(s0)) {
+        o = Mojo.p.TCache[s0] ? Mojo.p.ASprite.fromFrames(source)
+                              : Mojo.p.ASprite.fromImages(source);
+      } else if(_.inst(Mojo.p.Texture,s0)) {
+        o = new Mojo.p.ASprite(source);
       }
+      this.makeInteractive(o);
+      o.tinkType = "button";
+      o.x = x;
+      o.y = y;
+      return o;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _I.update= function(dt) {
+      if(_draggableSprites.length !== 0) this.updateDragAndDrop(_draggableSprites);
+      if(_buttons.length !== 0) this.updateButtons();
+    };
+    /**
+     * @public
+     * @function
+     */
+    _I.keyboard=function(keyCode) {
+      let key = {
+        code: keyCode,
+        isDown: false,
+        isUp: true,
+        press: undefined,
+        release: undefined};
 
-      return Mojo;
+      key.downHandler= (event) => {
+        if(event.keyCode === key.code) {
+          if(key.isUp && key.press) key.press();
+          key.isDown = true;
+          key.isUp = false;
+        }
+        event.preventDefault();
+      };
+
+      key.upHandler = (event) => {
+        if(event.keyCode === key.code) {
+          if(key.isDown && key.release) key.release();
+          key.isDown = false;
+          key.isUp = true;
+        }
+        event.preventDefault();
+      };
+
+      _.addEvent("keydown", window, key.downHandler.bind(key), false);
+      _.addEvent("keyup", window, key.upHandler.bind(key), false);
+
+      return key;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _I.arrowControl=function(sprite, speed) {
+      if(speed === undefined)
+        throw `arrowControl requires speed`;
+      let upArrow = this.keyboard(38),
+        rightArrow = this.keyboard(39),
+        downArrow = this.keyboard(40),
+        leftArrow = this.keyboard(37);
+
+      leftArrow.press = () => {
+        sprite.vx = -speed;
+        sprite.vy = 0;
+      };
+
+      leftArrow.release = () => {
+        //If the left arrow has been released, and the right arrow isn't down,
+        //and the sprite isn't moving vertically:
+        //Stop the sprite
+        if(!rightArrow.isDown && sprite.vy === 0)
+          sprite.vx = 0;
+      };
+
+      upArrow.press = () => {
+        sprite.vy = -speed;
+        sprite.vx = 0;
+      };
+
+      upArrow.release = () => {
+        if(!downArrow.isDown && sprite.vx === 0)
+          sprite.vy = 0;
+      };
+
+      rightArrow.press = () => {
+        sprite.vx = speed;
+        sprite.vy = 0;
+      };
+
+      rightArrow.release = () => {
+        if(!leftArrow.isDown && sprite.vy === 0)
+          sprite.vx = 0;
+      };
+
+      downArrow.press = () => {
+        sprite.vy = speed;
+        sprite.vx = 0;
+      };
+
+      downArrow.release = () => {
+        if(!upArrow.isDown && sprite.vx === 0)
+          sprite.vy = 0;
+      };
     };
 
-    return Mojo;
+    return Mojo.Input= _I;
   };
 
 })(this);

@@ -1,1086 +1,1084 @@
-/* Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
-
-(function(global, undefined) {
+(function(global,undefined){
   "use strict";
-
-  let Inf= Infinity,
-      MojoH5 = global.MojoH5;
-
+  let window=global,
+    MojoH5=window.MojoH5;
   if(!MojoH5)
     throw "Fatal: MojoH5 not loaded";
-
   /**
+   * @public
    * @module
    */
-  MojoH5.Sprites = function(Mojo) {
+  MojoH5.Sprites=function(Mojo) {
+    let _S={},
+      _=Mojo.u,
+      is=Mojo.is,
+      dom=Mojo.dom,
+      _shakingSprites = [];
 
-    let _= Mojo.u,
-        is= Mojo.is,
-        _pool= [],
-        EBus=Mojo.EventBus;
+    _.inject(Mojo.p, {
+      Matrix: PIXI.Matrix.TEMP_MATRIX,
+      RTexture: PIXI.RenderTexture,
+      Rectangle: PIXI.Rectangle,
+      BText: PIXI.BitmapText,
+      Sprite: PIXI.Sprite,
+      Graphics: PIXI.Graphics,
+      Text: PIXI.Text,
+      TSprite: PIXI.TilingSprite,
+      ASprite: PIXI.AnimatedSprite,
+      PContainer: PIXI.ParticleContainer });
 
     /**
-     * @see https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Transformations
-     * @see https://www.w3resource.com/html5-canvas/html5-canvas-matrix-transforms.php
      * @private
-     * @class
+     * @function
      */
-    let Xform2D = (function(A,C,E,B,D,F,Z) {
-      return Mojo.defType("Xfrom2D", {
-        init: function(source) {
-          this.m= new Array(Z);
-          source ? this.clone(source) : this.identity();
-        },
-        identity: function() {
-          //a,b,c,d,e,f = [a c e] = [1 0 0]
-          //              [b d f] = [0 1 0]
-          //              [0 0 1] = [0 0 1]
-          //a = horz scaling //c = vert skewing //e = horz moving (dx)
-          //b = horz skewing //d = vert scaling //f = vert moving (dy)
-          let m = this.m;
-          m[A] = 1; m[C] = 0; m[E] = 0;
-          m[B] = 0; m[D] = 1; m[F] = 0;
-          return this;
-        },
-        clone: function(src) {
-          for(let i=0;i<this.m.length;++i)
-          this.m[i]=src.m[i];
-          return this;
-        },
-        mult: function(other) {
-          //basic Matrix3x3 X Matrix3x3 stuff
-          let m = this.m,
-              n = other.m;
-          let a = m[A]*n[A] + m[C]*n[B],
-              c = m[A]*n[C] + m[C]*n[D],
-              e = m[A]*n[E] + m[C]*n[F] + m[E],
-              b = m[B]*n[A] + m[4]*n[B],
-              d = m[B]*n[C] + m[4]*n[D],
-              f = m[B]*n[E] + m[4]*n[F] + m[F];
-
-          m[A]=a; m[C]=c; m[E] = e;
-          m[B]=b; m[D]=d; m[F] = f;
-          return this;
-        },
-        rot: function(deg) {
-          return this.rotate(Math.PI * deg / 180);
-        },
-        rotate: function(rad) {
-          if(rad === 0) { return this; }
-          let m=this.m,
-              cos = Math.cos(rad),
-              sin = Math.sin(rad);
-          let a = m[A]*cos  + m[C]*sin;
-          let c = m[A]*-sin + m[C]*cos;
-          let b = m[B]*cos  + m[D]*sin;
-          let d = m[B]*-sin + m[D]*cos;
-          m[A] = a; m[C] = c;
-          m[B] = b; m[D] = d;
-          return this;
-        },
-        scale: function(sx,sy) {
-          if(sy === undefined) { sy = sx; }
-          let m = this.m;
-          m[A] *= sx;
-          m[C] *= sy;
-          m[B] *= sx;
-          m[D] *= sy;
-          return this;
-        },
-        translate: function(tx,ty) {
-          let m = this.m;
-          m[E] += m[A]*tx + m[C]*ty;
-          m[F] += m[B]*tx + m[D]*ty;
-          return this;
-        },
-        transformX: function(x,y) {
-          return x * this.m[A] + y * this.m[C] + this.m[E];
-        },
-        transformY: function(x,y) {
-          return x * this.m[B] + y * this.m[D] + this.m[F];
-        },
-        transform: function(x,y) {
-          // x' = ax + cy + e
-          // y' = bx + dy + f
-          return [this.transformX(x,y), this.transformY(x,y)];
-        },
-        transformPt: function(obj) {
-          let rc= this.transform(obj.x, obj.y);
-          obj.x = rc[0];
-          obj.y = rc[1];
-          return obj;
-        },
-        transformArr: function(inPt,outPt) {
-          let rc= this.transform(inPt[0], inPt[1]);
-          if(outPt===undefined)
-            outPt=rc;
-          else {
-            outPt[0] = rc[0];
-            outPt[1] = rc[1];
-          }
-          return outPt;
-        },
-        release: function() {
-          _pool.push(this.identity());
-        },
-        setContextTransform: function(ctx) {
-          let m=this.m;
-          ctx.transform(m[A],m[B],m[C],m[D],m[E],m[F]);
+    function _enhanceAnimSprite(s) {
+      let timeInterval,
+        frameCounter = 0,
+        startFrame = 0,
+        endFrame = 0,
+        numberOfFrames = 0;
+      function reset() {
+        if(s.animating && timerInterval !== undefined) {
+          s.animating = false;
+          frameCounter=
+          startFrame=
+          endFrame=
+          numberOfFrames = 0;
+          _.clrTimer(timerInterval);
         }
-      });
-    })(0,1,2,3,4,5,6);
-
-    /**
-     * @private
-     * @function
-     */
-    let txMatrix = () => {
-      return _pool.length > 0 ? _pool.pop() : new Xform2D();
-    };
-
-    /**
-     * @private
-     * @var {map}
-     */
-    let _sheets = _.jsMap();
-
-    Mojo.calcTextSize = (label) => {
-    };
-
-    /**Represents an individual element within a sprite-sheet.
-     * @public
-     * @class
-     */
-    Mojo.defType("SpriteSheet",{
-      /**
-       * @constructs
-       */
-      init: function(name, asset,options) {
-        //name=Player, asset = sprites.png,
-        //options= {file position,size,frames info}
-        let S= Mojo.asset(asset,true);
-        _.inject(this,{frameInfo: {},
-                       name: name,
-                       asset: asset,
-                       sx: 0, sy: 0,
-                       tileW: 64, tileH: 64,
-                       w: S.width, h: S.height,
-                       spacingX: 0, spacingY: 0}, options);
-        if(!this.cols)
-          this.cols= _.floor((this.w+this.spacingX) / (this.tileW+this.spacingX));
-        this.frames = this.cols * (_.floor(this.h/(this.tileH + this.spacingY)));
-      },
-      fx: function(frame) {
-        return _.floor((frame % this.cols) * (this.tileW + this.spacingX) + this.sx);
-      },
-      fy: function(frame) {
-        return _.floor(_.floor(frame / this.cols) * (this.tileH + this.spacingY) + this.sy);
-      },
-      draw: function(ctx, x, y, frame) {
-        ctx.drawImage(Mojo.asset(this.asset),
-                      this.fx(frame), this.fy(frame),
-                      this.tileW, this.tileH,
-                      _.floor(x), _.floor(y),
-                      this.tileW, this.tileH);
       }
-    }, Mojo);
-
-    /**
-     * @public
-     * @function
-     */
-    Mojo.sheet = (name,asset,options) => {
-      if(asset)
-        _.assoc(_sheets,name,
-                new Mojo.SpriteSheet(name,asset,options));
-      return _.get(_sheets,name);
-    };
-
-    /**Extracts & split individual elements from a sprite sheet.
-     * @public
-     * @function
-     */
-    Mojo.parseSheet = (imageAsset,spriteData) => {
-      let data = Mojo.asset(spriteData,true);
-      _.doseq(data, (info,name) => {
-        Mojo.sheet(name,imageAsset,info);
-      });
-    };
-
-    /**Logical bounding box of an object.
-     * @public
-     * @function
-     */
-    Mojo.genPts = (obj,force) => {
-      if(force ||
-         obj.p.points === undefined ||
-         obj.p.points.length===0) {
-        let hw = obj.p.w/2,
-            hh = obj.p.h/2;
-        obj.p.points = [Mojo.v2(-hw, -hh), Mojo.v2(hw, -hh),
-                        Mojo.v2(hw, hh), Mojo.v2(-hw, hh)];
-      }
-    };
-
-    /**A Dummy
-     * @private
-     * @var {object}
-     */
-    let _nullContainer= {matrix: txMatrix(),
-                         c: {x: 0, y: 0, angle: 0,
-                             origScale: [1,1], scale: [1,1]}};
-
-    /**
-     * @public
-     * @function
-     */
-    Mojo.genContactPts= (obj) => {
-
-      if(!obj.refreshMatrix) {return;}
-
-      if(!obj.c)
-        obj.c = { points: [], scale: [1,1], origScale: [1,1] };
-
-      let p = obj.p,
-          c = obj.c,
-          cps= c.points,
-          pps= p.points;
-
-      if(!pps)
-        return;
-
-      if(!p.moved &&
-         c.origX === p.x &&
-         c.origY === p.y &&
-         c.origScale[0] === p.scale[0] &&
-         c.origScale[1] === p.scale[1] &&
-         c.origAngle === p.angle) {return;}
-
-      c.origX = p.x;
-      c.origY = p.y;
-      c.origScale[0] = p.scale[0];
-      c.origScale[1] = p.scale[1];
-      c.origAngle = p.angle;
-
-      obj.refreshMatrix();
-
-      if(!obj.container &&
-         p.angle === 0 &&
-         p.scale[0] === 1 &&
-         p.scale[1] === 1) {
-        //the actual bounding box points of the object
-        for(let i=0;i<pps.length;++i) {
-          cps[i] = cps[i] || Mojo.v2();
-          cps[i][0] = p.x + pps[i][0];
-          cps[i][1] = p.y + pps[i][1];
+      s.show = (frame) => { reset(); s.gotoAndStop(frame); };
+      s.stopAnimation = () => { reset(); s.gotoAndStop(s.currentFrame); }
+      function advanceFrame() {
+        if(frameCounter < numberOfFrames+1) {
+          s.gotoAndStop(s.currentFrame+1);
+          frameCounter += 1;
+        } else if(s.loop) {
+          s.gotoAndStop(startFrame);
+          frameCounter = 1;
         }
-        c.x = p.x;
-        c.y = p.y;
-        c.w = p.w;
-        c.h = p.h;
-        c.cx = p.cx;
-        c.cy = p.cy;
+      }
+      s.playAnimation= (seq) => {
+        reset();
+        if(seq) {
+          endFrame = seq[1];
+          startFrame = seq[0];
+        } else {
+          startFrame = 0;
+          endFrame = s.totalFrames - 1;
+        }
+        numberOfFrames = endFrame - startFrame;
+        if(!s.fps) s.fps = 12;
+        let frameRate = 1000 / s.fps;
+        s.gotoAndStop(startFrame);
+        frameCounter = 1;
+        if(!s.animating) {
+          timerInterval = _.setTimer(advanceFrame.bind(this), frameRate);
+          s.animating = true;
+        }
+      }
+    }
+    /**
+     * @private
+     * @function
+     */
+    function _getCenter(o, dimension, axis) {
+      if(o.anchor !== undefined) {
+        return (o.anchor[axis] !== 0) ? 0 : dimension / 2;
       } else {
-        let minX = _.POS_INF,
-            minY = _.POS_INF,
-            maxX = _.NEG_INF,
-            maxY = _.NEG_INF,
-            parent = obj.container || _nullContainer;
-
-        c.x = parent.matrix.transformX(p.x,p.y);
-        c.y = parent.matrix.transformY(p.x,p.y);
-        c.angle = p.angle + parent.c.angle;
-        c.scale[0] = parent.c.scale[0] * p.scale[0];
-        c.scale[1] = parent.c.scale[1] * p.scale[1];
-
-        for(let x,y,i=0;i<pps.length;++i) {
-          cps[i]= obj.matrix.transformArr(pps[i], cps[i]);
-          x = cps[i][0];
-          y = cps[i][1];
-          if(x < minX) minX = x;
-          if(x > maxX) maxX = x;
-          if(y < minY) minY = y;
-          if(y > maxY) maxY = y;
-        }
-
-        if(minX === maxX) maxX+=1;
-        if(minY === maxY) maxY+=1;
-
-        c.cx = c.x - minX;
-        c.cy = c.y - minY;
-
-        c.w = maxX - minX;
-        c.h = maxY - minY;
+        return dimension;
       }
-
-      p.moved = false;
-
-      obj.children &&
-        (obj.children.length > 0) &&
-          _.invoke(obj.children,"moved");
+    }
+    /**
+     * @public
+     * @function
+     * Make a sprite ease to the position of another sprite.
+     * Parameters:
+     * a. A sprite object. This is the `follower` sprite.
+     * b. A sprite object. This is the `leader` sprite that the follower will chase.
+     * c. The easing value, such as 0.3. A higher number makes the follower move faster.
+       gu.followEase(follower, leader, speed);
+     */
+    _S.followEase=function(follower, leader, speed) {
+      let vx = (leader.x + _getCenter(leader, leader.width, "x")) - (follower.x + _getCenter(follower, follower.width, "x")),
+          vy = (leader.y + _getCenter(leader, leader.height, "y")) - (follower.y + _getCenter(follower, follower.height, "y")),
+          distance = _.sqrt(vx * vx + vy * vy);
+      //Move the follower if it's more than 1 pixel
+      //away from the leader
+      if(distance >= 1) {
+        follower.x += vx * speed;
+        follower.y += vy * speed;
+      }
     };
+    /**
+     * @public
+     * @function
+     * Make a sprite move towards another sprite at a constant speed.
+     * Parameters:
+     * a. A sprite object. This is the `follower` sprite.
+     * b. A sprite object. This is the `leader` sprite that the follower will chase.
+     * c. The speed value, such as 3. The is the pixels per frame that the sprite will move. A higher number makes the follower move faster.
+       gu.followConstant(follower, leader, speed);
+     */
+    _S.followConstant=function(follower, leader, speed) {
+      let vx = (leader.x + _getCenter(leader, leader.width, "x")) - (follower.x + _getCenter(follower, follower.width, "x")),
+          vy = (leader.y + _getCenter(leader, leader.height, "y")) - (follower.y + _getCenter(follower, follower.height, "y")),
+          distance = _.sqrt(vx * vx + vy * vy);
+      //Move the follower if it's more than 1 move away from the leader
+      if(distance >= speed) {
+        follower.x += (vx / distance) * speed;
+        follower.y += (vy / distance) * speed;
+      }
+    };
+    /**
+     * @public
+     * @function
+     * Return the angle in Radians between two sprites.
+     * Parameters:
+     * a. A sprite object.
+     * b. A sprite object.
+     * You can use it to make a sprite rotate towards another sprite like this:
+     * box.rotation = gu.angle(box, pointer);
+     */
+    _S.angle= function(s1, s2) {
+      return Math.atan2(
+        //This is the code you need if you don't want to compensate
+        //for a possible shift in the sprites' x/y anchor points
+        /*
+        (s2.y + s2.height / 2) - (s1.y + s1.height / 2),
+        (s2.x + s2.width / 2) - (s1.x + s1.width / 2)
+        */
+        //This code adapts to a shifted anchor point
+        (s2.y + _getCenter(s2, s2.height, "y")) - (s1.y + _getCenter(s1, s1.height, "y")),
+        (s2.x + _getCenter(s2, s2.width, "x")) - (s1.x + _getCenter(s1, s1.width, "x"))
+      );
+    };
+    /**
+     * @public
+     * @function
+     * Make a sprite rotate around another sprite.
+     * Parameters:
+     * a. The sprite you want to rotate.
+     * b. The sprite around which you want to rotate the first sprite.
+     * c. The distance, in pixels, that the roating sprite should be offset from the center.
+     * d. The angle of rotations, in radians.
+     * gu.rotateAroundSprite(orbitingSprite, centerSprite, 50, angleInRadians);
+     * Use it inside a game loop, and make sure you update the angle value (the 4th argument) each frame.
+     */
+    _S.rotateAroundSprite= function(rotatingSprite, centerSprite, distance, angle) {
+      rotatingSprite.x
+        = (centerSprite.x + _getCenter(centerSprite, centerSprite.width, "x")) - rotatingSprite.parent.x
+        + (distance * Math.cos(angle))
+        - _getCenter(rotatingSprite, rotatingSprite.width, "x");
 
+      rotatingSprite.y
+        = (centerSprite.y + _getCenter(centerSprite, centerSprite.height, "y")) - rotatingSprite.parent.y
+        + (distance * Math.sin(angle))
+        - _getCenter(rotatingSprite, rotatingSprite.height, "y");
+    };
+    /**
+     * @public
+     * @function
+     * Make a point rotate around another point.
+     * Parameters:
+     * a. The point you want to rotate.
+     * b. The point around which you want to rotate the first point.
+     * c. The distance, in pixels, that the roating sprite should be offset from the center.
+     * d. The angle of rotations, in radians.
+     * gu.rotateAroundPoint(orbitingPoint, centerPoint, 50, angleInRadians);
+     * Use it inside a game loop, and make sure you update the angle value (the 4th argument) each frame.
+     */
+    _S.rotateAroundPoint=function(pointX, pointY, distanceX, distanceY, angle) {
+      return _.p2(pointX + Math.cos(angle) * distanceX, pointY + Math.sin(angle) * distanceY );
+    };
+    _S.move=function(...sprites) {
+      if(sprites.length===1 && is.vec(sprites[0])) {
+        sprites=sprites[0];
+      }
+      sprites.forEach(s => {
+        s.x += s.vx;
+        s.y += s.vy;
+      });
+    };
+    /**
+     * @public
+     * @function
+     * The `lineOfSight` method will return `true` if there’s clear line of sight
+     * between two sprites, and `false` if there isn’t. Here’s how to use it in your game code:
+     *  monster.lineOfSight = gu.lineOfSight(
+     *      monster, //Sprite one
+     *      alien,   //Sprite two
+     *      boxes,   //An array of obstacle sprites
+     *      16       //The distance between each collision point
+     *  );
+     * The 4th argument determines the distance between collision points.
+     * For better performance, make this a large number, up to the maximum
+     * width of your smallest sprite (such as 64 or 32). For greater precision,
+     * use a smaller number. You can use the lineOfSight value to decide how
+     * to change certain things in your game. For example:
+     *
+     *  if (monster.lineOfSight)
+     *    monster.show(monster.states.angry)
+     *  else
+     *    monster.show(monster.states.normal)
+     *
+     */
+    _S.lineOfSight= function(s1, s2, obstacles, segment = 32) {
+      //The distance between collision points
+      let spriteOneCenterX = s1.x + _getCenter(s1, s1.width, "x"),
+        spriteOneCenterY = s1.y + _getCenter(s1, s1.height, "y"),
+        spriteTwoCenterX = s2.x + _getCenter(s2, s2.width, "x"),
+        spriteTwoCenterY = s2.y + _getCenter(s2, s2.height, "y"),
+        //Plot a vector between spriteTwo and spriteOne
+        vx = spriteTwoCenterX - spriteOneCenterX,
+        vy = spriteTwoCenterY - spriteOneCenterY,
+        magnitude = Math.sqrt(vx * vx + vy * vy),
+        //How many points will we need to test?
+        numberOfPoints = magnitude / segment;
+
+      //Create an array of x/y points, separated by 64 pixels, that
+      //extends from `spriteOne` to `spriteTwo`
+      let points = () => {
+        let arrayOfPoints = [];
+        //Create a point object for each segment of the vector and
+        //store its x/y position as well as its index number on
+        //the map array
+        for(let i=1; i<=numberOfPoints; ++i) {
+          let newMagnitude = segment * i;
+          //Find the unit vector. This is a small, scaled down version of
+          //the vector between the sprites that's less than one pixel long.
+          //It points in the same direction as the main vector, but because it's
+          //the smallest size that the vector can be, we can use it to create
+          //new vectors of varying length
+          let dx = vx / magnitude,
+            dy = vy / magnitude,
+            //Use the unit vector and newMagnitude to figure out the x/y
+            //position of the next point in this loop iteration
+            x = spriteOneCenterX + dx * newMagnitude,
+            y = spriteOneCenterY + dy * newMagnitude;
+          _.conj(arrayOfPoints.push(_.p2(x, y)));
+        }
+        return arrayOfPoints;
+      };
+      let hitTestPoint = (point, sprite) => {
+        //Find out if the point's position is inside the area defined
+        //by the sprite's left, right, top and bottom sides
+        let left = point.x > sprite.x,
+          right = point.x < (sprite.x + sprite.width),
+          top = point.y > sprite.y,
+          bottom = point.y < (sprite.y + sprite.height);
+        //If all the collision conditions are met, you know the
+        //point is intersecting the sprite
+        return left && right && top && bottom;
+      };
+      //The `noObstacles` function will return `true` if all the tile
+      //index numbers along the vector are `0`, which means they contain
+      //no obstacles. If any of them aren't 0, then the function returns
+      //`false` which means there's an obstacle in the way
+      let noObstacles = points().every(pt => {
+        return obstacles.every(o => {
+          return !hitTestPoint(pt, o);
+        });
+      });
+
+      return noObstacles;
+    };
+    /**
+     * @public
+     * @function
+     *
+     * Find the distance in pixels between two sprites.
+     */
+    _S.distance= function(s1, s2) {
+      let vx = (s2.x + _getCenter(s2, s2.width, "x")) - (s1.x + _getCenter(s1, s1.width, "x")),
+        vy = (s2.y + _getCenter(s2, s2.height, "y")) - (s1.y + _getCenter(s1, s1.height, "y"));
+      return _.sqrt(vx * vx + vy * vy);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.update= (dt) => {
+      _.rseq(s => s.updateShake && s.updateShake());
+    };
     /**
      * @private
-     * @var {object}
+     * @function
      */
-    let _flipArgs= {x: Mojo.v2(-1, 1),
-                    y: Mojo.v2( 1, -1),
-                    xy: Mojo.v2(-1, -1) };
-
-    /**
-     * @public
-     * @property {number}
-     */
-    Mojo.D_RIGHT =10;
-    Mojo.D_LEFT =20;
-    Mojo.D_UP =30;
-    Mojo.D_DOWN =40;
-
+    function _sprite(source, width, height, tiling, x, y) {
+      let C= tiling ? Mojo.p.TSprite : Mojo.p.Sprite;
+      let o, texture;
+      if(is.str(source)) {
+        texture= Mojo.p.TCache[source];
+        if(!texture)
+          texture = Mojo.p.Texture.fromImage(source);
+        if(!texture)
+          throw `Error: ${source} not found`;
+        o= tiling ? new C(texture,width,height) : new C(texture);
+      } else if(_.inst(Mojo.p.Texture,source)) {
+        o= tiling ? new C(source,width,height) : new C(source);
+      } else if(is.vec(source)) {
+        if(is.str(source[0])) {
+          o= Mojo.p.ASprite[Mojo.p.TCache[source[0]] ? "fromFrames" : "fromImages"](source);
+        } else if(_.inst(Mojo.p.Texture,source[0])) {
+          o = new Mojo.p.ASprite(source);
+        }
+      }
+      if(o) {
+        o.x = x;
+        o.y = y;
+        if(width) o.width = width;
+        if(height) o.height = height;
+      }
+      return o;
+    }
     /**
      * @public
      * @function
      */
-    Mojo.dirToStr = (dir) => {
-      switch(dir) {
-        case Mojo.D_RIGHT: return "right";
-        case Mojo.D_LEFT: return "left";
-        case Mojo.D_UP: return "up";
-        case Mojo.D_DOWN: return "down";
-      }
-      return "";
+    _S.sprite= function(source, x=0, y=0) {
+      let o= _sprite(source,0,0,false,x,y);
+      _.inst(Mojo.p.ASprite,o) && _enhanceAnimSprite(o);
+      return o;
     };
-
-    /**
-     * @private
-     * @function
-     */
-    let _sortChild= (a,b) => {
-        return ((a.p && a.p.z) || -1) - ((b.p && b.p.z) || -1);
-    };
-
-    /**
-     * @public
-     * @class Sprite
-     */
-    Mojo.defType(["Sprite", Mojo.Entity], {
-      /**
-       * @constructs
-       */
-      init: function(props,defaults) {
-        this._super(_.inject({x: 0, y: 0, z: 0,
-                              angle: 0,
-                              frame: 0,
-                              flip: null,
-                              name: "",
-                              opacity: 1,
-                              type: Mojo.E_DEFAULT},defaults,props));
-        this.p.scale = this.p.scale ? this.p.scale.slice() : [1,1];
-        this.matrix = txMatrix();
-        this.children = [];
-        this.size();
-        this.refreshMatrix();
-      },
-      motion: function(dt) {
-        let p = this.p;
-        p.vx += p.ax * dt;
-        p.vy += p.ay * dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-      },
-      reposX: function(x) { this.p.x=x; },
-      reposY: function(y) { this.p.y=y; },
-      repos: function(x,y) {
-        this.p.x=x;
-        this.p.y=y;
-      },
-      add: function(ch) {
-        _.conj(this.children,ch);
-        _.assoc(ch,"container",this);
-        return this;
-      },
-      del: function(ch) {
-        if(_.disj(this.children, ch)) {
-          _.dissoc(ch,"container");
-        }
-        return this;
-      },
-      size: function(force) {
-        if(force ||
-           (this.p.w===undefined ||
-            this.p.h===undefined)) {
-          if(this.asset()) {
-            this.p.w = this.asset().width;
-            this.p.h = this.asset().height;
-          } else if(this.sheet()) {
-            this.p.w = this.sheet().tileW;
-            this.p.h = this.sheet().tileH;
-          }
-        }
-
-        //DONT DO THIS HERE!
-        //if(this.p.w===undefined) this.p.w=0;
-        //if(this.p.h===undefined) this.p.h=0;
-
-        // distance from center to left
-        if((force || this.p.cx === undefined) &&
-           this.p.w !== undefined) this.p.cx = this.p.w/2;
-
-        // distance from center to top
-        if((force || this.p.cy === undefined) &&
-           this.p.h !== undefined) this.p.cy = this.p.h/2;
-
-        return Mojo.v2(this.p.w,this.p.h);
-      },
-      asset: function(name,resize) {
-        if(name) {
-          this.p.asset = name;
-          if(resize) {
-            this.size(true);
-            Mojo.genPts(this,true);
-          }
-        }
-        return Mojo.asset(this.p.asset);
-      },
-      sheet: function(name,resize) {
-        if(name) {
-          this.p.sheet = name;
-          if(resize) {
-            this.size(true);
-            Mojo.genPts(this,true);
-          }
-        }
-        return Mojo.sheet(this.p.sheet);
-      },
-      hide: function() {
-        this.p.hidden = true;
-        return this;
-      },
-      show: function() {
-        this.p.hidden = false;
-        return this;
-      },
-      set: function(props) {
-        _.inject(this.p, props);
-        return this;
-      },
-      render: function(ctx) {
-        if(this.p.hidden ||
-           this.p.opacity === 0) { return; }
-
-        if(!ctx)
-          ctx = Mojo.ctx;
-
-        EBus.pub("predraw",this,ctx);
-        ctx.save();
-
-        if(this.p.opacity !== undefined &&
-           this.p.opacity !== 1) {
-          ctx.globalAlpha = this.p.opacity;
-        }
-
-        this.matrix.setContextTransform(ctx);
-
-        if(this.p.flip)
-          ctx.scale.apply(ctx, _flipArgs[this.p.flip]);
-
-        EBus.pub("beforedraw",this,ctx);
-        this.draw(ctx);
-        EBus.pub("draw",this,ctx);
-        ctx.restore();
-
-        if(this.p.sort)
-          this.children.sort(this._sortChild);
-
-        _.invoke(this.children,"render",ctx);
-
-        EBus.pub("postdraw",this,ctx);
-        this.debugRender(ctx);
-        return this;
-      },
-      center: function() {
-        if(this.container) {
-          this.p.x = 0;
-          this.p.y = 0;
-        } else {
-          this.p.x = Mojo.width_div2;
-          this.p.y = Mojo.height_div2;
-        }
-      },
-      draw: function(ctx) {
-        let p = this.p;
-        if(p.sheet) {
-          this.sheet().draw(ctx,-p.cx,-p.cy,p.frame);
-        } else if(p.asset) {
-          ctx.drawImage(Mojo.asset(p.asset),-p.cx,-p.cy);
-        } else if(p.color) {
-          ctx.fillStyle = p.color;
-          ctx.fillRect(-p.cx,-p.cy,p.w,p.h);
-        }
-        return this;
-      },
-      debugRender: function(ctx) {
-        if(!ctx ||
-           !Mojo.o.debug) {return this;}
-
-        if(!this.p.points)
-          Mojo.genPts(this);
-
-        let p0,pps= this.p.points;
-        p0=pps[0];
-
-        ctx.save();
-        this.matrix.setContextTransform(ctx);
-        ctx.beginPath();
-        ctx.fillStyle = this.p.hit ? "blue" : "red";
-        ctx.strokeStyle = "#FF0000";
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.moveTo(p0[0],p0[1]);
-        pps.forEach(pt => ctx.lineTo(pt[0],pt[1]));
-        ctx.lineTo(p0[0],p0[1]);
-        ctx.stroke();
-        if(Mojo.o.debugFill) { ctx.fill(); }
-        ctx.restore();
-
-        if(this.c) {
-          let c = this.c;
-          ctx.save();
-          ctx.globalAlpha = 1;
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = "#FF00FF";
-          ctx.beginPath();
-          ctx.moveTo(c.x - c.cx, c.y - c.cy);
-          ctx.lineTo(c.x - c.cx + c.w, c.y - c.cy);
-          ctx.lineTo(c.x - c.cx + c.w, c.y - c.cy + c.h);
-          ctx.lineTo(c.x - c.cx, c.y - c.cy + c.h);
-          ctx.lineTo(c.x - c.cx, c.y - c.cy);
-          ctx.stroke();
-          ctx.restore();
-        }
-      },
-      update: function(dt) {
-        EBus.pub("prestep",this,dt);
-        if(this.step)
-          this.step(dt);
-        EBus.pub("step",this,dt);
-        Mojo.genContactPts(this);
-
-        this.scene &&
-          (this.children.length > 0) &&
-            this.scene.update(this.children,dt,true);
-
-        // Reset collisions if we're tracking them
-        if(this.p.collisions)
-          this.p.collisions = [];
-      },
-      refreshMatrix: function() {
-        let p = this.p;
-        this.matrix.identity();
-
-        if(this.container)
-          this.matrix.mult(this.container.matrix);
-
-        this.matrix.translate(p.x,p.y);
-        this.matrix.scale(p.scale[0],p.scale[1]);
-        this.matrix.rot(p.angle);
-      },
-      moved: function() {
-        this.p.moved = true;
-      }
-    }, Mojo);
-
-    /**
-     * @public
-     * @class
-     */
-    Mojo.defType(["MovableSprite", Mojo.Sprite], {
-      init: function(p,defaults) {
-        this._super(p,_.inject({vx: 0, vy: 0, ax: 0, ay: 0,
-                                speed: 0, gravity: 0,
-                                direction: null,
-                                collisions: [],
-                                type: Mojo.E_DEFAULT | Mojo.E_ACTIVE},defaults));
-      }
-    },Mojo);
-
-    //---------- ui stuff, for now, lives in here  ---------------------------
-    Mojo.UI = {};
-
     /**
      * @public
      * @function
      */
-    Mojo.UI.drawRoundRect = (ctx, rect) => {
-      ctx.beginPath();
-      ctx.moveTo(-rect.cx + rect.radius, -rect.cy);
-      ctx.lineTo(-rect.cx + rect.w - rect.radius, -rect.cy);
-      ctx.quadraticCurveTo(-rect.cx + rect.w, -rect.cy, -rect.cx + rect.w, -rect.cy + rect.radius);
-      ctx.lineTo(-rect.cx + rect.w, -rect.cy + rect.h - rect.radius);
-      ctx.quadraticCurveTo(-rect.cx + rect.w,
-                           -rect.cy + rect.h,
-                           -rect.cx + rect.w - rect.radius,
-                           -rect.cy + rect.h);
-      ctx.lineTo(-rect.cx + rect.radius, -rect.cy + rect.h);
-      ctx.quadraticCurveTo(-rect.cx, -rect.cy + rect.h, -rect.cx, -rect.cy + rect.h - rect.radius);
-      ctx.lineTo(-rect.cx, -rect.cy + rect.radius);
-      ctx.quadraticCurveTo(-rect.cx, -rect.cy, -rect.cx + rect.radius, -rect.cy);
-      ctx.closePath();
+    _S.tilingSprite= function(source, width, height, x, y) {
+      if(width === undefined || height === undefined)
+        throw "Error: tilingSprite() requires width and height";
+      let o = _sprite(source, width, height, true, x,y);
+      Object.defineProperties(o, {
+
+        "tileX": _.pdef({
+          get() { return o.tilePosition.x; },
+          set(v) { o.tilePosition.x = v; }}),
+
+        "tileY": _.pdef({
+          get() { return o.tilePosition.y; },
+          set(v) { o.tilePosition.y = v; }}),
+
+        "tileScaleX": _.pdef({
+          get() { return o.tileScale.x; },
+          set(v) { o.tileScale.x = v; }}),
+
+        "tileScaleY": _.pdef({
+          get() { return o.tileScale.y; },
+          set(v) { o.tileScale.y = v; }})
+
+      });
+      return o
     };
-
     /**
      * @public
-     * @class
+     * @function
      */
-    Mojo.defType(["Container", Mojo.Sprite], {
-      /**
-       * @constructs
-       */
-      init: function(p,defaults) {
-        let props= _.inject({},p);
+    _S.animation=function(texture, tileW, tileH, spacing = 0) {
+      let pos= [],
+        t= Mojo.p.TCache[texture],
+        cols = t.width / tileW,
+        rows = t.height / tileH,
+        cells = cols * rows;
+      for(let x,y,i=0; i<cells; ++i) {
+        x = (i % cols) * tileW;
+        y = _.floor(i / cols) * tileH;
+        //Compensate for any optional spacing (padding) around the tiles if
+        //there is any. This bit of code accumlates the spacing offsets from the
+        //left side of the tileset and adds them to the current tile's position
+        if(spacing > 0) {
+          x += spacing + (spacing * i % cols);
+          y += spacing + (spacing * _.floor(i/cols));
+        }
+        _.conj(pos,[x, y]);
+      }
+      return this.frames(texture, pos, tileW, tileH);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.frame=function(source, width, height,x,y) {
+      let obj, texture;
+      if(is.str(source)) {
+        obj=Mojo.p.TCache[source];
+        if(obj)
+          texture = new Mojo.p.Texture(obj);
+      } else if(_.inst(Mojo.p.Texture,source)) {
+        texture = new Mojo.p.Texture(source);
+      }
+      if(!texture)
+        throw `Error: ${source} not loaded`;
+      texture.frame = new Mojo.p.Rectangle(x, y, width, height);
+      return texture;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.frames=function(source, coordinates, tileW, tileH) {
+      let obj,texture;
+      if(is.str(source)) {
+        obj=Mojo.p.TCache[source];
+        if(obj)
+          texture = new Mojo.p.Texture(obj);
+      } else if (_.inst(Mojo.p.Texture,source)) {
+        texture = new Mojo.p.Texture(source);
+      }
+      if (!texture)
+        throw `Error: ${source} not loaded`;
+      return coordinates.map(p => {
+        let f= new Mojo.p.Texture(texture);
+        f.frame = new Mojo.p.Rectangle(p[0], p[1], tileW, tileH);
+        return f;
+      });
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.frameSeries=function(startNumber, endNumber, baseName, extension) {
+      let frames = [];
+      for(let i=startNumber; i < endNumber+1; ++i) {
+        _.conj(frames, Mojo.p.TCache[`${baseName + i + extension}`]);
+      }
+      return frames;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.text=function(content,fontSpec, x = 0, y = 0) {
+      let msg = new Mojo.p.Text(content, fontSpec);
+      msg._content = content;
+      msg.x = x;
+      msg.y = y;
+      Object.defineProperty(msg, "content", _.pdef({
+        get() { return this._content; },
+        set(v) { this._content = v; this.text = v; }
+      }));
+      return msg;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.bitmapText= function(content, font, align, tint, x = 0, y = 0) {
+      let msg = new Mojo.p.BText(content, {font: font, align: align, tint: tint});
+      msg._content = content;
+      msg.x = x;
+      msg.y = y;
+      Object.defineProperty(msg, "content", _.pdef({
+        get() { return this._content; },
+        set(v) { this._content = v; this.text = v; }
+      }));
+      return msg;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.rectangle=function(width, height,
+      fillStyle = 0xFF3300,
+      strokeStyle = 0x0033CC, lineWidth = 0, x = 0, y = 0) {
 
-        if(_.isPerc(props.w)) {
-          props.w = parseInt(props.w) * Mojo.width/100;
-          props.x = Mojo.width_div2 - props.w/2;
-        }
+      let self=this,
+        o = new Mojo.p.Graphics();
+      o.__sprite = undefined;
+      o.__width = width;
+      o.__height = height;
+      o.__fillStyle = this.color(fillStyle);
+      o.__strokeStyle = this.color(strokeStyle);
+      o.__lineWidth = lineWidth;
 
-        if(_.isPerc(props.h)) {
-          props.h = parseInt(p.h) * Mojo.height/100;
-          props.y = Mojo.height_div2 - props.h/2;
-        }
+      let draw = (width, height, fillStyle, strokeStyle, lineWidth) => {
+        o.clear();
+        o.beginFill(fillStyle);
+        if(lineWidth > 0)
+          o.lineStyle(lineWidth, strokeStyle, 1);
+        o.drawRect(0, 0, width, height);
+        o.endFill();
+      };
+      draw(o.__width, o.__height, o.__fillStyle, o.__strokeStyle, o.__lineWidth);
+      let sprite = new Mojo.p.Sprite(_S.generateTexture(o));
+      sprite.x = x;
+      sprite.y = y;
+      Object.defineProperties(sprite, {
+        "fillStyle": _.pdef({
+          get() { return o.__fillStyle; },
+          set(v) {
+            o.__fillStyle = self.color(v);
+            draw(o.__width, o.__height, o.__fillStyle, o.__strokeStyle, o.__lineWidth);
+            o.__sprite.texture = _S.generateTexture(o);
+          }}),
+        "strokeStyle": _.pdef({
+          get() { return o.__strokeStyle; },
+          set(v) {
+            o.__strokeStyle = self.color(v);
+            draw(o.__width, o.__height, o.__fillStyle, o.__strokeStyle, o.__lineWidth);
+            o.__sprite.texture = _S.generateCanvasTexture(o); } }),
+        "lineWidth": _.pdef({
+          get() { return o.__lineWidth; },
+          set(v) {
+            o.__lineWidth = v;
+            draw(o.__width, o.__height, o.__fillStyle, o.__strokeStyle, o.__lineWidth);
+            o.__sprite.texture = _S.generateCanvasTexture(o);
+          }})
+      });
+      return (o.__sprite = sprite);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.circle= function(diameter, fillStyle=0xFF3300, strokeStyle=0x0033CC, lineWidth=0, x=0, y=0) {
+      let self=this,
+        o = new Mojo.p.Graphics();
+      o._diameter = diameter;
+      o._fillStyle = this.color(fillStyle);
+      o._strokeStyle = this.color(strokeStyle);
+      o._lineWidth = lineWidth;
 
-        this._super(props, _.inject({opacity: 1,
-                                     hidden: false,
-                                     fill: null, // Set to color to add background
-                                     highlight:   null, // Set to color to for button
-                                     radius: 5, // Border radius
-                                     stroke: "#000",
-                                     border: false, // Set to a width to show a border
-                                     shadow: false, // Set to true or a shadow offest
-                                     shadowColor: false, // Set to a rgba value for the shadow
-                                     outlineWidth: false, // Set to a width to outline text
-                                     outlineColor: "#000",
-                                     type: Mojo.E_NONE}, defaults));
-      },
-      insert: function(obj) {
-        return this.scene.insert(obj,this);
-      },
-      fit: function(padY,padX) {
-        let minObjX, minObjY, maxObjX, maxObjY,
-            maxX = -Inf, maxY=maxX, minX = Inf, minY=minX;
-
-        if(this.children.length > 0) {
-          //sort out min max bounding box
-          this.children.forEach(obj => {
-            minObjX = obj.p.x - obj.p.cx,
-            minObjY = obj.p.y - obj.p.cy,
-            maxObjX = obj.p.x - obj.p.cx + obj.p.w,
-            maxObjY = obj.p.y - obj.p.cy + obj.p.h;
-            if(minObjX < minX) minX = minObjX;
-            if(minObjY < minY) minY = minObjY;
-            if(maxObjX > maxX) maxX = maxObjX;
-            if(maxObjY > maxY) maxY = maxObjY;
-          });
-
-          if(padY===undefined) padY=0;
-          if(padX===undefined) padX=padY;
-          this.p.cx = -minX + padX;
-          this.p.cy = -minY + padY;
-          this.p.w = maxX - minX + padX*2;
-          this.p.h = maxY - minY + padY*2;
-
-          Mojo.genPts(this,true);
-          Mojo.genContactPts(this);
-        }
-        return this;
-      },
-      addShadow: function(ctx) {
-        if(this.p.shadow) {
-          let s= is.num(this.p.shadow) ? this.p.shadow : 5;
-          ctx.shadowOffsetX=s;
-          ctx.shadowOffsetY=s;
-          ctx.shadowColor = this.p.shadowColor || "rgba(0,0,50,0.1)";
-        }
-        return this;
-      },
-      clearShadow: (ctx) => {
-        ctx.shadowColor = "transparent";
-        return this;
-      },
-      drawRadius: function(ctx) {
-        Mojo.UI.drawRoundRect(ctx,this.p);
-        this.addShadow(ctx);
-        ctx.fill();
-        if(this.p.border) {
-          this.clearShadow(ctx);
-          ctx.lineWidth = this.p.border;
-          ctx.stroke();
-        }
-        return this;
-      },
-      drawSquare: function(ctx) {
-        this.addShadow(ctx);
-        if(this.p.fill) {
-          ctx.fillRect(-this.p.cx,-this.p.cy,
-                        this.p.w,this.p.h);
-        }
-        if(this.p.border) {
-          this.clearShadow(ctx);
-          ctx.lineWidth = this.p.border;
-          ctx.strokeRect(-this.p.cx,-this.p.cy,
-                          this.p.w,this.p.h);
-        }
-        return this;
-      },
-      draw: function(ctx) {
-        if(this.p.hidden ||
-           (!this.p.border && !this.p.fill)) {
+      let draw = (diameter, fillStyle, strokeStyle, lineWidth) => {
+        o.clear();
+        o.beginFill(fillStyle);
+        if(lineWidth > 0)
+          o.lineStyle(lineWidth, strokeStyle, 1);
+        o.drawCircle(0, 0, diameter/2);
+        o.endFill();
+      };
+      draw(o._diameter, o._fillStyle, o._strokeStyle, o._lineWidth);
+      let sprite = new this.Sprite(o.generateTexture());
+      sprite.x = x;
+      sprite.y = y;
+      Object.defineProperties(sprite, {
+        "fillStyle": _.pdef({
+          get() { return o._fillStyle; },
+          set(v) {
+            o._fillStyle = self.color(v);
+            draw(o._diameter, o._fillStyle, o._strokeStyle, o._lineWidth);
+            o._sprite.texture = o.generateTexture(); } }),
+        "strokeStyle": _.pdef({
+          get() { return o._strokeStyle; },
+          set(v) {
+            o._strokeStyle = self.color(v);
+            draw(o._diameter, o._fillStyle, o._strokeStyle, o._lineWidth);
+            o._sprite.texture = o.generateTexture(); } }),
+        "diameter": _.pdef({
+          get() { return o._diameter; },
+          set(v) {
+            o._lineWidth = 10;
+            draw(o._diameter, o._fillStyle, o._strokeStyle, o._lineWidth);
+            o._sprite.texture = o.generateTexture(); } }),
+        "radius": _.pdef({
+          get() { return o._diameter/2; },
+          set(v) {
+            draw(v*2, o._fillStyle, o._strokeStyle, o._lineWidth);
+            o._sprite.texture = o.generateTexture(); } })
+      });
+      return (o._sprite = sprite);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.line=function(strokeStyle, lineWidth, ax = 0, ay = 0, bx = 32, by = 32) {
+      let self=this,
+        o = new Mojo.p.Graphics();
+      o._strokeStyle = this.color(strokeStyle);
+      o._width = lineWidth;
+      o._ax = ax;
+      o._ay = ay;
+      o._bx = bx;
+      o._by = by;
+      let draw = (strokeStyle, lineWidth, ax, ay, bx, by) => {
+        o.clear();
+        o.lineStyle(lineWidth, strokeStyle, 1);
+        o.moveTo(ax, ay);
+        o.lineTo(bx, by);
+      };
+      draw(o._strokeStyle, o._width, o._ax, o._ay, o._bx, o._by);
+      Object.defineProperties(o, {
+        "ax": _.pdef({
+          get() { return o._ax; },
+          set(v) {
+            o._ax = v;
+            draw(o._strokeStyle, o._width, o._ax, o._ay, o._bx, o._by); } }),
+        "ay": _.pdef({
+          get() { return o._ay; },
+          set(v) {
+            o._ay = v;
+            draw(o._strokeStyle, o._width, o._ax, o._ay, o._bx, o._by); } }),
+        "bx": _.pdef({
+          get() { return o._bx; },
+          set(v) {
+            o._bx = v;
+            draw(o._strokeStyle, o._width, o._ax, o._ay, o._bx, o._by); } }),
+        "by": _.pdef({
+          get() { return o._by; },
+          set(v) {
+            o._by = v;
+            draw(o._strokeStyle, o._width, o._ax, o._ay, o._bx, o._by); } }),
+        "strokeStyle": _.pdef({
+          get() { return o._strokeStyle; },
+          set(v) {
+            o._strokeStyle = self.color(v);
+            draw(o._strokeStyle, o._width, o._ax, o._ay, o._bx, o._by); } }),
+        "width": _.pdef({
+          get() { return o._width; },
+          set(v) {
+            o._width = v;
+            draw(o._strokeStyle, o._width, o._ax, o._ay, o._bx, o._by); } })
+      });
+      return o;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.grid= function(cols, rows, cellW, cellH,
+                      isCenterCell, xOffset, yOffset, makeSprite, extra) {
+      let container = new Mojo.p.Container();
+      let length = cols * rows;
+      for(let s,x,y,i = 0; i < length; ++i) {
+        x = (i % cols) * cellW;
+        y = _.floor(i / cols) * cellH;
+        s= makeSprite();
+        container.addChild(s);
+        if(!isCenterCell) {
+          s.x = x + xOffset;
+          s.y = y + yOffset;
         } else {
-          ctx.globalAlpha = this.p.opacity;
-          ctx.strokeStyle = this.p.stroke;
-          ctx.fillStyle = this.p.fill;
-          if(this.p.highlight &&
-             this.p.frame === 1)
-            ctx.fillStyle = this.p.highlight;
-          this[this.p.radius>0?"drawRadius":"drawSquare"](ctx);
+          s.x = x + (cellW/2) - (s.width/2) + xOffset;
+          s.y = y + (cellH/2) - (s.width/2) + yOffset;
         }
-        return this;
+        extra && extra(s);
       }
-    }, Mojo.UI);
-
+      return container;
+    };
     /**
      * @public
-     * @class
+     * @function
      */
-    Mojo.defType(["Text", Mojo.Sprite], {
-      /**
-       * @constructs
-       */
-      init: function(p,defaults) {
-        this._super(p, _.inject({size: 24,
-                                 weight: "normal",
-                                 lineHeight: 1.2,
-                                 align: "center",
-                                 type: Mojo.E_UI}, defaults));
-        if(this.p.label)
-          this.calcSize();
-      },
-      calcSize: function() {
-        let p=this.p,
-            metrics,
-            maxLabel = "";
-        p.w = 0;
-        this.splitLabel = p.label.split("\n");
-        this.setFont(Mojo.ctx);
-        this.splitLabel.forEach(obj => {
-          metrics = Mojo.ctx.measureText(obj);
-          if(metrics.width> p.w)
-            p.w = metrics.width;
-        });
-        p.lineHeightPx = p.size * p.lineHeight;
-        p.h = p.lineHeightPx * this.splitLabel.length;
-        p.halfLeading = 0.5 * p.size * _.max(0, p.lineHeight-1);
-        p.cy = 0;
-        if(p.align === "center"){
-          p.cx = p.w/2;
-          p.points = [ [ -p.cx, 0],
-                       [ p.cx, 0],
-                       [ p.cx, p.h ],
-                       [ -p.cx, p.h ] ];
-        } else if(p.align === "right"){
-           p.cx = p.w;
-           p.points = [ [ -p.w, 0],
-                        [ 0, 0],
-                        [ 0, p.h ],
-                        [ -p.w, p.h ] ];
-        } else {
-           p.cx = 0;
-           p.points = [ [ 0, 0],
-                        [ p.w, 0],
-                        [ p.w, p.h ],
-                        [ 0, p.h ] ];
-        }
-        return this;
-      },
-      prerender: function() {
-        if(this.p.oldLabel !== this.p.label) {
-          this.p.oldLabel = this.p.label;
-          this.calcSize();
-          this.el.width = this.p.w;
-          this.el.height = this.p.h * 4;
-          this.ctx.clearRect(0,0,this.p.w,this.p.h);
-          this.ctx.fillStyle = "#FF0";
-          this.ctx.fillRect(0,0,this.p.w,this.p.h/2);
-          this.setFont(this.ctx);
-          this.ctx.fillText(this.p.label,0,0);
-        }
-        return this;
-      },
-      draw: function(ctx) {
-        let p = this.p;
-        if(p.opacity !== 0) {
-          if(p.oldLabel !== p.label) this.calcSize();
-          this.setFont(ctx);
-          if(p.opacity !== undefined) ctx.globalAlpha = p.opacity;
-          for(let obj,i=0,z=this.splitLabel.length;i<z;++i) {
-            obj=this.splitLabel[i];
-            if(p.outlineWidth)
-              ctx.strokeText(obj,0, p.halfLeading + i * p.lineHeightPx);
-            ctx.fillText(obj,0, p.halfLeading + i * p.lineHeightPx);
-          };
-        }
-        return this;
-      },
-      asset: function() {
-        return this.el;
-      },
-      setFont: function(ctx) {
-        ctx.textBaseline = "top";
-        ctx.font= this.font();
-        ctx.fillStyle = this.p.color || "black";
-        ctx.textAlign = this.p.align || "left";
-        ctx.lineWidth = this.p.outlineWidth || 0;
-        ctx.strokeStyle = this.p.outlineColor || "black";
-        return this;
-      },
-      font: function() {
-        if(!this.fontString)
-          this.fontString = (this.p.weight || "800") + " " +
-                            (this.p.size || 24) + "px " +
-                            (this.p.family || "Arial");
-        return this.fontString;
-      }
-    }, Mojo.UI);
-
+    _S.shoot=function(shooter, angle, container, bulletSpeed, bulletArray, bulletSprite,x,y) {
+      let b= bulletSprite();
+      b.anchor.set(0.5, 0.5);
+      shooter.addChild(b);
+      b.x = x;
+      b.y = y;
+      //Find the bullet's global coordinates so that we can use
+      //them to position the bullet on the new parent container
+      let tempGx = b.getGlobalPosition().x,
+        tempGy = b.getGlobalPosition().y;
+      container.addChild(b);
+      b.x = tempGx;
+      b.y = tempGy;
+      //Set the bullet's velocity
+      b.vx = Math.cos(angle) * bulletSpeed;
+      b.vy = Math.sin(angle) * bulletSpeed;
+      _.conj(bulletArray,b);
+    };
     /**
      * @public
-     * @class
+     * @function
      */
-    Mojo.defType(["Button", Mojo.UI.Container], {
-      /**
-       * @constructs
-       */
-      init: function(p, callback, defaults) {
-        this._super(p, _.inject({keyActionName: null,
-                                 type: Mojo.E_UI | Mojo.E_DEFAULT},defaults));
-        if(this.p.label &&
-           (!this.p.w || !this.p.h)) {
-          Mojo.ctx.save();
-          this.setFont(Mojo.ctx);
-          let metrics = Mojo.ctx.measureText(this.p.label);
-          Mojo.ctx.restore();
-          if(!this.p.h) this.p.h = 24 + 20;
-          if(!this.p.w) this.p.w = metrics.width + 20;
+    _S.shake=function(sprite, magnitude = 16, angular = false) {
+      let self = this,
+        counter = 1,
+        numberOfShakes = 10,
+        startX = sprite.x,
+        startY = sprite.y,
+        startAngle = sprite.rotation,
+        //Divide the magnitude into 10 units so that you can
+        //reduce the amount of shake by 10 percent each frame
+        magnitudeUnit = magnitude / numberOfShakes;
+      function upAndDownShake() {
+        if(counter < numberOfShakes) {
+          sprite.x = startX;
+          sprite.y = startY;
+          magnitude -= magnitudeUnit;
+          sprite.x += _.randXY(-magnitude, magnitude);
+          sprite.y += _.randXY(-magnitude, magnitude);
+          counter += 1;
         }
-        if(this.p.cx===undefined) this.p.cx = this.p.w/2;
-        if(this.p.cy===undefined) this.p.cy = this.p.h/2;
-        this.callback = callback;
-        EBus.sub("touchEnd",this,"push");
-        EBus.sub("touch",this,"highlight");
-        if(this.p.keyActionName)
-          EBus.sub(this.p.keyActionName,Mojo.input,"push",this);
-      },
-      highlight: function() {
-        if(this.sheet() !== undefined &&
-           this.sheet().frames > 1) { this.p.frame = 1; }
-        return this;
-      },
-      push: function() {
-        this.p.frame = 0;
-        this.callback && this.callback(this);
-        EBus.pub("click",this);
-        return this;
-      },
-      draw: function(ctx) {
-        this._super(ctx);
-        if(this.p.asset || this.p.sheet)
-          Mojo.Sprite.prototype.draw.call(this,ctx);
-        if(this.p.label) {
-          ctx.save();
-          this.setFont(ctx);
-          ctx.fillText(this.p.label,0,0);
-          ctx.restore();
+        if(counter >= numberOfShakes) {
+          sprite.x = startX;
+          sprite.y = startY;
+          _.disj(_shakingSprites,sprite);
         }
-        return this;
-      },
-      setFont: function(ctx) {
-        ctx.textBaseline = "middle";
-        ctx.font = this.p.font || "400 24px arial";
-        ctx.fillStyle = this.p.fontColor || "black";
-        ctx.textAlign = "center";
-        return this;
       }
-    }, Mojo.UI);
-
-    /**
-     * @public
-     * @class
-     */
-    Mojo.defType(["IFrame", Mojo.Sprite], {
-      init: function(p) {
-        this._super(p, {opacity: 1,
-                        type: Mojo.E_UI | Mojo.E_DEFAULT });
-        Mojo.domCss(Mojo.wrapper, "overflow", "hidden");
-        this.iframe = Mojo.domCtor("IFRAME", {src: this.p.url,
-                                              width: this.p.w,
-                                              height: this.p.h,
-                                              frameborder:0},
-                                             {position: "absolute", zIndex: 500});
-        if(this.p.background)
-          Mojo.domCss(this.iframe, "backgroundColor", this.p.background);
-        Mojo.domConj(iframe,Mojo.wrapper);
-        EBus.sub("inserted",this, function(parent) {
-          this.positionIFrame();
-          EBus.sub("disposed",parent,"remove",this);
-        });
-      },
-      positionIFrame: function() {
-        let x = this.p.x,
-            y = this.p.y;
-            cam=Mojo.getf(this.scene,"camera");
-        if(cam) {
-          x -= cam.x;
-          y -= cam.y;
+      let tiltAngle = 1;
+      function angularShake() {
+        if(counter < numberOfShakes) {
+          sprite.rotation = startAngle;
+          magnitude -= magnitudeUnit;
+          //Rotate the sprite left or right, depending on the direction,
+          //by an amount in radians that matches the magnitude
+          sprite.rotation = magnitude * tiltAngle;
+          counter += 1;
+          //Reverse the tilt angle so that the sprite is tilted
+          //in the opposite direction for the next shake
+          tiltAngle *= -1;
         }
-        if(this.oldX !== x ||
-           this.oldY !== y ||
-           this.oldOpacity !== this.p.opacity) {
-          Mojo.domCss(this.iframe, {opacity: this.p.opacity,
-                                    top: (y - this.p.cy) + "px",
-                                    left: (x - this.p.cx) + "px"});
-          this.oldX = x;
-          this.oldY = y;
-          this.oldOpacity = this.p.opacity;
+        //When the shaking is finished, reset the sprite's angle and
+        //remove it from the `shakingSprites` array
+        if(counter >= numberOfShakes) {
+          sprite.rotation = startAngle;
+          _.disj(_shakingSprites,sprite);
         }
-        return this;
-      },
-      step: function(dt) {
-        this._super(dt);
-        return this.positionIFrame();
-      },
-      remove: function() {
-        if(this.iframe) {
-          Mojo.wrapper.removeChild(this.iframe);
-          this.iframe = null;
-        }
-        return this;
       }
-    }, Mojo.UI);
-
-    /**
-     * @public
-     * @class
-     */
-    Mojo.defType(["HTMLElement", Mojo.Sprite], {
-      init: function(p) {
-        this._super(p, {opacity: 1, type: Mojo.E_UI});
-        Mojo.domCss(Mojo.wrapper, "overflow", "hidden");
-        this.el = Mojo.domCtor("div");
-        this.el.innerHTML = this.p.html;
-        Mojo.domConj(this.el, Mojo.wrapper);
-        EBus.sub("inserted",this, function(parent) {
-          this.position();
-          EBus.sub("disposed", parent,"remove",this);
-          EBus.sub("clear", parent,"remove",this);
-        });
-      },
-      position: function() { return this; },
-      step: function(dt) {
-        this._super(dt);
-        return this.position();
-      },
-      remove: function() {
-        if(this.el) {
-          Mojo.wrapper.removeChild(this.el);
-          this.el= null;
-        }
-        return this;
-      }
-    },Mojo.UI);
-
-    /**
-     * @public
-     * @class
-     */
-    Mojo.defType(["VerticalLayout", Mojo.UI.Container], {
-      init: function(p) {
-        this._super(p, {padY: 10, fit: 20});
-      },
-      openLayout: function() {
-        this.items=[];
-      },
-      addLayout: function(sprite) {
-        if(this.items)
-          for(let i=0;i<arguments.length;++i)
-            _.conj(this.items,arguments[i]);
-      },
-      lockLayout: function() {
-        let top,h=0;
-        this.items.forEach(m => {
-          if(h>0) h += this.p.padY;
-          h += m.p.h;
-        });
-        top= -h/2;
-        for(let m,i=0; i<this.items.length; ++i) {
-          m=this.items[i];
-          top += m.p.h/2;
-          m.repos(0,top);
-          this.insert(m);
-          top += m.p.h/2 + this.p.padY;
+      if(!_.has(_shakingSprites,sprite)) {
+        _.conj(_shakingSprites,sprite);
+        sprite.updateShake = () => {
+          angular ? angularShake() : upAndDownShake();
         };
-        if(this.p.fit)
-          this.fit(this.p.fit);
       }
-    },Mojo.UI);
-
+    };
     /**
      * @public
-     * @class
+     * @function
      */
-    Mojo.defType(["HorizontalLayout", Mojo.UI.Container], {
-      init: function(p) {
-        this._super(p, {padX: 10, fit: 20});
-      },
-      openLayout: function() {
-        this.items=[];
-      },
-      addLayout: function(sprite) {
-        if(this.items)
-          for(let i=0;i<arguments.length;++i)
-            _.conj(this.items,arguments[i]);
-      },
-      lockLayout: function() {
-        let left,w=0;
-        this.items.forEach(m => {
-          if(w>0) w += this.p.padX;
-          w += m.p.w;
-        });
-        left= -w/2;
-        for(let m,i=0;i <this.items.length;++i) {
-          m=this.items[i];
-          left += m.p.w/2;
-          m.repos(left,0);
-          this.insert(m);
-          left += m.p.w/2 + this.p.padX;
-        }
-        if(this.p.fit)
-          this.fit(this.p.fit);
+    _S.group=function(...sprites) {
+      let c= new Mojo.p.Container();
+      _.doseq(sprites, s => c.addChild(s));
+      return c;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.batch=function(size = 15000, options = {rotation: true,
+                                               alpha: true, scale: true, uvs: true}) {
+      return new Mojo.p.PContainer(size, options);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.remove=function(...sprites) {
+      if(sprites.length===1 && is.vec(sprites[0])) {
+        sprites=sprites[0];
       }
-    },Mojo.UI);
+      _.doseq(sprites, s => s.parent.removeChild(s));
+    };
+    /**
+     *From: http://stackoverflow.com/questions/1573053/javascript-function-to-convert-color-names-to-hex-codes
+     *Utilities to convert HTML color string names to hexadecimal codes
+     * @public
+     * @function
+     */
+    _S.colorToRGBA= function(color) {
+      // Returns the color as an array of [r, g, b, a] -- all range from 0 - 255
+      // color must be a valid canvas fillStyle. This will cover most anything
+      // you'd want to use.
+      // Examples:
+      // colorToRGBA('red')  # [255, 0, 0, 255]
+      // colorToRGBA('#f00') # [255, 0, 0, 255]
+      let cvs, ctx;
+      cvs = dom.newElm("canvas");
+      cvs.height = 1;
+      cvs.width = 1;
+      ctx = cvs.getContext("2d");
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+      return ctx.getImageData(0, 0, 1, 1).data;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.byteToHex=function(num) {
+      //turns a number (0-255) into a 2-character hex number (00-ff)
+      //grab last 2 digits
+      return ("0"+num.toString(16)).slice(-2);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.colorToHex=function(color) {
+      // Convert any CSS color to a hex representation
+      // Examples:
+      // colorToHex('red')            # '#ff0000'
+      // colorToHex('rgb(255, 0, 0)') # '#ff0000'
+      let rgba = this.colorToRGBA(color),
+        hex = [0,1,2].map(i => this.byteToHex(rgba[i])).join("");
+      return "0x" + hex;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.color=function(value) {
+      if(!isNaN(value)){
+        return value;
+      } else {
+        return parseInt(this.colorToHex(value));
+      }
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.swapChildren=function(par, c1, c2) {
+      if(par && par.children) {
+        let i1= par.children.indexOf(c1),
+          i2 = par.children.indexOf(c2);
+        if(i1 !== -1 && i2 !== -1) {
+          c1.childIndex = i2;
+          c2.childIndex = i1;
+          par.children[i1] = c2;
+          par.children[i2] = c1;
+        }
+      }
+      return par;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.add=function(par, ...sprites) {
+      _.doseq(sprites,s => par.addChild(s));
+      return par;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.remove=function(par, ...sprites) {
+      _.doseq(sprites,s => par.removeChild(s));
+      return par;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.extend=function(o) {
+      let a, self = this;
+      o=_.patch(o, {
+        vx: 0, vy: 0,
+        _layer: 0, _circular: false,
+        _interact: false, _draggable: false, _bumpPropertiesAdded: true});
+      a=o;
+      function nudge(o, value, axis) {
+        return o.anchor !== undefined
+          ? (o.anchor[axis] === 0 ? value : value * ((1 - o.anchor[axis]) - o.anchor[axis])) : value;
+      }
+      function compensate(a, b, p1, p2) {
+        let comp= (o, value, axis) => {
+          return o.anchor ? (o.anchor[axis] !== 0 ? value * o.anchor[axis] : 0) : 0; };
+        return comp(a, a[p1], p2) + comp(b, b[p1], p2);
+      };
+      //The `put` methods:
+      //Center a sprite inside this sprite. `xOffset` and `yOffset`
+      //arguments determine by how much the other sprite's position
+      //should be offset from the center. These methods use the
+      //sprites' global coordinates (`gx` and `gy`).
+      //In all these functions, `b` is the second sprite that is being
+      //positioned relative to the first sprite (this one), `a`.
+      //Center `b` inside `a`.
+      o.putCenter = function(b, xOffset = 0, yOffset = 0) {
+        if(o._stage) a = Mojo.adjustForStage(o);
+        b.x = (a.x + nudge(a, a.halfWidth, "x") - nudge(b, b.halfWidth, "x")) + xOffset;
+        b.y = (a.y + nudge(a, a.halfHeight, "y") - nudge(b, b.halfHeight, "y")) + yOffset;
+        if(!o._stage) o.adjustForParent(a, b);
+      };
+      //Position `b` to the left of `a`.
+      o.putLeft = function(b, xOffset = 0, yOffset = 0) {
+        if(o._stage) a = Mojo.adjustForStage(o);
+        b.x = (a.x - nudge(b, b.width, "x")) + xOffset - compensate(a, b, "width", "x");
+        b.y = (a.y + nudge(a, a.halfHeight, "y") - nudge(b, b.halfHeight, "y")) + yOffset;
+        if(!o._stage) o.adjustForParent(a, b);
+      };
+      //Position `b` above `a`.
+      o.putTop = function(b, xOffset = 0, yOffset = 0) {
+        if(o._stage) a = Mojo.adjustForStage(o);
+        b.x = (a.x + nudge(a, a.halfWidth, "x") - nudge(b, b.halfWidth, "x")) + xOffset;
+        b.y = (a.y - nudge(b, b.height, "y")) + yOffset - compensate(a, b, "height", "y");
+        if(!o._stage) o.adjustForParent(a, b);
+      };
+      //Position `b` to the right of `a`.
+      o.putRight = function(b, xOffset = 0, yOffset = 0) {
+        if(o._stage) a = Mojo.adjustForStage(o);
+        b.x = (a.x + nudge(a, a.width, "x")) + xOffset + compensate(a, b, "width", "x");
+        b.y = (a.y + nudge(a, a.halfHeight, "y") - nudge(b, b.halfHeight, "y")) + yOffset;
+        if(!o._stage) o.adjustForParent(a, b);
+      };
+      //Position `b` below `a`.
+      o.putBottom = function(b, xOffset = 0, yOffset = 0) {
+        if(o._stage) a = Mojo.adjustForStage(o);
+        b.x = (a.x + nudge(a, a.halfWidth, "x") - nudge(b, b.halfWidth, "x")) + xOffset;
+        b.y = (a.y + nudge(a, a.height, "y")) + yOffset + compensate(a, b, "height", "y");
+        if(!o._stage) o.adjustForParent(a, b);
+      };
+      //`adjustForParent` is a helper function for the above
+      //`put` methods that subracts the parent's global position from
+      //the nested child's position.
+      o.adjustForParent = (a, b) => {
+        if(b.parent.gx !== 0 || b.parent.gy !== 0) { b.x -= a.gx; b.y -= a.gy; }
+      };
+      Object.defineProperties(o, {
+        "gx": _.pdef({
+          get() { return o.getGlobalPosition().x } }),
+        "gy": _.pdef({
+          get() { return o.getGlobalPosition().y } }),
+        "centerX": _.pdef({
+          get() { return o.x + (o.width / 2) - o.xAnchorOffset; } }),
+        "centerY": _.pdef({
+          get() { return o.y + (o.height / 2) - o.yAnchorOffset; } }),
+        "halfWidth": _.pdef({
+          get() { return o.width / 2; }}),
+        "halfHeight": _.pdef({
+          get() { return o.height / 2; } }),
+        "scaleModeNearest": _.pdef({
+          set(v) {
+            if(!o.texture.baseTexture) throw "Error: no baseTexture";
+            o.texture.baseTexture.scaleMode =
+              v ? PIXI.SCALE_MODES.NEAREST : PIXI.SCALE_MODES.LINEAR; } }),
+        "pivotX": _.pdef({
+          get() { return o.anchor.x; },
+          set(v) {
+            if(o.anchor === undefined)
+              throw `${o} does not have a PivotX value`;
+            o.anchor.x = v;
+            if(!o._previousPivotX) {
+              o.x += v * o.width;
+            } else {
+              o.x += (v - o._previousPivotX) * o.width;
+            }
+            o._previousPivotX = v; } }),
+        "pivotY": _.pdef({
+          get() { return o.anchor.y; },
+          set(v) {
+            if(o.anchor === undefined)
+              throw `${o} does not have a PivotY value`;
+            o.anchor.y = v;
+            if(!o._previousPivotY) {
+              o.y += v * o.height;
+            } else {
+              o.y += (v - o._previousPivotY) * o.height;
+            }
+            o._previousPivotY = v; } }),
+        "xAnchorOffset": _.pdef({
+          get() {
+            return (o.anchor !== undefined) ? o.width * o.anchor.x : 0; } }),
+        "yAnchorOffset": _.pdef({
+          get() {
+            return (o.anchor !== undefined) ? o.height * o.anchor.y : 0; } }),
+        "scaleX": _.pdef({
+          get() { return o.scale.x },
+          set(v) { o.scale.x = v; } }),
+        "scaleY": _.pdef({
+          get() { return o.scale.y },
+          set(value) { o.scale.y = value; } }),
+        //Depth layer
+        "layer": _.pdef({
+          get() { return o._layer },
+          set(v) {
+            o._layer = v;
+            if(o.parent) {
+              //Sort the sprite’s parent’s `children` array so that sprites with a
+              //higher `layer` value are moved to the end of the array
+              o.parent.children.sort((a, b) => a.layer - b.layer);
+            }
+          } }),
+        "interact": _.pdef({
+          get() { return o._interact },
+          set(v) {
+            if(v) {
+              if(!o._interact) {
+                Mojo.makeInteractive(o);
+                o._interact = true;
+              }
+            } else {
+              if(_.disj(Mojo.Input.buttons, o))
+                o._interact = false;
+            }
+          } }),
+        //Drag and drop
+        "draggable": _.pdef({
+          get() { return o._draggable },
+          set(v) {
+            if(v) {
+              if(!o._draggable) {
+                Mojo.makeDraggable(o);
+                o._draggable = true;
+              }
+            } else {
+              Mojo.makeUndraggable(o)
+              o._draggable = false;
+            }
+          } }),
+        //The `localBounds` and `globalBounds` methods return an object
+        //with `x`, `y`, `width`, and `height` properties that define
+        //the dimensions and position of the sprite. This is a convenience
+        //to help you set or test boundaries without having to know
+        //these numbers or request them specifically in your code.
+        "localBounds": _.pdef({
+          get() {
+            return { x: 0, y: 0, width: o.width, height: o.height }; } }),
+        "globalBounds": _.pdef({
+          get() { return { x: o.gx, y: o.gy, width: o.gx + o.width, height: o.gy + o.height }; } }),
+        "empty": _.pdef({
+          get() { return o.children.length === 0; } }),
+        "circular": _.pdef({
+          get() { return o._circular; },
+          set(v) {
+            if(v && o._circular === false) {
+              Object.defineProperties(o, {
+                "diameter": _.pdef({
+                  get() { return o.width; },
+                  set(v) { o.width = v; o.height = v; } }),
+                "radius": _.pdef({
+                  get() { return o.halfWidth; },
+                  set(v) { o.width = v*2; o.height = v*2; } })
+              });
+              o._circular = true;
+            }
+            if(!value && o._circular) {
+              delete o.diameter;
+              delete o.radius;
+              o._circular = false;
+            }
+          } })
+      });
+      o.setPosition = (x, y) => { o.x = x; o.y = y; };
+      o.setScale = (xScale, yScale) => { o.scale.x = xScale; o.scale.y = yScale; };
+      o.setPivot = (xPivot, yPivot) => { o.pivotX = xPivot; o.pivotY = yPivot; };
+      if(o.circular)
+        Object.defineProperty(o, "radius", _.pdef({
+          get() { return o.width / 2; }
+        }));
+    };
+    /**
+     * Copied from pixi.legacy, why didn;t they want to keep this????
+     * so useful!
+     * @public
+     * @function
+     */
+    _S.generateTexture = function(displayObject, scaleMode, resolution, region) {
+      region = region || displayObject.getLocalBounds(null, true);
+      // minimum texture size is 1x1, 0x0 will throw an error
+      if(region.width === 0)
+      { region.width = 1; }
+      if(region.height === 0)
+      { region.height = 1; }
+      let renderTexture = Mojo.p.RTexture.create({
+        width: region.width | 0,
+        height: region.height | 0,
+        scaleMode: scaleMode,
+        resolution: resolution,
+      });
+      Mojo.p.Matrix.tx = -region.x;
+      Mojo.p.Matrix.ty = -region.y;
+      Mojo.ctx.render(displayObject, renderTexture, false, Mojo.p.Matrix, !!displayObject.parent);
+      return renderTexture;
+    };
 
-    return Mojo;
+    return Mojo.Sprites= _S;
   };
 
+
 })(this);
+
 
