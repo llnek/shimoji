@@ -1,5 +1,5 @@
 (defproject shimoji "0.1.0-SNAPSHOT"
-  :description "FIXME: write this!"
+  :description "canvas only,FIXME: write this!"
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [binaryage/oops "0.7.0"]
