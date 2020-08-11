@@ -532,6 +532,17 @@
           throw "could not find those objects";
         }
       };
+
+      //extend all nested sprites
+      let addProps = (obj)=> {
+        Mojo.Sprites.extend(obj);
+        obj.children &&
+          obj.children.forEach(c => addProps(c));
+      };
+      Mojo.Sprites.extend(world);
+      world.children &&
+        world.children.forEach(c => addProps(c));
+
       return world;
     };
     /* Isometric tile utilities */

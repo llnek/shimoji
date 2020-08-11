@@ -188,6 +188,10 @@ MojoH5.Config={
   assetFiles: ["images/bloxyee/bloxyee.json", "puzzler.otf", "music.wav", "bounce.wav"],
   arena: {width: 512, height: 512},
   scaleToWindow: true,
+  load: (Mojo,f,p) => {
+    console.log(`breakout- loading: ${f}`);
+    console.log(`breakout- progress: ${p}`);
+  },
   start: (Mojo) => {
     let G= Mojo.Game;
     G.state.set("bounce", Mojo.sound("bounce.wav"));

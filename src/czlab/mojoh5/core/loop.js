@@ -27,9 +27,12 @@
      * @function
      */
     function _update(dt) {
+      Mojo.loaderState && Mojo.loaderState();
       _libsToUpdate.forEach(m => m.update(dt));
       if(!_paused) {
-        _.doseq(Mojo.stage.children, s => s.update(dt));
+        _.doseq(Mojo.stage.children, (s)=> {
+          s.update && s.update(dt);
+        });
       }
     }
     /**

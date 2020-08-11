@@ -17,7 +17,6 @@
 
     let _loadingProgress = 0;
     let _loadingFile = "";
-    let _loadState;
     let _progressBar;
 
     let C= MojoH5.Core({}),
@@ -50,29 +49,34 @@
         //initialized: false,
         bgColor: "0x808080",
         fgColor: "0x00FFFF",
-        create: () => {
+        create: function() {
           let w2= Mojo.canvas.width/2,
             h2= Mojo.canvas.height/2;
           this.maxWidth = w2;
           //progress bar using two rectangle sprites and a text sprite
           this.front = Mojo.Sprites.rectangle(this.maxWidth, 32, this.fgColor);
+          Mojo.stage.addChild(this.front);
           this.back = Mojo.Sprites.rectangle(this.maxWidth, 32, this.bgColor);
+          Mojo.stage.addChild(this.back);
           this.back.x = w2 - (this.maxWidth / 2);
           this.back.y = h2 - 16;
           this.front.x = w2 - (this.maxWidth / 2);
           this.front.y = h2 - 16;
           //text sprite to show percentage
           this.perc= Mojo.Sprites.text("0%", "28px sans-serif", "black");
+          Mojo.stage.addChild(this.perc);
           this.perc.x = w2 - (this.maxWidth / 2) + 12;
           this.perc.y = h2 - 17;
           return this;
         },
-        update() {
+        update: function() {
           this.perc.content = `${Math.round(_loadingProgress)} %`;
           this.front.width = this.maxWidth * (_loadingProgress / 100);
+          console.log("file= " + _loadingFile);
+          console.log("progr= " + _loadingProgress);
           return this;
         },
-        remove() {
+        remove: function() {
           this.front.parent.removeChild(this.front);
           this.back.parent.removeChild(this.back);
           this.perc.parent.removeChild(this.perc);
@@ -131,8 +135,7 @@
         _.doseq(_spanElements,(e) => {
           dom.css(e, "display", "none");
         });
-        _loadState = null;
-        Mojo.state = null;
+        Mojo.loaderState = null;
         _progressBar=null;
         Mojo.o.start(Mojo);
       };
@@ -152,6 +155,16 @@
         }
       });
       if(files === 0) { finz(); }
+    }
+    /**
+     * @private
+     * @function
+     */
+    function _dftLoadState(ld,r) {
+      Mojo.loadingBar();
+      _loadingFile = r.url;
+      _loadingProgress = ld.progress;
+      Mojo.loadingBar();
     }
     /**
      * @private
@@ -187,12 +200,26 @@
       _loadingFile = "";
       _progressBar=null;
       if(filesToLoad.length>0) {
-        Mojo.p.loader
-          .add(filesToLoad)
-          .onProgress.add((l,r) => {
-                              _loadingFile = r.url;
-                              _loadingProgress = l.progress; });
-        Mojo.p.loader.load(_validateAssets.bind(Mojo));
+        Mojo.p.loader.add(filesToLoad);
+        if(Mojo.o.load) {
+          let files=[], progress=[];
+          Mojo.loaderState=function() {
+            let f= files.pop();
+            let p= progress.pop();
+            if(f !== undefined && is.num(p))
+            Mojo.o.load(Mojo,f,p);
+            if(p===100)
+              _validateAssets.call(Mojo);
+          };
+          Mojo.p.loader.onProgress.add((ld,r) => {
+            files.unshift(r.url);
+            progress.unshift(ld.progress);
+          });
+          Mojo.p.loader.load(() => { console.log("loaded!"); });
+        } else {
+          Mojo.p.loader.onProgress.add(_dftLoadState);
+          Mojo.p.loader.load(_validateAssets.bind(Mojo));
+        }
       } else {
         Mojo.o.start(Mojo);
       }
@@ -221,6 +248,7 @@
       Mojo.canvas.scaled = false;
       Mojo.stage= new Mojo.p.Container();
       _.doseq(_.seq("Sprites,Scenes,Tiles,Tween,Dust,Input,Sound,Loop,2d"), m => MojoH5[m](Mojo));
+      //Mojo.Sprites.extend(Mojo.stage);
       Object.defineProperties(Mojo.canvas, {
         "halfWidth": {
           enumerable: true, configurable: true,
@@ -230,8 +258,6 @@
           get() { return Mojo.canvas.height / 2 } }
       });
       Mojo.ctx.backgroundColor = 0xFFFFFF;
-      if(cmdArg.load)
-        Mojo.state = cmdArg.load;
       if(cmdArg.border)
         dom.css(Mojo.canvas, "border", cmdArg.border);
       if(cmdArg.backgroundColor)
@@ -242,7 +268,6 @@
       Mojo.scale = 1;
       if(cmdArg.scaleToWindow)
         Mojo.scaleToWindow(cmdArg.scaleBorderColor);
-      //TODO
       Mojo.pointer = Mojo.Input.makePointer(Mojo.canvas, Mojo.scale);
       _loadFiles(Mojo);
     }
