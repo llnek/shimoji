@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
 
@@ -468,7 +482,31 @@
         throw `${fname} not loaded`;
       return obj;
     };
-
+    /**
+     * @public
+     * @function
+     */
+    Mojo.rect=function(x,y,w,h) { return new Mojo.p.Rectangle(x,y,w,h); };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.tcached=function(x) { return x && this.p.TCache[x]; };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.textureFromImage=function(x) { return this.p.Texture.fromImage(x); };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.animFromFrames=function(x) { return this.p.ASprite.fromFrames(x); };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.animFromImages=function(x) { return this.p.ASprite.fromImages(x); };
     /**
      * @public
      * @property {class}
@@ -488,4 +526,7 @@
   return window.MojoH5=MojoH5;
 
 })(this);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

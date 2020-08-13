@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window=global,
@@ -9,19 +23,15 @@
    * @module
    */
   MojoH5.Input=function(Mojo) {
-    let _=Mojo.u,
+    let _element=Mojo.canvas, _scale=Mojo.scale;
+    const _=Mojo.u,
       is=Mojo.is,
-      _element=Mojo.canvas,
-      _scale=Mojo.scale,
       _pointers = [],
       _buttons = [],
       _draggableSprites = [];
     const _I= {
       get scale() { return _scale; },
-      set scale(v) {
-        _scale = v;
-        _.doseq(_pointers, p=> p.scale = v);
-      }
+      set scale(v) { _scale = v; _.doseq(_pointers, p=> p.scale=v); }
     };
     /**
      * @public
@@ -51,18 +61,6 @@
         _.disj(_draggableSprites,s);
         if(s._localDraggable) s.draggable = false;
       });
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.addGlobPos=function(s) {
-      if(s.gx === undefined)
-        Object.defineProperty(
-          s, "gx", { get() { return s.getGlobalPosition().x; } });
-      if(s.gy === undefined)
-        Object.defineProperty(
-          s, "gy", { get() { return s.getGlobalPosition().y; } });
     };
     /**
      * @public
@@ -159,25 +157,27 @@
         //event.preventDefault();
       };
       ptr.hitTestSprite= function(sprite) {
-        _I.addGlobPos(sprite);
         let hit = false,
           xAnchorOffset=0,
-          yAnchorOffset=0;
-        if(sprite.anchor !== undefined) {
+          yAnchorOffset=0,
+          w2=sprite.width/2,
+          h2=sprite.height/2;
+        if(sprite.anchor) {
           xAnchorOffset = sprite.width * sprite.anchor.x;
           yAnchorOffset = sprite.height * sprite.anchor.y;
         }
         if(!sprite.circular) {
           let left = sprite.gx - xAnchorOffset,
-            right = sprite.gx + sprite.width - xAnchorOffset,
             top = sprite.gy - yAnchorOffset,
+            right = sprite.gx + sprite.width - xAnchorOffset,
             bottom = sprite.gy + sprite.height - yAnchorOffset;
           hit = this.x > left && this.x < right && this.y > top && this.y < bottom;
         } else {
-          let vx = this.x - (sprite.gx + (sprite.width / 2) - xAnchorOffset),
-              vy = this.y - (sprite.gy + (sprite.width / 2) - yAnchorOffset),
+          //circle h=w
+          let vx = this.x - (sprite.gx + w2 - xAnchorOffset),
+              vy = this.y - (sprite.gy + h2 - yAnchorOffset),
               distance = Math.sqrt(vx * vx + vy * vy);
-          hit = distance < sprite.width / 2;
+          hit = distance < w2;
         }
         return hit;
       };
@@ -355,8 +355,8 @@
     _I.button= function(source, x = 0, y = 0) {
       let o, s0=source[0];
       if(is.str(s0)) {
-        o = Mojo.p.TCache[s0] ? Mojo.p.ASprite.fromFrames(source)
-                              : Mojo.p.ASprite.fromImages(source);
+        o = Mojo.tcached(s0) ? Mojo.animFromFrames(source)
+                              : Mojo.animFromImages(source);
       } else if(_.inst(Mojo.p.Texture,s0)) {
         o = new Mojo.p.ASprite(source);
       }
@@ -364,7 +364,7 @@
       o.tinkType = "button";
       o.x = x;
       o.y = y;
-      return o;
+      return Mojo.Sprites.extend(o);
     };
     /**
      * @public
@@ -469,4 +469,7 @@
   };
 
 })(this);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

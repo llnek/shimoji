@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window=global,
@@ -27,13 +41,15 @@
      * @function
      */
     function _update(dt) {
+      //run only during preloading of assets
       Mojo.loaderState && Mojo.loaderState();
+      //various libs that are required to run every frame
       _libsToUpdate.forEach(m => m.update(dt));
-      if(!_paused) {
-        _.doseq(Mojo.stage.children, (s)=> {
-          s.update && s.update(dt);
+      //game content stuff
+      if(!_paused)
+        _.doseq(Mojo.stage.children, (scene)=> {
+          scene.update && scene.update(dt);
         });
-      }
     }
     /**
      * @private
@@ -48,19 +64,18 @@
         if(i.scale) { s._prevScaleX = s.scale.x; s._prevScaleY = s.scale.y; }
         if(i.alpha) { s._prevAlpha = s.alpha; }
         if(i.tile) {
-          if(s.tilePosition !== undefined) {
-            s._prevTilePositionX = s.tilePosition.x;
-            s._prevTilePositionY = s.tilePosition.y;
+          if(s.tilePosition) {
+            s._prevTilePosX = s.tilePosition.x;
+            s._prevTilePosY = s.tilePosition.y;
           }
-          if(s.tileScale !== undefined) {
+          if(s.tileScale) {
             s._prevTileScaleX = s.tileScale.x;
             s._prevTileScaleY = s.tileScale.y;
           }
         }
-        if(s.children) {
+        if(s.children)
           for(let i=0; i<s.children.length; ++i)
             save(s.children[i]);
-        }
       };
       for(let i=0; i<Mojo.stage.children.length; ++i)
         save(Mojo.stage.children[i]);
@@ -75,26 +90,25 @@
       if(i.rotation) { s.rotation = s._currentRotation; }
       if(i.size &&
         (_.inst(Mojo.p.Sprite,s) ||
-          _.inst(Mojo.p.AnimatedSprite,s))) {
+          _.inst(Mojo.p.ASprite,s))) {
         s.width = s._currentWidth;
         s.height = s._currentHeight;
       }
-      if(i.scale) { s.scale.x = s._currentScaleX; s.scale.y = s._currentScaleY; }
-      if(i.alpha) { s.alpha = s._currentAlpha; }
+      if(i.scale) { s.scale.x = s._curScaleX; s.scale.y = s._curScaleY; }
+      if(i.alpha) { s.alpha = s._curAlpha; }
       if(i.tile) {
-        if(s.tilePosition !== undefined) {
-          s.tilePosition.x = s._currentTilePositionX;
-          s.tilePosition.y = s._currentTilePositionY;
+        if(s.tilePosition) {
+          s.tilePosition.x = s._curTilePosX;
+          s.tilePosition.y = s._curTilePosY;
         }
-        if(s.tileScale !== undefined) {
+        if(s.tileScale) {
           s.tileScale.x = s._currentTileScaleX;
           s.tileScale.y = s._currentTileScaleY;
         }
       }
-      if(s.children) {
+      if(s.children)
         for(let i=0; i<s.children.length; ++i)
           _restoreProps(s.children[i]);
-      }
     }
     /**
      * @private
@@ -106,7 +120,7 @@
       if(elapsed > 1000) elapsed = _frameDuration;
       _startTime = current;
       _lag += elapsed;
-      while(_lag >= _frameDuration){
+      while(_lag >= _frameDuration) {
         _savePrevProps();
         _update(dt);
         _lag -= _frameDuration;
@@ -119,18 +133,18 @@
      * @function
      */
     function _gameLoop(ts, dt) {
-      if(!_paused) {
-        if(dt < 0) dt= 1.0/60;
-        if(dt > 1.0/15) dt= 1.0/15;
-        if(Mojo.o.fps === undefined) {
-          _update(dt);
-          _render();
-        } else if(Mojo.o.rfps === undefined){
-          _interpolate(dt);
-        } else if(ts >= _renderStartTime) {
-          _interpolate(dt);
-          _renderStartTime = ts + _renderDuration;
-        }
+      if(dt < 0) dt= 1.0/60;
+      if(dt > 1.0/15) dt= 1.0/15;
+      if(Mojo.o.fps === undefined) {
+        //not defined, so update as fast as possible
+        _update(dt);
+        _render();
+      } else if(Mojo.o.rfps === undefined) {
+        //rendering time not defined, just run
+        _interpolate(dt);
+      } else if(ts >= _renderStartTime) {
+        _interpolate(dt);
+        _renderStartTime = ts + _renderDuration;
       }
     }
     function _runGameLoop() {
@@ -140,6 +154,7 @@
       Mojo.glwrapper = (ptInTime) => {
         let now = _.now();
         ++_loopFrame;
+        //call again please
         window.requestAnimationFrame(Mojo.glwrapper);
         let dt = now - _lastFrame;
         //some upperbound to stop frame fast forwarding
@@ -147,6 +162,7 @@
         _gameLoop(ptInTime, dt/1000);
         _lastFrame = now;
       };
+      //kick start loop
       window.requestAnimationFrame(Mojo.glwrapper);
     };
     /**
@@ -170,7 +186,7 @@
       }
       if(i.size) {
         if(_.inst(Mojo.p.Sprite,s) ||
-          _.inst(Mojo.p.AnimatedSprite,s)) {
+          _.inst(Mojo.p.ASprite,s)) {
           s._currentWidth = s.width;
           s._currentHeight = s.height;
           if(s._prevWidth !== undefined)
@@ -180,26 +196,26 @@
         }
       }
       if(i.scale) {
-        s._currentScaleX = s.scale.x;
-        s._currentScaleY = s.scale.y;
+        s._curScaleX = s.scale.x;
+        s._curScaleY = s.scale.y;
         if(s._prevScaleX !== undefined)
           s.scale.x = (s.scale.x - s._prevScaleX) * lagOffset + s._prevScaleX;
         if(s._prevScaleY !== undefined)
           s.scale.y = (s.scale.y - s._prevScaleY) * lagOffset + s._prevScaleY;
       }
       if(i.alpha) {
-        s._currentAlpha = s.alpha;
+        s._curAlpha = s.alpha;
         if(s._prevAlpha !== undefined)
           s.alpha = (s.alpha - s._prevAlpha) * lagOffset + s._prevAlpha;
       }
       if(i.tile) {
         if(s.tilePosition !== undefined) {
-          s._currentTilePositionX = s.tilePosition.x;
-          s._currentTilePositionY = s.tilePosition.y;
-          if(s._prevTilePositionX !== undefined)
-            s.tilePosition.x = (s.tilePosition.x - s._prevTilePositionX) * lagOffset + s._prevTilePositionX;
-          if(s._prevTilePositionY !== undefined)
-            s.tilePosition.y = (s.tilePosition.y - s._prevTilePositionY) * lagOffset + s._prevTilePositionY;
+          s._curTilePosX = s.tilePosition.x;
+          s._curTilePosY = s.tilePosition.y;
+          if(s._prevTilePosX !== undefined)
+            s.tilePosition.x = (s.tilePosition.x - s._prevTilePosX) * lagOffset + s._prevTilePosX;
+          if(s._prevTilePosY !== undefined)
+            s.tilePosition.y = (s.tilePosition.y - s._prevTilePosY) * lagOffset + s._prevTilePosY;
         }
         if(s.tileScale !== undefined) {
           s._currentTileScaleX = s.tileScale.x;
@@ -210,10 +226,9 @@
             s.tileScale.y = (s.tileScale.y - s._prevTileScaleY) * lagOffset + s._prevTileScaleY;
         }
       }
-      if(s.children) {
+      if(s.children)
         for(let j=0; j< s.children.length; ++j)
           _interpolateSprite(lagOffset,s.children[j]);
-      }
     }
     /**
      * @private
@@ -229,7 +244,7 @@
           _restoreProps(Mojo.stage.children[i]);
     }
 
-    _.conj(_libsToUpdate, Mojo.Tween, Mojo.Dust,Mojo.Sprites, Mojo.Input);
+    _.conj(_libsToUpdate, Mojo.Tween, Mojo.Dust, Mojo.Sprites, Mojo.Input);
 
     //------------------------------------------------------------------------
     //enhancements
@@ -241,4 +256,6 @@
 
 })(this);
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

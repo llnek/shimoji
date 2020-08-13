@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window=global,
@@ -13,65 +27,12 @@
     const _D= {};
     let _=Mojo.u,
       is=Mojo.is;
-
     /**
-     * @public
+     * @private
      * @function
-     *adds extra properties to sprites to help
-     *simplify the collision code. It won't add these properties if they
-     *already exist on the sprite. After these properties have been
-     *added, this methods adds a Boolean property to the sprite called `_bumpPropertiesAdded`
-     *and sets it to `true` to flag that the sprite has these
-     *new properties
      */
-    _D.addCollisionProperties=function(sprite) {
-      if(sprite.gx === undefined) {
-        Object.defineProperty(sprite, "gx", _.pdef({
-          get() { return sprite.getGlobalPosition().x; }
-        }));
-      }
-      if(sprite.gy === undefined) {
-        Object.defineProperty(sprite, "gy", _.pdef({
-          get() { return sprite.getGlobalPosition().y; }
-        }));
-      }
-      if(sprite.centerX === undefined) {
-        Object.defineProperty(sprite, "centerX", _.pdef({
-          get() { return sprite.x + sprite.width / 2; }
-        }));
-      }
-      if(sprite.centerY === undefined) {
-        Object.defineProperty(sprite, "centerY", _.pdef({
-          get() { return sprite.y + sprite.height / 2; }
-        }));
-      }
-      if(sprite.halfWidth === undefined) {
-        Object.defineProperty(sprite, "halfWidth", _.pdef({
-          get() { return sprite.width / 2; }
-        }));
-      }
-      if(sprite.halfHeight === undefined) {
-        Object.defineProperty(sprite, "halfHeight", _.pdef({
-          get() { return sprite.height / 2; }
-        }));
-      }
-      if(sprite.xAnchorOffset === undefined) {
-        Object.defineProperty(sprite, "xAnchorOffset", _.pdef({
-          get() { return sprite.anchor ? sprite.width * sprite.anchor.x : 0; }
-        }));
-      }
-      if(sprite.yAnchorOffset === undefined) {
-        Object.defineProperty(sprite, "yAnchorOffset", _.pdef({
-          get() { return sprite.anchor ? sprite.height * sprite.anchor.y : 0; }
-        }));
-      }
-      if(sprite.circular && sprite.radius === undefined) {
-        Object.defineProperty(sprite, "radius", _.pdef({
-          get() { return sprite.width / 2; }
-        }));
-      }
-      sprite._bumpPropertiesAdded = true;
-      return sprite;
+    function _addCollisionProperties(s) {
+      return s._bumpProps ? s : Mojo.Sprites.extend(s);
     };
     /**
      * @public
@@ -84,8 +45,8 @@
      * the shape as a circle.
      */
     _D.hitTestPoint=function(point, sprite) {
-      if(!sprite._bumpPropertiesAdded) this.addCollisionProperties(sprite);
       let shape, left, right, top, bottom, vx, vy, magnitude, hit;
+      //_addCollisionProperties(sprite);
       shape= sprite.radius ? "circle" : "rectangle";
       if(shape === "rectangle") {
         //Get the position of the sprite's edges
@@ -118,22 +79,23 @@
      * b. A sprite object with `centerX`, `centerY` and `radius`.
      */
     _D.hitTestCircle=function(c1, c2, global = false) {
-      if(!c1._bumpPropertiesAdded) this.addCollisionProperties(c1);
-      if(!c2._bumpPropertiesAdded) this.addCollisionProperties(c2);
-      let vx, vy, magnitude, combinedRadii, hit;
+      //if(!c1._bumpProps) _addCollisionProperties(c1);
+      //if(!c2._bumpProps) _addCollisionProperties(c2);
+      let vx, vy,
+        r1=c1.radius,
+        r2= c2.radius;
+
       //Calculate the vector between the circles’ center points
       if(global) {
-        vx = (c2.gx + (c2.width / 2) - c2.xAnchorOffset) - (c1.gx + (c1.width / 2) - c1.xAnchorOffset);
-        vy = (c2.gy + (c2.width / 2) - c2.yAnchorOffset) - (c1.gy + (c1.width / 2) - c1.yAnchorOffset);
+        vx = (c2.gx + r2 - c2.xAnchorOffset) - (c1.gx + r1 - c1.xAnchorOffset);
+        vy = (c2.gy + r2 - c2.yAnchorOffset) - (c1.gy + r1 - c1.yAnchorOffset);
       } else {
-        vx = (c2.x + (c2.width / 2) - c2.xAnchorOffset) - (c1.x + (c1.width / 2) - c1.xAnchorOffset);
-        vy = (c2.y + (c2.width / 2) - c2.yAnchorOffset) - (c1.y + (c1.width / 2) - c1.yAnchorOffset);
+        vx = (c2.x + r2 - c2.xAnchorOffset) - (c1.x + r1 - c1.xAnchorOffset);
+        vy = (c2.y + r2 - c2.yAnchorOffset) - (c1.y + r1 - c1.yAnchorOffset);
       }
       //Find the distance between the circles by calculating
       //the vector's magnitude (how long the vector is)
-      magnitude = Math.sqrt(vx * vx + vy * vy);
-      combinedRadii = c1.radius + c2.radius;
-      return magnitude < combinedRadii;
+      return Math.sqrt(vx * vx + vy * vy) < (r1+r2);
     };
     /**
      * @public
@@ -149,21 +111,22 @@
      * The sprites can contain an optional mass property that should be greater than 1.
      */
     _D.circleCollision=function(c1, c2, bounce = false, global = false) {
-      if(!c1._bumpPropertiesAdded) this.addCollisionProperties(c1);
-      if(!c2._bumpPropertiesAdded) this.addCollisionProperties(c2);
-      let magnitude, combinedRadii, overlap,
+      //if(!c1._bumpProps) _addCollisionProperties(c1);
+      //if(!c2._bumpProps) _addCollisionProperties(c2);
+      let r1=c1.radius, r2=c2.radius,
+        magnitude, combinedRadii, overlap,
         vx, vy, dx, dy, s = {}, hit = false;
       if(global) {
-        vx = (c2.gx + (c2.width / 2) - c2.xAnchorOffset) - (c1.gx + (c1.width / 2) - c1.xAnchorOffset);
-        vy = (c2.gy + (c2.width / 2) - c2.yAnchorOffset) - (c1.gy + (c1.width / 2) - c1.yAnchorOffset);
+        vx = (c2.gx + r2 - c2.xAnchorOffset) - (c1.gx + r1 - c1.xAnchorOffset);
+        vy = (c2.gy + r2 - c2.yAnchorOffset) - (c1.gy + r1 - c1.yAnchorOffset);
       } else {
-        vx = (c2.x + (c2.width / 2) - c2.xAnchorOffset) - (c1.x + (c1.width / 2) - c1.xAnchorOffset);
-        vy = (c2.y + (c2.width / 2) - c2.yAnchorOffset) - (c1.y + (c1.width / 2) - c1.yAnchorOffset);
+        vx = (c2.x + r2 - c2.xAnchorOffset) - (c1.x + r1 - c1.xAnchorOffset);
+        vy = (c2.y + r2 - c2.yAnchorOffset) - (c1.y + r1 - c1.yAnchorOffset);
       }
       //Find the distance between the circles by calculating
       //the vector's magnitude (how long the vector is)
       magnitude = Math.sqrt(vx * vx + vy * vy);
-      combinedRadii = c1.radius + c2.radius;
+      combinedRadii = r1+r2;
       if(magnitude < combinedRadii) {
         hit = true;
         overlap = combinedRadii - magnitude;
@@ -207,9 +170,10 @@
      * The sprites can contain an optional mass property that should be greater than 1.
     */
     _D.movingCircleCollision=function(c1, c2, global = false) {
-      if(!c1._bumpPropertiesAdded) this.addCollisionProperties(c1);
-      if(!c2._bumpPropertiesAdded) this.addCollisionProperties(c2);
+      //if(!c1._bumpProps) _addCollisionProperties(c1);
+      //if(!c2._bumpProps) _addCollisionProperties(c2);
       let combinedRadii, overlap, xSide, ySide,
+        r1=c1.radius, r2=c2.radius,
         //`s` refers to the distance vector between the circles
         s = {},
         p1A = {},
@@ -222,17 +186,17 @@
       c2.mass = c2.mass || 1;
       //Calculate the vector between the circles’ center points
       if(global) {
-        s.vx = (c2.gx + c2.radius - c2.xAnchorOffset) - (c1.gx + c1.radius - c1.xAnchorOffset);
-        s.vy = (c2.gy + c2.radius - c2.yAnchorOffset) - (c1.gy + c1.radius - c1.yAnchorOffset);
+        s.vx = (c2.gx + r2 - c2.xAnchorOffset) - (c1.gx + r1 - c1.xAnchorOffset);
+        s.vy = (c2.gy + r2 - c2.yAnchorOffset) - (c1.gy + r1 - c1.yAnchorOffset);
       } else {
-        s.vx = (c2.x + c2.radius - c2.xAnchorOffset) - (c1.x + c1.radius - c1.xAnchorOffset);
-        s.vy = (c2.y + c2.radius - c2.yAnchorOffset) - (c1.y + c1.radius - c1.yAnchorOffset);
+        s.vx = (c2.x + r2 - c2.xAnchorOffset) - (c1.x + r1 - c1.xAnchorOffset);
+        s.vy = (c2.y + r2 - c2.yAnchorOffset) - (c1.y + r1 - c1.yAnchorOffset);
       }
       //Find the distance between the circles by calculating
       //the vector's magnitude (how long the vector is)
       s.magnitude = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
       //Add together the circles' combined half-widths
-      combinedRadii = c1.radius + c2.radius;
+      combinedRadii = r1 + r2;
       //Figure out if there's a collision
       if(s.magnitude < combinedRadii) {
         hit = true;
@@ -339,20 +303,26 @@
      * should bounce off the second sprite.
      */
     _D.rectangleCollision=function(r1, r2, bounce = false, global = true) {
-      if(!r1._bumpPropertiesAdded) this.addCollisionProperties(r1);
-      if(!r2._bumpPropertiesAdded) this.addCollisionProperties(r2);
+      //if(!r1._bumpProps) _addCollisionProperties(r1);
+      //if(!r2._bumpProps) _addCollisionProperties(r2);
       let collision, combinedHalfWidths, combinedHalfHeights,
         overlapX, overlapY, vx, vy;
+
+      let r1w2= Math.abs(r1.halfWidth);
+      let r1h2= Math.abs(r1.halfHeight);
+      let r2w2= Math.abs(r2.halfWidth);
+      let r2h2= Math.abs(r2.halfHeight);
+
       if(global) {
-        vx = (r1.gx + Math.abs(r1.halfWidth) - r1.xAnchorOffset) - (r2.gx + Math.abs(r2.halfWidth) - r2.xAnchorOffset);
-        vy = (r1.gy + Math.abs(r1.halfHeight) - r1.yAnchorOffset) - (r2.gy + Math.abs(r2.halfHeight) - r2.yAnchorOffset);
+        vx = (r1.gx + r1w2 - r1.xAnchorOffset) - (r2.gx + r2w2 - r2.xAnchorOffset);
+        vy = (r1.gy + r1h2 - r1.yAnchorOffset) - (r2.gy + r2h2 - r2.yAnchorOffset);
       } else {
-        vx = (r1.x + Math.abs(r1.halfWidth) - r1.xAnchorOffset) - (r2.x + Math.abs(r2.halfWidth) - r2.xAnchorOffset);
-        vy = (r1.y + Math.abs(r1.halfHeight) - r1.yAnchorOffset) - (r2.y + Math.abs(r2.halfHeight) - r2.yAnchorOffset);
+        vx = (r1.x + r1w2 - r1.xAnchorOffset) - (r2.x + r2w2 - r2.xAnchorOffset);
+        vy = (r1.y + r1h2 - r1.yAnchorOffset) - (r2.y + r2h2 - r2.yAnchorOffset);
       }
       //Figure out the combined half-widths and half-heights
-      combinedHalfWidths = Math.abs(r1.halfWidth) + Math.abs(r2.halfWidth);
-      combinedHalfHeights = Math.abs(r1.halfHeight) + Math.abs(r2.halfHeight);
+      combinedHalfWidths = r1w2 + r2w2;
+      combinedHalfHeights = r1h2 + r2h2;
       //Check whether vx is less than the combined half widths
       if(Math.abs(vx) < combinedHalfWidths) {
         //A collision might be occurring!
@@ -417,21 +387,25 @@
      * b. A sprite object with `centerX`, `centerY`, `halfWidth` and `halfHeight` properties.
     */
     _D.hitTestRectangle=function(r1, r2, global = false) {
-      if(!r1._bumpPropertiesAdded) this.addCollisionProperties(r1);
-      if(!r2._bumpPropertiesAdded) this.addCollisionProperties(r2);
+      //if(!r1._bumpProps) _addCollisionProperties(r1);
+      //if(!r2._bumpProps) _addCollisionProperties(r2);
       let hit, combinedHalfWidths, combinedHalfHeights, vx, vy;
+      let r1w2= Math.abs(r1.halfWidth);
+      let r1h2= Math.abs(r1.halfHeight);
+      let r2w2= Math.abs(r2.halfWidth);
+      let r2h2= Math.abs(r2.halfHeight);
       hit = false;
       //Calculate the distance vector
       if(global) {
-        vx = (r1.gx + Math.abs(r1.halfWidth) - r1.xAnchorOffset) - (r2.gx + Math.abs(r2.halfWidth) - r2.xAnchorOffset);
-        vy = (r1.gy + Math.abs(r1.halfHeight) - r1.yAnchorOffset) - (r2.gy + Math.abs(r2.halfHeight) - r2.yAnchorOffset);
+        vx = (r1.gx + r1w2 - r1.xAnchorOffset) - (r2.gx + r2w2 - r2.xAnchorOffset);
+        vy = (r1.gy + r1h2 - r1.yAnchorOffset) - (r2.gy + r2h2 - r2.yAnchorOffset);
       } else {
-        vx = (r1.x + Math.abs(r1.halfWidth) - r1.xAnchorOffset) - (r2.x + Math.abs(r2.halfWidth) - r2.xAnchorOffset);
-        vy = (r1.y + Math.abs(r1.halfHeight) - r1.yAnchorOffset) - (r2.y + Math.abs(r2.halfHeight) - r2.yAnchorOffset);
+        vx = (r1.x + r1w2 - r1.xAnchorOffset) - (r2.x + r2w2 - r2.xAnchorOffset);
+        vy = (r1.y + r1h2 - r1.yAnchorOffset) - (r2.y + r2h2 - r2.yAnchorOffset);
       }
       //Figure out the combined half-widths and half-heights
-      combinedHalfWidths = Math.abs(r1.halfWidth) + Math.abs(r2.halfWidth);
-      combinedHalfHeights = Math.abs(r1.halfHeight) + Math.abs(r2.halfHeight);
+      combinedHalfWidths = r1w2 + r2w2;
+      combinedHalfHeights = r1h2 + r2h2;
       //Check for a collision on the x axis
       if(Math.abs(vx) < combinedHalfWidths) {
         //A collision might be occuring. Check for a collision on the y axis
@@ -455,33 +429,35 @@
      * b. A sprite object with `centerX`, `centerY`, `halfWidth` and `halfHeight` properties.
     */
     _D.hitTestCircleRectangle=function(c1, r1, global = false) {
-      if(!r1._bumpPropertiesAdded) this.addCollisionProperties(r1);
-      if(!c1._bumpPropertiesAdded) this.addCollisionProperties(c1);
+      //if(!r1._bumpProps) _addCollisionProperties(r1);
+      //if(!c1._bumpProps) _addCollisionProperties(c1);
       let region, collision, c1x, c1y, r1x, r1y;
+      let r1w2=Math.abs(r1.halfWidth), r1h2=Math.abs(r1.halfHeight);
+
       if(global) {
         c1x = c1.gx; c1y = c1.gy; r1x = r1.gx; r1y = r1.gy;
       } else {
         c1x = c1.x; c1y = c1.y; r1x = r1.x; r1y = r1.y;
       }
       //Is the circle above the rectangle's top edge?
-      if(c1y - c1.yAnchorOffset < r1y - Math.abs(r1.halfHeight) - r1.yAnchorOffset) {
+      if(c1y - c1.yAnchorOffset < r1y - r1h2 - r1.yAnchorOffset) {
         //If it is, we need to check whether it's in the
         //top left, top center or top right
-        if(c1x - c1.xAnchorOffset < r1x - 1 - Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        if(c1x - c1.xAnchorOffset < r1x - 1 - r1w2 - r1.xAnchorOffset) {
           region = "topLeft";
-        } else if (c1x - c1.xAnchorOffset > r1x + 1 + Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        } else if (c1x - c1.xAnchorOffset > r1x + 1 + r1w2 - r1.xAnchorOffset) {
           region = "topRight";
         } else {
           region = "topMiddle";
         }
-      } else if(c1y - c1.yAnchorOffset > r1y + Math.abs(r1.halfHeight) - r1.yAnchorOffset) {
+      } else if(c1y - c1.yAnchorOffset > r1y + r1h2 - r1.yAnchorOffset) {
         //The circle isn't above the top edge, so it might be
         //below the bottom edge
         //If it is, we need to check whether it's in the bottom left,
         //bottom center, or bottom right
-        if(c1x - c1.xAnchorOffset < r1x - 1 - Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        if(c1x - c1.xAnchorOffset < r1x - 1 - r1w2 - r1.xAnchorOffset) {
           region = "bottomLeft";
-        } else if (c1x - c1.xAnchorOffset > r1x + 1 + Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        } else if (c1x - c1.xAnchorOffset > r1x + 1 + r1w2 - r1.xAnchorOffset) {
           region = "bottomRight";
         } else {
           region = "bottomMiddle";
@@ -489,7 +465,7 @@
       } else {
         //The circle isn't above the top edge or below the bottom edge,
         //so it must be on the left or right side
-        if(c1x - c1.xAnchorOffset < r1x - Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        if(c1x - c1.xAnchorOffset < r1x - r1w2 - r1.xAnchorOffset) {
           region = "leftMiddle";
         } else {
           region = "rightMiddle";
@@ -535,13 +511,13 @@
      * b. A point object with `x` and `y` properties.
      */
     _D.hitTestCirclePoint=function(c1, point, global = false) {
-      if(!c1._bumpPropertiesAdded) this.addCollisionProperties(c1);
+      //if(!c1._bumpProps) _addCollisionProperties(c1);
       //A point is just a circle with a diameter of
       //1 pixel, so we can cheat. All we need to do is an ordinary circle vs. circle
       //Collision test. Just supply the point with the properties
       //it needs
       point.diameter = 1;
-      point.width = point.diameter;
+      point.width = point.height=point.diameter;
       point.radius = 0.5;
       point.centerX = point.x;
       point.centerY = point.y;
@@ -549,7 +525,7 @@
       point.gy = point.y;
       point.xAnchorOffset = 0;
       point.yAnchorOffset = 0;
-      point._bumpPropertiesAdded = true;
+      point._bumpProps = true;
       return this.hitTestCircle(c1, point, global);
     };
     /**
@@ -562,33 +538,36 @@
      * b. A sprite object with `centerX`, `centerY`, `halfWidth` and `halfHeight` properties.
      */
     _D.circleRectangleCollision=function(c1, r1, bounce = false, global = false) {
-      if(!r1._bumpPropertiesAdded) this.addCollisionProperties(r1);
-      if(!c1._bumpPropertiesAdded) this.addCollisionProperties(c1);
+      //if(!r1._bumpProps) _addCollisionProperties(r1);
+      //if(!c1._bumpProps) _addCollisionProperties(c1);
+      let r1w2=Math.abs(r1.halfWidth), r1h2=Math.abs(r1.halfHeight);
       let region, collision, c1x, c1y, r1x, r1y;
+
       if(global) {
         c1x = c1.gx; c1y = c1.gy; r1x = r1.gx; r1y = r1.gy;
       } else {
         c1x = c1.x; c1y = c1.y; r1x = r1.x; r1y = r1.y;
       }
+
       //Is the circle above the rectangle's top edge?
-      if(c1y - c1.yAnchorOffset < r1y - Math.abs(r1.halfHeight) - r1.yAnchorOffset) {
+      if(c1y - c1.yAnchorOffset < r1y - r1h2 - r1.yAnchorOffset) {
         //If it is, we need to check whether it's in the
         //top left, top center or top right
-        if(c1x - c1.xAnchorOffset < r1x - 1 - Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        if(c1x - c1.xAnchorOffset < r1x - 1 - r1w2 - r1.xAnchorOffset) {
           region = "topLeft";
-        } else if (c1x - c1.xAnchorOffset > r1x + 1 + Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        } else if (c1x - c1.xAnchorOffset > r1x + 1 + r1w2 - r1.xAnchorOffset) {
           region = "topRight";
         } else {
           region = "topMiddle";
         }
-      } else if (c1y - c1.yAnchorOffset > r1y + Math.abs(r1.halfHeight) - r1.yAnchorOffset) {
+      } else if (c1y - c1.yAnchorOffset > r1y + r1h2 - r1.yAnchorOffset) {
         //The circle isn't above the top edge, so it might be
         //below the bottom edge
         //If it is, we need to check whether it's in the bottom left,
         //bottom center, or bottom right
-        if(c1x - c1.xAnchorOffset < r1x - 1 - Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        if(c1x - c1.xAnchorOffset < r1x - 1 - r1w2 - r1.xAnchorOffset) {
           region = "bottomLeft";
-        } else if (c1x - c1.xAnchorOffset > r1x + 1 + Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        } else if (c1x - c1.xAnchorOffset > r1x + 1 + r1w2 - r1.xAnchorOffset) {
           region = "bottomRight";
         } else {
           region = "bottomMiddle";
@@ -596,7 +575,7 @@
       } else {
         //The circle isn't above the top edge or below the bottom edge,
         //so it must be on the left or right side
-        if(c1x - c1.xAnchorOffset < r1x - Math.abs(r1.halfWidth) - r1.xAnchorOffset) {
+        if(c1x - c1.xAnchorOffset < r1x - r1w2 - r1.xAnchorOffset) {
           region = "leftMiddle";
         } else {
           region = "rightMiddle";
@@ -643,13 +622,13 @@
      * b. A point object with `x` and `y` properties.
      */
     _D.circlePointCollision=function(c1, point, bounce = false, global = false) {
-      if(!c1._bumpPropertiesAdded) this.addCollisionProperties(c1);
+      //if(!c1._bumpProps) _addCollisionProperties(c1);
       //A point is just a circle with a diameter of
       //1 pixel, so we can cheat. All we need to do is an ordinary circle vs. circle
       //Collision test. Just supply the point with the properties
       //it needs
       point.diameter = 1;
-      point.width = point.diameter;
+      point.width = point.height= point.diameter;
       point.radius = 0.5;
       point.centerX = point.x;
       point.centerY = point.y;
@@ -657,7 +636,7 @@
       point.gy = point.y;
       point.xAnchorOffset = 0;
       point.yAnchorOffset = 0;
-      point._bumpPropertiesAdded = true;
+      point._bumpProps = true;
       return this.circleCollision(c1, point, bounce, global);
     };
     /**
@@ -674,7 +653,7 @@
      * be used to dampen the bounce effect.
      */
     _D.bounceOffSurface=function(o, s) {
-      if(!o._bumpPropertiesAdded) this.addCollisionProperties(o);
+      //if(!o._bumpProps) _addCollisionProperties(o);
       let dp1, dp2,
         p1 = {}, p2 = {},
         bounce = {}, mass = o.mass || 1;
@@ -755,7 +734,7 @@
      * `collision` will be `undefined`.
      */
     _D.contain=function(sprite, container, bounce = false, extra = undefined) {
-      if(!sprite._bumpPropertiesAdded) this.addCollisionProperties(sprite);
+      //if(!sprite._bumpProps) _addCollisionProperties(sprite);
       if(container._stage) container= Mojo.adjustForStage(container);
       //Give the container x and y anchor offset values, if it doesn't have any
       if(container.xAnchorOffset === undefined) container.xAnchorOffset = 0;
@@ -843,16 +822,16 @@
         aIsASprite = a.parent !== undefined,
         bIsASprite = b.parent !== undefined;
       //
-      function findCollisionType(a, b) {
+      function _findCollisionType(a, b) {
         let aIsASprite = a.parent !== undefined;
         let bIsASprite = b.parent !== undefined;
         if(aIsASprite && bIsASprite) {
           if(a.diameter && b.diameter) {
-            return circleVsCircle(a, b);
+            return _circleVsCircle(a, b);
           } else if (a.diameter && !b.diameter) {
-            return circleVsRectangle(a, b);
+            return _circleVsRectangle(a, b);
           } else {
-            return rectangleVsRectangle(a, b);
+            return _rectangleVsRectangle(a, b);
           }
         } else if(bIsASprite && !(a.x === undefined) && !(a.y === undefined)) {
           //so this is a point vs. sprite collision test
@@ -861,7 +840,7 @@
           throw `${a} and ${b} cannot be use together in a collision test`;
         }
       }
-      function spriteVsArray() {
+      function _spriteVsArray() {
         //If `a` happens to be the array, flip it around so that it becomes `b`
         if(is.vec(a)) {
           //let [a, b] = [b, a];
@@ -869,11 +848,11 @@
         }
         for(let s,i=b.length-1; i >= 0; --i) {
           s= b[i];
-          collision = findCollisionType(a, s);
+          collision = _findCollisionType(a, s);
           if(collision && extra) extra(collision, s);
         }
       }
-      function circleVsCircle(a, b) {
+      function _circleVsCircle(a, b) {
         //If the circles shouldn't react to the collision,
         //just test to see if they're touching
         if(!react) {
@@ -892,7 +871,7 @@
           }
         }
       }
-      function rectangleVsRectangle(a, b) {
+      function _rectangleVsRectangle(a, b) {
         //If the rectangles shouldn't react to the collision, just
         //test to see if they're touching
         if(!react) {
@@ -901,7 +880,7 @@
           return rectangleCollision(a, b, bounce, global);
         }
       }
-      function circleVsRectangle(a, b) {
+      function _circleVsRectangle(a, b) {
         //If the rectangles shouldn't react to the collision, just
         //test to see if they're touching
         if(!react) {
@@ -911,12 +890,12 @@
         }
       }
       //Check to make sure one of the arguments isn't an array
-      if(aIsASprite && b instanceof Array || bIsASprite && a instanceof Array) {
-        spriteVsArray();
+      if(aIsASprite && is.vec(b) || bIsASprite && is.vec(a)) {
+        _spriteVsArray();
       } else {
         //If one of the arguments isn't an array, find out what type of
         //collision check to run
-        collision = findCollisionType(a, b);
+        collision = _findCollisionType(a, b);
         if(collision && extra) extra(collision);
       }
       //Return the result of the collision.
@@ -1009,4 +988,7 @@
   };
 
 })(this);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

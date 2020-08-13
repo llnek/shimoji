@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window=global,
@@ -12,23 +26,11 @@
     const _T= {};
     let _=Mojo.u,
       is=Mojo.is;
-    /** Add `scaleX` and `scaleY` properties to Pixi sprites
+    /**
      * @private
      * @function
      */
     function _addScaleProperties(sprite) {
-      if(!("scaleX" in sprite) && ("scale" in sprite) && ("x" in sprite.scale)) {
-        Object.defineProperty(sprite, "scaleX", {
-          get() { return sprite.scale.x; },
-          set(v) { sprite.scale.x = v; }
-        });
-      }
-      if(!("scaleY" in sprite) && ("scale" in sprite) && ("y" in sprite.scale)) {
-        Object.defineProperty( sprite, "scaleY", {
-          get() { return sprite.scale.y; },
-          set(v) { sprite.scale.y = value; }
-        });
-      }
     }
     const _globalTweens = [];
     const _easingFormulas = {
@@ -200,9 +202,7 @@
                       frames = 60, type = "smoothstep",
                       yoyo = false, delayBeforeRepeat = 0) {
       return this.makeTween([
-        //Create the x axis tween
         [sprite, "x", sprite.x, endX, frames, type, yoyo, delayBeforeRepeat],
-        //Create the y axis tween
         [sprite, "y", sprite.y, endY, frames, type, yoyo, delayBeforeRepeat]
       ]);
     };
@@ -214,10 +214,8 @@
                         frames = 60, yoyo = true, delayBeforeRepeat = 0) {
       _addScaleProperties(sprite);
       return this.makeTween([
-        //Create the scaleX tween
         [sprite, "scaleX", sprite.scaleX, endScaleX,
          frames, "smoothstepSquared", yoyo, delayBeforeRepeat],
-        //Create the scaleY tween
         [sprite, "scaleY", sprite.scaleY, endScaleY,
          frames, "smoothstepSquared", yoyo, delayBeforeRepeat ]
       ]);
@@ -230,12 +228,8 @@
       //Add `scaleX` and `scaleY` properties to Pixi sprites
       _addScaleProperties(sprite);
       return this.makeTween([
-        //Create the scaleX tween
-        [sprite, "scaleX", sprite.scaleX, endScaleX,
-         frames, "smoothstep", false ],
-        //Create the scaleY tween
-        [sprite, "scaleY", sprite.scaleY, endScaleY,
-         frames, "smoothstep", false ]
+        [sprite, "scaleX", sprite.scaleX, endScaleX, frames, "smoothstep", false ],
+        [sprite, "scaleY", sprite.scaleY, endScaleY, frames, "smoothstep", false ]
       ]);
     };
     /**
@@ -248,12 +242,8 @@
       let bounce = "bounce " + startMagnitude + " " + endMagnitude;
       _addScaleProperties(sprite);
       return this.makeTween([
-        //Create the scaleX tween
-        [sprite, "scaleX", sprite.scaleX, scaleFactor, frames,
-         bounce, yoyo, delayBeforeRepeat],
-        //Create the scaleY tween
-        [sprite, "scaleY", sprite.scaleY, scaleFactor, frames,
-         bounce, yoyo, delayBeforeRepeat ]
+        [sprite, "scaleX", sprite.scaleX, scaleFactor, frames, bounce, yoyo, delayBeforeRepeat],
+        [sprite, "scaleY", sprite.scaleY, scaleFactor, frames, bounce, yoyo, delayBeforeRepeat ]
       ]);
     };
     /**
@@ -277,12 +267,8 @@
       let bounceY = "bounce " + yStartMagnitude + " " + yEndMagnitude;
       _addScaleProperties(sprite);
       let o = this.makeTween([
-        //Create the scaleX tween
-        [sprite, "scaleX", sprite.scaleX, scaleFactorX, frames,
-         bounceX, yoyo, delayBeforeRepeat ],
-        //Create the scaleY tween
-        [sprite, "scaleY", sprite.scaleY, scaleFactorY, frames,
-         bounceY, yoyo, delayBeforeRepeat ]
+        [sprite, "scaleX", sprite.scaleX, scaleFactorX, frames, bounceX, yoyo, delayBeforeRepeat ],
+        [sprite, "scaleY", sprite.scaleY, scaleFactorY, frames, bounceY, yoyo, delayBeforeRepeat ]
       ]);
       //Add some friction to the `endValue` at the end of each tween
       o.tweens.forEach(tween => {
@@ -498,7 +484,7 @@
      */
     _T.wait=function(duration = 0) {
       return new Promise((resolve, reject) => {
-        setTimeout(resolve, duration);
+        _.timer(resolve, duration);
       });
     };
     _T.removeTween=function(tweenObject) {
@@ -525,4 +511,7 @@
   };
 
 })(this);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

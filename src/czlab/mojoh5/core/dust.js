@@ -1,9 +1,27 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window=global,
     MojoH5=window.MojoH5;
   if(!MojoH5)
     throw "Fatal: MojoH5 not loaded";
+  /**
+   * @public
+   * @module
+   */
   MojoH5.Dust=function(Mojo) {
     const _D= {},
       _=Mojo.u,
@@ -26,7 +44,7 @@
                       minScaleSpeed = 0.01, maxScaleSpeed = 0.05,
                       minAlphaSpeed = 0.02, maxAlphaSpeed = 0.02,
                       minRotationSpeed = 0.01, maxRotationSpeed = 0.03) {
-      //An array to store the curent batch of particles
+      //array to store the curent batch of particles
       let angle,
         angles = [],
         particles = [],
@@ -60,8 +78,7 @@
         let size = _.randInt2(minSize, maxSize);
         particle.width = size;
         particle.height = size;
-        //Set the particle's `anchor` to its center
-        particle.anchor.set(0.5, 0.5);
+        particle.anchor.set(0.5);
         particle.x = x;
         particle.y = y;
         //Set a random speed to change the scale, alpha and rotation
@@ -98,7 +115,6 @@
             _.disj(particles,particle);
           }
         };
-
       };
       //Make a particle for each angle
       angles.forEach(angle => makeParticle(angle));
@@ -116,13 +132,13 @@
       function play() {
         if(!emitterObject.playing) {
           particleFunction();
-          timerInterval = setInterval(emitParticle.bind(this), interval);
+          timerInterval = _.timer(emitParticle.bind(this), interval);
           emitterObject.playing = true;
         }
       }
       function stop() {
         if(emitterObject.playing) {
-          clearInterval(timerInterval);
+          _.clear(timerInterval);
           emitterObject.playing = false;
         }
       }
@@ -156,4 +172,8 @@
   };
 
 })(this);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
+
 

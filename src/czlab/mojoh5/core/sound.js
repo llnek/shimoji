@@ -1,3 +1,17 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window=global,
@@ -8,7 +22,7 @@
    * @private
    * @function
    */
-  function fixSetTarget(param) {
+  function _fixSetTarget(param) {
     if(param && !param.setTargetAtTime)
       param.setTargetAtTime = param.setTargetValueAtTime;
   }
@@ -17,9 +31,9 @@
    * @module
    */
   MojoH5.Sound=function(Mojo) {
-    let _=Mojo.u,
+    const _=Mojo.u,
       is=Mojo.is;
-    //some crazy stuff
+    //some crazy polyfill
     if(window.hasOwnProperty("webkitAudioContext") &&
       !window.hasOwnProperty('AudioContext')) {
       let AudioContext = webkitAudioContext,
@@ -36,13 +50,13 @@
       ACP.__createGain=ACP.createGain;
       ACP.createGain=function(){
         let node = this.__createGain();
-        fixSetTarget(node.gain);
+        _fixSetTarget(node.gain);
         return node;
       };
       ACP.__createDelay = ACP.createDelay;
       ACP.createDelay = function(maxDelay) {
         let node = maxDelay ? this.__createDelay(maxDelay) : this.__createDelay();
-        fixSetTarget(node.delayTime);
+        _fixSetTarget(node.delayTime);
         return node;
       };
       ACP.__createBufferSource = ACP.createBufferSource;
@@ -74,27 +88,27 @@
             node.__stop(when || 0);
           };
         }
-        fixSetTarget(node.playbackRate);
+        _fixSetTarget(node.playbackRate);
         return node;
       };
       ACP.__createDynamicsCompressor = ACP.createDynamicsCompressor;
       ACP.createDynamicsCompressor = function() {
         let node = this.__createDynamicsCompressor();
-        fixSetTarget(node.threshold);
-        fixSetTarget(node.knee);
-        fixSetTarget(node.ratio);
-        fixSetTarget(node.reduction);
-        fixSetTarget(node.attack);
-        fixSetTarget(node.release);
+        _fixSetTarget(node.threshold);
+        _fixSetTarget(node.knee);
+        _fixSetTarget(node.ratio);
+        _fixSetTarget(node.reduction);
+        _fixSetTarget(node.attack);
+        _fixSetTarget(node.release);
         return node;
       };
       ACP.__createBiquadFilter = ACP.createBiquadFilter;
       ACP.createBiquadFilter = function() {
         let node = this.__createBiquadFilter();
-        fixSetTarget(node.frequency);
-        fixSetTarget(node.detune);
-        fixSetTarget(node.Q);
-        fixSetTarget(node.gain);
+        _fixSetTarget(node.frequency);
+        _fixSetTarget(node.detune);
+        _fixSetTarget(node.Q);
+        _fixSetTarget(node.gain);
         return node;
       };
       if(ACP.hasOwnProperty("createOscillator")) {
@@ -123,8 +137,8 @@
           }
           if(!node.setPeriodicWave)
             node.setPeriodicWave = node.setWaveTable;
-          fixSetTarget(node.frequency);
-          fixSetTarget(node.detune);
+          _fixSetTarget(node.frequency);
+          _fixSetTarget(node.detune);
           return node;
         };
       }
@@ -139,7 +153,6 @@
       ctx: new window.AudioContext()
     },
       actx=_A.ctx;
-
     /**
      * @private
      * @function
@@ -147,13 +160,13 @@
     function _decodeAudio(o, xhr, loadHandler, failHandler) {
       actx.decodeAudioData(
         xhr.response,
-        (buffer) => {
-          o.buffer = buffer;
+        (buf) => {
+          o.buffer = buf;
           o.hasLoaded = true;
           loadHandler && loadHandler(o.source);
         },
-        (error) => {
-          failHandler && failHandler(o.source, error);
+        (err) => {
+          failHandler && failHandler(o.source, err);
         }
       );
     }
@@ -592,6 +605,9 @@
   };
 
 }(this));
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 
 
 

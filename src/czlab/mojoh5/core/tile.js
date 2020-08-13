@@ -1,12 +1,30 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020, Kenneth Leung. All rights reserved. */
+
 (function(global,undefined){
   "use strict";
   let window=global,
     MojoH5=window.MojoH5;
   if(!MojoH5)
     throw "Fatal: MojoH5 not loaded";
+  /**
+   * @public
+   * @module
+   */
   MojoH5.Tiles=function(Mojo) {
-    const _T= {};
-    let _=Mojo.u,
+    const _T= {},
+      _=Mojo.u,
       is=Mojo.is;
 
     /**
@@ -14,11 +32,11 @@
      * @function
      */
     _T.frame=function(source, x, y, width, height) {
-      let texture, imageFrame;
+      let texture;
       //If the source is a string, it's either a texture in the
       //cache or an image file
       if(is.str(source)) {
-        let t= Mojo.p.TCache[source];
+        let t= Mojo.tcached(source);
         if(t)
           texture = new Mojo.p.Texture(t);
       } else if(_.inst(Mojo.p.Texture,source)) {
@@ -26,7 +44,7 @@
       }
       if(!texture)
         throw `${source} texture not in cache`;
-      texture.frame = new Mojo.p.Rectangle(x, y, width, height);
+      texture.frame = Mojo.rect(x, y, width, height);
       return texture;
     };
     /**
@@ -180,21 +198,21 @@
       pointsToCheck = pointsToCheck || "some";
       let collision = {};
       //Which points do you want to check? //"every", "some" or "center"?
-      switch (pointsToCheck) {
+      switch(pointsToCheck) {
       case "center":
         //`hit` will be true only if the center point is touching
         sprite.collisionPoints = { center: { x: sprite.centerX, y: sprite.centerY } };
-        collision.hit = Object.keys(sprite.collisionPoints).some(checkPoints);
+        collision.hit = _.keys(sprite.collisionPoints).some(checkPoints);
       break;
       case "every":
         //`hit` will be true if every point is touching
         sprite.collisionPoints = this.getPoints(sprite);
-        collision.hit = Object.keys(sprite.collisionPoints).every(checkPoints);
+        collision.hit = _.keys(sprite.collisionPoints).every(checkPoints);
       break;
       case "some":
         //`hit` will be true only if some points are touching
         sprite.collisionPoints = this.getPoints(sprite);
-        collision.hit = Object.keys(sprite.collisionPoints).some(checkPoints);
+        collision.hit = _.keys(sprite.collisionPoints).some(checkPoints);
       break;
       }
       //Return the collision object.
@@ -529,7 +547,7 @@
         if(foundObjects.length > 0) {
           return foundObjects;
         } else {
-          throw "could not find those objects";
+          throw "Could not find those objects";
         }
       };
 
@@ -1366,4 +1384,7 @@
   };
 
 })(this);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

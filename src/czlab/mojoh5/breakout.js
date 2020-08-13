@@ -27,8 +27,10 @@ function defScenes(Mojo) {
     playButton.press = () => {
       //let music=Mojo.Game.state.get("music");
       //if(!music.playing) music.play();
-      T.slide(this, 514, 0, 30, "decelerationCubed");
-      T.slide(Z.replaceScene("level1"), 0, 0, 30, "decelerationCubed");
+      let ns= Z.runScene("level1");
+      let a= T.slide(this, 514, 0, 30, "decelerationCubed");
+      let b= T.slide(ns, 0, 0, 30, "decelerationCubed");
+      a.onComplete= () => { Z.removeScene(this); };
     };
     let titleMessage = S.text("start game", {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
     this.insert(titleMessage);
@@ -45,8 +47,10 @@ function defScenes(Mojo) {
     playButton.x = 514;
     playButton.y = 350;
     playButton.press = () => {
-      T.slide(this, 514, 0, 30, "decelerationCubed");
-      T.slide(Z.replaceScene("level1"), 0, 0, 30, "decelerationCubed");
+      let ns= Z.runScene("level1");
+      let a= T.slide(this, 514, 0, 30, "decelerationCubed");
+      let b= T.slide(ns, 0, 0, 30, "decelerationCubed");
+      a.onComplete = () => { Z.removeScene(this); };
     };
     let score=Mojo.Game.state.get("score");
     let msg= `Score: ${score}`;
@@ -152,8 +156,8 @@ function defScenes(Mojo) {
       if(blocks.children.length===0) {
         Mojo.pause();
         _.timer(() => {
+          Z.replaceScene("level1","end");
           Mojo.resume();
-          Z.replaceScene("end");
         },300);
       }
     };
