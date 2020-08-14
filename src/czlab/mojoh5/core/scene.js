@@ -44,14 +44,31 @@
       constructor(id,func,options) {
         super();
         this.name= _sceneid(id);
-        this._setup=func;
+        if(is.fun(func)) {
+          this.setup= func;
+        } else if(is.obj(func)) {
+          _.inject(this, func);
+        }
         //scenes are stages
         this._stage=true;
+        this._index={};
         this._options=options || {};
+        this._queue=[];
+        this._dead=false;
         Mojo.Sprites.extend(this);
       }
+      future(expr,delayFrames) {
+        delayFrames = delayFrames || 60;
+        _.conj(this._queue, [expr,delayFrames]);
+      }
+      getChildById(id) {
+        return this._index[id];
+      }
       remove(c) {
-        if(c && _.has(this.children,c)) this.removeChild(c);
+        if(c && _.has(this.children,c)) {
+          this.removeChild(c);
+          _.dissoc(this._index,c.uuid);
+        }
       }
       insert(c,pos) {
         if(pos !== undefined &&
@@ -60,17 +77,32 @@
         } else {
           this.addChild(c);
         }
+        this._index[c.uuid]=c;
       }
       dispose() {
+        this._dead=true;
         this.removeChildren();
       }
       update(dt) {
+        if(this._dead) {return;}
+        //handle queued stuff
+        let f,futs= this._queue.filter(q => {
+          q[1] -= 1;
+          return (q[1]<=0);
+        });
+        while(futs.length>0) {
+          f=futs.shift();
+          f[0]();
+          _.disj(this._queue,f);
+        }
+        Mojo.EventBus.pub(["pre.update",this]);
         _.doseq(this.children, c => { c.step && c.step(dt); });
+        Mojo.EventBus.pub(["post.update",this]);
       }
       runOnce() {
-        if(this._setup) {
-          this._setup(this._options);
-          this._setup=undefined;
+        if(this.setup) {
+          this.setup(this._options);
+          this.setup=undefined;
         }
       }
     };
@@ -118,6 +150,13 @@
     _S.removeScenes=function() {
       Mojo.stage.children.forEach(c => c.dispose());
       Mojo.stage.removeChildren();
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.findScene=function(name) {
+      return Mojo.stage.getChildByName(_sceneid(name));
     };
     /**
      * @public

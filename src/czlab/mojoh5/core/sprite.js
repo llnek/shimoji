@@ -807,7 +807,7 @@
       if(sprites.length===1 && is.vec(sprites[0])) {
         sprites=sprites[0];
       }
-      _.doseq(sprites, s => s.parent.removeChild(s));
+      _.doseq(sprites, s => s.parent && s.parent.removeChild(s));
     };
     /**
      *From: http://stackoverflow.com/questions/1573053/javascript-function-to-convert-color-names-to-hex-codes
@@ -872,18 +872,12 @@
      * @public
      * @function
      */
-    _S.remove=function(par, ...sprites) {
-      _.doseq(sprites,s => par.removeChild(s));
-      return par;
-    };
-    /**
-     * @public
-     * @function
-     */
     _S.extend=function(o) {
       let self = this;
       o=_.patch(o, {
         vx: 0, vy: 0,
+        uuid: _.nextId(),
+        _dead: false,
         _layer: 0, _circular: false,
         _interact: false, _draggable: false, _bumpProps: true});
       function _nudge(o, value, axis) {

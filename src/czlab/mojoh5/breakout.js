@@ -16,27 +16,31 @@ function defScenes(Mojo) {
     cellWidth = 64,
     cellHeight = 64;
 
-  Z.defScene("splash", function() {
-    let self=this;
-    let title = S.sprite("title.png");
-    this.insert(title);
-    let playButton = I.button(["up.png", "over.png", "down.png"]);
-    this.insert(playButton);
-    playButton.x = 514;
-    playButton.y = 350;
-    playButton.press = () => {
-      //let music=Mojo.Game.state.get("music");
-      //if(!music.playing) music.play();
-      let ns= Z.runScene("level1");
-      let a= T.slide(this, 514, 0, 30, "decelerationCubed");
-      let b= T.slide(ns, 0, 0, 30, "decelerationCubed");
-      a.onComplete= () => { Z.removeScene(this); };
-    };
-    let titleMessage = S.text("start game", {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
-    this.insert(titleMessage);
-    T.slide(playButton, 250, 350, 30, "decelerationCubed");
-    T.slide(titleMessage, 250, 300, 30, "decelerationCubed");
-  });
+  Z.defScene("splash", {
+    poo:function() {
+      console.log("poo poo");
+    },
+    setup: function() {
+      let self=this;
+      let title = S.sprite("title.png");
+      this.insert(title);
+      let playButton = I.button(["up.png", "over.png", "down.png"]);
+      this.insert(playButton);
+      playButton.x = 514;
+      playButton.y = 350;
+      playButton.press = () => {
+        //let music=Mojo.Game.state.get("music");
+        //if(!music.playing) music.play();
+        let ns= Z.runScene("level1");
+        let a= T.slide(this, 514, 0, 30, "decelerationCubed");
+        let b= T.slide(ns, 0, 0, 30, "decelerationCubed");
+        a.onComplete= () => { Z.removeScene(this); };
+      };
+      let titleMessage = S.text("start game", {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
+      this.insert(titleMessage);
+      T.slide(playButton, 250, 350, 30, "decelerationCubed");
+      T.slide(titleMessage, 250, 300, 30, "decelerationCubed");
+    }});
 
 
   Z.defScene("end",function() {
@@ -132,7 +136,7 @@ function defScenes(Mojo) {
         (col, block) => {
           Mojo.Game.state.inc("score");
           bounce.play();
-          S.remove(block.parent,block);
+          S.remove(block);
           let globalCenterX = block.gx + block.halfWidth,
             globalCenterY = block.gy + block.halfHeight;
           D.create(

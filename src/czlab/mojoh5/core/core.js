@@ -440,10 +440,11 @@
   const EventBus= () => {
     let _tree= _.jsMap();
     return {
-      sub: function(event,target,cb,ctx) {
-        if(is.vec(event) && arguments.length===1) {
-          event.forEach(e => { if(is.vec(e)) this.sub.apply(this, e); });
+      sub: function(subject,cb,ctx) {
+        if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]) {
+          subject.forEach(e => { if(is.vec(e)) this.sub.apply(this, e); });
         } else {
+          let event=subject[0], target=subject[1];
           //handle multiple events in one string
           _.seq(event).forEach(e => {
             if (!cb) cb=e;
@@ -456,10 +457,11 @@
           });
         }
       },
-      pub: function(event,target,data) {
-        if(is.vec(event) && arguments.length===1) {
-          event.forEach(e => { if(is.vec(e)) this.pub.apply(this, e); });
+      pub: function(subject,data) {
+        if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]) {
+          subject.forEach(e => { if(is.vec(e)) this.pub.apply(this, e); });
         } else {
+          let event=subject[0], target=subject[1];
           let m,t= _tree.get(target);
           if(t)
             _.seq(event).forEach(e => {
@@ -468,10 +470,11 @@
             });
         }
       },
-      unsub: function(event,target,cb,ctx) {
-        if(is.vec(event) && arguments.length===1) {
-          event.forEach(e => { if(is.vec(e)) this.unsub.apply(this, e); });
+      unsub: function(subject,cb,ctx) {
+        if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]) {
+          subject.forEach(e => { if(is.vec(e)) this.unsub.apply(this, e); });
         } else {
+          let event=subject[0], target=subject[1];
           let ss,
             es=_.seq(event),
             t= _tree.get(target);
