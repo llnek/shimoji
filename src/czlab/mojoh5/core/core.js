@@ -62,6 +62,8 @@
     get NEG_INF() { return -Infinity; },
     pack: (o) => { return JSON.stringify(o); },
     unpack: (s) => { return JSON.parse(s); },
+    v2: (x,y) => { return [x,y]; },
+    p2: (x,y) => { return {x: x, y: y}; },
     findFiles: (files, exts) => {
       return files.filter(s => { return exts.indexOf(_fext(s)) > -1; });
     },

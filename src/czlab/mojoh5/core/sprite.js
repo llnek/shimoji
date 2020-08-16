@@ -48,7 +48,7 @@
      * @function
      */
     function _enhanceAnimSprite(s) {
-      let timeInterval,
+      let timerInterval,
         frameCounter = 0,
         startFrame = 0,
         endFrame = 0,
