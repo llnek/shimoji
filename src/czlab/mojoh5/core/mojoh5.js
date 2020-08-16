@@ -504,6 +504,19 @@
      * @public
      * @function
      */
+    Mojo.resources=function(x) {
+      let t;
+      if(x) {
+        t= this.p.loader.resources[x];
+        if(!t)
+          t= this.p.loader.resources[this.assetPath(x)];
+      }
+      return t;
+    };
+    /**
+     * @public
+     * @function
+     */
     Mojo.textureFromImage=function(x) { return this.p.Texture.fromImage(x); };
     /**
      * @public

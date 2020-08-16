@@ -31,19 +31,8 @@
      * @public
      * @function
      */
-    _T.frame=function(source, x, y, width, height) {
-      let texture;
-      //If the source is a string, it's either a texture in the
-      //cache or an image file
-      if(is.str(source)) {
-        let t= Mojo.tcached(source);
-        if(t)
-          texture = new Mojo.p.Texture(t);
-      } else if(_.inst(Mojo.p.Texture,source)) {
-        texture = new Mojo.p.Texture(source);
-      }
-      if(!texture)
-        throw `${source} texture not in cache`;
+    _T.frame=function(source, width, height,x, y) {
+      let texture=Mojo.Sprites.mkTexture(source);
       texture.frame = Mojo.rect(x, y, width, height);
       return texture;
     };
@@ -56,10 +45,10 @@
      * It returns a single index value that tells you the map array
      * index number that the sprite is in
      */
-    _T.getIndex=function(x, y, tilewidth, tileheight, mapWidthInTiles) {
+    _T.getIndex=function(x, y, tileW, tileH, mapWidthInTiles) {
       //pixel coordinates to map index coordinates
-      let ix = Math.floor(x / tilewidth),
-        iy = Math.floor(y / tileheight);
+      let ix = Math.floor(x / tileW),
+        iy = Math.floor(y / tileH);
       return ix + (iy * mapWidthInTiles);
     };
     /**
@@ -80,16 +69,16 @@
     _T.getTile=function(index, mapArray, world) {
       let tile = {};
       tile.gid = mapArray[index];
-      tile.width = world.tilewidth;
-      tile.height = world.tileheight;
-      tile.halfWidth = world.tilewidth / 2;
-      tile.halfHeight = world.tileheight / 2;
-      tile.x = ((index % world.widthInTiles) * world.tilewidth) + world.x;
-      tile.y = ((Math.floor(index / world.widthInTiles)) * world.tileheight) + world.y;
+      tile.width = world.tileW;
+      tile.height = world.tileH;
+      tile.halfWidth = world.tileW / 2;
+      tile.halfHeight = world.tileH / 2;
+      tile.x = ((index % world.widthInTiles) * world.tileW) + world.x;
+      tile.y = ((Math.floor(index / world.widthInTiles)) * world.tileH) + world.y;
       tile.gx = tile.x;
       tile.gy = tile.y;
-      tile.centerX = tile.x + world.tilewidth / 2;
-      tile.centery = tile.y + world.tileheight / 2;
+      tile.centerX = tile.x + world.tileW / 2;
+      tile.centery = tile.y + world.tileH / 2;
       return tile;
     };
     /**
@@ -148,7 +137,8 @@
         {topLeft: { x: s.x + ca.x, y: s.y + ca.y },
          topRight: { x: s.x + ca.x + ca.width, y: s.y + ca.y },
          bottomLeft: { x: s.x + ca.x, y: s.y + ca.y + ca.height },
-         bottomRight: { x: s.x + ca.x + ca.width, y: s.y + ca.y + ca.height } } :
+         bottomRight: { x: s.x + ca.x + ca.width, y: s.y + ca.y + ca.height } }
+        :
         {topLeft: { x: s.x, y: s.y },
          topRight: { x: s.x + s.width - 1, y: s.y },
          bottomLeft: { x: s.x, y: s.y + s.height - 1 },
@@ -181,13 +171,12 @@
     _T.hitTestTile=function(sprite, mapArray, gidToCheck, world, pointsToCheck) {
       //The `checkPoints` helper function Loop through the sprite's corner points to
       //find out if they are inside an array cell that you're interested in.
-      //Return `true` if they are
       let checkPoints = key => {
         //Get a reference to the current point to check.
         //(`topLeft`, `topRight`, `bottomLeft` or `bottomRight` )
         let point = sprite.collisionPoints[key];
         //Find the point's index number in the map array
-        collision.index = this.getIndex(point.x, point.y, world.tilewidth, world.tileheight, world.widthInTiles);
+        collision.index = this.getIndex(point.x, point.y, world.tileW, world.tileH, world.widthInTiles);
         //Find out what the gid value is in the map position
         //that the point is currently over
         collision.gid = mapArray[collision.index];
@@ -242,22 +231,22 @@
     _T.updateMap=function(mapArray, spritesToUpdate, world) {
       //First create a map a new array filled with zeros.
       //The new map array will be exactly the same size as the original
-      let newMapArray = mapArray.map(function(_) { return 0; });
+      //let newMapArray = mapArray.map(function(_) { return 0; });
+      let self = this;
+      let newMapArray = _.fill(new Array(mapArray.length),0);
       if(is.vec(spritesToUpdate)) {
         //Get the index number of each sprite in the `spritesToUpdate` array
         //and add the sprite's `gid` to the matching index on the map
-        let self = this;
-        spritesToUpdate.forEach(sprite => {
-          sprite.index = self.getIndex(sprite.centerX, sprite.centerY,
-                                       world.tilewidth, world.tileheight, world.widthInTiles);
-        //Add the sprite's `gid` number to the correct index on the map
-          newMapArray[sprite.index] = sprite.gid;
+        spritesToUpdate.forEach(s => {
+          s.index = self.getIndex(s.centerX, s.centerY,
+                                       world.tileW, world.tileH, world.widthInTiles);
+          newMapArray[s.index] = s.gid;
         });
       } else {
-        let sprite = spritesToUpdate;
-        sprite.index = this.getIndex(sprite.centerX, sprite.centerY,
-                                     world.tilewidth, world.tileheight, world.widthInTiles);
-        newMapArray[sprite.index] = sprite.gid;
+        let s= spritesToUpdate;
+        s.index = this.getIndex(s.centerX, s.centerY,
+                                world.tileW, world.tileH, world.widthInTiles);
+        newMapArray[s.index] = s.gid;
       }
       return newMapArray;
     };
@@ -389,10 +378,10 @@
       //and objects from the `tiledMap`. The `world` object is going to be
       //returned to the main game program
       let world = new Mojo.p.Container(),
-        tiledMap = Mojo.p.loader.resources[jsonTiledMap];
+        tiledMap = Mojo.resources(jsonTiledMap);
       tiledMap = tiledMap && tiledMap.data;
-      world.tileheight = tiledMap.tileheight;
-      world.tilewidth = tiledMap.tilewidth;
+      world.tileH = tiledMap.tileheight;
+      world.tileW = tiledMap.tilewidth;
       //Calculate the `width` and `height` of the world, in pixels
       world.worldWidth = tiledMap.width * tiledMap.tilewidth;
       world.worldHeight = tiledMap.height * tiledMap.tileheight;
@@ -414,7 +403,6 @@
       //of each tile, plus any optional spacing thats around each tile
       let numberOfTilesetColumns = _.floor(tiledMap.tilesets[0].imagewidth / (tiledMap.tilewidth + spacing));
       tiledMap.layers.forEach(tiledLayer => {
-        //Make a group for this layer and copy all of the layer properties onto it.
         let layerGroup = new Mojo.p.Container();
         _.keys(tiledLayer).forEach(key => {
           //Add all the layer's properties to the group, except the
@@ -439,15 +427,15 @@
               //calculate the grid cell's x and y pixel position.
               mapColumn = index % world.widthInTiles;
               mapRow = Math.floor(index / world.widthInTiles);
-              mapX = mapColumn * world.tilewidth;
-              mapY = mapRow * world.tileheight;
+              mapX = mapColumn * world.tileW;
+              mapY = mapRow * world.tileH;
               //Figure out the column and row number that the tileset
               //image is on, and then use those values to calculate
               //the x and y pixel position of the image on the tileset
               tilesetColumn = ((gid - 1) % numberOfTilesetColumns);
               tilesetRow = Math.floor((gid - 1) / numberOfTilesetColumns);
-              tilesetX = tilesetColumn * world.tilewidth;
-              tilesetY = tilesetRow * world.tileheight;
+              tilesetX = tilesetColumn * world.tileW;
+              tilesetY = tilesetRow * world.tileH;
               //Compensate for any optional spacing (padding) around the tiles if
               //there is any. This bit of code accumlates the spacing offsets from the
               //left side of the tileset and adds them to the current tile's position
@@ -457,10 +445,11 @@
               }
               //Use the above values to create the sprite's image from
               //the tileset image
-              texture = this.frame(tileset, tilesetX, tilesetY, world.tilewidth, world.tileheight);
-              //I've dedcided that any tiles that have a `name` property are important
+              texture = this.frame(tileset, world.tileW, world.tileH, tilesetX,tilesetY);
+              //any tiles that have a `name` property are important
               //and should be accessible in the `world.objects` array.
-              let key = String(gid - 1),
+              let key = ""+(gid-1),
+                tprops,
                 tileproperties = tiledMap.tilesets[0].tileproperties;
               //If the JSON `tileproperties` object has a sub-object that
               //matches the current tile, and that sub-object has a `name` property,
@@ -468,14 +457,13 @@
               //the sprite
               if(tileproperties[key] && tileproperties[key].name) {
                 tileSprite = new Mojo.p.Sprite(texture);
+                tprops=tileproperties[key];
                 //Copy all of the tile's properties onto the sprite
                 //(This includes the `name` property)
-                _.keys(tileproperties[key]).forEach(property => {
-                  //console.log(tileproperties[key][property])
-                  tileSprite[property] = tileproperties[key][property];
+                _.keys(tprops).forEach(property => {
+                  tileSprite[property] = tprops[property];
                 });
                 _.conj(world.objects,tileSprite);
-
               } else {
                 //If the tile doesn't have a `name` property, just use it to
                 //create an ordinary sprite (it will only need one texture)
@@ -600,10 +588,7 @@
       //find out if they are inside an array cell that you're interested in.
       //Return `true` if they are
       let checkPoints = key => {
-        //Get a reference to the current point to check.
-        //(`topLeft`, `topRight`, `bottomLeft` or `bottomRight` )
         let point = sprite.collisionPoints[key];
-        //Find the point's index number in the map array
         collision.index = this.getIndex(point.x, point.y, world.cartTilewidth, world.cartTileheight, world.widthInTiles);
         //Find out what the gid value is in the map position
         //that the point is currently over
@@ -651,7 +636,8 @@
         {topLeft: { x: s.cartX + ca.x, y: s.cartY + ca.y },
          topRight: { x: s.cartX + ca.x + ca.width, y: s.cartY + ca.y },
          bottomLeft: { x: s.cartX + ca.x, y: s.cartY + ca.y + ca.height },
-         bottomRight: { x: s.cartX + ca.x + ca.width, y: s.cartY + ca.y + ca.height } } :
+         bottomRight: { x: s.cartX + ca.x + ca.width, y: s.cartY + ca.y + ca.height } }
+        :
         {topLeft: { x: s.cartX, y: s.cartY },
          topRight: { x: s.cartX + s.cartWidth - 1, y: s.cartY },
          bottomLeft: { x: s.cartX, y: s.cartY + s.cartHeight - 1 },
@@ -705,7 +691,7 @@
       rectangle.lineTo(-width, halfHeight);
       rectangle.lineTo(0, 0);
       rectangle.endFill();
-      return new Mojo.p.Sprite(rectangle.generateTexture());
+      return new Mojo.p.Sprite(Mojo.Sprites.generateTexture(rectangle));
     };
     /**
      * @public
@@ -738,7 +724,7 @@
       //Create a group called `world` to contain all the layers, sprites
       //and objects from the `tiledMap`. The `world` object is going to be
       //returned to the main game program
-      let tiledMap = Mojo.p.loader.resources[jsonTiledMap];
+      let tiledMap = Mojo.resources(jsonTiledMap);
       tiledMap=tiledMap && tiledMap.data;
       //A. You need to add three custom properties to your Tiled Editor
       //map: `cartTilewidth`,`cartTileheight` and `tileDepth`. They define the Cartesian
@@ -751,8 +737,8 @@
       let world = new this.Container();
       //B. Set the `tileHeight` to the `tiledMap`'s `tileDepth` property
       //so that it matches the pixel height of the sprite tile image
-      world.tileheight = parseInt(tiledMap.properties.tileDepth);
-      world.tilewidth = tiledMap.tilewidth;
+      world.tileH = parseInt(tiledMap.properties.tileDepth);
+      world.tileW = tiledMap.tilewidth;
       //C. Define the Cartesian dimesions of each tile
       world.cartTileheight = parseInt(tiledMap.properties.cartTileheight);
       world.cartTilewidth = parseInt(tiledMap.properties.cartTilewidth);
@@ -816,8 +802,8 @@
               //the x and y pixel position of the image on the tileset
               tilesetColumn = ((gid - 1) % numberOfTilesetColumns);
               tilesetRow = Math.floor((gid - 1) / numberOfTilesetColumns);
-              tilesetX = tilesetColumn * world.tilewidth;
-              tilesetY = tilesetRow * world.tileheight;
+              tilesetX = tilesetColumn * world.tileW;
+              tilesetY = tilesetRow * world.tileH;
               //Compensate for any optional spacing (padding) around the tiles if
               //there is any. This bit of code accumlates the spacing offsets from the
               //left side of the tileset and adds them to the current tile's position
@@ -827,10 +813,11 @@
               }
               //Use the above values to create the sprite's image from
               //the tileset image
-              texture = this.frame(tileset, tilesetX, tilesetY, world.tilewidth, world.tileheight);
+              texture = this.frame(tileset, world.tileW, world.tileH, tilesetX,tilesetY);
               //I've dedcided that any tiles that have a `name` property are important
               //and should be accessible in the `world.objects` array.
-              let key = String(gid - 1),
+              let key = ""+(gid - 1),
+                tprops,
                 tileproperties = tiledMap.tilesets[0].tileproperties;
               //If the JSON `tileproperties` object has a sub-object that
               //matches the current tile, and that sub-object has a `name` property,
@@ -838,11 +825,9 @@
               //the sprite
               if(tileproperties[key] && tileproperties[key].name) {
                 tileSprite = new Mojo.p.Sprite(texture);
-                //Copy all of the tile's properties onto the sprite
-                //(This includes the `name` property)
-                _.keys(tileproperties[key]).forEach(property => {
-                  //console.log(tileproperties[key][property])
-                  tileSprite[property] = tileproperties[key][property];
+                tprops=tileproperties[key];
+                _.keys(tprops).forEach(property => {
+                  tileSprite[property] = tprops[property];
                 });
                 _.conj(world.objects,tileSprite);
               } else {
@@ -1132,7 +1117,7 @@
             testNode.g = g;
             testNode.h = h;
             testNode.parent = centerNode;
-            openList.push(testNode);
+            _.conj(openList,testNode);
           }
         }
         _.conj(closedList,centerNode);
@@ -1151,7 +1136,7 @@
       if(openList.length !== 0) {
         //Start with the destination node
         let testNode = destinationNode;
-        theShortestPath.push(testNode);
+        _.conj(theShortestPath,testNode);
         //Work backwards through the node parents
         //until the start node is found
         while(testNode !== startNode) {
@@ -1211,14 +1196,8 @@
               y = spriteOne.centerY + dy * newMagnitude;
             //The getIndex function converts x/y coordinates into
             //map array index positon numbers
-            let getIndex = (x, y, tilewidth, tileheight, mapWidthInTiles) => {
-              //Convert pixel coordinates to map index coordinates
-              let ix = Math.floor(x / tilewidth),
-                iy = Math.floor(y / tileheight);
-              return ix + (iy * mapWidthInTiles);
-            };
             //Find the map index number that this x and y point corresponds to
-            let index = this.getIndex(x, y, world.tilewidth, world.tileheight, world.widthInTiles);
+            let index = this.getIndex(x, y, world.tileW, world.tileH, world.widthInTiles);
             _.conj(arrayOfPoints,{x: x, y: y, index: index });
           }
           return arrayOfPoints;
@@ -1283,8 +1262,8 @@
      */
     _T.validDirections=function(sprite, mapArray, validGid, world) {
       //Get the sprite's current map index position number
-      let index = g.getIndex(sprite.x, sprite.y,
-                             world.tilewidth, world.tileheight, world.widthInTiles);
+      let index = this.getIndex(sprite.x, sprite.y,
+                             world.tileW, world.tileH, world.widthInTiles);
       //An array containing the index numbers of tile cells
       //above, below and to the left and right of the sprite
       let surroundingCrossCells = (index, widthInTiles) => {
@@ -1381,6 +1360,7 @@
       };
     };
 
+    return Mojo.Tiles=_T;
   };
 
 })(this);

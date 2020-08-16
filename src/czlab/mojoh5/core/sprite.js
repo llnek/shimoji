@@ -224,7 +224,7 @@
         else if (a > 0) x = x - w/2;
       }
       return x;
-    }
+    };
     /**
      * @public
      * @function
@@ -242,7 +242,7 @@
         x += w;
       }
       return x;
-    }
+    };
     /**
      * @public
      * @function
@@ -257,7 +257,7 @@
         else if (a > 0) y = y - h/2;
       }
       return y;
-    }
+    };
     /**
      * @public
      * @function
@@ -275,29 +275,36 @@
         y += h;
       }
       return y;
-    }
+    };
     /**
      * @public
      * @function
      */
-    _S.bbox4=function(sprite) {
+    _S.getBBox=function(sprite) {
       return {x1: this.leftSide(sprite), x2: this.rightSide(sprite),
               y1: this.topSide(sprite), y2: this.bottomSide(sprite) };
-    }
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.bbox4=function(left,right,top,bottom) {
+      return {x1: left, x2: right, y1: top, y2: bottom};
+    };
     /**
      * @public
      * @function
      */
     _S.pointInBBox=function(pt,box) {
       return pt.x >= box.x1 && pt.x <= box.x2 && pt.y >= box.y1 && pt.y <= box.y2;
-    }
+    };
     /**
      * @public
      * @function
      */
     _S.hitTestPoint=function(pt,sprite) {
-      return this.pointInBBox(pt, this.bbox4(sprite));
-    }
+      return this.pointInBBox(pt, this.getBBox(sprite));
+    };
     /**
      * @public
      * @function
@@ -375,7 +382,7 @@
      * @private
      * @function
      */
-    function _mkTexture(source) {
+    _S.mkTexture= function(source) {
       let obj, texture;
       if(is.str(source)) {
         if(obj=Mojo.tcached(source))
@@ -386,7 +393,7 @@
       if(!texture)
         throw `Error: ${source} not loaded`;
       return texture;
-    }
+    };
     /**
      * @private
      * @function
@@ -488,14 +495,14 @@
      * @function
      */
     _S.frame=function(source, width, height,x,y) {
-      return _cfgTexture(_mkTexture(source),width,height,x,y);
+      return _cfgTexture(this.mkTexture(source),width,height,x,y);
     };
     /**
      * @public
      * @function
      */
     _S.frames=function(source, coordinates, tileW, tileH) {
-      let t= _mkTexture(source);
+      let t= this.mkTexture(source);
       return coordinates.map(p => {
         return _cfgTexture(new Mojo.p.Texture(t),tileW,tileH,p[0],p[1]);
       });
