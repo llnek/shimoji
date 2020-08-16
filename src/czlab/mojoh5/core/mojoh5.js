@@ -491,7 +491,15 @@
      * @public
      * @function
      */
-    Mojo.tcached=function(x) { return x && this.p.TCache[x]; };
+    Mojo.tcached=function(x) {
+      let t;
+      if(x) {
+        t= this.p.TCache[x];
+        if(!t)
+          t= this.p.TCache[this.assetPath(x)];
+      }
+      return t;
+    };
     /**
      * @public
      * @function

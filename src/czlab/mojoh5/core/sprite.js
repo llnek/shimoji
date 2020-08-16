@@ -378,7 +378,7 @@
     function _mkTexture(source) {
       let obj, texture;
       if(is.str(source)) {
-        if(obj=Mojo.tcached[source])
+        if(obj=Mojo.tcached(source))
           texture = new Mojo.p.Texture(obj);
       } else if(_.inst(Mojo.p.Texture,source)) {
         texture = new Mojo.p.Texture(source);
@@ -457,7 +457,7 @@
      * @function
      */
     _S.animation=function(texture, tileW, tileH, spacing = 0) {
-      let t= Mojo.tcached[texture];
+      let t= Mojo.tcached(texture);
       if(!t) return null;
       let pos= [],
         cols = t.width / tileW,
@@ -507,7 +507,7 @@
     _S.frameSeries=function(startNumber, endNumber, baseName, extension) {
       let frames = [];
       for(let i=startNumber; i < endNumber+1; ++i)
-        _.conj(frames, Mojo.tcached[`${baseName+i+extension}`]);
+        _.conj(frames, Mojo.tcached(`${baseName+i+extension}`));
       return frames;
     };
     /**

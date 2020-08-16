@@ -95,9 +95,9 @@
           f[0]();
           _.disj(this._queue,f);
         }
-        Mojo.EventBus.pub(["pre.update",this]);
+        Mojo.EventBus.pub(["pre.update",this],dt);
         _.doseq(this.children, c => { c.step && c.step(dt); });
-        Mojo.EventBus.pub(["post.update",this]);
+        Mojo.EventBus.pub(["post.update",this],dt);
       }
       runOnce() {
         if(this.setup) {
