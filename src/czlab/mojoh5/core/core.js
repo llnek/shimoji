@@ -25,6 +25,7 @@
   function isArray(obj) { return tostr.call(obj) === "[object Array]"; }
   function isMap(obj) { return tostr.call(obj) === "[object Map]"; }
   function isStr(obj) { return typeof obj === "string"; }
+  function isNum(obj) { return tostr.call(obj) === "[object Number]"; }
   function _randXYInclusive(min,max) {
     return Math.floor(Math.random() * (max - min + 1) + min);
   }
@@ -64,6 +65,29 @@
     unpack: (s) => { return JSON.parse(s); },
     v2: (x,y) => { return [x,y]; },
     p2: (x,y) => { return {x: x, y: y}; },
+    numOrZero: (n) => { return isNaN(n) ? 0 : n; },
+    parseNumber: (s,dft) => {
+      let n=parseFloat(s);
+      return (isNaN(n) && isNum(dft)) ? dft : n;
+    },
+    splitVerStr: function(s) {
+      let arr=(""+(s || "")).split(".").filter(s => {return s.length>0;});
+      let major=this.parseNumber(arr[0],0),
+        minor=this.parseNumber(arr[1],0),
+        patch=this.parseNumber(arr[2],0);
+      return [major, minor, patch];
+    },
+    cmpVerStrs: function(V1,V2) {
+      let v1= this.splitVerStr(""+V1);
+      let v2= this.splitVerStr(""+V2);
+      if(v1[0] > v2[0]) return 1;
+      else if (v1[0] < v2[0]) return -1;
+      if(v1[1] > v2[1]) return 1;
+      else if(v1[1] < v2[1]) return -1;
+      if(v1[2] > v2[2]) return 1;
+      else if(v1[2] < v2[2]) return -1;
+      return 0;
+    },
     findFiles: (files, exts) => {
       return files.filter(s => { return exts.indexOf(_fext(s)) > -1; });
     },
@@ -75,6 +99,23 @@
     keys: (obj) => {
       return isMap(obj) ? Array.from(obj.keys())
                         : (isObject(obj) ? Object.keys(obj) : []);
+    },
+    selectKeys: function(coll,keys) {
+      let out;
+      if(isMap(coll) || isObject(coll)) {
+        if(isMap(coll)) out=new Map();
+        else out={};
+        this.seq(keys).forEach(k => {
+          if(isMap(coll)) {
+            if(coll.has(k))
+              out.set(k, coll.get(k));
+          } else {
+            if(OBJ.hasOwnProperty.call(coll, k))
+              out[k]= coll[k];
+          }
+        });
+      }
+      return out;
     },
     assert: function(cond) {
       if(!cond)
@@ -376,12 +417,12 @@
    */
   const is= {
     fun: (obj) => { return tostr.call(obj) === "[object Function]"; },
-    num: (obj) => { return tostr.call(obj) === "[object Number]"; },
     str: (obj) => { return typeof obj === "string"; },
     void0: (obj) => { return obj === void 0; },
     undef: (obj) => { return obj === undefined; },
     obj: isObject,
     map: isMap,
+    num: isNum,
     vec: isArray,
     some: (obj) => { return _.size(obj) > 0; },
     none: (obj) => { return _.size(obj) == 0; }

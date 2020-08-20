@@ -60,7 +60,7 @@
 
         */
         //Get a reference to the array containing the map items
-        this.itemsMapArray = this.world.getObject("items").data;
+        this.itemsMapArray = this.world.getObject("items").tiled.data;
 
         /*
         Create the camera and center it over the elf.
@@ -175,7 +175,7 @@
         //check for a collision between the elf and the ground tiles
         //(See the example `tiledEditorSupport.html` for details on how to
         //`hitTestTile` - it's not difficult)
-        let obstaclesMapArray = this.world.getObject("obstacles").data;
+        let obstaclesMapArray = this.world.getObject("obstacles").tiled.data;
         let elfVsGround = T.hitTestTile(this.elf, obstaclesMapArray, 0, this.world, "every");
         //If the elf isn't touching any ground tiles, it means its touching
         //an obstacle, like a bush, the bottom of a wall, or the bottom of a
@@ -201,12 +201,12 @@
           this.items = this.items.filter(item => {
 
             //Does the current item match the elf's position?
-            if(item.index === elfVsItems.index) {
+            if(item.tiled_index === elfVsItems.index) {
               let hud=Z.findScene("hud");
-              Mojo.EventBus.pub(["sync.ui", hud], `You found a ${item.name}`);
+              Mojo.EventBus.pub(["sync.ui", hud], `You found a ${item.tiled.name}`);
               hud.future(function(){ hud.hideMessage(); }, 180);
               //Remove the item
-              this.itemsMapArray[item.index] = 0;
+              this.itemsMapArray[item.tiled_index] = 0;
               S.remove(item);
               return false;
             } else {
@@ -222,7 +222,7 @@
   }
 
   MojoH5.Config={
-    assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json" ],
+    assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json", "level1.tmx" ],
     arena: {width:512, height:512},
     scaleToWindow:true,
     start: setup

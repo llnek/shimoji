@@ -169,6 +169,7 @@
      * ```
      */
     _T.hitTestTile=function(sprite, mapArray, gidToCheck, world, pointsToCheck) {
+      let collision = {};
       //The `checkPoints` helper function Loop through the sprite's corner points to
       //find out if they are inside an array cell that you're interested in.
       let checkPoints = key => {
@@ -185,7 +186,6 @@
         return collision.gid === gidToCheck;
       };
       pointsToCheck = pointsToCheck || "some";
-      let collision = {};
       //Which points do you want to check? //"every", "some" or "center"?
       switch(pointsToCheck) {
       case "center":
@@ -373,13 +373,64 @@
      * let gameItemsArray = world.getObjects("marmot", "skull", "heart");
      * ```
      */
+    function _getImage(obj) {
+      let s= obj.image,
+          p= s && s.split("/");
+      return p && p.length > 0 && p[p.length-1];
+    }
+    function _parsePoint(pt) {
+      let pts = pt.split(",");
+      return [parseFloat(pts[0]), parseFloat(pts[1])];
+    }
+    function _parseProperties(elem) {
+      let props={};
+      _.doseq(elem.properties, pe => {
+        props[pe.name]= pe.value;
+      });
+      return props;
+    }
+    function _lookupGid(gid,gidMap) {
+      let idx = 0;
+      while(gidMap[idx+1] &&
+            gid >= gidMap[idx+1][0]) ++idx;
+      return gidMap[idx];
+    }
+    function _scanTilesets(tilesets, tileProperties) {
+      let gidList = [];
+      _.doseq(tilesets, ts => {
+        let tsinfo=_.selectKeys(ts,"firstgid,name,spacing,"+
+                                 "imageheight,imagewidth,"+
+                                 "tileheight,tilewidth");
+        tsinfo.image= _getImage(ts);
+        _.doseq(ts.tiles, tile => {
+          let gid = tsinfo.firstgid + tile.id,
+              properties = _parseProperties(tile);
+          //if(properties.points) properties.points = _.map(properties.points.split(" "),_parsePoint);
+          //global
+          tileProperties[gid] = properties;
+        });
+        _.conj(gidList,[tsinfo.firstgid, tsinfo]);
+      });
+      return gidList.sort((a,b) => {
+        if(a[0]>b[0]) return 1;
+        if(a[0]<b[0]) return -1;
+        return 0;
+      });
+    };
     _T.makeTiledWorld=function(jsonTiledMap, tileset) {
       //Create a group called `world` to contain all the layers, sprites
       //and objects from the `tiledMap`. The `world` object is going to be
       //returned to the main game program
-      let world = new Mojo.p.Container(),
-        tiledMap = Mojo.resources(jsonTiledMap);
-      tiledMap = tiledMap && tiledMap.data;
+      let tiledMap = Mojo.resources(jsonTiledMap);
+      tiledMap= tiledMap && tiledMap.data;
+      _.assert(tiledMap, `${jsonTiledMap} not cached`);
+      let world = new Mojo.p.Container();
+      //check version of map-editor
+      let tver= tiledMap.tiledversion || tiledMap.version;
+      if(false && tver &&
+        _.cmpVerStrs(tver,"1.4.2") < 0)
+        throw `Error: ${jsonTiledMap} version out of date`;
+
       world.tileH = tiledMap.tileheight;
       world.tileW = tiledMap.tilewidth;
       //Calculate the `width` and `height` of the world, in pixels
@@ -393,94 +444,71 @@
       //named objects in the map. Named objects all have
       //a `name` property that was assigned in Tiled Editor
       world.objects = [];
-      //The optional spacing (padding) around each tile
-      //This is to account for spacing around tiles
-      //that's commonly used with texture atlas tilesets. Set the
-      //`spacing` property when you create a new map in Tiled Editor
-      let spacing = tiledMap.tilesets[0].spacing;
+      //let spacing = tiledMap.tilesets[0].spacing;
+      let gtileProps={};
+      let gidList= _scanTilesets(tiledMap.tilesets,gtileProps);
       //Figure out how many columns there are on the tileset.
       //This is the width of the image, divided by the width
       //of each tile, plus any optional spacing thats around each tile
-      let numberOfTilesetColumns = _.floor(tiledMap.tilesets[0].imagewidth / (tiledMap.tilewidth + spacing));
+      //let numberOfTilesetColumns = _.floor(tiledMap.tilesets[0].imagewidth / (tiledMap.tilewidth + spacing));
       tiledMap.layers.forEach(tiledLayer => {
         let layerGroup = new Mojo.p.Container();
-        _.keys(tiledLayer).forEach(key => {
-          //Add all the layer's properties to the group, except the
-          //width and height (because the group will work those our for
-          //itself based on its content).
-          if(key !== "width" && key !== "height")
-            layerGroup[key] = tiledLayer[key];
-        });
+        let gprops= _.inject({}, tiledLayer);
         layerGroup.alpha = tiledLayer.opacity;
+        _.assert(!_.has(layerGroup,"tiled"));
+        layerGroup.tiled = gprops;
         world.addChild(layerGroup);
         _.conj(world.objects,layerGroup);
-        //Is this current layer a `tilelayer`?
         if(tiledLayer.type === "tilelayer") {
-          tiledLayer.data.forEach((gid, index) => {
-            let tileSprite, texture,
-              mapX, mapY,
-              tilesetX, tilesetY,
-              mapColumn, mapRow, tilesetColumn, tilesetRow;
-            //If the grid id number (`gid`) isn't zero, create a sprite
-            if(gid !== 0) {
+          for(let gid,index=0;index<tiledLayer.data.length;++index) {
+            gid=tiledLayer.data[index];
+            if(gid===0) continue;
+            //let tileSprite, texture, mapX, mapY, tilesetX, tilesetY, mapColumn, mapRow, tilesetColumn, tilesetRow;
+            let tsinfo=_lookupGid(gid,gidList)[1];
+            let tileId=gid - tsinfo.firstgid;
+            _.assert(tileId>=0);
+            let cols=Math.floor(tsinfo.imagewidth / (tsinfo.tilewidth+tsinfo.spacing));
+              //let rows=Math.floor(tprops.imageH / tprops.tileH);
               //Figure out the map column and row number that we're on, and then
               //calculate the grid cell's x and y pixel position.
-              mapColumn = index % world.widthInTiles;
-              mapRow = Math.floor(index / world.widthInTiles);
-              mapX = mapColumn * world.tileW;
-              mapY = mapRow * world.tileH;
-              //Figure out the column and row number that the tileset
-              //image is on, and then use those values to calculate
-              //the x and y pixel position of the image on the tileset
-              tilesetColumn = ((gid - 1) % numberOfTilesetColumns);
-              tilesetRow = Math.floor((gid - 1) / numberOfTilesetColumns);
-              tilesetX = tilesetColumn * world.tileW;
-              tilesetY = tilesetRow * world.tileH;
-              //Compensate for any optional spacing (padding) around the tiles if
-              //there is any. This bit of code accumlates the spacing offsets from the
-              //left side of the tileset and adds them to the current tile's position
-              if(spacing > 0) {
-                tilesetX += spacing + (spacing * ((gid - 1) % numberOfTilesetColumns));
-                tilesetY += spacing + (spacing * Math.floor((gid - 1) / numberOfTilesetColumns));
-              }
-              //Use the above values to create the sprite's image from
-              //the tileset image
-              texture = this.frame(tileset, world.tileW, world.tileH, tilesetX,tilesetY);
-              //any tiles that have a `name` property are important
-              //and should be accessible in the `world.objects` array.
-              let key = ""+(gid-1),
-                tprops,
-                tileproperties = tiledMap.tilesets[0].tileproperties;
-              //If the JSON `tileproperties` object has a sub-object that
-              //matches the current tile, and that sub-object has a `name` property,
-              //then create a sprite and assign the tile properties onto
-              //the sprite
-              if(tileproperties[key] && tileproperties[key].name) {
-                tileSprite = new Mojo.p.Sprite(texture);
-                tprops=tileproperties[key];
-                //Copy all of the tile's properties onto the sprite
-                //(This includes the `name` property)
-                _.keys(tprops).forEach(property => {
-                  tileSprite[property] = tprops[property];
-                });
-                _.conj(world.objects,tileSprite);
-              } else {
-                //If the tile doesn't have a `name` property, just use it to
-                //create an ordinary sprite (it will only need one texture)
-                tileSprite = new Mojo.p.Sprite(texture);
-              }
-              tileSprite.x = mapX;
-              tileSprite.y = mapY;
-              //Make a record of the sprite's index number in the array
-              //(We'll use this for collision detection later)
-              tileSprite.index = index;
-              //Make a record of the sprite's `gid` on the tileset.
-              //This will also be useful for collision detection later
-              tileSprite.gid = gid;
-              //Add the sprite to the current layer group
-              layerGroup.addChild(tileSprite);
+            let mapColumn = index % tiledLayer.width;
+            let mapRow = Math.floor(index / tiledLayer.width);
+            let mapX = mapColumn * tsinfo.tilewidth;
+            let mapY = mapRow * tsinfo.tileheight;
+            let tilesetCol = tileId % cols;
+            let tilesetRow = Math.floor(tileId / cols);
+            let tilesetX = tilesetCol * tsinfo.tilewidth;
+            let tilesetY = tilesetRow * tsinfo.tileheight;
+            if(tsinfo.spacing > 0) {
+              tilesetX += tsinfo.spacing + (tsinfo.spacing * tilesetCol);
+              tilesetY += tsinfo.spacing + (tsinfo.spacing * tilesetRow);
             }
-          });
+            let tileSprite;
+            let texture = this.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
+            //any tiles that have a `name` property are important
+            //and should be accessible in the `world.objects` array.
+            //let key = ""+(gid-1), tprops, tileproperties = tiledMap.tilesets[0].tileproperties;
+            //If the JSON `tileproperties` object has a sub-object that
+            //matches the current tile, and that sub-object has a `name` property,
+            //then create a sprite and assign the tile properties onto
+            //the sprite
+            let tprops=gtileProps[gid];
+            if(tprops && _.has(tprops,"name")) {
+              tileSprite = new Mojo.p.Sprite(texture);
+              _.assert(!_.has(tileSprite,"tiled"));
+              tileSprite.tiled= _.inject({},tprops);
+              _.conj(world.objects,tileSprite);
+            } else {
+              tileSprite = new Mojo.p.Sprite(texture);
+            }
+            tileSprite.x = mapX;
+            tileSprite.y = mapY;
+            _.assert(!_.has(tileSprite,"tiled_gid"));
+            _.assert(!_.has(tileSprite,"tiled_index"));
+            tileSprite.tiled_index = index;
+            tileSprite.tiled_gid = gid;
+            layerGroup.addChild(tileSprite);
+          }
         }
         if(tiledLayer.type === "objectgroup") {
           tiledLayer.objects.forEach(object => {
@@ -488,6 +516,8 @@
             //so that we can decide what to do with it later
             //Get a reference to the layer group the object is in
             object.group = layerGroup;
+            object.tiled={};
+            object.tiled.name= object.name;
             //Because this is an object layer, it doesn't contain any
             //sprites, just data object. That means it won't be able to
             //calucalte its own height and width. To help it out, give
@@ -514,7 +544,7 @@
         let searchForObject = () => {
           let foundObject;
           world.objects.some(object => {
-            if(object.name && object.name === objectName) {
+            if(object.tiled && object.tiled.name && object.tiled.name === objectName) {
               foundObject = object;
               return true;
             }
@@ -529,7 +559,8 @@
       world.getObjects = (objectNames) => {
         let foundObjects = [];
         world.objects.forEach(object => {
-          if(object.name && _.has(objectNames,object.name))
+          if(object.tiled && object.tiled.name &&
+            _.has(objectNames,object.tiled.name))
             foundObjects.push(object);
         });
         if(foundObjects.length > 0) {
@@ -880,7 +911,8 @@
         let searchForObject = () => {
           let foundObject;
           world.objects.some(object => {
-            if (object.name && object.name === objectName) {
+            if(object.tiled && object.tiled.name &&
+              object.tiled.name === objectName) {
               foundObject = object;
               return true;
             }
@@ -896,7 +928,8 @@
       world.getObjects = (objectNames) => {
         let foundObjects = [];
         world.objects.forEach(object => {
-          if(object.name && _.has(objectNames,object.name))
+          if(object.tiled && object.tiled.name &&
+            _.has(objectNames,object.tiled.name))
             foundObjects.push(object);
         });
         if(foundObjects.length > 0) {
