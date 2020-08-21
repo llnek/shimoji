@@ -30,15 +30,6 @@
     /**
      * @public
      * @function
-     */
-    _T.frame=function(source, width, height,x, y) {
-      let texture=Mojo.Sprites.mkTexture(source);
-      texture.frame = Mojo.rect(x, y, width, height);
-      return texture;
-    };
-    /**
-     * @public
-     * @function
      *
      * The `getIndex` helper method
      * converts a sprite's x and y position to an array index number.
@@ -484,7 +475,7 @@
               tilesetY += tsinfo.spacing + (tsinfo.spacing * tilesetRow);
             }
             let tileSprite;
-            let texture = this.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
+            let texture = Mojo.Sprite.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
             //any tiles that have a `name` property are important
             //and should be accessible in the `world.objects` array.
             //let key = ""+(gid-1), tprops, tileproperties = tiledMap.tilesets[0].tileproperties;
@@ -844,7 +835,7 @@
               }
               //Use the above values to create the sprite's image from
               //the tileset image
-              texture = this.frame(tileset, world.tileW, world.tileH, tilesetX,tilesetY);
+              texture = Mojo.Sprite.frame(tileset, world.tileW, world.tileH, tilesetX,tilesetY);
               //I've dedcided that any tiles that have a `name` property are important
               //and should be accessible in the `world.objects` array.
               let key = ""+(gid - 1),
