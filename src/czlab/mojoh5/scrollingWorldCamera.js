@@ -16,7 +16,7 @@
         Mojo.EventBus.sub(["sync.ui",this],"syncUI");
       },
       syncUI:function(msg){
-        this.message.content=msg;
+        this.message.mojoh5.content(msg);
         this.message.visible=true;
       },
       hideMessage:function(){
@@ -25,14 +25,14 @@
     });
     Z.defScene("level1",{
       setup:function(){
-        this.world = T.makeTiledWorld("fantasy.json", "fantasy.png");
+        this.world = T.makeTiledWorld("fantasy.json");
         this.insert(this.world);
         this.elf = S.sprite(S.animation("walkcycle.png", 64, 64));
-        let elfObj = this.world.getObject("elf");
+        let elfObj = this.world.tiled.getObject("elf");
         this.elf.x = elfObj.x;
         this.elf.y = elfObj.y;
         //Add the elf sprite the map's "objects" layer group
-        let objectsLayer = this.world.getObject("objects");
+        let objectsLayer = this.world.tiled.getObject("objects");
         objectsLayer.addChild(this.elf);
 
         //If you want to, add the sprite to a different world layer,
@@ -44,7 +44,7 @@
 
         //Get all the items on the items layer (the skull, marmot and heart).
         //The `itemLayer` group's `children` array contains all of them.
-        this.itemsLayer = this.world.getObject("items");
+        this.itemsLayer = this.world.tiled.getObject("items");
 
         //Clone the `itemLayer.children` array so that you have your own
         //array of all three item sprites (the heart, skull and marmot)
@@ -60,7 +60,7 @@
 
         */
         //Get a reference to the array containing the map items
-        this.itemsMapArray = this.world.getObject("items").tiled.data;
+        this.itemsMapArray = this.world.tiled.getObject("items").tiled.data;
 
         /*
         Create the camera and center it over the elf.
@@ -73,7 +73,7 @@
         of the Tiled map data's width and height.
         */
 
-        this.camera = _2d.worldCamera(this.world, this.world.worldWidth, this.world.worldHeight, Mojo.canvas);
+        this.camera = _2d.worldCamera(this.world, this.world.tiled.tiledWidth, this.world.tiled.tiledHeight, Mojo.canvas);
         this.camera.centerOver(this.elf);
 
         //Define a `collisionArea` on the elf that will be sensitive to
@@ -107,7 +107,7 @@
         };
 
         //Use the `show` method to display the elf's `right` state
-        this.elf.show(this.elf.states.right);
+        this.elf.mojoh5.show(this.elf.states.right);
         this.elf.fps = 18;
 
         //Create some keyboard objects
@@ -119,47 +119,47 @@
         //Assign key `press` and release methods that
         //show and play the elf's different states
         this.leftArrow.press = () => {
-          this.elf.playAnimation(this.elf.states.walkLeft);
-          this.elf.vx = -2;
-          this.elf.vy = 0;
+          this.elf.mojoh5.playAnimation(this.elf.states.walkLeft);
+          this.elf.mojoh5.vx = -2;
+          this.elf.mojoh5.vy = 0;
         };
         this.leftArrow.release = () => {
-          if (!this.rightArrow.isDown && this.elf.vy === 0) {
-            this.elf.vx = 0;
-            this.elf.show(this.elf.states.left);
+          if (!this.rightArrow.isDown && this.elf.mojoh5.vy === 0) {
+            this.elf.mojoh5.vx = 0;
+            this.elf.mojoh5.show(this.elf.states.left);
           }
         };
         this.upArrow.press = () => {
-          this.elf.playAnimation(this.elf.states.walkUp);
-          this.elf.vy = -2;
-          this.elf.vx = 0;
+          this.elf.mojoh5.playAnimation(this.elf.states.walkUp);
+          this.elf.mojoh5.vy = -2;
+          this.elf.mojoh5.vx = 0;
         };
         this.upArrow.release = () => {
-          if (!this.downArrow.isDown && this.elf.vx === 0) {
-            this.elf.vy = 0;
-            this.elf.show(this.elf.states.up);
+          if (!this.downArrow.isDown && this.elf.mojoh5.vx === 0) {
+            this.elf.mojoh5.vy = 0;
+            this.elf.mojoh5.show(this.elf.states.up);
           }
         };
         this.rightArrow.press = () => {
-          this.elf.playAnimation(this.elf.states.walkRight);
-          this.elf.vx = 2;
-          this.elf.vy = 0;
+          this.elf.mojoh5.playAnimation(this.elf.states.walkRight);
+          this.elf.mojoh5.vx = 2;
+          this.elf.mojoh5.vy = 0;
         };
         this.rightArrow.release = () => {
-          if (!this.leftArrow.isDown && this.elf.vy === 0) {
-            this.elf.vx = 0;
-            this.elf.show(this.elf.states.right);
+          if (!this.leftArrow.isDown && this.elf.mojoh5.vy === 0) {
+            this.elf.mojoh5.vx = 0;
+            this.elf.mojoh5.show(this.elf.states.right);
           }
         };
         this.downArrow.press = () => {
-          this.elf.playAnimation(this.elf.states.walkDown);
-          this.elf.vy = 2;
-          this.elf.vx = 0;
+          this.elf.mojoh5.playAnimation(this.elf.states.walkDown);
+          this.elf.mojoh5.vy = 2;
+          this.elf.mojoh5.vx = 0;
         };
         this.downArrow.release = () => {
-          if (!this.upArrow.isDown && this.elf.vx === 0) {
-            this.elf.vy = 0;
-            this.elf.show(this.elf.states.down);
+          if (!this.upArrow.isDown && this.elf.mojoh5.vx === 0) {
+            this.elf.mojoh5.vy = 0;
+            this.elf.mojoh5.show(this.elf.states.down);
           }
         };
 
@@ -168,45 +168,44 @@
       postUpdate:function(dt){
         //Move the elf and constrain it to the world boundaries
         //(-10 and -18 are to compensate for image padding around the sprite)
-        this.elf.x = Math.max(-18, Math.min(this.elf.x + this.elf.vx, this.world.worldWidth - this.elf.width + 18));
-        this.elf.y = Math.max(-10, Math.min(this.elf.y + this.elf.vy, this.world.worldHeight - this.elf.height));
+        this.elf.x = Math.max(-18, Math.min(this.elf.x + this.elf.mojoh5.vx, this.world.tiled.tiledWidth - this.elf.width + 18));
+        this.elf.y = Math.max(-10, Math.min(this.elf.y + this.elf.mojoh5.vy, this.world.tiled.tiledHeight - this.elf.height));
         this.camera.follow(this.elf);
         //Get a reference to the obstacles map array and use `hitTestTile`
         //check for a collision between the elf and the ground tiles
         //(See the example `tiledEditorSupport.html` for details on how to
         //`hitTestTile` - it's not difficult)
-        let obstaclesMapArray = this.world.getObject("obstacles").tiled.data;
-        let elfVsGround = T.hitTestTile(this.elf, obstaclesMapArray, 0, this.world, "every");
+        let obstaclesMapArray = this.world.tiled.getObject("obstacles").tiled.data;
+        let elfVsGround = T.hitTestTile(this.elf, obstaclesMapArray, 0, this.world, Mojo.EVERY);
         //If the elf isn't touching any ground tiles, it means its touching
         //an obstacle, like a bush, the bottom of a wall, or the bottom of a
         //tree
-        if (!elfVsGround.hit) {
+        if(!elfVsGround.hit){
           //To prevent the elf from moving, subtract its velocity from its position
-          this.elf.x -= this.elf.vx;
-          this.elf.y -= this.elf.vy;
-          this.elf.vx = 0;
-          this.elf.vy = 0;
+          this.elf.x -= this.elf.mojoh5.vx;
+          this.elf.y -= this.elf.mojoh5.vy;
+          this.elf.mojoh5.vx = 0;
+          this.elf.mojoh5.vy = 0;
           //You can find the gid number of the thing the elf hit like this:
           //console.log(obstaclesMapArray[elfVsGround.index]);
         }
         //Check for a collision with the items
-        let elfVsItems = T.hitTestTile(this.elf, this.itemsMapArray, 0, this.world, "some");
+        let elfVsItems = T.hitTestTile(this.elf, this.itemsMapArray, 0, this.world, Mojo.SOME);
         //You'll know whether the elf is touching an item if `elfVsItem.hit`
         //isn't `0`. `0` indicates a empty cell in the array, so any tile
         //doesn't have a grid index number (`gid`) of `0` must be one of the
         //items (The heart, marmot or skull).
         //If the elf is touching an item tile, filter through all the items
         //in the `items` array and remove the item being touched.
-        if (!elfVsItems.hit) {
+        if (!elfVsItems.hit){
           this.items = this.items.filter(item => {
-
             //Does the current item match the elf's position?
-            if(item.tiled_index === elfVsItems.index) {
+            if(item.tiled.____index === elfVsItems.index){
               let hud=Z.findScene("hud");
               Mojo.EventBus.pub(["sync.ui", hud], `You found a ${item.tiled.name}`);
               hud.future(function(){ hud.hideMessage(); }, 180);
               //Remove the item
-              this.itemsMapArray[item.tiled_index] = 0;
+              this.itemsMapArray[item.tiled.____index] = 0;
               S.remove(item);
               return false;
             } else {
@@ -222,7 +221,7 @@
   }
 
   MojoH5.Config={
-    assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json", "level1.tmx" ],
+    assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json"],//, "level1.tmx" ],
     arena: {width:512, height:512},
     scaleToWindow:true,
     start: setup

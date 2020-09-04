@@ -14,15 +14,15 @@
 
 (function(global,undefined){
   "use strict";
-  let window=global,
-    MojoH5=window.MojoH5;
+  const window=global;
+  const MojoH5=window.MojoH5;
   if(!MojoH5)
     throw "Fatal: MojoH5 not loaded";
   /**
    * @private
    * @function
    */
-  function _fixSetTarget(param) {
+  function _fixSetTarget(param){
     if(param && !param.setTargetAtTime)
       param.setTargetAtTime = param.setTargetValueAtTime;
   }
@@ -30,12 +30,12 @@
    * @public
    * @module
    */
-  MojoH5.Sound=function(Mojo) {
-    const _=Mojo.u,
-      is=Mojo.is;
+  MojoH5.Sound=function(Mojo){
+    const _=Mojo.u;
+    const is=Mojo.is;
     //some crazy polyfill
     if(window.hasOwnProperty("webkitAudioContext") &&
-      !window.hasOwnProperty('AudioContext')) {
+      !window.hasOwnProperty("AudioContext")){
       let AudioContext = webkitAudioContext,
         ACP=AudioContext.prototype;
       window.AudioContext=AudioContext;
@@ -54,37 +54,37 @@
         return node;
       };
       ACP.__createDelay = ACP.createDelay;
-      ACP.createDelay = function(maxDelay) {
+      ACP.createDelay = function(maxDelay){
         let node = maxDelay ? this.__createDelay(maxDelay) : this.__createDelay();
         _fixSetTarget(node.delayTime);
         return node;
       };
       ACP.__createBufferSource = ACP.createBufferSource;
-      ACP.createBufferSource = function() {
+      ACP.createBufferSource = function(){
         let node=this.__createBufferSource();
-        if(!node.start) {
-          node.start=function(when, offset, duration) {
+        if(!node.start){
+          node.start=function(when, offset, duration){
             if(offset || duration)
               this.noteGrainOn(when || 0, offset, duration);
             else
               this.noteOn(when || 0);
           };
-        } else {
+        }else{
           node.__start = node.start;
-          node.start = function(when, offset, duration) {
+          node.start = function(when, offset, duration){
             if(typeof duration !== "undefined")
               node.__start(when || 0, offset, duration);
             else
               node.__start(when || 0, offset || 0);
           };
         }
-        if(!node.stop) {
-          node.stop = function (when) {
+        if(!node.stop){
+          node.stop = function(when){
             this.noteOff(when || 0);
           };
-        } else {
+        }else{
           node.__stop = node.stop;
-          node.stop = function (when) {
+          node.stop = function(when){
             node.__stop(when || 0);
           };
         }
@@ -92,7 +92,7 @@
         return node;
       };
       ACP.__createDynamicsCompressor = ACP.createDynamicsCompressor;
-      ACP.createDynamicsCompressor = function() {
+      ACP.createDynamicsCompressor = function(){
         let node = this.__createDynamicsCompressor();
         _fixSetTarget(node.threshold);
         _fixSetTarget(node.knee);
@@ -103,7 +103,7 @@
         return node;
       };
       ACP.__createBiquadFilter = ACP.createBiquadFilter;
-      ACP.createBiquadFilter = function() {
+      ACP.createBiquadFilter = function(){
         let node = this.__createBiquadFilter();
         _fixSetTarget(node.frequency);
         _fixSetTarget(node.detune);
@@ -111,27 +111,27 @@
         _fixSetTarget(node.gain);
         return node;
       };
-      if(ACP.hasOwnProperty("createOscillator")) {
+      if(ACP.hasOwnProperty("createOscillator")){
         ACP.__createOscillator = ACP.createOscillator;
-        ACP.createOscillator = function() {
+        ACP.createOscillator = function(){
           let node = this.__createOscillator();
-          if(!node.start) {
-            node.start = function(when) {
+          if(!node.start){
+            node.start = function(when){
               this.noteOn(when || 0);
             };
-          } else {
+          }else{
             node.__start = node.start;
-            node.start = function (when) {
+            node.start = function(when){
               node.__start(when || 0);
             };
           }
-          if(!node.stop) {
-            node.stop = function(when) {
+          if(!node.stop){
+            node.stop = function(when){
               this.noteOff(when || 0);
             };
-          } else {
+          }else{
             node.__stop = node.stop;
-            node.stop = function (when) {
+            node.stop = function(when){
               node.__stop(when || 0);
             };
           }
@@ -144,20 +144,18 @@
       }
     }
     if(window.hasOwnProperty("webkitOfflineAudioContext") &&
-      !window.hasOwnProperty("OfflineAudioContext")) {
+      !window.hasOwnProperty("OfflineAudioContext")){
       window.OfflineAudioContext = webkitOfflineAudioContext;
     }
 
     const AUDIO_EXTS= ["mp3", "ogg", "wav", "webm"];
-    const _A= {
-      ctx: new window.AudioContext()
-    },
-      actx=_A.ctx;
+    const _A={ ctx: new window.AudioContext() };
+    const actx=_A.ctx;
     /**
      * @private
      * @function
      */
-    function _decodeAudio(o, xhr, loadHandler, failHandler) {
+    function _decodeAudio(o, xhr, loadHandler, failHandler){
       actx.decodeAudioData(
         xhr.response,
         (buf) => {
@@ -179,18 +177,18 @@
      * @private
      * @function
      */
-    function _impulseResponse(duration, decay, reverse, actx) {
-      let length = actx.sampleRate * duration,
-        //Create an audio buffer (an empty sound container) to store the reverb effect.
-        impulse = actx.createBuffer(2, length, actx.sampleRate),
-        //Use `getChannelData` to initialize empty arrays to store sound data for
-        //the left and right channels.
-        left = impulse.getChannelData(0),
-        right = impulse.getChannelData(1);
-        //Loop through each sample-frame and fill the channel
-        //data with random noise.
-      for(let n,i=0; i<length; ++i) {
-        n= reverse ? length - i : i;
+    function _impulseResponse(duration, decay, reverse, actx){
+      let length = actx.sampleRate * duration;
+      //Create an audio buffer (an empty sound container) to store the reverb effect.
+      let impulse = actx.createBuffer(2, length, actx.sampleRate);
+      //Use `getChannelData` to initialize empty arrays to store sound data for
+      //the left and right channels.
+      let left = impulse.getChannelData(0);
+      let right = impulse.getChannelData(1);
+      //Loop through each sample-frame and fill the channel
+      //data with random noise.
+      for(let n,i=0; i<length; ++i){
+        n= reverse ? length-i : i;
         //Fill the left and right channels with random white noise which
         //decays exponentially.
         left[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
@@ -202,10 +200,8 @@
      * @public
      * @function
      */
-    _A.makeSound=function(source, loadHandler, shouldLoadSound, xhr, failHandler) {
-      let o = {
-        volumeNode: actx.createGain()
-      };
+    _A.makeSound=function(source, loadHandler, shouldLoadSound, xhr, failHandler){
+      let o = { volumeNode: actx.createGain() };
       o.panNode= actx.createStereoPanner ? actx.createStereoPanner()
                                          : actx.createPanner();
       o.delayNode = actx.createDelay();
@@ -236,7 +232,7 @@
       o.reverb = false;
       o.reverbImpulse = null;
       //The sound object's methods.
-      o.play=function() {
+      o.play=function(){
         o.startTime = actx.currentTime;
         o.soundNode = actx.createBufferSource();
         o.soundNode.buffer = o.buffer;
@@ -245,9 +241,9 @@
         //volume, and connect the volume to the destination.
         o.soundNode.connect(o.volumeNode);
         //If there's no reverb, bypass the convolverNode
-        if(!o.reverb) {
+        if(!o.reverb){
           o.volumeNode.connect(o.panNode);
-        } else {
+        }else{
           //If there is reverb, connect the `convolverNode` and apply
           //the impulse response
           o.volumeNode.connect(o.convolverNode);
@@ -256,15 +252,15 @@
         }
         //Connect the `panNode` to the destination to complete the chain.
         o.panNode.connect(actx.destination);
-        if(o.echo) {
+        if(o.echo){
           o.feedbackNode.gain.value = o.feebackValue;
           o.delayNode.delayTime.value = o.delayValue;
           o.filterNode.frequency.value = o.filterValue;
           o.delayNode.connect(o.feedbackNode);
-          if (o.filterValue > 0) {
+          if(o.filterValue > 0){
             o.feedbackNode.connect(o.filterNode);
             o.filterNode.connect(o.delayNode);
-          } else {
+          }else{
             o.feedbackNode.connect(o.delayNode);
           }
           //Capture the sound from the main node chain, send it to the
@@ -277,33 +273,29 @@
         //Finally, use the `start` method to play the sound.
         //The start time will either be `0`,
         //or a later time if the sound was paused.
-        o.soundNode.start(
-          0, o.startOffset % o.buffer.duration);
-
+        o.soundNode.start(0, o.startOffset % o.buffer.duration);
         o.playing = true;
       };
-      o.pause = function() {
-        if(o.playing) {
+      o.pause = function(){
+        if(o.playing){
           o.soundNode.stop(0);
           o.startOffset += actx.currentTime - o.startTime;
           o.playing = false;
         }
       };
-      o.restart = function() {
-        if (o.playing) {
+      o.restart = function(){
+        if(o.playing)
           o.soundNode.stop(0);
-        }
         o.startOffset = 0;
         o.play();
       };
-      o.playFrom = function(value) {
-        if (o.playing) {
+      o.playFrom = function(value){
+        if (o.playing)
           o.soundNode.stop(0);
-        }
         o.startOffset = value;
         o.play();
       };
-      o.setEcho = function(delayValue, feedbackValue, filterValue) {
+      o.setEcho = function(delayValue, feedbackValue, filterValue){
         if(delayValue === undefined) delayValue = 0.3;
         if(feedbackValue === undefined) feedbackValue = 0.3;
         if(filterValue === undefined) filterValue = 0;
@@ -312,7 +304,7 @@
         o.filterValue = filterValue;
         o.echo = true;
       };
-      o.setReverb = function(duration, decay, reverse) {
+      o.setReverb = function(duration, decay, reverse){
         if(duration === undefined) duration = 2;
         if(decay === undefined) decay = 2;
         if(reverse === undefined) reverse = false;
@@ -323,8 +315,8 @@
       //The first argument is the volume that the sound should
       //fade to, and the second value is the duration, in seconds,
       //that the fade should last.
-      o.fade = function(endValue, durationInSeconds) {
-        if(o.playing) {
+      o.fade = function(endValue, durationInSeconds){
+        if(o.playing){
           o.volumeNode.gain.linearRampToValueAtTime(
             o.volumeNode.gain.value, actx.currentTime
           );
@@ -334,47 +326,41 @@
         }
       };
       //Fade a sound in, from an initial volume level of zero.
-      o.fadeIn = function(durationInSeconds) {
+      o.fadeIn = function(durationInSeconds){
         //Set the volume to 0 so that you can fade
         //in from silence
         o.volumeNode.gain.value = 0;
         o.fade(1, durationInSeconds);
       };
       //Fade a sound out, from its current volume level to zero.
-      o.fadeOut = function (durationInSeconds) {
+      o.fadeOut = function(durationInSeconds){
         o.fade(0, durationInSeconds);
       };
       Object.defineProperties(o, {
         volume: _.pdef({
-          get() { return o.volumeValue; },
-          set(v) {
-            o.volumeNode.gain.value = v;
-            o.volumeValue = v;
-          } }),
+          get(){ return o.volumeValue; },
+          set(v){ o.volumeNode.gain.value = v; o.volumeValue = v; }}),
         //The pan node uses the high-efficiency stereo panner, if it's
         //available. But, because this is a new addition to the
         //WebAudio spec, it might not be available on all browsers.
         //So the code checks for this and uses the older 3D panner
         //if 2D isn't available.
         pan: _.pdef({
-          get() {
-            return actx.createStereoPanner
-              ? o.panNode.pan.value : o.panValue; },
-          set(v) {
-            if(!actx.createStereoPanner) {
+          get(){ return actx.createStereoPanner ? o.panNode.pan.value : o.panValue; },
+          set(v){
+            if(!actx.createStereoPanner){
               //Panner objects accept x, y and z coordinates for 3D
               //sound. However, because we're only doing 2D left/right
               //panning we're only interested in the x coordinate,
               //the first one. However, for a natural effect, the z
               //value also has to be set proportionately.
-              let x = v,
-                y = 0, z = 1 - Math.abs(x);
+              let x = v, y = 0, z = 1 - Math.abs(x);
               o.panNode.setPosition(x, y, z);
               o.panValue = v;
-            } else {
+            }else{
               o.panNode.pan.value = v;
             }
-          } })
+          }})
       });
 
       if(shouldLoadSound)
@@ -389,11 +375,11 @@
      * @public
      * @function
      */
-    _A.loadSound=function(o, source, loadHandler, failHandler) {
+    _A.loadSound=function(o, source, loadHandler, failHandler){
       let xhr = new XMLHttpRequest();
       xhr.open("GET", source, true);
       xhr.responseType = "arraybuffer";
-      xhr.addEventListener("load", () => { _decodeAudio(o, xhr, loadHandler, failHandler); });
+      xhr.addEventListener("load", () => _decodeAudio(o, xhr, loadHandler, failHandler));
       xhr.send();
     };
     /**
@@ -414,24 +400,24 @@
      * @public
      * @function
      */
-    _A.soundEffect=function(options) {
+    _A.soundEffect=function(options){
       _.patch(options, {frequencyValue: 200, attack: 0, decay: 1, type: "sine", volumeValue: 1,
                         panValue: 0, wait: 0, pitchBendAmount: 0, reverse: false,
                         randomValue: 0, dissonance: 0, echo: undefined, reverb: undefined, timeout: undefined});
       //Create an oscillator, gain and pan nodes, and connect them
       //together to the destination
-      let oscillator = actx.createOscillator(),
-        volume = actx.createGain(),
-        pan= actx.createStereoPanner ? actx.createStereoPanner() : actx.createPanner();
+      let oscillator = actx.createOscillator();
+      let volume = actx.createGain();
+      let pan= actx.createStereoPanner ? actx.createStereoPanner() : actx.createPanner();
 
       oscillator.connect(volume);
       volume.connect(pan);
       pan.connect(actx.destination);
       //Set the supplied values
       volume.gain.value = options.volumeValue;
-      if (actx.createStereoPanner) {
+      if(actx.createStereoPanner){
         pan.pan.value = options.panValue;
-      } else {
+      }else{
         pan.setPosition(options.panValue, 0, 1 - Math.abs(options.panValue));
       }
       oscillator.type = type;
@@ -440,7 +426,7 @@
       //specified by `frequencyValue`. The random pitch will be either
       //above or below the target frequency.
       let frequency = options.frequencyValue;
-      if(options.randomValue > 0) {
+      if(options.randomValue > 0){
         frequency = _randXY(
           options.frequencyValue - options.randomValue/2,
           options.frequencyValue + options.randomValue/2
@@ -457,18 +443,18 @@
       //Play the sound
       play(oscillator);
       //The helper functions:
-      function addReverb(volumeNode) {
-        let r=options.reverb,
-          convolver = actx.createConvolver();
+      function addReverb(volumeNode){
+        let r=options.reverb;
+        let convolver = actx.createConvolver();
         convolver.buffer = _impulseResponse(r[0], r[1], r[2], actx);
         volumeNode.connect(convolver);
         convolver.connect(pan);
       }
-      function addEcho(volumeNode) {
-        let e=options.echo,
-          feedback = actx.createGain(),
-          delay = actx.createDelay(),
-          filter = actx.createBiquadFilter();
+      function addEcho(volumeNode){
+        let e=options.echo;
+        let feedback = actx.createGain();
+        let delay = actx.createDelay();
+        let filter = actx.createBiquadFilter();
         //Set their values (delay time, feedback time and filter frequency)
         delay.delayTime.value = e[0];
         feedback.gain.value = e[1];
@@ -476,10 +462,10 @@
         //Create the delay feedback loop, with
         //optional filtering
         delay.connect(feedback);
-        if(e[2]) {
+        if(e[2]){
           feedback.connect(filter);
           filter.connect(delay);
-        } else {
+        }else{
           feedback.connect(delay);
         }
         //Connect the delay loop to the oscillator's volume
@@ -491,7 +477,7 @@
         delay.connect(pan);
       }
       //The `fadeIn` function
-      function fadeIn(volumeNode) {
+      function fadeIn(volumeNode){
         //Set the volume to 0 so that you can fade
         //in from silence
         volumeNode.gain.value = 0;
@@ -504,7 +490,7 @@
         );
       }
       //The `fadeOut` function
-      function fadeOut(volumeNode) {
+      function fadeOut(volumeNode){
         volumeNode.gain.linearRampToValueAtTime(
           options.volumeValue, actx.currentTime + options.attack + options.wait
         );
@@ -513,13 +499,13 @@
         );
       }
       //The `pitchBend` function
-      function pitchBend(oscillatorNode) {
+      function pitchBend(oscillatorNode){
         //If `reverse` is true, make the note drop in frequency. Useful for
         //shooting sounds
         //Get the frequency of the current oscillator
         let frequency = oscillatorNode.frequency.value;
         //If `reverse` is true, make the sound drop in pitch
-        if(!options.reverse) {
+        if(!options.reverse){
           oscillatorNode.frequency.linearRampToValueAtTime(
             frequency,
             actx.currentTime + options.wait
@@ -528,7 +514,7 @@
             frequency - options.pitchBendAmount,
             actx.currentTime + options.wait + options.attack + options.decay
           );
-        } else {
+        }else{
           //If `reverse` is false, make the note rise in pitch. Useful for
           //jumping sounds
           oscillatorNode.frequency.linearRampToValueAtTime(
@@ -542,12 +528,12 @@
         }
       }
       //The `addDissonance` function
-      function addDissonance() {
+      function addDissonance(){
         //Create two more oscillators and gain nodes
-        let d1 = actx.createOscillator(),
-          d2 = actx.createOscillator(),
-          d1Volume = actx.createGain(),
-          d2Volume = actx.createGain();
+        let d1 = actx.createOscillator();
+        let d2 = actx.createOscillator();
+        let d1Volume = actx.createGain();
+        let d2Volume = actx.createGain();
         //Set the volume to the `volumeValue`
         d1Volume.gain.value = options.volumeValue;
         d2Volume.gain.value = options.volumeValue;
@@ -566,23 +552,23 @@
         d2.frequency.value = frequency - options.dissonance;
         //Fade in/out, pitch bend and play the oscillators
         //to match the main sound
-        if(options.attack > 0) {
+        if(options.attack > 0){
           fadeIn(d1Volume);
           fadeIn(d2Volume);
         }
-        if(options.decay > 0) {
+        if(options.decay > 0){
           fadeOut(d1Volume);
           fadeOut(d2Volume);
         }
-        if(options.pitchBendAmount > 0) {
+        if(options.pitchBendAmount > 0){
           pitchBend(d1);
           pitchBend(d2);
         }
-        if(options.echo) {
+        if(options.echo){
           addEcho(d1Volume);
           addEcho(d2Volume);
         }
-        if(options.reverb) {
+        if(options.reverb){
           addReverb(d1Volume);
           addReverb(d2Volume);
         }
@@ -590,7 +576,7 @@
         play(d2);
       }
       //The `play` function
-      function play(node) {
+      function play(node){
         node.start(actx.currentTime + options.wait);
         //Oscillators have to be stopped otherwise they accumulate in
         //memory and tax the CPU. They'll be stopped after a default

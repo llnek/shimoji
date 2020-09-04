@@ -1,32 +1,29 @@
 (function(global,undefined){
   "use strict";
-  let window=global,
-    MojoH5=window.MojoH5;
+  let window=global, MojoH5=window.MojoH5;
   if(!MojoH5)
     throw "Fatal: no mojoh5!";
 
-  let _bullets = [],
-    _aliens = [];
+  let _bullets = [], _aliens = [];
 
-  function defScenes(Mojo) {
+  function defScenes(Mojo){
 
     const I=Mojo.Input, S=Mojo.Sprites, Z=Mojo.Scenes, _2d=Mojo["2d"], G=Mojo.Game;
-
     let _=Mojo.u, is=Mojo.is;
 
     Z.defScene("level1",{
-      setup: function() {
+      setup: function(){
         let self=this;
         let background = S.sprite("background.png");
         this.insert(background);
         let cannon = S.sprite("cannon.png");
-        cannon.uuid="cannon";
-        cannon.step=function(dt){
+        cannon.mojoh5.uuid="cannon";
+        cannon.mojoh5.step=function(dt){
           S.move(cannon);
           _2d.contain(cannon, self);
         };
         this.insert(cannon);
-        this.putBottom(cannon,0,-40);
+        S.putBottom(this,cannon,0,-40);
 
         _bullets.length=0;
         _aliens.length=0;
@@ -47,40 +44,40 @@
             rightArrow =I.keyboard(39),
             spaceBar = I.keyboard(32);
 
-        leftArrow.press = () => {
-          cannon.vx = -5;
-          cannon.vy = 0;
+        leftArrow.press = function(){
+          cannon.mojoh5.vx = -5;
+          cannon.mojoh5.vy = 0;
         };
 
-        leftArrow.release = function() {
-          if(!rightArrow.isDown && cannon.vy === 0) {
-            cannon.vx = 0;
+        leftArrow.release = function(){
+          if(!rightArrow.isDown && cannon.mojoh5.vy === 0){
+            cannon.mojoh5.vx = 0;
           }
         };
 
-        rightArrow.press = function() {
-          cannon.vx = 5;
-          cannon.vy = 0;
+        rightArrow.press = function(){
+          cannon.mojoh5.vx = 5;
+          cannon.mojoh5.vy = 0;
         };
 
-        rightArrow.release = function() {
-          if(!leftArrow.isDown && cannon.vy === 0) {
-            cannon.vx = 0;
+        rightArrow.release = function(){
+          if(!leftArrow.isDown && cannon.mojoh5.vy === 0) {
+            cannon.mojoh5.vx = 0;
           }
         };
 
-        spaceBar.press = function () {
+        spaceBar.press = function(){
           S.shoot(cannon, //The shooter
             4.71, //The angle at which to shoot (4.71 is up)
             self, //The container to which the bullet should be added
             7, //The bullet's speed (pixels per frame)
             _bullets, //The array used to store the bullets
-            function () {
+            function(){
               let b=S.sprite("bullet.png");
-              b.step=function() { if(!this._dead) S.move(b); };
+              b.mojoh5.step=function(){ if(!b.mojoh5.dead) S.move(b); };
               return b;
             },
-            cannon.halfWidth, //Bullet's x position on the cannon
+            S.halfSize(cannon).x, //Bullet's x position on the cannon
             0); //Bullet's y position on the canon
           G.shootSound.play();
         };
@@ -90,10 +87,10 @@
         G.winner= null;
         Mojo.EventBus.sub(["post.update",self],"doAliens");
       },
-      doAliens: function() {
+      doAliens: function(){
         let self=this;
         ++G.alienTimer;
-        if(G.alienTimer === G.alienFrequency) {
+        if(G.alienTimer === G.alienFrequency){
           let alienFrames = ["alien.png", "explosion.png"];
           let alien = S.sprite(alienFrames);
           //Define some states on the alien that correspond
@@ -103,16 +100,16 @@
           alien.y = 0 - alien.height;
           //Assign the alien a random x position.
           alien.x = _.randInt2(0, 14) * alien.width;
-          alien.vy = 1;
+          alien.mojoh5.vy = 1;
           this.insert(alien);
-          alien.step=function() {
-            if(!this._dead) S.move(alien);
+          alien.mojoh5.step=function(){
+            if(!alien.mojoh5.dead) S.move(alien);
           };
           _.conj(_aliens,alien);
           G.alienTimer = 0;
           //Reduce `alienFrequency` by one to gradually increase
           //the frequency that aliens are created
-          if(G.alienFrequency > 2) {
+          if(G.alienFrequency > 2){
             --G.alienFrequency;
           }
         }
@@ -120,44 +117,44 @@
         let hitCannon=false;
         //Check for a collision between the aliens and the bullets.
         //Filter through each alien in the `aliens` array.
-        _aliens = _aliens.filter(function (alien) {
+        _aliens = _aliens.filter(function(alien){
           let alienIsAlive = true;
-          _bullets = _bullets.filter(function (bullet) {
-            if(_2d.hitTestRectangle(alien, bullet)) {
-              bullet._dead=true;
-              alien.show(alien.states.destroyed);
+          _bullets = _bullets.filter(function(bullet){
+            if(_2d.hitTestRectangle(alien, bullet)){
+              bullet.mojoh5.dead=true;
+              alien.mojoh5.show(alien.states.destroyed);
               G.boomSound.play();
-              alien.vy = 0;
-              alien._dead=true;
+              alien.mojoh5.vy = 0;
+              alien.mojoh5.dead=true;
               alienIsAlive = false;
-              self.future(() => { S.remove(alien,bullet); },5);
+              self.future(() => S.remove(alien,bullet),5);
               G.score += 1;
               return false;
-            } else {
+            }else{
               return true;
             }
           });
-          if(_2d.hit(alien,cannon)) { hitCannon=true; }
+          if(_2d.hit(alien,cannon)){ hitCannon=true; }
           return alienIsAlive;
         });
 
-        if(G.score === G.scoreNeededToWin) {
+        if(G.score === G.scoreNeededToWin){
           G.winner = "p1";
-        } else if(hitCannon) {
+        }else if(hitCannon){
           G.winner = "p2";
-        } else {
-          _aliens.forEach(function (alien) {
-            if(alien.y > Mojo.canvas.height) {
+        }else{
+          _aliens.forEach(function(alien){
+            if(alien.y > Mojo.canvas.height){
               G.winner = "p2";
             }
           });
         }
-        if(G.winner) {
+        if(G.winner){
           Mojo.EventBus.unsub(["post.update",this]);
           this.end();
         }
       },
-      end: function() {
+      end: function(){
         let bg=this.children[0];
         this.removeChildren();
         this.insert(bg);
@@ -165,14 +162,14 @@
         this.insert(msg);
         G.music.loop=false;
         G.music.pause();
-        if(G.winner === "p1") {
-          msg.content = "Earth Saved!";
+        if(G.winner === "p1"){
+          msg.mojoh5.content("Earth Saved!");
           msg.x = 120;
         }
-        else if(G.winner === "p2") {
-          msg.content = "Earth Destroyed!";
+        else if(G.winner === "p2"){
+          msg.mojoh5.content("Earth Destroyed!");
         }
-        function reset() {
+        function reset(){
           Mojo.Game.score= 0;
           Mojo.Game.alienFrequency= 100;
           Mojo.Game.alienTimer= 0;
@@ -182,26 +179,20 @@
           Z.runScene("level1");
           Z.runScene("hud");
         }
-        this.future( () => { reset(); }, 120);
+        this.future(() => reset(), 120);
       }
-
     });
 
     Z.defScene("hud", {
-      setup:function() {
-        let score= S.text("0",
-          {fontFamily: "emulogic", fontSize: 20, fill: "#00FF00"}, 400, 10);
-        score.step=function() {
-          score.content = ""+G.score;
+      setup:function(){
+        let score= S.text("0", {fontFamily: "emulogic", fontSize: 20, fill: "#00FF00"}, 400, 10);
+        score.mojoh5.step=function(){
+          score.mojoh5.content(""+G.score);
         };
         this.insert(score);
       }
-
     });
-
-
   }
-
 
   MojoH5.Config= {
     assetFiles: ["images/alienArmada.json", "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
@@ -210,7 +201,7 @@
       height: 320
     },
     scaleToWindow: true,
-    start: (Mojo) => {
+    start: (Mojo)=>{
       Mojo.Game.boomSound = Mojo.sound("explosion.wav");
       Mojo.Game.shootSound = Mojo.sound("shoot.wav");
       Mojo.Game.music = Mojo.sound("music.wav");
@@ -223,3 +214,4 @@
   };
 
 })(this);
+

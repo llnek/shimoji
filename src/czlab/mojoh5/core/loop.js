@@ -12,25 +12,27 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-(function(global,undefined){
+;(function(global,undefined){
   "use strict";
-  let window=global,
-    MojoH5=window.MojoH5;
+  const window=global;
+  const MojoH5=window.MojoH5;
   if(!MojoH5)
     throw "Fatal: MojoH5 not loaded";
   /**
    * @public
    * @module
    */
-  MojoH5.Loop=function(Mojo) {
-    const _=Mojo.u, is=Mojo.is, _libsToUpdate= [];
-    let _paused = false,
-      _startTime = Date.now(),
-      _lag = 0,
-      _lagOffset = 0,
-      _renderStartTime = 0,
-      _renderDuration=0,
-      _frameDuration = 1000 / (Mojo.o.fps || 60);
+  MojoH5.Loop=function(Mojo){
+    const _=Mojo.u;
+    const is=Mojo.is;
+    const _libsToUpdate= [];
+    let _paused = false;
+    let _startTime = Date.now();
+    let _lag = 0;
+    let _lagOffset = 0;
+    let _renderStartTime = 0;
+    let _renderDuration=0;
+    let _frameDuration = 1000 / (Mojo.o.fps || 60);
 
     if(Mojo.o.rfps)
       _renderDuration = 1000 / Mojo.o.rfps;
@@ -40,14 +42,14 @@
      * @private
      * @function
      */
-    function _update(dt) {
+    function _update(dt){
       //run only during preloading of assets
       Mojo.loaderState && Mojo.loaderState();
       //various libs that are required to run every frame
       _libsToUpdate.forEach(m => m.update(dt));
       //game content stuff
       if(!_paused)
-        _.doseq(Mojo.stage.children, (scene)=> {
+        _.doseq(Mojo.stage.children, scene=>{
           scene.update && scene.update(dt);
         });
     }
@@ -55,22 +57,22 @@
      * @private
      * @function
      */
-    function _savePrevProps() {
+    function _savePrevProps(){
       let i=Mojo.interpolateProps();
-      let save= (s) => {
-        if(i.position) { s._prevX = s.x; s._prevY = s.y; }
-        if(i.rotation) { s._prevRotation = s.rotation; }
-        if(i.size) { s._prevWidth = s.width; s._prevHeight = s.height; }
-        if(i.scale) { s._prevScaleX = s.scale.x; s._prevScaleY = s.scale.y; }
-        if(i.alpha) { s._prevAlpha = s.alpha; }
-        if(i.tile) {
-          if(s.tilePosition) {
-            s._prevTilePosX = s.tilePosition.x;
-            s._prevTilePosY = s.tilePosition.y;
+      function save(s){
+        if(i.position){ s.mojoh5._prevX = s.x; s.mojoh5._prevY = s.y }
+        if(i.rotation){ s.mojoh5._prevRotation = s.rotation }
+        if(i.size){ s.mojoh5._prevWidth = s.width; s.mojoh5._prevHeight = s.height }
+        if(i.scale){ s.mojoh5._prevScaleX = s.scale.x; s.mojoh5._prevScaleY = s.scale.y }
+        if(i.alpha){ s.mojoh5._prevAlpha = s.alpha }
+        if(i.tile){
+          if(s.mojoh5.tilePos){
+            s.mojoh5._prevTilePosX = s.mojoh5.tilePos.x;
+            s.mojoh5._prevTilePosY = s.mojoh5.tilePos.y;
           }
-          if(s.tileScale) {
-            s._prevTileScaleX = s.tileScale.x;
-            s._prevTileScaleY = s.tileScale.y;
+          if(s.mojoh5.tileScale){
+            s.mojoh5._prevTileScaleX = s.mojoh5.tileScale.x;
+            s.mojoh5._prevTileScaleY = s.mojoh5.tileScale.y;
           }
         }
         if(s.children)
@@ -84,26 +86,26 @@
      * @private
      * @function
      */
-    function _restoreProps(s) {
+    function _restoreProps(s){
       let i=Mojo.interpolateProps();
-      if(i.position) { s.x = s._currentX; s.y = s._currentY; }
-      if(i.rotation) { s.rotation = s._currentRotation; }
+      if(i.position){ s.x = s.mojoh5._currentX; s.y = s.mojoh5._currentY }
+      if(i.rotation){ s.rotation = s.mojoh5._currentRotation }
       if(i.size &&
         (_.inst(Mojo.p.Sprite,s) ||
-          _.inst(Mojo.p.ASprite,s))) {
-        s.width = s._currentWidth;
-        s.height = s._currentHeight;
+          _.inst(Mojo.p.ASprite,s))){
+        s.width = s.mojoh5._currentWidth;
+        s.height = s.mojoh5._currentHeight;
       }
-      if(i.scale) { s.scale.x = s._curScaleX; s.scale.y = s._curScaleY; }
-      if(i.alpha) { s.alpha = s._curAlpha; }
-      if(i.tile) {
-        if(s.tilePosition) {
-          s.tilePosition.x = s._curTilePosX;
-          s.tilePosition.y = s._curTilePosY;
+      if(i.scale){ s.scale.x = s.mojoh5._curScaleX; s.scale.y = s.mojoh5._curScaleY }
+      if(i.alpha){ s.alpha = s.mojoh5._curAlpha }
+      if(i.tile){
+        if(s.mojoh5.tilePos){
+          s.mojoh5.tilePos.x = s.mojoh5._curTilePosX;
+          s.mojoh5.tilePos.y = s.mojoh5._curTilePosY;
         }
-        if(s.tileScale) {
-          s.tileScale.x = s._currentTileScaleX;
-          s.tileScale.y = s._currentTileScaleY;
+        if(s.mojoh5.tileScale){
+          s.mojoh5.tileScale.x = s.mojoh5._currentTileScaleX;
+          s.mojoh5.tileScale.y = s.mojoh5._currentTileScaleY;
         }
       }
       if(s.children)
@@ -114,13 +116,13 @@
      * @private
      * @function
      */
-    function _interpolate(dt) {
-      let current = Date.now(),
-          elapsed = current - _startTime;
+    function _interpolate(dt){
+      let current = Date.now();
+      let elapsed = current - _startTime;
       if(elapsed > 1000) elapsed = _frameDuration;
       _startTime = current;
       _lag += elapsed;
-      while(_lag >= _frameDuration) {
+      while(_lag >= _frameDuration){
         _savePrevProps();
         _update(dt);
         _lag -= _frameDuration;
@@ -132,26 +134,26 @@
      * @private
      * @function
      */
-    function _gameLoop(ts, dt) {
+    function _gameLoop(ts, dt){
       if(dt < 0) dt= 1.0/60;
       if(dt > 1.0/15) dt= 1.0/15;
-      if(Mojo.o.fps === undefined) {
+      if(Mojo.o.fps === undefined){
         //not defined, so update as fast as possible
         _update(dt);
         _render();
-      } else if(Mojo.o.rfps === undefined) {
+      }else if(Mojo.o.rfps === undefined){
         //rendering time not defined, just run
         _interpolate(dt);
-      } else if(ts >= _renderStartTime) {
+      }else if(ts >= _renderStartTime){
         _interpolate(dt);
         _renderStartTime = ts + _renderDuration;
       }
     }
-    function _runGameLoop() {
+    function _runGameLoop(){
       let _limit= Mojo.o.maxFrameTime || 100;
       let _lastFrame = _.now();
       let _loopFrame = 0;
-      Mojo.glwrapper = (ptInTime) => {
+      Mojo.glwrapper = function(ptInTime){
         let now = _.now();
         ++_loopFrame;
         //call again please
@@ -169,61 +171,61 @@
      * @private
      * @function
      */
-    function _interpolateSprite(lagOffset,s) {
+    function _interpolateSprite(lagOffset,s){
       let i=Mojo.interpolateProps();
-      if(i.position) {
-        s._currentX = s.x;
-        s._currentY = s.y;
-        if(s._prevX !== undefined)
-          s.x = (s.x - s._prevX) * lagOffset + s._prevX;
-        if(s._prevY !== undefined)
-          s.y = (s.y - s._prevY) * lagOffset + s._prevY;
+      if(i.position){
+        s.mojoh5._currentX = s.x;
+        s.mojoh5._currentY = s.y;
+        if(s.mojoh5._prevX !== undefined)
+          s.x = (s.x - s.mojoh5._prevX) * lagOffset + s.mojoh5._prevX;
+        if(s.mojoh5._prevY !== undefined)
+          s.y = (s.y - s.mojoh5._prevY) * lagOffset + s.mojoh5._prevY;
       }
-      if(i.rotation) {
-        s._currentRotation = s.rotation;
-        if(s._prevRotation !== undefined)
-          s.rotation = (s.rotation - s._prevRotation) * lagOffset + s._prevRotation;
+      if(i.rotation){
+        s.mojoh5._currentRotation = s.rotation;
+        if(s.mojoh5._prevRotation !== undefined)
+          s.rotation = (s.rotation - s.mojoh5._prevRotation) * lagOffset + s.mojoh5._prevRotation;
       }
-      if(i.size) {
+      if(i.size){
         if(_.inst(Mojo.p.Sprite,s) ||
-          _.inst(Mojo.p.ASprite,s)) {
-          s._currentWidth = s.width;
-          s._currentHeight = s.height;
-          if(s._prevWidth !== undefined)
-            s.width = (s.width - s._prevWidth) * lagOffset + s._prevWidth;
-          if(s._prevHeight !== undefined)
-            s.height = (s.height - s._prevHeight) * lagOffset + s._prevHeight;
+          _.inst(Mojo.p.ASprite,s)){
+          s.mojoh5._currentWidth = s.width;
+          s.mojoh5._currentHeight = s.height;
+          if(s.mojoh5._prevWidth !== undefined)
+            s.width = (s.width - s.mojoh5._prevWidth) * lagOffset + s.mojoh5._prevWidth;
+          if(s.mojoh5._prevHeight !== undefined)
+            s.height = (s.height - s.mojoh5._prevHeight) * lagOffset + s.mojoh5._prevHeight;
         }
       }
-      if(i.scale) {
-        s._curScaleX = s.scale.x;
-        s._curScaleY = s.scale.y;
-        if(s._prevScaleX !== undefined)
-          s.scale.x = (s.scale.x - s._prevScaleX) * lagOffset + s._prevScaleX;
-        if(s._prevScaleY !== undefined)
-          s.scale.y = (s.scale.y - s._prevScaleY) * lagOffset + s._prevScaleY;
+      if(i.scale){
+        s.mojoh5._curScaleX = s.scale.x;
+        s.mojoh5._curScaleY = s.scale.y;
+        if(s.mojoh5._prevScaleX !== undefined)
+          s.scale.x = (s.scale.x - s.mojoh5._prevScaleX) * lagOffset + s.mojoh5._prevScaleX;
+        if(s.mojoh5._prevScaleY !== undefined)
+          s.scale.y = (s.scale.y - s.mojoh5._prevScaleY) * lagOffset + s.mojoh5._prevScaleY;
       }
-      if(i.alpha) {
-        s._curAlpha = s.alpha;
-        if(s._prevAlpha !== undefined)
-          s.alpha = (s.alpha - s._prevAlpha) * lagOffset + s._prevAlpha;
+      if(i.alpha){
+        s.mojoh5._curAlpha = s.alpha;
+        if(s.mojoh5._prevAlpha !== undefined)
+          s.alpha = (s.alpha - s.mojoh5._prevAlpha) * lagOffset + s.mojoh5._prevAlpha;
       }
-      if(i.tile) {
-        if(s.tilePosition !== undefined) {
-          s._curTilePosX = s.tilePosition.x;
-          s._curTilePosY = s.tilePosition.y;
-          if(s._prevTilePosX !== undefined)
-            s.tilePosition.x = (s.tilePosition.x - s._prevTilePosX) * lagOffset + s._prevTilePosX;
-          if(s._prevTilePosY !== undefined)
-            s.tilePosition.y = (s.tilePosition.y - s._prevTilePosY) * lagOffset + s._prevTilePosY;
+      if(i.tile){
+        if(s.mojoh5.tilePos !== undefined){
+          s.mojoh5._curTilePosX = s.mojoh5.tilePos.x;
+          s.mojoh5._curTilePosY = s.mojoh5.tilePos.y;
+          if(s.mojoh5._prevTilePosX !== undefined)
+            s.mojoh5.tilePos.x = (s.mojoh5.tilePos.x - s.mojoh5._prevTilePosX) * lagOffset + s.mojoh5._prevTilePosX;
+          if(s.mojoh5._prevTilePosY !== undefined)
+            s.mojoh5.tilePos.y = (s.mojoh5.tilePos.y - s.mojoh5._prevTilePosY) * lagOffset + s.mojoh5._prevTilePosY;
         }
-        if(s.tileScale !== undefined) {
-          s._currentTileScaleX = s.tileScale.x;
-          s._currentTileScaleY = s.tileScale.y;
-          if(s._prevTileScaleX !== undefined)
-            s.tileScale.x = (s.tileScale.x - s._prevTileScaleX) * lagOffset + s._prevTileScaleX;
-          if(s._prevTileScaleY !== undefined)
-            s.tileScale.y = (s.tileScale.y - s._prevTileScaleY) * lagOffset + s._prevTileScaleY;
+        if(s.mojoh5.tileScale !== undefined){
+          s.mojoh5._currentTileScaleX = s.mojoh5.tileScale.x;
+          s.mojoh5._currentTileScaleY = s.mojoh5.tileScale.y;
+          if(s.mojoh5._prevTileScaleX !== undefined)
+            s.mojoh5.tileScale.x = (s.mojoh5.tileScale.x - s.mojoh5._prevTileScaleX) * lagOffset + s.mojoh5._prevTileScaleX;
+          if(s.mojoh5._prevTileScaleY !== undefined)
+            s.mojoh5.tileScale.y = (s.mojoh5.tileScale.y - s.mojoh5._prevTileScaleY) * lagOffset + s.mojoh5._prevTileScaleY;
         }
       }
       if(s.children)
@@ -234,7 +236,7 @@
      * @private
      * @function
      */
-    function _render(lagOffset=1) {
+    function _render(lagOffset=1){
       if(Mojo.interpolate)
         for(let i=0; i< Mojo.stage.children.length; ++i)
           _interpolateSprite(lagOffset, Mojo.stage.children[i]);

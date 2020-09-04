@@ -22,12 +22,11 @@
    * @public
    * @module
    */
-  MojoH5.Dust=function(Mojo) {
-    const _D= {},
-      _=Mojo.u,
-      is=Mojo.is,
-      _globalParticles = [];
-
+  MojoH5.Dust=function(Mojo){
+    const _D= {};
+    const _=Mojo.u;
+    const is=Mojo.is;
+    const _globalParticles = [];
     /**
      * @public
      * @function
@@ -43,23 +42,22 @@
                       minSpeed = 0.3, maxSpeed = 3,
                       minScaleSpeed = 0.01, maxScaleSpeed = 0.05,
                       minAlphaSpeed = 0.02, maxAlphaSpeed = 0.02,
-                      minRotationSpeed = 0.01, maxRotationSpeed = 0.03) {
+                      minRotationSpeed = 0.01, maxRotationSpeed = 0.03){
       //array to store the curent batch of particles
-      let angle,
-        angles = [],
-        particles = [],
+      let angle;
+      let angles = [];
+      let particles = [];
         //Figure out by how many radians each particle should be separated
-        spacing = (maxAngle - minAngle) / (numberOfParticles - 1);
-
+      let spacing = (maxAngle - minAngle) / (numberOfParticles - 1);
       _.conj(_globalParticles,particles);
       //Create an angle value for each particle and push that //value into the `angles` array
-      for(let i=0; i < numberOfParticles; ++i) {
+      for(let i=0; i < numberOfParticles; ++i){
         //If `randomSpacing` is `true`, give the particle any angle
         //value between `minAngle` and `maxAngle`
-        if(randomSpacing) {
+        if(randomSpacing){
           angle = _.randFloat(minAngle, maxAngle);
           _.conj(angles,angle);
-        } else {
+        }else{
           //If `randomSpacing` is `false`, space each particle evenly,
           //starting with the `minAngle` and ending with the `maxAngle`
           if(angle === undefined) angle = minAngle;
@@ -67,11 +65,11 @@
           angle += spacing;
         }
       }
-      let makeParticle = (angle) => {
+      function makeParticle(angle){
         //Create the particle using the supplied sprite function
         let particle = spriteFunction();
         //Display a random frame if the particle has more than 1 frame
-        if(particle.totalFrames > 0) {
+        if(particle.totalFrames > 0){
           particle.gotoAndStop(_.randInt2(0, particle.totalFrames - 1));
         }
         //Set a random width and height
@@ -82,35 +80,35 @@
         particle.x = x;
         particle.y = y;
         //Set a random speed to change the scale, alpha and rotation
-        particle.scaleSpeed = _.randFloat(minScaleSpeed, maxScaleSpeed);
-        particle.alphaSpeed = _.randFloat(minAlphaSpeed, maxAlphaSpeed);
-        particle.rotationSpeed = _.randFloat(minRotationSpeed, maxRotationSpeed);
+        particle.mojoh5.scaleSpeed = _.randFloat(minScaleSpeed, maxScaleSpeed);
+        particle.mojoh5.alphaSpeed = _.randFloat(minAlphaSpeed, maxAlphaSpeed);
+        particle.mojoh5.rotationSpeed = _.randFloat(minRotationSpeed, maxRotationSpeed);
         //Set a random velocity at which the particle should move
         let speed = _.randFloat(minSpeed, maxSpeed);
-        particle.vx = speed * Math.cos(angle);
-        particle.vy = speed * Math.sin(angle);
+        particle.mojoh5.vx = speed * Math.cos(angle);
+        particle.mojoh5.vy = speed * Math.sin(angle);
         //The `particles` array needs to be updated by the game loop each frame particles.push(particle);
         _.conj(particles,particle);
         container.addChild(particle);
         //The particle's `updateParticle` method is called on each frame of the game loop
-        particle.updateParticle = () => {
-          particle.vy += gravity;
+        particle.mojoh5.updateParticle = function(){
+          particle.mojoh5.vy += gravity;
           //Move the particle
-          particle.x += particle.vx;
-          particle.y += particle.vy;
+          particle.x += particle.mojoh5.vx;
+          particle.y += particle.mojoh5.vy;
           //Change the particle's `scale`
-          if(particle.scale.x - particle.scaleSpeed > 0) {
-            particle.scale.x -= particle.scaleSpeed;
+          if(particle.scale.x - particle.mojoh5.scaleSpeed > 0){
+            particle.scale.x -= particle.mojoh5.scaleSpeed;
           }
-          if(particle.scale.y - particle.scaleSpeed > 0) {
-            particle.scale.y -= particle.scaleSpeed;
+          if(particle.scale.y - particle.mojoh5.scaleSpeed > 0){
+            particle.scale.y -= particle.mojoh5.scaleSpeed;
           }
           //Change the particle's rotation
-          particle.rotation += particle.rotationSpeed;
+          particle.rotation += particle.mojoh5.rotationSpeed;
           //Change the particle's `alpha`
-          particle.alpha -= particle.alphaSpeed;
+          particle.alpha -= particle.mojoh5.alphaSpeed;
           //Remove the particle if its `alpha` reaches zero
-          if(particle.alpha <= 0) {
+          if(particle.alpha <= 0){
             container.removeChild(particle);
             _.disj(particles,particle);
           }
@@ -124,26 +122,23 @@
      * @public
      * @function
      */
-    _D.emitter=function(interval, particleFunction) {
-      let emitterObject = {},
-        timerInterval = undefined;
-
-      emitterObject.playing = false;
-      function play() {
-        if(!emitterObject.playing) {
+    _D.emitter=function(interval, particleFunction){
+      let intv, emitterObject = {playing:false};
+      function emitParticle(){
+        particleFunction();
+      }
+      function play(){
+        if(!emitterObject.playing){
           particleFunction();
-          timerInterval = _.timer(emitParticle.bind(this), interval);
+          intv = _.timer(emitParticle.bind(this), interval);
           emitterObject.playing = true;
         }
       }
-      function stop() {
-        if(emitterObject.playing) {
-          _.clear(timerInterval);
+      function stop(){
+        if(emitterObject.playing){
+          _.clear(intv);
           emitterObject.playing = false;
         }
-      }
-      function emitParticle() {
-        particleFunction();
       }
       emitterObject.play = play;
       emitterObject.stop = stop;
@@ -153,14 +148,14 @@
      * @public
      * @function
      */
-    _D.update=function(dt) {
+    _D.update=function(dt){
       if(_globalParticles.length > 0)
-        for(let i = _globalParticles.length-1; i >= 0; --i) {
+        for(let i = _globalParticles.length-1; i >= 0; --i){
           let particles = _globalParticles[i];
-          if(particles.length > 0) {
+          if(particles.length > 0){
             for(let j = particles.length-1; j >= 0; --j)
-              particles[j].updateParticle();
-          } else {
+              particles[j].mojoh5.updateParticle();
+          }else{
             //Remove the particle array from the `globalParticles` array if doesn't
             //contain any more sprites
             _.disj(_globalParticles,particles);
