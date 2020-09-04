@@ -12,7 +12,7 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-(function(global,undefined){
+;(function(global,undefined){
   "use strict";
   const window=global;
   const MojoH5=window.MojoH5;
@@ -104,11 +104,21 @@
               curvedTime = _easingFormulas.spline(normalizedTime, o.startMagnitude, 0, 1, o.endMagnitude);
             }
             //Interpolate the sprite's property based on the curve
-            sprite[property] = (o.endValue * curvedTime) + (o.startValue * (1 - curvedTime));
+            let pv= (o.endValue * curvedTime) + (o.startValue * (1 - curvedTime));
+            if(is.fun(property)){
+              property(pv);
+            }else{
+              sprite[property] = pv;
+            }
             o.frameCounter += 1;
           }else{
             //When the tween has finished playing, run the end tasks
-            sprite[property] = o.endValue;
+            let pv= o.endValue;
+            if(is.fun(property)){
+              property(pv);
+            }else{
+              sprite[property] = pv;
+            }
             o.end();
           }
         }
@@ -198,11 +208,11 @@
      */
     _T.breathe=function(sprite, endScaleX = 0.8, endScaleY = 0.8,
                         frames = 60, yoyo = true, delayBeforeRepeat = 0){
+      let sx=function(v){ sprite.scale.x=v };
+      let sy=function(v){ sprite.scale.y=v };
       return this.makeTween([
-        [sprite, "scaleX", sprite.scale.x, endScaleX,
-         frames, "smoothstepSquared", yoyo, delayBeforeRepeat],
-        [sprite, "scaleY", sprite.scale.y, endScaleY,
-         frames, "smoothstepSquared", yoyo, delayBeforeRepeat]
+        [sprite, sx, sprite.scale.x, endScaleX, frames, "smoothstepSquared", yoyo, delayBeforeRepeat],
+        [sprite, sy, sprite.scale.y, endScaleY, frames, "smoothstepSquared", yoyo, delayBeforeRepeat]
       ]);
     };
     /**
@@ -210,9 +220,11 @@
      * @function
      */
     _T.scale=function(sprite, endScaleX = 0.5, endScaleY = 0.5, frames = 60){
+      let sx=function(v){ sprite.scale.x=v };
+      let sy=function(v){ sprite.scale.y=v };
       return this.makeTween([
-        [sprite, "scaleX", sprite.scale.x, endScaleX, frames, "smoothstep", false],
-        [sprite, "scaleY", sprite.scale.y, endScaleY, frames, "smoothstep", false]
+        [sprite, sx, sprite.scale.x, endScaleX, frames, "smoothstep", false],
+        [sprite, sy, sprite.scale.y, endScaleY, frames, "smoothstep", false]
       ]);
     };
     /**
@@ -223,9 +235,11 @@
                        startMagnitude = 10, endMagnitude = 20,
                        frames = 10, yoyo = true, delayBeforeRepeat = 0){
       let bounce = "bounce " + startMagnitude + " " + endMagnitude;
+      let sx=function(v){ sprite.scale.x=v };
+      let sy=function(v){ sprite.scale.y=v };
       return this.makeTween([
-        [sprite, "scaleX", sprite.scale.x, scaleFactor, frames, bounce, yoyo, delayBeforeRepeat],
-        [sprite, "scaleY", sprite.scale.y, scaleFactor, frames, bounce, yoyo, delayBeforeRepeat]
+        [sprite, sx, sprite.scale.x, scaleFactor, frames, bounce, yoyo, delayBeforeRepeat],
+        [sprite, sy, sprite.scale.y, scaleFactor, frames, bounce, yoyo, delayBeforeRepeat]
       ]);
     };
     /**
@@ -247,9 +261,11 @@
     ) {
       let bounceX = "bounce " + xStartMagnitude + " " + xEndMagnitude;
       let bounceY = "bounce " + yStartMagnitude + " " + yEndMagnitude;
+      let sx=function(v){sprite.scale.x=v};
+      let sy=function(v){sprite.scale.y=v};
       let o = this.makeTween([
-        [sprite, "scaleX", sprite.scale.x, scaleFactorX, frames, bounceX, yoyo, delayBeforeRepeat],
-        [sprite, "scaleY", sprite.scale.y, scaleFactorY, frames, bounceY, yoyo, delayBeforeRepeat]
+        [sprite, sx, sprite.scale.x, scaleFactorX, frames, bounceX, yoyo, delayBeforeRepeat],
+        [sprite, sy, sprite.scale.y, scaleFactorY, frames, bounceY, yoyo, delayBeforeRepeat]
       ]);
       //Add some friction to the `endValue` at the end of each tween
       o.tweens.forEach(tween => {

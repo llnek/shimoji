@@ -255,7 +255,7 @@
       Mojo.canvas.id="mojo";
       Mojo.canvas.scaled = false;
       Mojo.stage= new Mojo.p.Container();
-      _.doseq(_.seq("Sprites,Scenes,Tiles,Tween,Dust,Input,Sound,Loop,2d"), m => MojoH5[m](Mojo));
+      _.doseq(_.seq("Sprites,Input,Scenes,Tiles,Tween,Dust,Sound,Loop,2d"), m => MojoH5[m](Mojo));
       _.assert(_.noSuchKeys("halfWidth,halfHeight",Mojo.canvas));
       Object.defineProperties(Mojo.canvas,{
         "halfWidth":_.pdef({ get(){ return Mojo.canvas.width / 2 }}),

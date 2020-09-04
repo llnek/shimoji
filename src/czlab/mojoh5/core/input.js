@@ -30,6 +30,7 @@
     const _pointers = [];
     const _buttons = [];
     const _draggableSprites = [];
+    const _S=Mojo.Sprites;
     const _I= {
       get scale() { return _scale },
       set scale(v) { _scale = v; _.doseq(_pointers, p=> {p.scale=v}) }
@@ -280,6 +281,14 @@
      * @public
      * @function
      */
+    _I.removeButton=function(b){
+      b.mojoh5.enabled=false;
+      _.disj(_buttons,b);
+    };
+    /**
+     * @public
+     * @function
+     */
     _I.updateButtons=function() {
       _pointers.forEach(ptr=>{
         ptr.shouldBeHand = false;
@@ -351,8 +360,7 @@
       } else if(_.inst(Mojo.p.Texture,s0)){
         o = new Mojo.p.ASprite(source);
       }
-      this.makeInteractive(o);
-      Mojo.Sprites.extend(o);
+      this.makeInteractive(_S.extend(o));
       o.mojoh5.tinkType = "button";
       o.x = x;
       o.y = y;

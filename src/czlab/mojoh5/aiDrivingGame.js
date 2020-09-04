@@ -12,11 +12,8 @@
     Z.defScene("level1",{
       setup:function(){
         this.world = S.group();
-        this.world.tileWidth = 64;
-        this.world.tileHeight = 64;
-        this.world.widthInTiles = 10;
-        this.world.heightInTiles = 8;
-        this.world.layers = [//The environment layer. `2` represents the walls,
+        let tiled= this.world.tiled= {tileW: 64, tileH: 64, tilesInX: 10, tilesInY: 8};
+        let layers = tiled.layers = [//The environment layer. `2` represents the walls,
         //`1` represents the floors
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], //The character layer. `3` represents the player's car,
         //`4` represents the AI car and
@@ -25,15 +22,15 @@
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //Angles map
         [45, 45, 45, 45, 45, 45, 45, 45, 135, 135, 315, 0, 0, 0, 0, 0, 0, 90, 135, 135, 315, 0, 0, 0, 0, 0, 0, 90, 135, 135, 315, 315, 270, 315, 315, 315, 315, 90, 90, 135, 315, 315, 270, 135, 135, 135, 135, 90, 90, 135, 315, 315, 270, 180, 180, 180, 180, 180, 180, 135, 315, 315, 270, 180, 180, 180, 180, 180, 180, 135, 315, 270, 270, 225, 225, 225, 225, 225, 225, 225]]; //Build the game world by looping through each
         //of the layers arrays one after the other
-        this.world.layers.forEach(layer => {
+        layers.forEach(layer => {
           layer.forEach((gid, index) => {
-            if(gid !== 0) {
-              let sprite,column, row, x, y;
-              column = index % this.world.widthInTiles;
-              row = Math.floor(index / this.world.widthInTiles);
-              x = column * this.world.tileWidth;
-              y = row * this.world.tileHeight;
-              switch (gid) {
+            if(gid !== 0){
+              let sprite;
+              let column = index % tiled.tilesInX;
+              let row = Math.floor(index / tiled.tilesInX);
+              let x = column * tiled.tileW;
+              let y = row * tiled.tileH;
+              switch(gid){
               case 1://track
                 sprite = S.sprite(S.frame("tileSet.png", 64,64,192, 64));
               break;
@@ -47,7 +44,7 @@
                 this.aiCar = sprite = S.sprite(S.frame("tileSet.png", 48,48,192, 128));
               break;
               }
-              if(sprite) {
+              if(sprite){
                 sprite.x = x;
                 sprite.y = y;
                 this.world.addChild(sprite);
@@ -56,20 +53,20 @@
           });
         });
         this.insert(this.world);
-        function addCarProperties(carSprite) {
-          carSprite.vx = 0;
-          carSprite.vy = 0;
-          carSprite.accelerationX = 0.2;
-          carSprite.accelerationY = 0.2;
-          carSprite.rotationSpeed = 0;
-          carSprite.friction = 0.96;
-          carSprite.speed = 0; //Center the car's rotation point
-          carSprite.setPivot(0.5, 0.5); //Whether or not the car should move forward
-          carSprite.moveForward = false;
+        function _addCarProperties(carSprite){
+          carSprite.mojoh5.vx = 0;
+          carSprite.mojoh5.vy = 0;
+          carSprite.mojoh5.accelerationX = 0.2;
+          carSprite.mojoh5.accelerationY = 0.2;
+          carSprite.mojoh5.rotationSpeed = 0;
+          carSprite.mojoh5.friction = 0.96;
+          carSprite.mojoh5.speed = 0; //Center the car's rotation point
+          S.setPivot(carSprite,0.5, 0.5); //Whether or not the car should move forward
+          carSprite.mojoh5.moveForward = false;
         }
-        addCarProperties(this.car);
-        addCarProperties(this.aiCar);
-        this.aiCar.moveForward = true;
+        _addCarProperties(this.car);
+        _addCarProperties(this.aiCar);
+        this.aiCar.mojoh5.moveForward = true;
 
         let leftArrow = I.keyboard(37),
           upArrow = I.keyboard(38),
@@ -78,30 +75,30 @@
         //left arrow key is being pressed
 
         leftArrow.press = () => {
-          this.car.rotationSpeed = -0.05;
+          this.car.mojoh5.rotationSpeed = -0.05;
         }; //If the left arrow key is released and the right arrow
   //key isn't being pressed down, set the `rotationSpeed` to 0
 
         leftArrow.release = () => {
-          if (!rightArrow.isDown) this.car.rotationSpeed = 0;
+          if (!rightArrow.isDown) this.car.mojoh5.rotationSpeed = 0;
         }; //Do the same for the right arrow key, but set
   //the `rotationSpeed` to 0.1 (to rotate right)
 
         rightArrow.press = () => {
-          this.car.rotationSpeed = 0.05;
+          this.car.mojoh5.rotationSpeed = 0.05;
         };
 
         rightArrow.release = () => {
-          if(!leftArrow.isDown) this.car.rotationSpeed = 0;
+          if(!leftArrow.isDown) this.car.mojoh5.rotationSpeed = 0;
         }; //Set `car.moveForward` to `true` if the up arrow key is
   //pressed, and set it to `false` if it's released
 
         upArrow.press = () => {
-          this.car.moveForward = true;
+          this.car.mojoh5.moveForward = true;
         };
 
         upArrow.release = () => {
-          this.car.moveForward = false;
+          this.car.mojoh5.moveForward = false;
         }; //Start the game loop by setting the game state to `play`
 
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
@@ -110,8 +107,8 @@
         //Move the AI car
         //If `aICar.moveForward` is `true`, increase the speed as long
         //it is under the maximum speed limit of 3
-        if(this.aiCar.moveForward && this.aiCar.speed <= 3) {
-          this.aiCar.speed += 0.08;
+        if(this.aiCar.mojoh5.moveForward && this.aiCar.mojoh5.speed <= 3) {
+          this.aiCar.mojoh5.speed += 0.08;
         }
         //Find the AI car's current angle, in degrees
         let currentAngle = this.aiCar.rotation * (180 / Math.PI);
@@ -120,7 +117,7 @@
         //Find out its index position on the map
         let aiCarIndex = T.getIndex(this.aiCar.x, this.aiCar.y, 64, 64, 10);
         //Find out what the target angle is for that map position
-        let angleMap = this.world.layers[2];
+        let angleMap = this.world.tiled.layers[2];
         let mapAngle = angleMap[aiCarIndex];
         //Add an optional random variation of 20 degrees each time the aiCar
         //encounters a new map angle
@@ -136,78 +133,78 @@
         //Figure out whether to turn the car left or right
         if(difference > 0 && difference < 180) {
           //Turn left
-          this.aiCar.rotationSpeed = -0.03;
+          this.aiCar.mojoh5.rotationSpeed = -0.03;
         } else {
           //Turn right
-          this.aiCar.rotationSpeed = 0.03;
+          this.aiCar.mojoh5.rotationSpeed = 0.03;
         } //Use the `rotationSpeed` to set the car's rotation
 
-        this.aiCar.rotation += this.aiCar.rotationSpeed;
+        this.aiCar.rotation += this.aiCar.mojoh5.rotationSpeed;
         //Use the `speed` value to figure out the acceleration in the
         //direction of the aiCar’s rotation
-        this.aiCar.accelerationX = this.aiCar.speed * Math.cos(this.aiCar.rotation);
-        this.aiCar.accelerationY = this.aiCar.speed * Math.sin(this.aiCar.rotation);
+        this.aiCar.mojoh5.accelerationX = this.aiCar.mojoh5.speed * Math.cos(this.aiCar.rotation);
+        this.aiCar.mojoh5.accelerationY = this.aiCar.mojoh5.speed * Math.sin(this.aiCar.rotation);
         //Apply the acceleration and friction to the aiCar's velocity
 
-        this.aiCar.vx = this.aiCar.accelerationX;
-        this.aiCar.vy = this.aiCar.accelerationY;
-        this.aiCar.vx *= this.aiCar.friction;
-        this.aiCar.vy *= this.aiCar.friction;
+        this.aiCar.mojoh5.vx = this.aiCar.mojoh5.accelerationX;
+        this.aiCar.mojoh5.vy = this.aiCar.mojoh5.accelerationY;
+        this.aiCar.mojoh5.vx *= this.aiCar.mojoh5.friction;
+        this.aiCar.mojoh5.vy *= this.aiCar.mojoh5.friction;
         //Apply the aiCar's velocity to its position to make the aiCar move
 
-        this.aiCar.x += this.aiCar.vx;
-        this.aiCar.y += this.aiCar.vy; //Move the player's car
+        this.aiCar.x += this.aiCar.mojoh5.vx;
+        this.aiCar.y += this.aiCar.mojoh5.vy; //Move the player's car
         //Use the `rotationSpeed` to set the car's rotation
 
-        this.car.rotation += this.car.rotationSpeed; //If `car.moveForward` is `true`, increase the speed
+        this.car.rotation += this.car.mojoh5.rotationSpeed; //If `car.moveForward` is `true`, increase the speed
 
-        if(this.car.moveForward) {
-          this.car.speed += 0.05;
+        if(this.car.mojoh5.moveForward) {
+          this.car.mojoh5.speed += 0.05;
         } //If `car.moveForward` is `false`, use
         //friction to slow the car down
         else {
-          this.car.speed *= this.car.friction;
+          this.car.mojoh5.speed *= this.car.mojoh5.friction;
         } //Use the `speed` value to figure out the acceleration in the
         //direction of the car’s rotation
 
-        this.car.accelerationX = this.car.speed * Math.cos(this.car.rotation);
-        this.car.accelerationY = this.car.speed * Math.sin(this.car.rotation);
+        this.car.mojoh5.accelerationX = this.car.mojoh5.speed * Math.cos(this.car.rotation);
+        this.car.mojoh5.accelerationY = this.car.mojoh5.speed * Math.sin(this.car.rotation);
         //Apply the acceleration and friction to the car's velocity
 
-        this.car.vx = this.car.accelerationX;
-        this.car.vy = this.car.accelerationY;
-        this.car.vx *= this.car.friction;
-        this.car.vy *= this.car.friction; //Apply the car's velocity to its position to make the car move
+        this.car.mojoh5.vx = this.car.mojoh5.accelerationX;
+        this.car.mojoh5.vy = this.car.mojoh5.accelerationY;
+        this.car.mojoh5.vx *= this.car.mojoh5.friction;
+        this.car.mojoh5.vy *= this.car.mojoh5.friction; //Apply the car's velocity to its position to make the car move
 
-        this.car.x += this.car.vx;
-        this.car.y += this.car.vy; //Slow the cars down if they're stuck in the grass
+        this.car.x += this.car.mojoh5.vx;
+        this.car.y += this.car.mojoh5.vy; //Slow the cars down if they're stuck in the grass
         //First find the car's map index position
 
         let carIndex = T.getIndex(this.car.x, this.car.y, 64, 64, 10); //Get a reference to the race track map
 
-        let trackMap = this.world.layers[0]; //Slow the car if it's on a grass tile (gid 1) by setting
+        let trackMap = this.world.tiled.layers[0]; //Slow the car if it's on a grass tile (gid 1) by setting
         //the car's friction to 0.25, to make it sluggish
 
         if(trackMap[carIndex] === 1) {
-          this.car.friction = 0.25; //If the car isn't on a grass tile, restore its
+          this.car.mojoh5.friction = 0.25; //If the car isn't on a grass tile, restore its
           //original friction value
         } else {
-          this.car.friction = 0.96;
+          this.car.mojoh5.friction = 0.96;
         } //Slow the aiCar if it's on a grass tile (gid 1) by setting
         //its friction to 0.25, to make it sluggish
 
         if(trackMap[aiCarIndex] === 1) {
-          this.aiCar.friction = 0.25; //If the car isn't on a grass tile, restore its
+          this.aiCar.mojoh5.friction = 0.25; //If the car isn't on a grass tile, restore its
           //original friction value
         } else {
-          this.aiCar.friction = 0.96;
+          this.aiCar.mojoh5.friction = 0.96;
         }
       }
     });
   }
 
-  function isCenteredOverCell(sprite) {
-    return Math.floor(sprite.x) % world.tilewidth === 0 && Math.floor(sprite.y) % world.tileheight === 0;
+  function isCenteredOverCell(sprite,world) {
+    return Math.floor(sprite.x) % world.tiled.tileW === 0 && Math.floor(sprite.y) % world.tiled.tileH === 0;
   }
 
   function setup(Mojo) {

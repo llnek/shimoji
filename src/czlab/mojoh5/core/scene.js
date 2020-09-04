@@ -27,6 +27,7 @@
     const _=Mojo.u;
     const is=Mojo.is;
     const _sceneFuncs= {};
+    const _I= Mojo.Input;
     /**
      * @private
      * @function
@@ -77,6 +78,11 @@
       }
       dispose(){
         this.mojoh5.dead=true;
+        this.children.forEach(c=>{
+          if(c.mojoh5.tinkType === "button"){
+            _I.removeButton(c);
+          }
+        });
         this.removeChildren();
       }
       update(dt){

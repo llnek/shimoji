@@ -28,7 +28,7 @@ function defScenes(Mojo) {
       this.insert(playButton);
       playButton.x = 514;
       playButton.y = 350;
-      playButton.press = () => {
+      playButton.mojoh5.press = () => {
         //let music=Mojo.Game.state.get("music");
         //if(!music.playing) music.play();
         let ns= Z.runScene("level1");
@@ -43,14 +43,14 @@ function defScenes(Mojo) {
     }});
 
 
-  Z.defScene("end",function() {
+  Z.defScene("end",function(){
     let title = S.sprite("title.png");
     this.insert(title);
     let playButton = I.button(["up.png", "over.png", "down.png"]);
     this.insert(playButton);
     playButton.x = 514;
     playButton.y = 350;
-    playButton.press = () => {
+    playButton.mojoh5.press = () => {
       let ns= Z.runScene("level1");
       let a= T.slide(this, 514, 0, 30, "decelerationCubed");
       let b= T.slide(ns, 0, 0, 30, "decelerationCubed");
@@ -66,21 +66,19 @@ function defScenes(Mojo) {
     //Mojo.Game.state.get("music").volume = 0.3;
   });
 
-
-
-  Z.defScene("level1",function() {
+  Z.defScene("level1",function(){
     //Add a black border along the top of the screen
     let topBorder = S.rectangle(512, 32, "black");
     let self=this;
     this.insert(topBorder);
 
     let paddle = S.sprite("paddle.png");
-    paddle.step=function(dt) {
-      this.x = Mojo.pointer.x - this.halfWidth;
-      _2d.contain(this, this.parent);
+    paddle.mojoh5.step=function(dt){
+      paddle.x = Mojo.pointer.x - S.halfSize(paddle).x;
+      _2d.contain(paddle, paddle.parent);
     };
     this.insert(paddle);
-    this.putBottom(paddle, 0, -24);
+    S.putBottom(this,paddle, 0, -24);
 
     //Plot the blocks
     //First create an array that stores references to all the
@@ -91,7 +89,6 @@ function defScenes(Mojo) {
     let blocks = S.grid(gridWidth, gridHeight, 64, 64, false, 0, 0, () => {
       let r= _.randInt2(0, 4);
       let s= S.sprite(blockFrames[r]);
-      S.extend(s);
       return s;
     });
 
@@ -105,27 +102,24 @@ function defScenes(Mojo) {
     this.insert(message);
 
     let ball = S.sprite("ball.png");
-    ball.step=function() {
+    ball.mojoh5.step=function(){
       let bounce=Mojo.Game.state.get("bounce");
-      S.move(this);
+      S.move(ball);
       //ballHitsWall
       _2d.contain(ball,
-        {x: 0, y: 32,
-          width: Mojo.canvas.width,
-          height: Mojo.canvas.height},
+        S.extend({x: 0, y: 32, anchor: {x:0,y:0},width: Mojo.canvas.width, height: Mojo.canvas.height}),
         true,
         (col) => {
           bounce.play();
-          if(col.has("bottom"))
+          if(col.has(Mojo.BOTTOM))
             Mojo.Game.state.dec("score");
         });
       //ballHitsPaddle
       _2d.hit(ball, paddle, true, true, true,
         (col) => {
           bounce.play();
-          if(paddleWobble) {
-            paddle.scaleX = 1;
-            paddle.scaleY = 1;
+          if(paddleWobble){
+            paddle.scale.set(1,1);
             T.removeTween(paddleWobble);
           };
           paddleWobble = T.wobble( paddle, 1.3, 1.2, 5, 10, 10, -10, -10, 0.96);
@@ -137,8 +131,10 @@ function defScenes(Mojo) {
           Mojo.Game.state.inc("score");
           bounce.play();
           S.remove(block);
-          let globalCenterX = block.gx + block.halfWidth,
-            globalCenterY = block.gy + block.halfHeight;
+          let sz=S.halfSize(block);
+          let g=S.gposXY(block);
+          let globalCenterX = g.x + sz.x;
+          let globalCenterY = g.y + sz.y;
           D.create(
             globalCenterX, globalCenterY,            //x and y position
             () => S.sprite("star.png"),              //Particle function
@@ -156,7 +152,7 @@ function defScenes(Mojo) {
         });
 
       let score=Mojo.Game.state.get("score");
-      message.content = `Score: ${score}`;
+      message.mojoh5.content(`Score: ${score}`);
       if(blocks.children.length===0) {
         Mojo.pause();
         _.timer(() => {
@@ -167,9 +163,9 @@ function defScenes(Mojo) {
     };
 
     this.insert(ball);
-    this.putBottom(ball, 0, -128);
-    ball.vx = 12;
-    ball.vy = 8;
+    S.putBottom(this,ball, 0, -128);
+    ball.mojoh5.vx = 12;
+    ball.mojoh5.vy = 8;
 
     //Add the game sprites to the `gameScene` group
     //gameScene = g.group(paddle, ball, topBorder, blocks, message);
@@ -210,3 +206,5 @@ MojoH5.Config={
     Mojo.Scenes.runScene("splash");
   }
 };
+
+

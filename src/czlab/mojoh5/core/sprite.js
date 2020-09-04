@@ -764,7 +764,7 @@
         }
         extraFunc && extraFunc(s);
       }
-      return container;
+      return this.extend(container);
     };
     /**
      * @public
@@ -853,7 +853,7 @@
       }
       let c= new Mojo.p.Container();
       _.doseq(sprites, s => c.addChild(s));
-      return c;
+      return this.extend(c);
     };
     /**
      * @public
