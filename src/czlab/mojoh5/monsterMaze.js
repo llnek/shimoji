@@ -11,9 +11,9 @@
 
     Z.defScene("level1", {
       setup:function(){
-        this.world = T.makeTiledWorld( "monsterMaze.json", "monsterMaze.png");
+        this.world = T.makeTiledWorld("monsterMaze.json");
         this.insert(this.world);
-        this.alien = this.world.getObject("alien");
+        this.alien = this.world.tiled.getObject("alien");
         /*
         Each Tiled Editor layer has a `name` that can be accessed in your
         game code using
@@ -24,15 +24,15 @@
         a tile layer called `wallLayer`. We can access the `wallLayer`'s
         `data` array of sprites like this:
         */
-        this.wallMapArray = this.world.getObject("wallLayer").data;
+        this.wallMapArray = this.world.tiled.getObject("wallLayer").tiled.data;
         /*
         We also need a reference to the bomb layer. All Tiled Editor layers are
         created as `groups` by Hexi's `makeTiledWorld` method. That means they
         all have a `children` array that lets' you access all the sprites on
         that layer, if you even need to do that.
         */
-        this.monsterLayer = this.world.getObject("monsterLayer");
-        this.monsterMapArray = this.monsterLayer.data;
+        this.monsterLayer = this.world.tiled.getObject("monsterLayer");
+        this.monsterMapArray = this.monsterLayer.tiled.data;
         /*
         You can use `world.getObjects` (with an "s") to get an array of all
         the things in the world that have the same `name` properties. There
@@ -55,31 +55,31 @@
       },
       postUpdate:function(dt){
         let self=this;
-        function _isAtIntersection(s) {
-          return Math.floor(s.x) % self.world.tileW === 0 &&
-                 Math.floor(s.y) % self.world.tileH === 0;
+        function _isAtIntersection(s){
+          return Math.floor(s.x) % self.world.tiled.tileW === 0 &&
+                 Math.floor(s.y) % self.world.tiled.tileH === 0;
         }
-        if(_isAtIntersection(this.alien)) {
-          switch(this.alien.direction) {
+        if(_isAtIntersection(this.alien)){
+          switch(this.alien.direction){
           case "up":
-            this.alien.vy = -4;
-            this.alien.vx = 0;
+            this.alien.mojoh5.vy = -4;
+            this.alien.mojoh5.vx = 0;
           break;
           case "down":
-            this.alien.vy = 4;
-            this.alien.vx = 0;
+            this.alien.mojoh5.vy = 4;
+            this.alien.mojoh5.vx = 0;
           break;
           case "left":
-            this.alien.vx = -4;
-            this.alien.vy = 0;
+            this.alien.mojoh5.vx = -4;
+            this.alien.mojoh5.vy = 0;
           break;
           case "right":
-            this.alien.vx = 4;
-            this.alien.vy = 0;
+            this.alien.mojoh5.vx = 4;
+            this.alien.mojoh5.vy = 0;
           break;
           case "none":
-            this.alien.vx = 0;
-            this.alien.vy = 0;
+            this.alien.mojoh5.vx = 0;
+            this.alien.mojoh5.vy = 0;
           break;
           }
         }
@@ -109,16 +109,16 @@
         Tiled Editor. So you can use it with your own game maps in the same way.
 
         */
-        let alienVsFloor = T.hitTestTile(this.alien, this.wallMapArray, 0, this.world, "every");
+        let alienVsFloor = T.hitTestTile(this.alien, this.wallMapArray, 0, this.world, Mojo.EVERY);
         //If every corner point on the alien isn't touching a floor tile (array gridIDNumber: 0) then
         //prevent the alien from moving
         //
-        if(!alienVsFloor.hit) {
+        if(!alienVsFloor.hit){
           //To prevent the alien from moving, subtract its velocity from its position
-          this.alien.x -= this.alien.vx;
-          this.alien.y -= this.alien.vy;
-          this.alien.vx = 0;
-          this.alien.vy = 0;
+          this.alien.x -= this.alien.mojoh5.vx;
+          this.alien.y -= this.alien.mojoh5.vy;
+          this.alien.mojoh5.vx = 0;
+          this.alien.mojoh5.vy = 0;
         }
         /*
         //Check for a collision between the alien and the bombs
