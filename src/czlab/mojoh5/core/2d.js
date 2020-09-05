@@ -35,7 +35,7 @@
      * @public
      */
     _D.hitTestPoint=function(point, sprite){
-      let hit, shape= sprite.mojoh5.radius ? "circle" : "rectangle";
+      let hit, shape= sprite.mojoh5.circular ? "circle" : "rectangle";
       if(shape === "rectangle"){
         let offset= _S.anchorOffsetXY(sprite);
         let left = sprite.x - offset.x;
@@ -48,7 +48,8 @@
       else if(shape === "circle"){
         //Find distance between point and the circle center
         let d= v2.sub(point,_S.centerXY(sprite));
-        hit = V2.len2(d) < (sprite.mojoh5.radius * sprite.mojoh5.radius);
+        let r= _S.radius(sprite);
+        hit = V2.len2(d) < r*r;
       }
       return hit;
     };
@@ -60,7 +61,7 @@
      *
      */
     _D.hitTestCircle=function(c1, c2, global = false){
-      let rt= c1.mojoh5.radius + c2.mojoh5.radius;
+      let rt= _S.radius(c1) + _S.radius(c2);
       let v1=_S.centerXY(c1,global);
       let v2=_S.centerXY(c2,global);
       let v= V2.sub(v2,v1);
@@ -75,7 +76,7 @@
      *
      */
     _D.circleCollision=function(c1, c2, bounce=false, global=false){
-      let rt= c1.mojoh5.radius + c2.mojoh5.radius;
+      let rt= _S.radius(c1) + _S.radius(c2);
       let v1=_S.centerXY(c1,global);
       let v2=_S.centerXY(c2,global);
       let v= V2.sub(v2,v1);
@@ -85,7 +86,7 @@
       //between the circles to reduce their surface tension and make
       //them more slippery.
       let pad= 0.3;
-      let dx, dy, diff;
+      let len,dx, dy, diff;
       if(len2 < (rt*rt)){
         len=Math.sqrt(len2);
         diff = rt-len+pad;
@@ -113,7 +114,7 @@
      * @public
      */
     _D.movingCircleCollision=function(c1, c2, global=false){
-      let rt= c1.mojoh5.radius + c2.mojoh5.radius;
+      let rt= _S.radius(c1) + _S.radius(c2);
       let v1=_S.centerXY(c1,global);
       let v2=_S.centerXY(c2,global);
       let v= V2.sub(v2,v1);
@@ -204,14 +205,11 @@
       }
     };
     /**
-     * Use to prevent two rectangular sprites from overlapping.
-     * Optionally, make the first rectangle bounce off the second rectangle.
-     *
-     * @public
+     * @private
      * @function
-     *
      */
-    _D.rectangleCollision=function(r1, r2, bounce = false, global = true){
+    function _rectCollision(r1, r2, bounce = false, global = false,flipped=false){
+      if(flipped) { let tmp=r1; r1=r2;r2=tmp; }
       let c1=_S.centerXY(r1,global);
       let c2=_S.centerXY(r2,global);
       let r1z=_S.halfSize(r1);
@@ -259,6 +257,17 @@
         }
       }
       return collision;
+    }
+    /**
+     * Use to prevent two rectangular sprites from overlapping.
+     * Optionally, make the first rectangle bounce off the second rectangle.
+     *
+     * @public
+     * @function
+     *
+     */
+    _D.rectangleCollision=function(r1, r2, bounce = false, global = false){
+      return _rectCollision(r1,r2,bounce,global);
     };
     /**
      * Use to find out if two rectangular sprites are touching.
@@ -367,26 +376,25 @@
     _D.hitTestCirclePoint=function(c1, point, global = false){
       //point = circle with diameter 1 pixel. do circle vs. circle test
       //supply the point with the properties it needs
-      let p= _S.extend(_.p2(point.x, point.y));
       let pos= _.p2(point.x, point.y);
-      p.anchor=_.p2(0.5, 0.5);
-      p.width = 1;
-      p.height = 1;
-      p.mojoh5.diameter = 1;
+      let p={
+        x:point.x,
+        y:point.y,
+        width: 1,
+        height: 1,
+        anchor: _.p2(0.5,0.5)
+      };
+      p=_S.extend(p);
       p.mojoh5.circular=true;
-      p.mojoh5.radius = 0.5;
       p.mojoh5.cpos= pos;
       p.mojoh5.gpos = pos;
       return this.hitTestCircle(c1, p, global);
     };
     /**
-     * Use to bounce a circular shape off a rectangular shape.
-     *
-     * @public
+     * @private
      * @function
-     *
      */
-    _D.circleRectangleCollision=function(c1, r1, bounce = false, global = false){
+    function _circleRectangleCollision(c1, r1, bounce = false, global = false, flipped=false){
       let c1off= _S.anchorOffsetXY(c1);
       let r1off= _S.anchorOffsetXY(r1);
       let r1z= _S.halfSize(r1);
@@ -429,7 +437,7 @@
       //of the rectangle?
       if(region === "topMiddle" || region === "bottomMiddle" ||
         region === "leftMiddle" || region === "rightMiddle"){
-        collision = this.rectangleCollision(c1, r1, bounce, global);
+        collision = _rectCollision(c1, r1, bounce, global,flipped);
       }else{
         //The circle is touching one of the corners, so do a
         //circle vs. point collision test
@@ -448,10 +456,47 @@
           point = _.p2(p2.x + r1.width - r1off.x, p2.y + r1.height - r1off.y);
         }
         //Check for a collision between the circle and the point
-        collision = this.circlePointCollision(c1, point, bounce, global);
+        //TODO: flipping doesnt work with corners!!!!
+        //collision = _circlePointCollision(c1, point, bounce, global,flipped);
+        collision = _circlePointCollision(c1, point, bounce, global);
       }
       return collision ? region : undefined;
+    }
+    /**
+     * Use to bounce a circular shape off a rectangular shape.
+     *
+     * @public
+     * @function
+     *
+     */
+    _D.rectangleCircleCollision=function(r1, c1, bounce = false, global = false){
+      return _circleRectangleCollision(c1, r1, bounce, global, true);
     };
+    _D.circleRectangleCollision=function(c1, r1, bounce = false, global = false){
+      return _circleRectangleCollision(c1, r1, bounce, global);
+    };
+    /**
+     * @private
+     * @function
+     */
+    function _circlePointCollision(c1, point, bounce = false, global = false,flipped=false){
+      //point = circle with diameter 1 pixel. do circle vs. circle test
+      //supply the point with the properties it needs
+      let pos= _.p2(point.x, point.y);
+      let p= {
+        x: point.x,
+        y: point.y,
+        width: 1,
+        height: 1,
+        anchor: _.p2(0.5,0.5)
+      };
+      p=_S.extend(p);
+      p.mojoh5.circular=true;
+      p.mojoh5.cpos= pos;
+      p.mojoh5.gpos = pos;
+      return flipped ? _D.circleCollision(p,c1, bounce, global)
+                     : _D.circleCollision(c1, p, bounce, global);
+    }
     /**
      * Use to boucnce a circle off a point.
      *
@@ -460,19 +505,10 @@
      *
      */
     _D.circlePointCollision=function(c1, point, bounce = false, global = false){
-      //point = circle with diameter 1 pixel. do circle vs. circle test
-      //supply the point with the properties it needs
-      let p= _S.extend(_.p2(point.x, point.y));
-      let pos= _.p2(point.x, point.y);
-      p.anchor=_.p2(0.5, 0.5);
-      p.width = 1;
-      p.height = 1;
-      p.mojoh5.diameter = 1;
-      p.mojoh5.circular=true;
-      p.mojoh5.radius = 0.5;
-      p.mojoh5.cpos= pos;
-      p.mojoh5.gpos = pos;
-      return this.circleCollision(c1, point, bounce, global);
+      return _circlePointCollision(c1,point,bounce,global);
+    };
+    _D.pointCircleCollision=function(point,c1, bounce = false, global = false){
+      return _circlePointCollision(c1,point,bounce,global,flipped);
     };
     /**
      * Use to bounce an object off another object.
@@ -597,83 +633,50 @@
      *
      */
     _D.hit=function(a, b, react = false, bounce = false, global, extra = undefined){
-      let hitTestPoint = this.hitTestPoint.bind(this);
-      let hitTestRectangle = this.hitTestRectangle.bind(this);
-      let hitTestCircle = this.hitTestCircle.bind(this);
-      let movingCircleCollision = this.movingCircleCollision.bind(this);
-      let circleCollision = this.circleCollision.bind(this);
-      let hitTestCircleRectangle = this.hitTestCircleRectangle.bind(this);
-      let rectangleCollision = this.rectangleCollision.bind(this);
-      let circleRectangleCollision = this.circleRectangleCollision.bind(this);
       let collision;
-      let aIsASprite = a.parent !== undefined;
-      let bIsASprite = b.parent !== undefined;
-      //
-      function _findCollisionType(a, b){
-        let aIsASprite = a.parent !== undefined;
-        let bIsASprite = b.parent !== undefined;
-        if(aIsASprite && bIsASprite){
-          if(a.mojoh5.circular && b.mojoh5.circular){
-            return _circleVsCircle(a, b);
-          }else if(a.mojoh5.circular && !b.mojoh5.circular){
-            return _circleVsRectangle(a, b);
-          }else{
-            return _rectangleVsRectangle(a, b);
-          }
-        }else if(bIsASprite && !(a.x === undefined) && !(a.y === undefined)){
-          //so this is a point vs. sprite collision test
-          return hitTestPoint(a, b);
-        }else{
-          throw `${a} and ${b} cannot be use together in a collision test`;
-        }
-      }
-      function _spriteVsArray(){
-        //If `a` happens to be the array, flip it around so that it becomes `b`
-        if(is.vec(a)){
-          //let [a, b] = [b, a];
-          let tmp=a; a=b; b=tmp;
-        }
-        for(let s,i=b.length-1; i >= 0; --i){
-          s= b[i];
-          collision = _findCollisionType(a, s);
-          if(collision && extra) extra(collision, s);
-        }
-      }
       function _circleVsCircle(a, b){
-        //If the circles shouldn't react to the collision,
-        //just test to see if they're touching
-        if(!react){
-          return hitTestCircle(a, b);
-        }else{
-          if(a.mojoh5.vx + a.mojoh5.vy !== 0 &&
-             b.mojoh5.vx + b.mojoh5.vy !== 0){
-            //they are both moving
-            return movingCircleCollision(a, b, global);
+        return !react ? _D.hitTestCircle(a,b)
+                      : (_S.moving(a) && _S.moving(b) ? _D.movingCircleCollision(a, b, global)
+                                                      : _D.circleCollision(a, b, bounce, global));
+      }
+      function _rectVsRect(a, b){
+        return !react ? _D.hitTestRectangle(a, b, global)
+                      : _D.rectangleCollision(a, b, bounce, global);
+      }
+      function _circleVsRect(a, b){
+        return !react ? _D.hitTestCircleRectangle(a, b, global)
+                      : _D.circleRectangleCollision(a, b, bounce, global);
+      }
+      function _rectVsCircle(a, b){
+        return !react ? _D.hitTestCircleRectangle(b,a, global)
+                      : _circleRectangleCollision(b,a, bounce, global,true);
+      }
+      function _findCollisionType(a, b){
+        let aisp = _.inst(Mojo.p.Sprite,a);//a.parent !== undefined;
+        let bisp = _.inst(Mojo.p.Sprite,b);//b.parent !== undefined;
+        if(bisp){
+          if(!aisp) return _D.hitTestPoint(a, b);
+          if(a.mojoh5.circular){
+            return b.mojoh5.circular ? _circleVsCircle(a, b) : _circleVsRect(a,b);
           }else{
-            return circleCollision(a, b, bounce, global);
+            return b.mojoh5.circular ? _rectVsCircle(a, b) : _rectVsRect(a,b);
           }
-        }
-      }
-      function _rectangleVsRectangle(a, b){
-        if(!react){
-          return hitTestRectangle(a, b, global);
         }else{
-          return rectangleCollision(a, b, bounce, global);
+          throw `Error: ${a} and ${b} cannot be use together in a collision test`;
         }
       }
-      function _circleVsRectangle(a, b){
-        if(!react){
-          return hitTestCircleRectangle(a, b, global);
-        }else{
-          return circleRectangleCollision(a, b, bounce, global);
-        }
-      }
+      //if(aIsASprite && is.vec(b) || bIsASprite && is.vec(a))
       //Check to make sure one of the arguments isn't an array
-      if(aIsASprite && is.vec(b) || bIsASprite && is.vec(a)){
-        _spriteVsArray();
+      if(is.vec(a) || is.vec(b)){
+        //If `a` happens to be the array, flip it around so that it becomes `b`
+        if(is.vec(a)){ let tmp=a; a=b; b=tmp; }
+        for(let i=b.length-1; i >= 0; --i){
+          collision = _findCollisionType(a, b[i]);
+          if(collision) if(extra) extra(collision, b[i]);
+        }
       }else{
         collision = _findCollisionType(a, b);
-        if(collision && extra) extra(collision);
+        if(collision) if(extra) extra(collision, b);
       }
       return collision;
     };

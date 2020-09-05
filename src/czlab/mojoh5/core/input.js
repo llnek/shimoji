@@ -222,7 +222,7 @@
                 _.conj(cs,s);
                 //Reorganize the `draggableSpites` array in the same way
                 _.disj(draggableSprites,s);
-                _conj(draggableSprites,s);
+                _.conj(draggableSprites,s);
                 break;
               }
             }

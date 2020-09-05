@@ -47,6 +47,7 @@
       return (r >>> 0) / 4294967296;
     };
   })(Date.now(),Date.now(),Date.now(),Date.now()); // simple seeding??
+  const EPSILON= 0.00001;
   /**
    * @private
    * @var {number}
@@ -59,6 +60,16 @@
   const _={
     //get POS_INF(){ return Infinity; },
     //get NEG_INF(){ return -Infinity; },
+    feq:function(a, b){
+      // <= instead of < for NaN comparison safety
+      return Math.abs(a - b) <= EPSILON;
+    },
+    fgteq:function(a,b){
+      return a>b || this.feq(a,b);
+    },
+    flteq:function(a,b){
+      return a<b || this.feq(a,b);
+    },
     pack: function(o){ return JSON.stringify(o) },
     unpack: function(s){ return JSON.parse(s) },
     v2: function(x,y){ return [x,y] },

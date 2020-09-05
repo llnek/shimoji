@@ -27,7 +27,7 @@
     const _=Mojo.u;
     const is=Mojo.is;
     const dom=Mojo.dom;
-    const V2=_.V2;
+    const V2=Mojo.V2;
     const _shakingSprites = [];
     //------------------------------------------------------------------------
     //create aliases for various PIXI objects
@@ -112,7 +112,7 @@
     };
     _S.empty=function(o){ return o.children.length === 0 };
     _S.setXY=function(o,x,y){ o.x = x; o.y = y };
-    _S.circle=function(o,v){
+    _S.circular=function(o,v){
       if(v!==undefined){ o.mojoh5.circular=v }
       return o.mojoh5.circular;
     };
@@ -666,6 +666,7 @@
       draw();
       let sprite = new Mojo.p.Sprite(_S.generateTexture(o));
       this.extend(sprite);
+      this.circular(sprite,true);
       sprite.x = x;
       sprite.y = y;
       sprite.mojoh5.fillStyle=function(v){
@@ -695,13 +696,13 @@
      * @public
      * @function
      */
-    _S.line=function(strokeStyle, lineWidth, ax = 0, ay = 0, bx = 32, by = 32){
+    _S.line=function(strokeStyle, lineWidth, A,B){
       let o = new Mojo.p.Graphics();
       let gprops={
         stroke: _S.color(strokeStyle),
         lineW: lineWidth,
-        A: _.p2(ax,ay),
-        B: _.p2(bx,by)
+        A: _.p2(A.x,A.y),
+        B: _.p2(B.x,B.y)
       };
       let draw= function(){
         o.clear();
@@ -742,6 +743,13 @@
         return gprops.stroke;
       };
       return sprite;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.moving=function(o){
+      return !_.feq(o.mojoh5.vx,0) || !_.feq(o.mojoh5.vy, 0);
     };
     /**
      * @public

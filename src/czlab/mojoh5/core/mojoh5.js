@@ -523,12 +523,16 @@
      * @public
      * @function
      */
-    Mojo.animFromFrames=function(x){ return this.p.ASprite.fromFrames(x) };
+    Mojo.animFromFrames=function(x){
+      return this.p.ASprite.fromFrames( x.map(s => Mojo.assetPath(s)));
+    };
     /**
      * @public
      * @function
      */
-    Mojo.animFromImages=function(x){ return this.p.ASprite.fromImages(x) };
+    Mojo.animFromImages=function(x){
+      return this.p.ASprite.fromImages(x.map(s => Mojo.assetPath(s)));
+    };
     /**
      * @public
      * @property {class}
