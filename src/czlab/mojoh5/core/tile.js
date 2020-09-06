@@ -641,7 +641,7 @@
                              obstacleGids = [],
                              heuristic = "manhattan", useDiagonal=true){
       let openList = [], closedList = [], theShortestPath = [];
-      let nodes = tiles.map((_,i) =>
+      let nodes = tiles.map((xxx,i) =>
         ({f: 0, g: 0, h: 0, parent: null, index:i,
         col: i % world.tiled.tilesInX,
         row: _.floor(i / world.tiled.tilesInX)}));
@@ -661,7 +661,7 @@
             let indexIsOnRightBorder = ((i+1) % world.tiled.tilesInX) === 0;
             let nodeIsBeyondLeftBorder = (node.col % (world.tiled.tilesInX-1)) === 0 && node.col !== 0;
             let nodeIsBeyondRightBorder = (node.col % world.tiled.tilesInX) === 0;
-            let nodeContainsAnObstacle = obstacleGids.some(o => tiles[node.pos] === o);
+            let nodeContainsAnObstacle = obstacleGids.some(o => tiles[node.index] === o);
             if(indexIsOnLeftBorder){
               return !nodeIsBeyondLeftBorder;
             }else if(indexIsOnRightBorder){
@@ -740,7 +740,7 @@
             tn.g = g;
             tn.h = h;
             tn.parent = centerNode;
-            _.conj(openList,testNode);
+            _.conj(openList,tn);
           }
         }
         _.conj(closedList,centerNode);

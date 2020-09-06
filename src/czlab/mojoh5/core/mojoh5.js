@@ -339,6 +339,7 @@
         Graphics:PIXI.Graphics,
         loader:PIXI.Loader.shared,
         Texture:PIXI.Texture,
+        Filters:PIXI.filters,
         LR:PIXI.LoaderResource,
         TCache:PIXI.utils.TextureCache,
         ObservablePoint: PIXI.ObservablePoint},
