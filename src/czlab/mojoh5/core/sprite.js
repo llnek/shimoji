@@ -44,10 +44,15 @@
       PContainer:PIXI.ParticleContainer});
     //------------------------------------------------------------------------
     _S.anchorOffsetXY=function(o){ return o.anchor ? _.p2(o.width*o.anchor.x,o.height*o.anchor.y) : _.p2()};
-    _S.gposXY=function(o){ return (o.mojoh5 && o.mojoh5.gpos) ? o.mojoh5.gpos : o.getGlobalPosition() };
+    _S.gposXY=function(o){
+      if(o.mojoh5 && o.mojoh5.gpos)
+        return is.fun(o.mojoh5.gpos)? o.mojoh5.gpos() : o.mojoh5.gpos();
+      else
+        return o.getGlobalPosition();
+    };
     _S.centerXY=function(o,global=false){
       if(o.mojoh5 && o.mojoh5.cpos){
-        return o.mojoh5.cpos;
+        return is.fun(o.mojoh5.cpos)? o.mojoh5.cpos() : o.mojoh5.cpos;
       }
       let g,a= this.anchorOffsetXY(o);
       let x=o.x, y=o.y;
@@ -697,6 +702,8 @@
      * @function
      */
     _S.line=function(strokeStyle, lineWidth, A,B){
+      A=A || _.p2(0,0);
+      B=B || _.p2(32,32);
       let o = new Mojo.p.Graphics();
       let gprops={
         stroke: _S.color(strokeStyle),
@@ -1032,17 +1039,14 @@
      * @function
      */
     _S.extend=function(o){
-      if(!o.mojoh5){
-        o.mojoh5={
-          uuid: _.nextId(),
-          mass: 1,
-          vx: 0, vy: 0,
-          stage: false,
-          dead: false,
-          layer: 0, circular: false,
-          interact: false, draggable: false, bumpProps: true
-        };
-      }
+      if(!o.mojoh5) o.mojoh5={};
+      _.inject(o.mojoh5, {uuid: _.nextId(),
+                          mass: 1,
+                          vx: 0, vy: 0,
+                          stage: false,
+                          dead: false,
+                          layer: 0, circular: false,
+                          interact: false, draggable: false, bumpProps: true});
       return o;
       //make sure we're not shadowing!
       /*

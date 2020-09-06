@@ -264,7 +264,7 @@
       if(cmdArg.border)
         dom.css(Mojo.canvas, "border", cmdArg.border);
       if(cmdArg.backgroundColor)
-        Mojo.ctx.backgroundColor = Mojo.color(cmdArg.backgroundColor);
+        Mojo.ctx.backgroundColor = Mojo.Sprites.color(cmdArg.backgroundColor);
       dom.conj(document.body, Mojo.canvas);
       Mojo.Sprites.extend(Mojo.stage);
       Mojo.stage.mojoh5.stage = true;

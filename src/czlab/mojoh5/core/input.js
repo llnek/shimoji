@@ -79,6 +79,12 @@
         downTime: 0,
         elapsedTime: 0,
 
+        anchor: _.p2(),
+        mojoh5: {
+          cpos: () => _.p2(ptr.x,ptr.y),
+          gpos: () => _.p2(ptr.x,ptr.y),
+        },
+
         press: undefined,
         release: undefined,
         hover: undefined,

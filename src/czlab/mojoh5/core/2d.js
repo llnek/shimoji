@@ -47,7 +47,7 @@
       }
       else if(shape === "circle"){
         //Find distance between point and the circle center
-        let d= v2.sub(point,_S.centerXY(sprite));
+        let d= V2.sub(point,_S.centerXY(sprite));
         let r= _S.radius(sprite);
         hit = V2.len2(d) < r*r;
       }

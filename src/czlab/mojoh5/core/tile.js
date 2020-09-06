@@ -56,6 +56,9 @@
      * @returns the tile position
      */
     _T.getIndex=function(x, y, tileW, tileH, mapWidthInTiles){
+      if(x<0 || y<0){
+        throw "Wooooo, whats up!";
+      }
       return _.floor(x / tileW) + _.floor(y / tileH) * mapWidthInTiles;
     };
     /**
