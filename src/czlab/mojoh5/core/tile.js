@@ -473,7 +473,7 @@
      */
     _T.isoRectangle=function(width, height, fillStyle){
       //Draw the flattened and rotated square (diamond shape)
-      let r= new this.Graphics();
+      let r= new Mojo.p.Graphics();
       let h2= height/2;
       r.beginFill(fillStyle);
       r.moveTo(0, 0);
@@ -482,7 +482,9 @@
       r.lineTo(-width, h2);
       r.lineTo(0, 0);
       r.endFill();
-      return _S.extend(new Mojo.p.Sprite(Mojo.Sprites.generateTexture(r)));
+      let s= _S.extend(new Mojo.p.Sprite(Mojo.Sprites.generateTexture(r)));
+      s.tiled={};
+      return s;
     };
     /**
      * Add properties to a sprite to help work between Cartesian
@@ -494,11 +496,20 @@
      *
      */
     _T.addIsoProperties=function(sprite, width, height,x,y){
+      let cpos= _.p2(x,y);
       //Cartisian (flat 2D) properties
-      sprite.tiled.cartXY=function(){ return _.p2(x,y) };
+      sprite.tiled.cartXY=function(cx,cy){
+        if(cx !== undefined){
+          cpos.x=cx;
+          cpos.y=cy;
+        }
+        return cpos;
+      };
       sprite.tiled.cartWidth = width;
       sprite.tiled.cartHeight = height;
-      sprite.tiled.isoXY=function(){ return _.p2(x-y, (x+y)/2) };
+      sprite.tiled.isoXY=function(){
+        return _.p2(cpos.x-cpos.y, (cpos.x+cpos.y)/2);
+      };
     };
     /**
      * Make an isometric world from TiledEditor map data.
