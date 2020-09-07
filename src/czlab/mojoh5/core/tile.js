@@ -340,9 +340,9 @@
       };
       world.tiled.getObjects = function(objectNames,panic){
         let found= [];
+        objectNames=_.seq(objectNames);
         world.tiled.tileObjects.forEach(o => {
-          if(_.has(objectNames,o.name) ||
-            (o.tiled && _.has(objectNames,o.tiled.name)))
+          if(o.tiled && _.has(objectNames,o.tiled.name))
             _.conj(found,o);
         });
         if(found.length ===0 && panic)
@@ -609,9 +609,10 @@
       };
       world.tiled.getObjects=function(objectNames,panic){
         let found= [];
+        objectNames=_.seq(objectNames);
         world.tiled.tileObjects.forEach(o => {
           if(o.tiled && _.has(objectNames, o.tiled.name))
-            found.push(o);
+            _.conj(found,o);
         });
         if(found.length === 0 && panic) throw "No object found";
         return found;

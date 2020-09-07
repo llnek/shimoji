@@ -527,7 +527,7 @@
         }
         _.conj(pos, _.v2(x,y));
       }
-      return this.frames(texture, pos, tileW, tileH);
+      return this.frames(texture, tileW, tileH,pos);
     };
     /**
      * @private
@@ -548,7 +548,7 @@
      * @public
      * @function
      */
-    _S.frames=function(source, coordinates, tileW, tileH){
+    _S.frames=function(source, tileW, tileH, coordinates){
       let t= this.mkTexture(source);
       return coordinates.map(p => _cfgTexture(new Mojo.p.Texture(t),tileW,tileH,p[0],p[1]));
     };
@@ -692,9 +692,13 @@
         if(v !== undefined){
           gprops.radius=v;
           sprite.texture = draw() && _S.generateTexture(o);
+          //sprite.mojoh5.width= v*2;
+          //sprite.mojoh5.height= v*2;
         }
         return gprops.radius;
       };
+      //sprite.mojoh5.height=
+      //sprite.mojoh5.width= gprops.radius*2;
       return sprite;
     };
     /**
