@@ -454,16 +454,34 @@
                     (((2 * ptr.y - ptr.x) - (2 * world.y - world.x)) / 2) + (world.tiled.cartTileH/2));
       };
       //The tile's column and row in the array
-      ptr.tiled.column=function(){ return _.floor(ptr.tiled.cartXY().x / world.tiled.cartTileW) };
-      ptr.tiled.row=function(){ return _.floor(ptr.tiled.cartXY().y / world.tiled.cartTileH) };
+      ptr.tiled.col=function(){
+        return _.floor(ptr.tiled.cartXY().x / world.tiled.cartTileW)
+      };
+      ptr.tiled.row=function(){
+        return _.floor(ptr.tiled.cartXY().y / world.tiled.cartTileH)
+      };
       //The tile's index number in the array
-      ptr.tiled.index=function(){
+      ptr.tiled.____index=function(){
         //Convert pixel coordinates to map index coordinates
         let ix = _.floor(ptr.tiled.cartXY().x / world.tiled.cartTileW);
         let iy = _.floor(ptr.tiled.cartXY().y / world.tiled.cartTileH);
         return ix + iy * world.tiled.tilesInX;
       };
     };
+    /**
+     * @public
+     * @function
+     */
+    _T.isoWorld=function(cartTileW, cartTileH, tilesInX,tilesInY){
+      let g= _S.group();
+      g.tiled={
+        cartTileW: cartTileW,
+        cartTileH: cartTileH,
+        tilesInX: tilesInX,
+        tilesInY: tilesInY
+      };
+      return g;
+    }
     /**
      * A function for creating a simple isometric diamond
      * shaped rectangle using Pixi's graphics library.
@@ -497,6 +515,7 @@
      */
     _T.addIsoProperties=function(sprite, width, height,x,y){
       let cpos= _.p2(x,y);
+      if(!sprite.tiled) sprite.tiled={};
       //Cartisian (flat 2D) properties
       sprite.tiled.cartXY=function(cx,cy){
         if(cx !== undefined){
