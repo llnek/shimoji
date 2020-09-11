@@ -105,6 +105,28 @@
       obj.configurable=true;
       return obj;
     },
+    partition: function(count,arr){
+      let out=[];
+      for(let row,i=0;;){
+        row=[];
+        for(let j=0;j<count;++j){
+          if(i<arr.length){
+            row.push(arr[i]);
+            ++i;
+          }else{
+            if(row.length>0) out.push(row);
+            return out;
+          }
+        }
+      }
+    },
+    range:function(start,end){
+      _.assert(start !== undefined);
+      let out=[];
+      if(arguments.length===1){ end=start; start=0 }
+      for(let i=start;i<end;++i){ out.push(i) }
+      return out
+    },
     keys: function(obj){
       return isMap(obj) ? Array.from(obj.keys())
                         : (isObject(obj) ? Object.keys(obj) : []);
@@ -129,6 +151,7 @@
     assert: function(cond){
       if(!cond)
         throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
+      return true
     },
     noSuchKeys: function(keys,target){
       let r=this.some(this.seq(keys),k => this.has(target,k)?k:null);
