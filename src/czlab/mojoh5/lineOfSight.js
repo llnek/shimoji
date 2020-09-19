@@ -9,7 +9,7 @@
         let alien = this.alien= _S.sprite("alien.png");
         this.insert(alien);
         _S.putCenter(this,alien, -Mojo.canvas.width / 4);
-        let monster = this.monster= _S.sprite([ "monsterNormal.png", "monsterAngry.png" ]);
+        let monster = this.monster= _S.sprite([ "images/monsterNormal.png", "images/monsterAngry.png" ]);
         this.insert(monster);
         //Define the monster's two states: `normal` and `scared`
         //`0` and `1` refer to the monster's two animation frames

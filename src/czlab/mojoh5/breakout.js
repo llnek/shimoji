@@ -1,7 +1,7 @@
 function defScenes(Mojo) {
   let Z=Mojo.Scenes;
   let S=Mojo.Sprites;
-  let T=Mojo.Tween;
+  let T=Mojo.Tweens;
   let D=Mojo.Dust;
   let I=Mojo.Input;
   let _2d= Mojo["2d"];

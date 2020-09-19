@@ -3,7 +3,7 @@
   const MojoH5=window.MojoH5;
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
-    const _=Mojo.u, V2=Mojo.V2;
+    const _=Mojo.u;
 
     //`isAtIntersection` returns true or false depending on whether a
     //sprite is exactly aligned to anintersection in the maze corridors
@@ -206,10 +206,10 @@
           //1. Plot a vector between the monster and the alien
           let ca= _S.centerXY(this.alien);
           let cm= _S.centerXY(monster);
-          let v= V2.sub(ca,cm);
+          let v= {x:ca.x-cm.x,y:ca.y-cm.y};
           //2. Find the vector's magnitude. This tells you how far
           //apart the sprites are
-          let magnitude = V2.len(v);//Math.sqrt(vx * vx + vy * vy);
+          let magnitude = Math.sqrt(v.x * v.x + v.y * v.y);
           //3. If the monster is less than 192 pixels away from the alien,
           //change the monster's state to `scared`. Otherwise, set its
           //state to `normal`

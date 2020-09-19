@@ -12,20 +12,26 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-;(function(global,undefined){
+;(function(global){
   "use strict";
-  const window=global;
-  const MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" &&
+     module && typeof module.exports === "object"){
+    global=module.exports;
+  }
+  else if(typeof exports === "object" && exports){
+    global=exports;
+  }
   /**
    * @public
    * @module
    */
-  MojoH5.Tween=function(Mojo){
+  global["io.czlab.mojoh5.Tweens"]=function(Mojo){
+    if(Mojo.Tweens){return Mojo.Tweens}
+    const Core=global["io.czlab.mcfud.core"]();
     const _T= {};
-    const _=Mojo.u;
-    const is=Mojo.is;
+    const _=Core.u;
+    const is=Core.is;
     const _globalTweens = [];
     const _easingFormulas = {
       linear: (x) => { return x },
@@ -502,11 +508,9 @@
       }
     };
 
-    return Mojo.Tween= _T;
+    return (Mojo.Tweens= _T)
   };
 
 })(this);
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//EOF
 

@@ -12,29 +12,44 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-;(function(global,undefined){
+;(function(global){
   "use strict";
-  const FONT_EXTS = ["ttf", "otf", "ttc", "woff"];
-  const AUDIO_EXTS= ["mp3", "wav", "ogg", "webm"];
-  const IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"];
-  const window=global;
+  let window;
+  let _Mojo;
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" &&
+     module && typeof module.exports === "object"){
+    global=module.exports;
+  }
+  else if(typeof exports === "object" && exports){
+    global=exports;
+  }else{
+    window=global;
+  }
+
+  if(!window)
+    throw `Fatal: MojoH5 module requires browser env.`;
+
   /**
    * @public
    * @module
    */
-  const MojoH5=function(cmdArg){
+  function MojoH5(cmdArg){
+    if(_Mojo){return _Mojo}
+    const FONT_EXTS = ["ttf", "otf", "ttc", "woff"];
+    const AUDIO_EXTS= ["mp3", "wav", "ogg", "webm"];
+    const IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"];
+    const Core=global["io.czlab.mcfud.core"]();
     const _soundObjects = {};
     const _fontFamilies= [];
     const _spanElements = [];
     let _loadingProgress = 0;
     let _loadingFile = "";
     let _progressBar;
-    const C= MojoH5.Core({});
-    const V2=C.V2;
-    const _=C.u;
-    const is=C.is;
-    const dom=C.dom;
-    const EventBus=C.EventBus;
+    const _=Core.u;
+    const is=Core.is;
+    const dom=Core.dom;
+    const EventBus=Core.EventBus;
     //add optional defaults
     _.patch(cmdArg,{
       fps:60,
@@ -255,7 +270,9 @@
       Mojo.canvas.id="mojo";
       Mojo.canvas.scaled = false;
       Mojo.stage= new Mojo.p.Container();
-      _.doseq(_.seq("Sprites,Input,Scenes,Tiles,Tween,Dust,Sound,Loop,2d"), m => MojoH5[m](Mojo));
+      _.doseq(_.seq("Sprites,Input,Scenes,Tiles,Tweens,Dust,Sound,GameLoop,2d"), m => {
+        global["io.czlab.mojoh5."+m](Mojo);
+      });
       _.assert(_.noSuchKeys("halfWidth,halfHeight",Mojo.canvas));
       Object.defineProperties(Mojo.canvas,{
         "halfWidth":_.pdef({ get(){ return Mojo.canvas.width / 2 }}),
@@ -331,7 +348,6 @@
       TRAPPED: 200,
       Game:{ state: new GameState() },
       EventBus:EventBus(),
-      V2:V2,
       u:_, is:is, dom:dom,
       o:cmdArg,
       p:{
@@ -525,7 +541,8 @@
      * @function
      */
     Mojo.animFromFrames=function(x){
-      return this.p.ASprite.fromFrames( x.map(s => Mojo.assetPath(s)));
+      //return this.p.ASprite.fromFrames( x.map(s => Mojo.assetPath(s)));
+      return this.p.ASprite.fromFrames(x)
     };
     /**
      * @public
@@ -543,17 +560,15 @@
     //ready!
     _prologue(Mojo,cmdArg.arena);
 
-    return Mojo;
-  };
+    return (_Mojo=Mojo)
+  }
 
-  window.addEventListener("load", function(_){
+  window.addEventListener("load", function(){
     window.Mojo=MojoH5(MojoH5.Config);
   });
 
-  return window.MojoH5=MojoH5;
+  return (window.MojoH5= global["io.czlab.mojoh5.MojoH5"]=MojoH5)
 
 })(this);
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//EOF
 

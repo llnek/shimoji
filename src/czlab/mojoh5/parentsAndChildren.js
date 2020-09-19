@@ -134,7 +134,7 @@
           if(catHitsEdges.has(Mojo.BOTTOM)) collisionSide = "bottom";
 
           //Display it
-          collisionMessage.mojoh5.content(
+          this.collisionMessage.mojoh5.content(
             `The cat hit the ${collisionSide} of the square`);
         }
         //Make the star rotate

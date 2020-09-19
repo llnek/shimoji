@@ -12,21 +12,28 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-;(function(global,undefined){
+;(function(global){
   "use strict";
-  const window=global;
-  const MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" &&
+     module && typeof module.exports === "object"){
+    global=module.exports;
+  }
+  else if(typeof exports === "object" && exports){
+    global=exports;
+  }
   /**
    * @public
    * @module
    */
-  MojoH5.Tiles=function(Mojo){
-    const _S=Mojo.Sprites;
+  global["io.czlab.mojoh5.Tiles"]=function(Mojo){
+    if(Mojo.Tiles){ return Mojo.Tiles }
+    const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
+    const Core=global["io.czlab.mcfud.core"]();
+    const _M=global["io.czlab.mcfud.math"]();
+    const _=Core.u;
+    const is=Core.is;
     const _T= {};
-    const _=Mojo.u;
-    const is=Mojo.is;
     /**
      * @private
      * @function
@@ -56,10 +63,9 @@
      * @returns the tile position
      */
     _T.getIndex=function(x, y, tileW, tileH, mapWidthInTiles){
-      if(x<0 || y<0){
-        throw "Wooooo, whats up!";
-      }
-      return _.floor(x / tileW) + _.floor(y / tileH) * mapWidthInTiles;
+      if(x<0 || y<0)
+        throw `Error: ${x},${y}, values must be positive`;
+      return _.floor(x/tileW) + _.floor(y/tileH) * mapWidthInTiles
     };
     /**
      * @public
@@ -68,7 +74,7 @@
     _T.getIndex3=function(x, y, world){
       return this.getIndex(x,y,
                            world.tiled.tileW,
-                           world.tiled.tileH,world.tiled.tilesInX);
+                           world.tiled.tileH,world.tiled.tilesInX)
     };
     /**
      * Converts a point's position to a tile index.
@@ -78,16 +84,14 @@
      * @returns the tile position
      */
     _T.getTileIndex=function(pt,world){
-      return this.getIndex3(pt.x,pt.y,world);
+      return this.getIndex3(pt.x,pt.y,world)
     };
     /**
      * @private
      * @function
      */
     function _getVector(sprite1,sprite2){
-      let v2=_S.centerXY(sprite2);
-      let v1= _S.centerXY(sprite1);
-      return [v2.x - v1.x, v2.y - v1.y];
+      return _M.vecSub(_S.centerXY(sprite2), _S.centerXY(sprite1))
     }
     /**
      * Converts a tile's index number into x/y screen
@@ -99,12 +103,11 @@
      */
     _T.getTile=function(index, mapArray, world){
       let tiled=world.tiled;
-      let tile ={gid: mapArray[index],
-                 width: tiled.tileW,
-                 height: tiled.tileH,
-                 x: ((index % tiled.tilesInX) * tiled.tileW) + world.x,
-                 y: ((_.floor(index / tiled.tilesInX)) * tiled.tileH) + world.y};
-      _S.extend(tile);
+      let tile =_S.extend({gid: mapArray[index],
+                           width: tiled.tileW,
+                           height: tiled.tileH,
+                           x: ((index % tiled.tilesInX) * tiled.tileW) + world.x,
+                           y: ((_.floor(index / tiled.tilesInX)) * tiled.tileH) + world.y});
       tile.mojoh5.gpos= _.p2(tile.x, tile.y);
       tile.mojoh5.cpos= _.p2(tile.x + tiled.tileW/2, tile.y + tiled.tileH/2);
       return tile;
@@ -151,16 +154,7 @@
       return {
         topLeft: _.p2(lf,tp), topRight: _.p2(rt,tp),
         bottomLeft: _.p2(lf,bt), bottomRight: _.p2(rt,bt)
-      };
-/*
-      return {topLeft: ca ? _.p2(s.x + ca.x, s.y + ca.y) : _.p2(s.x, s.y),
-              topRight: ca ? _.p2(s.x + ca.x + ca.width, s.y + ca.y)
-                           : _.p2(s.x + s.width-1, s.y),
-              bottomLeft: ca ? _.p2(s.x + ca.x, s.y + ca.y + ca.height)
-                             : _.p2(s.x, s.y + s.height-1),
-              bottomRight: ca ? _.p2(s.x + ca.x + ca.width, s.y + ca.y + ca.height)
-                              : _.p2(s.x + s.width-1, s.y + s.height-1)};
-                              */
+      }
     };
     /**
      * Checks for a collision between a sprite and a tile in any map array.
@@ -258,9 +252,9 @@
      */
     _T.makeTiledWorld=function(jsonTiledMap){
       let tiledMap = Mojo.resources(jsonTiledMap);
+      tiledMap= tiledMap && tiledMap.data;
       if(!tiledMap)
         throw `Error: ${jsonTiledMap} not cached`;
-      tiledMap= tiledMap.data;
       //check version of map-editor
       let tprops= _checkVersion(tiledMap,jsonTiledMap);
       let world = _S.extend(new Mojo.p.Container());
@@ -940,11 +934,9 @@
                                           : ((v[1] <= 0) ? Mojo.UP : Mojo.DOWN);
     };
 
-    return Mojo.Tiles=_T;
+    return (Mojo.Tiles=_T)
   };
 
 })(this);
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//EOF
 

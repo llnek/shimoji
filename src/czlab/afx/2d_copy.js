@@ -22,7 +22,6 @@
   else if(typeof exports === "object" && exports){
     global=exports;
   }
-
   /**
    * @public
    * @module
@@ -31,6 +30,7 @@
     if(Mojo["2d"]){return Mojo["2d"]}
     const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
+    const _M=global["io.czlab.mcfud.math"]();
     const is=Core.is;
     const _=Core.u;
     const _D= {};
@@ -54,9 +54,10 @@
       else if(shape === "circle"){
         //Find distance between point and the circle center
         let c= _S.centerXY(sprite);
-        let d= {x: point.x-c.x, y: point.y-c.y};
         let r= _S.radius(sprite);
-        hit= (d.x*d.x+d.y*d.y) < (r*r)
+        let dx=point.x-c.x;
+        let dy=point.y-c.y;
+        hit= (dx*dx+dy*dy) < (r*r);
       }
       return hit;
     };
@@ -71,8 +72,9 @@
       let rt= _S.radius(c1) + _S.radius(c2);
       let v1=_S.centerXY(c1,global);
       let v2=_S.centerXY(c2,global);
-      let v= {x:v2.x-v1.x,y:v2.y-v1.y};
-      return (v.x*v.x+v.y*v.y)<(rt*rt);
+      let vx= v2.x-v1.x;
+      let vy= v2.y-v1.y;
+      return (vx*vx+vy*vy) < (rt * rt);
     };
     /**
      * Use to prevent a moving circular sprite from overlapping and optionally
@@ -86,8 +88,8 @@
       let rt= _S.radius(c1) + _S.radius(c2);
       let v1=_S.centerXY(c1,global);
       let v2=_S.centerXY(c2,global);
-      let v= {x:v2.x-v1.x,y:v2.y-v1.y};
-      let len2= v.x*v.x+v.y*v.y;
+      let v= {x: v2.x-v1.x, y: v2.y-v1.y};
+      let len2=v.x*v.x + v.y+v.y;
       let hit = false;
       //Add some "quantum padding". This adds a tiny amount of space
       //between the circles to reduce their surface tension and make
@@ -124,7 +126,7 @@
       let rt= _S.radius(c1) + _S.radius(c2);
       let v1=_S.centerXY(c1,global);
       let v2=_S.centerXY(c2,global);
-      let v= {x:v2.x-v1.x,y:v2.y-v1.y};
+      let v= {x: v2.x-v1.x, y: v2.y-v1.y};
       let dx,dy,len,len2=v.x*v.x+v.y*v.y;
       let diff, vxHalf,vyHalf,xSide, ySide;
       let p1A = {}, p1B = {}, p2A = {}, p2B = {}, hit = false;
@@ -221,7 +223,7 @@
       let c2=_S.centerXY(r2,global);
       let r1z=_S.halfSize(r1);
       let r2z=_S.halfSize(r2);
-      let v= {x:c1.x-c2.x,y:c1.y-c2.y};
+      let v= {x: c1.x-c2.x, y:c1.y-c2.y};
       //the combined half-widths and half-heights
       let combinedHalfWidths = r1z.x + r2z.x;
       let combinedHalfHeights = r1z.y + r2z.y;
@@ -772,5 +774,4 @@
   };
 
 })(this);
-
 

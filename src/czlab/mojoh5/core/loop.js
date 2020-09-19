@@ -12,19 +12,33 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-;(function(global,undefined){
+;(function(global){
   "use strict";
-  const window=global;
-  const MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  let window;
+  let _inited;
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" &&
+     module && typeof module.exports === "object"){
+    global=module.exports;
+  }
+  else if(typeof exports === "object" && exports){
+    global=exports;
+  }else{
+    window=global;
+  }
+
+  if(!window)
+    throw `Fatal: gameloop module requires browser env.`;
+
   /**
    * @public
    * @module
    */
-  MojoH5.Loop=function(Mojo){
-    const _=Mojo.u;
-    const is=Mojo.is;
+  global["io.czlab.mojoh5.GameLoop"]=function(Mojo){
+    if(_inited){return Mojo}
+    const Core=global["io.czlab.mcfud.core"]();
+    const _=Core.u;
+    const is=Core.is;
     const _libsToUpdate= [];
     let _paused = false;
     let _startTime = Date.now();
@@ -246,7 +260,7 @@
           _restoreProps(Mojo.stage.children[i]);
     }
 
-    _.conj(_libsToUpdate, Mojo.Tween, Mojo.Dust, Mojo.Sprites, Mojo.Input);
+    _.conj(_libsToUpdate, Mojo.Tweens, Mojo.Dust, Mojo.Sprites, Mojo.Input);
 
     //------------------------------------------------------------------------
     //enhancements
@@ -254,6 +268,8 @@
     Mojo.pause= () => { _paused = true; };
     Mojo.resume = () => { _paused = false; };
 
+    _inited=true;
+    return Mojo;
   };
 
 })(this);

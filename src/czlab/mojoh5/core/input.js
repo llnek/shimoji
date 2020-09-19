@@ -12,25 +12,31 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-(function(global,undefined){
+;(function(global){
   "use strict";
-  let window=global,
-    MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" &&
+     module && typeof module.exports === "object"){
+    global=module.exports;
+  }
+  else if(typeof exports === "object" && exports){
+    global=exports;
+  }
   /**
    * @public
    * @module
    */
-  MojoH5.Input=function(Mojo){
+  global["io.czlab.mojoh5.Input"]=function(Mojo){
+    if(Mojo.Input){return Mojo.Input}
+    const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
+    const Core=global["io.czlab.mcfud.core"]();
     let _element=Mojo.canvas;
     let _scale=Mojo.scale;
-    const _=Mojo.u;
-    const is=Mojo.is;
+    const _=Core.u;
+    const is=Core.is;
     const _pointers = [];
     const _buttons = [];
     const _draggableSprites = [];
-    const _S=Mojo.Sprites;
     const _I= {
       get scale() { return _scale },
       set scale(v) { _scale = v; _.doseq(_pointers, p=> {p.scale=v}) }
@@ -471,11 +477,8 @@
       };
     };
 
-    return Mojo.Input= _I;
+    return (Mojo.Input= _I)
   };
 
 })(this);
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//EOF
 

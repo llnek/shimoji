@@ -12,12 +12,23 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-(function(global,undefined){
+;(function(global){
   "use strict";
-  const window=global;
-  const MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  //export--------------------------------------------------------------------
+  let window;
+  if(typeof module === "object" &&
+     module && typeof module.exports === "object"){
+    global=module.exports;
+  }
+  else if(typeof exports === "object" && exports){
+    global=exports;
+  }else{
+    window=global;
+  }
+
+  if(!window)
+    throw `Fatal: audio module requires browser env.`;
+
   /**
    * @private
    * @function
@@ -30,9 +41,11 @@
    * @public
    * @module
    */
-  MojoH5.Sound=function(Mojo){
-    const _=Mojo.u;
-    const is=Mojo.is;
+  global["io.czlab.mojoh5.Sound"]=function(Mojo){
+    if(Mojo.Sound){return Mojo.Sound}
+    const Core=global["io.czlab.mcfud.core"]();
+    const _=Core.u;
+    const is=Core.is;
     //some crazy polyfill
     if(window.hasOwnProperty("webkitAudioContext") &&
       !window.hasOwnProperty("AudioContext")){
@@ -587,13 +600,9 @@
       }
     };
 
-    return Mojo.Sound= _A;
+    return (Mojo.Sound= _A)
   };
 
 }(this));
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//EOF
-
 
 

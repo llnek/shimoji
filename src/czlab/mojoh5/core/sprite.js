@@ -12,36 +12,41 @@
  *
  * Copyright © 2020, Kenneth Leung. All rights reserved. */
 
-;(function(global,undefined){
+;(function(global){
   "use strict";
-  const window=global;
-  const MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" &&
+     module && typeof module.exports === "object"){
+    global=module.exports;
+  }
+  else if(typeof exports === "object" && exports){
+    global=exports;
+  }
   /**
    * @public
    * @module
    */
-  MojoH5.Sprites=function(Mojo){
+  global["io.czlab.mojoh5.Sprites"]=function(Mojo){
+    if(Mojo.Sprites){return Mojo.Sprites}
+    const Core=global["io.czlab.mcfud.core"]();
+    const _M=global["io.czlab.mcfud.math"]();
     const _S={};
-    const _=Mojo.u;
-    const is=Mojo.is;
-    const dom=Mojo.dom;
-    const V2=Mojo.V2;
+    const _=Core.u;
+    const is=Core.is;
+    const dom=Core.dom;
     const _shakingSprites = [];
     //------------------------------------------------------------------------
     //create aliases for various PIXI objects
-    _.inject(Mojo.p, {
-      Matrix:PIXI.Matrix.TEMP_MATRIX,
-      RTexture:PIXI.RenderTexture,
-      Rectangle:PIXI.Rectangle,
-      BText:PIXI.BitmapText,
-      Sprite:PIXI.Sprite,
-      Graphics:PIXI.Graphics,
-      Text:PIXI.Text,
-      TSprite:PIXI.TilingSprite,
-      ASprite:PIXI.AnimatedSprite,
-      PContainer:PIXI.ParticleContainer});
+    _.inject(Mojo.p, {Matrix:PIXI.Matrix.TEMP_MATRIX,
+                      RTexture:PIXI.RenderTexture,
+                      Rectangle:PIXI.Rectangle,
+                      BText:PIXI.BitmapText,
+                      Sprite:PIXI.Sprite,
+                      Graphics:PIXI.Graphics,
+                      Text:PIXI.Text,
+                      TSprite:PIXI.TilingSprite,
+                      ASprite:PIXI.AnimatedSprite,
+                      PContainer:PIXI.ParticleContainer});
     //------------------------------------------------------------------------
     _S.anchorOffsetXY=function(o){ return o.anchor ? _.p2(o.width*o.anchor.x,o.height*o.anchor.y) : _.p2()};
     _S.gposXY=function(o){
@@ -215,9 +220,9 @@
     _S.followEase=function(follower, leader, speed=0.3){
       let a=this.centerXY(follower);
       let b=this.centerXY(leader);
-      let d= V2.sub(b,a);
+      let d= {x:b.x-a.x,y:b.y-a.y};//V2.sub(b,a);
       //move the follower if it's more than 1 pixel away from the leader
-      if(V2.len2(d) >= 1){
+      if((d.x*d.x+d.y*d.y) >= 1){
         follower.x += d.x * speed;
         follower.y += d.y * speed;
       }
@@ -232,8 +237,8 @@
     _S.followConstant=function(follower, leader, speed=3){
       let a=this.centerXY(follower);
       let b=this.centerXY(leader);
-      let d= V2.sub(b,a);
-      let dist2=V2.len2(d);
+      let d= {x:b.x-a.x,y:b.y-a.y};//V2.sub(b,a);
+      let dist2=(d.x*d.x+d.y*d.y);//V2.len2(d);
       //move the follower if it's more than 1 move away from the leader
       if(dist2 >= (speed*speed)){
         let d=_.sqrt(dist2);
@@ -399,11 +404,11 @@
     _S.lineOfSight= function(s1, s2, obstacles, segment = 32){
       let s1c=this.centerXY(s1);
       let s2c=this.centerXY(s2);
-      let v= V2.sub(s2c,s1c);
+      let v= {x:s2c.x-s1c.x,y:s2c.y-s1c.y};//V2.sub(s2c,s1c);
       //The distance between collision points
       //let vx = s2cx - s1cx;
       //let vy = s2cy - s1cy;
-      let magnitude = V2.len(v);
+      let magnitude = (v.x*v.x+v.y*v.y);//V2.len(v);
       let numPoints = magnitude / segment;  // pts to test
       //Create an array of x/y points, separated by 64 pixels, that
       //extends from `spriteOne` to `spriteTwo`
@@ -428,7 +433,11 @@
      *
      */
     _S.distance=function(s1, s2){
-      return V2.len(V2.sub(this.centerXY(s2),this.centerXY(s1)));
+      let c2=this.centerXY(s2);
+      let c1=this.centerXY(s1);
+      let v={x:c2.x-c1.x,y:c2.y-c1.y};
+      return Math.sqrt(v.x*v.x+v.y*v.y);
+      //return V2.len(V2.sub(this.centerXY(s2),this.centerXY(s1)));
     };
     /**
      * @public
@@ -1186,13 +1195,10 @@
       return renderTexture;
     };
 
-    return Mojo.Sprites= _S;
+    return (Mojo.Sprites= _S)
   };
-
 
 })(this);
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//EOF
 
 
