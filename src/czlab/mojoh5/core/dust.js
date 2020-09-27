@@ -88,20 +88,20 @@
         //Set a random speed to change the scale, alpha and rotation
         particle.mojoh5.scaleSpeed = _.randFloat(minScaleSpeed, maxScaleSpeed);
         particle.mojoh5.alphaSpeed = _.randFloat(minAlphaSpeed, maxAlphaSpeed);
-        particle.mojoh5.rotationSpeed = _.randFloat(minRotationSpeed, maxRotationSpeed);
+        particle.mojoh5.angVel = _.randFloat(minRotationSpeed, maxRotationSpeed);
         //Set a random velocity at which the particle should move
         let speed = _.randFloat(minSpeed, maxSpeed);
-        particle.mojoh5.vx = speed * Math.cos(angle);
-        particle.mojoh5.vy = speed * Math.sin(angle);
+        particle.mojoh5.vel[0] = speed * Math.cos(angle);
+        particle.mojoh5.vel[1] = speed * Math.sin(angle);
         //The `particles` array needs to be updated by the game loop each frame particles.push(particle);
         _.conj(particles,particle);
         container.addChild(particle);
         //The particle's `updateParticle` method is called on each frame of the game loop
         particle.mojoh5.updateParticle = function(){
-          particle.mojoh5.vy += gravity;
+          particle.mojoh5.vel[1] += gravity;
           //Move the particle
-          particle.x += particle.mojoh5.vx;
-          particle.y += particle.mojoh5.vy;
+          particle.x += particle.mojoh5.vel[0];
+          particle.y += particle.mojoh5.vel[1];
           //Change the particle's `scale`
           if(particle.scale.x - particle.mojoh5.scaleSpeed > 0){
             particle.scale.x -= particle.mojoh5.scaleSpeed;
@@ -110,7 +110,7 @@
             particle.scale.y -= particle.mojoh5.scaleSpeed;
           }
           //Change the particle's rotation
-          particle.rotation += particle.mojoh5.rotationSpeed;
+          particle.rotation += particle.mojoh5.angVel;
           //Change the particle's `alpha`
           particle.alpha -= particle.mojoh5.alphaSpeed;
           //Remove the particle if its `alpha` reaches zero
@@ -130,13 +130,13 @@
      */
     _D.emitter=function(interval, particleFunction){
       let intv, emitterObject = {playing:false};
-      function emitParticle(){
+      function _emitParticle(){
         particleFunction();
       }
       function play(){
         if(!emitterObject.playing){
           particleFunction();
-          intv = _.timer(emitParticle.bind(this), interval);
+          intv = _.timer(_emitParticle.bind(this), interval);
           emitterObject.playing = true;
         }
       }

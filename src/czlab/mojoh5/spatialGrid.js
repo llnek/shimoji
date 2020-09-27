@@ -25,6 +25,7 @@
             marble.mojoh5.vy = _.randInt2(-10, 10);
             marble.mojoh5.friction = _.p2(0.99,0.99);
             marble.mojoh5.mass = 0.75 + (_S.radius(marble)/32);
+            marble.anchor.set(0.5);
             return marble;
           },
 
@@ -45,6 +46,7 @@
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate:function(){
+        let self=this;
         //If a marble has been captured, draw the
         //sling (the yellow line) between the pointer and
         //the center of the captured marble
@@ -87,7 +89,7 @@
           _S.move(marble);
           //Contain the marble inside the stage and make it bounce
           //off the edges
-          _2d.contain(marble, this, true);
+          _2d.containEx(marble, self, true);
         });
         //Add the marbles to the spatial grid
         //this.marbles.children.forEach(marble => _T.getIndex(marble));
@@ -157,9 +159,11 @@
                 //If the sprite in the cell is not the same as the current
                 //sprite in the main loop, then check for a collision
                 //between those sprites
-                if(surroundingSprite !== sprite)
-                  //Perform a narrow-phase collision check to bounce the sprites apart
-                  _2d.movingCircleCollision(sprite, surroundingSprite);
+                if(surroundingSprite !== sprite){
+                  _2d.movingCircleCollisionEx(sprite, surroundingSprite);
+                  _2d.containEx(sprite, self, true);
+                  _2d.containEx(surroundingSprite, self, true);
+                }
               }
             }
           }

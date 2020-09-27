@@ -45,7 +45,7 @@
      * @public
      * @function
      */
-    _I.makeDraggable= function(...sprites){
+    _I.makeDraggable=function(...sprites){
       if(sprites.length===1 && is.vec(sprites[0])){
         sprites=sprites[0];
       }
@@ -85,10 +85,10 @@
         downTime: 0,
         elapsedTime: 0,
 
-        anchor: _.p2(),
+        anchor: _.p2(),//fake a sprite anchor
         mojoh5: {
-          cpos: () => _.p2(ptr.x,ptr.y),
-          gpos: () => _.p2(ptr.x,ptr.y),
+          cpos: () => _V.V2(ptr.x,ptr.y),
+          gpos: () => _V.V2(ptr.x,ptr.y),
         },
 
         press: undefined,
@@ -175,22 +175,21 @@
         let soff= _S.anchorOffsetXY(sprite);
         let g=_S.gposXY(sprite);
         let sz=_S.halfSize(sprite);
-        //let h2=sprite.height/2;
-        //let w2=sprite.width/2;
         let hit = false;
         if(!sprite.mojoh5.circular){
-          let left = g.x - soff.x;
-          let top = g.y - soff.y;
-          let right = g.x + sprite.width - soff.x;
-          let bottom = g.y + sprite.height - soff.y;
+          let left = g[0] - soff[0];
+          let top = g[1] - soff[1];
+          let right = g[0] + sprite.width - soff[0];
+          let bottom = g[1] + sprite.height - soff[1];
           hit = this.x > left && this.x < right && this.y > top && this.y < bottom;
         }else{
           //circle h=w
-          let vx = this.x - (g.x + sz.x - soff.x);
-          let vy = this.y - (g.y + sz.y - soff.y);
+          let vx = this.x - (g[0] + sz[0] - soff[0]);
+          let vy = this.y - (g[1] + sz[1] - soff[1]);
           let d2= vx * vx + vy * vy;
-          hit = d2 < (sz.x*sz.x);
+          hit = d2 < (sz[0]*sz[0]);
         }
+        _V.dropV2(sz,soff);
         return hit;
       };
       _.addEvent("mousemove", element, ptr.moveHandler.bind(ptr), false);
@@ -213,15 +212,15 @@
      * @function
      */
     _I.updateDragAndDrop=function(draggableSprites){
-      _pointers.forEach(ptr=>{
+      function _F(ptr){
         if(ptr.isDown){
           if(!ptr.dragSprite){
             for(let s,i=draggableSprites.length-1; i>=0; --i){
               s= draggableSprites[i];
               if(s.mojoh5.draggable && ptr.hitTestSprite(s)){
                 let g= _S.gposXY(s);
-                ptr.dragOffsetX = ptr.x - g.x;
-                ptr.dragOffsetY = ptr.y - g.y;
+                ptr.dragOffsetX = ptr.x - g[0];
+                ptr.dragOffsetY = ptr.y - g[1];
                 ptr.dragSprite = s;
                 //The next two lines re-order the `sprites` array so that the
                 //selected sprite is displayed above all the others.
@@ -258,7 +257,9 @@
             return false;
           }
         });
-      });
+      }
+      _pointers.length>0 && _F(_pointers[0]);
+      //for(let i=1;i<_pointers.length;++i) F(_pointers[i]);
     };
     /**
      * @public
@@ -301,8 +302,8 @@
      * @public
      * @function
      */
-    _I.updateButtons=function() {
-      _pointers.forEach(ptr=>{
+    _I.updateButtons=function(){
+      function _F(ptr){
         ptr.shouldBeHand = false;
         _buttons.forEach(o=>{
           if(o.mojoh5.enabled){
@@ -359,7 +360,9 @@
           }
         });
         ptr.cursor = ptr.shouldBeHand ? "pointer" : "auto";
-      });
+      }
+      _pointers.length>0 && _F(_pointers[0]);
+      //for(let i=1;i<_pointers.length;++i)_F(_pointers[i]);
     };
     /**
      * @public
@@ -384,7 +387,7 @@
      */
     _I.update= function(dt){
       if(_draggableSprites.length !== 0) this.updateDragAndDrop(_draggableSprites);
-      if(_buttons.length !== 0) this.updateButtons();
+      if(_buttons.length !== 0) this.updateButtons(dt);
     };
     /**
      * @public
@@ -434,46 +437,46 @@
         leftArrow = this.keyboard(37);
 
       leftArrow.press = function(){
-        sprite.mojoh5.vx = -speed;
-        sprite.mojoh5.vy = 0;
+        sprite.mojoh5.vel[0] = -speed;
+        sprite.mojoh5.vel[1] = 0;
       };
 
       leftArrow.release = function(){
         //If the left arrow has been released, and the right arrow isn't down,
         //and the sprite isn't moving vertically:
         //Stop the sprite
-        if(!rightArrow.isDown && sprite.mojoh5.vy === 0)
-          sprite.mojoh5.vx = 0;
+        if(!rightArrow.isDown && sprite.mojoh5.vel[1] === 0)
+          sprite.mojoh5.vel[0] = 0;
       };
 
       upArrow.press = function(){
-        sprite.mojoh5.vy = -speed;
-        sprite.mojoh5.vx = 0;
+        sprite.mojoh5.vel[1] = -speed;
+        sprite.mojoh5.vel[0] = 0;
       };
 
       upArrow.release = function(){
-        if(!downArrow.isDown && sprite.mojoh5.vx === 0)
-          sprite.mojoh5.vy = 0;
+        if(!downArrow.isDown && sprite.mojoh5.vel[0] === 0)
+          sprite.mojoh5.vel[1] = 0;
       };
 
       rightArrow.press = function(){
-        sprite.mojoh5.vx = speed;
-        sprite.mojoh5.vy = 0;
+        sprite.mojoh5.vel[0] = speed;
+        sprite.mojoh5.vel[1] = 0;
       };
 
       rightArrow.release = function(){
-        if(!leftArrow.isDown && sprite.mojoh5.vy === 0)
-          sprite.mojoh5.vx = 0;
+        if(!leftArrow.isDown && sprite.mojoh5.vel[1] === 0)
+          sprite.mojoh5.vel[0] = 0;
       };
 
       downArrow.press = function(){
-        sprite.mojoh5.vy = speed;
-        sprite.mojoh5.vx = 0;
+        sprite.mojoh5.vel[1] = speed;
+        sprite.mojoh5.vel[0] = 0;
       };
 
       downArrow.release = function(){
-        if(!upArrow.isDown && sprite.mojoh5.vx === 0)
-          sprite.mojoh5.vy = 0;
+        if(!upArrow.isDown && sprite.mojoh5.vel[0] === 0)
+          sprite.mojoh5.vel[1] = 0;
       };
     };
 

@@ -10,10 +10,11 @@
         let randomDiameter = _.randInt2(16, 64);
         //Create the ball using the random diameter
         let ball = this.ball= _S.circle(randomDiameter, "red");
+        ball.anchor.set(0.5);
         this.insert(ball);
         //Position the ball randomly somewhere across the top of the canvas
-        ball.x = _.randInt2(0, Mojo.canvas.width - ball.width);
-        ball.y = 0;
+        ball.x = _.randInt2(ball.width, Mojo.canvas.width - ball.width);
+        ball.y = ball.width/2;
 
         //Set the ball's velocity
         ball.mojoh5.vx = _.randInt2(-12, 12);
@@ -41,6 +42,7 @@
           //A function that describes how to make each peg in the grid
           () => {
             let peg = _S.circle(_.randInt2(16, 64), "blue");
+            peg.anchor.set(0.5);
             peg.mojoh5.fillStyle(colors[_.randInt2(0, 4)]);
             return peg;
           },
@@ -68,7 +70,7 @@
         //Check for a collision with the ball and the stage's boundary, and
         //make the ball bounce by setting setting the last argument
         //in the `contain` method to `true`
-        let stageCollision = _2d.contain(this.ball, this, true);
+        let stageCollision = _2d.containEx(this.ball, this, true);
 
         //If the ball hit the bottom of the stage, add some so
         //that the ball gradually rolls to a stop

@@ -15,7 +15,7 @@
 ;(function(global){
   "use strict";
   let window;
-  let _inited;
+  let _ModuleInited;
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
@@ -35,7 +35,7 @@
    * @module
    */
   global["io.czlab.mojoh5.GameLoop"]=function(Mojo){
-    if(_inited){return Mojo}
+    if(_ModuleInited){return Mojo}
     const Core=global["io.czlab.mcfud.core"]();
     const _=Core.u;
     const is=Core.is;
@@ -81,12 +81,12 @@
         if(i.alpha){ s.mojoh5._prevAlpha = s.alpha }
         if(i.tile){
           if(s.mojoh5.tilePos){
-            s.mojoh5._prevTilePosX = s.mojoh5.tilePos.x;
-            s.mojoh5._prevTilePosY = s.mojoh5.tilePos.y;
+            s.mojoh5._prevTilePosX = s.mojoh5.tilePos[0];
+            s.mojoh5._prevTilePosY = s.mojoh5.tilePos[1];
           }
           if(s.mojoh5.tileScale){
-            s.mojoh5._prevTileScaleX = s.mojoh5.tileScale.x;
-            s.mojoh5._prevTileScaleY = s.mojoh5.tileScale.y;
+            s.mojoh5._prevTileScaleX = s.mojoh5.tileScale[0];
+            s.mojoh5._prevTileScaleY = s.mojoh5.tileScale[1];
           }
         }
         if(s.children)
@@ -114,12 +114,12 @@
       if(i.alpha){ s.alpha = s.mojoh5._curAlpha }
       if(i.tile){
         if(s.mojoh5.tilePos){
-          s.mojoh5.tilePos.x = s.mojoh5._curTilePosX;
-          s.mojoh5.tilePos.y = s.mojoh5._curTilePosY;
+          s.mojoh5.tilePos[0] = s.mojoh5._curTilePosX;
+          s.mojoh5.tilePos[1] = s.mojoh5._curTilePosY;
         }
         if(s.mojoh5.tileScale){
-          s.mojoh5.tileScale.x = s.mojoh5._currentTileScaleX;
-          s.mojoh5.tileScale.y = s.mojoh5._currentTileScaleY;
+          s.mojoh5.tileScale[0] = s.mojoh5._currentTileScaleX;
+          s.mojoh5.tileScale[1] = s.mojoh5._currentTileScaleY;
         }
       }
       if(s.children)
@@ -225,21 +225,21 @@
           s.alpha = (s.alpha - s.mojoh5._prevAlpha) * lagOffset + s.mojoh5._prevAlpha;
       }
       if(i.tile){
-        if(s.mojoh5.tilePos !== undefined){
-          s.mojoh5._curTilePosX = s.mojoh5.tilePos.x;
-          s.mojoh5._curTilePosY = s.mojoh5.tilePos.y;
+        if(s.mojoh5.tilePos){
+          s.mojoh5._curTilePosX = s.mojoh5.tilePos[0];
+          s.mojoh5._curTilePosY = s.mojoh5.tilePos[1];
           if(s.mojoh5._prevTilePosX !== undefined)
-            s.mojoh5.tilePos.x = (s.mojoh5.tilePos.x - s.mojoh5._prevTilePosX) * lagOffset + s.mojoh5._prevTilePosX;
+            s.mojoh5.tilePos[0] = (s.mojoh5.tilePos[0] - s.mojoh5._prevTilePosX) * lagOffset + s.mojoh5._prevTilePosX;
           if(s.mojoh5._prevTilePosY !== undefined)
-            s.mojoh5.tilePos.y = (s.mojoh5.tilePos.y - s.mojoh5._prevTilePosY) * lagOffset + s.mojoh5._prevTilePosY;
+            s.mojoh5.tilePos[1] = (s.mojoh5.tilePos[1] - s.mojoh5._prevTilePosY) * lagOffset + s.mojoh5._prevTilePosY;
         }
-        if(s.mojoh5.tileScale !== undefined){
-          s.mojoh5._currentTileScaleX = s.mojoh5.tileScale.x;
-          s.mojoh5._currentTileScaleY = s.mojoh5.tileScale.y;
+        if(s.mojoh5.tileScale){
+          s.mojoh5._currentTileScaleX = s.mojoh5.tileScale[0];
+          s.mojoh5._currentTileScaleY = s.mojoh5.tileScale[1];
           if(s.mojoh5._prevTileScaleX !== undefined)
-            s.mojoh5.tileScale.x = (s.mojoh5.tileScale.x - s.mojoh5._prevTileScaleX) * lagOffset + s.mojoh5._prevTileScaleX;
+            s.mojoh5.tileScale[0] = (s.mojoh5.tileScale[0] - s.mojoh5._prevTileScaleX) * lagOffset + s.mojoh5._prevTileScaleX;
           if(s.mojoh5._prevTileScaleY !== undefined)
-            s.mojoh5.tileScale.y = (s.mojoh5.tileScale.y - s.mojoh5._prevTileScaleY) * lagOffset + s.mojoh5._prevTileScaleY;
+            s.mojoh5.tileScale[1] = (s.mojoh5.tileScale[1] - s.mojoh5._prevTileScaleY) * lagOffset + s.mojoh5._prevTileScaleY;
         }
       }
       if(s.children)
@@ -268,12 +268,9 @@
     Mojo.pause= () => { _paused = true; };
     Mojo.resume = () => { _paused = false; };
 
-    _inited=true;
-    return Mojo;
+    return (_ModuleInited=true) && Mojo;
   };
 
 })(this);
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//EOF
 

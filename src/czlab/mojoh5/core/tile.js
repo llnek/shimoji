@@ -31,8 +31,9 @@
     const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
     const _M=global["io.czlab.mcfud.math"]();
-    const _=Core.u;
+    const _V=global["io.czlab.mcfud.vec2"]();
     const is=Core.is;
+    const _=Core.u;
     const _T= {};
     /**
      * @private
@@ -56,26 +57,14 @@
       return _parseProperties(tmap);
     }
     /**
-     * Converts a sprite's position to a tile index.
-     *
-     * @public
-     * @function
-     * @returns the tile position
-     */
-    _T.getIndex=function(x, y, tileW, tileH, mapWidthInTiles){
-      if(x<0 || y<0)
-        throw `Error: ${x},${y}, values must be positive`;
-      return _.floor(x/tileW) + _.floor(y/tileH) * mapWidthInTiles
-    };
-    /**
-     * @public
+     * @private
      * @function
      */
-    _T.getIndex3=function(x, y, world){
-      return this.getIndex(x,y,
+    function _getIndex3(x, y, world){
+      return Mojo.getIndex(x,y,
                            world.tiled.tileW,
                            world.tiled.tileH,world.tiled.tilesInX)
-    };
+    }
     /**
      * Converts a point's position to a tile index.
      *
@@ -84,14 +73,14 @@
      * @returns the tile position
      */
     _T.getTileIndex=function(pt,world){
-      return this.getIndex3(pt.x,pt.y,world)
+      return _getIndex3(pt.x,pt.y,world)
     };
     /**
      * @private
      * @function
      */
-    function _getVector(sprite1,sprite2){
-      return _M.vecSub(_S.centerXY(sprite2), _S.centerXY(sprite1))
+    function _getVector(sprite1,sprite2,global=false){
+      return _V.makeVecAB(_S.centerXY(sprite1,global), _S.centerXY(sprite2,global))
     }
     /**
      * Converts a tile's index number into x/y screen
@@ -106,10 +95,14 @@
       let tile =_S.extend({gid: mapArray[index],
                            width: tiled.tileW,
                            height: tiled.tileH,
+                           anchor: new PIXI.ObservablePoint(),
                            x: ((index % tiled.tilesInX) * tiled.tileW) + world.x,
                            y: ((_.floor(index / tiled.tilesInX)) * tiled.tileH) + world.y});
-      tile.mojoh5.gpos= _.p2(tile.x, tile.y);
-      tile.mojoh5.cpos= _.p2(tile.x + tiled.tileW/2, tile.y + tiled.tileH/2);
+      tile.getGlobalPosition=function(){
+        return {x: this.x, y: this.y }
+      };
+      //tile.mojoh5.gpos= _.p2(tile.x, tile.y);
+      //tile.mojoh5.cpos= _.p2(tile.x + tiled.tileW/2, tile.y + tiled.tileH/2);
       return tile;
     };
     /**
@@ -140,21 +133,9 @@
      */
     _T.getContactPoints=function(s){
       //internal rectangle defining the collision area of this sprite
-      let ca = s.collisionArea;
-      let lf=s.x;
-      let tp=s.y;
-      let rt=lf+s.width-1;
-      let bt=tp+s.height-1;
-      if(ca){
-        lf=s.x+ca.x;
-        rt=lf+ca.width-1;
-        tp=s.y+ca.y;
-        bt=tp+ca.height-1;
-      }
-      return {
-        topLeft: _.p2(lf,tp), topRight: _.p2(rt,tp),
-        bottomLeft: _.p2(lf,bt), bottomRight: _.p2(rt,bt)
-      }
+      let a= s.collisionArea || _S.getBBox(s);
+      return [_V.V2(a.x1,a.y1),_V.V2(a.x2,a.y1),
+              _V.V2(a.x2,a.y2),_V.V2(a.x1,a.y2)]
     };
     /**
      * Checks for a collision between a sprite and a tile in any map array.
@@ -165,10 +146,9 @@
      */
     _T.hitTestTile=function(sprite, mapArray, gidToCheck, world, pointsToCheck){
       pointsToCheck = pointsToCheck || Mojo.SOME;
-      let op="some",colPts={}, col= {};
-      function _checker(key){
-        let pt = colPts[key];
-        col.index = _T.getIndex3(pt.x, pt.y, world);
+      let op="some",col= {}, colPts;
+      function _checker(pt){
+        col.index = _getIndex3(pt[0], pt[1], world);
         col.gid = mapArray[col.index];
         return col.gid === gidToCheck;
       }
@@ -176,17 +156,16 @@
         op= pointsToCheck===Mojo.EVERY ? "every" : "some";
         colPts = this.getContactPoints(sprite);
       }else{
-        colPts = { center: _S.centerXY(sprite) };
+        colPts = [_S.centerXY(sprite)];
       }
-      col.hit = _.keys(colPts)[op](_checker);
+      col.hit = colPts[op](_checker);
+      _V.dropV2(colPts);
       return col;
     };
     /**
      * Takes a map array and adds a sprite's grid index number (`gid`) to it.
-     *
      * @public
      * @function
-     *
      */
     _T.updateMap=function(mapArray, spritesToUpdate, world){
       let ret = _.fill(new Array(mapArray.length),0);
@@ -196,10 +175,8 @@
         s.tiled.____index = pos;
         ret[pos] = s.tiled.____gid;
       }
-      if(!is.vec(spritesToUpdate))
-        _mapper(spritesToUpdate);
-      else
-        spritesToUpdate.forEach(_mapper);
+      !is.vec(spritesToUpdate) ? _mapper(spritesToUpdate)
+                               : spritesToUpdate.forEach(_mapper);
       return ret;
     };
     /**
@@ -300,7 +277,7 @@
             let tileSprite = _S.extend(new Mojo.p.Sprite(texture));
             let tprops=gtileProps[gid];
             _.assert(!_.has(tileSprite,"tiled"));
-            tileSprite.tiled={____index: index, ____gid: gid};
+            tileSprite.tiled={____gid: gid, ____index: index};
             tileSprite.x = mapX;
             tileSprite.y = mapY;
             if(tprops && _.has(tprops,"name")){
@@ -368,8 +345,8 @@
       let bc= b.tiled.cartXY();
       //Calculate the depths of `a` and `b`
       //(add `1` to `a.z` and `b.x` to avoid multiplying by 0)
-      a.tiled.depth = (ac.x + ac.y) * (a.z + 1);
-      b.tiled.depth = (bc.x + bc.y) * (b.z + 1);
+      a.tiled.depth = (ac[0] + ac[1]) * (a.z + 1);
+      b.tiled.depth = (bc[0] + bc[1]) * (b.z + 1);
       //Move sprites with a lower depth to a higher position in the array
       if(a.tiled.depth < b.tiled.depth){
         return -1;
@@ -386,25 +363,24 @@
      */
     _T.hitTestIsoTile=function(sprite, mapArray, gidToCheck, world, pointsToCheck){
       pointsToCheck = pointsToCheck || Mojo.SOME;
-      let op="some", col={}, colPts={};
-      function _checker(key){
-        let p= colPts[key];
-        col.index = _T.getIndex(p.x, p.y,
-                                world.tiled.cartTileW,
-                                world.tiled.cartTileH, world.tiled.tilesInX);
+      let op="some", col={}, colPts;
+      function _checker(pt){
+        col.index = Mojo.getIndex(pt[0], pt[1],
+                                  world.tiled.cartTileW,
+                                  world.tiled.cartTileH, world.tiled.tilesInX);
         col.gid = mapArray[col.index];
         return col.gid === gidToCheck;
       }
       if(pointsToCheck===Mojo.CENTER){
         let ca= s.collisionArea;
         let c= s.tiled.cartXY();
-        colPts = { center: {x: c.x + ca.x + (ca.width/2),
-                            y: c.y + ca.y + (ca.height/2) }};
+        colPts = [_V.V2(c[0] + ca.x1 + (ca.x2-ca.x1)/2,
+                        c[1] + ca.y1 + (ca.y2-ca.y1)/2)];
       } else {
         op= pointsToCheck===Mojo.EVERY ? "every" : "some";
         colPts = this.getIsoPoints(sprite);
       }
-      col.hit = _.keys(colPts)[op](_checker);
+      col.hit = colPts[op](_checker);
       return col;
     };
     /**
@@ -415,20 +391,17 @@
       //sprites internal hitbox
       let ca = s.collisionArea;
       let c= s.tiled.cartXY();
-      let lf=c.x;
-      let tp=c.y;
+      let lf=c[0];
+      let bt=c[1];
       let rt=lf+s.tiled.cartWidth-1;
-      let bt=tp+s.tiled.cartHeight-1;
+      let tp=bt+s.tiled.cartHeight-1;
       if(ca){
-        lf=c.x+ca.x;
-        tp=c.y+ca.y;
-        rt=lf+ca.width-1;
-        bt=tp+ca.height-1;
+        lf=c[0]+ca.x1;
+        bt=c[1]+ca.y1;
+        rt=lf+(ca.x2-ca.x1-1);
+        tp=bt+(ca.y2-ca.y1-1);
       }
-      return {topLeft: _.p2(lf,tp),
-              topRight: _.p2(rt,tp),
-              bottomLeft: _.p2(lf,bt),
-              bottomRight: _.p2(rt,bt)};
+      return {x1: lf, x2: rt, y1: bt, y2: tp}
     };
     /**
      * Used to add a isometric properties to any mouse/touch `pointer` object with
@@ -444,21 +417,21 @@
       if(!ptr.tiled) ptr.tiled={};
       //The isometric's world's Cartesian coordiantes
       ptr.tiled.cartXY=function(){
-        return _.p2((((2 * ptr.y + ptr.x) - (2 * world.y + world.x)) / 2) - (world.tiled.cartTileW/2),
+        return _V.V2((((2 * ptr.y + ptr.x) - (2 * world.y + world.x)) / 2) - (world.tiled.cartTileW/2),
                     (((2 * ptr.y - ptr.x) - (2 * world.y - world.x)) / 2) + (world.tiled.cartTileH/2));
       };
       //The tile's column and row in the array
       ptr.tiled.col=function(){
-        return _.floor(ptr.tiled.cartXY().x / world.tiled.cartTileW)
+        return _.floor(ptr.tiled.cartXY()[0] / world.tiled.cartTileW)
       };
       ptr.tiled.row=function(){
-        return _.floor(ptr.tiled.cartXY().y / world.tiled.cartTileH)
+        return _.floor(ptr.tiled.cartXY()[1] / world.tiled.cartTileH)
       };
       //The tile's index number in the array
       ptr.tiled.____index=function(){
         //Convert pixel coordinates to map index coordinates
-        let ix = _.floor(ptr.tiled.cartXY().x / world.tiled.cartTileW);
-        let iy = _.floor(ptr.tiled.cartXY().y / world.tiled.cartTileH);
+        let ix = _.floor(ptr.tiled.cartXY()[0] / world.tiled.cartTileW);
+        let iy = _.floor(ptr.tiled.cartXY()[1] / world.tiled.cartTileH);
         return ix + iy * world.tiled.tilesInX;
       };
     };
@@ -494,7 +467,7 @@
       r.lineTo(-width, h2);
       r.lineTo(0, 0);
       r.endFill();
-      let s= _S.extend(new Mojo.p.Sprite(Mojo.Sprites.generateTexture(r)));
+      let s= _S.extend(new Mojo.p.Sprite(_S.generateTexture(r)));
       s.tiled={};
       return s;
     };
@@ -508,34 +481,32 @@
      *
      */
     _T.addIsoProperties=function(sprite, width, height,x,y){
-      let cpos= _.p2(x,y);
+      let cpos= _V.V2(x,y);
       if(!sprite.tiled) sprite.tiled={};
       //Cartisian (flat 2D) properties
       sprite.tiled.cartXY=function(cx,cy){
         if(cx !== undefined){
-          cpos.x=cx;
-          cpos.y=cy;
+          cpos[0]=cx;
+          cpos[1]=cy;
         }
         return cpos;
       };
       sprite.tiled.cartWidth = width;
       sprite.tiled.cartHeight = height;
       sprite.tiled.isoXY=function(){
-        return _.p2(cpos.x-cpos.y, (cpos.x+cpos.y)/2);
+        return _V.V2(cpos[0]-cpos[1], (cpos[0]+cpos[1])/2);
       };
     };
     /**
      * Make an isometric world from TiledEditor map data.
-     *
      * @public
      * @function
-     *
      */
     _T.makeIsoTiledWorld=function(jsonTiledMap){
       let tiledMap = Mojo.resources(jsonTiledMap);
+      tiledMap=tiledMap && tiledMap.data;
       if(!tiledMap)
         throw `Error: ${jsonTiledMap} not loaded`;
-      tiledMap=tiledMap.data;
       let tprops= _checkVersion(tiledMap, jsonTiledMap);
       //A. You need to add three custom properties to your Tiled Editor
       //map: `cartTileW`,`cartTileH` and `tileDepth`. They define the Cartesian
@@ -594,15 +565,15 @@
             let tileSprite = _S.extend(new Mojo.p.Sprite(texture));
             let tprops= gtileProps[gid];
             _.assert(!_.has(tileSprite,"tiled"));
-            tileSprite.tiled={____index: index, ____gid: gid};
+            tileSprite.tiled={____gid: gid, ____index: index};
             if(tprops && _.has(tprops,"name")){
               _.inject(tileSprite.tiled, tprops);
               _.conj(tiled.tileObjects,tileSprite);
             }
             _T.addIsoProperties(tileSprite, tiled.cartTileW, tiled.cartTileH, mayX, mapY);
             let iso= tileSprite.tiled.isoXY();
-            tileSprite.x = iso.x;
-            tileSprite.y = iso.y;
+            tileSprite.x = iso[0];
+            tileSprite.y = iso[1];
             tileSprite.z = z;
             layergp.addChild(tileSprite);
           }
@@ -610,7 +581,8 @@
         function _doObjGroup(layer,container){
           layer.objects.forEach(o => {
             _.assert(!_.has(o,"tiled"));
-            o.tiled={name: o.name, ____group: container};
+            o.tiled={name: o.name,
+                     ____group: container};
             _.conj(tiled.tileObjects,o);
           });
         }
@@ -657,10 +629,8 @@
     /**
      * An A-Star search algorithm that returns an array of grid index numbers that
      * represent the shortest path between two points on a map. Use it like this:
-     *
      * @public
      * @function
-     *
      */
     _T.shortestPath=function(startTile, targetTile, tiles, world,
                              obstacleGids = [],
@@ -797,10 +767,8 @@
     /**
      * Find out whether two sprites
      * are visible to each other inside a tile based maze environment.
-     *
      * @public
      * @function
-     *
      */
     _T.lineOfSight=function(sprite1,
                             sprite2,
@@ -820,9 +788,9 @@
         dy = v[1]/len;
         //Use the unit vector and newMagnitude to figure out the x/y
         //position of the next point in this loop iteration
-        x = c.x + dx * len2;
-        y = c.y + dy * len2;
-        _.conj(points,{x: x, y: y, index: this.getIndex3(x, y, world)});
+        x = c[0] + dx * len2;
+        y = c[1] + dy * len2;
+        _.conj(points,{x: x, y: y, index: _getIndex3(x, y, world)});
       };
       //The tile-based collision test.
       //The `noObstacles` function will return `true` if all the tile

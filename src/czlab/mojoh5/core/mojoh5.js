@@ -15,7 +15,6 @@
 ;(function(global){
   "use strict";
   let window;
-  let _Mojo;
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
@@ -35,7 +34,6 @@
    * @module
    */
   function MojoH5(cmdArg){
-    if(_Mojo){return _Mojo}
     const FONT_EXTS = ["ttf", "otf", "ttc", "woff"];
     const AUDIO_EXTS= ["mp3", "wav", "ogg", "webm"];
     const IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"];
@@ -50,20 +48,18 @@
     const is=Core.is;
     const dom=Core.dom;
     const EventBus=Core.EventBus;
+    //////////////////////////////////////////////////////////////////////////
     //add optional defaults
     _.patch(cmdArg,{
       fps:60,
-      i:{
-        position:true,
-        scale:true,
-        tile:true
-      }
+      i:{ position:true, scale:true, tile:true }
     });
     /**
      * @private
      * @function
      */
     function _mkProgressBar(Mojo){
+      let _S=Mojo.Sprites;
       let x={
         maxWidth:0,
         height:0,
@@ -79,16 +75,16 @@
           let h2= Mojo.canvas.height/2;
           this.maxWidth = w2;
           //progress bar using two rectangle sprites and a text sprite
-          this.front = Mojo.Sprites.rectangle(this.maxWidth, 32, this.fgColor);
+          this.front = _S.rectangle(this.maxWidth, 32, this.fgColor);
           Mojo.stage.addChild(this.front);
-          this.back = Mojo.Sprites.rectangle(this.maxWidth, 32, this.bgColor);
+          this.back = _S.rectangle(this.maxWidth, 32, this.bgColor);
           Mojo.stage.addChild(this.back);
           this.back.x = w2 - (this.maxWidth / 2);
           this.back.y = h2 - 16;
           this.front.x = w2 - (this.maxWidth / 2);
           this.front.y = h2 - 16;
           //text sprite to show percentage
-          this.perc= Mojo.Sprites.text("0%", "28px sans-serif", "black");
+          this.perc= _S.text("0%", "28px sans-serif", "black");
           Mojo.stage.addChild(this.perc);
           this.perc.x = w2 - (this.maxWidth / 2) + 12;
           this.perc.y = h2 - 17;
@@ -157,11 +153,9 @@
       let Mojo=this;
       function finz(){
         _progressBar && _progressBar.remove();
-        _.doseq(_spanElements,e=>{
-          dom.css(e, "display", "none");
-        });
-        Mojo.loaderState = null;
         _progressBar=null;
+        _.doseq(_spanElements,e => dom.css(e, "display", "none"));
+        Mojo.loaderState = null;
         Mojo.o.start(Mojo);
       };
       let files = 0, done = 0;
@@ -263,6 +257,7 @@
      * @function
      */
     function _prologue(Mojo,arena){
+      let _S;
       arena = _.patch(arena, {width: window.innerWidth,
                               height: window.innerHeight});
       Mojo.ctx= PIXI.autoDetectRenderer(arena);
@@ -273,6 +268,7 @@
       _.doseq(_.seq("Sprites,Input,Scenes,Tiles,Tweens,Dust,Sound,GameLoop,2d"), m => {
         global["io.czlab.mojoh5."+m](Mojo);
       });
+      _S=Mojo.Sprites;
       _.assert(_.noSuchKeys("halfWidth,halfHeight",Mojo.canvas));
       Object.defineProperties(Mojo.canvas,{
         "halfWidth":_.pdef({ get(){ return Mojo.canvas.width / 2 }}),
@@ -281,9 +277,9 @@
       if(cmdArg.border)
         dom.css(Mojo.canvas, "border", cmdArg.border);
       if(cmdArg.backgroundColor)
-        Mojo.ctx.backgroundColor = Mojo.Sprites.color(cmdArg.backgroundColor);
+        Mojo.ctx.backgroundColor = _S.color(cmdArg.backgroundColor);
       dom.conj(document.body, Mojo.canvas);
-      Mojo.Sprites.extend(Mojo.stage);
+      _S.extend(Mojo.stage);
       Mojo.stage.mojoh5.stage = true;
       Mojo.scale = 1;
       if(cmdArg.scaleToWindow)
@@ -334,7 +330,6 @@
      * @var {object}
      */
     let Mojo={
-      //TOP:100, DOWN:200, RIGHT:300, LEFT:400, MIDDLE:500,
       EVERY:1,
       SOME: 2,
       CENTER:3,
@@ -398,9 +393,9 @@
      * @function
      */
     Mojo.scaleToWindow= function(borderColor = "#2C3539"){
-      let target=this.canvas;
-      let newStyle = dom.newElm("style");
       let style = "* {padding: 0; margin: 0}";
+      let newStyle = dom.newElm("style");
+      let target=this.canvas;
       dom.conj(newStyle,dom.newTxt(style));
       dom.conj(document.head,newStyle);
       this.resize(target,borderColor);
@@ -421,21 +416,36 @@
     /**
      * @public
      * @function
+     * @returns read-only object.
+     */
+    Mojo.mockStage=function(){
+      return{
+        mojoh5:{ gpos: [0,0] },
+        x:0,
+        y:0,
+        width: this.canvas.width,
+        height: this.canvas.height,
+        anchor: new Mojo.p.ObservablePoint(()=>{},this)
+      }
+    };
+    /**
+     * Converts a position to a cell index.
+     *
+     * @public
+     * @function
+     * @returns the cell position
+     */
+    Mojo.getIndex=function(x, y, cellW, cellH, widthInCols){
+      if(x<0 || y<0)
+        throw `Error: ${x},${y}, values must be positive`;
+      return _.floor(x/cellW) + _.floor(y/cellH) * widthInCols
+    };
+    /**
+     * @public
+     * @function
      */
     Mojo.adjustForStage= function(o){
-      if(o.mojoh5.stage){
-        return{
-          x:0,
-          y:0,
-          //xAnchorOffset:0,
-          //yAnchorOffset:0,
-          width: this.canvas.width,
-          height: this.canvas.height,
-          //halfWidth: this.canvas.width / 2,
-          //halfHeight: this.canvas.height / 2
-          anchor: new Mojo.p.ObservablePoint(()=>{},this)
-        };
-      }
+      return o.mojoh5.stage ? this.mockStage() : o
     };
     /**
      * @public
@@ -504,7 +514,7 @@
      * @public
      * @function
      */
-    Mojo.rect=function(x,y,w,h){ return new Mojo.p.Rectangle(x,y,w,h); };
+    Mojo.rect=function(x,y,w,h){ return new Mojo.p.Rectangle(x,y,w,h) };
     /**
      * @public
      * @function
@@ -560,11 +570,11 @@
     //ready!
     _prologue(Mojo,cmdArg.arena);
 
-    return (_Mojo=Mojo)
+    return Mojo;
   }
 
   window.addEventListener("load", function(){
-    window.Mojo=MojoH5(MojoH5.Config);
+    window.Mojo=MojoH5(window["io.czlab.mojoh5.AppConfig"]);
   });
 
   return (window.MojoH5= global["io.czlab.mojoh5.MojoH5"]=MojoH5)

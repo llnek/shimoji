@@ -1,8 +1,5 @@
-(function(global,undefined){
+;(function(global){
   "use strict";
-  let window=global, MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: no mojoh5!";
 
   let _bullets = [], _aliens = [];
 
@@ -14,7 +11,7 @@
     Z.defScene("level1",{
       setup: function(){
         let self=this;
-        let background = S.sprite("background.png");
+        let background = S.sprite("background.png",0,0,false);
         this.insert(background);
         let cannon = S.sprite("cannon.png");
         cannon.mojoh5.uuid="cannon";
@@ -45,24 +42,24 @@
             spaceBar = I.keyboard(32);
 
         leftArrow.press = function(){
-          cannon.mojoh5.vx = -5;
-          cannon.mojoh5.vy = 0;
+          cannon.mojoh5.vel[0] = -5;
+          cannon.mojoh5.vel[1] = 0;
         };
 
         leftArrow.release = function(){
-          if(!rightArrow.isDown && cannon.mojoh5.vy === 0){
-            cannon.mojoh5.vx = 0;
+          if(!rightArrow.isDown && cannon.mojoh5.vel[1] === 0){
+            cannon.mojoh5.vel[0] = 0;
           }
         };
 
         rightArrow.press = function(){
-          cannon.mojoh5.vx = 5;
-          cannon.mojoh5.vy = 0;
+          cannon.mojoh5.vel[0] = 5;
+          cannon.mojoh5.vel[1] = 0;
         };
 
         rightArrow.release = function(){
-          if(!leftArrow.isDown && cannon.mojoh5.vy === 0) {
-            cannon.mojoh5.vx = 0;
+          if(!leftArrow.isDown && cannon.mojoh5.vel[1] === 0) {
+            cannon.mojoh5.vel[0] = 0;
           }
         };
 
@@ -77,7 +74,7 @@
               b.mojoh5.step=function(){ if(!b.mojoh5.dead) S.move(b); };
               return b;
             },
-            S.halfSize(cannon).x, //Bullet's x position on the cannon
+            S.halfSize(cannon)[0], //Bullet's x position on the cannon
             0); //Bullet's y position on the canon
           G.shootSound.play();
         };
@@ -100,11 +97,12 @@
           alien.y = 0 - alien.height;
           //Assign the alien a random x position.
           alien.x = _.randInt2(0, 14) * alien.width;
-          alien.mojoh5.vy = 1;
+          alien.mojoh5.vel[1] = 1;
           this.insert(alien);
           alien.mojoh5.step=function(){
             if(!alien.mojoh5.dead) S.move(alien);
           };
+          _2d.contain(alien,self);
           _.conj(_aliens,alien);
           G.alienTimer = 0;
           //Reduce `alienFrequency` by one to gradually increase
@@ -120,11 +118,11 @@
         _aliens = _aliens.filter(function(alien){
           let alienIsAlive = true;
           _bullets = _bullets.filter(function(bullet){
-            if(_2d.hitTestRectangle(alien, bullet)){
+            if(_2d.hitTest(alien, bullet)){
               bullet.mojoh5.dead=true;
               alien.mojoh5.show(alien.states.destroyed);
               G.boomSound.play();
-              alien.mojoh5.vy = 0;
+              alien.mojoh5.vel[1] = 0;
               alien.mojoh5.dead=true;
               alienIsAlive = false;
               self.future(() => S.remove(alien,bullet),5);
@@ -134,7 +132,7 @@
               return true;
             }
           });
-          if(_2d.hit(alien,cannon)){ hitCannon=true; }
+          if(_2d.hitTest(alien,cannon)){ hitCannon=true; }
           return alienIsAlive;
         });
 
@@ -194,7 +192,7 @@
     });
   }
 
-  MojoH5.Config= {
+  global["io.czlab.mojoh5.AppConfig"]= {
     assetFiles: ["images/alienArmada.json", "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
     arena: {
       width: 480,

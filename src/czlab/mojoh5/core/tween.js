@@ -252,19 +252,10 @@
      * @public
      * @function
      */
-    _T.wobble= function(
-      sprite,
-      scaleFactorX = 1.2,
-      scaleFactorY = 1.2,
-      frames = 10,
-      xStartMagnitude = 10,
-      xEndMagnitude = 10,
-      yStartMagnitude = -10,
-      yEndMagnitude = -10,
-      friction = 0.98,
-      yoyo = true,
-      delayBeforeRepeat = 0
-    ) {
+    _T.wobble= function(sprite, scaleFactorX = 1.2, scaleFactorY = 1.2, frames = 10,
+                        xStartMagnitude = 10, xEndMagnitude = 10,
+                        yStartMagnitude = -10, yEndMagnitude = -10,
+                        friction = 0.98, yoyo = true, delayBeforeRepeat = 0){
       let bounceX = "bounce " + xStartMagnitude + " " + xEndMagnitude;
       let bounceY = "bounce " + yStartMagnitude + " " + yEndMagnitude;
       let sx=function(v){sprite.scale.x=v};

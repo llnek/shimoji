@@ -37,9 +37,13 @@
         //`hitTestCircle` arguments:
         //sprite, sprite
         //let collision = _2d.hitTestCircle(this.blue, this.red);
-        let collision = _2d.hit(this.blue, this.red,true,true,false);
+        let col= _2d.hitCircleCircleEx(this.blue, this.red);
         //Change the message if there's a collision between the circles
-        if(collision){
+        if(col){
+          let dx=col.overlapV[0];
+          let dy=col.overlapV[1];
+          //this.blue.x -= dx; this.blue.y -= dy;
+          this.red.x += dx; this.red.y += dy;
           this.message.mojoh5.content("Collision!");
         }
       }

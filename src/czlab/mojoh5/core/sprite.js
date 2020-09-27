@@ -29,7 +29,9 @@
   global["io.czlab.mojoh5.Sprites"]=function(Mojo){
     if(Mojo.Sprites){return Mojo.Sprites}
     const Core=global["io.czlab.mcfud.core"]();
+    const Geo=global["io.czlab.mcfud.geo2d"]();
     const _M=global["io.czlab.mcfud.math"]();
+    const _V=global["io.czlab.mcfud.vec2"]();
     const _S={};
     const _=Core.u;
     const is=Core.is;
@@ -47,41 +49,135 @@
                       TSprite:PIXI.TilingSprite,
                       ASprite:PIXI.AnimatedSprite,
                       PContainer:PIXI.ParticleContainer});
-    //------------------------------------------------------------------------
-    _S.anchorOffsetXY=function(o){ return o.anchor ? _.p2(o.width*o.anchor.x,o.height*o.anchor.y) : _.p2()};
-    _S.gposXY=function(o){
-      if(o.mojoh5 && o.mojoh5.gpos)
-        return is.fun(o.mojoh5.gpos)? o.mojoh5.gpos() : o.mojoh5.gpos();
-      else
-        return o.getGlobalPosition();
+    /**
+     * @public
+     * @function
+     */
+    _S.assertAnchorCenter=function(s){
+      _.assert(s.anchor.x > 0.3 && s.anchor.x < 0.7, "anchor not in center")
     };
+    /**
+     * @public
+     * @function
+     */
+    _S.setAnchorCenter=function(s){
+      s.anchor.set(0.5,0.5);
+      return s;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.toPolygon=function(sprite, global=true){
+      this.assertAnchorCenter(sprite);
+      let c= this.centerXY(sprite,global);
+      let h2=sprite.height/2;
+      let w2=sprite.width/2;
+      let l= -w2;
+      let t= h2;
+      let r= w2;
+      let b= -h2;
+      let p= new Geo.Polygon(c[0],c[1]);
+      let ps=[_V.V2(r,b),_V.V2(r,t),_V.V2(l,t),_V.V2(l,b)];
+      p.setOrient(sprite.rotation).set(ps);
+      _V.dropV2(...ps);
+      return p;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.toCircle=function(sprite, global=true){
+      this.assertAnchorCenter(sprite);
+      let c= this.centerXY(sprite,global);
+      let h2=sprite.height/2;
+      let w2=sprite.width/2;
+      let p= new Geo.Circle(w2).setPos(c[0],c[1]);
+      p.setOrient(sprite.rotation);
+      return p;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.anchorOffsetXY=function(o){
+      return o.anchor ? _V.V2(o.width*o.anchor.x,o.height*o.anchor.y) : _V.V2()
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.gposXY=function(o){
+      if(o.mojoh5 && o.mojoh5.gpos){
+        return is.fun(o.mojoh5.gpos) ? o.mojoh5.gpos() : o.mojoh5.gpos;
+      }
+      let p= o.getGlobalPosition();
+      return _V.V2(p.x,p.y)
+    };
+    /**
+     * @public
+     * @function
+     */
     _S.centerXY=function(o,global=false){
       if(o.mojoh5 && o.mojoh5.cpos){
-        return is.fun(o.mojoh5.cpos)? o.mojoh5.cpos() : o.mojoh5.cpos;
+        return is.fun(o.mojoh5.cpos) ? o.mojoh5.cpos() : o.mojoh5.cpos;
       }
-      let g,a= this.anchorOffsetXY(o);
+      let a= this.anchorOffsetXY(o);
       let x=o.x, y=o.y;
       if(global){
-        g=o.getGlobalPosition();
+        let g=o.getGlobalPosition();
         x=g.x;
         y=g.y;
       }
-      return _.p2(x + (o.width/2) - a.x, y + (o.height/2) - a.y);
+      let r= _V.V2(x + (o.width/2) - a[0], y + (o.height/2) - a[1]);
+      _V.dropV2(a);
+      return r;
     };
-    //_S.centerX=function(o){ return this.center(o).x;};
-    //_S.centerY=function(o){ return this.center(o).y;};
-    _S.halfSize=function(o){return _.p2(o.width/2,o.height/2)};
-    //_S.halfWidth=function(o){ return o.width/2; };
-    //_S.halfHeight=function(o){ return o.height/2; };
+    /**
+     * @public
+     * @function
+     */
+    _S.halfSize=function(o){
+      return _V.V2(o.width/2,o.height/2)
+    };
+    /**
+     * @public
+     * @function
+     */
     _S.setScaleModeNearest=function(o,v){
-      if(!o.texture.baseTexture) throw "Error: no baseTexture";
+      _.assert(o.texture.baseTexture, "Error: no baseTexture");
       o.texture.baseTexture.scaleMode = v ? PIXI.SCALE_MODES.NEAREST : PIXI.SCALE_MODES.LINEAR;
+      return o;
     };
-    _S.setScaleX=function(o,v){ o.scale.x = v };
-    _S.setScaleY=function(o,v){ o.scale.y = v };
+    /**
+     * @public
+     * @function
+     */
+    _S.setScaleX=function(o,v){ o.scale.x = v; return o };
+    /**
+     * @public
+     * @function
+     */
+    _S.setScaleY=function(o,v){ o.scale.y = v; return o };
+    /**
+     * @public
+     * @function
+     */
     _S.scaleXY=function(o){ return o.scale };
+    /**
+     * @public
+     * @function
+     */
     _S.tileXY=function(o){ return o.mojoh5.tilePos };
+    /**
+     * @public
+     * @function
+     */
     _S.tileScaleXY=function(o){ return o.mojoh5.tileScale };
+    /**
+     * @public
+     * @function
+     */
     _S.layer=function(o,v){
       if(v !== undefined){
         o.mojoh5.layer = v;
@@ -91,6 +187,10 @@
       }
       return o.mojoh5.layer;
     };
+    /**
+     * @public
+     * @function
+     */
     _S.interact=function(o,v){
       if(v !== undefined){
         if(v){
@@ -103,6 +203,10 @@
       }
       return o.mojoh5.interact;
     };
+    /**
+     * @public
+     * @function
+     */
     _S.draggable=function(o,v){
       if(v !== undefined){
         if(v){
@@ -115,18 +219,35 @@
       }
       return o.mojoh5.draggable;
     };
-    _S.localBounds=function(o){ return Mojo.rect(0, 0, o.width, o.height) };
-    _S.globalBounds=function(o){
-      let g=this.gpos(o);
-      return Mojo.rect(g.x, g.y, g.x+o.width, g.y+o.height);
-    };
+    /**
+     * @public
+     * @function
+     */
     _S.empty=function(o){ return o.children.length === 0 };
+    /**
+     * @public
+     * @function
+     */
     _S.setXY=function(o,x,y){ o.x = x; o.y = y };
+    /**
+     * @public
+     * @function
+     */
     _S.circular=function(o,v){
       if(v!==undefined){ o.mojoh5.circular=v }
       return o.mojoh5.circular;
     };
-    _S.diameter=function(o){ return o.mojoh5.circular ? o.width : undefined };
+    /**
+     * @public
+     * @function
+     */
+    _S.diameter=function(o){
+      return o.mojoh5.circular ? o.width : undefined
+    };
+    /**
+     * @public
+     * @function
+     */
     _S.radius=function(o,r){
       if(o.mojoh5.circular && r !== undefined){
         o.width=r*2;
@@ -134,9 +255,30 @@
       }
       return o.mojoh5.circular ? o.width/2 : undefined;
     };
-    _S.setScale=function(o, sx, sy){ o.scale && o.scale.set(sx,sy) };
-    _S.setAnchor=function(o,x,y){ o.anchor && o.anchor.set(x,y) };
-    _S.setPivot=function(o,x,y){ o.pivot && o.pivot.set(x,y) };
+    /**
+     * @public
+     * @function
+     */
+    _S.setScale=function(o, sx, sy){
+      o.scale && o.scale.set(sx,sy);
+      return o;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.setAnchor=function(o,x,y){
+      o.anchor && o.anchor.set(x,y);
+      return o;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.setPivot=function(o,x,y){
+      o.pivot && o.pivot.set(x,y);
+      return o;
+    };
     /**
      * @private
      * @function
@@ -168,8 +310,8 @@
       s.mojoh5.playAnimation= function(seq){
         _reset();
         if(seq){
-          endFrame = seq[1];
           startFrame = seq[0];
+          endFrame = seq[1];
         }else{
           startFrame = 0;
           endFrame = s.totalFrames-1;
@@ -186,102 +328,71 @@
       }
       return s;
     }
-    /*
-    function old_getCenter(o, dimension, axis){
-      if(o.anchor !== undefined){
-        return (o.anchor[axis] !== 0) ? 0 : dimension / 2;
-      }else{
-        return dimension;
-      }
-    }
-    function _getCenter(o, axis){
-      let dimension= axis==="x" ? o.width : (axis==="y" ? o.height : 0);
-      let middle= dimension/2;
-      let offset=middle;
-      let a= o.anchor && o.anchor[axis];
-      //return is.num(a) ? (middle - a * dimension) : middle;
-      //anchor values should be 0, 0.5 or 1, so below should be faster?!
-      if(is.num(a)){
-        if(a > 0.7) offset = -middle; // 1
-        else if(a > 0) offset =0; // 0.5
-      }
-      return offset;
-    }
-    function _midY(o){ return o.y + _getCenter(o,"y"); }
-    function _midX(o){ return o.x + _getCenter(o,"x"); }
-    */
     /**
      * Make a sprite ease to the position of another sprite.
-     *
-     * @function
      * @public
-     *
+     * @function
      */
     _S.followEase=function(follower, leader, speed=0.3){
       let a=this.centerXY(follower);
       let b=this.centerXY(leader);
-      let d= {x:b.x-a.x,y:b.y-a.y};//V2.sub(b,a);
+      let d= _V.makeVecAB(a,b)
       //move the follower if it's more than 1 pixel away from the leader
-      if((d.x*d.x+d.y*d.y) >= 1){
-        follower.x += d.x * speed;
-        follower.y += d.y * speed;
+      if(_V.vecLen2(d) >= 4){
+        follower.x += d[0] * speed;
+        follower.y += d[1] * speed;
       }
+      _V.dropV2(d);
     };
     /**
      * Make a sprite move towards another sprite at a constant speed.
-     *
-     * @function
      * @public
-     *
+     * @function
      */
     _S.followConstant=function(follower, leader, speed=3){
       let a=this.centerXY(follower);
       let b=this.centerXY(leader);
-      let d= {x:b.x-a.x,y:b.y-a.y};//V2.sub(b,a);
-      let dist2=(d.x*d.x+d.y*d.y);//V2.len2(d);
+      let d=_V.makeVecAB(a,b);
+      let dist2= _V.vecLen2(d);
       //move the follower if it's more than 1 move away from the leader
       if(dist2 >= (speed*speed)){
-        let d=_.sqrt(dist2);
-        follower.x += (d.x / d) * speed;
-        follower.y += (d.y / d) * speed;
+        let n=_.sqrt(dist2);
+        follower.x += (d[0] / n) * speed;
+        follower.y += (d[1] / n) * speed;
       }
+      _V.dropV2(d);
     };
     /**
      * Use it to make a sprite rotate towards another sprite like this:
-     * box.rotation = angle(box, pointer);
-     *
+     * sprite.rotation = angle(sprite, pointer);
      * @public
      * @function
-     * @returns the angle in Radians between two sprites.
-     *
+     * @returns the angle in radians between two sprites.
      */
-    _S.angle= function(s1, s2){
+    _S.angle=function(s1, s2){
       let v2=this.centerXY(s2);
       let v1=this.centerXY(s1);
-      return Math.atan2(v2.y - v1.y, v2.x - v1.x);
+      return Math.atan2(v2[1] - v1[1], v2[0] - v1[0])
     };
     /**
      * Make a sprite rotate around another sprite.
-     *
      * @public
      * @function
      */
     _S.rotateAroundSprite= function(rotatingSprite, centerSprite, distance, angle){
       let c=this.centerXY(centerSprite);
       let r=this.centerXY(rotatingSprite);
-      rotatingSprite.x = c.x - rotatingSprite.parent.x + (distance * Math.cos(angle)) - r.x;
-      rotatingSprite.y = c.y - rotatingSprite.parent.y + (distance * Math.sin(angle)) - r.y;
+      rotatingSprite.x = c[0] - rotatingSprite.parent.x + (distance * Math.cos(angle)) - r[0];
+      rotatingSprite.y = c[1] - rotatingSprite.parent.y + (distance * Math.sin(angle)) - r[1];
     };
     /**
      * Make a point rotate around another point.
-     *
      * @public
      * @function
-     *
      */
     _S.rotateAroundPoint=function(point, distanceX, distanceY, angle){
-      return _.p2(point.x + Math.cos(angle) * distanceX,
-                  point.y + Math.sin(angle) * distanceY);
+      return _V.V2(point[0] + Math.cos(angle) * distanceX,
+                   point[1] + Math.sin(angle) * distanceY);
     };
     /**
      * @public
@@ -291,16 +402,16 @@
       if(sprites.length===1 && is.vec(sprites[0])){
         sprites=sprites[0];
       }
-      sprites.forEach(s => { s.x += s.mojoh5.vx; s.y += s.mojoh5.vy });
+      sprites.forEach(s => { s.x += s.mojoh5.vel[0]; s.y += s.mojoh5.vel[1] });
     };
     /**
      * @public
      * @function
      */
-    _S.leftSide=function(sprite){
+    _S.leftSide=function(sprite,global=false){
+      let x= global ? sprite.getGlobalPosition().x : sprite.x;
       let a= sprite.anchor ? sprite.anchor.x : null;
       let w= sprite.width;
-      let x= sprite.x;
       if(is.num(a)){
         if(a>0.7) x -= w;
         else if(a>0) x -= w/2;
@@ -311,10 +422,10 @@
      * @public
      * @function
      */
-    _S.rightSide=function(sprite){
+    _S.rightSide=function(sprite,global=false){
+      let x= global ? sprite.getGlobalPosition().x : sprite.x;
       let a= sprite.anchor ? sprite.anchor.x : null;
       let w= sprite.width;
-      let x= sprite.x;
       if(is.num(a)){
         if(a > 0.7) {}
         else if(a > 0) x += w/2;
@@ -328,10 +439,10 @@
      * @public
      * @function
      */
-    _S.topSide=function(sprite){
+    _S.topSide=function(sprite,global=false){
+      let y= global ? sprite.getGlobalPosition().y : sprite.y;
       let a= sprite.anchor ? sprite.anchor.y : null;
       let h= sprite.height;
-      let y= sprite.y;
       if(is.num(a)){
         if(a > 0.7) y -= h;
         else if(a > 0) y -= h/2;
@@ -342,10 +453,10 @@
      * @public
      * @function
      */
-    _S.bottomSide=function(sprite){
+    _S.bottomSide=function(sprite,global=false){
+      let y= global ? sprite.getGlobalPosition().y : sprite.y;
       let a= sprite.anchor ? sprite.anchor.y : null;
       let h= sprite.height;
-      let y= sprite.y;
       if(is.num(a)){
         if(a > 0.7) {}
         else if(a > 0) y += h/2;
@@ -359,9 +470,11 @@
      * @public
      * @function
      */
-    _S.getBBox=function(sprite){
-      return {x1: this.leftSide(sprite), x2: this.rightSide(sprite),
-              y1: this.topSide(sprite), y2: this.bottomSide(sprite) };
+    _S.getBBox=function(sprite,global=false){
+      return {x1: this.leftSide(sprite,global),
+              x2: this.rightSide(sprite,global),
+              y1: this.topSide(sprite,global),
+              y2: this.bottomSide(sprite,global) };
     };
     /**
      * @public
@@ -378,11 +491,40 @@
       return pt.x > box.x1 && pt.x < box.x2 && pt.y > box.y1 && pt.y < box.y2;
     };
     /**
+     * @private
+     * @function
+     */
+    function _pointInPoly(testx,testy,points){
+      let nvert=points.length;
+      let c = false;
+      for(let p,q, i=0, j=nvert-1; i<nvert;){
+        p=points[i];
+        q=points[j];
+        if(((p[1]>testy) !== (q[1]>testy)) &&
+          (testx < (q[0]-p[0]) * (testy-p[1]) / (q[1]-p[1]) + p[0])) c = !c;
+        j=i;
+        ++i;
+      }
+      return c;
+    }
+    /**
      * @public
      * @function
      */
-    _S.hitTestPoint=function(pt,sprite){
-      return this.pointInBBox(pt, this.getBBox(sprite));
+    _S.hitTestPoint=function(point, sprite,global=false){
+      let hit;
+      if(sprite.mojoh5.circular){
+        let c= this.centerXY(sprite,global);
+        let d= _V.makeVAB(c,point);
+        let r= this.radius(sprite);
+        hit= _V.vecLen2(d) < r*r;
+      }else{
+        let p= this.toPolygon(sprite,global);
+        let ps= _V.translate(p.pos[0],p.pos[1],p.calcPoints);
+        hit= _pointInPoly(point[0],point[1],ps);
+        _V.dropV2(ps);
+      }
+      return hit;
     };
     /**
      * The 4th argument determines the distance between collision points.
@@ -401,56 +543,50 @@
      * and `false` if there isn’t.
      *
      */
-    _S.lineOfSight= function(s1, s2, obstacles, segment = 32){
+    _S.lineOfSight=function(s1, s2, obstacles, segment = 32){
       let s1c=this.centerXY(s1);
       let s2c=this.centerXY(s2);
-      let v= {x:s2c.x-s1c.x,y:s2c.y-s1c.y};//V2.sub(s2c,s1c);
-      //The distance between collision points
-      //let vx = s2cx - s1cx;
-      //let vy = s2cy - s1cy;
-      let magnitude = (v.x*v.x+v.y*v.y);//V2.len(v);
-      let numPoints = magnitude / segment;  // pts to test
+      let v= _V.makeVecAB(s1c,s2c)
+      let dist= _V.vecLen(v);
+      let numPoints = dist / segment;  // pts to test
       //Create an array of x/y points, separated by 64 pixels, that
       //extends from `spriteOne` to `spriteTwo`
-      let dx = v.x / magnitude;
-      let dy = v.y / magnitude;
+      let dx = v[0] / dist;
+      let dy = v[1] / dist;
       let points = [];
+      _V.dropV2(v);
       //Create a point object for each segment of the vector and
       //store its x/y position as well as its index number on the map array
       for(let mag,i=1; i<=numPoints; ++i){
-        mag = segment * i;
-        //Use the unit vector and newMagnitude to figure out the x/y
+        mag = segment*i;
+        //use the unit vector and newMagnitude to figure out the x/y
         //position of the next point in this loop iteration
-        _.conj(points, _.p2(s1c.x + dx * mag, s1c.y + dy * mag));
+        _.conj(points, _V.V2(s1c[0] + dx * mag, s1c[1] + dy * mag));
       }
-      return points.every(pt => obstacles.every(o => !_S.hitTestPoint(pt, o)));
+      return points.every(pt => obstacles.every(o => !_S.hitTestPoint(pt, o)))
     };
     /**
      * Find the distance in pixels between two sprites.
-     *
      * @public
      * @function
-     *
      */
     _S.distance=function(s1, s2){
       let c2=this.centerXY(s2);
       let c1=this.centerXY(s1);
-      let v={x:c2.x-c1.x,y:c2.y-c1.y};
-      return Math.sqrt(v.x*v.x+v.y*v.y);
-      //return V2.len(V2.sub(this.centerXY(s2),this.centerXY(s1)));
+      return _V.vecDist(c1,c2);
     };
     /**
      * @public
      * @function
      */
     _S.update=function(dt){
-      _.rseq(s => s.mojoh5.updateShake && s.mojoh5.updateShake());
+      _.rseq(s => s.mojoh5.updateShake && s.mojoh5.updateShake(dt))
     };
     /**
      * @private
      * @function
      */
-    _S.mkTexture= function(source){
+    _S.mkTexture=function(source){
       let obj, texture;
       if(is.str(source)){
         if(obj=Mojo.tcached(source))
@@ -499,8 +635,10 @@
      * @public
      * @function
      */
-    _S.sprite=function(source, x=0, y=0){
+    _S.sprite=function(source, x=0, y=0, center=true){
       let o= _sprite(source,0,0,false,x,y);
+      if(center)
+        o.anchor.set(0.5,0.5);
       return _.inst(Mojo.p.ASprite,o) ? _enhanceAnimSprite(o) : o;
     };
     /**
@@ -511,8 +649,8 @@
       if(width === undefined || height === undefined)
         throw "Error: tilingSprite() requires width and height";
       let o = _sprite(source, width, height, true, x,y);
-      o.mojoh5.tileScale= _.p2();
-      o.mojoh5.tilePos= _.p2();
+      o.mojoh5.tileScale= _V.V2();
+      o.mojoh5.tilePos= _V.V2();
       return o
     };
     /**
@@ -534,7 +672,7 @@
           x += spacing + (spacing * i % cols);
           y += spacing + (spacing * _.floor(i/cols));
         }
-        _.conj(pos, _.v2(x,y));
+        _.conj(pos, _V.V2(x,y));
       }
       return this.frames(texture, tileW, tileH,pos);
     };
@@ -701,13 +839,9 @@
         if(v !== undefined){
           gprops.radius=v;
           sprite.texture = draw() && _S.generateTexture(o);
-          //sprite.mojoh5.width= v*2;
-          //sprite.mojoh5.height= v*2;
         }
         return gprops.radius;
       };
-      //sprite.mojoh5.height=
-      //sprite.mojoh5.width= gprops.radius*2;
       return sprite;
     };
     /**
@@ -715,35 +849,35 @@
      * @function
      */
     _S.line=function(strokeStyle, lineWidth, A,B){
-      A=A || _.p2(0,0);
-      B=B || _.p2(32,32);
+      A=A || _V.V2(0,0);
+      B=B || _V.V2(32,32);
       let o = new Mojo.p.Graphics();
       let gprops={
         stroke: _S.color(strokeStyle),
         lineW: lineWidth,
-        A: _.p2(A.x,A.y),
-        B: _.p2(B.x,B.y)
+        A: _V.V2(A[0],A[1]),
+        B: _V.V2(B[0],B[1])
       };
       let draw= function(){
         o.clear();
         o.lineStyle(gprops.lineW, gprops.stroke, 1);
-        o.moveTo(gprops.A.x, gprops.A.y);
-        o.lineTo(gprops.B.x, gprops.B.y);
+        o.moveTo(gprops.A[0], gprops.A[1]);
+        o.lineTo(gprops.B[0], gprops.B[1]);
       };
       draw();
       let sprite=this.extend(o);
       sprite.mojoh5.ptA=function(x,y){
         if(x !== undefined){
-          gprops.A.x = x;
-          gprops.A.y = y===undefined?x:y;
+          gprops.A[0] = x;
+          gprops.A[1] = y===undefined?x:y;
           draw();
         }
         return gprops.A;
       };
       sprite.mojoh5.ptB=function(x,y){
         if(x !== undefined){
-          gprops.B.x = x;
-          gprops.B.y = y===undefined?x:y;
+          gprops.B[0] = x;
+          gprops.B[1] = y===undefined?x:y;
           draw();
         }
         return gprops.B;
@@ -769,7 +903,7 @@
      * @function
      */
     _S.moving=function(o){
-      return !_.feq(o.mojoh5.vx,0) || !_.feq(o.mojoh5.vy, 0);
+      return !_.feq(o.mojoh5.vel[0],0.0) || !_.feq(o.mojoh5.vel[1], 0.0)
     };
     /**
      * @public
@@ -778,12 +912,13 @@
     _S.grid= function(cols, rows, cellW, cellH,
                       centerCell, xOffset, yOffset, spriteFunc, extraFunc){
       let length = cols * rows;
-      let container = new Mojo.p.Container();
+      let container = [];//new Mojo.p.Container();
       for(let s,x,y,i=0; i < length; ++i){
         x = (i % cols) * cellW;
         y = _.floor(i / cols) * cellH;
         s= spriteFunc();
-        container.addChild(s);
+        _.conj(container,s);
+        //container.addChild(s);
         s.x = x + xOffset;
         s.y = y + yOffset;
         if(centerCell){
@@ -792,7 +927,7 @@
         }
         extraFunc && extraFunc(s);
       }
-      return this.extend(container);
+      return container;//this.extend(container);
     };
     /**
      * @public
@@ -800,22 +935,19 @@
      */
     _S.shoot=function(shooter, angle, container,
                       bulletSpeed, bulletArray, bulletSprite,x,y){
+      let soff=this.anchorOffsetXY(shooter);
+      let g=this.gposXY(shooter);
       let b= bulletSprite();
-      b.anchor.set(0.5);
-      shooter.addChild(b);
-      b.x = x;
-      b.y = y;
-      //Find the bullet's global coordinates so that we can use
-      //them to position the bullet on the new parent container
-      let g=_S.gposXY(b);
       container.addChild(b);
-      b.x = g.x;
-      b.y = g.y;
+      b.x= g[0]-soff[0]+x;
+      b.y= g[1]-soff[1]+y;
       //set bullet's velocity
-      _S.extend(b);
-      b.mojoh5.vx = Math.cos(angle) * bulletSpeed;
-      b.mojoh5.vy = Math.sin(angle) * bulletSpeed;
+      this.extend(b);
+      b.mojoh5.vel[0] = Math.cos(angle) * bulletSpeed;
+      b.mojoh5.vel[1] = Math.sin(angle) * bulletSpeed;
       _.conj(bulletArray,b);
+      _V.dropV2(soff);
+      return shooter;
     };
     /**
      * @public
@@ -979,9 +1111,9 @@
     function _adjustForParent(a, b){
       let bg= _S.gposXY(b.parent);
       let ag= _S.gposXY(a);
-      if(bg.x !== 0 || bg.y !== 0){
-        b.x -= ag.x;
-        b.y -= ag.y;
+      if(bg[0] !== 0 || bg[1] !== 0){
+        b.x -= ag[0];
+        b.y -= ag[1];
       }
     }
     /**
@@ -991,35 +1123,41 @@
      * @function
      */
     _S.putCenter=function(o, b, xOffset = 0, yOffset = 0){
-      let a= o.mojoh5.stage ? Mojo.adjustForStage(o) : o;
-      let az= _S.halfSize(a), bz= _S.halfSize(b);
-      b.x = a.x + _nudge(a, az.x, "x") - _nudge(b, bz.x, "x") + xOffset;
-      b.y = a.y + _nudge(a, az.y, "y") - _nudge(b, bz.y, "y") + yOffset;
-      if(!o.mojoh5.stage) _adjustForParent(a, b);
+      let a= Mojo.adjustForStage(o);
+      let az= this.halfSize(a);
+      let bz= this.halfSize(b);
+      b.x = a.x + _nudge(a, az[0], "x") - _nudge(b, bz[0], "x") + xOffset;
+      b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
+      if(!o.mojoh5.stage)
+        _adjustForParent(a, b);
     };
     /**
      * Position `b` to the left of `a`.
      * @public
      * @function
      */
-    _S.putLeft = function(o,b, xOffset = 0, yOffset = 0){
-      let a= o.mojoh5.stage ? Mojo.adjustForStage(o) : o;
-      let az= _S.halfSize(a), bz= _S.halfSize(b);
+    _S.putLeft=function(o,b, xOffset = 0, yOffset = 0){
+      let a= Mojo.adjustForStage(o);
+      let az= this.halfSize(a);
+      let bz= this.halfSize(b);
       b.x = a.x - _nudge(b, b.width, "x") + xOffset - _compensate(a, b, "width", "x");
-      b.y = a.y + _nudge(a, az.y, "y") - _nudge(b, bz.y, "y") + yOffset;
-      if(!o.mojoh5.stage) _adjustForParent(a, b);
+      b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
+      if(!o.mojoh5.stage)
+        _adjustForParent(a, b);
     };
     /**
      * Position `b` above `a`.
      * @public
      * @function
      */
-    _S.putTop = function(o, b, xOffset = 0, yOffset = 0){
-      let a = o.mojoh5.stage? Mojo.adjustForStage(o) : o;
-      let az= _S.halfSize(a), bz= _S.halfSize(b);
-      b.x = a.x + _nudge(a, az.x, "x") - _nudge(b, bz.x, "x") + xOffset;
+    _S.putTop=function(o, b, xOffset = 0, yOffset = 0){
+      let a = Mojo.adjustForStage(o);
+      let az= this.halfSize(a);
+      let bz= this.halfSize(b);
+      b.x = a.x + _nudge(a, az[0], "x") - _nudge(b, bz[0], "x") + xOffset;
       b.y = a.y - _nudge(b, b.height, "y") + yOffset - _compensate(a, b, "height", "y");
-      if(!o.mojoh5.stage) _adjustForParent(a, b);
+      if(!o.mojoh5.stage)
+        _adjustForParent(a, b);
     };
     /**
      * Position `b` to the right of `a`.
@@ -1027,12 +1165,14 @@
      * @function
      * @public
      */
-    _S.putRight = function(o, b, xOffset = 0, yOffset = 0){
-      let a= o.mojoh5.stage ? Mojo.adjustForStage(o) : o;
-      let az= _S.halfSize(a), bz= _S.halfSize(b);
+    _S.putRight=function(o, b, xOffset = 0, yOffset = 0){
+      let a= Mojo.adjustForStage(o);
+      let az= this.halfSize(a);
+      let bz= this.halfSize(b);
       b.x = a.x + _nudge(a, a.width, "x") + xOffset + _compensate(a, b, "width", "x");
-      b.y = a.y + _nudge(a, az.y, "y") - _nudge(b, bz.y, "y") + yOffset;
-      if(!o.mojoh5.stage) _adjustForParent(a, b);
+      b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
+      if(!o.mojoh5.stage)
+        _adjustForParent(a, b);
     };
     /**
      * Position `b` below `a`.
@@ -1040,12 +1180,14 @@
      * @public
      * @function
      */
-    _S.putBottom = function(o, b, xOffset = 0, yOffset = 0){
-      let a= o.mojoh5.stage ? Mojo.adjustForStage(o) : o;
-      let az= _S.halfSize(a), bz= _S.halfSize(b);
-      b.x = a.x + _nudge(a, az.x, "x") - _nudge(b, bz.x, "x") + xOffset;
+    _S.putBottom=function(o, b, xOffset = 0, yOffset = 0){
+      let a= Mojo.adjustForStage(o);
+      let az= this.halfSize(a);
+      let bz= this.halfSize(b);
+      b.x = a.x + _nudge(a, az[0], "x") - _nudge(b, bz[0], "x") + xOffset;
       b.y = a.y + _nudge(a, a.height, "y") + yOffset + _compensate(a, b, "height", "y");
-      if(!o.mojoh5.stage) _adjustForParent(a, b);
+      if(!o.mojoh5.stage)
+        _adjustForParent(a, b);
     };
     /**
      * @public
@@ -1054,123 +1196,16 @@
     _S.extend=function(o){
       if(!o.mojoh5) o.mojoh5={};
       _.inject(o.mojoh5, {uuid: _.nextId(),
+                          layer: 0,
                           mass: 1,
-                          vx: 0, vy: 0,
+                          invMass: 1,
+                          vel: _V.V2(),
+                          angVel: 0,
                           stage: false,
                           dead: false,
-                          layer: 0, circular: false,
-                          interact: false, draggable: false, bumpProps: true});
+                          circular: false,
+                          interact: false, draggable: false });
       return o;
-      //make sure we're not shadowing!
-      /*
-      _.assert(_.noSuchKeys(_.seq("mass,gx,gy,centerX,centerY,halfWidth,halfHeight,"+
-        "scaleModeNearest,xAnchorOffset,yAnchorOffset,scaleX,scaleY,layer,"+
-        "interact,draggable,localBounds,globalBounds,empty,circular,"+
-        "radius,setScale,setAnchor,setPivot,setPosition",o)));
-        */
-      /*
-      Object.defineProperties(o, {
-        "gx": _.pdef({ get() { return o.getGlobalPosition().x } }),
-        "gy": _.pdef({ get() { return o.getGlobalPosition().y } }),
-        "centerX": _.pdef({
-          get() { return o.x + (o.width/2) - o.xAnchorOffset; } }),
-        "centerY": _.pdef({
-          get() { return o.y + (o.height/2) - o.yAnchorOffset; } }),
-        "halfWidth": _.pdef({
-          get() { return o.width/2; }}),
-        "halfHeight": _.pdef({
-          get() { return o.height/2; } }),
-        "scaleModeNearest": _.pdef({
-          set(v) {
-            if(!o.texture.baseTexture) throw "Error: no baseTexture";
-            o.texture.baseTexture.scaleMode =
-              v ? PIXI.SCALE_MODES.NEAREST : PIXI.SCALE_MODES.LINEAR; } }),
-        "xAnchorOffset": _.pdef({
-          get() { return o.anchor ? o.width * o.anchor.x : 0; } }),
-        "yAnchorOffset": _.pdef({
-          get() { return o.anchor ? o.height * o.anchor.y : 0; } }),
-        "scaleX": _.pdef({
-          get() { return o.scale.x },
-          set(v) { o.scale.x = v; } }),
-        "scaleY": _.pdef({
-          get() { return o.scale.y },
-          set(value) { o.scale.y = value; } }),
-        //Depth layer
-        "layer": _.pdef({
-          get() { return o._layer },
-          set(v) {
-            o._layer = v;
-            //Sort the sprite’s parent’s `children` array so that sprites with a
-            //higher `layer` value are moved to the end of the array
-            if(o.parent)
-              o.parent.children.sort((a, b) => a.layer - b.layer);
-          } }),
-        "interact": _.pdef({
-          get() { return o._interact },
-          set(v) {
-            if(v) {
-              if(!o._interact) {
-                Mojo.makeInteractive(o);
-                o._interact = true;
-              }
-            } else {
-              if(_.disj(Mojo.Input.buttons, o))
-                o._interact = false;
-            }
-          } }),
-        "draggable": _.pdef({
-          get() { return o._draggable },
-          set(v) {
-            if(v) {
-              if(!o._draggable) {
-                Mojo.makeDraggable(o);
-                o._draggable = true;
-              }
-            } else {
-              Mojo.makeUndraggable(o)
-              o._draggable = false;
-            }
-          } }),
-        //The `localBounds` and `globalBounds` methods return an object
-        //with `x`, `y`, `width`, and `height` properties that define
-        //the dimensions and position of the sprite. This is a convenience
-        //to help you set or test boundaries without having to know
-        //these numbers or request them specifically in your code.
-        "localBounds": _.pdef({
-          get() { return Mojo.rect(0, 0, o.width, o.height); } }),
-        "globalBounds": _.pdef({
-          get() { return Mojo.rect(o.gx, o.gy, o.gx+o.width, o.gy+o.height); } }),
-        "empty": _.pdef({ get() { return o.children.length === 0; } }),
-        "circular": _.pdef({
-          get() { return o._circular; },
-          set(v) {
-            if(v && o._circular===false) {
-              Object.defineProperties(o, {
-                "diameter": _.pdef({
-                  get() { return o.width; },
-                  set(v) { o.width = v; o.height = v; } }),
-                "radius": _.pdef({
-                  get() { return o.width/2; },
-                  set(v) { o.width = v*2; o.height = v*2; } })
-              });
-              o._circular = true;
-            }
-            if(!value && o._circular) {
-              delete o.diameter;
-              delete o.radius;
-              o._circular = false;
-            }
-          } })
-      });
-      o.setScale = (xScale, yScale) => { o.scale.x = xScale; o.scale.y = yScale; };
-      o.setAnchor= (x,y) => { return o.anchor && o.anchor.set(x,y); };
-      o.setPivot= (x,y) => { return o.pivot && o.pivot.set(x,y); };
-      o.setPosition = (x, y) => { o.x = x; o.y = y; };
-      if(o.circular)
-        Object.defineProperty(o, "radius", _.pdef({
-          get() { return o.width/2; }
-        }));
-    */
     };
     /**
      * Copied from pixi.legacy, why didn;t they want to keep this????
@@ -1178,7 +1213,7 @@
      * @public
      * @function
      */
-    _S.generateTexture = function(displayObject, scaleMode, resolution, region){
+    _S.generateTexture=function(displayObject, scaleMode, resolution, region){
       region = region || displayObject.getLocalBounds(null, true);
       // minimum texture size is 1x1, 0x0 will throw an error
       if(region.width === 0){ region.width = 1; }
