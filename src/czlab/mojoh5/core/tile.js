@@ -95,7 +95,7 @@
       let tile =_S.extend({gid: mapArray[index],
                            width: tiled.tileW,
                            height: tiled.tileH,
-                           anchor: new PIXI.ObservablePoint(),
+                           anchor: new Mojo.p.ObservablePoint(()=>{},this),
                            x: ((index % tiled.tilesInX) * tiled.tileW) + world.x,
                            y: ((_.floor(index / tiled.tilesInX)) * tiled.tileH) + world.y});
       tile.getGlobalPosition=function(){

@@ -60,16 +60,26 @@
      * @function
      * @public
      */
+    const _PT=_V.V2();
+    _D.hitTestPointXY=function(px,py,sprite,global=true){
+      _PT[0]=px;
+      _PT[1]=py;
+      return this.hitTestPoint(_PT,sprite,global)
+    };
+    /**
+     * @public
+     * @function
+     */
     _D.hitTestPoint=function(point, sprite,global=true){
       let hit;
       if(sprite.mojoh5.circular){
         let c= _S.centerXY(sprite,global);
-        let d= _V.makeVAB(c,point);
+        let d= _V.makeVecAB(c,point);
         let r= _S.radius(sprite);
         hit= _V.vecLen2(d) < r*r;
       }else{
         let p= _S.toPolygon(sprite,global);
-        let ps= _V.translate(p.pos[0],p.pos[1],p.calcPoints);
+        let ps= _V.translate(p.pos,p.calcPoints);
         hit= _pointInPoly(point[0],point[1],ps);
         _V.dropV2(ps);
       }

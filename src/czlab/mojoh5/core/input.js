@@ -30,6 +30,7 @@
     if(Mojo.Input){return Mojo.Input}
     const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
+    const _V=global["io.czlab.mcfud.vec2"]();
     let _element=Mojo.canvas;
     let _scale=Mojo.scale;
     const _=Core.u;
@@ -85,7 +86,7 @@
         downTime: 0,
         elapsedTime: 0,
 
-        anchor: _.p2(),//fake a sprite anchor
+        anchor: new Mojo.p.ObservablePoint(()=>{},this,0.5,0.5),
         mojoh5: {
           cpos: () => _V.V2(ptr.x,ptr.y),
           gpos: () => _V.V2(ptr.x,ptr.y),
@@ -172,25 +173,7 @@
         //event.preventDefault();
       };
       ptr.hitTestSprite= function(sprite){
-        let soff= _S.anchorOffsetXY(sprite);
-        let g=_S.gposXY(sprite);
-        let sz=_S.halfSize(sprite);
-        let hit = false;
-        if(!sprite.mojoh5.circular){
-          let left = g[0] - soff[0];
-          let top = g[1] - soff[1];
-          let right = g[0] + sprite.width - soff[0];
-          let bottom = g[1] + sprite.height - soff[1];
-          hit = this.x > left && this.x < right && this.y > top && this.y < bottom;
-        }else{
-          //circle h=w
-          let vx = this.x - (g[0] + sz[0] - soff[0]);
-          let vy = this.y - (g[1] + sz[1] - soff[1]);
-          let d2= vx * vx + vy * vy;
-          hit = d2 < (sz[0]*sz[0]);
-        }
-        _V.dropV2(sz,soff);
-        return hit;
+        return Mojo["2d"].hitTestPointXY(this.x,this.y,sprite,true)
       };
       _.addEvent("mousemove", element, ptr.moveHandler.bind(ptr), false);
       _.addEvent("mousedown", element,ptr.downHandler.bind(ptr), false);

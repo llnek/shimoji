@@ -1,6 +1,6 @@
-(function(window,undefined){
+;(function(window){
   "use strict";
-  const MojoH5=window.MojoH5;
+
   function scenes(Mojo){
     const _=Mojo.u;
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
@@ -21,11 +21,12 @@
             _S.circular(marble, true);
             let sizes = [8, 12, 16, 20, 24, 28, 32];
             _S.radius(marble, sizes[_.randInt2(0, 6)]/2);
-            marble.mojoh5.vx = _.randInt2(-10, 10);
-            marble.mojoh5.vy = _.randInt2(-10, 10);
-            marble.mojoh5.friction = _.p2(0.99,0.99);
+            marble.mojoh5.vel[0] = _.randInt2(-400, 400);
+            marble.mojoh5.vel[1] = _.randInt2(-400, 400);
+            marble.mojoh5.friction[0] = 0.99;
+            marble.mojoh5.friction[1] = 0.99;
             marble.mojoh5.mass = 0.75 + (_S.radius(marble)/32);
-            marble.anchor.set(0.5);
+            //marble.anchor.set(0.5);
             return marble;
           },
 
@@ -45,15 +46,15 @@
 
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
-      postUpdate:function(){
+      postUpdate:function(dt){
         let self=this;
         //If a marble has been captured, draw the
         //sling (the yellow line) between the pointer and
         //the center of the captured marble
         if(this.capturedMarble){
-          let c=_S.centerXY(this.capturedMarble);
+          let c=_S.centerXY(this.capturedMarble,true);
           this.sling.visible = true;
-          this.sling.mojoh5.ptA(c.x,c.y);
+          this.sling.mojoh5.ptA(c[0],c[1]);
           this.sling.mojoh5.ptB(Mojo.pointer.x,Mojo.pointer.y);
         }
         //Shoot the marble if the pointer has been released
@@ -66,8 +67,8 @@
             this.sling.angle = _S.angle(Mojo.pointer, this.capturedMarble);
             //Shoot the marble away from the pointer with a velocity
             //proportional to the sling's length
-            this.capturedMarble.mojoh5.vx = Math.cos(this.sling.angle) * this.sling.mojoh5.length / 5;
-            this.capturedMarble.mojoh5.vy = Math.sin(this.sling.angle) * this.sling.mojoh5.length / 5;
+            this.capturedMarble.mojoh5.vel[0] = 64 * Math.cos(this.sling.angle) * this.sling.mojoh5.length / 5;
+            this.capturedMarble.mojoh5.vel[1] = 64 * Math.sin(this.sling.angle) * this.sling.mojoh5.length / 5;
             //Release the captured marble
             this.capturedMarble = null;
           }
@@ -75,21 +76,21 @@
         this.marbles.children.forEach(marble => {
           //Check for a collision with the pointer and marble
           if(Mojo.pointer.isDown && !this.capturedMarble){
-            if(_2d.hit(Mojo.pointer, marble)){
+            if(_2d.hitTestPointXY(Mojo.pointer.x,Mojo.pointer.y, marble)){
               //If there's a collision, capture the marble
               this.capturedMarble = marble;
-              this.capturedMarble.mojoh5.vx = 0;
-              this.capturedMarble.mojoh5.vy = 0;
+              this.capturedMarble.mojoh5.vel[0] = 0;
+              this.capturedMarble.mojoh5.vel[1] = 0;
             }
           }
-          marble.mojoh5.vx *= marble.mojoh5.friction.x;
-          marble.mojoh5.vy *= marble.mojoh5.friction.y;
+          marble.mojoh5.vel[0] *= marble.mojoh5.friction[0];
+          marble.mojoh5.vel[1] *= marble.mojoh5.friction[1];
           //Move the marble by applying the new calculated velocity
           //to the marble's x and y position
-          _S.move(marble);
+          _S.move(marble,dt);
           //Contain the marble inside the stage and make it bounce
           //off the edges
-          _2d.containEx(marble, self, true);
+          _2d.contain(marble, self, true);
         });
         //Add the marbles to the spatial grid
         //this.marbles.children.forEach(marble => _T.getIndex(marble));
@@ -111,7 +112,7 @@
           //Add the sprites to the grid
           spritesArray.forEach(sprite => {
             //Find out the sprite's current map index position
-            let index = _T.getIndex(sprite.x, sprite.y, cellSizeInPixels, cellSizeInPixels, width);
+            let index = Mojo.getIndex(sprite.x, sprite.y, cellSizeInPixels, cellSizeInPixels, width);
             //Add the sprite to the array at that index position
             if(isNaN(index)){
               let poo=spritesArray;
@@ -130,11 +131,10 @@
           let sprite = this.marbles.children[i];
           //Find out the sprite's current map index position
           let gridWidthInTiles = 512 / 64;
-          let index = _T.getIndex(sprite.x, sprite.y, 64, 64, gridWidthInTiles);
+          let index = Mojo.getIndex(sprite.x, sprite.y, 64, 64, gridWidthInTiles);
           //Find out what all the surrounding nodes are, including those that
           //might be beyond the borders of the grid
-          let allSurroundingCells = [
-                                      grid[index - gridWidthInTiles - 1],
+          let allSurroundingCells = [ grid[index - gridWidthInTiles - 1],
                                       grid[index - gridWidthInTiles],
                                       grid[index - gridWidthInTiles + 1],
                                       grid[index - 1],
@@ -160,9 +160,9 @@
                 //sprite in the main loop, then check for a collision
                 //between those sprites
                 if(surroundingSprite !== sprite){
-                  _2d.movingCircleCollisionEx(sprite, surroundingSprite);
-                  _2d.containEx(sprite, self, true);
-                  _2d.containEx(surroundingSprite, self, true);
+                  _2d.collide(sprite, surroundingSprite,true);
+                  _2d.contain(sprite, self, true);
+                  _2d.contain(surroundingSprite, self, true);
                 }
               }
             }
@@ -181,7 +181,7 @@
     Mojo.Scenes.runScene("level1");
   }
 
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     assetFiles: ["marbles.png"],
     arena: {width:512, height:512},
     scaleToWindow:true,

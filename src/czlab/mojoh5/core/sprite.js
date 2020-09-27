@@ -68,19 +68,56 @@
      * @public
      * @function
      */
+    function _strAnchor(a){ return `${a.x},${a.y}` }
+    function _corners(a,w,h){
+      let v=_V.V2;
+      let w2=w/2;
+      let h2=h/2;
+      let R=[];
+      switch(a){
+        case "0,0":
+          _.conj(R, v(0,h), v(w,h), v(w,0), v());
+        break;
+        case "0.5,0":
+          _.conj(R, v(-w2,h), v(w2,h), v(w2,0), v(-w2,0));
+        break;
+        case "1,0":
+          _.conj(R, v(-w,h), v(0,h), v(), v(-w,0));
+        break;
+        case "0,0.5":
+          _.conj(R, v(0,h2), v(w,h2), v(w,-h2), v(0,-h2));
+        break;
+        case "0.5,0.5":
+          _.conj(R, v(-w2,h2), v(w2,h2), v(w2,-h2), v(-w2,-h2));
+        break;
+        case "1,0.5":
+          _.conj(R, v(-w,h2), v(0,h2), v(0,-h2), v(-w,-h2));
+        break;
+        case "0,1":
+          _.conj(R, v(), v(w,0), v(w,-h), v(0,-h));
+        break;
+        case "0.5,1":
+          _.conj(R, v(-w2,0), v(w2,0), v(w2,-h), v(-w2,-h));
+        break;
+        case "1,1":
+          _.conj(R, v(-w,0), v(), v(0,-h), v(-w,-h));
+        break;
+        default:
+          _.assert(false,"Error: bad anchor values: "+a);
+      }
+      return R;
+    }
     _S.toPolygon=function(sprite, global=true){
-      this.assertAnchorCenter(sprite);
-      let c= this.centerXY(sprite,global);
-      let h2=sprite.height/2;
-      let w2=sprite.width/2;
-      let l= -w2;
-      let t= h2;
-      let r= w2;
-      let b= -h2;
-      let p= new Geo.Polygon(c[0],c[1]);
-      let ps=[_V.V2(r,b),_V.V2(r,t),_V.V2(l,t),_V.V2(l,b)];
-      p.setOrient(sprite.rotation).set(ps);
-      _V.dropV2(...ps);
+      let C=_corners(_strAnchor(sprite.anchor),sprite.width,sprite.height);
+      let cx=sprite.x;
+      let cy=sprite.y;
+      if(global){
+        let g=this.gposXY(sprite);
+        cx=g[0];
+        cy=g[1];
+      }
+      let p= new Geo.Polygon(cx,cy).setOrient(sprite.rotation).set(C.reverse());
+      _V.dropV2(...C);
       return p;
     };
     /**
@@ -90,10 +127,9 @@
     _S.toCircle=function(sprite, global=true){
       this.assertAnchorCenter(sprite);
       let c= this.centerXY(sprite,global);
-      let h2=sprite.height/2;
+      //let h2=sprite.height/2;
       let w2=sprite.width/2;
-      let p= new Geo.Circle(w2).setPos(c[0],c[1]);
-      p.setOrient(sprite.rotation);
+      let p= new Geo.Circle(w2).setPos(c[0],c[1]).setOrient(sprite.rotation);
       return p;
     };
     /**
@@ -234,7 +270,11 @@
      * @function
      */
     _S.circular=function(o,v){
-      if(v!==undefined){ o.mojoh5.circular=v }
+      if(v!==undefined){
+        o.mojoh5.circular=v
+        if(v)
+          o.anchor.set(0.5);
+      }
       return o.mojoh5.circular;
     };
     /**
@@ -398,11 +438,11 @@
      * @public
      * @function
      */
-    _S.move=function(...sprites){
-      if(sprites.length===1 && is.vec(sprites[0])){
-        sprites=sprites[0];
-      }
-      sprites.forEach(s => { s.x += s.mojoh5.vel[0]; s.y += s.mojoh5.vel[1] });
+    _S.move=function(sprite,dt){
+      //s.x += s.mojoh5.vel[0]; s.y += s.mojoh5.vel[1]
+      sprite.x += sprite.mojoh5.vel[0] * dt;
+      sprite.y += sprite.mojoh5.vel[1] * dt;
+      return sprite;
     };
     /**
      * @public
@@ -520,7 +560,7 @@
         hit= _V.vecLen2(d) < r*r;
       }else{
         let p= this.toPolygon(sprite,global);
-        let ps= _V.translate(p.pos[0],p.pos[1],p.calcPoints);
+        let ps= _V.translate(p.pos,p.calcPoints);
         hit= _pointInPoly(point[0],point[1],ps);
         _V.dropV2(ps);
       }
@@ -635,7 +675,7 @@
      * @public
      * @function
      */
-    _S.sprite=function(source, x=0, y=0, center=true){
+    _S.sprite=function(source, x=0, y=0, center=false){
       let o= _sprite(source,0,0,false,x,y);
       if(center)
         o.anchor.set(0.5,0.5);
@@ -842,6 +882,7 @@
         }
         return gprops.radius;
       };
+      sprite.anchor.set(0.5);
       return sprite;
     };
     /**
@@ -912,13 +953,12 @@
     _S.grid= function(cols, rows, cellW, cellH,
                       centerCell, xOffset, yOffset, spriteFunc, extraFunc){
       let length = cols * rows;
-      let container = [];//new Mojo.p.Container();
+      let container = new Mojo.p.Container();
       for(let s,x,y,i=0; i < length; ++i){
         x = (i % cols) * cellW;
         y = _.floor(i / cols) * cellH;
         s= spriteFunc();
-        _.conj(container,s);
-        //container.addChild(s);
+        container.addChild(s);
         s.x = x + xOffset;
         s.y = y + yOffset;
         if(centerCell){
@@ -927,7 +967,7 @@
         }
         extraFunc && extraFunc(s);
       }
-      return container;//this.extend(container);
+      return this.extend(container);
     };
     /**
      * @public
@@ -1199,6 +1239,7 @@
                           layer: 0,
                           mass: 1,
                           invMass: 1,
+                          friction: _V.V2(),
                           vel: _V.V2(),
                           angVel: 0,
                           stage: false,
