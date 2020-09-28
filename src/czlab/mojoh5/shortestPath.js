@@ -1,6 +1,6 @@
-(function(window,undefined){
+(function(window){
   "use strict";
-  const MojoH5=window.MojoH5;
+
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
     const _=Mojo.u,is=Mojo.is;
@@ -25,8 +25,8 @@
         Mojo.pointer.release = () => {
           //calculate the shortest path
           let path = _T.shortestPath(
-            _T.getIndex(alien.x, alien.y, 64, 64, 13), //The start map index
-            _T.getIndex(Mojo.pointer.x, Mojo.pointer.y, 64, 64, 13), //The destination index
+            Mojo.getIndex(alien.x, alien.y, 64, 64, 13), //The start map index
+            Mojo.getIndex(Mojo.pointer.x, Mojo.pointer.y, 64, 64, 13), //The destination index
             wallMapArray, //The map array
             world, //Map width, in tiles
             [2, 3], //Obstacle gid array
@@ -65,7 +65,7 @@
     scenes(Mojo);
     Mojo.Scenes.runScene("level1");
   }
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     assetFiles: [ "timeBombPanic.png", "astar.json" ],
     arena: {width:832, height:768},
     start: setup,

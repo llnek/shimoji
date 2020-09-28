@@ -1,9 +1,7 @@
-(function(global,undefined){
+;(function(global){
   "use strict";
-  const window=global,
-    MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  const window=global;
+
   //let level, world, player, output, score;
   function setup(Mojo){
     const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,_2d=Mojo["2d"];
@@ -223,13 +221,11 @@
               sprite.width = width;
               sprite.height = height;
               S.setXY(sprite,x, y);
-              sprite.mojoh5.accelerationX = 0;
-              sprite.mojoh5.accelerationY = 0;
-              sprite.mojoh5.friction = _.p2(1,1);
-              sprite.mojoh5.gravity = _.p2(0.3,0.3);
-              sprite.mojoh5.jumpForce = _.p2(-6.8, -6.8);
-              sprite.mojoh5.vx = 0;
-              sprite.mojoh5.vy = 0;
+              sprite.mojoh5.friction[0] =
+              sprite.mojoh5.friction[0] =1;
+              sprite.mojoh5.gravity[0] =
+              sprite.mojoh5.gravity[1] = 0.3;
+              sprite.mojoh5.jumpForce = [-6.8,-6.8];
               sprite.mojoh5.isOnGround = true;
               world.tiled.player = sprite;
               world.addChild(sprite);
@@ -303,13 +299,16 @@
             switch(cell.item){
             case "player":
               sprite.mojoh5.fillStyle = "red";
-              sprite.mojoh5.accelerationX = 0;
-              sprite.mojoh5.accelerationY = 0;
-              sprite.mojoh5.friction = _.p2(1,1);
-              sprite.mojoh5.gravity = _.p2(0.3,0.3);
-              sprite.mojoh5.jumpForce = _.p2(-6.8,-6.8);
-              sprite.mojoh5.vx = 0;
-              sprite.mojoh5.vy = 0;
+              sprite.mojoh5.acc[0]=
+              sprite.mojoh5.acc[1]=0;
+              sprite.mojoh5.friction[0] =
+              sprite.mojoh5.friction[1] = 1;
+              sprite.mojoh5.gravity[0] =
+              sprite.mojoh5.gravity[1] = 0.3;
+              sprite.mojoh5.jumpForce[0] =
+              sprite.mojoh5.jumpForce[1] = -6.8;
+              sprite.mojoh5.vel[0] = 0;
+              sprite.mojoh5.vel[1] = 0;
               sprite.mojoh5.isOnGround = true;
               world.tiled.player = sprite;
               world.addChild(sprite);
@@ -352,27 +351,27 @@
 
         leftArrow.press = () => {
           if(rightArrow.isUp)
-            player.mojoh5.accelerationX = -0.2;
+            player.mojoh5.acc[0]= -0.2;
         };
 
         leftArrow.release = () => {
           if(rightArrow.isUp)
-            player.mojoh5.accelerationX = 0;
+            player.mojoh5.acc[0] = 0;
         };
 
         rightArrow.press = () => {
           if(leftArrow.isUp)
-            player.mojoh5.accelerationX = 0.2;
+            player.mojoh5.acc[0] = 0.2;
         };
         rightArrow.release = () => {
           if(leftArrow.isUp)
-            player.mojoh5.accelerationX = 0;
+            player.mojoh5.acc[0] = 0;
         };
         spaceBar.press = () => {
           if(player.mojoh5.isOnGround){
-            player.mojoh5.vy += player.mojoh5.jumpForce.y;
+            player.mojoh5.vel[1] += player.mojoh5.jumpForce[1];
             player.mojoh5.isOnGround = false;
-            player.mojoh5.friction.x = 1;
+            player.mojoh5.friction[0] = 1;
           }
         };
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
@@ -384,45 +383,45 @@
         //fine-tune the feel of the player control
         if(player.mojoh5.isOnGround){
           //Add some friction if the player is on the ground
-          player.mojoh5.friction.x = 0.92;
+          player.mojoh5.friction[0] = 0.92;
         } else {
           //Add less friction if it's in the air
-          player.mojoh5.friction.x = 0.97;
+          player.mojoh5.friction[0] = 0.97;
         }
         //Apply the acceleration
-        player.mojoh5.vx += player.mojoh5.accelerationX;
-        player.mojoh5.vy += player.mojoh5.accelerationY;
+        player.mojoh5.vel[0] += player.mojoh5.acc[0];
+        player.mojoh5.vel[1] += player.mojoh5.acc[1];
         //Apply friction
-        player.mojoh5.vx *= player.mojoh5.friction.x;
+        player.mojoh5.vel[0] *= player.mojoh5.friction[0];
         //Apply gravity
-        player.mojoh5.vy += player.mojoh5.gravity.y;
+        player.mojoh5.vel[1] += player.mojoh5.gravity[1];
         //Move the player
         S.move(player);
         //Use the `hit` method to check for a collision between the
         //player and the platforms
-        let playerVsPlatforms = _2d.hit(
-          player, this.world.tiled.platforms, true, false, false,
-          function(collision, platform){
-            if(collision){
-              if(collision === Mojo.BOTTOM && player.mojoh5.vy >= 0){
+        let playerVsPlatforms = _2d.hitTest(
+          player, this.world.tiled.platforms, false,true,
+          function(col, platform){
+            if(col){
+              if(col.has(Mojo.BOTTOM) && player.mojoh5.vel[1] >= 0){
                 player.mojoh5.isOnGround = true;
                 //Neutralize gravity by applying its
                 //exact opposite force to the character's vy
                 //player.vy = -player.gravity;
-                player.mojoh5.vy = -player.mojoh5.gravity.y;
+                player.mojoh5.vel[1] = -player.mojoh5.gravity[1];
               }
-              else if(collision === Mojo.TOP && player.mojoh5.vy <= 0){
-                player.mojoh5.vy = 0;
+              else if(col.has(Mojo.TOP) && player.mojoh5.vel[1] <= 0){
+                player.mojoh5.vel[1] = 0;
               }
-              else if(collision === Mojo.RIGHT && player.mojoh5.vx >= 0){
-                player.mojoh5.vx = 0;
+              else if(col.has(Mojo.RIGHT) && player.mojoh5.vel[0] >= 0){
+                player.mojoh5.vel[0] = 0;
               }
-              else if(collision === Mojo.LEFT && player.mojoh5.vx <= 0){
-                player.mojoh5.vx = 0;
+              else if(col.has(Mojo.LEFT) && player.mojoh5.vel[0] <= 0){
+                player.mojoh5.vel[0] = 0;
               }
               //Set `isOnGround` to `false` if the bottom of the player
               //isn't touching the platform
-              if(collision !== Mojo.BOTTOM && player.mojoh5.vy > 0){
+              if(!col.has(Mojo.BOTTOM) && player.mojoh5.vel[1] > 0){
                 player.mojoh5.isOnGround = false;
               }
             }
@@ -470,7 +469,7 @@
         //star. If it is, add 1 to the score, remove the `star` sprite and filter it out of the
         //`world.treasure` array
         this.world.tiled.treasures = this.world.tiled.treasures.filter(function(star){
-          if (_2d.hit(player, star)){
+          if (_2d.hitTest(player, star)){
             G.score += 1;
             S.remove(star);
             return false;
@@ -485,7 +484,7 @@
     Z.runScene("hud");
   }
 
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     assetFiles: ["platforms.png", "puzzler.otf" ],
     scaleToWindow: true,
     start: setup,

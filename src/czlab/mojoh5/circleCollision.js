@@ -8,7 +8,7 @@
       setup:function(){
         let blue = _S.circle(64, "blue");
         blue.mojoh5.step=function(dt){
-          //_S.move(blue,dt);
+          _S.move(blue,dt);
         };
         let sz=_S.halfSize(blue);
         this.blue=blue;
@@ -38,6 +38,8 @@
       },
       postUpdate:function(){
         this.message.mojoh5.content("Drag the circles...");
+        this.blue.mojoh5.vel[0] += 0.5;
+        this.red.mojoh5.vel[0] -= 0.5;
         //Check for a collision between the blue and red circles using
         //the universal `hit` method.
         //The collision variable will be `true`

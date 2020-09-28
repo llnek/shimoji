@@ -439,9 +439,13 @@
      * @function
      */
     _S.move=function(sprite,dt){
-      //s.x += s.mojoh5.vel[0]; s.y += s.mojoh5.vel[1]
-      sprite.x += sprite.mojoh5.vel[0] * dt;
-      sprite.y += sprite.mojoh5.vel[1] * dt;
+      if(dt !== undefined){
+        sprite.x += sprite.mojoh5.vel[0] * dt;
+        sprite.y += sprite.mojoh5.vel[1] * dt;
+      }else{
+        sprite.x += sprite.mojoh5.vel[0];
+        sprite.y += sprite.mojoh5.vel[1];
+      }
       return sprite;
     };
     /**
@@ -1233,14 +1237,25 @@
      * @public
      * @function
      */
+    _S.setMass=function(s,m){
+      s.mojoh5.mass=m;
+      s.mojoh5.invMass= _.feq0(m) ? 0 : 1/m;
+    };
+    /**
+     * @public
+     * @function
+     */
     _S.extend=function(o){
       if(!o.mojoh5) o.mojoh5={};
       _.inject(o.mojoh5, {uuid: _.nextId(),
+                          static: false,
                           layer: 0,
                           mass: 1,
                           invMass: 1,
+                          gravity: _V.V2(),
                           friction: _V.V2(),
                           vel: _V.V2(),
+                          acc: _V.V2(),
                           angVel: 0,
                           stage: false,
                           dead: false,

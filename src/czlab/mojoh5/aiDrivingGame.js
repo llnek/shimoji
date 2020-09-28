@@ -1,9 +1,6 @@
-(function(global,undefined){
+(function(global){
   "use strict";
-  const window=global,
-    MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  const window=global;
 
   function defScenes(Mojo) {
     const Z=Mojo.Scenes, S=Mojo.Sprites, I=Mojo.Input, T=Mojo.Tiles;
@@ -54,14 +51,16 @@
         });
         this.insert(this.world);
         function _addCarProperties(carSprite){
-          carSprite.mojoh5.vx = 0;
-          carSprite.mojoh5.vy = 0;
-          carSprite.mojoh5.accelerationX = 0.2;
-          carSprite.mojoh5.accelerationY = 0.2;
-          carSprite.mojoh5.rotationSpeed = 0;
-          carSprite.mojoh5.friction = 0.96;
+          carSprite.mojoh5.vel[0] = 0;
+          carSprite.mojoh5.vel[1] = 0;
+          carSprite.mojoh5.acc[0]= 0.2;
+          carSprite.mojoh5.acc[1]= 0.2;
+          carSprite.mojoh5.angVel= 0;
+          carSprite.mojoh5.friction[0] = 0.96;
+          carSprite.mojoh5.friction[1] = 0.96;
           carSprite.mojoh5.speed = 0; //Center the car's rotation point
-          S.setPivot(carSprite,0.5, 0.5); //Whether or not the car should move forward
+          carSprite.anchor.set(0.5);
+          //S.setPivot(carSprite,0.5, 0.5); //Whether or not the car should move forward
           carSprite.mojoh5.moveForward = false;
         }
         _addCarProperties(this.car);
@@ -75,21 +74,21 @@
         //left arrow key is being pressed
 
         leftArrow.press = () => {
-          this.car.mojoh5.rotationSpeed = -0.05;
+          this.car.mojoh5.angVel = -0.05;
         }; //If the left arrow key is released and the right arrow
   //key isn't being pressed down, set the `rotationSpeed` to 0
 
         leftArrow.release = () => {
-          if (!rightArrow.isDown) this.car.mojoh5.rotationSpeed = 0;
+          if (!rightArrow.isDown) this.car.mojoh5.angVel = 0;
         }; //Do the same for the right arrow key, but set
   //the `rotationSpeed` to 0.1 (to rotate right)
 
         rightArrow.press = () => {
-          this.car.mojoh5.rotationSpeed = 0.05;
+          this.car.mojoh5.angVel = 0.05;
         };
 
         rightArrow.release = () => {
-          if(!leftArrow.isDown) this.car.mojoh5.rotationSpeed = 0;
+          if(!leftArrow.isDown) this.car.mojoh5.angVel = 0;
         }; //Set `car.moveForward` to `true` if the up arrow key is
   //pressed, and set it to `false` if it's released
 
@@ -115,7 +114,7 @@
         //Constrain the calculated angle to a value between 0 and 360
         currentAngle = currentAngle + Math.ceil(-currentAngle / 360) * 360;
         //Find out its index position on the map
-        let aiCarIndex = T.getIndex(this.aiCar.x, this.aiCar.y, 64, 64, 10);
+        let aiCarIndex = Mojo.getIndex(this.aiCar.x, this.aiCar.y, 64, 64, 10);
         //Find out what the target angle is for that map position
         let angleMap = this.world.tiled.layers[2];
         let mapAngle = angleMap[aiCarIndex];
@@ -133,71 +132,75 @@
         //Figure out whether to turn the car left or right
         if(difference > 0 && difference < 180) {
           //Turn left
-          this.aiCar.mojoh5.rotationSpeed = -0.03;
+          this.aiCar.mojoh5.angVel = -0.03;
         } else {
           //Turn right
-          this.aiCar.mojoh5.rotationSpeed = 0.03;
+          this.aiCar.mojoh5.angVel = 0.03;
         } //Use the `rotationSpeed` to set the car's rotation
 
-        this.aiCar.rotation += this.aiCar.mojoh5.rotationSpeed;
+        this.aiCar.rotation += this.aiCar.mojoh5.angVel;
         //Use the `speed` value to figure out the acceleration in the
         //direction of the aiCar’s rotation
-        this.aiCar.mojoh5.accelerationX = this.aiCar.mojoh5.speed * Math.cos(this.aiCar.rotation);
-        this.aiCar.mojoh5.accelerationY = this.aiCar.mojoh5.speed * Math.sin(this.aiCar.rotation);
+        this.aiCar.mojoh5.acc[0]= this.aiCar.mojoh5.speed * Math.cos(this.aiCar.rotation);
+        this.aiCar.mojoh5.acc[1]= this.aiCar.mojoh5.speed * Math.sin(this.aiCar.rotation);
         //Apply the acceleration and friction to the aiCar's velocity
 
-        this.aiCar.mojoh5.vx = this.aiCar.mojoh5.accelerationX;
-        this.aiCar.mojoh5.vy = this.aiCar.mojoh5.accelerationY;
-        this.aiCar.mojoh5.vx *= this.aiCar.mojoh5.friction;
-        this.aiCar.mojoh5.vy *= this.aiCar.mojoh5.friction;
+        this.aiCar.mojoh5.vel[0] = this.aiCar.mojoh5.acc[0];
+        this.aiCar.mojoh5.vel[1] = this.aiCar.mojoh5.acc[1];
+        this.aiCar.mojoh5.vel[0] *= this.aiCar.mojoh5.friction[0];
+        this.aiCar.mojoh5.vel[1] *= this.aiCar.mojoh5.friction[1];
         //Apply the aiCar's velocity to its position to make the aiCar move
 
-        this.aiCar.x += this.aiCar.mojoh5.vx;
-        this.aiCar.y += this.aiCar.mojoh5.vy; //Move the player's car
+        this.aiCar.x += this.aiCar.mojoh5.vel[0];
+        this.aiCar.y += this.aiCar.mojoh5.vel[1]; //Move the player's car
         //Use the `rotationSpeed` to set the car's rotation
 
-        this.car.rotation += this.car.mojoh5.rotationSpeed; //If `car.moveForward` is `true`, increase the speed
+        this.car.rotation += this.car.mojoh5.angVel; //If `car.moveForward` is `true`, increase the speed
 
         if(this.car.mojoh5.moveForward) {
           this.car.mojoh5.speed += 0.05;
         } //If `car.moveForward` is `false`, use
         //friction to slow the car down
         else {
-          this.car.mojoh5.speed *= this.car.mojoh5.friction;
+          this.car.mojoh5.speed *= this.car.mojoh5.friction[0];
         } //Use the `speed` value to figure out the acceleration in the
         //direction of the car’s rotation
 
-        this.car.mojoh5.accelerationX = this.car.mojoh5.speed * Math.cos(this.car.rotation);
-        this.car.mojoh5.accelerationY = this.car.mojoh5.speed * Math.sin(this.car.rotation);
+        this.car.mojoh5.acc[0]= this.car.mojoh5.speed * Math.cos(this.car.rotation);
+        this.car.mojoh5.acc[1]= this.car.mojoh5.speed * Math.sin(this.car.rotation);
         //Apply the acceleration and friction to the car's velocity
 
-        this.car.mojoh5.vx = this.car.mojoh5.accelerationX;
-        this.car.mojoh5.vy = this.car.mojoh5.accelerationY;
-        this.car.mojoh5.vx *= this.car.mojoh5.friction;
-        this.car.mojoh5.vy *= this.car.mojoh5.friction; //Apply the car's velocity to its position to make the car move
+        this.car.mojoh5.vel[0] = this.car.mojoh5.acc[0];
+        this.car.mojoh5.vel[1] = this.car.mojoh5.acc[1];
+        this.car.mojoh5.vel[0] *= this.car.mojoh5.friction[0];
+        this.car.mojoh5.vel[1] *= this.car.mojoh5.friction[1]; //Apply the car's velocity to its position to make the car move
 
-        this.car.x += this.car.mojoh5.vx;
-        this.car.y += this.car.mojoh5.vy; //Slow the cars down if they're stuck in the grass
+        this.car.x += this.car.mojoh5.vel[0];
+        this.car.y += this.car.mojoh5.vel[1]; //Slow the cars down if they're stuck in the grass
         //First find the car's map index position
 
-        let carIndex = T.getIndex(this.car.x, this.car.y, 64, 64, 10); //Get a reference to the race track map
+        let carIndex = Mojo.getIndex(this.car.x, this.car.y, 64, 64, 10); //Get a reference to the race track map
 
         let trackMap = this.world.tiled.layers[0]; //Slow the car if it's on a grass tile (gid 1) by setting
         //the car's friction to 0.25, to make it sluggish
 
         if(trackMap[carIndex] === 1) {
-          this.car.mojoh5.friction = 0.25; //If the car isn't on a grass tile, restore its
+          this.car.mojoh5.friction[0] = 0.25; //If the car isn't on a grass tile, restore its
+          this.car.mojoh5.friction[1] = 0.25; //If the car isn't on a grass tile, restore its
           //original friction value
         } else {
-          this.car.mojoh5.friction = 0.96;
+          this.car.mojoh5.friction[0] = 0.96;
+          this.car.mojoh5.friction[1] = 0.96;
         } //Slow the aiCar if it's on a grass tile (gid 1) by setting
         //its friction to 0.25, to make it sluggish
 
         if(trackMap[aiCarIndex] === 1) {
-          this.aiCar.mojoh5.friction = 0.25; //If the car isn't on a grass tile, restore its
+          this.aiCar.mojoh5.friction[0] = 0.25; //If the car isn't on a grass tile, restore its
+          this.aiCar.mojoh5.friction[1] = 0.25; //If the car isn't on a grass tile, restore its
           //original friction value
         } else {
-          this.aiCar.mojoh5.friction = 0.96;
+          this.aiCar.mojoh5.friction[0] = 0.96;
+          this.aiCar.mojoh5.friction[1] = 0.96;
         }
       }
     });
@@ -212,7 +215,7 @@
     Mojo.Scenes.runScene("level1");
   }
 
-  MojoH5.Config= {
+  window["io.czlab.mojoh5.AppConfig"]= {
     assetFiles: ["tileSet.png"],
     arena: { width:640, height:512 },
     scaleToWindow: true,

@@ -1,6 +1,6 @@
-(function(window,undefined){
+;(function(window){
   "use strict";
-  const MojoH5=window.MojoH5;
+
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
     const _=Mojo.u;
@@ -10,19 +10,20 @@
         let randomDiameter = _.randInt2(16, 64);
         //Create the ball using the random diameter
         let ball = this.ball= _S.circle(randomDiameter, "red");
-        ball.anchor.set(0.5);
+        //ball.anchor.set(0.5);
         this.insert(ball);
         //Position the ball randomly somewhere across the top of the canvas
         ball.x = _.randInt2(ball.width, Mojo.canvas.width - ball.width);
         ball.y = ball.width/2;
 
         //Set the ball's velocity
-        ball.mojoh5.vx = _.randInt2(-12, 12);
-        ball.mojoh5.vy = 0;
+        ball.mojoh5.vel[0] = _.randInt2(-12, 12);
+        ball.mojoh5.vel[1] = 0;
 
         //Set the ball's gravity, friction and mass
-        ball.mojoh5.gravity = _.p2(0.6,0.6);
-        ball.mojoh5.friction = _.p2(1,0);
+        ball.mojoh5.gravity[0]=
+        ball.mojoh5.gravity[1]= 0.6;
+        ball.mojoh5.friction[0]=1;
 
         //Set the mass based on the ball's diameter
         ball.mojoh5.mass = 0.75 + (ball.width / 32);
@@ -42,7 +43,8 @@
           //A function that describes how to make each peg in the grid
           () => {
             let peg = _S.circle(_.randInt2(16, 64), "blue");
-            peg.anchor.set(0.5);
+            peg.mojoh5.static=true;
+            //peg.anchor.set(0.5);
             peg.mojoh5.fillStyle(colors[_.randInt2(0, 4)]);
             return peg;
           },
@@ -58,10 +60,10 @@
       },
       postUpdate:function(Mojo){
         //Apply gravity to the ball's vertical velocity
-        this.ball.mojoh5.vy += this.ball.mojoh5.gravity.y;
+        this.ball.mojoh5.vel[1] += this.ball.mojoh5.gravity[1];
         //Apply friction. ball.frictionX will be 0.96 if the ball is
         //on the ground, and 1 if it's in the air
-        this.ball.mojoh5.vx *= this.ball.mojoh5.friction.x;
+        this.ball.mojoh5.vel[0] *= this.ball.mojoh5.friction[0];
 
         //Move the ball by applying the new calculated velocity
         //to the ball's x and y position
@@ -70,22 +72,22 @@
         //Check for a collision with the ball and the stage's boundary, and
         //make the ball bounce by setting setting the last argument
         //in the `contain` method to `true`
-        let stageCollision = _2d.containEx(this.ball, this, true);
+        let stageCollision = _2d.contain(this.ball, this, true);
 
         //If the ball hit the bottom of the stage, add some so
         //that the ball gradually rolls to a stop
         if(stageCollision){
           if(stageCollision.has(Mojo.BOTTOM)){
-            this.ball.mojoh5.friction.x = 0.96;
+            this.ball.mojoh5.friction[0] = 0.96;
           } else {
-            this.ball.mojoh5.friction.x = 1;
+            this.ball.mojoh5.friction[0] = 1;
           }
         }
         //Check for a collision between the ball and the pegs using the
         //universal `hit` method.
         //arguments: circle, arrayOfCircles, reactToCollision?,
         //bounceApart?, useGlobalPosition?
-        _2d.hit(this.ball, this.pegs.children, true, true, true);
+        _2d.collide(this.ball, this.pegs.children, true)
       }
     });
   }
@@ -93,7 +95,8 @@
     scenes(Mojo);
     Mojo.Scenes.runScene("level1");
   }
-  MojoH5.Config={
+
+  window["io.czlab.mojoh5.AppConfig"]={
     arena: {width:512, height:512},
     backgroundColor: "black",
     scaleToWindow:true,

@@ -133,7 +133,13 @@
      */
     _T.getContactPoints=function(s){
       //internal rectangle defining the collision area of this sprite
-      let a= s.collisionArea || _S.getBBox(s);
+      let c,a= _S.getBBox(s);
+      if(c=s.collisionArea){
+        a={x1: a.x1+c.x1, x2: a.x1+c.x2,
+           y1: a.y1+c.y1, y2: a.y1+c.y2 };
+      }
+      a.x2 -= 1;
+      a.y2 -= 1;
       return [_V.V2(a.x1,a.y1),_V.V2(a.x2,a.y1),
               _V.V2(a.x2,a.y2),_V.V2(a.x1,a.y2)]
     };

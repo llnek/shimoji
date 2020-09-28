@@ -1,9 +1,6 @@
-(function(global,undefined){
+(function(global){
   "use strict";
-  const window=global,
-    MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not loaded";
+  const window=global;
 
   function setup(Mojo) {
     const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,G=Mojo.Game,_2d=Mojo["2d"],T=Mojo.Tiles;
@@ -80,7 +77,8 @@
         //collisions. `hitTestTile` will use this information later to check
         //whether the elf is colliding with any of the tiles
 
-        this.elf.collisionArea = {x: 22, y: 44, width: 20, height: 20};
+        //this.elf.collisionArea = {x: 22, y: 44, width: 20, height: 20};
+        this.elf.collisionArea = {x1: 22, y1: 44, x2:42, y2: 64};
 
         /*
         Define the elf's animation states. These are names that correspond
@@ -120,45 +118,45 @@
         //show and play the elf's different states
         this.leftArrow.press = () => {
           this.elf.mojoh5.playAnimation(this.elf.states.walkLeft);
-          this.elf.mojoh5.vx = -2;
-          this.elf.mojoh5.vy = 0;
+          this.elf.mojoh5.vel[0] = -2;
+          this.elf.mojoh5.vel[1] = 0;
         };
         this.leftArrow.release = () => {
-          if (!this.rightArrow.isDown && this.elf.mojoh5.vy === 0) {
-            this.elf.mojoh5.vx = 0;
+          if (!this.rightArrow.isDown && this.elf.mojoh5.vel[1] === 0) {
+            this.elf.mojoh5.vel[0] = 0;
             this.elf.mojoh5.show(this.elf.states.left);
           }
         };
         this.upArrow.press = () => {
           this.elf.mojoh5.playAnimation(this.elf.states.walkUp);
-          this.elf.mojoh5.vy = -2;
-          this.elf.mojoh5.vx = 0;
+          this.elf.mojoh5.vel[1] = -2;
+          this.elf.mojoh5.vel[0] = 0;
         };
         this.upArrow.release = () => {
-          if (!this.downArrow.isDown && this.elf.mojoh5.vx === 0) {
-            this.elf.mojoh5.vy = 0;
+          if (!this.downArrow.isDown && this.elf.mojoh5.vel[0] === 0) {
+            this.elf.mojoh5.vel[1] = 0;
             this.elf.mojoh5.show(this.elf.states.up);
           }
         };
         this.rightArrow.press = () => {
           this.elf.mojoh5.playAnimation(this.elf.states.walkRight);
-          this.elf.mojoh5.vx = 2;
-          this.elf.mojoh5.vy = 0;
+          this.elf.mojoh5.vel[0] = 2;
+          this.elf.mojoh5.vel[1] = 0;
         };
         this.rightArrow.release = () => {
-          if (!this.leftArrow.isDown && this.elf.mojoh5.vy === 0) {
-            this.elf.mojoh5.vx = 0;
+          if (!this.leftArrow.isDown && this.elf.mojoh5.vel[1] === 0) {
+            this.elf.mojoh5.vel[0] = 0;
             this.elf.mojoh5.show(this.elf.states.right);
           }
         };
         this.downArrow.press = () => {
           this.elf.mojoh5.playAnimation(this.elf.states.walkDown);
-          this.elf.mojoh5.vy = 2;
-          this.elf.mojoh5.vx = 0;
+          this.elf.mojoh5.vel[1] = 2;
+          this.elf.mojoh5.vel[0] = 0;
         };
         this.downArrow.release = () => {
-          if (!this.upArrow.isDown && this.elf.mojoh5.vx === 0) {
-            this.elf.mojoh5.vy = 0;
+          if (!this.upArrow.isDown && this.elf.mojoh5.vel[0] === 0) {
+            this.elf.mojoh5.vel[1] = 0;
             this.elf.mojoh5.show(this.elf.states.down);
           }
         };
@@ -168,8 +166,8 @@
       postUpdate:function(dt){
         //Move the elf and constrain it to the world boundaries
         //(-10 and -18 are to compensate for image padding around the sprite)
-        this.elf.x = Math.max(-18, Math.min(this.elf.x + this.elf.mojoh5.vx, this.world.tiled.tiledWidth - this.elf.width + 18));
-        this.elf.y = Math.max(-10, Math.min(this.elf.y + this.elf.mojoh5.vy, this.world.tiled.tiledHeight - this.elf.height));
+        this.elf.x = Math.max(-18, Math.min(this.elf.x + this.elf.mojoh5.vel[0], this.world.tiled.tiledWidth - this.elf.width + 18));
+        this.elf.y = Math.max(-10, Math.min(this.elf.y + this.elf.mojoh5.vel[1], this.world.tiled.tiledHeight - this.elf.height));
         this.camera.follow(this.elf);
         //Get a reference to the obstacles map array and use `hitTestTile`
         //check for a collision between the elf and the ground tiles
@@ -182,10 +180,10 @@
         //tree
         if(!elfVsGround.hit){
           //To prevent the elf from moving, subtract its velocity from its position
-          this.elf.x -= this.elf.mojoh5.vx;
-          this.elf.y -= this.elf.mojoh5.vy;
-          this.elf.mojoh5.vx = 0;
-          this.elf.mojoh5.vy = 0;
+          this.elf.x -= this.elf.mojoh5.vel[0];
+          this.elf.y -= this.elf.mojoh5.vel[1];
+          this.elf.mojoh5.vel[0] = 0;
+          this.elf.mojoh5.vel[1] = 0;
           //You can find the gid number of the thing the elf hit like this:
           //console.log(obstaclesMapArray[elfVsGround.index]);
         }
@@ -220,7 +218,7 @@
     Z.runScene("hud");
   }
 
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json"],//, "level1.tmx" ],
     arena: {width:512, height:512},
     scaleToWindow:true,

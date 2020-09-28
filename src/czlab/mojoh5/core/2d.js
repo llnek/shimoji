@@ -86,11 +86,10 @@
       return hit;
     };
     /**
+     * @private
      * @function
-     * @public
-     *
      */
-    _D.collide=function(a,b, bounce=true, global = true){
+    function _collideAB(a,b, bounce=true, global = true){
       let a_,m, ret= null;
       if(_S.circular(a)){
         a_= _S.toCircle(a,global);
@@ -102,39 +101,54 @@
                           : Geo.hitPolygonPolygon(a_, _S.toPolygon(b,global));
       }
       if(m){
-        let dx2=m.overlapV[0]/2;
-        let dy2=m.overlapV[1]/2;
-        a.x -= dx2; a.y -= dy2;
-        b.x += dx2; b.y += dy2;
+        if(b.mojoh5.static){
+          a.x -= m.overlapV[0];
+          a.y -= m.overlapV[1];
+        }else{
+          let dx2=m.overlapV[0]/2;
+          let dy2=m.overlapV[1]/2;
+          a.x -= dx2; a.y -= dy2;
+          b.x += dx2; b.y += dy2;
+        }
         if(bounce)
           _bounceOff(a,b,m);
         ret= _collideDir(m);
       }
       return ret;
+    }
+    /**
+     * @function
+     * @public
+     *
+     */
+    _D.collide=function(a,b, bounce=true, global = true){
+      let hit;
+      if(is.vec(b)){
+        for(let i=b.length-1;i>=0;--i)
+          _collideAB(a,b[i],bounce,global);
+      }else{
+        hit= _collideAB(a,b,bounce,global)
+      }
+      return hit;
     };
     /**
      * @private
      * @function
      */
-    function _bounceOff(c1,c2,m){
-      // calculate the collision surface's properties
-      let N= m.overlapN;
-      let L= _V.perp(N);
-      // bounce off each other
-      let p1A= _V.vecMul(N, c1.mojoh5.vel[0] * N[0] + c1.mojoh5.vel[1] * N[1]);
-      let p2A= _V.vecMul(N, c2.mojoh5.vel[0] * N[0] + c2.mojoh5.vel[1] * N[1]);
-      let p1B= _V.vecMul(L, c1.mojoh5.vel[0] * L[0] + c1.mojoh5.vel[1] * L[1]);
-      let p2B= _V.vecMul(L, c2.mojoh5.vel[0] * L[0] + c2.mojoh5.vel[1] * L[1]);
-      // calculate the bounce vectors
-      if(!c1.mojoh5.bounce) c1.mojoh5.bounce=_V.V2();
-      if(!c2.mojoh5.bounce) c2.mojoh5.bounce=_V.V2();
-      _V.vecCopy(c1.mojoh5.bounce, p1B[0] + p2A[0], p1B[1] + p2A[1]);
-      _V.vecCopy(c2.mojoh5.bounce, p1A[0] + p2B[0], p1A[1] + p2B[1]);
-      c1.mojoh5.vel[0] = c1.mojoh5.bounce[0] / c1.mojoh5.mass;
-      c1.mojoh5.vel[1] = c1.mojoh5.bounce[1] / c1.mojoh5.mass;
-      c2.mojoh5.vel[0] = c2.mojoh5.bounce[0] / c2.mojoh5.mass;
-      c2.mojoh5.vel[1] = c2.mojoh5.bounce[1] / c2.mojoh5.mass;
-      _V.dropV2(L,p1A,p2A,p1B,p2B);
+    function _bounceOff(o1,o2,m) {
+      if(o2.mojoh5.static){
+        //full bounce
+        //v=v - (1+c)(v.n_)n_
+        let p= _V.vecMul(m.overlapN, 2 * _V.vecDot(o1.mojoh5.vel,m.overlapN));
+        _V.vecSubSelf(o1.mojoh5.vel,p);
+      }else{
+        let k = -2 * ((o2.mojoh5.vel[0] - o1.mojoh5.vel[0]) * m.overlapN[0] +
+                      (o2.mojoh5.vel[1] - o1.mojoh5.vel[1]) * m.overlapN[1]) /  (o1.mojoh5.invMass + o2.mojoh5.invMass);
+        o1.mojoh5.vel[0] -= k * m.overlapN[0] / o1.mojoh5.mass;
+        o1.mojoh5.vel[1] -= k * m.overlapN[1] / o1.mojoh5.mass;
+        o2.mojoh5.vel[0] += k * m.overlapN[0] / o2.mojoh5.mass;
+        o2.mojoh5.vel[1] += k * m.overlapN[1] / o2.mojoh5.mass;
+      }
     }
     /**
      * @private
@@ -157,12 +171,12 @@
       return collision;
     }
     /**
-     * @public
+     * @private
      * @function
      *
     */
-    _D.hitTest=function(a,b,global=true){
-      let a_,m;
+    function _hitTestAB(a,b,global,react,extra){
+      let c,a_,m;
       if(_S.circular(a)){
         a_= _S.toCircle(a,global);
         m= _S.circular(b) ? Geo.hitCircleCircle(a_, _S.toCircle(b,global))
@@ -172,45 +186,35 @@
         m= _S.circular(b) ? Geo.hitPolygonCircle(a_, _S.toCircle(b,global))
                           : Geo.hitPolygonPolygon(a_, _S.toPolygon(b,global));
       }
-      return m ? _collideDir(m) : null;
+      if(m){
+        if(react){
+          a.x -= m.overlapV[0];
+          a.y -= m.overlapV[1];
+        }
+        c= _collideDir(m);
+        extra && extra(c,b);
+      }
+      return c;
     };
     /**
-     * Use to bounce an object off another object.
-     *
      * @public
      * @function
-     *
      */
-    _D.bounceOffSurface=function(o, S){
-      let s= _V.vecUnit(S);
-      let L= _V.perp(s);
-      let p1={}, p2={};
-      let dx = s[0];
-      let dy = s[1];
-      //2. Bounce the object (o) off the surface (s)
-      //project the object's velocity onto the surface
-      let dp1 = o.mojoh5.vel[0] * dx + o.mojoh5.vel[1] * dy;
-      p1x = dp1 * dx;
-      p1y = dp1 * dy;
-      //project the object's velocity onto the surface's left normal
-      let dp2 = o.mojoh5.vel[0] * L[0] + o.mojoh5.vel[1] * L[1];
-      //Reverse the projection on the surface's left normal
-      p2x = (dp2 * L[0]) * -1;
-      p2y = (dp2 * L[1]) * -1;
-      //create new bounce vector
-      let bx = p1x + p2x;
-      let by = p1y + p2y;
-      o.mojoh5.vel[0] = bx / o.mojoh5.mass;
-      o.mojoh5.vel[1] = by / o.mojoh5.mass;
-      return o;
-    };
+    _D.hitTest=function(a,b,global=false,react=false,extra=undefined){
+      let hit;
+      if(is.vec(b)){
+        for(let i=b.length-1;i>=0;--i)
+          _hitTestAB(a,b[i],global,react,extra);
+      }else{
+        hit= _hitTestAB(a,b,global,react,extra);
+      }
+      return hit;
+    }
     /**
      * Use to contain a sprite with `x` and
      * `y` properties inside a rectangular area.
-     *
      * @public
      * @function
-     *
      */
     _D.contain=function(sprite, container, bounce = false, extra = undefined){
       let c= container instanceof _Z.Scene ? Mojo.mockStage() : container;

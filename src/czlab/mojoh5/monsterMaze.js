@@ -1,9 +1,6 @@
-(function(global,undefined){
+(function(global){
   "use strict";
-  const window=global,
-    MojoH5=window.MojoH5;
-  if(!MojoH5)
-    throw "Fatal: MojoH5 not found";
+  const window=global;
 
   function setup(Mojo) {
     const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,G=Mojo.Game,T=Mojo.Tiles,_2d=Mojo["2d"];
@@ -62,24 +59,24 @@
         if(_isAtIntersection(this.alien)){
           switch(this.alien.direction){
           case "up":
-            this.alien.mojoh5.vy = -4;
-            this.alien.mojoh5.vx = 0;
+            this.alien.mojoh5.vel[1] = -4;
+            this.alien.mojoh5.vel[0] = 0;
           break;
           case "down":
-            this.alien.mojoh5.vy = 4;
-            this.alien.mojoh5.vx = 0;
+            this.alien.mojoh5.vel[1] = 4;
+            this.alien.mojoh5.vel[0] = 0;
           break;
           case "left":
-            this.alien.mojoh5.vx = -4;
-            this.alien.mojoh5.vy = 0;
+            this.alien.mojoh5.vel[0] = -4;
+            this.alien.mojoh5.vel[1] = 0;
           break;
           case "right":
-            this.alien.mojoh5.vx = 4;
-            this.alien.mojoh5.vy = 0;
+            this.alien.mojoh5.vel[0] = 4;
+            this.alien.mojoh5.vel[1] = 0;
           break;
           case "none":
-            this.alien.mojoh5.vx = 0;
-            this.alien.mojoh5.vy = 0;
+            this.alien.mojoh5.vel[0] = 0;
+            this.alien.mojoh5.vel[1] = 0;
           break;
           }
         }
@@ -115,10 +112,10 @@
         //
         if(!alienVsFloor.hit){
           //To prevent the alien from moving, subtract its velocity from its position
-          this.alien.x -= this.alien.mojoh5.vx;
-          this.alien.y -= this.alien.mojoh5.vy;
-          this.alien.mojoh5.vx = 0;
-          this.alien.mojoh5.vy = 0;
+          this.alien.x -= this.alien.mojoh5.vel[0];
+          this.alien.y -= this.alien.mojoh5.vel[1];
+          this.alien.mojoh5.vel[0] = 0;
+          this.alien.mojoh5.vel[1] = 0;
         }
         /*
         //Check for a collision between the alien and the bombs
@@ -160,7 +157,7 @@
     Z.runScene("level1");
   }
 
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     assetFiles: [ "monsterMaze.png", "monsterMaze.json" ],
     arean: { width: 704, height: 512 },
     scaleToWindow: true,

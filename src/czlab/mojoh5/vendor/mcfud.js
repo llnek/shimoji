@@ -64,7 +64,8 @@
         return (r >>> 0) / 4294967296;
       };
     })(Date.now(),Date.now(),Date.now(),Date.now()); // simple seeding??
-    const EPSILON= 0.00001;
+    //const EPSILON= 0.00001;
+    const EPSILON= 0.0000000001;
     /**
      * @private
      * @var {number}
@@ -75,6 +76,9 @@
      * @var {object}
      */
     const _={
+      feq0:function(a){
+        return Math.abs(a) < EPSILON
+      },
       feq:function(a, b){
         // <= instead of < for NaN comparison safety
         return Math.abs(a - b) <= EPSILON;
