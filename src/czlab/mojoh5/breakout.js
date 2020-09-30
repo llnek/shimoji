@@ -34,14 +34,14 @@
           //let music=Mojo.Game.state.get("music");
           //if(!music.playing) music.play();
           let ns= Z.runScene("level1");
-          let a= T.slide(this, 514, 0, 30, "decelerationCubed");
-          let b= T.slide(ns, 0, 0, 30, "decelerationCubed");
+          let a= T.slide(this, T.EASE_OUT_CUBIC, 514, 0, 30);
+          let b= T.slide(ns, T.EASE_OUT_CUBIC,0, 0, 30);
           a.onComplete= () => { Z.removeScene(this); };
         };
         let titleMessage = S.text("start game", {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
         this.insert(titleMessage);
-        T.slide(playButton, 250, 350, 30, "decelerationCubed");
-        T.slide(titleMessage, 250, 300, 30, "decelerationCubed");
+        T.slide(playButton, T.EASE_OUT_CUBIC, 250, 350, 30);
+        T.slide(titleMessage, T.EASE_OUT_CUBIC,250, 300, 30);
       }});
 
     Z.defScene("end",function(){
@@ -53,16 +53,16 @@
       playButton.y = 350;
       playButton.mojoh5.press = () => {
         let ns= Z.runScene("level1");
-        let a= T.slide(this, 514, 0, 30, "decelerationCubed");
-        let b= T.slide(ns, 0, 0, 30, "decelerationCubed");
+        let a= T.slide(this, T.EASE_OUT_CUBIC, 514, 0, 30);
+        let b= T.slide(ns, T.EASE_OUT_CUBIC, 0, 0, 30);
         a.onComplete = () => { Z.removeScene(this); };
       };
       let score=Mojo.Game.state.get("score");
       let msg= `Score: ${score}`;
       let titleMessage = S.text(msg, {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
       this.insert(titleMessage);
-      T.slide(playButton, 250, 350, 30, "decelerationCubed");
-      T.slide(titleMessage, 250, 300, 30, "decelerationCubed");
+      T.slide(playButton, T.EASE_OUT_CUBIC,250, 350, 30);
+      T.slide(titleMessage, T.EASE_OUT_CUBIC,250, 300, 30);
 
       //Mojo.Game.state.get("music").volume = 0.3;
     });

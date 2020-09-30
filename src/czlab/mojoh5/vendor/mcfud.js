@@ -348,7 +348,7 @@
         clearTimeout(id);
       },
       rseq: function(obj,fn,target){
-        if(isArray(obj))
+        if(isArray(obj) && obj.length>0)
           for(let i=obj.length-1;i>=0;--i)
             fn.call(target, obj[i],i);
       },
@@ -685,6 +685,13 @@
     function _cmp_eq(x,y){
       return Math.abs(x-y) <= (EPSILON * Math.max(1, Math.max(Math.abs(x), Math.abs(y))))
     }
+    /**
+     * @public
+     * @function
+     */
+    _M.lerp=function(startv, endv, t){
+      return (1 - t) * startv + t * endv
+    };
     /**
      * Proper modulo.
      * @public
