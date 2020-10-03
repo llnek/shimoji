@@ -2,7 +2,7 @@
   "use strict";
 
   function defScenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_W=Mojo.Tweens,_2d=Mojo["2d"],_T=Mojo.Tiles;
+    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_W=Mojo.Effects,_2d=Mojo["2d"],_T=Mojo.Tiles;
     const _=Mojo.u,is=Mojo.is;
     _Z.defScene("level1",function(){
       let cat = this.cat= _S.sprite("cat.png",32,32);

@@ -265,7 +265,7 @@
       Mojo.canvas.id="mojo";
       Mojo.canvas.scaled = false;
       Mojo.stage= new Mojo.p.Container();
-      _.doseq(_.seq("Sprites,Input,Scenes,Tiles,Tweens,Dust,Sound,GameLoop,2d"), m => {
+      _.doseq(_.seq("Sprites,Input,Scenes,Tiles,Effects,Sound,GameLoop,2d"), m => {
         global["io.czlab.mojoh5."+m](Mojo);
       });
       _S=Mojo.Sprites;
@@ -420,7 +420,8 @@
      */
     Mojo.mockStage=function(){
       return{
-        mojoh5:{ gpos: [0,0] },
+        getGlobalPosition(){ return {x:0,y:0} },
+        mojoh5:{},
         x:0,
         y:0,
         width: this.canvas.width,

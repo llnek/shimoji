@@ -76,36 +76,36 @@
      * @var {object}
      */
     const _={
-      feq0:function(a){
+      feq0(a){
         return Math.abs(a) < EPSILON
       },
-      feq:function(a, b){
+      feq(a, b){
         // <= instead of < for NaN comparison safety
         return Math.abs(a - b) <= EPSILON;
       },
-      fgteq:function(a,b){
+      fgteq(a,b){
         return a>b || this.feq(a,b);
       },
-      flteq:function(a,b){
+      flteq(a,b){
         return a<b || this.feq(a,b);
       },
-      pack: function(o){ return JSON.stringify(o) },
-      unpack: function(s){ return JSON.parse(s) },
-      v2: function(x,y){ return [x,y] },
-      p2: function(x,y){ return {x: x, y: y} },
-      numOrZero: function(n){ return isNaN(n) ? 0 : n },
-      parseNumber: function(s,dft){
+      pack(o){ return JSON.stringify(o) },
+      unpack(s){ return JSON.parse(s) },
+      v2(x,y){ return [x,y] },
+      p2(x,y){ return {x: x, y: y} },
+      numOrZero(n){ return isNaN(n) ? 0 : n },
+      parseNumber(s,dft){
         let n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
       },
-      splitVerStr: function(s){
+      splitVerStr(s){
         let arr=(""+(s || "")).split(".").filter(s=> s.length>0);
         let major=this.parseNumber(arr[0],0);
         let minor=this.parseNumber(arr[1],0);
         let patch=this.parseNumber(arr[2],0);
         return [major, minor, patch];
       },
-      cmpVerStrs: function(V1,V2){
+      cmpVerStrs(V1,V2){
         let v1= this.splitVerStr(""+V1);
         let v2= this.splitVerStr(""+V2);
         if(v1[0] > v2[0]) return 1;
@@ -116,15 +116,15 @@
         else if(v1[2] < v2[2]) return -1;
         return 0;
       },
-      findFiles: function(files, exts){
+      findFiles(files, exts){
         return files.filter(s=> exts.indexOf(_fext(s)) > -1);
       },
-      pdef: function(obj){
+      pdef(obj){
         obj.enumerable=true;
         obj.configurable=true;
         return obj;
       },
-      partition: function(count,arr){
+      partition(count,arr){
         let out=[];
         for(let row,i=0;;){
           row=[];
@@ -139,18 +139,18 @@
           }
         }
       },
-      range:function(start,end){
+      range(start,end){
         _.assert(start !== undefined);
         let out=[];
         if(arguments.length===1){ end=start; start=0 }
         for(let i=start;i<end;++i){ out.push(i) }
         return out
       },
-      keys: function(obj){
+      keys(obj){
         return isMap(obj) ? Array.from(obj.keys())
                           : (isObject(obj) ? Object.keys(obj) : []);
       },
-      selectKeys: function(coll,keys){
+      selectKeys(coll,keys){
         let out;
         if(isMap(coll) || isObject(coll)){
           if(isMap(coll)) out=new Map();
@@ -167,84 +167,84 @@
         }
         return out;
       },
-      assert: function(cond){
+      assert(cond){
         if(!cond)
           throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
         return true
       },
-      noSuchKeys: function(keys,target){
+      noSuchKeys(keys,target){
         let r=this.some(this.seq(keys),k => this.has(target,k)?k:null);
         if(r) console.log("keyfound="+r);
         return !r;
       },
-      randFloat: function(min, max){
+      randFloat(min, max){
         return min + Math.random() * (max - min);
       },
-      randMinus1To1: function(){ return (Math.random() - 0.5) * 2 },
-      randInt: function(num){ return _randXYInclusive(0,num) },
+      randMinus1To1(){ return (Math.random() - 0.5) * 2 },
+      randInt(num){ return _randXYInclusive(0,num) },
       randInt2: _randXYInclusive,
-      rand: function(){ return Math.random() },
-      inst: function(type,obj){ return obj instanceof type },
-      isPerc: function(s){
+      rand(){ return Math.random() },
+      inst(type,obj){ return obj instanceof type },
+      isPerc(s){
         return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/);
       },
-      jsMap: function(){ return new Map() },
-      jsObj: function(){ return {} },
-      jsVec: function(...args){
+      jsMap(){ return new Map() },
+      jsObj(){ return {} },
+      jsVec(...args){
         return args.length===0 ? [] : args.slice();
       },
-      floor: function(v){ return Math.floor(v) },
-      ceil: function(v){ return Math.ceil(v) },
-      abs: function(v){ return Math.abs(v) },
-      sqrt: function(v){ return Math.sqrt(v) },
-      min: function(a,b){ return Math.min(a,b) },
-      max: function(a,b){ return Math.max(a,b) },
-      slice: function(a,i){ return slicer.call(a, i) },
-      every: function(c,v){
+      floor(v){ return Math.floor(v) },
+      ceil(v){ return Math.ceil(v) },
+      abs(v){ return Math.abs(v) },
+      sqrt(v){ return Math.sqrt(v) },
+      min(a,b){ return Math.min(a,b) },
+      max(a,b){ return Math.max(a,b) },
+      slice(a,i){ return slicer.call(a, i) },
+      every(c,v){
         for(let i=0;i<c.length;++i)
           if(c[i] !== v) return false;
         return c.length>0;
       },
-      notAny: function(c,v){
+      notAny(c,v){
         for(let i=0;i<c.length;++i)
           if(c[i] === v) return false;
         return c.length>0;
       },
-      copy: function(to,from){
+      copy(to,from){
         if(!from) return to;
         if(!to) return from.slice();
         let len= Math.min(to.length,from.length);
         for(let i=0;i<len;++i) to[i]=from[i];
         return to;
       },
-      append: function(to,from){
+      append(to,from){
         if(!from) return to;
         if(!to) return from.slice();
         for(let i=0;i<from.length;++i) to.push(from[i]);
         return to;
       },
-      fill: function(a,v){
+      fill(a,v){
         if(a)
           for(let i=0;i<a.length;++i){
             a[i] = isFun(v) ? v() : v;
           }
         return a;
       },
-      size: function(obj){
+      size(obj){
         let len=0;
         if(isArray(obj)) len= obj.length;
         else if(isMap(obj)) len=obj.size;
         else if(obj) len=_.keys(obj).length;
         return len;
       },
-      nextId: function(){ return ++_seqNum },
-      now: function(){ return Date.now() },
+      nextId(){ return ++_seqNum },
+      now(){ return Date.now() },
       fileExt: _fext,
-      fileNoExt: function(name){
+      fileNoExt(name){
         let pos= name.lastIndexOf(".");
         return pos>0 ? name.substring(0,pos) : name;
       },
-      range: function(start,stop,step=1){
+      range(start,stop,step=1){
         if(typeof stop==="undefined"){
           stop=start; start=0; step=1;
         }
@@ -259,7 +259,7 @@
         }
         return res;
       },
-      shuffle: function(obj){
+      shuffle(obj){
         let res=slicer.call(obj,0);
         for(let x,j,i= res.length-1; i>0; --i){
           j = Math.floor(Math.random() * (i+1));
@@ -269,7 +269,7 @@
         }
         return res;
       },
-      uniq: function(arr){
+      uniq(arr){
         let res= [];
         let prev= null;
         arr = slicer.call(arr).sort();
@@ -280,7 +280,7 @@
         });
         return res;
       },
-      map: function(obj, fn,target){
+      map(obj, fn,target){
         let res= [];
         if(isArray(obj))
           res= obj.map(fn,target);
@@ -295,7 +295,7 @@
         }
         return res;
       },
-      find: function(obj,fn,target){
+      find(obj,fn,target){
         let args=slicer.call(arguments,3);
         if(isArray(obj)){
           for(let i=0,z=obj.length;i<z;++i)
@@ -315,7 +315,7 @@
               return [k,obj[k]];
         }
       },
-      some: function(obj,fn,target){
+      some(obj,fn,target){
         let res;
         let args=slicer.call(arguments,3);
         if(isArray(obj)){
@@ -336,23 +336,26 @@
                 return res;
         }
       },
-      invoke: function(arr,key){
+      invoke(arr,key){
         let args=slicer.call(arguments,2);
         if(isArray(arr))
           arr.forEach(x => x[key].apply(x, args));
       },
-      timer: function(f,delay=0){
+      delay(wait,f){
+        return setTimeout(f,wait);
+      },
+      timer(f,delay=0){
         return setTimeout(f,delay);
       },
-      clear: function(id){
+      clear(id){
         clearTimeout(id);
       },
-      rseq: function(obj,fn,target){
+      rseq(obj,fn,target){
         if(isArray(obj) && obj.length>0)
           for(let i=obj.length-1;i>=0;--i)
             fn.call(target, obj[i],i);
       },
-      doseq: function(obj,fn,target){
+      doseq(obj,fn,target){
         if(isArray(obj))
           obj.forEach(fn,target);
         else if(isMap(obj))
@@ -362,7 +365,7 @@
             if(OBJ.hasOwnProperty.call(obj,k))
             fn.call(target, obj[k], k, obj);
       },
-      dissoc: function(obj,key){
+      dissoc(obj,key){
         if(arguments.length>2){
           let prev,i=1;
           for(;i<arguments.length;++i)
@@ -380,13 +383,13 @@
           return val;
         }
       },
-      get: function(obj,key){
+      get(obj,key){
         if(typeof key !== "undefined"){
           if(isMap(obj)) return obj.get(key);
           else if(obj) return obj[key];
         }
       },
-      assoc: function(obj,key,value){
+      assoc(obj,key,value){
         if(arguments.length>3){
           if(((arguments.length-1)%2) !== 0)
             throw "ArityError: expecting even count of args.";
@@ -408,23 +411,23 @@
           return prev;
         }
       },
-      disj: function(coll,obj){
+      disj(coll,obj){
         let i = coll ? coll.indexOf(obj) : -1;
         if(i > -1) coll.splice(i,1);
         return i > -1;
       },
-      conj: function(coll,...objs){
+      conj(coll,...objs){
         if(coll)
           objs.forEach(o => coll.push(o));
         return coll;
       },
-      seq: function(arg,sep=","){
+      seq(arg,sep=","){
         if(typeof arg === "string")
           arg = arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
         if(!isArray(arg)) arg = [arg];
         return arg;
       },
-      has: function(obj,key){
+      has(obj,key){
         if(!key)
           return false;
         if(isMap(obj))
@@ -434,7 +437,7 @@
         if(obj)
           return OBJ.hasOwnProperty.call(obj, key);
       },
-      patch: function(des,additions){
+      patch(des,additions){
         des=des || {};
         if(additions)
           Object.keys(additions).forEach(k=>{
@@ -443,12 +446,12 @@
           });
         return des;
       },
-      clone: function(obj){
+      clone(obj){
         if(obj)
           obj=JSON.parse(JSON.stringify(obj));
         return obj;
       },
-      inject: function(des){
+      inject(des){
         let args=slicer.call(arguments,1);
         des=des || {};
         args.forEach(s=>{
@@ -473,34 +476,48 @@
       };
     }
     /**
+     * @private
+     * @function
+     */
+    function _everyF(F,_1,args){
+      let b=F(_1);
+      switch(args.length){
+      case 0: return b;
+      case 1: return b && F(args[0]);
+      case 2: return b && F(args[0]) && F(args[1]);
+      case 3: return b && F(args[0]) && F(args[1]) && F(args[2]);
+      default: return b && args.every(x => F(x));
+      }
+    }
+    /**
      * @public
      * @var {object}
      */
     const is={
-      fun: function(obj){ return tostr.call(obj) === "[object Function]" },
-      str: function(obj){ return typeof obj === "string" },
-      void0: function(obj){ return obj === void 0 },
-      undef: function(obj){ return obj === undefined },
-      obj: isObject,
-      map: isMap,
-      num: isNum,
-      vec: isArray,
-      some: function(obj){ return _.size(obj) > 0 },
-      none: function(obj){ return _.size(obj) === 0 }
+      fun(f,...args){ return _everyF(isFun,f,args) },
+      str(s,...args){ return _everyF(isStr,s,args) },
+      void0(obj){ return obj === void 0 },
+      undef(obj){ return obj === undefined },
+      obj(o,...args){ return _everyF(isObject,o,args) },
+      map(m,...args){ return _everyF(isMap,m,args) },
+      num(n,...args){ return _everyF(isNum,n,args) },
+      vec(v,...args){ return _everyF(isArray,v,args) },
+      some(obj){ return _.size(obj) > 0 },
+      none(obj){ return _.size(obj) === 0 }
     };
     /**
      * @public
      * @var {object}
      */
     const dom={
-      qSelector: function(sel){ return document.querySelectorAll(sel) },
-      qId: function(id){ return document.getElementById(id) },
-      parent: function(e){ return e ? e.parentNode : undefined },
-      conj: function(par,child){ return par.appendChild(child) },
-      byTag: function(tag, ns){
+      qSelector(sel){ return document.querySelectorAll(sel) },
+      qId(id){ return document.getElementById(id) },
+      parent(e){ return e ? e.parentNode : undefined },
+      conj(par,child){ return par.appendChild(child) },
+      byTag(tag, ns){
         return !is.str(ns) ? document.getElementsByTagName(id)
                            : document.getElementsByTagNameNS(ns,tag) },
-      attrs: function(e, attrs){
+      attrs(e, attrs){
         if(!is.obj(attrs) && attrs){
           if(arguments.length > 2)
             e.setAttribute(attrs, arguments[2]);
@@ -510,7 +527,7 @@
           _.doseq(attrs, (v,k) => e.setAttribute(k,v));
         return e;
       },
-      css: function(e, styles){
+      css(e, styles){
         if(!is.obj(styles) && styles){
           if(arguments.length > 2)
             e.style[styles]= arguments[2];
@@ -520,19 +537,19 @@
           _.doseq(styles, (v,k) => { e.style[k]= v; });
         return e;
       },
-      wrap: function(child,wrapper){
+      wrap(child,wrapper){
         let p=child.parentNode;
         wrapper.appendChild(child);
         p.appendChild(wrapper);
         return wrapper;
       },
-      newElm: function(tag, attrs, styles){
+      newElm(tag, attrs, styles){
         let e = document.createElement(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       },
-      newTxt: function(tag, attrs, styles){
+      newTxt(tag, attrs, styles){
         let e = document.createTextNode(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
@@ -546,7 +563,7 @@
     const EventBus= function(){
       let _tree= _.jsMap();
       return {
-        sub: function(subject,cb,ctx){
+        sub(subject,cb,ctx){
           if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]){
             subject.forEach(e => { if(is.vec(e)) this.sub.apply(this, e); });
           }else{
@@ -567,7 +584,7 @@
             });
           }
         },
-        pub: function(subject,data){
+        pub(subject,data){
           if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]){
             subject.forEach(e => { if(is.vec(e)) this.pub.apply(this, e); });
           }else{
@@ -587,7 +604,7 @@
               */
           }
         },
-        unsub: function(subject,cb,ctx){
+        unsub(subject,cb,ctx){
           if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]){
             subject.forEach(e => { if(is.vec(e)) this.unsub.apply(this, e); });
           }else{

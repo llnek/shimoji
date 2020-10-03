@@ -1,6 +1,6 @@
-(function(window,undefined){
+(function(window){
   "use strict";
-  const MojoH5=window.MojoH5;
+
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
 
@@ -8,19 +8,9 @@
       setup:function(){
         //Make a square and position it
         let square = this.square =_S.rectangle(256, 256, "lightblue", "black", 1);
-        //Set the square's pivot point to its center, so that it will rotate
-        //around its center.
-        //IMPORTANT: Shifting the pivot point doesn't move the position of
-        //the sprite, but it does shift its x/y origin point. The x/y point of the
-        //square will now be at its center.
-        square.anchor.set(0.5, 0.5);
+        //square.anchor.set(0.5, 0.5);
         this.insert(square);
-        //Use the stage's `putCenter` method to put the square
-        //in the center of the stage. You can also use `putTop`,
-        //`putRight`, `putBottom` and `putLeft`. If you want to offset
-        //the position, use x and y offset values as the second and third
-        //arguments: `sprite.putTop(anySprite, -10, -5)`
-        _S.putCenter(this,square);
+        _S.pinCenter(this,square);
         //Add a drop shadow filter to the square
         let shadow = new Mojo.p.Filters.DropShadowFilter();
         shadow.alpha = 0.4;
@@ -41,16 +31,14 @@
         //its center
         let star = this.star= _S.sprite("star.png");
         star.anchor.set(0.5, 0.5);
-        this.insert(star);
+        //this.insert(star);
 
         //Add the star to the cat and position it to the right of the cat
         cat.addChild(star);
-        _S.putRight(cat,star);
+        _S.pinRight(cat,star);
 
-        //Add the cat as a child of the square, and put it at the bottom of
-        //the square
         square.addChild(cat);
-        _S.putBottom(square,cat, 0, -cat.height);
+        _S.pinBottom(square,cat, 0, -cat.height);
 
         //Create some text that we'll use to display the cat's local position
         let localMessage =
@@ -68,12 +56,12 @@
         //to position something at the square's top left corner you need to
         //subtract half the square's width and height.
         let sz=_S.halfSize(square);
-        localMessage.x = -sz.x + 6;
-        localMessage.y = -sz.y + 2;
+        localMessage.x = -sz[0] + 6;
+        localMessage.y = -sz[1] + 2;
 
         //Add an `angle` property to the star that we'll use to
         //help make the star rotate around the cat
-        star.angle = 0;
+        star._angle = 0;
 
         //Create some text that will display the cat's global position
         let globalMessage =
@@ -93,6 +81,9 @@
             {fontSize:16,fontFamily:"Futura",fill:"black"}, 4);
         this.insert(collisionMessage);
 
+        collisionMessage.x = 6;
+        collisionMessage.y = Mojo.canvas.height - collisionMessage.height - 24;
+
         //If you change the square's `alpha`, the child sprites inside it will
         //be similarly affected
         //square.alpha = 0.2;
@@ -105,7 +96,7 @@
         //cat.x += cat.vx;
         //cat.y += cat.vy;
         //Rotate the square
-        this.square.rotation += 0.0005;
+        //this.square.rotation += 0.0005;
 
         //Display the cat's local `x` and local `y` coordinates. These are
         //relative to the square's center point. (The square is the cat's
@@ -119,35 +110,29 @@
         //sprites and groups.
         let cg=_S.gposXY(this.cat);
         this.globalMessage.mojoh5.content(
-          `Global position: cat.gx: ${Math.round(cg.x)}, cat.gy: ${Math.round(cg.y)}`);
+          `Global position: cat.gx: ${Math.round(cg[0])}, cat.gy: ${Math.round(cg[1])}`);
 
         //Contain the cat inside the square's boundary
         let catHitsEdges = _2d.contain(this.cat, this.square);
-
-        //Display the edge of the canvas that the cat hit
         if(catHitsEdges){
-          //Find the collision side
           let collisionSide = "";
           if(catHitsEdges.has(Mojo.LEFT)) collisionSide = "left";
           if(catHitsEdges.has(Mojo.RIGHT)) collisionSide = "right";
           if(catHitsEdges.has(Mojo.TOP)) collisionSide = "top";
           if(catHitsEdges.has(Mojo.BOTTOM)) collisionSide = "bottom";
-
-          //Display it
           this.collisionMessage.mojoh5.content(
             `The cat hit the ${collisionSide} of the square`);
         }
         //Make the star rotate
         this.star.rotation += 0.2;
-
         //Update the star's angle
-        this.star.angle += 0.05;
+        this.star._angle += 0.05;
 
         //The `rotateAroundSprite` method lets you rotate a sprite around
         //another sprite. The first argument is the sprite you want to
         //rotate, and the second argument is the sprite around which it
         //should rotate. The third argument is the distance
-        _S.rotateAroundSprite(this.star, this.cat, 64, this.star.angle);
+        _S.rotateAroundSprite(this.star, this.cat, 64, this.star._angle);
 
         //if you want the rotation to happen around a point that's offset
         //from the center of the sprite, change the center sprite's x and y pivot values
@@ -159,7 +144,7 @@
     scenes(Mojo);
     Mojo.Scenes.runScene("level1");
   }
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     assetFiles: [ "cat.png", "star.png" ],
     arena: {width:512, height:512},
     start: setup,

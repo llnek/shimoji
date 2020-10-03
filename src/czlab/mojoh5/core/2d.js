@@ -217,7 +217,19 @@
      * @function
      */
     _D.contain=function(sprite, container, bounce = false, extra = undefined){
-      let c= container instanceof _Z.Scene ? Mojo.mockStage() : container;
+      let c;
+      if(container instanceof _Z.Scene){
+        c=Mojo.mockStage();
+      }else{
+        if(container.isSprite)
+          _.assert(sprite.parent===container);
+        else
+          _.assert(false,"Error: contain() using bad container");
+        _.assert(container.rotation===0,"Error: contain() container can't rotate");
+        _.assert(container.anchor.x===0,"Error: contain() container anchor.x !==0");
+        _.assert(container.anchor.y===0,"Error: contain() container anchor.y !==0");
+        c=container;
+      }
       let coff= _S.anchorOffsetXY(c);
       let collision = new Set();
       let CX=false,CY=false;
@@ -225,26 +237,26 @@
                                              : _S.toPolygon(sprite,false));
       let cl= c.x-coff[0], cb=c.y-coff[1], cr=cl+c.width, ct=cb+c.height;
       //left
-      if(R.pos[0] < cl){
-        sprite.x -= (R.pos[0] - cl);
+      if(R.pos[0]+cl < cl){
+        sprite.x += (cl-R.pos[0]-cl);
         CX=true;
         collision.add(Mojo.LEFT);
       }
       //bottom
-      if(R.pos[1] < cb){
-        sprite.y -= (R.pos[1] - cb);
+      if(R.pos[1]+cb < cb){
+        sprite.y += (cb-R.pos[1]-cb);
         CY=true;
         collision.add(Mojo.TOP);
       }
       //right
-      if(R.pos[0]+R.width > cr){
-        sprite.x -= R.pos[0]+R.width - cr;
+      if(R.pos[0]+R.width+cl > cr){
+        sprite.x -= R.pos[0]+R.width+cl - cr;
         CX=true;
         collision.add(Mojo.RIGHT);
       }
       //top
-      if(R.pos[1]+R.height > ct){
-        sprite.y -= R.pos[1]+R.height - ct;
+      if(R.pos[1]+R.height+cb > ct){
+        sprite.y -= R.pos[1]+R.height+cb - ct;
         CY=true;
         collision.add(Mojo.BOTTOM);
       }

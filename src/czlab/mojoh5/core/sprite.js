@@ -23,20 +23,17 @@
     global=exports;
   }
   /**
-   * @public
-   * @module
+   * @private
+   * @function
    */
-  global["io.czlab.mojoh5.Sprites"]=function(Mojo){
-    if(Mojo.Sprites){return Mojo.Sprites}
+  function _module(Mojo, WIPShakers){
     const Core=global["io.czlab.mcfud.core"]();
     const Geo=global["io.czlab.mcfud.geo2d"]();
     const _M=global["io.czlab.mcfud.math"]();
     const _V=global["io.czlab.mcfud.vec2"]();
-    const _S={};
     const _=Core.u;
     const is=Core.is;
     const dom=Core.dom;
-    const _shakingSprites = [];
     //------------------------------------------------------------------------
     //create aliases for various PIXI objects
     _.inject(Mojo.p, {Matrix:PIXI.Matrix.TEMP_MATRIX,
@@ -49,20 +46,57 @@
                       TSprite:PIXI.TilingSprite,
                       ASprite:PIXI.AnimatedSprite,
                       PContainer:PIXI.ParticleContainer});
-    /**
-     * @public
-     * @function
-     */
-    _S.assertAnchorCenter=function(s){
-      _.assert(s.anchor.x > 0.3 && s.anchor.x < 0.7, "anchor not in center")
-    };
-    /**
-     * @public
-     * @function
-     */
-    _S.setAnchorCenter=function(s){
-      s.anchor.set(0.5,0.5);
-      return s;
+    const _S={
+      assertAnchorCenter(s){
+        _.assert(s.anchor.x > 0.3 && s.anchor.x < 0.7, "anchor not in center")
+      },
+      empty(o){ return o.children.length === 0 },
+      setXY(o,x,y){ o.x = x; o.y = y; return o },
+      setSize(o,x,y){
+        o.width = x;
+        o.height = y===undefined ? x : y;
+        return o
+      },
+      setScale(o, sx, sy){
+        o.scale && o.scale.set(sx,sy);
+        return o
+      },
+      setAnchor(o,x,y){
+        o.anchor && o.anchor.set(x,y);
+        return o
+      },
+      setPivot(o,x,y){
+        o.pivot && o.pivot.set(x,y);
+        return o
+      },
+      setScaleX(o,v){ o.scale.x = v; return o },
+      setScaleY(o,v){ o.scale.y = v; return o },
+      scaleXY(o){ return o.scale },
+      tileXY(o){ return o.mojoh5.tilePos },
+      tileScaleXY(o){ return o.mojoh5.tileScale },
+      halfSize(o){ return _V.V2(o.width/2,o.height/2) },
+      centerAnchor(s){ s.anchor.set(0.5,0.5); return s },
+      anchorOffsetXY(o){
+        return o.anchor ? _V.V2(o.width*o.anchor.x,o.height*o.anchor.y) : _V.V2()
+      },
+      extend(o){
+        if(!o.mojoh5) o.mojoh5={};
+        _.inject(o.mojoh5, {uuid: _.nextId(),
+                            static: false,
+                            layer: 0,
+                            mass: 1,
+                            invMass: 1,
+                            gravity: _V.V2(),
+                            friction: _V.V2(),
+                            vel: _V.V2(),
+                            acc: _V.V2(),
+                            angVel: 0,
+                            stage: false,
+                            dead: false,
+                            circular: false,
+                            interact: false, draggable: false });
+        return o;
+      }
     };
     /**
      * @public
@@ -75,38 +109,42 @@
       let h2=h/2;
       let R=[];
       switch(a){
-        case "0,0":
-          _.conj(R, v(0,h), v(w,h), v(w,0), v());
-        break;
-        case "0.5,0":
-          _.conj(R, v(-w2,h), v(w2,h), v(w2,0), v(-w2,0));
-        break;
-        case "1,0":
-          _.conj(R, v(-w,h), v(0,h), v(), v(-w,0));
-        break;
-        case "0,0.5":
-          _.conj(R, v(0,h2), v(w,h2), v(w,-h2), v(0,-h2));
-        break;
-        case "0.5,0.5":
-          _.conj(R, v(-w2,h2), v(w2,h2), v(w2,-h2), v(-w2,-h2));
-        break;
-        case "1,0.5":
-          _.conj(R, v(-w,h2), v(0,h2), v(0,-h2), v(-w,-h2));
-        break;
-        case "0,1":
-          _.conj(R, v(), v(w,0), v(w,-h), v(0,-h));
-        break;
-        case "0.5,1":
-          _.conj(R, v(-w2,0), v(w2,0), v(w2,-h), v(-w2,-h));
-        break;
-        case "1,1":
-          _.conj(R, v(-w,0), v(), v(0,-h), v(-w,-h));
-        break;
-        default:
-          _.assert(false,"Error: bad anchor values: "+a);
+      case "0,0":
+        _.conj(R, v(0,h), v(w,h), v(w,0), v());
+      break;
+      case "0.5,0":
+        _.conj(R, v(-w2,h), v(w2,h), v(w2,0), v(-w2,0));
+      break;
+      case "1,0":
+        _.conj(R, v(-w,h), v(0,h), v(), v(-w,0));
+      break;
+      case "0,0.5":
+        _.conj(R, v(0,h2), v(w,h2), v(w,-h2), v(0,-h2));
+      break;
+      case "0.5,0.5":
+        _.conj(R, v(-w2,h2), v(w2,h2), v(w2,-h2), v(-w2,-h2));
+      break;
+      case "1,0.5":
+        _.conj(R, v(-w,h2), v(0,h2), v(0,-h2), v(-w,-h2));
+      break;
+      case "0,1":
+        _.conj(R, v(), v(w,0), v(w,-h), v(0,-h));
+      break;
+      case "0.5,1":
+        _.conj(R, v(-w2,0), v(w2,0), v(w2,-h), v(-w2,-h));
+      break;
+      case "1,1":
+        _.conj(R, v(-w,0), v(), v(0,-h), v(-w,-h));
+      break;
+      default:
+        _.assert(false,"Error: bad anchor values: "+a);
       }
-      return R;
+      return R
     }
+    /**
+     * @public
+     * @function
+     */
     _S.toPolygon=function(sprite, global=true){
       let C=_corners(_strAnchor(sprite.anchor),sprite.width,sprite.height);
       let cx=sprite.x;
@@ -115,7 +153,9 @@
         let g=this.gposXY(sprite);
         cx=g[0];
         cy=g[1];
+        //_V.dropV2(g);
       }
+      //flip reverse since Geo uses RHS system
       let p= new Geo.Polygon(cx,cy).setOrient(sprite.rotation).set(C.reverse());
       _V.dropV2(...C);
       return p;
@@ -127,26 +167,18 @@
     _S.toCircle=function(sprite, global=true){
       this.assertAnchorCenter(sprite);
       let c= this.centerXY(sprite,global);
-      //let h2=sprite.height/2;
-      let w2=sprite.width/2;
-      let p= new Geo.Circle(w2).setPos(c[0],c[1]).setOrient(sprite.rotation);
+      let r=sprite.width/2;
+      let p= new Geo.Circle(r).setPos(c[0],c[1]).setOrient(sprite.rotation);
+      //_V.dropV2(c);
       return p;
     };
     /**
      * @public
      * @function
      */
-    _S.anchorOffsetXY=function(o){
-      return o.anchor ? _V.V2(o.width*o.anchor.x,o.height*o.anchor.y) : _V.V2()
-    };
-    /**
-     * @public
-     * @function
-     */
     _S.gposXY=function(o){
-      if(o.mojoh5 && o.mojoh5.gpos){
-        return is.fun(o.mojoh5.gpos) ? o.mojoh5.gpos() : o.mojoh5.gpos;
-      }
+      //TODO
+      //if(o.mojoh5 && o.mojoh5.gpos){ return is.fun(o.mojoh5.gpos) ? o.mojoh5.gpos() : o.mojoh5.gpos; }
       let p= o.getGlobalPosition();
       return _V.V2(p.x,p.y)
     };
@@ -155,9 +187,8 @@
      * @function
      */
     _S.centerXY=function(o,global=false){
-      if(o.mojoh5 && o.mojoh5.cpos){
-        return is.fun(o.mojoh5.cpos) ? o.mojoh5.cpos() : o.mojoh5.cpos;
-      }
+      //TODO
+      //if(o.mojoh5 && o.mojoh5.cpos){ return is.fun(o.mojoh5.cpos) ? o.mojoh5.cpos() : o.mojoh5.cpos; }
       let a= this.anchorOffsetXY(o);
       let x=o.x, y=o.y;
       if(global){
@@ -173,13 +204,6 @@
      * @public
      * @function
      */
-    _S.halfSize=function(o){
-      return _V.V2(o.width/2,o.height/2)
-    };
-    /**
-     * @public
-     * @function
-     */
     _S.setScaleModeNearest=function(o,v){
       _.assert(o.texture.baseTexture, "Error: no baseTexture");
       o.texture.baseTexture.scaleMode = v ? PIXI.SCALE_MODES.NEAREST : PIXI.SCALE_MODES.LINEAR;
@@ -189,39 +213,14 @@
      * @public
      * @function
      */
-    _S.setScaleX=function(o,v){ o.scale.x = v; return o };
-    /**
-     * @public
-     * @function
-     */
-    _S.setScaleY=function(o,v){ o.scale.y = v; return o };
-    /**
-     * @public
-     * @function
-     */
-    _S.scaleXY=function(o){ return o.scale };
-    /**
-     * @public
-     * @function
-     */
-    _S.tileXY=function(o){ return o.mojoh5.tilePos };
-    /**
-     * @public
-     * @function
-     */
-    _S.tileScaleXY=function(o){ return o.mojoh5.tileScale };
-    /**
-     * @public
-     * @function
-     */
     _S.layer=function(o,v){
       if(v !== undefined){
         o.mojoh5.layer = v;
-        //higher `layer` value are moved to the end of the array
-        if(o.parent)
-          o.parent.children.sort((a, b) => a.mojoh5.layer - b.mojoh5.layer);
+        //sort ascending
+        o.parent &&
+          o.parent.children.sort((a, b) => a.mojoh5.layer - b.mojoh5.layer)
       }
-      return o.mojoh5.layer;
+      return o.mojoh5.layer
     };
     /**
      * @public
@@ -237,7 +236,7 @@
           o.mojoh5.interact = false;
         }
       }
-      return o.mojoh5.interact;
+      return o.mojoh5.interact
     };
     /**
      * @public
@@ -253,18 +252,8 @@
         }
         o.mojoh5.draggable = v;
       }
-      return o.mojoh5.draggable;
+      return o.mojoh5.draggable
     };
-    /**
-     * @public
-     * @function
-     */
-    _S.empty=function(o){ return o.children.length === 0 };
-    /**
-     * @public
-     * @function
-     */
-    _S.setXY=function(o,x,y){ o.x = x; o.y = y };
     /**
      * @public
      * @function
@@ -275,7 +264,7 @@
         if(v)
           o.anchor.set(0.5);
       }
-      return o.mojoh5.circular;
+      return o.mojoh5.circular
     };
     /**
      * @public
@@ -296,76 +285,53 @@
       return o.mojoh5.circular ? o.width/2 : undefined;
     };
     /**
-     * @public
-     * @function
-     */
-    _S.setScale=function(o, sx, sy){
-      o.scale && o.scale.set(sx,sy);
-      return o;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _S.setAnchor=function(o,x,y){
-      o.anchor && o.anchor.set(x,y);
-      return o;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _S.setPivot=function(o,x,y){
-      o.pivot && o.pivot.set(x,y);
-      return o;
-    };
-    /**
      * @private
      * @function
      */
     function _enhanceAnimSprite(s){
-      let numberOfFrames = 0;
-      let frameCounter = 0;
-      let startFrame = 0;
-      let endFrame = 0;
-      let timerInterval;
+      let total= 0;
+      let start= 0;
+      let end= 0;
+      let cnt = 0;
+      let tmID;
       function _reset(){
-        if(s.mojoh5.animating && timerInterval !== undefined){
-          _.clear(timerInterval);
+        if(s.mojoh5.animating){
+          tmID = _.clear(tmID);
+          cnt=0;
+          start=end=total=0;
           s.mojoh5.animating = false;
-          frameCounter= startFrame= endFrame= numberOfFrames = 0;
         }
       }
       function _advanceFrame(){
-        if(frameCounter < numberOfFrames+1){
+        if(cnt < total+1){
           s.gotoAndStop(s.currentFrame+1);
-          frameCounter += 1;
+          cnt += 1;
         }else if(s.loop){
-          s.gotoAndStop(startFrame);
-          frameCounter = 1;
+          s.gotoAndStop(start);
+          cnt = 1;
         }
       }
-      s.mojoh5.stopAnimation = function(){ _reset(); s.gotoAndStop(s.currentFrame) };
-      s.mojoh5.show = function(frame){ _reset(); s.gotoAndStop(frame) };
-      s.mojoh5.playAnimation= function(seq){
-        _reset();
-        if(seq){
-          startFrame = seq[0];
-          endFrame = seq[1];
-        }else{
-          startFrame = 0;
-          endFrame = s.totalFrames-1;
+      _.inject(s.mojoh5, {
+        stopAnimation(){ _reset(); s.gotoAndStop(s.currentFrame) },
+        show(frame){ _reset(); s.gotoAndStop(frame) },
+        playAnimation(seq){
+          _reset();
+          if(seq){
+            start= seq[0];
+            end= seq[1];
+          }else{
+            start= 0;
+            end= s.totalFrames-1;
+          }
+          total= end- start;
+          s.gotoAndStop(start);
+          cnt=1;
+          if(!s.mojoh5.animating){
+            s.mojoh5.animating = true;
+            tmID = _.timer(_advanceFrame,1000/(s.mojoh5.fps||12));
+          }
         }
-        numberOfFrames = endFrame - startFrame;
-        if(!s.mojoh5.fps) s.mojoh5.fps = 12;
-        let frameRate = 1000 / s.mojoh5.fps;
-        s.gotoAndStop(startFrame);
-        frameCounter = 1;
-        if(!s.mojoh5.animating){
-          timerInterval = _.timer(_advanceFrame, frameRate);
-          s.mojoh5.animating = true;
-        }
-      }
+      });
       return s;
     }
     /**
@@ -373,11 +339,11 @@
      * @public
      * @function
      */
-    _S.followEase=function(follower, leader, speed=0.3){
-      let a=this.centerXY(follower);
-      let b=this.centerXY(leader);
+    _S.followEase=function(follower, leader, global=false, speed=0.3){
+      let a=this.centerXY(follower,global);
+      let b=this.centerXY(leader,global);
       let d= _V.makeVecAB(a,b)
-      //move the follower if it's more than 1 pixel away from the leader
+      //move the follower if it's too far off
       if(_V.vecLen2(d) >= 4){
         follower.x += d[0] * speed;
         follower.y += d[1] * speed;
@@ -389,18 +355,18 @@
      * @public
      * @function
      */
-    _S.followConstant=function(follower, leader, speed=3){
-      let a=this.centerXY(follower);
-      let b=this.centerXY(leader);
+    _S.followConstant=function(follower, leader, global=false,speed=3){
+      let a=this.centerXY(follower,global);
+      let b=this.centerXY(leader,global);
       let d=_V.makeVecAB(a,b);
       let dist2= _V.vecLen2(d);
-      //move the follower if it's more than 1 move away from the leader
+      //move the follower if it's too far off
       if(dist2 >= (speed*speed)){
-        let n=_.sqrt(dist2);
-        follower.x += (d[0] / n) * speed;
-        follower.y += (d[1] / n) * speed;
+        let n=Math.sqrt(dist2);
+        follower.x += speed * d[0] / n;
+        follower.y += speed * d[1] / n;
       }
-      _V.dropV2(d);
+      _V.dropV2(d);//,a,b
     };
     /**
      * Use it to make a sprite rotate towards another sprite like this:
@@ -409,10 +375,12 @@
      * @function
      * @returns the angle in radians between two sprites.
      */
-    _S.angle=function(s1, s2){
-      let v2=this.centerXY(s2);
-      let v1=this.centerXY(s1);
-      return Math.atan2(v2[1] - v1[1], v2[0] - v1[0])
+    _S.angle=function(s1, s2, global=false){
+      let v2=this.centerXY(s2,global);
+      let v1=this.centerXY(s1,global);
+      let r= Math.atan2(v2[1] - v1[1], v2[0] - v1[0]);
+      //_V.dropV2(v2,v1);
+      return r;
     };
     /**
      * Make a sprite rotate around another sprite.
@@ -439,13 +407,9 @@
      * @function
      */
     _S.move=function(sprite,dt){
-      if(dt !== undefined){
-        sprite.x += sprite.mojoh5.vel[0] * dt;
-        sprite.y += sprite.mojoh5.vel[1] * dt;
-      }else{
-        sprite.x += sprite.mojoh5.vel[0];
-        sprite.y += sprite.mojoh5.vel[1];
-      }
+      if(dt === undefined) dt=1;
+      sprite.x += sprite.mojoh5.vel[0] * dt;
+      sprite.y += sprite.mojoh5.vel[1] * dt;
       return sprite;
     };
     /**
@@ -515,16 +479,19 @@
      * @function
      */
     _S.getBBox=function(sprite,global=false){
-      return {x1: this.leftSide(sprite,global),
+      let r= {x1: this.leftSide(sprite,global),
               x2: this.rightSide(sprite,global),
               y1: this.topSide(sprite,global),
               y2: this.bottomSide(sprite,global) };
+      _.assert(y1 <= y2);
+      return r;
     };
     /**
      * @public
      * @function
      */
     _S.bbox4=function(left,right,top,bottom){
+      _.assert(top <= bottom);
       return {x1: left, x2: right, y1: top, y2: bottom};
     };
     /**
@@ -535,6 +502,7 @@
       return pt.x > box.x1 && pt.x < box.x2 && pt.y > box.y1 && pt.y < box.y2;
     };
     /**
+     * @see https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
      * @private
      * @function
      */
@@ -555,13 +523,14 @@
      * @public
      * @function
      */
-    _S.hitTestPoint=function(point, sprite,global=false){
+    _S.hitTestPoint=function(point, sprite, global=false){
       let hit;
       if(sprite.mojoh5.circular){
         let c= this.centerXY(sprite,global);
         let d= _V.makeVAB(c,point);
         let r= this.radius(sprite);
         hit= _V.vecLen2(d) < r*r;
+        _V.dropV2(d);
       }else{
         let p= this.toPolygon(sprite,global);
         let ps= _V.translate(p.pos,p.calcPoints);
@@ -587,57 +556,55 @@
      * and `false` if there isn’t.
      *
      */
-    _S.lineOfSight=function(s1, s2, obstacles, segment = 32){
-      let s1c=this.centerXY(s1);
-      let s2c=this.centerXY(s2);
+    _S.lineOfSight=function(s1, s2, obstacles, global=false,segment = 32){
+      let s1c=this.centerXY(s1,false);
+      let s2c=this.centerXY(s2,false);
       let v= _V.makeVecAB(s1c,s2c)
       let dist= _V.vecLen(v);
-      let numPoints = dist / segment;  // pts to test
-      //Create an array of x/y points, separated by 64 pixels, that
-      //extends from `spriteOne` to `spriteTwo`
-      let dx = v[0] / dist;
-      let dy = v[1] / dist;
-      let points = [];
-      _V.dropV2(v);
-      //Create a point object for each segment of the vector and
-      //store its x/y position as well as its index number on the map array
-      for(let mag,i=1; i<=numPoints; ++i){
+      let u = _V.vecDiv(v,dist);
+      let pt= _V.V2();
+      let bad=false;
+      for(let mag,z= dist/segment,i=1; i<=z && !bad; ++i){
         mag = segment*i;
-        //use the unit vector and newMagnitude to figure out the x/y
-        //position of the next point in this loop iteration
-        _.conj(points, _V.V2(s1c[0] + dx * mag, s1c[1] + dy * mag));
+        pt[0]= s1c[0] + u[0] * mag;
+        pt[1]= s1c[1] + u[1] * mag;
+        bad= obstacles.some(o => _S.hitTestPoint(pt, o));
       }
-      return points.every(pt => obstacles.every(o => !_S.hitTestPoint(pt, o)))
+      _V.dropV2(u,v,pt);//,s1c,s2c
+      return !bad;
     };
     /**
      * Find the distance in pixels between two sprites.
      * @public
      * @function
      */
-    _S.distance=function(s1, s2){
-      let c2=this.centerXY(s2);
-      let c1=this.centerXY(s1);
-      return _V.vecDist(c1,c2);
+    _S.distance=function(s1, s2, global=false){
+      let c2=this.centerXY(s2,global);
+      let c1=this.centerXY(s1,global);
+      let r= _V.vecDist(c1,c2);
+      //_V.dropV2(c1,c2);
+      return r;
     };
     /**
      * @public
      * @function
      */
     _S.update=function(dt){
-      _.rseq(s => s.mojoh5.updateShake && s.mojoh5.updateShake(dt))
+      _.rseq(WIPShakers, s => s.mojoh5.updateShake && s.mojoh5.updateShake(dt))
     };
     /**
-     * @private
+     * @public
      * @function
      */
     _S.mkTexture=function(source){
       let obj, texture;
       if(is.str(source)){
-        if(obj=Mojo.tcached(source))
-          texture = new Mojo.p.Texture(obj);
+        obj=Mojo.tcached(source)
       }else if(_.inst(Mojo.p.Texture,source)){
-        texture = new Mojo.p.Texture(source);
+        obj=source
       }
+      if(obj)
+        texture = new Mojo.p.Texture(obj);
       if(!texture)
         throw `Error: ${source} not loaded`;
       return texture;
@@ -648,31 +615,34 @@
      */
     function _sprite(source, width, height, tiling, x, y){
       let C= tiling ? Mojo.p.TSprite : Mojo.p.Sprite;
-      let o, texture;
-      if(is.str(source)){
-        texture= Mojo.tcached(source);
-        if(!texture)
-          texture = Mojo.textureFromImage(source);
-        if(!texture)
-          throw `Error: ${source} not found`;
-        o= tiling ? new C(texture,width,height) : new C(texture);
-      } else if(_.inst(Mojo.p.Texture,source)){
-        o= tiling ? new C(source,width,height) : new C(source);
-      } else if(is.vec(source)){
+      let o, obj;
+      if(_.inst(Mojo.p.Texture,source)){
+        obj=source
+      }else if(is.vec(source)){
         let s0=source[0];
         if(is.str(s0)){
-          o= Mojo.tcached(s0) ? Mojo.animFromFrames(source) : Mojo.animFromImages(source);
-        } else if(_.inst(Mojo.p.Texture,s0)){
-          o = new Mojo.p.ASprite(source);
+          o= Mojo.tcached(s0) ? Mojo.animFromFrames(source)
+                              : Mojo.animFromImages(source)
+        }else if(_.inst(Mojo.p.Texture,s0)){
+          o= new Mojo.p.ASprite(source)
         }
+      }else if(is.str(source)){
+        obj= Mojo.tcached(source);
+        if(!obj)
+          obj = Mojo.textureFromImage(source);
       }
-      if(o){
-        o= _S.extend(o);
-        o.x = x;
-        o.y = y;
-        if(width) o.width = width;
-        if(height) o.height = height;
-      }
+
+      if(obj)
+        o= tiling ? new C(obj,width,height) : new C(obj);
+
+      if(!o)
+        throw `Error: ${source} not found`;
+
+      o= _S.extend(o);
+      o.x = x;
+      o.y = y;
+      if(width) o.width = width;
+      if(height) o.height = height;
       return o;
     }
     /**
@@ -695,7 +665,7 @@
       let o = _sprite(source, width, height, true, x,y);
       o.mojoh5.tileScale= _V.V2();
       o.mojoh5.tilePos= _V.V2();
-      return o
+      return o;
     };
     /**
      * @public
@@ -704,21 +674,22 @@
     _S.animation=function(texture, tileW, tileH, spacing = 0){
       let t= Mojo.tcached(texture);
       if(!t) return null;
-      let pos= [];
-      let cols = t.width / tileW;
-      let rows = t.height / tileH;
+      let cols = t.width/tileW;
+      let rows = t.height/tileH;
       let cells = cols * rows;
+      let pos= [];
       for(let x,y,i=0; i<cells; ++i){
-        x = (i % cols) * tileW;
-        y = _.floor(i / cols) * tileH;
-        //cater for any optional spacing (padding) around the tiles
+        x= (i%cols) * tileW;
+        y= _.floor(i/cols) * tileH;
         if(spacing > 0){
           x += spacing + (spacing * i % cols);
           y += spacing + (spacing * _.floor(i/cols));
         }
         _.conj(pos, _V.V2(x,y));
       }
-      return this.frames(texture, tileW, tileH,pos);
+      let ret= this.frames(texture, tileW, tileH,pos);
+      _V.dropV2(...pos);
+      return ret;
     };
     /**
      * @private
@@ -733,15 +704,15 @@
      * @function
      */
     _S.frame=function(source, width, height,x,y){
-      return _cfgTexture(this.mkTexture(source),width,height,x,y);
+      return _cfgTexture(this.mkTexture(source),width,height,x,y)
     };
     /**
      * @public
      * @function
      */
-    _S.frames=function(source, tileW, tileH, coordinates){
+    _S.frames=function(source, tileW, tileH, points){
       let t= this.mkTexture(source);
-      return coordinates.map(p => _cfgTexture(new Mojo.p.Texture(t),tileW,tileH,p[0],p[1]));
+      return points.map(p => _cfgTexture(new Mojo.p.Texture(t),tileW,tileH,p[0],p[1]))
     };
     /**
      * @public
@@ -749,7 +720,7 @@
      */
     _S.frameSeries=function(startNumber, endNumber, baseName, extension){
       let frames = [];
-      for(let i=startNumber; i < endNumber+1; ++i)
+      for(let z=endNumber+1,i=startNumber; i<z; ++i)
         _.conj(frames, Mojo.tcached(`${baseName+i+extension}`));
       return frames;
     };
@@ -758,8 +729,7 @@
      * @function
      */
     function _initText(C,content,spec,x=0, y=0){
-      let msg=new C(content,spec);
-      _S.extend(msg);
+      let msg=_S.extend(new C(content,spec));
       msg.x = x;
       msg.y = y;
       msg.mojoh5.kontent=content;
@@ -768,9 +738,9 @@
           msg.mojoh5.kontent=v;
           msg.text=v;
         }
-        return msg.mojoh5.kontent;
+        return msg.mojoh5.kontent
       };
-      return msg;
+      return msg
     };
     /**
      * @public
@@ -955,13 +925,13 @@
      * @function
      */
     _S.grid= function(cols, rows, cellW, cellH,
-                      centerCell, xOffset, yOffset, spriteFunc, extraFunc){
+                      centerCell, xOffset, yOffset, spriteCtor, extra){
       let length = cols * rows;
       let container = new Mojo.p.Container();
       for(let s,x,y,i=0; i < length; ++i){
-        x = (i % cols) * cellW;
-        y = _.floor(i / cols) * cellH;
-        s= spriteFunc();
+        x = (i%cols) * cellW;
+        y = _.floor(i/cols) * cellH;
+        s= spriteCtor();
         container.addChild(s);
         s.x = x + xOffset;
         s.y = y + yOffset;
@@ -969,28 +939,26 @@
           s.x += (cellW/2) - (s.width/2);
           s.y += (cellH/2) - (s.height/2);
         }
-        extraFunc && extraFunc(s);
+        extra && extra(s);
       }
-      return this.extend(container);
+      return this.extend(container)
     };
     /**
      * @public
      * @function
      */
     _S.shoot=function(shooter, angle, container,
-                      bulletSpeed, bulletArray, bulletSprite,x,y){
+                      bulletSpeed, bulletArray, bulletCtor,x,y){
       let soff=this.anchorOffsetXY(shooter);
       let g=this.gposXY(shooter);
-      let b= bulletSprite();
+      let b= bulletCtor();
       container.addChild(b);
       b.x= g[0]-soff[0]+x;
       b.y= g[1]-soff[1]+y;
-      //set bullet's velocity
-      this.extend(b);
       b.mojoh5.vel[0] = Math.cos(angle) * bulletSpeed;
       b.mojoh5.vel[1] = Math.sin(angle) * bulletSpeed;
-      _.conj(bulletArray,b);
-      _V.dropV2(soff);
+      _.conj(bulletArray, this.extend(b));
+      _V.dropV2(soff);//g
       return shooter;
     };
     /**
@@ -1014,12 +982,12 @@
           magnitude -= magnitudeUnit;
           sprite.x += _.randInt2(-magnitude, magnitude);
           sprite.y += _.randInt2(-magnitude, magnitude);
-          counter += 1;
+          ++counter;
         }
         if(counter >= numberOfShakes){
           sprite.x = startX;
           sprite.y = startY;
-          _.disj(_shakingSprites,sprite);
+          _.disj(WIPShakers,sprite);
         }
       }
       let tiltAngle = 1;
@@ -1027,24 +995,19 @@
         if(counter < numberOfShakes){
           sprite.rotation = startAngle;
           magnitude -= magnitudeUnit;
-          //Rotate the sprite left or right, depending on the direction,
-          //by an amount in radians that matches the magnitude
           sprite.rotation = magnitude * tiltAngle;
-          counter += 1;
-          //Reverse the tilt angle so that the sprite is tilted
-          //in the opposite direction for the next shake
+          ++counter;
+          //yoyo it
           tiltAngle *= -1;
         }
         if(counter >= numberOfShakes){
           sprite.rotation = startAngle;
-          _.disj(_shakingSprites,sprite);
+          _.disj(WIPShakers,sprite);
         }
       }
-      if(!_.has(_shakingSprites,sprite)){
-        _.conj(_shakingSprites,sprite);
-        sprite.updateShake = function(){
-          angular ? _angularShake() : _upAndDownShake();
-        };
+      if(!_.has(WIPShakers,sprite)){
+        _.conj(WIPShakers,sprite);
+        sprite.updateShake = () => angular ? _angularShake() : _upAndDownShake();
       }
     };
     /**
@@ -1159,14 +1122,15 @@
         b.x -= ag[0];
         b.y -= ag[1];
       }
+      //_V.dropV2(bg,ag);
     }
     /**
-     * Put b inside a's center.
+     * Pin b inside a's center.
      *
      * @public
      * @function
      */
-    _S.putCenter=function(o, b, xOffset = 0, yOffset = 0){
+    _S.pinCenter=function(o, b, xOffset=0, yOffset=0){
       let a= Mojo.adjustForStage(o);
       let az= this.halfSize(a);
       let bz= this.halfSize(b);
@@ -1174,13 +1138,14 @@
       b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
       if(!o.mojoh5.stage)
         _adjustForParent(a, b);
+      _V.dropV2(az,bz);
     };
     /**
      * Position `b` to the left of `a`.
      * @public
      * @function
      */
-    _S.putLeft=function(o,b, xOffset = 0, yOffset = 0){
+    _S.pinLeft=function(o,b, xOffset=0, yOffset=0){
       let a= Mojo.adjustForStage(o);
       let az= this.halfSize(a);
       let bz= this.halfSize(b);
@@ -1188,13 +1153,14 @@
       b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
       if(!o.mojoh5.stage)
         _adjustForParent(a, b);
+      _V.dropV2(az,bz);
     };
     /**
      * Position `b` above `a`.
      * @public
      * @function
      */
-    _S.putTop=function(o, b, xOffset = 0, yOffset = 0){
+    _S.pinTop=function(o, b, xOffset = 0, yOffset = 0){
       let a = Mojo.adjustForStage(o);
       let az= this.halfSize(a);
       let bz= this.halfSize(b);
@@ -1202,6 +1168,7 @@
       b.y = a.y - _nudge(b, b.height, "y") + yOffset - _compensate(a, b, "height", "y");
       if(!o.mojoh5.stage)
         _adjustForParent(a, b);
+      _V.dropV2(az,bz);
     };
     /**
      * Position `b` to the right of `a`.
@@ -1209,7 +1176,7 @@
      * @function
      * @public
      */
-    _S.putRight=function(o, b, xOffset = 0, yOffset = 0){
+    _S.pinRight=function(o, b, xOffset = 0, yOffset = 0){
       let a= Mojo.adjustForStage(o);
       let az= this.halfSize(a);
       let bz= this.halfSize(b);
@@ -1217,6 +1184,7 @@
       b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
       if(!o.mojoh5.stage)
         _adjustForParent(a, b);
+      _V.dropV2(az,bz);
     };
     /**
      * Position `b` below `a`.
@@ -1224,7 +1192,7 @@
      * @public
      * @function
      */
-    _S.putBottom=function(o, b, xOffset = 0, yOffset = 0){
+    _S.pinBottom=function(o, b, xOffset=0, yOffset=0){
       let a= Mojo.adjustForStage(o);
       let az= this.halfSize(a);
       let bz= this.halfSize(b);
@@ -1232,6 +1200,7 @@
       b.y = a.y + _nudge(a, a.height, "y") + yOffset + _compensate(a, b, "height", "y");
       if(!o.mojoh5.stage)
         _adjustForParent(a, b);
+      _V.dropV2(az,bz);
     };
     /**
      * @public
@@ -1240,28 +1209,6 @@
     _S.setMass=function(s,m){
       s.mojoh5.mass=m;
       s.mojoh5.invMass= _.feq0(m) ? 0 : 1/m;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _S.extend=function(o){
-      if(!o.mojoh5) o.mojoh5={};
-      _.inject(o.mojoh5, {uuid: _.nextId(),
-                          static: false,
-                          layer: 0,
-                          mass: 1,
-                          invMass: 1,
-                          gravity: _V.V2(),
-                          friction: _V.V2(),
-                          vel: _V.V2(),
-                          acc: _V.V2(),
-                          angVel: 0,
-                          stage: false,
-                          dead: false,
-                          circular: false,
-                          interact: false, draggable: false });
-      return o;
     };
     /**
      * Copied from pixi.legacy, why didn;t they want to keep this????
@@ -1282,11 +1229,20 @@
       });
       Mojo.p.Matrix.tx = -region.x;
       Mojo.p.Matrix.ty = -region.y;
-      Mojo.ctx.render(displayObject, renderTexture, false, Mojo.p.Matrix, !!displayObject.parent);
+      Mojo.ctx.render(displayObject, renderTexture,
+                      false,
+                      Mojo.p.Matrix, !!displayObject.parent);
       return renderTexture;
     };
 
     return (Mojo.Sprites= _S)
+  }
+  /**
+   * @public
+   * @module
+   */
+  global["io.czlab.mojoh5.Sprites"]=function(Mojo){
+    return Mojo.Sprites ? Mojo.Sprites :  _module(Mojo,[])
   };
 
 })(this);

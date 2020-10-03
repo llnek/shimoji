@@ -260,7 +260,7 @@
           _restoreProps(Mojo.stage.children[i]);
     }
 
-    _.conj(_libsToUpdate, Mojo.Tweens, Mojo.Dust, Mojo.Sprites, Mojo.Input);
+    _.conj(_libsToUpdate, Mojo.Effects, Mojo.Sprites, Mojo.Input);
 
     //------------------------------------------------------------------------
     //enhancements

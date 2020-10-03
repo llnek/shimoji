@@ -12,16 +12,16 @@
         };
         let sz=_S.halfSize(blue);
         this.insert(blue);
-        _S.putCenter(this,blue, sz[0] + 16, sz[1] + 16);
+        _S.pinCenter(this,blue, sz[0] + 16, sz[1] + 16);
         _I.makeDraggable(blue);
         let red = this.red= _S.circle(64, "red");
-        _S.setAnchorCenter(red);
+        _S.centerAnchor(red);
         red.mojoh5.step=function(dt){
           _S.move(red,dt);
         };
         this.insert(red);
         sz=_S.halfSize(red);
-        _S.putCenter(this,red, -sz[0] -16, -sz[1] -16);
+        _S.pinCenter(this,red, -sz[0] -16, -sz[1] -16);
         _I.makeDraggable(red);
 
         blue.angle=60;

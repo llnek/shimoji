@@ -12,7 +12,7 @@
         }
         this.insert(blue);
         let sz=_S.halfSize(blue);
-        _S.putCenter(this, blue,sz[0]+16, sz[1]+16);
+        _S.pinCenter(this, blue,sz[0]+16, sz[1]+16);
         _I.makeDraggable(blue);
         //Make a red square
         let red = this.red= _S.rectangle(64, 64, "red");
@@ -21,7 +21,7 @@
         }
         this.insert(red);
         sz=_S.halfSize(red);
-        _S.putCenter(this,red, -sz[0]-16, -sz[1]-16);
+        _S.pinCenter(this,red, -sz[0]-16, -sz[1]-16);
         _I.makeDraggable(red);
 
         //blue.anchor.set(0.5);

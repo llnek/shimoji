@@ -4,8 +4,7 @@
   function defScenes(Mojo) {
     let Z=Mojo.Scenes;
     let S=Mojo.Sprites;
-    let T=Mojo.Tweens;
-    let D=Mojo.Dust;
+    let T=Mojo.Effects;
     let I=Mojo.Input;
     let _2d= Mojo["2d"];
     let _=Mojo.u, is=Mojo.is;
@@ -125,7 +124,7 @@
           bounce.play();
           if(paddleWobble){
             paddle.scale.set(1,1);
-            T.removeTween(paddleWobble);
+            T.remove(paddleWobble);
           };
           paddleWobble = T.wobble( paddle, 1.3, 1.2, 5, 10, 10, -10, -10, 0.96);
         }
@@ -142,13 +141,13 @@
             let g=S.gposXY(b);
             let globalCenterX = g[0] + sz[0];
             let globalCenterY = g[1] + sz[1];
-            D.create(
+            T.create(
               globalCenterX, globalCenterY,            //x and y position
               () => S.sprite("star.png"),              //Particle function
               self,                                 //The container to add it to
-              20,                                      //Number of particles
-              0.3,                                     //Gravity
+              [0.3,0.3],                                     //Gravity
               true,                                    //Random spacing
+              20,                                      //Number of particles
               0, 6.28,                                 //Min/max angle
               12, 24,                                  //Min/max size
               5, 10,                                   //Min/max speed
