@@ -23,11 +23,10 @@
     global=exports;
   }
   /**
-   * @public
-   * @module
+   * @private
+   * @function
    */
-  global["io.czlab.mojoh5.Tiles"]=function(Mojo){
-    if(Mojo.Tiles){ return Mojo.Tiles }
+  function _module(Mojo){
     const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
     const _M=global["io.czlab.mcfud.math"]();
@@ -35,15 +34,20 @@
     const is=Core.is;
     const _=Core.u;
     const _T= {};
+    /** dummy empty array
+     * @private
+     * @var {array}
+     */
+    const _DA=[];
     /**
      * @private
      * @function
      */
-    function _parseProperties(elem){
-      let props={};
-      if(elem.properties)
-        elem.properties.forEach(p => {props[p.name]=p.value});
-      return props;
+    function _parseProperties(el){
+      return (el.properties|| _DA).reduce((acc,p) => {
+        acc[p.name]=p.value;
+        return acc;
+      }, {})
     }
     /**
      * @private
@@ -90,48 +94,35 @@
      * @function
      * @returns A tile object.
      */
-    _T.getTile=function(index, mapArray, world){
+    _T.getTile=function(index, gidList, world){
       let tiled=world.tiled;
-      let tile =_S.extend({gid: mapArray[index],
-                           width: tiled.tileW,
-                           height: tiled.tileH,
-                           anchor: new Mojo.p.ObservablePoint(()=>{},this),
-                           x: ((index % tiled.tilesInX) * tiled.tileW) + world.x,
-                           y: ((_.floor(index / tiled.tilesInX)) * tiled.tileH) + world.y});
-      tile.getGlobalPosition=function(){
-        return {x: this.x, y: this.y }
-      };
-      //tile.mojoh5.gpos= _.p2(tile.x, tile.y);
-      //tile.mojoh5.cpos= _.p2(tile.x + tiled.tileW/2, tile.y + tiled.tileH/2);
-      return tile;
+      return _S.extend({gid: gisList[index],
+                        width: tiled.tileW,
+                        height: tiled.tileH,
+                        anchor: Mojo.makeAnchor(0,0),
+                        getGlobalPosition(){ return {x: this.x, y: this.y } },
+                        x: ((index % tiled.tilesInX) * tiled.tileW) + world.x,
+                        y: ((_.floor(index / tiled.tilesInX)) * tiled.tileH) + world.y})
     };
     /**
      * @public
      * @function
-     * @returns an array containing 9
-     * index numbers of map array cells around any given index number.
-     * Use it for an efficient broadphase/narrowphase collision test.
-     * The 2 arguments are the index number that represents the center cell,
-     * and the width of the map array.
+     * @returns cells around a tile x x x
+     *                              x c x
+     *                              x x x
      */
-    _T.getNeighborCells=function(index, world, ignoreSelf){
-      let tiled=world.tiled;
-      let a= [index - tiled.tilesInX - 1,
-              index - tiled.tilesInX,
-              index - tiled.tilesInX + 1,
-              index - 1];
-      let b= [index + 1,
-              index + tiled.tilesInX - 1,
-              index + tiled.tilesInX,
-              index + tiled.tilesInX + 1];
+    _T.neighborCells=function(index, world, ignoreSelf){
+      let w=world.tiled.tilesInX;
+      let a= [index - w - 1, index - w, index - w + 1, index - 1];
+      let b= [index + 1, index + w - 1, index + w, index + w + 1];
       if(!ignoreSelf) a.push(index);
       return a.concat(b);
     };
     /**
-     * @public
+     * @private
      * @function
      */
-    _T.getContactPoints=function(s){
+    function _getContactPoints(s){
       //internal rectangle defining the collision area of this sprite
       let c,a= _S.getBBox(s);
       if(c=s.collisionArea){
@@ -144,26 +135,21 @@
               _V.V2(a.x2,a.y2),_V.V2(a.x1,a.y2)]
     };
     /**
-     * Checks for a collision between a sprite and a tile in any map array.
-     *
+     * Checks for a collision between a sprite and a tile.
      * @public
      * @function
      * @returns a `collision` object.
      */
-    _T.hitTestTile=function(sprite, mapArray, gidToCheck, world, pointsToCheck){
-      pointsToCheck = pointsToCheck || Mojo.SOME;
-      let op="some",col= {}, colPts;
+    _T.hitTestTile=function(sprite, gidList, gidToCheck, world, checkHow=Mojo.SOME){
+      let col= {};
       function _checker(pt){
         col.index = _getIndex3(pt[0], pt[1], world);
-        col.gid = mapArray[col.index];
+        col.gid = gidList[col.index];
         return col.gid === gidToCheck;
       }
-      if(pointsToCheck !== Mojo.CENTER){
-        op= pointsToCheck===Mojo.EVERY ? "every" : "some";
-        colPts = this.getContactPoints(sprite);
-      }else{
-        colPts = [_S.centerXY(sprite)];
-      }
+      let colPts= checkHow === Mojo.CENTER ? [_S.centerXY(sprite)]
+                                           : _getContactPoints(sprite);
+      let op= checkHow===Mojo.EVERY ? "every" : "some";
       col.hit = colPts[op](_checker);
       _V.dropV2(colPts);
       return col;
@@ -173,8 +159,8 @@
      * @public
      * @function
      */
-    _T.updateMap=function(mapArray, spritesToUpdate, world){
-      let ret = _.fill(new Array(mapArray.length),0);
+    _T.updateMap=function(gidList, spritesToUpdate, world){
+      let ret = _.fill(new Array(gidList.length),0);
       function _mapper(s){
         let pos= _T.getTileIndex(_S.centerXY(s), world);
         _.assert(pos >= 0 && pos < ret.length, "tiled index outofbound");
@@ -194,29 +180,34 @@
       let p= s && s.split("/");
       return p && p.length && p[p.length-1];
     }
+    /**
+     * @private
+     * @function
+     */
     function _parsePoint(pt){
       let pts = pt.split(",");
       return [parseFloat(pts[0]), parseFloat(pts[1])];
     }
+    /**
+     * @private
+     * @function
+     */
     function _lookupGid(gid,gidMap){
       let idx = 0;
       while(gidMap[idx+1] &&
             gid >= gidMap[idx+1][0]) ++idx;
       return gidMap[idx];
     }
+    /**
+     * @private
+     * @function
+     */
     function _scanTilesets(tilesets, tileProperties){
       let gidList = [];
-      tilesets.forEach(ts => {
-        let tsinfo=_.selectKeys(ts,"firstgid,name,spacing,"+
-                                   "imageheight,imagewidth,"+
-                                   "tileheight,tilewidth");
+      _.doseq(tilesets, ts => {
+        let tsinfo=_.selectKeys(ts,"firstgid,name,spacing,imageheight,imagewidth,tileheight,tilewidth");
         tsinfo.image= _getImage(ts);
-        ts.tiles.forEach(tile => {
-          let gid = tsinfo.firstgid + tile.id;
-          let ps = _parseProperties(tile);
-          //if(ps.points) ps.points = _.map(ps.points.split(" "),_parsePoint);
-          tileProperties[gid] = ps;
-        });
+        _.doseq(ts.tiles, t => tileProperties[tsinfo.firstgid + t.id] = _parseProperties(t));
         _.conj(gidList,[tsinfo.firstgid, tsinfo]);
       });
       return gidList.sort((a,b) => {
@@ -226,49 +217,56 @@
       });
     }
     /**
-     * A quick and easy way to display a game world designed in
-     * Tiled Editor.
-     *
+     * @private
+     * @function
+     */
+    function _container(ps){
+      let c= _S.container();
+      _.assert(!_.has(c,"tiled"));
+      c.tiled=_.inject({},ps);
+      return c;
+    }
+    /**
+     * Load in a Tiled map.
      * @public
      * @function
-     *
      */
     _T.makeTiledWorld=function(jsonTiledMap){
-      let tiledMap = Mojo.resources(jsonTiledMap);
-      tiledMap= tiledMap && tiledMap.data;
-      if(!tiledMap)
+      let tmx = Mojo.resources(jsonTiledMap);
+      tmx= tmx && tmx.data;
+      if(!tmx)
         throw `Error: ${jsonTiledMap} not cached`;
       //check version of map-editor
-      let tprops= _checkVersion(tiledMap,jsonTiledMap);
-      let world = _S.extend(new Mojo.p.Container());
-      _.assert(!_.has(world,"tiled"));
+      let tprops= _checkVersion(tmx,jsonTiledMap);
+      let world = _container(tprops);
+      let tiled= world.tiled;
       let gtileProps={};
-      let tiled= world.tiled = _.inject(tprops, {tileObjects: [],
-                                                 tileProps: gtileProps,
-                                                 tileH: tiledMap.tileheight,
-                                                 tileW: tiledMap.tilewidth,
-                                                 tilesInX: tiledMap.width,
-                                                 tilesInY: tiledMap.height,
-                                                 tiledWidth: tiledMap.width * tiledMap.tilewidth,
-                                                 tiledHeight: tiledMap.height * tiledMap.tileheight,
-                                                 tileGidList: _scanTilesets(tiledMap.tilesets,gtileProps)});
-      tiledMap.layers.forEach(layer => {
-        let layergp = _S.extend(new Mojo.p.Container());
-        _.assert(!_.has(layergp,"tiled"));
-        layergp.alpha = layer.opacity;
-        layergp.tiled = _.inject({}, layer);
-        world.addChild(layergp);
-        _.conj(world.tiled.tileObjects,layergp);
-        function _doTileLayer(layer){
-          for(let gid,index=0;index<layer.data.length;++index){
-            gid=layer.data[index];
+      _.patch(tiled, {tileObjects: [],
+                      tileProps: gtileProps,
+                      tileH: tmx.tileheight,
+                      tileW: tmx.tilewidth,
+                      tilesInX: tmx.width,
+                      tilesInY: tmx.height,
+                      tiledWidth: tmx.width * tmx.tilewidth,
+                      tiledHeight: tmx.height * tmx.tileheight,
+                      tileGidList: _scanTilesets(tmx.tilesets,gtileProps)});
+      _.doseq(tmx.layers, layer => {
+        let gp = _container();
+        world.addChild(gp);
+        gp.alpha = layer.opacity;
+        _.inject(gp.tiled, layer);
+        _.conj(world.tiled.tileObjects,gp);
+
+        function _doTileLayer(tl){
+          for(let gid,i=0;i<tl.data.length;++i){
+            gid=tl.data[i];
             if(gid===0) continue;
             let tsinfo=_lookupGid(gid,tiled.tileGidList)[1];
             let tileId=gid - tsinfo.firstgid;
             _.assert(tileId>=0, `Bad tile id: ${tileId}`);
             let cols=_.floor(tsinfo.imagewidth / (tsinfo.tilewidth+tsinfo.spacing));
-            let mapColumn = index % layer.width;
-            let mapRow = _.floor(index / layer.width);
+            let mapColumn = i % tl.width;
+            let mapRow = _.floor(i/ tl.width);
             let mapX = mapColumn * tsinfo.tilewidth;
             let mapY = mapRow * tsinfo.tileheight;
             let tilesetCol = tileId % cols;
@@ -280,23 +278,23 @@
               tilesetY += tsinfo.spacing + (tsinfo.spacing * tilesetRow);
             }
             let texture = _S.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
-            let tileSprite = _S.extend(new Mojo.p.Sprite(texture));
+            let s = _S.extend(new Mojo.p.Sprite(texture));
             let tprops=gtileProps[gid];
-            _.assert(!_.has(tileSprite,"tiled"));
-            tileSprite.tiled={____gid: gid, ____index: index};
-            tileSprite.x = mapX;
-            tileSprite.y = mapY;
+            _.assert(!_.has(s,"tiled"));
+            s.tiled={____gid: gid, ____index: i};
+            s.x = mapX;
+            s.y = mapY;
             if(tprops && _.has(tprops,"name")){
-              _.inject(tileSprite.tiled, tprops);
-              _.conj(tiled.tileObjects, tileSprite);
+              _.inject(s.tiled, tprops);
+              _.conj(tiled.tileObjects, s);
             }
-            layergp.addChild(tileSprite);
+            gp.addChild(s);
           }
         }
-        function _doObjGroup(layer){
-          layer.objects.forEach(o => {
+        function _doObjGroup(tl){
+          _.doseq(tl.objects,o => {
             _.assert(!_.has(o,"tiled"));
-            o.tiled={name: o.name, ____group: layergp};
+            o.tiled={name: o.name, ____group: gp};
             _.conj(tiled.tileObjects,o);
           });
         }
@@ -318,7 +316,7 @@
       world.tiled.getObjects = function(objectNames,panic){
         let found= [];
         objectNames=_.seq(objectNames);
-        world.tiled.tileObjects.forEach(o => {
+        _.doseq(world.tiled.tileObjects,o => {
           if(o.tiled && _.has(objectNames,o.tiled.name))
             _.conj(found,o);
         });
@@ -329,376 +327,75 @@
       //extend all nested sprites
       function _addProps(obj){
         _S.extend(obj);
-        obj.children &&
-          obj.children.forEach(c => _addProps(c));
+        _.doseq(obj.children,_addProps);
       }
-      world.children &&
-        world.children.forEach(c => _addProps(c));
-
+      _.doseq(world.children,_addProps);
       return world;
     };
-    //----- Isometric tile utilities -----------------------------------------
     /**
-     * And array `sort` function that depth-sorts sprites according to
-     * their `z` properties.
-     *
-     * @public
-     * @function
-     *
+     * @private
+     * @class
      */
-    _T.byDepth=function(a, b){
-      let ac= a.tiled.cartXY();
-      let bc= b.tiled.cartXY();
-      //Calculate the depths of `a` and `b`
-      //(add `1` to `a.z` and `b.x` to avoid multiplying by 0)
-      a.tiled.depth = (ac[0] + ac[1]) * (a.z + 1);
-      b.tiled.depth = (bc[0] + bc[1]) * (b.z + 1);
-      //Move sprites with a lower depth to a higher position in the array
-      if(a.tiled.depth < b.tiled.depth){
-        return -1;
-      }else if(a.tiled.depth > b.tiled.depth){
-        return 1;
-      }else{
-        return 0;
+    class AStarAlgos{
+      constructor(straightCost,diagonalCost){
+        this.straightCost= straightCost;
+        this.diagonalCost= diagonalCost;
       }
-    };
-    /**
-     * @public
-     * @function
-     *
-     */
-    _T.hitTestIsoTile=function(sprite, mapArray, gidToCheck, world, pointsToCheck){
-      pointsToCheck = pointsToCheck || Mojo.SOME;
-      let op="some", col={}, colPts;
-      function _checker(pt){
-        col.index = Mojo.getIndex(pt[0], pt[1],
-                                  world.tiled.cartTileW,
-                                  world.tiled.cartTileH, world.tiled.tilesInX);
-        col.gid = mapArray[col.index];
-        return col.gid === gidToCheck;
+      manhattan(test, dest){
+        return _.abs(test.row - dest.row) * this.straightCost +
+               _.abs(test.col - dest.col) * this.straightCost
       }
-      if(pointsToCheck===Mojo.CENTER){
-        let ca= s.collisionArea;
-        let c= s.tiled.cartXY();
-        colPts = [_V.V2(c[0] + ca.x1 + (ca.x2-ca.x1)/2,
-                        c[1] + ca.y1 + (ca.y2-ca.y1)/2)];
-      } else {
-        op= pointsToCheck===Mojo.EVERY ? "every" : "some";
-        colPts = this.getIsoPoints(sprite);
+      euclidean(test, dest){
+        let vx = dest.col - test.col;
+        let vy = dest.row - test.row;
+        return _.floor(_.sqrt(vx * vx + vy * vy) * this.straightCost)
       }
-      col.hit = colPts[op](_checker);
-      return col;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _T.getIsoPoints=function(s){
-      //sprites internal hitbox
-      let ca = s.collisionArea;
-      let c= s.tiled.cartXY();
-      let lf=c[0];
-      let bt=c[1];
-      let rt=lf+s.tiled.cartWidth-1;
-      let tp=bt+s.tiled.cartHeight-1;
-      if(ca){
-        lf=c[0]+ca.x1;
-        bt=c[1]+ca.y1;
-        rt=lf+(ca.x2-ca.x1-1);
-        tp=bt+(ca.y2-ca.y1-1);
+      diagonal(test, dest){
+        let vx = _.abs(dest.col - test.col);
+        let vy = _.abs(dest.row - test.row);
+        return (vx > vy) ? _.floor(this.diagonalCost * vy + this.straightCost * (vx - vy))
+                         : _.floor(this.diagonalCost * vx + this.straightCost * (vy - vx))
       }
-      return {x1: lf, x2: rt, y1: bt, y2: tp}
-    };
-    /**
-     * Used to add a isometric properties to any mouse/touch `pointer` object with
-     * `x` and `y` properties. Supply `makeIsoPointer` with the pointer object and
-     * the isometric `world` object.
-     *
-     * @public
-     * @function
-     *
-     */
-    _T.makeIsoPointer=function(pointer, world){
-      let ptr= _S.extend(pointer);
-      if(!ptr.tiled) ptr.tiled={};
-      //The isometric's world's Cartesian coordiantes
-      ptr.tiled.cartXY=function(){
-        return _V.V2((((2 * ptr.y + ptr.x) - (2 * world.y + world.x)) / 2) - (world.tiled.cartTileW/2),
-                    (((2 * ptr.y - ptr.x) - (2 * world.y - world.x)) / 2) + (world.tiled.cartTileH/2));
-      };
-      //The tile's column and row in the array
-      ptr.tiled.col=function(){
-        return _.floor(ptr.tiled.cartXY()[0] / world.tiled.cartTileW)
-      };
-      ptr.tiled.row=function(){
-        return _.floor(ptr.tiled.cartXY()[1] / world.tiled.cartTileH)
-      };
-      //The tile's index number in the array
-      ptr.tiled.____index=function(){
-        //Convert pixel coordinates to map index coordinates
-        let ix = _.floor(ptr.tiled.cartXY()[0] / world.tiled.cartTileW);
-        let iy = _.floor(ptr.tiled.cartXY()[1] / world.tiled.cartTileH);
-        return ix + iy * world.tiled.tilesInX;
-      };
-    };
-    /**
-     * @public
-     * @function
-     */
-    _T.isoWorld=function(cartTileW, cartTileH, tilesInX,tilesInY){
-      let g= _S.group();
-      g.tiled={
-        cartTileW: cartTileW,
-        cartTileH: cartTileH,
-        tilesInX: tilesInX,
-        tilesInY: tilesInY
-      };
-      return g;
     }
     /**
-     * A function for creating a simple isometric diamond
-     * shaped rectangle using Pixi's graphics library.
-     *
-     * @public
-     * @function
-     */
-    _T.isoRectangle=function(width, height, fillStyle){
-      //Draw the flattened and rotated square (diamond shape)
-      let r= new Mojo.p.Graphics();
-      let h2= height/2;
-      r.beginFill(fillStyle);
-      r.moveTo(0, 0);
-      r.lineTo(width, h2);
-      r.lineTo(0, height);
-      r.lineTo(-width, h2);
-      r.lineTo(0, 0);
-      r.endFill();
-      let s= _S.extend(new Mojo.p.Sprite(_S.generateTexture(r)));
-      s.tiled={};
-      return s;
-    };
-    /**
-     * Add properties to a sprite to help work between Cartesian
-     * and isometric properties: `isoX`, `isoY`, `cartX`,
-     * `cartWidth` and `cartHeight`.
-     *
-     * @public
-     * @function
-     *
-     */
-    _T.addIsoProperties=function(sprite, width, height,x,y){
-      let cpos= _V.V2(x,y);
-      if(!sprite.tiled) sprite.tiled={};
-      //Cartisian (flat 2D) properties
-      sprite.tiled.cartXY=function(cx,cy){
-        if(cx !== undefined){
-          cpos[0]=cx;
-          cpos[1]=cy;
-        }
-        return cpos;
-      };
-      sprite.tiled.cartWidth = width;
-      sprite.tiled.cartHeight = height;
-      sprite.tiled.isoXY=function(){
-        return _V.V2(cpos[0]-cpos[1], (cpos[0]+cpos[1])/2);
-      };
-    };
-    /**
-     * Make an isometric world from TiledEditor map data.
-     * @public
-     * @function
-     */
-    _T.makeIsoTiledWorld=function(jsonTiledMap){
-      let tiledMap = Mojo.resources(jsonTiledMap);
-      tiledMap=tiledMap && tiledMap.data;
-      if(!tiledMap)
-        throw `Error: ${jsonTiledMap} not loaded`;
-      let tprops= _checkVersion(tiledMap, jsonTiledMap);
-      //A. You need to add three custom properties to your Tiled Editor
-      //map: `cartTileW`,`cartTileH` and `tileDepth`. They define the Cartesian
-      //dimesions of the tiles (32x32x64).
-      _.assert(_.has(tprops,"cartTileW") &&
-               _.has(tprops,"cartTileH") &&
-               _.has(tprops,"tileDepth"),
-               "Set custom cartTileW, cartTileH and tileDepth map properties");
-      let world = _S.extend(new Mojo.p.Container());
-      let z=0;
-      let gtileProps={};
-      let tileH= parseInt(tprops.tileDepth);
-      let cartTileH= parseInt(tprops.cartTileH);
-      let cartTileW= parseInt(tprops.cartTileW);
-      let tiled= world.tiled= _.inject(tprops, {tileObjects: [],
-                                                tileProps: gtileProps,
-                                                tileH: tileH,
-                                                tileW: tiledMap.tilewidth,
-                                                tilesInX: tiledMap.width,
-                                                tilesInY: tiledMap.height,
-                                                cartTileH: cartTileH,
-                                                cartTileW: cartTileW,
-                                                tiledWidth: tiledMap.width * cartTileW,
-                                                tiledHeight: tiledMap.height * cartTileH,
-                                                tileGidList: _scanTilesets(tiledMap.tilesets, gtileProps)});
-      this.insert(world);
-      tiledMap.layers.forEach(layer => {
-        let layergp = _S.extend(new Mojo.p.Container());
-        let gprops= _.inject({}, layer);
-        _.assert(!_.has(layergp,"tiled"));
-        layergp.alpha = layer.opacity;
-        layergp.tiled = gprops;
-        world.addChild(layergp);
-        _.conj(tiled.tileObjects,layergp);
-        function _doTileLayer(layer){
-          for(let gid,index=0;index<layer.data.length;++index){
-            gid=layer.data[index];
-            if(gid===0) continue;
-            let tsinfo=_lookupGid(gid,tiled.tileGidList)[1];
-            let tileId=gid - tsinfo.firstgid;
-            _.assert(tileId>=0, `Bad tile id: ${tileId}`);
-            let cols=_.floor(tsinfo.imagewidth / (tsinfo.tilewidth+tsinfo.spacing));
-            let mapColumn = index % layer.width;
-            let mapRow = _.floor(index / layer.width);
-            let mapX = mapColumn * tiled.cartTileW;
-            let mapY = mapRow * tiled.cartTileH;
-            let tilesetCol = tileId % cols;
-            let tilesetRow = _.floor(tileId / cols);
-            let tilesetX = tilesetCol * tsinfo.tilewidth;
-            let tilesetY = tilesetRow * tsinfo.tileheight;
-            if(tsinfo.spacing > 0){
-              tilesetX += tsinfo.spacing + (tsinfo.spacing * tilesetCol);
-              tilesetY += tsinfo.spacing + (tsinfo.spacing * tilesetRow);
-            }
-            let texture = Mojo.Sprites.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
-            let tileSprite = _S.extend(new Mojo.p.Sprite(texture));
-            let tprops= gtileProps[gid];
-            _.assert(!_.has(tileSprite,"tiled"));
-            tileSprite.tiled={____gid: gid, ____index: index};
-            if(tprops && _.has(tprops,"name")){
-              _.inject(tileSprite.tiled, tprops);
-              _.conj(tiled.tileObjects,tileSprite);
-            }
-            _T.addIsoProperties(tileSprite, tiled.cartTileW, tiled.cartTileH, mayX, mapY);
-            let iso= tileSprite.tiled.isoXY();
-            tileSprite.x = iso[0];
-            tileSprite.y = iso[1];
-            tileSprite.z = z;
-            layergp.addChild(tileSprite);
-          }
-        }
-        function _doObjGroup(layer,container){
-          layer.objects.forEach(o => {
-            _.assert(!_.has(o,"tiled"));
-            o.tiled={name: o.name,
-                     ____group: container};
-            _.conj(tiled.tileObjects,o);
-          });
-        }
-        if(layer.type === "tilelayer"){
-          _doTileLayer(layer);
-        }
-        else if(layer.type === "objectgroup"){
-          _doObjGroup(layer);
-        }
-        z += 1;
-      });
-      world.tiled.getObject=function(name,panic){
-        let found= _.some(world.tiled.tileObjects, o => {
-          if(o.tiled && o.tiled.name === name)
-            return o;
-        });
-        if(!found && panic)
-          throw `There is no object with the property name: ${name}`;
-        return found;
-      };
-      world.tiled.getObjects=function(objectNames,panic){
-        let found= [];
-        objectNames=_.seq(objectNames);
-        world.tiled.tileObjects.forEach(o => {
-          if(o.tiled && _.has(objectNames, o.tiled.name))
-            _.conj(found,o);
-        });
-        if(found.length === 0 && panic) throw "No object found";
-        return found;
-      };
-
-      //extend all nested sprites
-      function _addProps(obj){
-        _S.extend(obj);
-        obj.children &&
-          obj.children.forEach(c => _addProps(c));
-      }
-
-      world.children &&
-        world.children.forEach(c => _addProps(c));
-
-      return world;
-    };
-    /**
-     * An A-Star search algorithm that returns an array of grid index numbers that
-     * represent the shortest path between two points on a map. Use it like this:
+     * A-Star search.
      * @public
      * @function
      */
     _T.shortestPath=function(startTile, targetTile, tiles, world,
                              obstacleGids = [],
                              heuristic = "manhattan", useDiagonal=true){
-      let openList = [], closedList = [], theShortestPath = [];
-      let nodes = tiles.map((xxx,i) =>
-        ({f: 0, g: 0, h: 0, parent: null, index:i,
-        col: i % world.tiled.tilesInX,
-        row: _.floor(i / world.tiled.tilesInX)}));
-      let startNode = nodes[startTile];
-      let straightCost = 10;
-      let diagonalCost = 14;
-      let centerNode = startNode;
-      _.conj(openList,centerNode)
+      let W=world.tiled.tilesInX;
+      let openList = [];
+      let closedList = [];
+      let theShortestPath = [];
+      let nodes = tiles.map((gid,i) =>
+        ({f: 0, g: 0, h: 0,
+          parent: null, index:i,
+          col: i % W, row: _.floor(i/W)}));
       let targetNode = nodes[targetTile];
-      function surroundingNodes(i){
-        let neighbors= _T.getNeighborCells(i, world, true).map(p => nodes[p]);
-        let cross= _T.getCrossCells(i,world).map(p => nodes[p]);
-        let nodesToCheck= useDiagonal ? neighbors : cross;
-        return nodesToCheck.filter(node => {
-          if(node){
-            let indexIsOnLeftBorder = (i % world.tiled.tilesInX) === 0;
-            let indexIsOnRightBorder = ((i+1) % world.tiled.tilesInX) === 0;
-            let nodeIsBeyondLeftBorder = (node.col % (world.tiled.tilesInX-1)) === 0 && node.col !== 0;
-            let nodeIsBeyondRightBorder = (node.col % world.tiled.tilesInX) === 0;
-            let nodeContainsAnObstacle = obstacleGids.some(o => tiles[node.index] === o);
-            if(indexIsOnLeftBorder){
-              return !nodeIsBeyondLeftBorder;
-            }else if(indexIsOnRightBorder){
-              return !nodeIsBeyondRightBorder;
-            }else if(nodeContainsAnObstacle){
-              //Return `true` if the node doesn't contain any obstacles
-              return false;
-            } else {
-              return true;
-            }
+      let startNode = nodes[startTile];
+      let centerNode = startNode;
+      let straightCost=10;
+      let diagonalCost=14;
+      _.conj(openList,centerNode);
+      function _testNodes(i){
+        let c= !useDiagonal ? _T.crossCells(i,world)
+                            : _T.neighborCells(i, world, true);
+        return c.map(p=>nodes[p]).filter(n=>{
+          if(n){
+            let indexOnLeft= (i% W) === 0;
+            let indexOnRight= ((i+1) % W) === 0;
+            let nodeBeyondLeft= (n.col % (W-1)) === 0 && n.col !== 0;
+            let nodeBeyondRight= (n.col % W) === 0;
+            let nodeIsObstacle = obstacleGids.some(o => tiles[n.index] === o);
+            return indexOnLeft ? !nodeBeyondLeft
+                               : (indexOnRight ? !nodeBeyondRight : !nodeIsObstacle);
           }
         });
       }
-      const algos= {
-        manhattan: (testNode, destinationNode) => {
-          return _.abs(testNode.row - destinationNode.row) * straightCost +
-                 _.abs(testNode.col - destinationNode.col) * straightCost;
-        },
-        euclidean: (testNode, destinationNode) => {
-          let vx = destinationNode.col - testNode.col;
-          let vy = destinationNode.row - testNode.row;
-          return _.floor(_.sqrt(vx * vx + vy * vy) * straightCost);
-        },
-        diagonal: (testNode, destinationNode) => {
-          let vx = _.abs(destinationNode.col - testNode.col);
-          let vy = _.abs(destinationNode.row - testNode.row);
-          return (vx > vy)
-            ? _.floor(diagonalCost * vy + straightCost * (vx - vy))
-            : _.floor(diagonalCost * vx + straightCost * (vy - vx));
-        }
-      };
-      //Loop through all the nodes until the current `centerNode` matches the
-      //`destinationNode`. When they they're the same we know we've reached the
-      //end of the path
       while(centerNode !== targetNode){
-        let testNodes = surroundingNodes(centerNode.index);
+        let testNodes = _testNodes(centerNode.index);
         for(let f,g,h,cost,tn,i=0; i < testNodes.length; ++i){
           tn = testNodes[i];
           //Find out whether the node is on a straight axis or
@@ -706,7 +403,8 @@
           //A. Declare the cost variable
           cost = diagonalCost;
           //B. Do they occupy the same row or column?
-          if(centerNode.row === tn.row || centerNode.col === tn.col){
+          if(centerNode.row === tn.row ||
+             centerNode.col === tn.col){
             cost = straightCost;
           }
           //C. Calculate the costs (g, h and f)
@@ -714,15 +412,9 @@
           g = centerNode.g + cost;
           //The cost of travelling from this node to the
           //destination node (the heuristic)
-          if(_.has(algos,heuristic))
-            h= algos[heuristic](tn,targetNode);
-          else
-            throw `Bad heuristic: ${heuristic}`;
-          f = g + h;
-          //Find out if the testNode is in either
-          //the openList or closedList array
-          let isOnOpenList = openList.some(node => tn === node);
-          let isOnClosedList = closedList.some(node => tn === node);
+          f = g + new AStarAlgos(straightCost,diagonalCost)[heuristic](tn,targetNode);
+          let isOnOpenList = openList.some(n => tn === n);
+          let isOnClosedList = closedList.some(n => tn === n);
           //If it's on either of these lists, we can check
           //whether this route is a lower-cost alternative
           //to the previous cost calculation. The new G cost
@@ -771,8 +463,7 @@
       return theShortestPath;
     };
     /**
-     * Find out whether two sprites
-     * are visible to each other inside a tile based maze environment.
+     * Find out whether two sprites are visible to each other.
      * @public
      * @function
      */
@@ -784,34 +475,30 @@
                             segment = 32, //distance between collision points
                             angles = []) { //angles to restrict the line of sight
       let v= _getVector(sprite1,sprite2);
-      let len = _.sqrt(v[0] * v[0] + v[1] * v[1]);
+      let len = _V.vecLen(v);
       let numPts = len / segment;
-      let len2,x,y,dx,dy,points = [];
+      let len2,x,y,ux,uy,points = [];
       for(let c,i = 1; i <= numPts; ++i){
         c= _S.centerXY(sprite1);
         len2 = segment * i;
-        dx = v[0]/len;
-        dy = v[1]/len;
+        ux = v[0]/len;
+        uy = v[1]/len;
         //Use the unit vector and newMagnitude to figure out the x/y
         //position of the next point in this loop iteration
-        x = c[0] + dx * len2;
-        y = c[1] + dy * len2;
+        x = c[0] + ux * len2;
+        y = c[1] + uy * len2;
         _.conj(points,{x: x, y: y, index: _getIndex3(x, y, world)});
       };
+      //Restrict line of sight to right angles (don't want to use diagonals)
+      //Find the angle of the vector between the two sprites
+      let angle = Math.atan2(v[1], v[0]) * 180 / Math.PI;
       //The tile-based collision test.
       //The `noObstacles` function will return `true` if all the tile
       //index numbers along the vector are `0`, which means they contain
       //no walls. If any of them aren't 0, then the function returns
       //`false` which means there's a wall in the way
-      let noObstacles = points.every(p => tiles[p.index] === emptyGid);
-      //Restrict line of sight to right angles (don't want to use diagonals)
-      //Find the angle of the vector between the two sprites
-      let angle = Math.atan2(v[1], v[0]) * 180 / Math.PI;
-        //If the angle matches one of the valid angles, return
-        //`true`, otherwise return `false`
-      let validAngle = angles.length === 0 || angles.some(x => x === angle);
-      //no obstacles and the line of sight is at a 90 degree angle?
-      return noObstacles && validAngle;
+      return points.every(p => tiles[p.index] === emptyGid) &&
+             (angles.length === 0 || angles.some(x => x === angle))
     };
     /**
      * @public
@@ -819,18 +506,16 @@
      * @returns an array of index numbers matching the cells that are orthogonally
      * adjacent to the center `index` cell.
      */
-    _T.getCrossCells=function(index, world){
-      return [index - world.tiled.tilesInX,
-              index - 1,
-              index + 1,
-              index + world.tiled.tilesInX];
+    _T.crossCells=function(index, world){
+      let w= world.tiled.tilesInX;
+      return [index - w, index - 1, index + 1, index + w]
     };
     /**
      * @public
      * @function
      */
     _T.getCrossTiles=function(index, tiles, world){
-      return this.getCrossCells(index,world).map(c => tiles[c]);
+      return this.crossCells(index,world).map(c => tiles[c])
     };
     /**
      * @public
@@ -839,18 +524,21 @@
      * 4 corners of the center the center `index` cell
      */
     _T.getDiagonalCells=function(index, world){
-      return [index - world.tiled.tilesInX - 1,
-              index - world.tiled.tilesInX + 1,
-              index + world.tiled.tilesInX - 1,
-              index + world.tiled.tilesInX + 1];
+      let w= world.tiled.tilesInX;
+      return [index - w - 1, index - w + 1, index + w - 1, index + w + 1]
     };
     /**
      * @public
      * @function
      */
     _T.getDiagonalTiles=function(index, tiles, world){
-      return this.getDiagonalCells(index,world).map(c => tiles[c]);
+      return this.getDiagonalCells(index,world).map(c => tiles[c])
     };
+    /**
+     * @private
+     * @var {array}
+     */
+    const _POSSIBLES = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
     /**
      * @public
      * @function
@@ -860,13 +548,10 @@
      * (such as, possibly, `0`.)
      */
     _T.validDirections=function(sprite, tiles, validGid, world){
-      const possibles = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
       const pos = this.getTileIndex(sprite, world);
-      return this.getCrossTiles(pos,
-                                tiles,
-                                world).map((gid, i) => {
-        return (gid === validGid) ? possibles[i] : Mojo.NONE;
-      }).filter(d => d !== Mojo.NONE);
+      return this.getCrossTiles(pos, tiles, world).map((gid, i) => {
+        return gid === validGid ? _POSSIBLES[i] : Mojo.NONE
+      }).filter(d => d !== Mojo.NONE)
     };
     /**
      * @public
@@ -875,27 +560,23 @@
      * in which it's able to change its direction
      */
     _T.canChangeDirection=function(directions = []){
-      let inCulDeSac = directions.length === 1;
-      let trapped = directions.length === 0;
-      let up = directions.find(x => x === Mojo.UP),
-        down = directions.find(x => x === Mojo.DOWN),
-        left = directions.find(x => x === Mojo.LEFT),
-        right = directions.find(x => x === Mojo.RIGHT),
-        atIntersection = (up || down) && (left || right);
-      return trapped || atIntersection || inCulDeSac;
+      let up = directions.find(x => x === Mojo.UP);
+      let down = directions.find(x => x === Mojo.DOWN);
+      let left = directions.find(x => x === Mojo.LEFT);
+      let right = directions.find(x => x === Mojo.RIGHT);
+      return directions.length === 0 ||
+             ((up||down) && (left||right)) || directions.length === 1
     };
     /**
      * Randomly returns the values "up", "down", "left" or "right" based on
      * valid directions supplied. If the are no valid directions, it returns "trapped"
-     *
      * @public
      * @function
-     *
      */
-    _T.randomDirection=function(directions = []){
-      let len=directions.length;
-      return len===0 ? Mojo.TRAPPED
-                     : (len===1 ? directions[0] : directions[_.randInt2(0, len-1)]);
+    _T.randomDirection=function(dirs = []){
+      return dirs.length===0 ? Mojo.TRAPPED
+                             : (dirs.length===1 ? dirs[0]
+                                                : dirs[_.randInt2(0, dirs.length-1)])
     };
     /**
      * @public
@@ -904,11 +585,18 @@
      */
     _T.closestDirection=function(sprite1, sprite2){
       let v= _getVector(sprite1,sprite2);
-      return (_.abs(v[0]) >= _.abs(v[1])) ? ((v[0] <= 0) ? Mojo.LEFT : Mojo.RIGHT)
-                                          : ((v[1] <= 0) ? Mojo.UP : Mojo.DOWN);
+      return _.abs(v[0]) < _.abs(v[1]) ? ((v[1] <= 0) ? Mojo.UP : Mojo.DOWN)
+                                       : ((v[0] <= 0) ? Mojo.LEFT : Mojo.RIGHT)
     };
 
     return (Mojo.Tiles=_T)
+  }
+  /**
+   * @public
+   * @module
+   */
+  global["io.czlab.mojoh5.Tiles"]=function(Mojo){
+    return Mojo.Tiles ? Mojo.Tiles : _module(Mojo)
   };
 
 })(this);

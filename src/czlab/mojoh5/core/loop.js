@@ -31,17 +31,15 @@
     throw `Fatal: gameloop module requires browser env.`;
 
   /**
-   * @public
-   * @module
+   * @private
+   * @function
    */
-  global["io.czlab.mojoh5.GameLoop"]=function(Mojo){
-    if(_ModuleInited){return Mojo}
+  function _module(Mojo,_libsToUpdate){
     const Core=global["io.czlab.mcfud.core"]();
+    let _startTime = Date.now();
     const _=Core.u;
     const is=Core.is;
-    const _libsToUpdate= [];
     let _paused = false;
-    let _startTime = Date.now();
     let _lag = 0;
     let _lagOffset = 0;
     let _renderStartTime = 0;
@@ -60,12 +58,10 @@
       //run only during preloading of assets
       Mojo.loaderState && Mojo.loaderState();
       //various libs that are required to run every frame
-      _libsToUpdate.forEach(m => m.update(dt));
+      _.doseq(_libsToUpdate,m => m.update(dt));
       //game content stuff
       if(!_paused)
-        _.doseq(Mojo.stage.children, scene=>{
-          scene.update && scene.update(dt);
-        });
+        _.doseq(Mojo.stage.children, s=> s.update && s.update(dt));
     }
     /**
      * @private
@@ -89,12 +85,9 @@
             s.mojoh5._prevTileScaleY = s.mojoh5.tileScale[1];
           }
         }
-        if(s.children)
-          for(let i=0; i<s.children.length; ++i)
-            save(s.children[i]);
+        _.doseq(s.children,save)
       };
-      for(let i=0; i<Mojo.stage.children.length; ++i)
-        save(Mojo.stage.children[i]);
+      _.doseq(Mojo.stage.children,save);
     }
     /**
      * @private
@@ -122,9 +115,7 @@
           s.mojoh5.tileScale[1] = s.mojoh5._currentTileScaleY;
         }
       }
-      if(s.children)
-        for(let i=0; i<s.children.length; ++i)
-          _restoreProps(s.children[i]);
+      _.doseq(s.children,_restoreProps);
     }
     /**
      * @private
@@ -242,9 +233,7 @@
             s.mojoh5.tileScale[1] = (s.mojoh5.tileScale[1] - s.mojoh5._prevTileScaleY) * lagOffset + s.mojoh5._prevTileScaleY;
         }
       }
-      if(s.children)
-        for(let j=0; j< s.children.length; ++j)
-          _interpolateSprite(lagOffset,s.children[j]);
+      _.doseq(s.children, s=> _interpolateSprite(lagOffset,s));
     }
     /**
      * @private
@@ -252,12 +241,10 @@
      */
     function _render(lagOffset=1){
       if(Mojo.interpolate)
-        for(let i=0; i< Mojo.stage.children.length; ++i)
-          _interpolateSprite(lagOffset, Mojo.stage.children[i]);
+        _.doseq(Mojo.stage.children, s=> _interpolateSprite(lagOffset, s));
       Mojo.ctx.render(Mojo.stage);
       if(Mojo.interpolate)
-        for(let i=0; i<Mojo.stage.children.length; ++i)
-          _restoreProps(Mojo.stage.children[i]);
+        _.doseq(Mojo.stage.children, _restoreProps);
     }
 
     _.conj(_libsToUpdate, Mojo.Effects, Mojo.Sprites, Mojo.Input);
@@ -269,8 +256,15 @@
     Mojo.resume = () => { _paused = false; };
 
     return (_ModuleInited=true) && Mojo;
-  };
-
+  }
+  /**
+   * @public
+   * @module
+   */
+  global["io.czlab.mojoh5.GameLoop"]=function(Mojo){
+    return _ModuleInited ? Mojo : _module(Mojo,[])
+  }
+  ;
 })(this);
 
 

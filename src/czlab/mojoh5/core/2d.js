@@ -23,11 +23,10 @@
     global=exports;
   }
   /**
-   * @public
-   * @module
+   * @private
+   * @function
    */
-  global["io.czlab.mojoh5.2d"]=function(Mojo){
-    if(Mojo["2d"]){return Mojo["2d"]}
+  function _module(Mojo){
     const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
     const _Z=global["io.czlab.mojoh5.Scenes"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
@@ -357,6 +356,13 @@
     };
 
     return (Mojo["2d"]= _D)
+  }
+  /**
+   * @public
+   * @module
+   */
+  global["io.czlab.mojoh5.2d"]=function(Mojo){
+    return Mojo["2d"] ? Mojo["2d"] : _module(Mojo)
   };
 
 })(this);

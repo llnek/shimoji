@@ -23,23 +23,21 @@
     global=exports;
   }
   /**
-   * @public
-   * @module
+   * @private
+   * @function
    */
-  global["io.czlab.mojoh5.Scenes"]=function(Mojo){
-    if(Mojo.Scenes){return Mojo.Scenes}
+  function _module(Mojo, WIPScenes){
     const _I= global["io.czlab.mojoh5.Input"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
     const _S = {};
     const _=Core.u;
     const is=Core.is;
-    const _sceneFuncs= {};
     /**
      * @private
      * @function
      */
     function _sceneid(id){
-      return id.startsWith("scene::") ? id : "scene::"+id;
+      return id.startsWith("scene::") ? id : "scene::"+id
     }
     /**
      * @public
@@ -85,7 +83,7 @@
       dispose(){
         this.mojoh5.dead=true;
         this.children.forEach(c=>{
-          if(c.mojoh5.tinkType === "button"){
+          if(c.mojoh5.button){
             _I.removeButton(c);
           }
         });
@@ -120,7 +118,7 @@
      */
     _S.defScene=function(name, func, options){
       //add a new scene definition
-      _sceneFuncs[name]=[func, options||{}];
+      WIPScenes[name]=[func, options||{}];
     };
     function _killScene(s){
       if(s) {
@@ -164,14 +162,14 @@
      * @function
      */
     _S.findScene=function(name){
-      return Mojo.stage.getChildByName(_sceneid(name));
+      return Mojo.stage.getChildByName(_sceneid(name))
     };
     /**
      * @public
      * @function
      */
     _S.runScene = function(name,num,options){
-      let y, _s = _sceneFuncs[name];
+      let y, _s = WIPScenes[name];
       if(!_s)
         throw `Error: unknown scene: ${name}`;
       if(is.obj(num)){
@@ -197,6 +195,13 @@
 
     _S.Scene=Scene;
     return (Mojo.Scenes=_S)
+  }
+  /**
+   * @public
+   * @module
+   */
+  global["io.czlab.mojoh5.Scenes"]=function(Mojo){
+    return Mojo.Scenes ? Mojo.Scenes : _module(Mojo, {})
   };
 
 })(this);

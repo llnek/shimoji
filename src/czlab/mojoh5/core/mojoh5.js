@@ -168,9 +168,10 @@
         if(_.has(AUDIO_EXTS,ext)){
           files += 1;
           let xhr = r.xhr, url = r.url, name=r.name;
-          let s= Mojo.Sound.makeSound(url, decoder, false, xhr);
+          let s= Mojo.Sound.makeSound(url);
           s.name = r.name;
           _soundObjects[s.name] = s;
+          Mojo.Sound.decodeSound(s,xhr,decoder);
         }
       });
       if(files === 0) { finz() }
@@ -256,7 +257,8 @@
      * @private
      * @function
      */
-    function _prologue(Mojo,arena){
+    function _prologue(Mojo,cmdArg){
+      let arena=cmdArg.arena;
       let _S;
       arena = _.patch(arena, {width: window.innerWidth,
                               height: window.innerHeight});
@@ -383,6 +385,13 @@
      * @public
      * @function
      */
+    Mojo.makeAnchor=function(x,y){
+      return new this.p.ObservablePoint(()=>{},this,x,y)
+    };
+    /**
+     * @public
+     * @function
+     */
     Mojo.resize= function(canvas, color){
       this.scale = _scaleCanvas(canvas, color);
       this.pointer = Mojo.Input.makePointer(canvas, this.scale);
@@ -421,12 +430,12 @@
     Mojo.mockStage=function(){
       return{
         getGlobalPosition(){ return {x:0,y:0} },
+        anchor: Mojo.makeAnchor(0,0),
         mojoh5:{},
         x:0,
         y:0,
         width: this.canvas.width,
-        height: this.canvas.height,
-        anchor: new Mojo.p.ObservablePoint(()=>{},this)
+        height: this.canvas.height
       }
     };
     /**
@@ -569,7 +578,7 @@
     Mojo.Game.state= new GameState();
 
     //ready!
-    _prologue(Mojo,cmdArg.arena);
+    _prologue(Mojo,cmdArg);
 
     return Mojo;
   }

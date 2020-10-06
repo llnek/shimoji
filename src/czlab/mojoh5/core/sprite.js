@@ -230,9 +230,10 @@
       if(v !== undefined){
         if(v){
           if(!o.mojoh5.interact)
-            Mojo.makeInteractive(o);
+            Mojo.Input.makeButton(o);
           o.mojoh5.interact = true;
-        }else if(_.disj(Mojo.Input.buttons, o)){
+        }else if(o.mojoh5.interact){
+          Mojo.Input.removeButton(o);
           o.mojoh5.interact = false;
         }
       }
@@ -483,7 +484,7 @@
               x2: this.rightSide(sprite,global),
               y1: this.topSide(sprite,global),
               y2: this.bottomSide(sprite,global) };
-      _.assert(y1 <= y2);
+      _.assert(r.y1 <= r.y2);
       return r;
     };
     /**
@@ -645,6 +646,16 @@
       if(height) o.height = height;
       return o;
     }
+    /**
+     * @public
+     * @function
+     */
+    _S.container=function(x=0,y=0){
+      let c= this.extend(new Mojo.p.Container());
+      c.x=x;
+      c.y=y;
+      return c;
+    };
     /**
      * @public
      * @function
@@ -951,13 +962,13 @@
                       bulletSpeed, bulletArray, bulletCtor,x,y){
       let soff=this.anchorOffsetXY(shooter);
       let g=this.gposXY(shooter);
-      let b= bulletCtor();
+      let b= this.extend(bulletCtor());
       container.addChild(b);
       b.x= g[0]-soff[0]+x;
       b.y= g[1]-soff[1]+y;
       b.mojoh5.vel[0] = Math.cos(angle) * bulletSpeed;
       b.mojoh5.vel[1] = Math.sin(angle) * bulletSpeed;
-      _.conj(bulletArray, this.extend(b));
+      _.conj(bulletArray, b);
       _V.dropV2(soff);//g
       return shooter;
     };

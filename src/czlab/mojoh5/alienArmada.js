@@ -13,14 +13,14 @@
         let self=this;
         let background = S.sprite("background.png",0,0,false);
         this.insert(background);
-        let cannon = S.sprite("cannon.png");
+        let cannon = S.sprite("cannon.png",0,0,true);
         cannon.mojoh5.uuid="cannon";
         cannon.mojoh5.step=function(dt){
           S.move(cannon);
           _2d.contain(cannon, self);
         };
         this.insert(cannon);
-        S.putBottom(this,cannon,0,-40);
+        S.pinBottom(this,cannon,0,-40);
 
         _bullets.length=0;
         _aliens.length=0;
@@ -70,8 +70,11 @@
             7, //The bullet's speed (pixels per frame)
             _bullets, //The array used to store the bullets
             function(){
-              let b=S.sprite("bullet.png");
-              b.mojoh5.step=function(){ if(!b.mojoh5.dead) S.move(b); };
+              let b=S.sprite("bullet.png",0,0,true);
+              b.mojoh5.step=function(){
+                if(!b.mojoh5.dead)
+                  S.move(b);
+              };
               return b;
             },
             S.halfSize(cannon)[0], //Bullet's x position on the cannon

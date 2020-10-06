@@ -1,8 +1,9 @@
 (function(window,undefined){
   "use strict";
-  const MojH5=window.MojoH5;
+
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
+    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
+    const _T= window["io.czlab.mojoh5.IsoTiles"](Mojo);
     _Z.defScene("level1",{
       setup:function(){
         let world = this.world= _T.isoWorld(32,32,8,8);
@@ -81,8 +82,8 @@
               let iso=sprite.tiled.isoXY();
               //Set the sprite's `x` and `y` pixel position based on its
               //isometric coordinates
-              sprite.x = iso.x;
-              sprite.y = iso.y;
+              sprite.x = iso[0];
+              sprite.y = iso[1];
               //Cartesian positioning
               //sprite.x = sprite.cartX;
               //sprite.y = sprite.cartY;
@@ -113,8 +114,8 @@
         let c=ptr.tiled.cartXY();
         let index=ptr.tiled.____index();
         this.message.mojoh5.content(`
-          cartX: ${Math.floor(c.x)}
-          cartY: ${Math.floor(c.y)}
+          cartX: ${Math.floor(c[0])}
+          cartY: ${Math.floor(c[1])}
           column: ${ptr.tiled.col()}
           row: ${ptr.tiled.row()}
           index: ${index}
@@ -128,7 +129,7 @@
     scenes(Mojo);
     Mojo.Scenes.runScene("level1");
   }
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     arena: {width:512, height:512},
     scaleToWindow:true,
     start: setup

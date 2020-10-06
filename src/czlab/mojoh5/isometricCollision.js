@@ -1,8 +1,9 @@
 (function(window,undefined){
   "use strict";
-  const MojoH5=window.MojoH5;
+
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
+    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
+    const _T=window["io.czlab.mojoh5.IsoTiles"](Mojo);
 
     _Z.defScene("level1",{
       setup:function(){
@@ -88,8 +89,8 @@
               //Set the sprite's `x` and `y` pixel position based on its
               //isometric coordinates
               let iso= sprite.tiled.isoXY();
-              sprite.x = iso.x;
-              sprite.y = iso.y;
+              sprite.x = iso[0];
+              sprite.y = iso[1];
 
               //Cartesian positioning
               //sprite.x = sprite.cartX;
@@ -135,33 +136,34 @@
         let world=this.world;
         let player=this.player;
         //Change the player character's velocity if it's centered over a grid cell
-        if(Math.floor(c.x) % this.world.tiled.cartTileW === 0 && Math.floor(c.y) % this.world.tiled.cartTileH=== 0){
+        if(Math.floor(c[0]) % this.world.tiled.cartTileW === 0 &&
+          Math.floor(c[1]) % this.world.tiled.cartTileH=== 0){
           switch(this.player.mojoh5.direction){
             case Mojo.UP:
-              this.player.mojoh5.vy = -2;
-              this.player.mojoh5.vx = 0;
+              this.player.mojoh5.vel[1] = -2;
+              this.player.mojoh5.vel[0] = 0;
               break;
             case Mojo.DOWN:
-              this.player.mojoh5.vy = 2;
-              this.player.mojoh5.vx = 0;
+              this.player.mojoh5.vel[1] = 2;
+              this.player.mojoh5.vel[0] = 0;
               break;
             case Mojo.LEFT:
-              this.player.mojoh5.vx = -2;
-              this.player.mojoh5.vy = 0;
+              this.player.mojoh5.vel[0] = -2;
+              this.player.mojoh5.vel[1] = 0;
               break;
             case Mojo.RIGHT:
-              this.player.mojoh5.vx = 2;
-              this.player.mojoh5.vy = 0;
+              this.player.mojoh5.vel[0] = 2;
+              this.player.mojoh5.vel[1] = 0;
               break;
             case Mojo.NONE:
-              this.player.mojoh5.vx = 0;
-              this.player.mojoh5.vy = 0;
+              this.player.mojoh5.vel[0] = 0;
+              this.player.mojoh5.vel[1] = 0;
               break;
           }
         }
         //Update the player's Cartesian position
         //based on its velocity
-        this.player.tiled.cartXY(c.x + this.player.mojoh5.vx, c.y+this.player.mojoh5.vy);
+        this.player.tiled.cartXY(c[0] + this.player.mojoh5.vel[0], c[1]+this.player.mojoh5.vel[1]);
 
         //Wall collision
         //Get a reference to the wall map array
@@ -174,9 +176,9 @@
         //Subtract its velocity from its position and then set its velocity to zero
         if(!playerVsGround.hit){
           c= this.player.tiled.cartXY();
-          this.player.tiled.cartXY(c.x - this.player.mojoh5.vx, c.y-this.player.mojoh5.vy);
-          this.player.mojoh5.vx = 0;
-          this.player.mojoh5.vy = 0;
+          this.player.tiled.cartXY(c[0] - this.player.mojoh5.vel[0], c[1]-this.player.mojoh5.vel[1]);
+          this.player.mojoh5.vel[0] = 0;
+          this.player.mojoh5.vel[1] = 0;
         }
 
         //Add world boundaries
@@ -188,37 +190,37 @@
         c= this.player.tiled.cartXY();
         //Prevent the player from crossing any of the world boundaries
         //Top
-        if (c.y < 0){
-          this.player.tiled.cartXY(c.x, top);
+        if (c[1] < 0){
+          this.player.tiled.cartXY(c[0], top);
         }
 
         c= this.player.tiled.cartXY();
         //Bottom
-        if(c.y + this.player.tiled.cartHeight > bottom){
-          this.player.tiled.cartXY(c.x, bottom - this.player.tiled.cartHeight);
+        if(c[1] + this.player.tiled.cartHeight > bottom){
+          this.player.tiled.cartXY(c[0], bottom - this.player.tiled.cartHeight);
         }
 
         c= this.player.tiled.cartXY();
-        if(c.x < left){
-          this.player.tiled.cartXY(left,c.y);
+        if(c[0] < left){
+          this.player.tiled.cartXY(left,c[1]);
         }
 
         c= this.player.tiled.cartXY();
         //Right
-        if(c.x + this.player.tiled.cartWidth > right){
-          this.player.tiled.cartXY(right - this.player.tiled.cartWidth,c.y);
+        if(c[0] + this.player.tiled.cartWidth > right){
+          this.player.tiled.cartXY(right - this.player.tiled.cartWidth,c[1]);
         }
 
         let iso=this.player.tiled.isoXY();
         //Position the sprite's screen `x` and `y` position
         //using its isometric coordinates
-        this.player.x = iso.x;
-        this.player.y = iso.y;
+        this.player.x = iso[0];
+        this.player.y = iso[1];
 
 
         c= this.player.tiled.cartXY();
         //Get the player's index position in the map array
-        this.player.tiled.____index = _T.getIndex(c.x, c.y, world.tiled.cartTileW, world.tiled.cartTileH, world.tiled.tilesInX);
+        this.player.tiled.____index = Mojo.getIndex(c[0], c[1], world.tiled.cartTileW, world.tiled.cartTileH, world.tiled.tilesInX);
 
         //Display the player's x, y and index values
         this.message.mojoh5.content(`index: ${player.tiled.____index}`);
@@ -229,7 +231,7 @@
     scenes(Mojo);
     Mojo.Scenes.runScene("level1");
   }
-  MojoH5.Config={
+  window["io.czlab.mojoh5.AppConfig"]={
     arena: {width:512, height:512},
     scaleToWindow: true,
     start: setup

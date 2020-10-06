@@ -23,11 +23,10 @@
     global=exports;
   }
   /**
-   * @public
-   * @module
+   * @private
+   * @function
    */
-  global["io.czlab.mojoh5.Input"]=function(Mojo){
-    if(Mojo.Input){return Mojo.Input}
+  function _module(Mojo,_pointers,_buttons,_draggables){
     const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
     const _V=global["io.czlab.mcfud.vec2"]();
@@ -35,12 +34,9 @@
     let _scale=Mojo.scale;
     const _=Core.u;
     const is=Core.is;
-    const _pointers = [];
-    const _buttons = [];
-    const _draggableSprites = [];
     const _I= {
       get scale() { return _scale },
-      set scale(v) { _scale = v; _.doseq(_pointers, p=> {p.scale=v}) }
+      set scale(v) { _scale=v; _.doseq(_pointers, p=> p.scale=v) }
     };
     /**
      * @public
@@ -50,8 +46,8 @@
       if(sprites.length===1 && is.vec(sprites[0])){
         sprites=sprites[0];
       }
-      sprites.forEach(s=>{
-        _.conj(_draggableSprites,s);
+      _.doseq(sprites,s=>{
+        _.conj(_draggables,s);
         s.mojoh5.draggable = true;
       });
     };
@@ -63,8 +59,8 @@
       if(sprites.length===1 && is.vec(sprites[0])){
         sprites=sprites[0];
       }
-      sprites.forEach(s=>{
-        _.disj(_draggableSprites,s);
+      _.doseq(sprites,s=>{
+        _.disj(_draggables,s);
         s.mojoh5.draggable = false;
       });
     };
@@ -72,50 +68,43 @@
      * @public
      * @function
      */
-    _I.makePointer=function(element, scale){
+    _I.makePointer=function(el, skale){
       let ptr= {
-        element: element || _element,
-        _scale: scale || _scale,
+        element: el || _element,
+        _scale: skale || _scale,
+        tapped: false,
+        isDown: false,
+        isUp: true,
+        _visible: true,
         _x: 0,
         _y: 0,
         width: 1,
         height: 1,
-        isDown: false,
-        isUp: true,
-        tapped: false,
         downTime: 0,
         elapsedTime: 0,
-
-        anchor: new Mojo.p.ObservablePoint(()=>{},this,0.5,0.5),
-        mojoh5: {
-          cpos: () => _V.V2(ptr.x,ptr.y),
-          gpos: () => _V.V2(ptr.x,ptr.y),
-        },
-
-        press: undefined,
-        release: undefined,
-        hover: undefined,
-        blur: undefined,
-        tap: undefined,
-
+        //press: undefined,
+        //release: undefined,
+        //hover: undefined,
+        //blur: undefined,
+        //tap: undefined,
         dragSprite: null,
         dragOffsetX: 0,
         dragOffsetY: 0,
-        _visible: true,
-        get x() { return this._x / this.scale },
-        get y() { return this._y / this.scale },
-        get centerX() { return this.x },
-        get centerY() { return this.y },
-        get position() { return { x: this.x, y: this.y } },
-        get scale() { return this._scale },
-        set scale(v) { this._scale = v },
+        anchor: Mojo.makeAnchor(0.5,0.5),
         get cursor() { return this.element.style.cursor },
         set cursor(v) { this.element.style.cursor = v },
+        get x() { return this._x / this.scale },
+        get y() { return this._y / this.scale },
+        get scale() { return this._scale },
+        set scale(v) { this._scale = v },
         get visible() { return this._visible },
         set visible(v) {
           this.cursor = v ? "auto" : "none";
           this._visible = v;
         }
+      };
+      ptr.getGlobalPosition=function(){
+        return {x: ptr.x, y: ptr.y}
       };
       ptr.moveHandler= function(event){
         let t = event.target;
@@ -175,18 +164,18 @@
       ptr.hitTestSprite= function(sprite){
         return Mojo["2d"].hitTestPointXY(this.x,this.y,sprite,true)
       };
-      _.addEvent("mousemove", element, ptr.moveHandler.bind(ptr), false);
-      _.addEvent("mousedown", element,ptr.downHandler.bind(ptr), false);
+      _.addEvent("mousemove", el, ptr.moveHandler.bind(ptr), false);
+      _.addEvent("mousedown", el,ptr.downHandler.bind(ptr), false);
       //Add the `mouseup` event to the `window` to
       //catch a mouse button release outside of the canvas area
       _.addEvent("mouseup", window, ptr.upHandler.bind(ptr), false);
-      _.addEvent("touchmove", element, ptr.touchmoveHandler.bind(ptr), false);
-      _.addEvent("touchstart", element, ptr.touchstartHandler.bind(ptr), false);
+      _.addEvent("touchmove", el, ptr.touchmoveHandler.bind(ptr), false);
+      _.addEvent("touchstart", el, ptr.touchstartHandler.bind(ptr), false);
       //Add the `touchend` event to the `window` object to
       //catch a mouse button release outside of the canvas area
       _.addEvent("touchend", window, ptr.touchendHandler.bind(ptr), false);
       //Disable the default pan and zoom actions on the `canvas`
-      element.style.touchAction = "none";
+      el.style.touchAction = "none";
       _.conj(_pointers,ptr);
       return ptr;
     };
@@ -194,48 +183,38 @@
      * @public
      * @function
      */
-    _I.updateDragAndDrop=function(draggableSprites){
+    _I.updateDragAndDrop=function(sprites){
       function _F(ptr){
         if(ptr.isDown){
           if(!ptr.dragSprite){
-            for(let s,i=draggableSprites.length-1; i>=0; --i){
-              s= draggableSprites[i];
+            for(let s,i=sprites.length-1; i>=0; --i){
+              s= sprites[i];
               if(s.mojoh5.draggable && ptr.hitTestSprite(s)){
                 let g= _S.gposXY(s);
                 ptr.dragOffsetX = ptr.x - g[0];
                 ptr.dragOffsetY = ptr.y - g[1];
                 ptr.dragSprite = s;
-                //The next two lines re-order the `sprites` array so that the
-                //selected sprite is displayed above all the others.
-                //First, splice the sprite out of its current position in
-                //its parent's `children` array
+                //push it to top of zindex
                 let cs = s.parent.children;
                 _.disj(cs,s);
-                //Next, push the `dragSprite` to the end of its `children` array so that it's
-                //displayed last, above all the other sprites
                 _.conj(cs,s);
-                //Reorganize the `draggableSpites` array in the same way
-                _.disj(draggableSprites,s);
-                _.conj(draggableSprites,s);
+                _.disj(sprites,s);
+                _.conj(sprites,s);
                 break;
               }
             }
           }else{
-            //If the pointer is down and it has a `dragSprite`, make the sprite follow the pointer's
-            //position, with the calculated offset
             ptr.dragSprite.x = ptr.x - ptr.dragOffsetX;
             ptr.dragSprite.y = ptr.y - ptr.dragOffsetY;
           }
         }
         if(ptr.isUp)
           ptr.dragSprite = null;
-        //Change the mouse arrow pointer to a hand if it's over a
-        //draggable sprite
-        draggableSprites.some(s=>{
+        sprites.some(s=>{
           if(s.mojoh5.draggable && ptr.hitTestSprite(s)){
             if(ptr.visible) ptr.cursor = "pointer";
             return true;
-          } else {
+          }else{
             if(ptr.visible) ptr.cursor = "auto";
             return false;
           }
@@ -248,29 +227,13 @@
      * @public
      * @function
      */
-    _I.makeInteractive=function(o){
-      //The `state` property tells you the button's
-      //current state. Set its initial state to "up"
+    _I.makeButton=function(o){
       o.mojoh5.state = "up";
-      //The `action` property tells you whether its being pressed or
-      //released
       o.mojoh5.action = "";
-      //The `pressed` and `hoverOver` Booleans are mainly for internal
-      //use in this code to help figure out the correct state.
-      //`pressed` is a Boolean that helps track whether or not
-      //the sprite has been pressed down
       o.mojoh5.pressed = false;
-      //`hoverOver` is a Boolean which checks whether the pointer
-      //has hovered over the sprite
       o.mojoh5.hoverOver = false;
-      //tinkType is a string that will be set to "button" if the
-      //user creates an object using the `button` function
-      o.mojoh5.tinkType = "";
-      //Set `enabled` to true to allow for interactivity
-      //Set `enabled` to false to disable interactivity
+      o.mojoh5.button=true;
       o.mojoh5.enabled = true;
-      //Add the sprite to the global `buttons` array so that it can
-      //be updated each frame in the `updateButtons method
       _.conj(_buttons,o);
     };
     /**
@@ -293,16 +256,16 @@
             let hit = ptr.hitTestSprite(o);
             if(ptr.isUp){
               o.mojoh5.state = "up";
-              if(o.mojoh5.tinkType === "button") o.gotoAndStop(0);
+              if(o.mojoh5.button) o.gotoAndStop(0);
             }
             if(hit){
               o.mojoh5.state = "over";
-              if(o.totalFrames && o.totalFrames === 3 && o.mojoh5.tinkType === "button"){
+              if(o.totalFrames && o.totalFrames === 3 && o.mojoh5.button){
                 o.gotoAndStop(1);
               }
               if(ptr.isDown){
                 o.mojoh5.state = "down";
-                if(o.mojoh5.tinkType === "button")
+                if(o.mojoh5.button)
                   (o.totalFrames === 3) ? o.gotoAndStop(2) : o.gotoAndStop(1);
               }
               ptr.shouldBeHand = true;
@@ -351,15 +314,15 @@
      * @public
      * @function
      */
-    _I.button= function(source, x = 0, y = 0){
+    _I.button=function(source, x = 0, y = 0){
       let o, s0=source[0];
       if(is.str(s0)){
-        o = Mojo.tcached(s0) ? Mojo.animFromFrames(source) : Mojo.animFromImages(source);
+        o = Mojo.tcached(s0) ? Mojo.animFromFrames(source)
+                             : Mojo.animFromImages(source);
       } else if(_.inst(Mojo.p.Texture,s0)){
         o = new Mojo.p.ASprite(source);
       }
-      this.makeInteractive(_S.extend(o));
-      o.mojoh5.tinkType = "button";
+      this.makeButton(_S.extend(o));
       o.x = x;
       o.y = y;
       return o;
@@ -369,8 +332,8 @@
      * @function
      */
     _I.update= function(dt){
-      if(_draggableSprites.length !== 0) this.updateDragAndDrop(_draggableSprites);
-      if(_buttons.length !== 0) this.updateButtons(dt);
+      if(_draggables.length > 0) this.updateDragAndDrop(_draggables);
+      if(_buttons.length > 0) this.updateButtons(dt);
     };
     /**
      * @public
@@ -383,7 +346,6 @@
         isUp: true,
         press: undefined,
         release: undefined};
-
       key.downHandler= function(event){
         if(event.keyCode === key.code){
           if(key.isUp && key.press) key.press();
@@ -392,7 +354,6 @@
         }
         event.preventDefault();
       };
-
       key.upHandler = function(event){
         if(event.keyCode === key.code) {
           if(key.isDown && key.release) key.release();
@@ -414,10 +375,10 @@
     _I.arrowControl=function(sprite, speed){
       if(speed === undefined)
         throw `arrowControl requires speed`;
-      let upArrow = this.keyboard(38),
-        rightArrow = this.keyboard(39),
-        downArrow = this.keyboard(40),
-        leftArrow = this.keyboard(37);
+      let upArrow = this.keyboard(38);
+      let rightArrow = this.keyboard(39);
+      let downArrow = this.keyboard(40);
+      let leftArrow = this.keyboard(37);
 
       leftArrow.press = function(){
         sprite.mojoh5.vel[0] = -speed;
@@ -464,6 +425,13 @@
     };
 
     return (Mojo.Input= _I)
+  }
+  /**
+   * @public
+   * @module
+   */
+  global["io.czlab.mojoh5.Input"]=function(Mojo){
+    return Mojo.Input ? Mojo.Input : _module(Mojo,[],[],[])
   };
 
 })(this);

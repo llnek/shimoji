@@ -94,6 +94,7 @@
       v2(x,y){ return [x,y] },
       p2(x,y){ return {x: x, y: y} },
       numOrZero(n){ return isNaN(n) ? 0 : n },
+      or(a,b){ return a===undefined?b:a },
       parseNumber(s,dft){
         let n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
@@ -348,7 +349,7 @@
         return setTimeout(f,delay);
       },
       clear(id){
-        clearTimeout(id);
+        id !== undefined && clearTimeout(id);
       },
       rseq(obj,fn,target){
         if(isArray(obj) && obj.length>0)
