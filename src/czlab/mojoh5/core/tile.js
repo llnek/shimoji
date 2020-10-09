@@ -278,7 +278,7 @@
               tilesetY += tsinfo.spacing + (tsinfo.spacing * tilesetRow);
             }
             let texture = _S.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
-            let s = _S.extend(new Mojo.p.Sprite(texture));
+            let s = _S.extend(new Mojo.PXSprite(texture));
             let tprops=gtileProps[gid];
             _.assert(!_.has(s,"tiled"));
             s.tiled={____gid: gid, ____index: i};

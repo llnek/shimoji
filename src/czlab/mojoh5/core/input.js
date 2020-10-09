@@ -68,7 +68,7 @@
      * @public
      * @function
      */
-    _I.makePointer=function(el, skale){
+    _I.pointer=function(el, skale){
       let ptr= {
         element: el || _element,
         _scale: skale || _scale,
@@ -319,8 +319,8 @@
       if(is.str(s0)){
         o = Mojo.tcached(s0) ? Mojo.animFromFrames(source)
                              : Mojo.animFromImages(source);
-      } else if(_.inst(Mojo.p.Texture,s0)){
-        o = new Mojo.p.ASprite(source);
+      } else if(_.inst(Mojo.PXTexture,s0)){
+        o = new Mojo.PXASprite(source);
       }
       this.makeButton(_S.extend(o));
       o.x = x;
@@ -423,6 +423,17 @@
           sprite.mojoh5.vel[1] = 0;
       };
     };
+    /**
+     * @public
+     * @function
+     */
+    _I.onResize=function(){
+      Mojo.pointer = _I.pointer(Mojo.canvas, Mojo.scale);
+      _I.scale= Mojo.scale;
+    };
+
+    Mojo.EventBus.sub(["canvas.resize",_I], "onResize");
+    _I.onResize();
 
     return (Mojo.Input= _I)
   }

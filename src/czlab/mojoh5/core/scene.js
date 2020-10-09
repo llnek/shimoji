@@ -43,7 +43,7 @@
      * @public
      * @class
      */
-    class Scene extends Mojo.p.Container{
+    class Scene extends Mojo.PXContainer{
       constructor(id,func,options){
         super();
         this.name= _sceneid(id);
@@ -154,7 +154,7 @@
      * @function
      */
     _S.removeScenes=function(){
-      Mojo.stage.children.forEach(c => c.dispose());
+      _.doseq(Mojo.stage.children,c => c.dispose && c.dispose());
       Mojo.stage.removeChildren();
     };
     /**

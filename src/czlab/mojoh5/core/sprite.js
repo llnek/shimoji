@@ -36,16 +36,16 @@
     const dom=Core.dom;
     //------------------------------------------------------------------------
     //create aliases for various PIXI objects
-    _.inject(Mojo.p, {Matrix:PIXI.Matrix.TEMP_MATRIX,
-                      RTexture:PIXI.RenderTexture,
-                      Rectangle:PIXI.Rectangle,
-                      BText:PIXI.BitmapText,
-                      Sprite:PIXI.Sprite,
-                      Graphics:PIXI.Graphics,
-                      Text:PIXI.Text,
-                      TSprite:PIXI.TilingSprite,
-                      ASprite:PIXI.AnimatedSprite,
-                      PContainer:PIXI.ParticleContainer});
+    _.inject(Mojo, {PXMatrix:PIXI.Matrix.TEMP_MATRIX,
+                    PXRTexture:PIXI.RenderTexture,
+                    PXRectangle:PIXI.Rectangle,
+                    PXBText:PIXI.BitmapText,
+                    PXSprite:PIXI.Sprite,
+                    PXGraphics:PIXI.Graphics,
+                    PXText:PIXI.Text,
+                    PXTSprite:PIXI.TilingSprite,
+                    PXASprite:PIXI.AnimatedSprite,
+                    PXPContainer:PIXI.ParticleContainer});
     const _S={
       assertAnchorCenter(s){
         _.assert(s.anchor.x > 0.3 && s.anchor.x < 0.7, "anchor not in center")
@@ -72,8 +72,6 @@
       setScaleX(o,v){ o.scale.x = v; return o },
       setScaleY(o,v){ o.scale.y = v; return o },
       scaleXY(o){ return o.scale },
-      tileXY(o){ return o.mojoh5.tilePos },
-      tileScaleXY(o){ return o.mojoh5.tileScale },
       halfSize(o){ return _V.V2(o.width/2,o.height/2) },
       centerAnchor(s){ s.anchor.set(0.5,0.5); return s },
       anchorOffsetXY(o){
@@ -82,6 +80,8 @@
       extend(o){
         if(!o.mojoh5) o.mojoh5={};
         _.inject(o.mojoh5, {uuid: _.nextId(),
+                            _cur: {},
+                            _prev: {},
                             static: false,
                             layer: 0,
                             mass: 1,
@@ -601,11 +601,11 @@
       let obj, texture;
       if(is.str(source)){
         obj=Mojo.tcached(source)
-      }else if(_.inst(Mojo.p.Texture,source)){
+      }else if(_.inst(Mojo.PXTexture,source)){
         obj=source
       }
       if(obj)
-        texture = new Mojo.p.Texture(obj);
+        texture = new Mojo.PXTexture(obj);
       if(!texture)
         throw `Error: ${source} not loaded`;
       return texture;
@@ -615,17 +615,17 @@
      * @function
      */
     function _sprite(source, width, height, tiling, x, y){
-      let C= tiling ? Mojo.p.TSprite : Mojo.p.Sprite;
+      let C= tiling ? Mojo.PXTSprite : Mojo.PXSprite;
       let o, obj;
-      if(_.inst(Mojo.p.Texture,source)){
+      if(_.inst(Mojo.PXTexture,source)){
         obj=source
       }else if(is.vec(source)){
         let s0=source[0];
         if(is.str(s0)){
           o= Mojo.tcached(s0) ? Mojo.animFromFrames(source)
                               : Mojo.animFromImages(source)
-        }else if(_.inst(Mojo.p.Texture,s0)){
-          o= new Mojo.p.ASprite(source)
+        }else if(_.inst(Mojo.PXTexture,s0)){
+          o= new Mojo.PXASprite(source)
         }
       }else if(is.str(source)){
         obj= Mojo.tcached(source);
@@ -651,7 +651,7 @@
      * @function
      */
     _S.container=function(x=0,y=0){
-      let c= this.extend(new Mojo.p.Container());
+      let c= this.extend(new Mojo.PXContainer());
       c.x=x;
       c.y=y;
       return c;
@@ -664,7 +664,7 @@
       let o= _sprite(source,0,0,false,x,y);
       if(center)
         o.anchor.set(0.5,0.5);
-      return _.inst(Mojo.p.ASprite,o) ? _enhanceAnimSprite(o) : o;
+      return _.inst(Mojo.PXASprite,o) ? _enhanceAnimSprite(o) : o;
     };
     /**
      * @public
@@ -674,8 +674,9 @@
       if(width === undefined || height === undefined)
         throw "Error: tilingSprite() requires width and height";
       let o = _sprite(source, width, height, true, x,y);
-      o.mojoh5.tileScale= _V.V2();
-      o.mojoh5.tilePos= _V.V2();
+      o.mojoh5.tiling={
+        x:0,y:0,sx:0,sy:0
+      };
       return o;
     };
     /**
@@ -707,7 +708,7 @@
      * @function
      */
     function _cfgTexture(t,width,height,x,y){
-      t.frame = new Mojo.p.Rectangle(x, y, width, height);
+      t.frame = new Mojo.PXRectangle(x, y, width, height);
       return t;
     }
     /**
@@ -723,7 +724,7 @@
      */
     _S.frames=function(source, tileW, tileH, points){
       let t= this.mkTexture(source);
-      return points.map(p => _cfgTexture(new Mojo.p.Texture(t),tileW,tileH,p[0],p[1]))
+      return points.map(p => _cfgTexture(new Mojo.PXTexture(t),tileW,tileH,p[0],p[1]))
     };
     /**
      * @public
@@ -758,14 +759,14 @@
      * @function
      */
     _S.text=function(content,fontSpec, x=0, y=0){
-      return _initText(Mojo.p.Text,content,fontSpec,x,y);
+      return _initText(Mojo.PXText,content,fontSpec,x,y);
     };
     /**
      * @public
      * @function
      */
     _S.bitmapText=function(content, fontStyle, x=0, y=0){
-      return _initText(Mojo.p.BText,content,fontStyle,x,y);
+      return _initText(Mojo.PXBText,content,fontStyle,x,y);
     };
     /**
      * @public
@@ -774,7 +775,7 @@
     _S.rectangle=function(width, height,
                           fillStyle = 0xFF3300,
                           strokeStyle = 0x0033CC, lineWidth = 0, x = 0, y = 0){
-      let o = new Mojo.p.Graphics();
+      let o = new Mojo.PXGraphics();
       let gprops={
         width:  width,
         height: height,
@@ -792,7 +793,7 @@
         return o;
       };
       draw();
-      let sprite = new Mojo.p.Sprite(_S.generateTexture(o));
+      let sprite = new Mojo.PXSprite(_S.generateTexture(o));
       this.extend(sprite);
       sprite.x = x;
       sprite.y = y;
@@ -824,7 +825,7 @@
      * @function
      */
     _S.circle=function(diameter, fillStyle=0xFF3300, strokeStyle=0x0033CC, lineWidth=0, x=0, y=0){
-      let o = new Mojo.p.Graphics();
+      let o = new Mojo.PXGraphics();
       let gprops={
         radius: diameter/2,
         lineW: lineWidth,
@@ -841,7 +842,7 @@
         return o;
       };
       draw();
-      let sprite = new Mojo.p.Sprite(_S.generateTexture(o));
+      let sprite = new Mojo.PXSprite(_S.generateTexture(o));
       this.extend(sprite);
       this.circular(sprite,true);
       sprite.x = x;
@@ -877,7 +878,7 @@
     _S.line=function(strokeStyle, lineWidth, A,B){
       A=A || _V.V2(0,0);
       B=B || _V.V2(32,32);
-      let o = new Mojo.p.Graphics();
+      let o = new Mojo.PXGraphics();
       let gprops={
         stroke: _S.color(strokeStyle),
         lineW: lineWidth,
@@ -938,7 +939,7 @@
     _S.grid= function(cols, rows, cellW, cellH,
                       centerCell, xOffset, yOffset, spriteCtor, extra){
       let length = cols * rows;
-      let container = new Mojo.p.Container();
+      let container = new Mojo.PXContainer();
       for(let s,x,y,i=0; i < length; ++i){
         x = (i%cols) * cellW;
         y = _.floor(i/cols) * cellH;
@@ -1029,7 +1030,7 @@
       if(sprites.length===1 && is.vec(sprites[0])){
         sprites=sprites[0];
       }
-      let c= new Mojo.p.Container();
+      let c= new Mojo.PXContainer();
       _.doseq(sprites, s => c.addChild(s));
       return this.extend(c);
     };
@@ -1041,8 +1042,16 @@
                                                alpha:true,
                                                uvs:true,
                                                scale:true}){
-      return new Mojo.p.PContainer(size, options);
+      return new Mojo.PXPContainer(size, options);
     };
+    /**
+     * @public
+     * @function
+     */
+    _S.add=function(parent,...children){
+      _.doseq(children,c=> c && parent.addChild(c));
+      return parent;
+    }
     /**
      * @public
      * @function
@@ -1051,7 +1060,10 @@
       if(sprites.length===1 && is.vec(sprites[0])){
         sprites=sprites[0];
       }
-      _.doseq(sprites, s => s.parent && s.parent.removeChild(s));
+      _.doseq(sprites, s => {
+        if(s.parent)
+          s.parent.removeChild(s)
+      });
     };
     /**
      *From: http://stackoverflow.com/questions/1573053/javascript-function-to-convert-color-names-to-hex-codes
@@ -1232,17 +1244,17 @@
       // minimum texture size is 1x1, 0x0 will throw an error
       if(region.width === 0){ region.width = 1; }
       if(region.height === 0){ region.height = 1; }
-      let renderTexture = Mojo.p.RTexture.create({
+      let renderTexture = Mojo.PXRTexture.create({
         width: region.width | 0,
         height: region.height | 0,
         scaleMode: scaleMode,
         resolution: resolution
       });
-      Mojo.p.Matrix.tx = -region.x;
-      Mojo.p.Matrix.ty = -region.y;
+      Mojo.PXMatrix.tx = -region.x;
+      Mojo.PXMatrix.ty = -region.y;
       Mojo.ctx.render(displayObject, renderTexture,
                       false,
-                      Mojo.p.Matrix, !!displayObject.parent);
+                      Mojo.PXMatrix, !!displayObject.parent);
       return renderTexture;
     };
 

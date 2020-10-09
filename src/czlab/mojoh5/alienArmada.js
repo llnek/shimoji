@@ -195,24 +195,25 @@
     });
   }
 
-  global["io.czlab.mojoh5.AppConfig"]= {
-    assetFiles: ["images/alienArmada.json", "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
-    arena: {
-      width: 480,
-      height: 320
-    },
-    scaleToWindow: true,
-    start: (Mojo)=>{
-      Mojo.Game.boomSound = Mojo.sound("explosion.wav");
-      Mojo.Game.shootSound = Mojo.sound("shoot.wav");
-      Mojo.Game.music = Mojo.sound("music.wav");
-      Mojo.Game.alienFrequency= 100;
-      Mojo.Game.scoreNeededToWin= 10;
-      defScenes(Mojo);
-      Mojo.Scenes.runScene("level1");
-      Mojo.Scenes.runScene("hud");
-    }
-  };
+  window.addEventListener("load", ()=>
+    window.MojoH5({
+      assetFiles: ["images/alienArmada.json", "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
+      arena: { width: 480, height: 320 },
+      scaleToWindow: true,
+      //fps:null,
+      //i:null,
+      start: (Mojo)=>{
+        Mojo.Game.boomSound = Mojo.sound("explosion.wav");
+        Mojo.Game.shootSound = Mojo.sound("shoot.wav");
+        Mojo.Game.music = Mojo.sound("music.wav");
+        Mojo.Game.alienFrequency= 100;
+        Mojo.Game.scoreNeededToWin= 10;
+        defScenes(Mojo);
+        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.runScene("hud");
+      }
+    })
+  );
 
 })(this);
 

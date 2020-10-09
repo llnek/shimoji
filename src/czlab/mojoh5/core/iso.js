@@ -203,7 +203,7 @@
      */
     _T.isoRectangle=function(width, height, fillStyle){
       //draw the flattened and rotated square (diamond shape)
-      let r= new Mojo.p.Graphics();
+      let r= new Mojo.PXGraphics();
       let h2= height/2;
       r.beginFill(fillStyle);
       r.moveTo(0, 0);
@@ -212,7 +212,7 @@
       r.lineTo(-width, h2);
       r.lineTo(0, 0);
       r.endFill();
-      let s= _S.extend(new Mojo.p.Sprite(_S.generateTexture(r)));
+      let s= _S.extend(new Mojo.PXSprite(_S.generateTexture(r)));
       _.assert(!_.has(s,"tiled"));
       s.tiled={};
       return s;
@@ -254,7 +254,7 @@
                _.has(tprops,"cartTileH") &&
                _.has(tprops,"tileDepth"),
                "Set custom cartTileW, cartTileH and tileDepth map properties");
-      let world = _S.extend(new Mojo.p.Container());
+      let world = _S.extend(new Mojo.PXContainer());
       _.assert(!_.has(world,"tiled"));
       let cartTileH= parseInt(tprops.cartTileH);
       let cartTileW= parseInt(tprops.cartTileW);
@@ -274,7 +274,7 @@
                                                 tileGidList: _scanTilesets(tmx.tilesets, gtileProps)});
       this.insert(world);
       _.doseq(tmx.layers,layer => {
-        let layergp = _S.extend(new Mojo.p.Container());
+        let layergp = _S.extend(new Mojo.PXContainer());
         let gprops= _.inject({}, layer);
         _.assert(!_.has(layergp,"tiled"));
         layergp.alpha = layer.opacity;
@@ -302,7 +302,7 @@
               tilesetY += tsinfo.spacing + (tsinfo.spacing * tilesetRow);
             }
             let texture = Mojo.Sprites.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
-            let s = _S.extend(new Mojo.p.Sprite(texture));
+            let s = _S.extend(new Mojo.PXSprite(texture));
             let tprops= gtileProps[gid];
             _.assert(!_.has(s,"tiled"));
             s.tiled={____gid: gid, ____index: i};
