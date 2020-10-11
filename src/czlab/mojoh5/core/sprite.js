@@ -80,8 +80,10 @@
       extend(o){
         if(!o.mojoh5) o.mojoh5={};
         _.inject(o.mojoh5, {uuid: _.nextId(),
-                            _cur: {},
-                            _prev: {},
+                            _cur: {
+                            },
+                            _prv: {
+                            },
                             static: false,
                             layer: 0,
                             mass: 1,

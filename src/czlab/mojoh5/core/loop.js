@@ -36,18 +36,11 @@
    */
   function _module(Mojo,_bgTasks){
     const Core=global["io.czlab.mcfud.core"]();
+    const _M=global["io.czlab.mcfud.math"]();
     let _startTime = Date.now();
     const _=Core.u;
     const is=Core.is;
     let _paused = false;
-    let _lag = 0;
-    let _lagOffset = 0;
-    let _renderStartTime = 0;
-    let _renderDuration=0;
-    let _frameDuration = 1000 / (Mojo.o.fps || 60);
-
-    if(Mojo.o.rfps)
-      _renderDuration = 1000 / Mojo.o.rfps;
 
     //------------------------------------------------------------------------
     /**
@@ -58,44 +51,40 @@
       //process any backgorund tasks
       _.doseq(_bgTasks,m => m.update(dt));
       //game content stuff
-      if(!_paused){
-        Mojo.preloadAssets && Mojo.preloadAssets();
-        _.doseq(Mojo.stage.children, s=> s.update && s.update(dt));
-      }
+      if(!_paused)
+        Mojo.stageCS( s=> s.update && s.update(dt));
     }
-    /**
+    /** Save current values of selected attributes.
      * @private
      * @function
      */
-    function _checkPoint(){
+    function _capture(){
       let i=Mojo.interpolateConfig();
-      function _save(s){
+      function _clone(s){
         if(!s.mojoh5.stage){
-          if(i.rotation){
-            s.mojoh5._prev.rotation = s.rotation }
-          if(i.pos){
-            s.mojoh5._prev.x = s.x;
-            s.mojoh5._prev.y = s.y;
-            if(s.mojoh5.tiling){
-              s.mojoh5._prev.tilingX= s.mojoh5.tiling.x;
-              s.mojoh5._prev.tilingY= s.mojoh5.tiling.y;
-              s.mojoh5._prev.tilingSX = s.mojoh5.tiling.sx;
-              s.mojoh5._prev.tilingSY = s.mojoh5.tiling.sy;
-            }
+          function cap(e,ek,pk){
+            pk=pk || ek;
+            s.mojoh5._prv[pk] = e[ek]
           }
-          if(i.size){
-            s.mojoh5._prev.width = s.width;
-            s.mojoh5._prev.height = s.height }
-          if(i.scale){
-            s.mojoh5._prev.sx = s.scale.x;
-            s.mojoh5._prev.sy = s.scale.y }
-          if(i.alpha){
-            s.mojoh5._prev.alpha = s.alpha }
+          if(i.pos){
+            _.doseq([[s,"x"], [s,"y"], [s,"rotation"]], e=> cap(...e));
+            if(s.mojoh5.tiling)
+              _.doseq([[s.tilePosition,"x","tilingX"],
+                       [s.tilePosition,"y","tilingY"],
+                       [s.tileScale,"x","tilingSX"],
+                       [s.tileScale,"y","tilingSY"]], e=> cap(...e));
+          }
+          if(i.size)
+            _.doseq([[s,"width"], [s,"height"]], e=> cap(...e));
+          if(i.scale)
+            _.doseq([[s.scale,"x","sx"],[s.scale,"y","sy"]], e=> cap(...e));
+          if(i.alpha)
+            cap(s,"alpha");
         }
-        _.doseq(s.children,_save)
+        _.doseq(s.children,_clone)
       }
-      is.obj(i) &&
-        _.doseq(Mojo.stage.children,_save);
+      if(is.obj(i))
+        Mojo.stageCS(_clone);
     }
     /**
      * @private
@@ -103,171 +92,146 @@
      */
     function _restore(s){
       let i=Mojo.interpolateConfig();
-      if(!is.obj(i))
-        return;
-      if(!s.mojoh5.stage){
-        if(i.pos){
-          s.x = s.mojoh5._cur.x;
-          s.y = s.mojoh5._cur.y;
-          if(s.mojoh5.tiling){
-            s.mojoh5.tiling.x = s.mojoh5._cur.tilingX;
-            s.mojoh5.tiling.y = s.mojoh5._cur.tilingY;
-            s.mojoh5.tiling.sx = s.mojoh5._cur.tilingSX;
-            s.mojoh5.tiling.sy = s.mojoh5._cur.tilingSY;
+      function _res(s){
+        if(!s.mojoh5.stage){
+          function res(e,ek,ck){
+            ck= ck || ek;
+            e[ek]= s.mojoh5._cur[ck]
           }
+          if(i.pos){
+            _.doseq([[s,"x"], [s,"y"], [s,"rotation"]],e=> res(...e));
+            if(s.mojoh5.tiling)
+              _.doseq([[s.tilePosition,"x","tilingX"], [s.tilePosition,"y","tilingY"],
+                       [s.tileScale,"x","tilingSX"], [s.tileScale,"y","tilingSY"]], e=> res(...e));
+          }
+          if(i.size &&
+            (_.inst(Mojo.PXSprite,s) ||
+             _.inst(Mojo.PXASprite,s)))
+            _.doseq([[s,"width"],[s,"height"]],e=> res(...e));
+          if(i.scale)
+            _.doseq([[s.scale,"x","sx"],[s.scale,"y","sy"]], e=> res(...e));
+          if(i.alpha)
+            res(s,"alpha");
         }
-        if(i.rotation){
-          s.rotation = s.mojoh5._cur.rotation }
-        if(i.size &&
-          (_.inst(Mojo.p.Sprite,s) ||
-            _.inst(Mojo.p.ASprite,s))){
-          s.width = s.mojoh5._cur.width;
-          s.height = s.mojoh5._cur.height;
-        }
-        if(i.scale){
-          s.scale.x = s.mojoh5._cur.sx;
-          s.scale.y = s.mojoh5._cur.sy }
-        if(i.alpha){
-          s.alpha = s.mojoh5._cur.alpha }
+        _.doseq(s.children,_res);
       }
-      _.doseq(s.children,_restore);
+      if(is.obj(i)) _res(s)
     }
     /**
      * @private
      * @function
      */
-    function _interpolate(dt){
-      let current = Date.now();
-      let elapsed = current - _startTime;
-      if(elapsed > 1000) elapsed = _frameDuration;
-      _startTime = current;
+    const _frameTime = 1000 / (Mojo.o.fps || 60);
+    let _lag = 0;
+    function _process(dt){
+      let now = Date.now();
+      let elapsed = now - _startTime;
+      if(elapsed > 1000) elapsed = _frameTime;
+      _startTime = now;
       _lag += elapsed;
-      while(_lag >= _frameDuration){
-        _checkPoint();
+      //frame by frame
+      while(_lag >= _frameTime){
+        _capture();
         _update(dt);
-        _lag -= _frameDuration;
+        _lag -= _frameTime;
       }
-      _lagOffset = _lag / _frameDuration;
-      _render(_lagOffset);
+      _render(_lag / _frameTime);
     };
     /**
      * @private
      * @function
      */
-    function _gameLoop(ts, dt){
-      if(dt < 0) dt= 1.0/60;
-      if(dt > 1.0/15) dt= 1.0/15;
-      if(!is.num(Mojo.o.fps)){
-        //not defined, so update as fast as possible
-        _update(dt);
-        _render();
-      }else if(!is.num(Mojo.o.rfps)){
-        //rendering time not defined, just run
-        _interpolate(dt);
-      }else if(ts >= _renderStartTime){
-        _interpolate(dt);
-        _renderStartTime = ts + _renderDuration;
-      }
-    }
-    function _runGameLoop(){
-      let _limit= Mojo.o.maxFrameTime || 100;
-      let _lastFrame = _.now();
-      let _loopFrame = 0;
-      Mojo.glwrapper = function(ptInTime){
-        let now = _.now();
-        ++_loopFrame;
-        //call again please
-        window.requestAnimationFrame(Mojo.glwrapper);
-        let dt = now - _lastFrame;
-        //some upperbound to stop frame fast forwarding
-        if(dt>_limit) dt=_limit;
-        _gameLoop(ptInTime, dt/1000);
-        _lastFrame = now;
-      };
-      //kick start loop
-      window.requestAnimationFrame(Mojo.glwrapper);
-    };
-    /**
-     * @private
-     * @function
-     */
-    function _interpolateSprite(lagOffset,s){
+    function _lerp(s,lag){
       let i=Mojo.interpolateConfig();
-      if(!is.obj(i))
-        return;
-      if(!s.mojoh5.stage){
-        if(i.pos){
-          s.mojoh5._cur.x= s.x;
-          s.mojoh5._cur.y= s.y;
-          if(s.mojoh5._prev.x !== undefined)
-            s.x = (s.x - s.mojoh5._prev.x) * lagOffset + s.mojoh5._prev.x;
-          if(s.mojoh5._prev.y !== undefined)
-            s.y = (s.y - s.mojoh5._prev.y) * lagOffset + s.mojoh5._prev.y;
-          if(s.mojoh5.tiling){
-            s.mojoh5._cur.tilingX = s.mojoh5.tiling.x;
-            s.mojoh5._cur.tilingY = s.mojoh5.tiling.y;
-            if(s.mojoh5._prev.tilingX !== undefined)
-              s.mojoh5.tiling.x = (s.mojoh5.tiling.x - s.mojoh5._prev.tilingX) * lagOffset + s.mojoh5._prev.tilingX;
-            if(s.mojoh5._prev.tilingY !== undefined)
-              s.mojoh5.tiling.y = (s.mojoh5.tiling.y - s.mojoh5._prev.tilingY) * lagOffset + s.mojoh5._prev.tilingY;
-            s.mojoh5._cur.tilingSX = s.mojoh5.tiling.sx;
-            s.mojoh5._cur.tilingSY = s.mojoh5.tiling.sy;
-            if(s.mojoh5._prev.tilingSX !== undefined)
-              s.mojoh5.tiling.sx = (s.mojoh5.tiling.sx - s.mojoh5._prev.tilingSX) * lagOffset + s.mojoh5._prev.tilingSX;
-            if(s.mojoh5._prev.tilingSY !== undefined)
-              s.mojoh5.tiling.sy = (s.mojoh5.tiling.sy - s.mojoh5._prev.tilingSY) * lagOffset + s.mojoh5._prev.tilingSY;
+      function _l(s){
+        if(!s.mojoh5.stage){
+          function ip(lag,e,ek,sk) {
+            sk= sk || ek;
+            s.mojoh5._cur[sk] = e[ek];
+            if(s.mojoh5._prv[sk] !== undefined)
+              e[ek] = _M.lerp(s.mojoh5._prv[sk],e[ek],lag);
           }
+          if(i.pos){
+            _.doseq([[lag,s,"rotation"], [lag,s,"x"], [lag,s,"y"]], e=>ip(...e));
+            if(s.mojoh5.tiling)
+              _.doseq([[lag,s.tilePosition,"x","tilingX"],
+                       [lag,s.tilePosition,"y","tilingY"],
+                       [lag,s.tileScale,"x","tilingSX"],
+                       [lag,s.tileScale,"y","tilingSY"]], e=> ip(...e));
+          }
+          if(i.size && (_.inst(Mojo.PXSprite,s) ||
+                        _.inst(Mojo.PXASprite,s)))
+            _.doseq([[lag,s,"width"], [lag,s,"height"]], e=> ip(...e));
+          if(i.scale)
+            _.doseq([[lag,s.scale,"x","sx"],
+                     [lag,s.scale,"y","sy"]], e=>ip(...e));
+          if(i.alpha)
+            ip(lag,s,"alpha");
         }
-        if(i.rotation){
-          s.mojoh5._cur.rotation = s.rotation;
-          if(s.mojoh5._prev.rotation !== undefined)
-            s.rotation = (s.rotation - s.mojoh5._prev.rotation) * lagOffset + s.mojoh5._prev.rotation;
-        }
-        if(i.size && (_.inst(Mojo.p.Sprite,s) ||
-                      _.inst(Mojo.p.ASprite,s))){
-          s.mojoh5._cur.width = s.width;
-          s.mojoh5._cur.height = s.height;
-          if(s.mojoh5._prev.width !== undefined)
-            s.width = (s.width - s.mojoh5._prev.width) * lagOffset + s.mojoh5._prev.width;
-          if(s.mojoh5._prev.height !== undefined)
-            s.height = (s.height - s.mojoh5._prev.height) * lagOffset + s.mojoh5._prev.height;
-        }
-        if(i.scale){
-          s.mojoh5._cur.sx = s.scale.x;
-          s.mojoh5._cur.sy = s.scale.y;
-          if(s.mojoh5._prev.sx !== undefined)
-            s.scale.x = (s.scale.x - s.mojoh5._prev.sx) * lagOffset + s.mojoh5._prev.sx;
-          if(s.mojoh5._prev.sy !== undefined)
-            s.scale.y = (s.scale.y - s.mojoh5._prev.sy) * lagOffset + s.mojoh5._prev.sy;
-        }
-        if(i.alpha){
-          s.mojoh5._cur.alpha = s.alpha;
-          if(s.mojoh5._prev.alpha !== undefined)
-            s.alpha = (s.alpha - s.mojoh5._prev.alpha) * lagOffset + s.mojoh5._prev.alpha;
-        }
+        _.doseq(s.children, s=> _lerp(s,lag));
       }
-      _.doseq(s.children, s=> _interpolateSprite(lagOffset,s));
+      if(is.obj(i)) _l(s)
     }
     /**
      * @private
      * @function
      */
-    function _render(lagOffset=1){
+    function _render(lag=1.0){
       let i=Mojo.interpolateConfig();
       if(is.obj(i))
-        _.doseq(Mojo.stage.children, s=> _interpolateSprite(lagOffset, s));
+        Mojo.stageCS(s=> _lerp(s,lag));
       Mojo.ctx.render(Mojo.stage);
       if(is.obj(i))
-        _.doseq(Mojo.stage.children, _restore);
+        Mojo.stageCS(_restore);
     }
 
-    _.conj(_bgTasks, Mojo.Effects, Mojo.Sprites, Mojo.Input);
-
     //------------------------------------------------------------------------
-    //enhancements
-    Mojo.start= () => { _runGameLoop(); };
-    Mojo.pause= () => { _paused = true; };
-    Mojo.resume = () => { _paused = false; };
+    //register these background tasks
+    _.conj(_bgTasks, Mojo.Effects, Mojo.Sprites, Mojo.Input);
+    /**
+     * @private
+     * @var {number}
+     */
+    const _DT60=1/60;
+    /**
+     * @private
+     * @var {number}
+     */
+    const _DT15=1/15;
+    //------------------------------------------------------------------------
+    //extensions
+    _.inject(Mojo,{
+      addBgTask(t){ _.conj(_bgTasks,t) },
+      delBgTask(t){ _.disj(_bgTasks,t) },
+      resume(){ _paused = false },
+      pause(){ _paused = true },
+      start(){
+        let renderTime= this.o.rps ? 1000/this.o.rps : 0;
+        let limit= (this.o.maxFrameTime || 100) / 1000;
+        let lastFrame = _.now();
+        let loopFrame = 0;
+        let renderStartTime = 0;
+        let glwrapper = function(timeNow){
+          let now = _.now();
+          let dt = (now - lastFrame)/1000;
+          ++loopFrame;
+          window.requestAnimationFrame(glwrapper);
+          //some upperbound to stop frame fast forwarding
+          if(dt < 0) dt= _DT60;
+          if(dt > _DT15) dt= _DT15;
+          if(!is.num(Mojo.o.fps)){
+            _update(dt);
+            _render();
+          }else if(!is.num(Mojo.o.rps) ||
+                   timeNow >= renderStartTime){
+            _process(dt);
+          }
+          renderStartTime = timeNow + renderTime;
+          lastFrame = now;
+        };
+        window.requestAnimationFrame(glwrapper);
+      }
+    });
 
     return (_ModuleInited=true) && Mojo;
   }

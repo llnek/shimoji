@@ -49,6 +49,8 @@
     _.patch(cmdArg,{
       fps:60,
       i:{pos:true,
+        size:true,
+        alpha:true,
          scale:true}
     });
     /** Built-in progress bar shown during the loading of asset files, if no user defined load function
@@ -125,13 +127,17 @@
      * @private
      * @function
      */
-    function _onAssetLoaded(Mojo,handle){
+    function _onAssetLoaded(Mojo,ldrObj,handle){
       let files = 0;
       function _finz(){
         //clean up a whole bunch of stuff used during bootstrap
         _.doseq(_spans,e => dom.css(e, "display", "none"));
-        _.dissoc(Mojo,"preloadAssets");
-        handle && handle.dispose && handle.dispose();
+        //get rid of any loading scene
+        if(ldrObj)
+          Mojo.delBgTask(ldrObj);
+        //clean up user handle
+        if(handle)
+          handle.dispose && handle.dispose();
         //finally run the user start function
         Mojo.o.start(Mojo);
       };
@@ -192,14 +198,17 @@
           fs.unshift(r.url);
           pg.unshift(ld.progress);
         });
-        Mojo.preloadAssets=function(){
-          let f= fs.pop();
-          let n= pg.pop();
-          if(f && is.num(n))
-            handle=cb(Mojo,f,n,handle);
-          if(n===100) _onAssetLoaded(Mojo,handle);
+        L.load(()=> console.log("loaded!"));
+        let ldrObj={
+          update(){
+            let f= fs.pop();
+            let n= pg.pop();
+            if(f && is.num(n))
+              handle=cb(Mojo,f,n,handle);
+            if(n===100) _onAssetLoaded(Mojo,this,handle);
+          }
         };
-        Mojo.PXLoader.load(()=> console.log("loaded!"));
+        Mojo.addBgTask(ldrObj);
       }else{
         //no assets, call user start function right away
         _onAssetLoaded(Mojo);
@@ -308,11 +317,18 @@
       PXTCache:PIXI.utils.TextureCache,
       PXObservablePoint: PIXI.ObservablePoint,
       interpolateConfig(){ return this.o.i },
-      get fps(){ return this.o.fps },
-      get rfps(){ return this.o.rfps },
+      //get fps(){ return this.o.fps },
+      //get rps(){ return this.o.rps },
       get assets(){ return this.PXLoader.resources },
       set border(v){ dom.css(this.canvas,"border", v) },
       set bgColor(c){ this.ctx.backgroundColor = this.color(c) }
+    };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.stageCS=function(cb){
+      _.doseq(Mojo.stage.children,cb)
     };
     /**
      * @public
