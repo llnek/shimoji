@@ -214,9 +214,9 @@
           //change the monster's state to `scared`. Otherwise, set its
           //state to `normal`
           if(magnitude < 192){
-            monster.mojoh5.show(monster.states.scared);
+            monster.mojoh5.showFrame(monster.states.scared);
           } else {
-            monster.mojoh5.show(monster.states.normal);
+            monster.mojoh5.showFrame(monster.states.normal);
           }
         });
       }

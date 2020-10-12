@@ -424,18 +424,18 @@
      * @public
      * @function
      */
-    _T.create=function(x, y,
-                       spriteCtor,
-                       container,
-                       gravity,
-                       random= true,
-                       particles = 20,
-                       minAngle = 0, maxAngle = 6.28,
-                       minSize = 4, maxSize = 16,
-                       minSpeed = 0.3, maxSpeed = 3,
-                       minScaleSpeed = 0.01, maxScaleSpeed = 0.05,
-                       minAlphaSpeed = 0.02, maxAlphaSpeed = 0.02,
-                       minRotationSpeed = 0.01, maxRotationSpeed = 0.03){
+    _T.createParticles=function(x, y,
+                                spriteCtor,
+                                container,
+                                gravity,
+                                random= true,
+                                particles = 20,
+                                minAngle = 0, maxAngle = 6.28,
+                                minSize = 4, maxSize = 16,
+                                minSpeed = 0.3, maxSpeed = 3,
+                                minScaleSpeed = 0.01, maxScaleSpeed = 0.05,
+                                minAlphaSpeed = 0.02, maxAlphaSpeed = 0.02,
+                                minRotationSpeed = 0.01, maxRotationSpeed = 0.03){
       _.assert(particles>1);
       let pBag = [];
       function _make(angle){
@@ -480,8 +480,7 @@
         a += gap;
       }
       let o=new Particles(pBag);
-      _.conj(WIPDust,o);
-      return o;
+      return _.conj(WIPDust,o) && o;
     };
 
     return (Mojo.Effects= _T)

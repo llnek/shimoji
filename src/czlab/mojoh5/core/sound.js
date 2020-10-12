@@ -28,58 +28,33 @@
 
   if(!window ||
     !window.AudioContext)
-    throw `Fatal: audio requires browser env and AudioContext.`;
+    throw "Fatal: audio requires browser.";
 
+  /**
+   * @private
+   * @var {array}
+   */
+  const AUDIO_EXTS= ["mp3", "ogg", "wav", "webm"];
   /**
    * @private
    * @function
    */
   function _module(Mojo){
-    const AUDIO_EXTS= ["mp3", "ogg", "wav", "webm"];
     const _A={ ctx: new window.AudioContext() };
     const Core=global["io.czlab.mcfud.core"]();
     const _=Core.u;
     const is=Core.is;
-    const actx=_A.ctx;
-    /**
-     * @private
-     * @function
-     */
-    function _initNoise(duration, decay, reverse){
-      let len= actx.sampleRate * duration;
-      let buf= actx.createBuffer(2, len, actx.sampleRate);
-      let cl= buf.getChannelData(0);//left
-      let cr= buf.getChannelData(1);//right
-      function _noise(i){
-        let a=Math.pow(1-i/len,decay);
-        cl[i] = a * (2*_.rand() - 1);
-        cr[i] = a * (2*_.rand() - 1);
-      }
-      if(reverse){
-        for(let i=len-1;i>=0;--i) _noise(i)
-      }else{
-        for(let i=0;i<len;++i) _noise(i)
-      }
-      return buf;
-    }
     /**
      * @public
      * @function
      */
     _A.makeSound=function(source){
       return {
-        gainNode: actx.createGain(),
-        panNode: actx.createStereoPanner(),
-        delayNode: actx.createDelay(),
-        feedbackNode: actx.createGain(),
-        filterNode: actx.createBiquadFilter(),
-        convolverNode: actx.createConvolver(),
         soundNode: null,
         buffer: null,
         source: source,
         loop: false,
         playing: false,
-        loadHandler: undefined,
         panValue: 0,
         volumeValue: 1,
         startTime: 0,
@@ -91,9 +66,15 @@
         filterValue: 0,
         reverb: false,
         reverbImpulse: null,
+        gainNode: _A.ctx.createGain(),
+        panNode: _A.ctx.createStereoPanner(),
+        delayNode: _A.ctx.createDelay(),
+        feedbackNode: _A.ctx.createGain(),
+        filterNode: _A.ctx.createBiquadFilter(),
+        convolverNode: _A.ctx.createConvolver(),
         play(){
-          this.startTime = actx.currentTime;
-          this.soundNode = actx.createBufferSource();
+          this.startTime = _A.ctx.currentTime;
+          this.soundNode = _A.ctx.createBufferSource();
           this.soundNode.buffer = this.buffer;
           this.soundNode.playbackRate.value = this.playbackRate;
           this.soundNode.connect(this.gainNode);
@@ -104,7 +85,7 @@
             this.convolverNode.connect(this.panNode);
             this.convolverNode.buffer = this.reverbImpulse;
           }
-          this.panNode.connect(actx.destination);
+          this.panNode.connect(_A.ctx.destination);
           if(this.echo){
             this.feedbackNode.gain.value = this.feebackValue;
             this.delayNode.delayTime.value = this.delayValue;
@@ -123,24 +104,24 @@
           this.soundNode.start(0, this.startOffset % this.buffer.duration);
           this.playing = true;
         },
+        _stop(){
+          if(this.playing)
+            this.soundNode.stop(0)
+        },
         pause(){
+          this._stop();
           if(this.playing){
-            this.soundNode.stop(0);
-            this.startOffset += actx.currentTime - this.startTime;
+            this.startOffset += _A.ctx.currentTime - this.startTime;
             this.playing = false;
           }
         },
-        restart(){
-          if(this.playing)
-            this.soundNode.stop(0);
-          this.startOffset = 0;
-          this.play();
-        },
         playFrom(value){
-          if(this.playing)
-            this.soundNode.stop(0);
+          this._stop();
           this.startOffset = value;
           this.play();
+        },
+        restart(){
+          this.playFrom(0)
         },
         setEcho(delayValue, feedbackValue, filterValue){
           this.feebackValue = _.or(feedbackValue,0.3);
@@ -149,24 +130,41 @@
           this.echo = true;
         },
         setReverb(duration, decay, reverse){
-          this.reverbImpulse = _initNoise(_.or(duration,2), _.or(decay,2), reverse, actx);
+          let r= _A.ctx.sampleRate;
+          let len= r * (duration || 2);
+          let b= _A.ctx.createBuffer(2, len, r);
           this.reverb = true;
+          this.reverbImpulse= b;
+          for(let v,d=decay||2,
+            cl= b.getChannelData(0),//left
+            cr= b.getChannelData(1),//right
+            i= reverse?(len-1):0;;){
+            if(reverse){
+              if(i<0)break;
+            }else{
+              if(i>=len)break;
+            }
+            v=Math.pow(1-i/len,d);
+            cl[i]= v * (2*_.rand()-1);
+            cr[i]= v * (2*_.rand()-1);
+            reverse ? --i : ++i;
+          }
         },
         fade(endValue, durationSecs){
           if(this.playing){
-            this.gainNode.gain.linearRampToValueAtTime(this.gainNode.gain.value, actx.currentTime);
-            this.gainNode.gain.linearRampToValueAtTime(endValue, actx.currentTime + durationSecs);
+            this.gainNode.gain.linearRampToValueAtTime(this.gainNode.gain.value, _A.ctx.currentTime);
+            this.gainNode.gain.linearRampToValueAtTime(endValue, _A.ctx.currentTime + durationSecs)
           }
         },
         fadeIn(durationSecs){
           this.gainNode.gain.value = 0;
-          this.fade(1, durationSecs);
+          this.fade(1, durationSecs)
         },
         fadeOut(durationSecs){
-          this.fade(0, durationSecs);
+          this.fade(0, durationSecs)
         },
         get pan() { return this.panNode.pan.value },
-        set pan(v) { this.panNode.pan.value = v; },
+        set pan(v) { this.panNode.pan.value = v },
         get volume() { return this.volumeValue },
         set volume(v) { this.gainNode.gain.value = v; this.volumeValue = v }
       }
@@ -175,23 +173,23 @@
      * @public
      * @function
      */
-    _A.decodeSound=function(snd, xhr, onLoad, onFail){
-      actx.decodeAudioData(xhr.response,
-                           buf => onLoad(snd.source, snd.buffer=buf),
-                           err=> onFail && onFail(snd.source, err));
-      return snd;
+    _A.decodeSound=function(sndObj, xhr, onLoad, onFail){
+      _A.ctx.decodeAudioData(xhr.response,
+                             b=> onLoad(sndObj.source, sndObj.buffer=b),
+                             e=> onFail && onFail(sndObj.source, e));
+      return sndObj
     };
     /**
      * @public
      * @function
      */
-    _A.loadSound=function(snd, onLoad, onFail){
+    _A.loadSound=function(sndObj, onLoad, onFail){
       let xhr = new XMLHttpRequest();
-      xhr.open("GET", snd.source, true);
+      xhr.open("GET", sndObj.source, true);
       xhr.responseType = "arraybuffer";
-      xhr.addEventListener("load", () => this.decodeSound(snd, xhr, onLoad, onFail));
+      xhr.addEventListener("load", () => this.decodeSound(sndObj, xhr, onLoad, onFail));
       xhr.send();
-      return snd;
+      return sndObj
     };
 
     return (Mojo.Sound= _A)

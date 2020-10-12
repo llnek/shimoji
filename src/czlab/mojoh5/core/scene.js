@@ -52,8 +52,7 @@
         }else if(is.obj(func)){
           _.inject(this, func);
         }
-        Mojo.Sprites.extend(this);
-        this.mojoh5.stage=true;
+        this.mojoh5={stage:true};
         this.____index={};
         this.____queue=[];
         this.____options=options || {};
@@ -82,11 +81,7 @@
       }
       dispose(){
         this.mojoh5.dead=true;
-        this.children.forEach(c=>{
-          if(c.mojoh5.button){
-            _I.removeButton(c);
-          }
-        });
+        this.children.forEach(c=> c.mojoh5.button && _I.removeButton(c));
         this.removeChildren();
       }
       update(dt){

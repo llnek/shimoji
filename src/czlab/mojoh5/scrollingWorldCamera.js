@@ -105,7 +105,7 @@
         };
 
         //Use the `show` method to display the elf's `right` state
-        this.elf.mojoh5.show(this.elf.states.right);
+        this.elf.mojoh5.showFrame(this.elf.states.right);
         this.elf.fps = 18;
 
         //Create some keyboard objects
@@ -117,47 +117,47 @@
         //Assign key `press` and release methods that
         //show and play the elf's different states
         this.leftArrow.press = () => {
-          this.elf.mojoh5.playAnimation(this.elf.states.walkLeft);
+          this.elf.mojoh5.playFrames(this.elf.states.walkLeft);
           this.elf.mojoh5.vel[0] = -2;
           this.elf.mojoh5.vel[1] = 0;
         };
         this.leftArrow.release = () => {
           if (!this.rightArrow.isDown && this.elf.mojoh5.vel[1] === 0) {
             this.elf.mojoh5.vel[0] = 0;
-            this.elf.mojoh5.show(this.elf.states.left);
+            this.elf.mojoh5.showFrame(this.elf.states.left);
           }
         };
         this.upArrow.press = () => {
-          this.elf.mojoh5.playAnimation(this.elf.states.walkUp);
+          this.elf.mojoh5.playFrames(this.elf.states.walkUp);
           this.elf.mojoh5.vel[1] = -2;
           this.elf.mojoh5.vel[0] = 0;
         };
         this.upArrow.release = () => {
           if (!this.downArrow.isDown && this.elf.mojoh5.vel[0] === 0) {
             this.elf.mojoh5.vel[1] = 0;
-            this.elf.mojoh5.show(this.elf.states.up);
+            this.elf.mojoh5.showFrame(this.elf.states.up);
           }
         };
         this.rightArrow.press = () => {
-          this.elf.mojoh5.playAnimation(this.elf.states.walkRight);
+          this.elf.mojoh5.playFrames(this.elf.states.walkRight);
           this.elf.mojoh5.vel[0] = 2;
           this.elf.mojoh5.vel[1] = 0;
         };
         this.rightArrow.release = () => {
           if (!this.leftArrow.isDown && this.elf.mojoh5.vel[1] === 0) {
             this.elf.mojoh5.vel[0] = 0;
-            this.elf.mojoh5.show(this.elf.states.right);
+            this.elf.mojoh5.showFrame(this.elf.states.right);
           }
         };
         this.downArrow.press = () => {
-          this.elf.mojoh5.playAnimation(this.elf.states.walkDown);
+          this.elf.mojoh5.playFrames(this.elf.states.walkDown);
           this.elf.mojoh5.vel[1] = 2;
           this.elf.mojoh5.vel[0] = 0;
         };
         this.downArrow.release = () => {
           if (!this.upArrow.isDown && this.elf.mojoh5.vel[0] === 0) {
             this.elf.mojoh5.vel[1] = 0;
-            this.elf.mojoh5.show(this.elf.states.down);
+            this.elf.mojoh5.showFrame(this.elf.states.down);
           }
         };
 
@@ -218,12 +218,15 @@
     Z.runScene("hud");
   }
 
-  window["io.czlab.mojoh5.AppConfig"]={
-    assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json"],//, "level1.tmx" ],
-    arena: {width:512, height:512},
-    scaleToWindow:true,
-    start: setup
-  };
+  window.addEventListener("load",()=>{
+    MojoH5({
+      assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json"],//, "level1.tmx" ],
+      arena: {width:512, height:512},
+      scaleToWindow:true,
+      start: setup
+    });
+
+  });
 
 })(this);
 

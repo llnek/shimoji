@@ -55,7 +55,7 @@
      */
     function _checkVersion(tmap,file){
       //check version of map-editor
-      let tver= tmap.tiledversion || tmap.version;
+      let tver= tmap["tiledversion"] || tmap["version"];
       if(tver && _.cmpVerStrs(tver,"1.4.2") < 0)
         throw `Error: ${file} version out of date`;
       return _parseProperties(tmap);
@@ -89,7 +89,6 @@
     /**
      * Converts a tile's index number into x/y screen
      * coordinates, and capture's the tile's grid index (`gid`) number.
-     *
      * @public
      * @function
      * @returns A tile object.
@@ -151,7 +150,7 @@
                                            : _getContactPoints(sprite);
       let op= checkHow===Mojo.EVERY ? "every" : "some";
       col.hit = colPts[op](_checker);
-      _V.dropV2(colPts);
+      _V.dropV2(...colPts);
       return col;
     };
     /**
@@ -236,7 +235,6 @@
       tmx= tmx && tmx.data;
       if(!tmx)
         throw `Error: ${jsonTiledMap} not cached`;
-      //check version of map-editor
       let tprops= _checkVersion(tmx,jsonTiledMap);
       let world = _container(tprops);
       let tiled= world.tiled;
@@ -256,7 +254,6 @@
         gp.alpha = layer.opacity;
         _.inject(gp.tiled, layer);
         _.conj(world.tiled.tileObjects,gp);
-
         function _doTileLayer(tl){
           for(let gid,i=0;i<tl.data.length;++i){
             gid=tl.data[i];

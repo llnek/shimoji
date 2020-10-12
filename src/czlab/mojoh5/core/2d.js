@@ -219,6 +219,8 @@
       let c;
       if(container instanceof _Z.Scene){
         c=Mojo.mockStage();
+      }else if(container.mojoh5 && container.mojoh5.stage){
+        c=container;
       }else{
         if(container.isSprite)
           _.assert(sprite.parent===container);

@@ -48,10 +48,7 @@
     //add optional defaults
     _.patch(cmdArg,{
       fps:60,
-      i:{pos:true,
-        size:true,
-        alpha:true,
-         scale:true}
+      i:{pos:true,scale:true} //alpha:true, //size:true
     });
     /** Built-in progress bar shown during the loading of asset files, if no user defined load function
      *  is provided in the config options.
@@ -238,7 +235,7 @@
       _.doseq(_.seq("Effects,2d,Tiles,GameLoop"), _runM);
       if(cmdArg.border)
         dom.css(Mojo.canvas, "border", cmdArg.border);
-      if(cmdArg.backgroundColor){
+      if(cmdArg.backgroundColor !== undefined){
         _.assert(is.num(cmdArg.backgroundColor));
         Mojo.ctx.backgroundColor = cmdArg.backgroundColor;
       }
@@ -316,7 +313,7 @@
       PXLR:PIXI.LoaderResource,
       PXTCache:PIXI.utils.TextureCache,
       PXObservablePoint: PIXI.ObservablePoint,
-      interpolateConfig(){ return this.o.i },
+      lerpConfig(){ return this.o.i },
       //get fps(){ return this.o.fps },
       //get rps(){ return this.o.rps },
       get assets(){ return this.PXLoader.resources },
@@ -364,13 +361,13 @@
      * @function
      * @returns read-only object.
      */
-    Mojo.mockStage=function(){
+    Mojo.mockStage=function(px=0,py=0){
       return{
-        getGlobalPosition(){ return {x:0,y:0} },
+        getGlobalPosition(){ return {x:px,y:py} },
         anchor: Mojo.makeAnchor(0,0),
-        mojoh5:{},
-        x:0,
-        y:0,
+        mojoh5:{stage:true},
+        x:px,
+        y:py,
         width: this.canvas.width,
         height: this.canvas.height
       }

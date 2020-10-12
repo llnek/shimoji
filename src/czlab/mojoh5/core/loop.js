@@ -59,27 +59,24 @@
      * @function
      */
     function _capture(){
-      let i=Mojo.interpolateConfig();
+      let i=Mojo.lerpConfig();
       function _clone(s){
         if(!s.mojoh5.stage){
           function cap(e,ek,pk){
             pk=pk || ek;
             s.mojoh5._prv[pk] = e[ek]
           }
-          if(i.pos){
-            _.doseq([[s,"x"], [s,"y"], [s,"rotation"]], e=> cap(...e));
-            if(s.mojoh5.tiling)
-              _.doseq([[s.tilePosition,"x","tilingX"],
-                       [s.tilePosition,"y","tilingY"],
-                       [s.tileScale,"x","tilingSX"],
-                       [s.tileScale,"y","tilingSY"]], e=> cap(...e));
-          }
+          if(i.alpha) cap(s,"alpha");
           if(i.size)
-            _.doseq([[s,"width"], [s,"height"]], e=> cap(...e));
+            [[s,"width"], [s,"height"]].forEach(e=> cap(...e));
           if(i.scale)
-            _.doseq([[s.scale,"x","sx"],[s.scale,"y","sy"]], e=> cap(...e));
-          if(i.alpha)
-            cap(s,"alpha");
+            [[s.scale,"x","sx"],[s.scale,"y","sy"]].forEach( e=> cap(...e));
+          if(i.pos)
+            [[s,"x"], [s,"y"], [s,"rotation"]].concat(
+              s.mojoh5.tiling? [[s.tileScale,"x","tilingSX"],
+                                [s.tileScale,"y","tilingSY"],
+                                [s.tilePosition,"x","tilingX"],
+                                [s.tilePosition,"y","tilingY"]] : []).forEach(e=>cap(...e));
         }
         _.doseq(s.children,_clone)
       }
@@ -91,27 +88,26 @@
      * @function
      */
     function _restore(s){
-      let i=Mojo.interpolateConfig();
+      let i=Mojo.lerpConfig();
       function _res(s){
         if(!s.mojoh5.stage){
           function res(e,ek,ck){
             ck= ck || ek;
             e[ek]= s.mojoh5._cur[ck]
           }
-          if(i.pos){
-            _.doseq([[s,"x"], [s,"y"], [s,"rotation"]],e=> res(...e));
-            if(s.mojoh5.tiling)
-              _.doseq([[s.tilePosition,"x","tilingX"], [s.tilePosition,"y","tilingY"],
-                       [s.tileScale,"x","tilingSX"], [s.tileScale,"y","tilingSY"]], e=> res(...e));
-          }
+          if(i.alpha) res(s,"alpha");
           if(i.size &&
             (_.inst(Mojo.PXSprite,s) ||
              _.inst(Mojo.PXASprite,s)))
-            _.doseq([[s,"width"],[s,"height"]],e=> res(...e));
+            [[s,"width"],[s,"height"]].forEach(e=>res(...e));
           if(i.scale)
-            _.doseq([[s.scale,"x","sx"],[s.scale,"y","sy"]], e=> res(...e));
-          if(i.alpha)
-            res(s,"alpha");
+            [[s.scale,"x","sx"],[s.scale,"y","sy"]].forEach(e=>res(...e));
+          if(i.pos)
+            [[s,"x"], [s,"y"], [s,"rotation"]].concat(
+              s.mojoh5.tiling? [[s.tileScale,"x","tilingSX"],
+                                [s.tileScale,"y","tilingSY"]
+                                [s.tilePosition,"x","tilingX"],
+                                [s.tilePosition,"y","tilingY"]] : []).forEach(e=>res(...e));
         }
         _.doseq(s.children,_res);
       }
@@ -142,7 +138,7 @@
      * @function
      */
     function _lerp(s,lag){
-      let i=Mojo.interpolateConfig();
+      let i=Mojo.lerpConfig();
       function _l(s){
         if(!s.mojoh5.stage){
           function ip(lag,e,ek,sk) {
@@ -151,22 +147,19 @@
             if(s.mojoh5._prv[sk] !== undefined)
               e[ek] = _M.lerp(s.mojoh5._prv[sk],e[ek],lag);
           }
-          if(i.pos){
-            _.doseq([[lag,s,"rotation"], [lag,s,"x"], [lag,s,"y"]], e=>ip(...e));
-            if(s.mojoh5.tiling)
-              _.doseq([[lag,s.tilePosition,"x","tilingX"],
-                       [lag,s.tilePosition,"y","tilingY"],
-                       [lag,s.tileScale,"x","tilingSX"],
-                       [lag,s.tileScale,"y","tilingSY"]], e=> ip(...e));
-          }
+          if(i.alpha) ip(lag,s,"alpha");
+          if(i.scale)
+            [[lag,s.scale,"x","sx"],
+             [lag,s.scale,"y","sy"]].forEach(e=>ip(...e));
           if(i.size && (_.inst(Mojo.PXSprite,s) ||
                         _.inst(Mojo.PXASprite,s)))
-            _.doseq([[lag,s,"width"], [lag,s,"height"]], e=> ip(...e));
-          if(i.scale)
-            _.doseq([[lag,s.scale,"x","sx"],
-                     [lag,s.scale,"y","sy"]], e=>ip(...e));
-          if(i.alpha)
-            ip(lag,s,"alpha");
+            [[lag,s,"width"], [lag,s,"height"]].forEach(e=> ip(...e));
+          if(i.pos)
+            [[lag,s,"x"], [lag,s,"y"], [lag,s,"rotation"]].concat(
+              s.mojoh5.tiling? [[lag,s.tileScale,"x","tilingSX"],
+                                [lag,s.tileScale,"y","tilingSY"],
+                                [lag,s.tilePosition,"x","tilingX"],
+                                [lag,s.tilePosition,"y","tilingY"]] : []).forEach(e=>ip(...e));
         }
         _.doseq(s.children, s=> _lerp(s,lag));
       }
@@ -177,7 +170,7 @@
      * @function
      */
     function _render(lag=1.0){
-      let i=Mojo.interpolateConfig();
+      let i=Mojo.lerpConfig();
       if(is.obj(i))
         Mojo.stageCS(s=> _lerp(s,lag));
       Mojo.ctx.render(Mojo.stage);

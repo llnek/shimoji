@@ -17,7 +17,7 @@
           () => {
             let frames = _S.animation("marbles.png", 32, 32);
             let marble = _S.sprite(frames);
-            marble.mojoh5.show(_.randInt2(0, 5));
+            marble.mojoh5.showFrame(_.randInt2(0, 5));
             _S.circular(marble, true);
             let sizes = [8, 12, 16, 20, 24, 28, 32];
             _S.radius(marble, sizes[_.randInt2(0, 6)]/2);
@@ -37,7 +37,7 @@
 
         //Create the "sling" which is a line that will connect
         //the pointer to the marbles
-        let sling = this.sling= _S.line("Yellow", 4);
+        let sling = this.sling= _S.line("Yellow", 4, [0,0],[32,32]);
         this.insert(sling);
         sling.visible = false;
 
@@ -181,13 +181,16 @@
     Mojo.Scenes.runScene("level1");
   }
 
-  window["io.czlab.mojoh5.AppConfig"]={
+  window.addEventListener("load",()=>{
+    MojoH5({
     assetFiles: ["marbles.png"],
     arena: {width:512, height:512},
     scaleToWindow:true,
     start: setup,
-    backgroundColor: "black"
-  };
+    backgroundColor: 0
+    })
+  });
+
 })(this);
 
 

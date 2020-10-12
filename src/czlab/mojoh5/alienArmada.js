@@ -123,7 +123,7 @@
           _bullets = _bullets.filter(function(bullet){
             if(_2d.hitTest(alien, bullet)){
               bullet.mojoh5.dead=true;
-              alien.mojoh5.show(alien.states.destroyed);
+              alien.mojoh5.showFrame(alien.states.destroyed);
               G.boomSound.play();
               alien.mojoh5.vel[1] = 0;
               alien.mojoh5.dead=true;
@@ -200,7 +200,8 @@
       assetFiles: ["images/alienArmada.json", "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
       arena: { width: 480, height: 320 },
       scaleToWindow: true,
-      //fps:null,
+      fps:60,
+      rps:60,
       //i:null,
       start: (Mojo)=>{
         Mojo.Game.boomSound = Mojo.sound("explosion.wav");

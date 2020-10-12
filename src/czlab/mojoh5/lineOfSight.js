@@ -58,10 +58,10 @@
         let lineOfSight = _S.lineOfSight( this.monster, this.alien, this.boxes, 16);
         //If the monster has line of sight, set its state to "angry" and
         if(lineOfSight){
-          this.monster.mojoh5.show(this.monster.states.angry);
+          this.monster.mojoh5.showFrame(this.monster.states.angry);
           this.line.alpha = 1;
         }else{
-          this.monster.mojoh5.show(this.monster.states.normal);
+          this.monster.mojoh5.showFrame(this.monster.states.normal);
           this.line.alpha = 0.3;
         }
       }

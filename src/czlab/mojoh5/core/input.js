@@ -35,34 +35,135 @@
     const _=Core.u;
     const is=Core.is;
     const _I= {
+      arrowControl(s, speed){
+        _.assert(is.num(speed), "arrowControl requires speed");
+        let left= this.keyboard(37);
+        let up= this.keyboard(38);
+        let down= this.keyboard(40);
+        let right= this.keyboard(39);
+        _.inject(left,{
+          press(){
+            s.mojoh5.vel[0] = -speed;
+            s.mojoh5.vel[1] = 0;
+          },
+          release(){
+            if(!right.isDown && s.mojoh5.vel[1] === 0){
+              s.mojoh5.vel[0] = 0;
+            }
+          }
+        });
+        _.inject(up,{
+          press(){
+            s.mojoh5.vel[1] = -speed;
+            s.mojoh5.vel[0] = 0;
+          },
+          release(){
+            if(!down.isDown && s.mojoh5.vel[0] === 0){
+              s.mojoh5.vel[1] = 0;
+            }
+          }
+        });
+        _.inject(right,{
+          press(){
+            s.mojoh5.vel[0] = speed;
+            s.mojoh5.vel[1] = 0;
+          },
+          release(){
+            if(!left.isDown && s.mojoh5.vel[1] === 0){
+              s.mojoh5.vel[0] = 0;
+            }
+          }
+        });
+        _.inject(down,{
+          press(){
+          s.mojoh5.vel[1] = speed;
+          s.mojoh5.vel[0] = 0;
+          },
+          release(){
+            if(!up.isDown && s.mojoh5.vel[0] === 0){
+              s.mojoh5.vel[1] = 0;
+            }
+          }
+        });
+      },
+      onResize(){
+        Mojo.pointer = _I.pointer(Mojo.canvas, Mojo.scale);
+        _I.scale= Mojo.scale;
+      },
+      keyboard(keyCode){
+        //press: undefined, //release: undefined,
+        let key = {
+          code: keyCode,
+          isDown: false,
+          isUp: true,
+          downHandler(e){
+            if(e.keyCode === key.code){
+              key.isUp && key.press && key.press();
+              key.isUp = !(key.isDown = true);
+            }
+            e.preventDefault();
+          },
+          upHandler(e){
+            if(e.keyCode === key.code) {
+              key.isDown && key.release && key.release();
+              key.isDown = !(key.isUp = true);
+            }
+            e.preventDefault();
+          }
+        };
+        _.addEvent([["keyup", window, key.upHandler, false],
+                    ["keydown", window, key.downHandler, false]]);
+        return key;
+      },
       get scale() { return _scale },
-      set scale(v) { _scale=v; _.doseq(_pointers, p=> p.scale=v) }
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.makeDraggable=function(...sprites){
-      if(sprites.length===1 && is.vec(sprites[0])){
-        sprites=sprites[0];
+      set scale(v) { _scale=v; _.doseq(_pointers, p=> p.scale=v) },
+      removeButton(b){
+        b.mojoh5.enabled=false;
+        _.disj(_buttons,b);
+      },
+      makeButton(s){
+        s.mojoh5.state = "up";
+        s.mojoh5.action = "";
+        s.mojoh5.pressed = false;
+        s.mojoh5.hoverOver = false;
+        s.mojoh5.button=true;
+        s.mojoh5.enabled = true;
+        return _.conj(_buttons,s) && s;
+      },
+      button(source, x = 0, y = 0){
+        let s, s0=source[0];
+        if(is.str(s0)){
+          s = Mojo.tcached(s0) ? Mojo.animFromFrames(source)
+                               : Mojo.animFromImages(source)
+        } else if(_.inst(Mojo.PXTexture,s0)){
+          s = new Mojo.PXASprite(source)
+        }
+        s.x = x;
+        s.y = y;
+        return this.makeButton(_S.extend(s))
+      },
+      update(dt){
+        if(_draggables.length > 0) this.updateDragAndDrop(_draggables);
+        if(_buttons.length > 0) this.updateButtons(dt);
+      },
+      makeDraggable(...sprites){
+        if(sprites.length===1 && is.vec(sprites[0])){
+          sprites=sprites[0];
+        }
+        _.doseq(sprites,s=>{
+          _.conj(_draggables,s);
+          s.mojoh5.draggable = true;
+        });
+      },
+      makeUndraggable(...sprites){
+        if(sprites.length===1 && is.vec(sprites[0])){
+          sprites=sprites[0];
+        }
+        _.doseq(sprites,s=>{
+          _.disj(_draggables,s);
+          s.mojoh5.draggable = false;
+        });
       }
-      _.doseq(sprites,s=>{
-        _.conj(_draggables,s);
-        s.mojoh5.draggable = true;
-      });
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.makeUndraggable=function(...sprites){
-      if(sprites.length===1 && is.vec(sprites[0])){
-        sprites=sprites[0];
-      }
-      _.doseq(sprites,s=>{
-        _.disj(_draggables,s);
-        s.mojoh5.draggable = false;
-      });
     };
     /**
      * @public
@@ -101,83 +202,79 @@
         set visible(v) {
           this.cursor = v ? "auto" : "none";
           this._visible = v;
+        },
+        getGlobalPosition(){
+          return {x: this.x, y: this.y}
+        },
+        moveHandler(e){
+          let t = e.target;
+          ptr._x = (e.pageX - t.offsetLeft);
+          ptr._y = (e.pageY - t.offsetTop);
+          e.preventDefault();
+        },
+        touchmoveHandler(e){
+          let t = e.target;
+          ptr._x = (e.targetTouches[0].pageX - t.offsetLeft);
+          ptr._y = (e.targetTouches[0].pageY - t.offsetTop);
+          e.preventDefault();
+        },
+        downHandler(e){
+          ptr.isDown = true;
+          ptr.isUp = false;
+          ptr.tapped = false;
+          ptr.downTime = _.now();
+          ptr.press && ptr.press();
+          e.preventDefault();
+        },
+        touchstartHandler(e){
+          let t = e.target;
+          ptr._x = e.targetTouches[0].pageX - t.offsetLeft;
+          ptr._y = e.targetTouches[0].pageY - t.offsetTop;
+          ptr.downTime = _.now();
+          ptr.isDown = true;
+          ptr.isUp = false;
+          ptr.tapped = false;
+          ptr.press && ptr.press();
+          e.preventDefault();
+        },
+        upHandler(e){
+          ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+          if(ptr.elapsedTime <= 200 && ptr.tapped === false){
+            ptr.tapped = true;
+            ptr.tap && ptr.tap();
+          }
+          ptr.isUp = true;
+          ptr.isDown = false;
+          ptr.release && ptr.release();
+          //e.preventDefault();
+        },
+        touchendHandler(e){
+          ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+          if(ptr.elapsedTime <= 200 && ptr.tapped === false){
+            ptr.tapped = true;
+            ptr.tap && ptr.tap();
+          }
+          ptr.isUp = true;
+          ptr.isDown = false;
+          ptr.release && ptr.release();
+          //e.preventDefault();
+        },
+        hitTestSprite(s){
+          return Mojo["2d"].hitTestPointXY(ptr.x,ptr.y,s,true)
         }
       };
-      ptr.getGlobalPosition=function(){
-        return {x: ptr.x, y: ptr.y}
-      };
-      ptr.moveHandler= function(event){
-        let t = event.target;
-        this._x = (event.pageX - t.offsetLeft);
-        this._y = (event.pageY - t.offsetTop);
-        event.preventDefault();
-      };
-      ptr.touchmoveHandler= function(event){
-        let t = event.target;
-        this._x = (event.targetTouches[0].pageX - t.offsetLeft);
-        this._y = (event.targetTouches[0].pageY - t.offsetTop);
-        event.preventDefault();
-      };
-      ptr.downHandler= function(event){
-        this.isDown = true;
-        this.isUp = false;
-        this.tapped = false;
-        this.downTime = _.now();
-        this.press && this.press();
-        event.preventDefault();
-      };
-      ptr.touchstartHandler= function(event){
-        let t = event.target;
-        this._x = event.targetTouches[0].pageX - t.offsetLeft;
-        this._y = event.targetTouches[0].pageY - t.offsetTop;
-        this.downTime = _.now();
-        this.isDown = true;
-        this.isUp = false;
-        this.tapped = false;
-        this.press && this.press();
-        event.preventDefault();
-      };
-      ptr.upHandler= function(event){
-        this.elapsedTime = Math.abs(this.downTime - _.now());
-        if(this.elapsedTime <= 200 && this.tapped === false){
-          this.tapped = true;
-          this.tap && this.tap();
-        }
-        this.isUp = true;
-        this.isDown = false;
-        this.release && this.release();
-        //`event.preventDefault();` needs to be disabled to prevent <input> range sliders
-        //from getting trapped in Firefox (and possibly Safari)
-        //event.preventDefault();
-      };
-      ptr.touchendHandler= function(event){
-        this.elapsedTime = Math.abs(this.downTime - _.now());
-        if(this.elapsedTime <= 200 && this.tapped === false){
-          this.tapped = true;
-          this.tap && this.tap();
-        }
-        this.isUp = true;
-        this.isDown = false;
-        this.release && this.release();
-        //event.preventDefault();
-      };
-      ptr.hitTestSprite= function(sprite){
-        return Mojo["2d"].hitTestPointXY(this.x,this.y,sprite,true)
-      };
-      _.addEvent("mousemove", el, ptr.moveHandler.bind(ptr), false);
-      _.addEvent("mousedown", el,ptr.downHandler.bind(ptr), false);
-      //Add the `mouseup` event to the `window` to
-      //catch a mouse button release outside of the canvas area
-      _.addEvent("mouseup", window, ptr.upHandler.bind(ptr), false);
-      _.addEvent("touchmove", el, ptr.touchmoveHandler.bind(ptr), false);
-      _.addEvent("touchstart", el, ptr.touchstartHandler.bind(ptr), false);
-      //Add the `touchend` event to the `window` object to
-      //catch a mouse button release outside of the canvas area
-      _.addEvent("touchend", window, ptr.touchendHandler.bind(ptr), false);
-      //Disable the default pan and zoom actions on the `canvas`
+      _.addEvent([["mousemove", el, ptr.moveHandler, false],
+                  ["mousedown", el,ptr.downHandler, false],
+                  //catch mouse button releases outside of the canvas area
+                  ["mouseup", window, ptr.upHandler, false],
+                  ["touchmove", el, ptr.touchmoveHandler, false],
+                  ["touchstart", el, ptr.touchstartHandler, false],
+                  //catch a mouse button release outside of the canvas area
+                  ["touchend", window, ptr.touchendHandler, false]]);
+      //disable the default actions on the canvas
       el.style.touchAction = "none";
-      _.conj(_pointers,ptr);
-      return ptr;
+      return (_pointers[0]=ptr);
+      //return _.conj(_pointers,ptr) && ptr;
     };
     /**
      * @public
@@ -220,29 +317,8 @@
           }
         });
       }
+      //deal with single pointer for now
       _pointers.length>0 && _F(_pointers[0]);
-      //for(let i=1;i<_pointers.length;++i) F(_pointers[i]);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.makeButton=function(o){
-      o.mojoh5.state = "up";
-      o.mojoh5.action = "";
-      o.mojoh5.pressed = false;
-      o.mojoh5.hoverOver = false;
-      o.mojoh5.button=true;
-      o.mojoh5.enabled = true;
-      _.conj(_buttons,o);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.removeButton=function(b){
-      b.mojoh5.enabled=false;
-      _.disj(_buttons,b);
     };
     /**
      * @public
@@ -251,186 +327,69 @@
     _I.updateButtons=function(){
       function _F(ptr){
         ptr.shouldBeHand = false;
-        _buttons.forEach(o=>{
-          if(o.mojoh5.enabled){
-            let hit = ptr.hitTestSprite(o);
+        _buttons.forEach(s=>{
+          if(s.mojoh5.enabled){
+            let hit = ptr.hitTestSprite(s);
             if(ptr.isUp){
-              o.mojoh5.state = "up";
-              if(o.mojoh5.button) o.gotoAndStop(0);
+              s.mojoh5.state = "up";
+              if(s.mojoh5.button) s.gotoAndStop(0);
             }
             if(hit){
-              o.mojoh5.state = "over";
-              if(o.totalFrames && o.totalFrames === 3 && o.mojoh5.button){
-                o.gotoAndStop(1);
+              s.mojoh5.state = "over";
+              if(s.totalFrames && s.totalFrames === 3 && s.mojoh5.button){
+                s.gotoAndStop(1);
               }
               if(ptr.isDown){
-                o.mojoh5.state = "down";
-                if(o.mojoh5.button)
-                  (o.totalFrames === 3) ? o.gotoAndStop(2) : o.gotoAndStop(1);
+                s.mojoh5.state = "down";
+                if(s.mojoh5.button)
+                  (s.totalFrames === 3) ? s.gotoAndStop(2) : s.gotoAndStop(1);
               }
               ptr.shouldBeHand = true;
               if(ptr.visible) ptr.cursor = "pointer";
             }else{
               if(ptr.visible) ptr.cursor = "auto";
             }
-            if(o.mojoh5.state === "down"){
-              if(!o.mojoh5.pressed){
-                o.mojoh5.press && o.mojoh5.press();
-                o.mojoh5.pressed = true;
-                o.mojoh5.action = "pressed";
+            if(s.mojoh5.state === "down"){
+              if(!s.mojoh5.pressed){
+                s.mojoh5.press && s.mojoh5.press();
+                s.mojoh5.pressed = true;
+                s.mojoh5.action = "pressed";
               }
             }
-            if(o.mojoh5.state === "over"){
-              if(o.mojoh5.pressed){
-                o.mojoh5.release && o.mojoh5.release();
-                o.mojoh5.pressed = false;
-                o.mojoh5.action = "released";
-                if(ptr.tapped && o.mojoh5.tap) o.tap();
+            if(s.mojoh5.state === "over"){
+              if(s.mojoh5.pressed){
+                s.mojoh5.release && s.mojoh5.release();
+                s.mojoh5.pressed = false;
+                s.mojoh5.action = "released";
+                if(ptr.tapped && s.mojoh5.tap) s.tap();
               }
-              if(!o.mojoh5.hoverOver){
-                o.mojoh5.hover && o.mojoh5.hover();
-                o.mojoh5.hoverOver = true;
+              if(!s.mojoh5.hoverOver){
+                s.mojoh5.hover && s.mojoh5.hover();
+                s.mojoh5.hoverOver = true;
               }
             }
-            if(o.mojoh5.state === "up"){
-              if(o.mojoh5.pressed){
-                o.mojoh5.release && o.mojoh5.release();
-                o.mojoh5.pressed = false;
-                o.mojoh5.action = "released";
+            if(s.mojoh5.state === "up"){
+              if(s.mojoh5.pressed){
+                s.mojoh5.release && s.mojoh5.release();
+                s.mojoh5.pressed = false;
+                s.mojoh5.action = "released";
               }
-              if(o.mojoh5.hoverOver){
-                o.mojoh5.blur && o.mojoh5.blur();
-                o.mojoh5.hoverOver = false;
+              if(s.mojoh5.hoverOver){
+                s.mojoh5.blur && s.mojoh5.blur();
+                s.mojoh5.hoverOver = false;
               }
             }
           }
         });
-        ptr.cursor = ptr.shouldBeHand ? "pointer" : "auto";
+        ptr.cursor = ptr.shouldBeHand ? "pointer" : "auto"
       }
+      //single pointer for now
       _pointers.length>0 && _F(_pointers[0]);
-      //for(let i=1;i<_pointers.length;++i)_F(_pointers[i]);
     };
     /**
      * @public
      * @function
      */
-    _I.button=function(source, x = 0, y = 0){
-      let o, s0=source[0];
-      if(is.str(s0)){
-        o = Mojo.tcached(s0) ? Mojo.animFromFrames(source)
-                             : Mojo.animFromImages(source);
-      } else if(_.inst(Mojo.PXTexture,s0)){
-        o = new Mojo.PXASprite(source);
-      }
-      this.makeButton(_S.extend(o));
-      o.x = x;
-      o.y = y;
-      return o;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.update= function(dt){
-      if(_draggables.length > 0) this.updateDragAndDrop(_draggables);
-      if(_buttons.length > 0) this.updateButtons(dt);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.keyboard=function(keyCode){
-      let key = {
-        code: keyCode,
-        isDown: false,
-        isUp: true,
-        press: undefined,
-        release: undefined};
-      key.downHandler= function(event){
-        if(event.keyCode === key.code){
-          if(key.isUp && key.press) key.press();
-          key.isDown = true;
-          key.isUp = false;
-        }
-        event.preventDefault();
-      };
-      key.upHandler = function(event){
-        if(event.keyCode === key.code) {
-          if(key.isDown && key.release) key.release();
-          key.isDown = false;
-          key.isUp = true;
-        }
-        event.preventDefault();
-      };
-
-      _.addEvent("keydown", window, key.downHandler.bind(key), false);
-      _.addEvent("keyup", window, key.upHandler.bind(key), false);
-
-      return key;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.arrowControl=function(sprite, speed){
-      if(speed === undefined)
-        throw `arrowControl requires speed`;
-      let upArrow = this.keyboard(38);
-      let rightArrow = this.keyboard(39);
-      let downArrow = this.keyboard(40);
-      let leftArrow = this.keyboard(37);
-
-      leftArrow.press = function(){
-        sprite.mojoh5.vel[0] = -speed;
-        sprite.mojoh5.vel[1] = 0;
-      };
-
-      leftArrow.release = function(){
-        //If the left arrow has been released, and the right arrow isn't down,
-        //and the sprite isn't moving vertically:
-        //Stop the sprite
-        if(!rightArrow.isDown && sprite.mojoh5.vel[1] === 0)
-          sprite.mojoh5.vel[0] = 0;
-      };
-
-      upArrow.press = function(){
-        sprite.mojoh5.vel[1] = -speed;
-        sprite.mojoh5.vel[0] = 0;
-      };
-
-      upArrow.release = function(){
-        if(!downArrow.isDown && sprite.mojoh5.vel[0] === 0)
-          sprite.mojoh5.vel[1] = 0;
-      };
-
-      rightArrow.press = function(){
-        sprite.mojoh5.vel[0] = speed;
-        sprite.mojoh5.vel[1] = 0;
-      };
-
-      rightArrow.release = function(){
-        if(!leftArrow.isDown && sprite.mojoh5.vel[1] === 0)
-          sprite.mojoh5.vel[0] = 0;
-      };
-
-      downArrow.press = function(){
-        sprite.mojoh5.vel[1] = speed;
-        sprite.mojoh5.vel[0] = 0;
-      };
-
-      downArrow.release = function(){
-        if(!upArrow.isDown && sprite.mojoh5.vel[0] === 0)
-          sprite.mojoh5.vel[1] = 0;
-      };
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.onResize=function(){
-      Mojo.pointer = _I.pointer(Mojo.canvas, Mojo.scale);
-      _I.scale= Mojo.scale;
-    };
 
     Mojo.EventBus.sub(["canvas.resize",_I], "onResize");
     _I.onResize();
