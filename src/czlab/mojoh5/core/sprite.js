@@ -93,6 +93,11 @@
                             dead: false,
                             circular: false,
                             interact: false, draggable: false });
+        s.mojoh5.addf=function(n,f){
+          _.assert(!_.has(s,n),`Error: ${n} not available.`);
+          let b= s[n]= _.inject({},f);
+          b.added(s);
+        };
         return s;
       }
     };
@@ -143,6 +148,36 @@
       }
       return R
     }
+    const _features= _.jsMap();
+    class Feature{
+      constructor(){
+      }
+    }
+    /**
+     * @public
+     * @function
+     */
+    Mojo.defFeature=function(name,body){
+      if(_.has(_features,name))
+        throw `Error: feature "${name}" already defined.`;
+      //"Invalid feature, require method `added`."
+      body.name=name;
+      body.featureName= "."+name;
+      _.assoc(_features,name, body);
+    };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.addFeature=function(obj,...fs){
+      _.assert(obj.mojoh5,`Error: obj is not mojoh5-extended`);
+      fs.forEach(n=>{
+        let b= _features.get(n);
+        _.assert(b,`Error: Invalid feature ${n}`);
+        obj.mojoh5.addf(n, b);
+      })
+      return obj
+    };
     /**
      * @public
      * @function
@@ -304,6 +339,7 @@
         }
       }
       function _advanceFrame(){
+        //console.log(`in advance frame ${cnt}`);
         if(cnt < total+1){
           s.gotoAndStop(s.currentFrame+1);
           cnt += 1;
@@ -333,7 +369,7 @@
           cnt=1;
           if(!s.mojoh5.animating){
             s.mojoh5.animating = true;
-            tmID = _.timer(_advanceFrame,1000/(s.mojoh5.fps||12));
+            tmID = _.timer(_advanceFrame, 1000/(s.mojoh5.fps||12), true);
           }
         }
       });
@@ -390,7 +426,7 @@
      * @public
      * @function
      */
-    _S.rotateAroundSprite= function(rotatingS, centerS, dist, angle){
+    _S.rotateAroundSprite=function(rotatingS, centerS, dist, angle){
       let c=this.centerXY(centerS);
       let r=this.centerXY(rotatingS);
       rotatingS.x = c[0] - rotatingS.parent.x + (dist * Math.cos(angle)) - r[0];
@@ -667,13 +703,22 @@
      * @public
      * @function
      */
-    _S.tilingSprite=function(source, width, height, x, y){
-      if(width === undefined || height === undefined)
-        throw "Error: tilingSprite() requires width and height";
-      let s = _sprite(source, width, height, true, x,y);
+    _S.tilingSprite=function(source, width, height, x=0, y=0){
+      //if(width === undefined || height === undefined) throw "Error: tilingSprite() requires width and height";
+      let t= this.mkTexture(source);
+      let s = _sprite(source, width || t.width, height || t.height, true, x,y);
       s.mojoh5.tiling={ x:0,y:0,sx:0,sy:0 };
       return s;
     };
+    /**
+     * @private
+     * @function
+     */
+    function _frames(source, tileW, tileH, points){
+      let t= _S.mkTexture(source);
+      return points.map(p =>
+        _cfgTexture(new Mojo.PXTexture(t),tileW,tileH,p[0],p[1]))
+    }
     /**
      * @public
      * @function
@@ -694,7 +739,7 @@
         }
         _.conj(pos, _V.V2(x,y));
       }
-      let ret= this.frames(texture, tileW, tileH,pos);
+      let ret= _frames(texture, tileW, tileH,pos);
       _V.dropV2(...pos);
       return ret;
     };
@@ -717,10 +762,22 @@
      * @public
      * @function
      */
-    _S.frames=function(source, tileW, tileH, points){
+    _S.frames=function(source,tileW,tileH,spaceX,spaceY,sx,sy){
       let t= this.mkTexture(source);
-      return points.map(p =>
-        _cfgTexture(new Mojo.PXTexture(t),tileW,tileH,p[0],p[1]))
+      let out=[];
+      let dx=tileW+spaceX;
+      let dy=tileH+spaceY;
+      let bt= t.baseTexture;
+      let rows= _.floor(t.height/dy);
+      let cols= _.floor((t.width+spaceX)/dx);
+      for(let y,r=0;r<rows;++r){
+        y= sy + tileH*r;
+        for(let x,c=0;c<cols;++c){
+          x= sx + tileW*c;
+          _.conj(out,_cfgTexture(new Mojo.PXTexture(bt),tileW,tileH,x,y));
+        }
+      }
+      return out;
     };
     /**
      * @public
@@ -779,7 +836,7 @@
         fill: _S.color(fillStyle),
         stroke: _S.color(strokeStyle)
       };
-      let draw= function(){
+      let draw=function(){
         g.clear();
         g.beginFill(gprops.fill);
         if(gprops.lineW > 0)
@@ -830,7 +887,7 @@
         fill: _S.color(fillStyle),
         stroke: _S.color(strokeStyle)
       };
-      let draw= function(){
+      let draw=function(){
         g.clear();
         g.beginFill(gprops.fill);
         if(gprops.lineW > 0)
@@ -883,7 +940,7 @@
         A: _V.V2(A[0],A[1]),
         B: _V.V2(B[0],B[1])
       };
-      let draw= function(){
+      let draw=function(){
         g.clear();
         g.lineStyle(gprops.lineW, gprops.stroke, 1);
         g.moveTo(gprops.A[0], gprops.A[1]);
@@ -934,7 +991,7 @@
      * @public
      * @function
      */
-    _S.grid= function(cols, rows, cellW, cellH,
+    _S.grid=function(cols, rows, cellW, cellH,
                       centerCell, xOffset, yOffset, spriteCtor, extra){
       let length = cols * rows;
       let container = new Mojo.PXContainer();
@@ -1058,9 +1115,11 @@
       if(sprites.length===1 && is.vec(sprites[0])){
         sprites=sprites[0];
       }
-      _.doseq(sprites, s => {
-        if(s.parent)
+      _.doseq(sprites, s=>{
+        if(s.parent){
           s.parent.removeChild(s)
+          Mojo.EventBus.pub(["post.remove",s]);
+        }
       });
     };
     /**
@@ -1069,7 +1128,7 @@
      * @public
      * @function
      */
-    _S.colorToRGBA= function(color){
+    _S.colorToRGBA=function(color){
       // Returns the color as an array of [r, g, b, a] -- all range from 0 - 255
       // color must be a valid canvas fillStyle. This will cover most anything
       // you'd want to use.

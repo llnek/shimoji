@@ -391,7 +391,7 @@
      * @function
      */
 
-    Mojo.EventBus.sub(["canvas.resize",_I], "onResize");
+    Mojo.EventBus.sub(["canvas.resize"], "onResize",_I);
     _I.onResize();
 
     return (Mojo.Input= _I)

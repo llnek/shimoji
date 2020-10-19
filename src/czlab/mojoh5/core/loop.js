@@ -105,7 +105,7 @@
           if(i.pos)
             [[s,"x"], [s,"y"], [s,"rotation"]].concat(
               s.mojoh5.tiling? [[s.tileScale,"x","tilingSX"],
-                                [s.tileScale,"y","tilingSY"]
+                                [s.tileScale,"y","tilingSY"],
                                 [s.tilePosition,"x","tilingX"],
                                 [s.tilePosition,"y","tilingY"]] : []).forEach(e=>res(...e));
         }

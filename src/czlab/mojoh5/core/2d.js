@@ -54,6 +54,80 @@
       return c;
     }
     /**
+     * @public
+     * @object
+     */
+    Mojo.defFeature("2d",{
+      added(e){
+        let self= e["2d"];
+        Mojo.EventBus.sub(["hit",e],"collision",self,[e]);
+        Mojo.EventBus.sub(["post.step",e],"step",self,[e]);
+        Mojo.EventBus.sub(["post.remove",e],"dispose",self,[self,e]);
+      },
+      dispose(self,e){
+        Mojo.EventBus.unsub(["hit",e],"collision",self);
+        Mojo.EventBus.unsub(["post.step",e],"step",self);
+        Mojo.EventBus.unsub(["post.step",e],"dispose",self);
+      },
+      collision(col,last){
+        /*
+        let p = this.entity.p;
+        if(col.obj.p && col.obj.p.sensor) {
+          EBus.pub("sensor", col.obj, this.entity);
+        } else {
+        let magnitude=0,
+            impactX = _.abs(p.vx),
+            impactY = _.abs(p.vy);
+          col.impact = 0;
+          p.x -= col.separate[0];
+          p.y -= col.separate[1];
+          // Top collision
+          if(col.normalY < -0.3) {
+            if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
+            col.impact = impactY;
+            EBus.pub([["bump.bottom", this.entity,col],
+                      ["bump", this.entity,col]]);
+          }
+          if(col.normalY > 0.3) {
+            if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
+            col.impact = impactY;
+            EBus.pub([["bump.top",this.entity,col],
+                      ["bump",this.entity,col]]);
+          }
+          if(col.normalX < -0.3) {
+            if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
+            col.impact = impactX;
+            EBus.pub([["bump.right",this.entity,col],
+                      ["bump",this.entity,col]]);
+          }
+          if(col.normalX > 0.3) {
+            if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
+            col.impact = impactX;
+            EBus.pub([["bump.left",this.entity,col],
+                      ["bump",this.entity,col]]);
+          }
+        }
+        */
+      },
+      step(dt,p){
+        let dtStep = dt;
+        //TODO: check the entity's magnitude of vx and vy,
+        // reduce the max dtStep if necessary to prevent
+        // skipping through objects.
+        while(dtStep > 0){
+          dt = _.min(1/30,dtStep);
+          p.mojoh5.vel[0] += p.mojoh5.acc[0] * dt + p.mojoh5.gravity[0] * dt;
+          p.mojoh5.vel[1] += p.mojoh5.acc[1] * dt + p.mojoh5.gravity[1] * dt;
+          p.x += p.mojoh5.vel[0] * dt;
+          p.y += p.mojoh5.vel[1] * dt;
+          //this.entity.scene.collide(this.entity);
+          dtStep -= dt;
+        }
+        //console.log("2d feature called " + e.mojoh5.uuid);
+      }
+    });
+
+    /**
      * Find out if a point is touching a circlular or rectangular sprite.
      *
      * @function
@@ -347,11 +421,18 @@
             this.y = worldHeight - this.height;
           }
         },
-        centerOver: function(sprite){
-          let sz= _S.halfSize(sprite);
-          //Center the camera over a sprite
-          this.x = sprite.x + sz[0] - (this.width/2);
-          this.y = sprite.y + sz[1] - (this.height/2);
+        centerOver: function(sprite,y){
+          let w2=this.width/2;
+          let h2=this.height/2;
+          if(arguments.length===2){
+            this.x=sprite - w2;
+            this.y=y - h2;
+          }else{
+            let sz= _S.halfSize(sprite);
+            //Center the camera over a sprite
+            this.x = sprite.x + sz[0] - w2;
+            this.y = sprite.y + sz[1] - h2;
+          }
         }
       };
       return camera;

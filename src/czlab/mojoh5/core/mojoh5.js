@@ -47,8 +47,7 @@
     //////////////////////////////////////////////////////////////////////////
     //add optional defaults
     _.patch(cmdArg,{
-      fps:60,
-      i:{pos:true,scale:true} //alpha:true, //size:true
+      Xi:{pos:true,scale:true} //alpha:true, //size:true
     });
     /** Built-in progress bar shown during the loading of asset files, if no user defined load function
      *  is provided in the config options.
@@ -87,7 +86,7 @@
      * @private
      * @function
      */
-    function _scaleCanvas(canvas, bgcolor){
+    function _scaleCanvas(canvas, bgColor){
       let CH=canvas.offsetHeight;
       let CW=canvas.offsetWidth;
       let WH=window.innerHeight;
@@ -117,7 +116,8 @@
                        paddingTop:"0px",
                        paddingBottom:"0px",
                        display:"block"});
-      dom.css(document.body, "backgroundColor",  bgcolor);
+      if(bgColor !== undefined)
+        dom.css(document.body, "backgroundColor",  bgColor);
       return scale;
     }
     /** Once all the files are loaded, do some post processing.
@@ -219,16 +219,25 @@
      * @function
      */
     function _prologue(Mojo,cmdArg){
-      let arena=cmdArg.arena;
+      let arena=cmdArg.arena || {};
+      let maxed=false;
       function _runM(m){
         global["io.czlab.mojoh5."+m](Mojo)
       }
-      arena = _.patch(arena, {width: window.innerWidth,
-                              height: window.innerHeight});
+      cmdArg.arena=arena;
+      if(cmdArg.scaleToWindow === "max"){
+        arena = _.inject(arena, {width: window.innerWidth,
+                                 height: window.innerHeight});
+        maxed=true;
+      }else{
+        arena = _.patch(arena, {width: window.innerWidth,
+                                height: window.innerHeight});
+      }
       Mojo.ctx= PIXI.autoDetectRenderer(arena);
       Mojo.ctx.backgroundColor = 0xFFFFFF;
       Mojo.canvas = Mojo.ctx.view;
       Mojo.canvas.scaled = false;
+      Mojo.canvas.maxed=maxed;
       Mojo.canvas.id="mojo";
       Mojo.stage= new Mojo.PXContainer();
       _.doseq(_.seq("Sprites,Input,Scenes,Sound"), _runM);
@@ -242,8 +251,9 @@
       dom.conj(document.body, Mojo.canvas);
       Mojo.stage.mojoh5={stage: true};
       Mojo.scale = 1;
-      if(cmdArg.scaleToWindow)
+      if(cmdArg.scaleToWindow===true)
         Mojo.scaleToWindow(cmdArg.scaleBorderColor);
+      _.addEvent("resize", window, () => Mojo.resize());
       _loadFiles(Mojo);
       return Mojo;
     }
@@ -320,6 +330,37 @@
       set border(v){ dom.css(this.canvas,"border", v) },
       set bgColor(c){ this.ctx.backgroundColor = this.color(c) }
     };
+    const _features= _.jsMap();
+    class Feature{
+      constructor(){
+      }
+    }
+    /**
+     * @public
+     * @function
+     */
+    Mojo.defFeature=function(name,body){
+      if(_.has(_features,name))
+        throw `Error: feature "${name}" already defined.`;
+      //"Invalid feature, require method `added`."
+      body.name=name;
+      body.featureName= "."+name;
+      _.assoc(_features,name, body);
+    };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.addFeature=function(obj,...fs){
+      fs.forEach(n=>{
+        let b= _features.get(n);
+        _.assert(b,`Error: Invalid feature ${n}`);
+        _.assert(!_.has(obj,n),`Error: ${name} not available.`);
+        b=_.inject({},b);
+        obj[n].added(b,obj);
+      })
+      return obj
+    };
     /**
      * @public
      * @function
@@ -339,8 +380,14 @@
      * @function
      */
     Mojo.resize=function(canvas, color){
-      this.scale = _scaleCanvas(canvas, color);
-      this.EventBus.pub(["canvas.resize",Mojo.Input]);
+      canvas=canvas || Mojo.canvas;
+      if(canvas.maxed){
+        canvas.width=window.innerWidth;
+        canvas.height=window.innerHeight;
+      }else{
+        this.scale = _scaleCanvas(canvas, color);
+      }
+      this.EventBus.pub(["canvas.resize"]);
     };
     /**
      * @public
@@ -354,7 +401,6 @@
       dom.conj(document.head,newStyle);
       this.resize(target,borderColor);
       target.scaled = true;
-      _.addEvent("resize", window, () => this.resize(target,borderColor));
     };
     /**
      * @public

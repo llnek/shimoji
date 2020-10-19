@@ -84,6 +84,15 @@
         this.children.forEach(c=> c.mojoh5.button && _I.removeButton(c));
         this.removeChildren();
       }
+      _iterStep(r,dt){
+        _.doseq(r, c=>{
+          if(c.mojoh5 && c.mojoh5.step){
+            c.mojoh5.step(dt);
+            Mojo.EventBus.pub(["post.step",c],dt);
+          }
+          c.children.length>0 && this._iterStep(c.children, dt)
+        });
+      }
       update(dt){
         if(this.mojoh5.dead) {return;}
         //handle queued stuff
@@ -97,7 +106,7 @@
           _.disj(this.____queue,f);
         }
         Mojo.EventBus.pub(["pre.update",this],dt);
-        _.doseq(this.children, c => c.mojoh5 && c.mojoh5.step && c.mojoh5.step(dt));
+        this._iterStep(this.children, dt);
         Mojo.EventBus.pub(["post.update",this],dt);
       }
       runOnce(){

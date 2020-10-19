@@ -345,11 +345,16 @@
       delay(wait,f){
         return setTimeout(f,wait);
       },
-      timer(f,delay=0){
-        return setTimeout(f,delay);
+      timer(f,delay=0,repeat=false){
+        return {
+          repeat: !!repeat,
+          id: repeat ? setInterval(f,delay) : setTimeout(f,delay)
+        }
       },
-      clear(id){
-        id !== undefined && clearTimeout(id);
+      clear(handle){
+        if(handle)
+          handle.repeat ? clearInterval(handle.id)
+                        : clearTimeout(handle.id)
       },
       rseq(obj,fn,target){
         if(isArray(obj) && obj.length>0)
@@ -563,84 +568,49 @@
      */
     const EventBus= function(){
       let _tree= _.jsMap();
+      let NULL={};
+      let ZA=[];
       return {
-        sub(subject,cb,ctx){
-          if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]){
-            subject.forEach(e => { if(is.vec(e)) this.sub.apply(this, e); });
-          }else{
-            let event=subject[0], target=subject[1];
-            //handle multiple events in one string
-            _.seq(event).forEach(e => {
-              if(!cb) cb=e;
-              if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-              if(!cb) throw "Error: no callback for sub()";
-              if(!_tree.has(e)) _tree.set(e, _.jsMap());
-              let m= _tree.get(e);
-              !m.has(target) && m.set(target,[]);
-              m.get(target).push([cb,ctx]);
-              //if(!_tree.has(target)) _tree.set(target, _.jsMap());
-              //let m= _tree.get(target);
-              //!m.has(e) && m.set(e,[]);
-              //m.get(e).push([cb,ctx]);
-            });
-          }
+        sub(subject,cb,ctx,extras){
+          let event=subject[0], target=subject[1];
+          //handle multiple events in one string
+          _.seq(event).forEach(e=>{
+            if(!cb) cb=e;
+            if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+            if(!cb) throw "Error: no callback for sub()";
+            if(!_tree.has(e)) _tree.set(e, _.jsMap());
+            let m= _tree.get(e);
+            target=target||NULL;
+            !m.has(target) && m.set(target,[]);
+            m.get(target).push([cb,ctx,extras]);
+          });
         },
-        pub(subject,data){
-          if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]){
-            subject.forEach(e => { if(is.vec(e)) this.pub.apply(this, e); });
-          }else{
-            let m,t,event=subject[0], target=subject[1];
-            _.seq(event).forEach(e=>{
-              t=_tree.get(e);
-              m= t && t.get(target);
-              m && m.forEach(s => s[0].call(s[1],data));
+        pub(subject,...args){
+          let m,t,event=subject[0], target=subject[1] || NULL;
+          _.seq(event).forEach(e=>{
+            t=_tree.get(e);
+            m= t && t.get(target);
+            m && m.forEach(s=>{
+              s[0].apply(s[1],args.concat(s[2] || ZA));
             });
-            /*
-            let m,t= _tree.get(target);
-            if(t)
-              _.seq(event).forEach(e => {
-                if(m= t.get(e))
-                  m.forEach(s => s[0].call(s[1],data));
-              });
-              */
-          }
+          });
         },
         unsub(subject,cb,ctx){
-          if(is.vec(subject) && arguments.length===1 && is.vec[subject[0]]){
-            subject.forEach(e => { if(is.vec(e)) this.unsub.apply(this, e); });
-          }else{
-            let event=subject[0], target=subject[1];
-            let t,m, es=_.seq(event);
-            es.forEach(e => {
-              t= _tree.get(e);
-              m= t && t.get(target);
-              if(m){
-                if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-                if(!cb)
-                  t.delete(target);
-                else
-                  for(let i= m.length-1;i>=0;--i)
-                      if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
+          let event=subject[0], target=subject[1] || NULL;
+          let t,m, es=_.seq(event);
+          es.forEach(e=>{
+            t= _tree.get(e);
+            m= t && t.get(target);
+            if(m){
+              if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+              if(!cb){
+                //t.delete(target);
               }
-            });
-  /*
-            let t= _tree.get(target);
-            if(t) {
-              if(!cb)
-                es.forEach(e => t.delete(e));
-              else {
-                if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-                es.forEach(e => {
-                  if(!cb)
-                    t.delete(e);
-                  else if(ss= t.get(e))
-                    for(let i= ss.length-1;i>=0;--i)
-                      if(ss[i][0] === cb && ss[i][1] === ctx) ss.splice(i,1);
-                });
-              }
+              else
+                for(let i= m.length-1;i>=0;--i)
+                    if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
             }
-            */
-          }
+          });
         }
       };
     };
