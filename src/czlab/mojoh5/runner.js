@@ -28,6 +28,7 @@
 
       upArrow.press = () => {
         if(landed > 0) { s.mojoh5.vel[1] = jump; }
+        landed=0;
         s.mojoh5.showFrame(PStates.jump_right);
         s._mode=PStates.jump_right;
       };
@@ -45,8 +46,7 @@
       Mojo.addFeature(s,"2d");
       s.mojoh5.step=function(dt){
         s.mojoh5.vel[0] += (speed - s.mojoh5.vel[0])/4;
-        //let f_2d=Mojo.getf(this,"2d"), f_anim=Mojo.getf(this,"animation");
-        if(_S.bottomSide(s) > floor.y){
+        if(s.mojoh5.vel[1]>0 && _S.bottomSide(s) > floor.y){
           s.y = floor.y - s.height/2;
           landed = 1;
           s.mojoh5.vel[1] = 0;
@@ -72,7 +72,7 @@
       return s;
     }
     //const levels = [ 565, 540, 500, 450 ];
-    const levels = [ 0,25,65,115 ];
+    const levels = [ 0,25,65,100 ];
     function Box(scene,player){
       let frames=_S.frames("crates.png",32,32,0,0,0,0);
       _.assert(frames.length===2);
@@ -81,13 +81,18 @@
       let b=_S.sprite(frames[Math.random() < 0.5 ? 1 : 0]);
       _S.setScale(b,2,2);
       _S.centerAnchor(b);
-      b.x= player.x + Mojo.canvas.width + 50;
-      b.y= floor.y - levels[Math.floor(Math.random() * 3)] - b.height/2;
+      b.x= /*player.x +*/ Mojo.canvas.width + 50;
+      b.y= floor.y - levels[Math.floor(Math.random() * 4)] - b.height/2;
       b.mojoh5.vel[0]= -800 + 200 * Math.random();
       b.mojoh5.vel[1]=0;
       b.mojoh5.acc[1]= 0;
-      //Mojo.EventBus.sub("hit",this);
       let base=floor.y-b.height/2;
+      b.mojoh5.collide=function(col){
+        b.alpha = 0.5;
+        b.mojoh5.vel[0] = 200;
+        b.mojoh5.vel[1] = -300;
+        b.mojoh5.acc[1] = 400;
+      };
       b.mojoh5.step=function(dt){
         b.x += b.mojoh5.vel[0] * dt;
         b.mojoh5.vel[1] += b.mojoh5.acc[1] * dt;
@@ -95,16 +100,13 @@
         if(b.y != base) {
           b.rotation += theta * dt;
         }
-        if(b.y > 800) { _S.remove(b); }
+        if(b.y > 800) {
+          _S.remove(b);
+        }else{
+          Mojo["2d"].hit(player,b);
+        }
       };
-      b.collide=function(){
-        //this.p.type = 0;
-        //this.p.collisionMask = Mojo.E_NONE;
-        this.alpha = 0.5;
-        this.mojoh5.vel[0] = 200;
-        this.mojoh5.vel[1] = -300;
-        this.mojoh5.acc[1] = 400;
-      };
+      Mojo.EventBus.sub(["hit",b],"collide",b.mojoh5);
       return b;
     }
     function BoxThrower(scene,p){
@@ -147,12 +149,13 @@
         this.bgFloor.width=Mojo.canvas.width;
         this.bgFloor.height=Mojo.canvas.height/4;
         this.bgFloor.y=Mojo.canvas.height - this.bgFloor.height;
+        this.player.y= this.bgFloor.y - this.player.height/2;
       },
       postUpdate(dt){
-        this.bgWall.tilePosition.x -= 2;
+        this.bgWall.tilePosition.x -= 4;
         //this.bgWall.tilePosition.y += 1;
-        this.bgFloor.tilePosition.x -= 4;
-        this.camera.centerOver(this.player.x+300, this.player.y);//400);
+        this.bgFloor.tilePosition.x -= 8;
+        this.camera.centerOver(this.player.x+300,undefined);// this.player.y);//400);
       }
     });
   }
@@ -160,19 +163,6 @@
     scenes(Mojo);
     Mojo.Scenes.runScene("level1");
   }
-
-//let playGame= function(Mojo) { var E_BOX = 1; Mojo.gravity.y = 2000; };
-/*
-    Mojo.defAnimation("player", {
-      walk_right: { frames: [0,1,2,3,4,5,6,7,8,9,10], rate: 1/15, flip: false, loop: true },
-      jump_right: { frames: [13], rate: 1/10, flip: false },
-      stand_right: { frames:[14], rate: 1/10, flip: false },
-      duck_right: { frames: [15], rate: 1/10, flip: false },
-    });
-    */
-
-
-
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: ["player.png", "background-wall.png", "background-floor.png", "crates.png"],

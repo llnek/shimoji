@@ -69,45 +69,49 @@
         Mojo.EventBus.unsub(["post.step",e],"step",self);
         Mojo.EventBus.unsub(["post.step",e],"dispose",self);
       },
-      collision(col,last){
-        /*
-        let p = this.entity.p;
-        if(col.obj.p && col.obj.p.sensor) {
-          EBus.pub("sensor", col.obj, this.entity);
-        } else {
-        let magnitude=0,
-            impactX = _.abs(p.vx),
-            impactY = _.abs(p.vy);
+      collision(col,ent){
+        if(false && col.obj.p && col.obj.p.sensor){
+          //Mojo.EventBus.pub("sensor", col.obj, this.entity);
+        }else{
+          let dx= _.abs(ent.mojoh5.vel[0]);
+          let dy= _.abs(ent.mojoh5.vel[1]);
           col.impact = 0;
-          p.x -= col.separate[0];
-          p.y -= col.separate[1];
-          // Top collision
-          if(col.normalY < -0.3) {
-            if(!p.skipCollide && p.vy > 0) { p.vy = 0; }
-            col.impact = impactY;
-            EBus.pub([["bump.bottom", this.entity,col],
-                      ["bump", this.entity,col]]);
+          ent.x -= col.overlapV[0];
+          ent.y -= col.overlapV[1];
+          //collision
+          if(col.overlapN[1] < -0.3){
+            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[1] > 0){
+              ent.mojoh5.vel[1] = 0;
+            }
+            col.impact = dy;
+            Mojo.EventBus.pub(["bump.bottom", ent],col);
+            Mojo.EventBus.pub(["bump", ent],col);
           }
-          if(col.normalY > 0.3) {
-            if(!p.skipCollide && p.vy < 0) { p.vy = 0; }
-            col.impact = impactY;
-            EBus.pub([["bump.top",this.entity,col],
-                      ["bump",this.entity,col]]);
+          if(col.overlapN[1] > 0.3){
+            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[1] < 0){
+              ent.mojoh5.vel[1] = 0;
+            }
+            col.impact = dy;
+            Mojo.EventBus.pub(["bump.top",ent],col);
+            Mojo.EventBus.pub(["bump",ent],col);
           }
-          if(col.normalX < -0.3) {
-            if(!p.skipCollide && p.vx > 0) { p.vx = 0;  }
-            col.impact = impactX;
-            EBus.pub([["bump.right",this.entity,col],
-                      ["bump",this.entity,col]]);
+          if(col.overlapN[0] < -0.3){
+            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[0] > 0){
+              ent.mojoh5.vel[0] = 0
+            }
+            col.impact = dx;
+            Mojo.EventBus.pub(["bump.right",ent],col);
+            Mojo.EventBus.pub(["bump",ent],col);
           }
-          if(col.normalX > 0.3) {
-            if(!p.skipCollide && p.vx < 0) { p.vx = 0; }
-            col.impact = impactX;
-            EBus.pub([["bump.left",this.entity,col],
-                      ["bump",this.entity,col]]);
+          if(col.overlapN[0] > 0.3){
+            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[0] < 0){
+              ent.mojoh5.vel[0] = 0
+            }
+            col.impact = dx;
+            Mojo.EventBus.pub(["bump.left",ent],col);
+            Mojo.EventBus.pub(["bump",ent],col);
           }
         }
-        */
       },
       step(dt,p){
         let dtStep = dt;
@@ -120,7 +124,7 @@
           p.mojoh5.vel[1] += p.mojoh5.acc[1] * dt + p.mojoh5.gravity[1] * dt;
           p.x += p.mojoh5.vel[0] * dt;
           p.y += p.mojoh5.vel[1] * dt;
-          //this.entity.scene.collide(this.entity);
+          p.mojoh5.collide && p.mojoh5.collide();
           dtStep -= dt;
         }
         //console.log("2d feature called " + e.mojoh5.uuid);
@@ -162,8 +166,8 @@
      * @private
      * @function
      */
-    function _collideAB(a,b, bounce=true, global = true){
-      let a_,m, ret= null;
+    function _hitAB(a,b, global = true){
+      let a_,m;
       if(_S.circular(a)){
         a_= _S.toCircle(a,global);
         m= _S.circular(b) ? Geo.hitCircleCircle(a_, _S.toCircle(b,global))
@@ -173,6 +177,14 @@
         m= _S.circular(b) ? Geo.hitPolygonCircle(a_, _S.toCircle(b,global))
                           : Geo.hitPolygonPolygon(a_, _S.toPolygon(b,global));
       }
+      return m;
+    }
+    /**
+     * @private
+     * @function
+     */
+    function _collideAB(a,b, bounce=true, global = true){
+      let ret,m= _hitAB(a,b,global);
       if(m){
         if(b.mojoh5.static){
           a.x -= m.overlapV[0];
@@ -189,6 +201,18 @@
       }
       return ret;
     }
+    /**
+     * @public
+     * @function
+     */
+    _D.hit=function(a,b,global=true){
+      let m= _hitAB(a,b,global);
+      if(m){
+        Mojo.EventBus.pub(["hit",a],m);
+        Mojo.EventBus.pub(["hit",b],m);
+      }
+      return m;
+    };
     /**
      * @function
      * @public
@@ -425,8 +449,10 @@
           let w2=this.width/2;
           let h2=this.height/2;
           if(arguments.length===2){
-            this.x=sprite - w2;
-            this.y=y - h2;
+            if(is.num(sprite))
+              this.x=sprite - w2;
+            if(is.num(y))
+              this.y=y - h2;
           }else{
             let sz= _S.halfSize(sprite);
             //Center the camera over a sprite
