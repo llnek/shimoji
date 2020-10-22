@@ -57,7 +57,7 @@
      * @public
      * @object
      */
-    Mojo.defFeature("2d",{
+    Mojo.defMixin("2d",{
       added(e){
         let self= e["2d"];
         Mojo.EventBus.sub(["hit",e],"collision",self,[e]);
@@ -127,7 +127,7 @@
           p.mojoh5.collide && p.mojoh5.collide();
           dtStep -= dt;
         }
-        //console.log("2d feature called " + e.mojoh5.uuid);
+        //console.log("2d mixin called " + e.mojoh5.uuid);
       }
     });
 

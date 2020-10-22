@@ -71,11 +71,13 @@
     Mojo.Scenes.runScene("level1");
   }
 
-  window["io.czlab.mojoh5.AppConfig"]={
-    arena: { width:256, height:256},
-    scaleToWindow: true,
-    start: setup
-  };
+  window.addEventListener("load",()=>{
+    MojoH5({
+      arena: { width:256, height:256},
+      scaleToWindow: true,
+      start: setup
+    })
+  });
 
 })(this);
 

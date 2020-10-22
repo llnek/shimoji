@@ -21,8 +21,6 @@
       let speed= 500;
       let jump= -700;
       let landed=1;
-      let standingPoints= [ [ -16, 44], [ -23, 35 ], [-23,-48], [23,-48], [23, 35 ], [ 16, 44 ]];
-      let duckingPoints = [ [ -16, 44], [ -23, 35 ], [-23,-10], [23,-10], [23, 35 ], [ 16, 44 ]];
       let upArrow = _I.keyboard(38);
       let downArrow = _I.keyboard(40);
 
@@ -43,7 +41,11 @@
         s._mode=null;
       };
       //this.p.points = this.p.standingPoints;
-      Mojo.addFeature(s,"2d");
+      Mojo.addMixin(s,"2d");
+      s.mojoh5.getContactPoints=function(){
+        return s._mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
+                                           : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
+      };
       s.mojoh5.step=function(dt){
         s.mojoh5.vel[0] += (speed - s.mojoh5.vel[0])/4;
         if(s.mojoh5.vel[1]>0 && _S.bottomSide(s) > floor.y){

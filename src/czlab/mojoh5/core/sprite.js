@@ -93,10 +93,13 @@
                             dead: false,
                             circular: false,
                             interact: false, draggable: false });
-        s.mojoh5.addf=function(n,f){
+        s.mojoh5.addMixin=function(n,o){
           _.assert(!_.has(s,n),`Error: ${n} not available.`);
-          let b= s[n]= _.inject({},f);
+          let b= s[n]= _.inject({},o);
           b.added(s);
+        };
+        s.mojoh5.getContactPoints=function(){
+          return _corners(_strAnchor(s.anchor),s.width,s.height)
         };
         return s;
       }
@@ -148,8 +151,8 @@
       }
       return R
     }
-    const _features= _.jsMap();
-    class Feature{
+    const _mixins= _.jsMap();
+    class Mixin{
       constructor(){
       }
     }
@@ -157,24 +160,24 @@
      * @public
      * @function
      */
-    Mojo.defFeature=function(name,body){
-      if(_.has(_features,name))
-        throw `Error: feature "${name}" already defined.`;
-      //"Invalid feature, require method `added`."
+    Mojo.defMixin=function(name,body){
+      if(_.has(_mixins,name))
+        throw `Error: mixin: "${name}" already defined.`;
+      //"Invalid mixin, require method `added`."
       body.name=name;
-      body.featureName= "."+name;
-      _.assoc(_features,name, body);
+      body.mixinName= "."+name;
+      _.assoc(_mixins,name, body);
     };
     /**
      * @public
      * @function
      */
-    Mojo.addFeature=function(obj,...fs){
+    Mojo.addMixin=function(obj,...fs){
       _.assert(obj.mojoh5,`Error: obj is not mojoh5-extended`);
       fs.forEach(n=>{
-        let b= _features.get(n);
-        _.assert(b,`Error: Invalid feature ${n}`);
-        obj.mojoh5.addf(n, b);
+        let b= _mixins.get(n);
+        _.assert(b,`Error: Invalid mixin ${n}`);
+        obj.mojoh5.addMixin(n, b);
       })
       return obj
     };
@@ -183,7 +186,7 @@
      * @function
      */
     _S.toPolygon=function(s, global=true){
-      let C=_corners(_strAnchor(s.anchor),s.width,s.height);
+      let C=s.mojoh5.getContactPoints()
       let cx=s.x;
       let cy=s.y;
       if(global){
