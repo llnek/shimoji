@@ -75,7 +75,7 @@
             e.y -= col.overlapV[1];
             //collision
             if(col.overlapN[1] < -0.3){
-              if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] > 0){
+              if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] < 0){
                 e.mojoh5.vel[1] = 0;
               }
               col.impact = dy;
@@ -83,7 +83,7 @@
               //Mojo.EventBus.pub(["bump.bottom", e],col);
             }
             if(col.overlapN[1] > 0.3){
-              if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] < 0){
+              if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] > 0){
                 e.mojoh5.vel[1] = 0;
               }
               col.impact = dy;
@@ -265,10 +265,6 @@
         a_= _S.toPolygon(a,global);
         b_= _S.circular(b) ? _S.toCircle(b,global) : _S.toPolygon(b,global);
         m= _S.circular(b) ? Geo.hitPolygonCircle(a_, b_) : Geo.hitPolygonPolygon(a_, b_)
-      }
-      if(m && b.mojoh5.uuid==="b4"){
-        let i=0;
-        i=3;
       }
       return m;
     }

@@ -357,7 +357,7 @@
             let hit = ptr.hitTestSprite(s);
             if(ptr.isUp){
               s.mojoh5.state = "up";
-              if(s.mojoh5.button) s.gotoAndStop(0);
+              if(s.mojoh5.button && s.gotoAndStop) s.gotoAndStop(0);
             }
             if(hit){
               s.mojoh5.state = "over";
@@ -366,7 +366,7 @@
               }
               if(ptr.isDown){
                 s.mojoh5.state = "down";
-                if(s.mojoh5.button)
+                if(s.mojoh5.button && s.gotoAndStop)
                   (s.totalFrames === 3) ? s.gotoAndStop(2) : s.gotoAndStop(1);
               }
               ptr.shouldBeHand = true;

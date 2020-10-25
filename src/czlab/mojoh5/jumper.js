@@ -50,9 +50,9 @@
         }
       };
       p.mojoh5.step=function(dt){
-        if(p.y > Mojo.canvas.height){
-          alert("poo! ");
-          //_Z.runScene("endGame",1, { label: "You Fell!" });
+        if(p.y > scene.b5.y+scene.b5.height*3){
+          _S.remove(p);
+          _Z.runScene("endGame",{msg: "You Fell!"});
         }
         //if(p.mojoh5.vel[1] > 600) { p.mojoh5.vel[1] = 600; }
       };
@@ -60,7 +60,41 @@
       return p;
     }
 
-    _Z.defScene("endGame",()=>{
+    _Z.defScene("endGame",{
+      dispose(){
+        this.btns.forEach(b => _I.removeButton(b))
+      },
+      setup(options){
+        let g= this;
+        let s1=_S.text("Game Over", {fill:"white",align:"center"});
+        g.insert(s1);
+        //_S.pinTop(g,s1);
+        let s2=_S.text(options.msg, {fill:"white",align:"center"});
+        g.insert(s2);
+        _S.pinBottom(s1,s2,0,10);
+        let s3=_S.text(" ");
+        g.insert(s3);
+        _S.pinBottom(s2,s3,0,10);
+        let s4=_I.makeButton(_S.text("Play Again?",{fill:"white",align:"center"}));
+        g.insert(s4);
+        _S.pinBottom(s3,s4,0,10);
+        let s5=_S.text("or",{fill:"white",align:"center"});
+        g.insert(s5);
+        _S.pinBottom(s4,s5,0,10);
+        let s6=_I.makeButton(_S.text("Quit",{fill:"white",align:"center"}));
+        g.insert(s6);
+        _S.pinBottom(s5,s6,0,10);
+
+        this.btns= [s4,s6];
+
+        g.x=(Mojo.canvas.width-g.width)/2;
+        g.y=(Mojo.canvas.height-g.height)/2;
+
+        s4.mojoh5.press=function(){
+          _Z.removeScene("level1","endGame");
+          _Z.runScene("level1");
+        }
+      }
     });
 
     _Z.defScene("bg",{
@@ -70,8 +104,8 @@
         //Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
-        this.wall.tilingPosition.x += 1;
-        this.wall.tilingPosition.y += 1;
+        //this.wall.tilePosition.x += 1;
+        //this.wall.tilePosition.y += 1;
       }
     });
     _Z.defScene("level1",{
@@ -83,11 +117,6 @@
 
         let X=Mojo.canvas.width/2;
         let Y=Mojo.canvas.height/2;
-        //this.insert(Block(50, 30, 30, 50));
-        //this.insert(Block(0,0, 50,150));
-        //this.insert(Block(140, 0, 50, 100, [ [ 0, -15], [ 50, 0 ], [ 0, 15 ], [ -50, 0 ] ]));
-        //this.insert(Block(340, 0, 100, 100, [ [ 0, -50], [25, -40] ,[ 50, 0 ], [ 0, 50 ], [ -100, 0 ] ]));
-        //this.insert(Block(500, 40, 50, 50));
 
         this.blocks=[];
 
@@ -108,8 +137,9 @@
         _.conj(this.blocks,b5=Block(X+360, Y+40, 50, 50));
         b5.mojoh5.uuid="b5";
         _.doseq(this.blocks, b=> this.insert(b));
-        this.tower.y= b5.y - this.tower.height;
-        this.tower.x= b5.x ;
+        this.tower.y= b5.y - b5.height/2 - this.tower.height;
+        this.tower.x= b5.x - this.tower.width/2 ;
+        this.b5=b5;
 
         let stage=Mojo.mockStage();
         let camera= this.camera = Mojo["2d"].worldCamera(this,stage.width,stage.height, Mojo.canvas);
@@ -117,7 +147,6 @@
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
-        //Mojo["2d"].hit(this.player,this.poo);
       }
     });
   }

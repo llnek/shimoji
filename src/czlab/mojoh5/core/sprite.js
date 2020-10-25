@@ -1132,6 +1132,7 @@
       }
       _.doseq(sprites, s=>{
         if(s.parent){
+          s.dispose && s.dispose();
           s.parent.removeChild(s)
           Mojo.EventBus.pub(["post.remove",s]);
         }

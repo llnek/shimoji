@@ -127,8 +127,8 @@
     };
     function _killScene(s){
       if(s) {
-        s.dispose();
-        Mojo.stage.removeChild(s);
+        s.dispose && s.dispose();
+        s.parent.removeChild(s);
       }
     }
     /**
@@ -147,12 +147,16 @@
      * @public
      * @function
      */
-    _S.removeScene=function(arg){
-      if(is.str(arg))
-        _killScene(Mojo.stage.getChildByName(_sceneid(arg)));
-      else if(arg){
-        _killScene(arg);
+    _S.removeScene=function(...args){
+      if(args.length===1 && is.vec(args[0])){
+        args=args[0];
       }
+      args.forEach(a=>{
+        if(is.str(a))
+          _killScene(Mojo.stage.getChildByName(_sceneid(a)));
+        else if(a)
+          _killScene(a);
+      })
     };
     /**
      * @public
