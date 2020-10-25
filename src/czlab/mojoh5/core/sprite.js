@@ -163,11 +163,16 @@
     Mojo.defMixin=function(name,body){
       if(_.has(_mixins,name))
         throw `Error: mixin: "${name}" already defined.`;
-      //"Invalid mixin, require method `added`."
-      body.name=name;
-      body.mixinName= "."+name;
       _.assoc(_mixins,name, body);
     };
+    function _addMixin(s,name,f){
+      _.assert(!_.has(s,name),`Error: ${name} not available.`);
+      let o= f(s);
+      s[name]=o;
+      o.name=name;
+      o.mixinName= "."+name;
+      return s;
+    }
     /**
      * @public
      * @function
@@ -176,8 +181,8 @@
       _.assert(obj.mojoh5,`Error: obj is not mojoh5-extended`);
       fs.forEach(n=>{
         let b= _mixins.get(n);
-        _.assert(b,`Error: Invalid mixin ${n}`);
-        obj.mojoh5.addMixin(n, b);
+        _.assert(is.fun(b),`Error: Invalid mixin ${n}`);
+        _addMixin(obj,n,b);
       })
       return obj
     };
@@ -196,8 +201,7 @@
         _V.dropV2(g);
       }
       //flip reverse since Geo uses RHS system
-      let p= new Geo.Polygon(cx,cy).setOrient(s.rotation).set(C.reverse());
-      _V.dropV2(...C);
+      let p= new Geo.Polygon(cx,cy).setOrient(s.rotation).set(C);
       return p;
     };
     /**
@@ -707,7 +711,6 @@
      * @function
      */
     _S.tilingSprite=function(source, width, height, x=0, y=0){
-      //if(width === undefined || height === undefined) throw "Error: tilingSprite() requires width and height";
       let t= this.mkTexture(source);
       let s = _sprite(source, width || t.width, height || t.height, true, x,y);
       s.mojoh5.tiling={ x:0,y:0,sx:0,sy:0 };
@@ -875,6 +878,15 @@
         return gprops.lineW;
       };
       return s;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.drawBody=function(cb){
+      let g = new Mojo.PXGraphics();
+      cb(g);
+      return this.extend(new Mojo.PXSprite(_S.generateTexture(g)))
     };
     /**
      * @public

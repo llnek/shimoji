@@ -55,82 +55,171 @@
     }
     /**
      * @public
-     * @object
+     * @var {object}
      */
-    Mojo.defMixin("2d",{
-      added(e){
-        let self= e["2d"];
-        Mojo.EventBus.sub(["hit",e],"collision",self,[e]);
-        Mojo.EventBus.sub(["post.step",e],"step",self,[e]);
-        Mojo.EventBus.sub(["post.remove",e],"dispose",self,[self,e]);
-      },
-      dispose(self,e){
-        Mojo.EventBus.unsub(["hit",e],"collision",self);
-        Mojo.EventBus.unsub(["post.step",e],"step",self);
-        Mojo.EventBus.unsub(["post.step",e],"dispose",self);
-      },
-      collision(col,ent){
-        if(false && col.obj.p && col.obj.p.sensor){
-          //Mojo.EventBus.pub("sensor", col.obj, this.entity);
-        }else{
-          let dx= _.abs(ent.mojoh5.vel[0]);
-          let dy= _.abs(ent.mojoh5.vel[1]);
-          col.impact = 0;
-          ent.x -= col.overlapV[0];
-          ent.y -= col.overlapV[1];
-          //collision
-          if(col.overlapN[1] < -0.3){
-            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[1] > 0){
-              ent.mojoh5.vel[1] = 0;
+    Mojo.defMixin("2d",function(e){
+      let self={
+        dispose(){
+          Mojo.EventBus.unsub(["hit",e],"collision",self);
+          Mojo.EventBus.unsub(["post.step",e],"step",self);
+          Mojo.EventBus.unsub(["post.remove",e],"dispose",self);
+        },
+        collision(col){
+          if(false && col.obj.p && col.obj.p.sensor){
+            //Mojo.EventBus.pub("sensor", col.obj, this.entity);
+          }else{
+            let dx= _.abs(e.mojoh5.vel[0]);
+            let dy= _.abs(e.mojoh5.vel[1]);
+            col.impact = null;
+            e.x -= col.overlapV[0];
+            e.y -= col.overlapV[1];
+            //collision
+            if(col.overlapN[1] < -0.3){
+              if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] > 0){
+                e.mojoh5.vel[1] = 0;
+              }
+              col.impact = dy;
+              Mojo.EventBus.pub(["bump.top", e],col);
+              //Mojo.EventBus.pub(["bump.bottom", e],col);
             }
-            col.impact = dy;
-            Mojo.EventBus.pub(["bump.bottom", ent],col);
-            Mojo.EventBus.pub(["bump", ent],col);
+            if(col.overlapN[1] > 0.3){
+              if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] < 0){
+                e.mojoh5.vel[1] = 0;
+              }
+              col.impact = dy;
+              Mojo.EventBus.pub(["bump.bottom",e],col);
+              //Mojo.EventBus.pub(["bump.top",e],col);
+            }
+            if(col.overlapN[0] < -0.3){
+              if(!e.mojoh5.skipCollide && e.mojoh5.vel[0] > 0){
+                e.mojoh5.vel[0] = 0
+              }
+              col.impact = dx;
+              Mojo.EventBus.pub(["bump.right",e],col);
+            }
+            if(col.overlapN[0] > 0.3){
+              if(!e.mojoh5.skipCollide && e.mojoh5.vel[0] < 0){
+                e.mojoh5.vel[0] = 0
+              }
+              col.impact = dx;
+              Mojo.EventBus.pub(["bump.left",e],col);
+            }
+            if(is.num(col.impact)){
+              Mojo.EventBus.pub(["bump",e],col);
+            }else{
+              col.impact=0;
+            }
           }
-          if(col.overlapN[1] > 0.3){
-            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[1] < 0){
-              ent.mojoh5.vel[1] = 0;
-            }
-            col.impact = dy;
-            Mojo.EventBus.pub(["bump.top",ent],col);
-            Mojo.EventBus.pub(["bump",ent],col);
-          }
-          if(col.overlapN[0] < -0.3){
-            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[0] > 0){
-              ent.mojoh5.vel[0] = 0
-            }
-            col.impact = dx;
-            Mojo.EventBus.pub(["bump.right",ent],col);
-            Mojo.EventBus.pub(["bump",ent],col);
-          }
-          if(col.overlapN[0] > 0.3){
-            if(!ent.mojoh5.skipCollide && ent.mojoh5.vel[0] < 0){
-              ent.mojoh5.vel[0] = 0
-            }
-            col.impact = dx;
-            Mojo.EventBus.pub(["bump.left",ent],col);
-            Mojo.EventBus.pub(["bump",ent],col);
+        },
+        step(dt){
+          let dtStep = dt;
+          //TODO: check the entity's magnitude of vx and vy,
+          // reduce the max dtStep if necessary to prevent
+          // skipping through objects.
+          while(dtStep > 0){
+            dt = _.min(1/30,dtStep);
+            e.mojoh5.vel[0] += e.mojoh5.acc[0] * dt + e.mojoh5.gravity[0] * dt;
+            e.mojoh5.vel[1] += e.mojoh5.acc[1] * dt + e.mojoh5.gravity[1] * dt;
+            e.x += e.mojoh5.vel[0] * dt;
+            e.y += e.mojoh5.vel[1] * dt;
+            e.mojoh5.collide && e.mojoh5.collide();
+            dtStep -= dt;
           }
         }
-      },
-      step(dt,p){
-        let dtStep = dt;
-        //TODO: check the entity's magnitude of vx and vy,
-        // reduce the max dtStep if necessary to prevent
-        // skipping through objects.
-        while(dtStep > 0){
-          dt = _.min(1/30,dtStep);
-          p.mojoh5.vel[0] += p.mojoh5.acc[0] * dt + p.mojoh5.gravity[0] * dt;
-          p.mojoh5.vel[1] += p.mojoh5.acc[1] * dt + p.mojoh5.gravity[1] * dt;
-          p.x += p.mojoh5.vel[0] * dt;
-          p.y += p.mojoh5.vel[1] * dt;
-          p.mojoh5.collide && p.mojoh5.collide();
-          dtStep -= dt;
-        }
-        //console.log("2d mixin called " + e.mojoh5.uuid);
-      }
+      };
+      Mojo.EventBus.sub(["hit",e],"collision",self);
+      Mojo.EventBus.sub(["post.step",e],"step",self);
+      Mojo.EventBus.sub(["post.remove",e],"dispose",self);
+      return self;
     });
-
+    /**
+     * @public
+     * @var {object}
+     */
+    Mojo.defMixin("platformer", function(e){
+      let self={
+        jumpSpeed: -300,
+        jumping: false,
+        landed: 0,
+        dispose(){
+          Mojo.EventBus.unsub(["post.step",e],"step",self);
+          Mojo.EventBus.unsub(["bump.bottom",e],"onLanded",self);
+          Mojo.EventBus.unsub(["post.remove",e],"dispose",self);
+        },
+        onLanded(){
+          self.landed= 0.2
+        },
+        step(dt){
+          let _I=Mojo.Input;
+          let pR= _I.keyDown(_I.keyRIGHT);
+          let pU= _I.keyDown(_I.keyUP);
+          let pL= _I.keyDown(_I.keyLEFT);
+          let j3= self.jumping/3;
+          let col;
+          // Follow along the current slope, if possible.
+          if(e.mojoh5.collisions !== undefined &&
+             e.mojoh5.collisions.length > 0 &&
+             (pL || pR || self.landed > 0)){
+            if(e.mojoh5.collisions.length === 1){
+              col= e.mojoh5.collisions[0]
+            }else{
+              // If there's more than one possible slope, follow slope with negative Y normal
+              col= null;
+              for(let i=0; i<e.mojoh5.collisions.length; ++i){
+                if(e.mojoh5.collisions[i].overlapN[1] < 0)
+                  col= e.mojoh5.collisions[i];
+              }
+            }
+            // Don't climb up walls.
+            if(col !== null &&
+               col.overlapN[1] > -0.3 && col.overlapN[1] < 0.3){
+              col= null;
+            }
+          }
+          if(pL && !pR){
+            e.mojoh5.direction = Mojo.LEFT;
+            if(col && self.landed > 0){
+              e.mojoh5.vel[0] = e.mojoh5.speed * col.overlapN[1];
+              e.mojoh5.vel[1] = -1 * e.mojoh5.speed * col.overlapN[0];
+            }else{
+              e.mojoh5.vel[0] = -1 * e.mojoh5.speed;
+            }
+          }else if(pR && !pL){
+            e.mojoh5.direction = Mojo.RIGHT;
+            if(col && self.landed > 0){
+              e.mojoh5.vel[0] = -1 * e.mojoh5.speed * col.overlapN[1];
+              e.mojoh5.vel[1] = e.mojoh5.speed * col.overlapN[0];
+            }else{
+              e.mojoh5.vel[0] = e.mojoh5.speed;
+            }
+          }else{
+            e.mojoh5.vel[0] = 0;
+            if(col && self.landed > 0)
+              e.mojoh5.vel[1] = 0;
+          }
+          if(self.landed > 0 && pU && !self.jumping){
+            e.mojoh5.vel[1] = self.jumpSpeed;
+            self.landed = -dt;
+            self.jumping = true;
+          }else if(pU){
+            Mojo.EventBus.pub(["jump",e]);
+            self.jumping = true;
+          }
+          if(self.jumping && !pU){
+            self.jumping = false;
+            Mojo.EventBus.pub(["jumped", e]);
+            if(e.mojoh5.vel[1] < self.jumpSpeed/3){
+              e.mojoh5.vel[1] = j3;
+            }
+          }
+          self.landed -= dt;
+        }
+      };
+      Mojo.EventBus.sub(["post.step",e],"step",self);
+      Mojo.EventBus.sub(["post.remove",e],"dispose",self);
+      Mojo.EventBus.sub(["bump.bottom",e],"onLanded",self);
+      return self;
+    });
     /**
      * Find out if a point is touching a circlular or rectangular sprite.
      *
@@ -158,7 +247,7 @@
         let p= _S.toPolygon(sprite,global);
         let ps= _V.translate(p.pos,p.calcPoints);
         hit= _pointInPoly(point[0],point[1],ps);
-        _V.dropV2(ps);
+        _V.dropV2(...ps);
       }
       return hit;
     };
@@ -167,15 +256,19 @@
      * @function
      */
     function _hitAB(a,b, global = true){
-      let a_,m;
+      let a_,b_,m;
       if(_S.circular(a)){
         a_= _S.toCircle(a,global);
-        m= _S.circular(b) ? Geo.hitCircleCircle(a_, _S.toCircle(b,global))
-                          : Geo.hitCirclePolygon(a_, _S.toPolygon(b,global));
+        b_= _S.circular(b) ? _S.toCircle(b,global) :_S.toPolygon(b,global);
+        m= _S.circular(b) ? Geo.hitCircleCircle(a_, _b) : Geo.hitCirclePolygon(a_, _b)
       }else{
         a_= _S.toPolygon(a,global);
-        m= _S.circular(b) ? Geo.hitPolygonCircle(a_, _S.toCircle(b,global))
-                          : Geo.hitPolygonPolygon(a_, _S.toPolygon(b,global));
+        b_= _S.circular(b) ? _S.toCircle(b,global) : _S.toPolygon(b,global);
+        m= _S.circular(b) ? Geo.hitPolygonCircle(a_, b_) : Geo.hitPolygonPolygon(a_, b_)
+      }
+      if(m && b.mojoh5.uuid==="b4"){
+        let i=0;
+        i=3;
       }
       return m;
     }

@@ -34,6 +34,7 @@
     let _scale=Mojo.scale;
     const _=Core.u;
     const is=Core.is;
+    const _keyInputs= _.jsMap();
     const _I= {
       arrowControl(s, speed){
         _.assert(is.num(speed), "arrowControl requires speed");
@@ -89,6 +90,9 @@
       onResize(){
         Mojo.pointer = _I.pointer(Mojo.canvas, Mojo.scale);
         _I.scale= Mojo.scale;
+      },
+      resetInputs(){
+        _keyInputs.clear();
       },
       keyboard(keyCode){
         //press: undefined, //release: undefined,
@@ -163,8 +167,29 @@
           _.disj(_draggables,s);
           s.mojoh5.draggable = false;
         });
+      },
+      keyUp(code){
+        return ! this.keyDown(code)
+      },
+      keyDown(code){
+        return _keyInputs.get(code)===true
       }
     };
+    _.inject(_I, {
+      keyLEFT: 37, keyRIGHT: 39, keyUP: 38, keyDOWN: 40,
+      keyZERO: 48, keyONE: 49, keyTWO: 50,
+      keyTHREE: 51, keyFOUR: 52, keyFIVE: 53,
+      keySIX: 54, keySEVEN: 55, keyEIGHT: 56, keyNINE: 57,
+      keyA: 65, keyB: 66, keyC: 67, keyD: 68, keyE: 69, keyF: 70,
+      keyG: 71, keyH: 72, keyI: 73, keyJ: 74, keyK: 75, keyL: 76,
+      keyM: 77, keyN: 78, keyO: 79, keyP: 80, keyQ: 81, keyR: 82,
+      keyS: 83, keyT: 84, keyU: 85, keyV: 86, keyW: 87, keyX: 88,
+      keyY: 89, keyZ: 90,
+      keyENTER: 13, keyESC: 27, keyBACKSPACE: 8, keyTAB: 9,
+      keySHIFT: 16, keyCTRL: 17, keyALT: 18, keySPACE: 32,
+      keyHOME: 36, keyEND: 35,
+      keyPGGUP: 33, keyPGDOWN: 34
+    });
     /**
      * @public
      * @function
@@ -394,6 +419,14 @@
     Mojo.EventBus.sub(["canvas.resize"], "onResize",_I);
     _I.onResize();
 
+    function _uh(e){
+      _keyInputs.set(e.keyCode,false);
+    }
+    function _dh(e){
+      _keyInputs.set(e.keyCode,true);
+    }
+    _.addEvent([["keyup", window, _uh, false],
+                ["keydown", window, _dh, false]]);
     return (Mojo.Input= _I)
   }
   /**

@@ -78,6 +78,7 @@
           this.addChild(c);
         }
         this.____index[c.mojoh5.uuid]=c;
+        return c;
       }
       dispose(){
         this.mojoh5.dead=true;

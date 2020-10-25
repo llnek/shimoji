@@ -8,7 +8,7 @@
       setup:function(){
         let blue = this.blue= _S.rectangle(64, 64, "blue");
         blue.mojoh5.step=function(dt){
-          _S.move(blue,dt);
+          //_S.move(blue,dt);
         }
         this.insert(blue);
         let sz=_S.halfSize(blue);
@@ -17,7 +17,7 @@
         //Make a red square
         let red = this.red= _S.rectangle(64, 64, "red");
         red.mojoh5.step=function(dt){
-          _S.move(red,dt);
+          //_S.move(red,dt);
         }
         this.insert(red);
         sz=_S.halfSize(red);
@@ -26,8 +26,8 @@
 
         //blue.anchor.set(0.5);
         //red.anchor.set(0.5);
-        blue.angle=35;
-        red.angle=60;
+        //blue.angle=35;
+        //red.angle=60;
         red.mojoh5.vel[0]=red.mojoh5.vel[1]=100;
         blue.mojoh5.vel[0]=blue.mojoh5.vel[1]=-100;
 
@@ -37,11 +37,11 @@
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate:function(){
-        _2d.collide(this.red,this.blue,true);
+        _2d.hit(this.red,this.blue,true);
         _2d.contain(this.blue,this,true);
         _2d.contain(this.red,this,true);
         //this.blue.rotation += 0.03;
-        this.red.rotation -= 0.03;
+        //this.red.rotation -= 0.03;
         //this.message.mojoh5.content("Drag the squares...");
         //Check for a collision between the blue and red squares.
         //The collision variable will be `true`

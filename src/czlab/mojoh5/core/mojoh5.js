@@ -330,37 +330,6 @@
       set border(v){ dom.css(this.canvas,"border", v) },
       set bgColor(c){ this.ctx.backgroundColor = this.color(c) }
     };
-    const _features= _.jsMap();
-    class Feature{
-      constructor(){
-      }
-    }
-    /**
-     * @public
-     * @function
-     */
-    Mojo.defFeature=function(name,body){
-      if(_.has(_features,name))
-        throw `Error: feature "${name}" already defined.`;
-      //"Invalid feature, require method `added`."
-      body.name=name;
-      body.featureName= "."+name;
-      _.assoc(_features,name, body);
-    };
-    /**
-     * @public
-     * @function
-     */
-    Mojo.addFeature=function(obj,...fs){
-      fs.forEach(n=>{
-        let b= _features.get(n);
-        _.assert(b,`Error: Invalid feature ${n}`);
-        _.assert(!_.has(obj,n),`Error: ${name} not available.`);
-        b=_.inject({},b);
-        obj[n].added(b,obj);
-      })
-      return obj
-    };
     /**
      * @public
      * @function
