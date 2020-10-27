@@ -7,6 +7,7 @@
     _Z.defScene("level1",{
       setup:function(){
         let blue = this.blue= _S.rectangle(64, 64, "blue");
+        //blue.angle=45;
         blue.mojoh5.step=function(dt){
           //_S.move(blue,dt);
         }
@@ -15,7 +16,7 @@
         _S.pinCenter(this, blue,sz[0]+16, sz[1]+16);
         _I.makeDraggable(blue);
         //Make a red square
-        let red = this.red= _S.rectangle(64, 64, "red");
+        let red = this.red= _S.rectangle(50, 50, "red");
         red.mojoh5.step=function(dt){
           //_S.move(red,dt);
         }
@@ -37,7 +38,7 @@
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate:function(){
-        _2d.hit(this.red,this.blue,true);
+        let m= _2d.hit(this.red,this.blue,true);
         _2d.contain(this.blue,this,true);
         _2d.contain(this.red,this,true);
         //this.blue.rotation += 0.03;

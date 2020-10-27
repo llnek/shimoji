@@ -73,14 +73,12 @@
             col.impact = null;
             e.x -= col.overlapV[0];
             e.y -= col.overlapV[1];
-            //collision
             if(col.overlapN[1] < -0.3){
               if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] < 0){
                 e.mojoh5.vel[1] = 0;
               }
               col.impact = dy;
               Mojo.EventBus.pub(["bump.top", e],col);
-              //Mojo.EventBus.pub(["bump.bottom", e],col);
             }
             if(col.overlapN[1] > 0.3){
               if(!e.mojoh5.skipCollide && e.mojoh5.vel[1] > 0){
@@ -88,21 +86,20 @@
               }
               col.impact = dy;
               Mojo.EventBus.pub(["bump.bottom",e],col);
-              //Mojo.EventBus.pub(["bump.top",e],col);
             }
             if(col.overlapN[0] < -0.3){
-              if(!e.mojoh5.skipCollide && e.mojoh5.vel[0] > 0){
-                e.mojoh5.vel[0] = 0
-              }
-              col.impact = dx;
-              Mojo.EventBus.pub(["bump.right",e],col);
-            }
-            if(col.overlapN[0] > 0.3){
               if(!e.mojoh5.skipCollide && e.mojoh5.vel[0] < 0){
                 e.mojoh5.vel[0] = 0
               }
               col.impact = dx;
               Mojo.EventBus.pub(["bump.left",e],col);
+            }
+            if(col.overlapN[0] > 0.3){
+              if(!e.mojoh5.skipCollide && e.mojoh5.vel[0] > 0){
+                e.mojoh5.vel[0] = 0
+              }
+              col.impact = dx;
+              Mojo.EventBus.pub(["bump.right",e],col);
             }
             if(is.num(col.impact)){
               Mojo.EventBus.pub(["bump",e],col);
@@ -143,36 +140,26 @@
         landed: 0,
         dispose(){
           Mojo.EventBus.unsub(["post.step",e],"step",self);
-          Mojo.EventBus.unsub(["bump.bottom",e],"onLanded",self);
           Mojo.EventBus.unsub(["post.remove",e],"dispose",self);
+          Mojo.EventBus.unsub(["bump.bottom",e],"onLanded",self);
         },
         onLanded(){
           self.landed= 0.2
         },
         step(dt){
           let _I=Mojo.Input;
+          let col;
+          let j3= self.jumping/3;
           let pR= _I.keyDown(_I.keyRIGHT);
           let pU= _I.keyDown(_I.keyUP);
           let pL= _I.keyDown(_I.keyLEFT);
-          let j3= self.jumping/3;
-          let col;
-          // Follow along the current slope, if possible.
-          if(e.mojoh5.collisions !== undefined &&
-             e.mojoh5.collisions.length > 0 &&
+          // follow along the current slope, if possible.
+          if(false && e.mojoh5.collisions.length > 0 &&
              (pL || pR || self.landed > 0)){
-            if(e.mojoh5.collisions.length === 1){
-              col= e.mojoh5.collisions[0]
-            }else{
-              // If there's more than one possible slope, follow slope with negative Y normal
-              col= null;
-              for(let i=0; i<e.mojoh5.collisions.length; ++i){
-                if(e.mojoh5.collisions[i].overlapN[1] < 0)
-                  col= e.mojoh5.collisions[i];
-              }
-            }
+            col= e.mojoh5.collisions[0];
             // Don't climb up walls.
             if(col !== null &&
-               col.overlapN[1] > -0.3 && col.overlapN[1] < 0.3){
+               (col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85)){
               col= null;
             }
           }
@@ -221,6 +208,68 @@
       return self;
     });
     /**
+     * @public
+     * @var {object}
+     */
+    Mojo.defMixin("aiBounceX", function(e){
+      let self= {
+        dispose(){
+          Mojo.EventBus.unsub(["post.remove",e],"dispose",self);
+          Mojo.EventBus.unsub(["bump.right",e],"goLeft",self);
+          Mojo.EventBus.unsub(["bump.left",e],"goRight",self);
+        },
+        goLeft(col){
+          e.mojoh5.vel[0] = - e.mojoh5.speed; //-col.overlapV[0];
+          if(self.defaultDirection === Mojo.RIGHT)
+            e.mojoh5.flip="x";
+          else
+            e.mojoh5.flip=false;
+        },
+        goRight(col){
+          e.mojoh5.vel[0] = e.mojoh5.speed; //col.overlapV[0];
+          if(self.defaultDirection === Mojo.LEFT)
+            e.mojoh5.flip = "x";
+          else
+            e.mojoh5.flip=false;
+        }
+      };
+      Mojo.EventBus.sub(["post.remove",e],"dispose",self);
+      Mojo.EventBus.sub(["bump.right",e],"goLeft",self);
+      Mojo.EventBus.sub(["bump.left",e],"goRight",self);
+      return self;
+    });
+    /**
+     * @public
+     * @var {object}
+     */
+    Mojo.defMixin("aiBounceY", function(e){
+      let self= {
+        dispose(){
+          Mojo.EventBus.unsub(["post.remove",e],"dispose",self);
+          Mojo.EventBus.unsub(["bump.top",e],"goDown",self);
+          Mojo.EventBus.unsub(["bump.bottom",e],"goUp",self);
+        },
+        goUp(col){
+          e.mojoh5.vel[0] = -col.overlapV[0];
+          if(self.defaultDirection === Mojo.DOWN)
+            e.mojoh5.flip="y";
+          else
+            e.mojoh5.flip=false;
+        },
+        goDown(col){
+          e.mojoh5.vel[0] = col.overlapV[0];
+          if(self.defaultDirection === Mojo.UP)
+            e.mojoh5.flip = "y";
+          else
+            e.mojoh5.flip=false;
+        }
+      };
+      Mojo.EventBus.sub(["post.remove",e],"dispose",self);
+      Mojo.EventBus.sub(["bump.top",e],"goDown",self);
+      Mojo.EventBus.sub(["bump.bottom",e],"goUp",self);
+      return self;
+    });
+    /**
      * Find out if a point is touching a circlular or rectangular sprite.
      *
      * @function
@@ -266,6 +315,12 @@
         b_= _S.circular(b) ? _S.toCircle(b,global) : _S.toPolygon(b,global);
         m= _S.circular(b) ? Geo.hitPolygonCircle(a_, b_) : Geo.hitPolygonPolygon(a_, b_)
       }
+      if(m){
+        m.A=a;
+        m.B=b;
+        a.mojoh5.collisions.push(m);
+        b.mojoh5.collisions.push(m);
+      }
       return m;
     }
     /**
@@ -286,9 +341,8 @@
         }
         if(bounce)
           _bounceOff(a,b,m);
-        ret= _collideDir(m);
       }
-      return ret;
+      return m;
     }
     /**
      * @public
@@ -308,12 +362,17 @@
      *
      */
     _D.collide=function(a,b, bounce=true, global = true){
-      let hit;
+      let m,hit;
       if(is.vec(b)){
         for(let i=b.length-1;i>=0;--i)
           _collideAB(a,b[i],bounce,global);
       }else{
-        hit= _collideAB(a,b,bounce,global)
+        m= _collideAB(a,b,bounce,global);
+        hit= m && _collideDir(m);
+      }
+      if(m){
+        //Mojo.EventBus.pub(["hit",a],m);
+        //Mojo.EventBus.pub(["hit",b],m);
       }
       return hit;
     };
@@ -340,20 +399,30 @@
      * @private
      * @function
      */
-    function _collideDir(m){
+    function _collideDir(col){
       let collision=new Set();
-      if(m.overlapN[0] > 0){ //left->right
-        collision.add(Mojo.RIGHT);
-      }
-      if(m.overlapN[0] < 0){ //right->left
-        collision.add(Mojo.LEFT);
-      }
-      if(m.overlapN[1] > 0){ //bot->top
-        collision.add(Mojo.BOTTOM);
-      }
-      if(m.overlapN[0] < 0){ //top->bot
+      if(col.overlapN[1] < -0.3){
         collision.add(Mojo.TOP);
       }
+      if(col.overlapN[1] > 0.3){
+        collision.add(Mojo.BOTTOM);
+      }
+      if(col.overlapN[0] < -0.3){
+        collision.add(Mojo.LEFT);
+      }
+      if(col.overlapN[0] > 0.3){
+        collision.add(Mojo.RIGHT);
+      }
+      /*
+      if(m.overlapN[0] > 0) //left->right
+        collision.add(Mojo.RIGHT);
+      if(m.overlapN[0] < 0) //right->left
+        collision.add(Mojo.LEFT);
+      if(m.overlapN[1] > 0) //bot->top
+        collision.add(Mojo.BOTTOM);
+      if(m.overlapN[0] < 0) //top->bot
+        collision.add(Mojo.TOP);
+        */
       return collision;
     }
     /**
@@ -362,16 +431,7 @@
      *
     */
     function _hitTestAB(a,b,global,react,extra){
-      let c,a_,m;
-      if(_S.circular(a)){
-        a_= _S.toCircle(a,global);
-        m= _S.circular(b) ? Geo.hitCircleCircle(a_, _S.toCircle(b,global))
-                          : Geo.hitCirclePolygon(a_, _S.toPolygon(b,global));
-      }else{
-        a_= _S.toPolygon(a,global);
-        m= _S.circular(b) ? Geo.hitPolygonCircle(a_, _S.toCircle(b,global))
-                          : Geo.hitPolygonPolygon(a_, _S.toPolygon(b,global));
-      }
+      let m=_hitAB(a,b,global);
       if(m){
         if(react){
           a.x -= m.overlapV[0];

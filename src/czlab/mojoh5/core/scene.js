@@ -94,6 +94,13 @@
           c.children.length>0 && this._iterStep(c.children, dt)
         });
       }
+      _iterClean(r){
+        _.doseq(r, c=>{
+          if(c.mojoh5)
+            c.mojoh5.collisions.length=0;
+          c.children.length>0 && this._iterClean(c.children);
+        });
+      }
       update(dt){
         if(this.mojoh5.dead) {return;}
         //handle queued stuff
@@ -108,6 +115,7 @@
         }
         Mojo.EventBus.pub(["pre.update",this],dt);
         this._iterStep(this.children, dt);
+        this._iterClean(this.children);
         Mojo.EventBus.pub(["post.update",this],dt);
       }
       runOnce(){

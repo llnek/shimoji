@@ -88,6 +88,7 @@
                             friction: _V.V2(),
                             vel: _V.V2(),
                             acc: _V.V2(),
+                            collisions: [],
                             angVel: 0,
                             stage: false,
                             dead: false,
@@ -1131,11 +1132,11 @@
         sprites=sprites[0];
       }
       _.doseq(sprites, s=>{
-        if(s.parent){
-          s.dispose && s.dispose();
-          s.parent.removeChild(s)
-          Mojo.EventBus.pub(["post.remove",s]);
-        }
+        if(s.parent)
+          s.parent.removeChild(s);
+        s.mojoh5.dispose &&
+          s.mojoh5.dispose();
+        Mojo.EventBus.pub(["post.remove",s]);
       });
     };
     /**
