@@ -179,7 +179,7 @@
             }else{
               e.mojoh5.vel[0] = e.mojoh5.speed;
             }
-          }else{
+          }else {
             e.mojoh5.vel[0] = 0;
             if(col && self.landed > 0)
               e.mojoh5.vel[1] = 0;

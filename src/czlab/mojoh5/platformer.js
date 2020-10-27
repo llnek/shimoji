@@ -135,7 +135,7 @@
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
-        //this.camera.centerOver(this.player);
+        this.camera.follow(this.player);
       }
     });
 
