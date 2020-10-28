@@ -58,13 +58,15 @@
      * @var {object}
      */
     Mojo.defMixin("2d",function(e){
-      let self={
-        dispose(){
-          Mojo.EventBus.unsub(["hit",e],"collision",self);
-          Mojo.EventBus.unsub(["post.step",e],"step",self);
-          Mojo.EventBus.unsub(["post.remove",e],"dispose",self);
-        },
-        collision(col){
+      let B=Mojo.EventBus;
+      let self={};
+      let signals=[[["hit",e],"collision",self],
+                   [["post.step",e],"step",self],
+                   [["post.remove",e],"dispose",self]];
+      self.dispose=function(){
+        signals.forEach(s=> B.unsub.apply(B,s))
+      };
+      self.collision=function(col){
           if(false && col.obj.p && col.obj.p.sensor){
             //Mojo.EventBus.pub("sensor", col.obj, this.entity);
           }else{
@@ -107,26 +109,19 @@
               col.impact=0;
             }
           }
-        },
-        step(dt){
-          let dtStep = dt;
-          //TODO: check the entity's magnitude of vx and vy,
-          // reduce the max dtStep if necessary to prevent
-          // skipping through objects.
-          while(dtStep > 0){
-            dt = _.min(1/30,dtStep);
-            e.mojoh5.vel[0] += e.mojoh5.acc[0] * dt + e.mojoh5.gravity[0] * dt;
-            e.mojoh5.vel[1] += e.mojoh5.acc[1] * dt + e.mojoh5.gravity[1] * dt;
-            e.x += e.mojoh5.vel[0] * dt;
-            e.y += e.mojoh5.vel[1] * dt;
-            e.mojoh5.collide && e.mojoh5.collide();
-            dtStep -= dt;
-          }
+      };
+      self.step=function(dt){
+        for(let delta=dt;delta>0;){
+          dt = _.min(1/30,delta);
+          e.mojoh5.vel[0] += e.mojoh5.acc[0] * dt + e.mojoh5.gravity[0] * dt;
+          e.mojoh5.vel[1] += e.mojoh5.acc[1] * dt + e.mojoh5.gravity[1] * dt;
+          e.x += e.mojoh5.vel[0] * dt;
+          e.y += e.mojoh5.vel[1] * dt;
+          e.mojoh5.collide && e.mojoh5.collide();
+          delta -= dt;
         }
       };
-      Mojo.EventBus.sub(["hit",e],"collision",self);
-      Mojo.EventBus.sub(["post.step",e],"step",self);
-      Mojo.EventBus.sub(["post.remove",e],"dispose",self);
+      signals.forEach(s=> B.sub.apply(B,s));
       return self;
     });
     /**

@@ -82,7 +82,7 @@
 
     _Z.defScene("level1",{
       setup(){
-        let level= Mojo.resources("level.json").data;
+        let level= Mojo.resources("platformer.json").data;
         let world= this.world = _S.container();
         let tiled= world.tiled= {tileW: 32, tileH: 32,
           tilesInX: level[0].length,
@@ -151,7 +151,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["sprites.png", "level.json", "tiles.png", "background-wall.png"],
+      assetFiles: ["sprites.png", "platformer.json", "tiles.png", "background-wall.png"],
       scaleToWindow: "max",
       start: setup
     })

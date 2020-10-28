@@ -11,18 +11,22 @@
         blue.mojoh5.step=function(dt){
           //_S.move(blue,dt);
         }
+        blue.x=0;
+        blue.y=64;
         this.insert(blue);
         let sz=_S.halfSize(blue);
-        _S.pinCenter(this, blue,sz[0]+16, sz[1]+16);
+        //_S.pinCenter(this, blue,sz[0]+16, sz[1]+16);
         _I.makeDraggable(blue);
         //Make a red square
-        let red = this.red= _S.rectangle(50, 50, "red");
+        let red = this.red= _S.rectangle(64, 64, "red");
         red.mojoh5.step=function(dt){
           //_S.move(red,dt);
         }
+        red.x=0;
+        red.y=0;
         this.insert(red);
         sz=_S.halfSize(red);
-        _S.pinCenter(this,red, -sz[0]-16, -sz[1]-16);
+        //_S.pinCenter(this,red, -sz[0]-16, -sz[1]-16);
         _I.makeDraggable(red);
 
         //blue.anchor.set(0.5);
@@ -39,6 +43,10 @@
       },
       postUpdate:function(){
         let m= _2d.hit(this.red,this.blue,true);
+        if(m){
+          let i=0;
+          i=1;
+        }
         _2d.contain(this.blue,this,true);
         _2d.contain(this.red,this,true);
         //this.blue.rotation += 0.03;
