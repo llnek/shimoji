@@ -769,7 +769,7 @@
      * @public
      * @function
      */
-    _S.frames=function(source,tileW,tileH,spaceX,spaceY,sx,sy){
+    _S.frames=function(source,tileW,tileH,spaceX=0,spaceY=0,sx=0,sy=0){
       let t= this.mkTexture(source);
       let out=[];
       let dx=tileW+spaceX;

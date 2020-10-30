@@ -58,15 +58,14 @@
      * @var {object}
      */
     Mojo.defMixin("2d",function(e){
-      let B=Mojo.EventBus;
-      let self={};
-      let signals=[[["hit",e],"collision",self],
-                   [["post.step",e],"step",self],
-                   [["post.remove",e],"dispose",self]];
+      const B=Mojo.EventBus;
+      const self={};
+      const signals=[[["hit",e],"boom",self],
+                     [["post.remove",e],"dispose",self]];
       self.dispose=function(){
-        signals.forEach(s=> B.unsub.apply(B,s))
+        _.doseq(signals,s=> B.unsub.apply(B,s));
       };
-      self.collision=function(col){
+      self.boom=function(col){
           if(false && col.obj.p && col.obj.p.sensor){
             //Mojo.EventBus.pub("sensor", col.obj, this.entity);
           }else{
@@ -110,7 +109,7 @@
             }
           }
       };
-      self.step=function(dt){
+      self.motion=function(dt){
         for(let delta=dt;delta>0;){
           dt = _.min(1/30,delta);
           e.mojoh5.vel[0] += e.mojoh5.acc[0] * dt + e.mojoh5.gravity[0] * dt;
@@ -121,7 +120,7 @@
           delta -= dt;
         }
       };
-      signals.forEach(s=> B.sub.apply(B,s));
+      _.doseq(signals,s=> B.sub.apply(B,s));
       return self;
     });
     /**
@@ -129,77 +128,72 @@
      * @var {object}
      */
     Mojo.defMixin("platformer", function(e){
-      let self={
-        jumpSpeed: -300,
-        jumping: false,
-        landed: 0,
-        dispose(){
-          Mojo.EventBus.unsub(["post.step",e],"step",self);
-          Mojo.EventBus.unsub(["post.remove",e],"dispose",self);
-          Mojo.EventBus.unsub(["bump.bottom",e],"onLanded",self);
-        },
-        onLanded(){
-          self.landed= 0.2
-        },
-        step(dt){
-          let _I=Mojo.Input;
-          let col;
-          let j3= self.jumping/3;
-          let pR= _I.keyDown(_I.keyRIGHT);
-          let pU= _I.keyDown(_I.keyUP);
-          let pL= _I.keyDown(_I.keyLEFT);
-          // follow along the current slope, if possible.
-          if(false && e.mojoh5.collisions.length > 0 &&
-             (pL || pR || self.landed > 0)){
-            col= e.mojoh5.collisions[0];
-            // Don't climb up walls.
-            if(col !== null &&
-               (col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85)){
-              col= null;
-            }
-          }
-          if(pL && !pR){
-            e.mojoh5.direction = Mojo.LEFT;
-            if(col && self.landed > 0){
-              e.mojoh5.vel[0] = e.mojoh5.speed * col.overlapN[1];
-              e.mojoh5.vel[1] = -1 * e.mojoh5.speed * col.overlapN[0];
-            }else{
-              e.mojoh5.vel[0] = -1 * e.mojoh5.speed;
-            }
-          }else if(pR && !pL){
-            e.mojoh5.direction = Mojo.RIGHT;
-            if(col && self.landed > 0){
-              e.mojoh5.vel[0] = -1 * e.mojoh5.speed * col.overlapN[1];
-              e.mojoh5.vel[1] = e.mojoh5.speed * col.overlapN[0];
-            }else{
-              e.mojoh5.vel[0] = e.mojoh5.speed;
-            }
-          }else {
-            e.mojoh5.vel[0] = 0;
-            if(col && self.landed > 0)
-              e.mojoh5.vel[1] = 0;
-          }
-          if(self.landed > 0 && pU && !self.jumping){
-            e.mojoh5.vel[1] = self.jumpSpeed;
-            self.landed = -dt;
-            self.jumping = true;
-          }else if(pU){
-            Mojo.EventBus.pub(["jump",e]);
-            self.jumping = true;
-          }
-          if(self.jumping && !pU){
-            self.jumping = false;
-            Mojo.EventBus.pub(["jumped", e]);
-            if(e.mojoh5.vel[1] < self.jumpSpeed/3){
-              e.mojoh5.vel[1] = j3;
-            }
-          }
-          self.landed -= dt;
-        }
+      const self={ jumpSpeed: -300, jumping: false, landed: 0 };
+      const B=Mojo.EventBus;
+      const signals=[[["bump.bottom",e],"onLanded",self],
+                     [["post.remove",e],"dispose",self]];
+      self.dispose=function(){
+        _.doseq(signals, s=> B.unsub.apply(B,s))
       };
-      Mojo.EventBus.sub(["post.step",e],"step",self);
-      Mojo.EventBus.sub(["post.remove",e],"dispose",self);
-      Mojo.EventBus.sub(["bump.bottom",e],"onLanded",self);
+      self.onLanded=function(){
+        self.landed= 0.2
+      };
+      self.motion=function(dt){
+        let _I=Mojo.Input;
+        let col;
+        let j3= self.jumping/3;
+        let pR= _I.keyDown(_I.keyRIGHT);
+        let pU= _I.keyDown(_I.keyUP);
+        let pL= _I.keyDown(_I.keyLEFT);
+        // follow along the current slope, if possible.
+        if(false && e.mojoh5.collisions.length > 0 &&
+           (pL || pR || self.landed > 0)){
+          col= e.mojoh5.collisions[0];
+          // Don't climb up walls.
+          if(col !== null &&
+             (col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85)){
+            col= null;
+          }
+        }
+        if(pL && !pR){
+          e.mojoh5.direction = Mojo.LEFT;
+          if(col && self.landed > 0){
+            e.mojoh5.vel[0] = e.mojoh5.speed * col.overlapN[1];
+            e.mojoh5.vel[1] = -1 * e.mojoh5.speed * col.overlapN[0];
+          }else{
+            e.mojoh5.vel[0] = -1 * e.mojoh5.speed;
+          }
+        }else if(pR && !pL){
+          e.mojoh5.direction = Mojo.RIGHT;
+          if(col && self.landed > 0){
+            e.mojoh5.vel[0] = -1 * e.mojoh5.speed * col.overlapN[1];
+            e.mojoh5.vel[1] = e.mojoh5.speed * col.overlapN[0];
+          }else{
+            e.mojoh5.vel[0] = e.mojoh5.speed;
+          }
+        }else {
+          e.mojoh5.vel[0] = 0;
+          if(col && self.landed > 0)
+            e.mojoh5.vel[1] = 0;
+        }
+        if(self.landed > 0 && pU && !self.jumping){
+          e.mojoh5.vel[1] = self.jumpSpeed;
+          self.landed = -dt;
+          self.jumping = true;
+        }else if(pU){
+          Mojo.EventBus.pub(["jump",e]);
+          self.jumping = true;
+        }
+        if(self.jumping && !pU){
+          self.jumping = false;
+          Mojo.EventBus.pub(["jumped", e]);
+          if(e.mojoh5.vel[1] < self.jumpSpeed/3){
+            e.mojoh5.vel[1] = j3;
+          }
+        }
+        self.landed -= dt;
+      };
+      _.doseq(signals, s=> B.sub.apply(B,s));
       return self;
     });
     /**

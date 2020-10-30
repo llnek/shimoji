@@ -206,7 +206,9 @@
       _.doseq(tilesets, ts => {
         let tsinfo=_.selectKeys(ts,"firstgid,name,spacing,imageheight,imagewidth,tileheight,tilewidth");
         tsinfo.image= _getImage(ts);
-        _.doseq(ts.tiles, t => tileProperties[tsinfo.firstgid + t.id] = _parseProperties(t));
+        _.doseq(ts.tiles, t => {
+          tileProperties[tsinfo.firstgid + t.id] = _.inject(_parseProperties(t), {id:t.id})
+        });
         _.conj(gidList,[tsinfo.firstgid, tsinfo]);
       });
       return gidList.sort((a,b) => {
@@ -262,6 +264,7 @@
             let tileId=gid - tsinfo.firstgid;
             _.assert(tileId>=0, `Bad tile id: ${tileId}`);
             let cols=_.floor(tsinfo.imagewidth / (tsinfo.tilewidth+tsinfo.spacing));
+            //let frames= cols * (_.floor(tsinfo.imageheight/(tsinfo.tileheight + tsinfo.spacing)));
             let mapColumn = i % tl.width;
             let mapRow = _.floor(i/ tl.width);
             let mapX = mapColumn * tsinfo.tilewidth;
@@ -271,14 +274,14 @@
             let tilesetX = tilesetCol * tsinfo.tilewidth;
             let tilesetY = tilesetRow * tsinfo.tileheight;
             if(tsinfo.spacing > 0){
-              tilesetX += tsinfo.spacing + (tsinfo.spacing * tilesetCol);
-              tilesetY += tsinfo.spacing + (tsinfo.spacing * tilesetRow);
+              tilesetX += tsinfo.spacing * tilesetCol;
+              tilesetY += tsinfo.spacing * tilesetRow;
             }
             let texture = _S.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
             let s = _S.extend(new Mojo.PXSprite(texture));
             let tprops=gtileProps[gid];
             _.assert(!_.has(s,"tiled"));
-            s.tiled={____gid: gid, ____index: i};
+            s.tiled={____gid: gid, ____index: i, id: tileId, ts: tsinfo.name};
             s.x = mapX;
             s.y = mapY;
             if(tprops && _.has(tprops,"name")){
@@ -289,10 +292,13 @@
           }
         }
         function _doObjGroup(tl){
+          let props,tsinfo;
           _.doseq(tl.objects,o => {
             _.assert(!_.has(o,"tiled"));
-            o.tiled={name: o.name, ____group: gp};
-            _.conj(tiled.tileObjects,o);
+            if(o.name){
+              o.tiled={name: o.name};
+              _.conj(tiled.tileObjects,o);
+            }
           });
         }
         if(layer.type === "tilelayer"){
@@ -301,6 +307,9 @@
           _doObjGroup(layer);
         }
       });
+      world.tiled.getTSInfo=function(gid){
+        return _lookupGid(gid,world.tiled.tileGidList)[1];
+      };
       world.tiled.getObject =function(name,panic){
         let found= _.some(world.tiled.tileObjects, o => {
           if(o.tiled && o.tiled.name === name)
