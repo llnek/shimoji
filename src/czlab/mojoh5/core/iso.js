@@ -335,7 +335,7 @@
         }
         z += 1;
       });
-      world.tiled.getObject=function(name,panic){
+      world.tiled.getOne=function(name,panic){
         let found= _.some(world.tiled.tileObjects, o => {
           if(o.tiled && o.tiled.name === name)
             return o;
@@ -344,7 +344,7 @@
           throw `There is no object with the property name: ${name}`;
         return found;
       };
-      world.tiled.getObjects=function(objectNames,panic){
+      world.tiled.getAll=function(objectNames,panic){
         let found= [];
         objectNames=_.seq(objectNames);
         world.tiled.tileObjects.forEach(o => {

@@ -13,10 +13,10 @@
     _Z.defScene("level1",{
       setup:function(){
         let world =this.world= _T.makeTiledWorld("walkThePath.json");
-        let alien = this.alien= world.tiled.getObject("alien");
+        let alien = this.alien= world.tiled.getOne("alien");
         this.insert(world);
 
-        this.wallMapArray = world.tiled.getObject("wallLayer").tiled.data;
+        this.wallMapArray = world.tiled.getOne("wallLayer").tiled.data;
         //An array that will be used to store sub-arrays of
         //x/y position value pairs that we're going to use
         //to change the velocity of the alien sprite

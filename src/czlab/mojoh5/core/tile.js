@@ -242,6 +242,7 @@
       let tiled= world.tiled;
       let gtileProps={};
       _.patch(tiled, {tileObjects: [],
+                      objectGroups: {},
                       tileProps: gtileProps,
                       tileH: tmx.tileheight,
                       tileW: tmx.tilewidth,
@@ -257,6 +258,7 @@
         _.inject(gp.tiled, layer);
         _.conj(world.tiled.tileObjects,gp);
         function _doTileLayer(tl){
+          _.assert(tl.name,"Error: tile-layer has no name");
           for(let gid,i=0;i<tl.data.length;++i){
             gid=tl.data[i];
             if(gid===0) continue;
@@ -293,6 +295,8 @@
         }
         function _doObjGroup(tl){
           let props,tsinfo;
+          _.assert(tl.name,"Error: group has no name");
+          tiled.objectGroups[tl.name]=tl;
           _.doseq(tl.objects,o => {
             _.assert(!_.has(o,"tiled"));
             if(o.name){
@@ -307,10 +311,18 @@
           _doObjGroup(layer);
         }
       });
+      world.tiled.parseObjects=function(group,cb){
+        let g= world.tiled.objectGroups[group];
+        g && g.objects && g.objects.forEach(o=> {
+          let ts=world.tiled.getTSInfo(o.gid);
+          let ps=world.tiled.tileProps[o.gid];
+          cb(world,group,ts,_.inject({},o,ps))
+        });
+      };
       world.tiled.getTSInfo=function(gid){
         return _lookupGid(gid,world.tiled.tileGidList)[1];
       };
-      world.tiled.getObject =function(name,panic){
+      world.tiled.getOne=function(name,panic){
         let found= _.some(world.tiled.tileObjects, o => {
           if(o.tiled && o.tiled.name === name)
             return o;
@@ -319,7 +331,7 @@
           throw `There is no object with the property name: ${name}`;
         return found;
       };
-      world.tiled.getObjects = function(objectNames,panic){
+      world.tiled.getAll = function(objectNames,panic){
         let found= [];
         objectNames=_.seq(objectNames);
         _.doseq(world.tiled.tileObjects,o => {

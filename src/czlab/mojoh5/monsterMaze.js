@@ -10,7 +10,7 @@
       setup:function(){
         this.world = T.makeTiledWorld("monsterMaze.json");
         this.insert(this.world);
-        this.alien = this.world.tiled.getObject("alien");
+        this.alien = this.world.tiled.getOne("alien");
         /*
         Each Tiled Editor layer has a `name` that can be accessed in your
         game code using
@@ -21,14 +21,14 @@
         a tile layer called `wallLayer`. We can access the `wallLayer`'s
         `data` array of sprites like this:
         */
-        this.wallMapArray = this.world.tiled.getObject("wallLayer").tiled.data;
+        this.wallMapArray = this.world.tiled.getOne("wallLayer").tiled.data;
         /*
         We also need a reference to the bomb layer. All Tiled Editor layers are
         created as `groups` by Hexi's `makeTiledWorld` method. That means they
         all have a `children` array that lets' you access all the sprites on
         that layer, if you even need to do that.
         */
-        this.monsterLayer = this.world.tiled.getObject("monsterLayer");
+        this.monsterLayer = this.world.tiled.getOne("monsterLayer");
         this.monsterMapArray = this.monsterLayer.tiled.data;
         /*
         You can use `world.getObjects` (with an "s") to get an array of all

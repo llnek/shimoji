@@ -105,10 +105,10 @@
         let world = this.world= _T.makeTiledWorld( "monsterMaze.json");
         this.insert(world);
         //Create the alien sprite and set its speed
-        let alien = this.alien= world.tiled.getObject("alien");
+        let alien = this.alien= world.tiled.getOne("alien");
         alien.mojoh5.speed = 4;
         //Get a reference to the array that stores all the wall data
-        let wallMapArray = this.wallMapArray= world.tiled.getObject("wallLayer").tiled.data;
+        let wallMapArray = this.wallMapArray= world.tiled.getOne("wallLayer").tiled.data;
         //We're just using the monsters sprites in the Tiled Editor
         //map as generic placeholders.  We're going to use their size and
         //position data to build new monster sprites from scratch and place
@@ -116,8 +116,8 @@
         //custom animation frames. Here's how to do this:
         //1. Get a reference to the map's monster sprites and the
         //layer container that those sprites are one
-        let mapMonsters = world.tiled.getObjects("monster");
-        let monsterLayer = world.tiled.getObject("monsterLayer");
+        let mapMonsters = world.tiled.getAll("monster");
+        let monsterLayer = world.tiled.getOne("monsterLayer");
         //2.Define the monster's animation frames. In this example there are just
         //two: the monster mouth open, and the monster's mouth closed.
         let monsterFrames = _S.frames( "monsterMaze.png", 64,64, [ [128, 0], [128, 64] ]);

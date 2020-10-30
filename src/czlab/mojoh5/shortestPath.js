@@ -11,11 +11,11 @@
         let world = this.world= _T.makeTiledWorld("astar.json");
         this.insert(world);
         //Create the alien sprite
-        let alien = world.tiled.getObject("alien");
+        let alien = world.tiled.getOne("alien");
         //Create the bomb sprite
         //bomb = world.getObject("bomb");
         //Get a reference to the array that stores all the wall data
-        let wallMapArray = world.tiled.getObject("wallLayer").tiled.data;
+        let wallMapArray = world.tiled.getOne("wallLayer").tiled.data;
         //An array to store the sprites that will be used to display
         //the shortest path
         let currentPathSprites = [];

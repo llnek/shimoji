@@ -25,11 +25,11 @@
         this.world = T.makeTiledWorld("fantasy.json");
         this.insert(this.world);
         this.elf = S.sprite(S.animation("walkcycle.png", 64, 64));
-        let elfObj = this.world.tiled.getObject("elf");
+        let elfObj = this.world.tiled.getOne("elf");
         this.elf.x = elfObj.x;
         this.elf.y = elfObj.y;
         //Add the elf sprite the map's "objects" layer group
-        let objectsLayer = this.world.tiled.getObject("objects");
+        let objectsLayer = this.world.tiled.getOne("objects");
         objectsLayer.addChild(this.elf);
 
         //If you want to, add the sprite to a different world layer,
@@ -41,7 +41,7 @@
 
         //Get all the items on the items layer (the skull, marmot and heart).
         //The `itemLayer` group's `children` array contains all of them.
-        this.itemsLayer = this.world.tiled.getObject("items");
+        this.itemsLayer = this.world.tiled.getOne("items");
 
         //Clone the `itemLayer.children` array so that you have your own
         //array of all three item sprites (the heart, skull and marmot)
@@ -57,7 +57,7 @@
 
         */
         //Get a reference to the array containing the map items
-        this.itemsMapArray = this.world.tiled.getObject("items").tiled.data;
+        this.itemsMapArray = this.world.tiled.getOne("items").tiled.data;
 
         /*
         Create the camera and center it over the elf.
@@ -173,7 +173,7 @@
         //check for a collision between the elf and the ground tiles
         //(See the example `tiledEditorSupport.html` for details on how to
         //`hitTestTile` - it's not difficult)
-        let obstaclesMapArray = this.world.tiled.getObject("obstacles").tiled.data;
+        let obstaclesMapArray = this.world.tiled.getOne("obstacles").tiled.data;
         let elfVsGround = T.hitTestTile(this.elf, obstaclesMapArray, 0, this.world, Mojo.EVERY);
         //If the elf isn't touching any ground tiles, it means its touching
         //an obstacle, like a bush, the bottom of a wall, or the bottom of a
