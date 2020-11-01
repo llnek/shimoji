@@ -47,6 +47,7 @@
                                            : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
       };
       s.mojoh5.step=function(dt){
+        s["2d"].motion(dt);
         s.mojoh5.vel[0] += (speed - s.mojoh5.vel[0])/4;
         if(s.mojoh5.vel[1]>0 && _S.bottomSide(s) > floor.y){
           s.y = floor.y - s.height/2;

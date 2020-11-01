@@ -129,6 +129,84 @@
      * @public
      * @function
      */
+    _S.layoutX=function(items,options={}){
+      let borderWidth=options.borderWidth || 4;
+      let border=options.border || 0xffffff;
+      let bg= options.color || 0x000000;
+      let padX= options.padding || 10;
+      let fit= options.fit || 20;
+      let fit2=fit*2;
+      let P=Mojo.Sprites;
+      let C=P.group();
+
+      for(let p,s,i=0;i<items.length;++i){
+        s=C.addChild(items[i]);
+        if(i>0)
+          P.pinRight(p,s,padX,0);
+        p=s;
+      }
+
+      let last=items[items.length-1];
+      let w= C.width;
+      let h= C.height;
+      let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
+      r.alpha=0.5;
+      C.addChildAt(r,0);
+      w= C.width;
+      h= C.height;
+      let w2=w/2;
+      let h2=h/2;
+      items.forEach(s=> s.y=h2-s.height/2);
+      let wd= w-(last.x+last.width);
+      wd= wd/2;
+      items.forEach(s=> s.x += wd);
+      C.x= options.x !== undefined ? options.x : (Mojo.canvas.width-w)/2;
+      C.y= options.y !== undefined ? options.y : (Mojo.canvas.height-h)/2;
+      return C;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.layoutY=function(items,options={}){
+      let borderWidth=options.borderWidth || 4;
+      let border=options.border || 0xffffff;
+      let bg= options.color || 0x000000;
+      let padY= options.padding || 10;
+      let fit= options.fit || 20;
+      let fit2=fit*2;
+      let P=Mojo.Sprites;
+      let C=P.group();
+
+      for(let p,s,i=0;i<items.length;++i){
+        s=C.addChild(items[i]);
+        if(i>0)
+          P.pinBottom(p,s,0,padY);
+        p=s;
+      }
+
+      let last=items[items.length-1];
+      let w= C.width;
+      let h= C.height;
+      let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
+      r.alpha=0.5;
+      C.addChildAt(r,0);
+      w= C.width;
+      h= C.height;
+      let w2=w/2;
+      let h2=h/2;
+      items.forEach(s=> s.x=w2-s.width/2);
+      let hd= h-(last.y+last.height);
+      hd= hd/2;
+      items.forEach(s=> s.y += hd);
+      C.x= options.x !== undefined ? options.x : (Mojo.canvas.width-w)/2;
+      C.y= options.y !== undefined ? options.y : (Mojo.canvas.height-h)/2;
+      return C;
+    };
+    /**
+     * @public
+     * @function
+     */
     _S.defScene=function(name, func, options){
       //add a new scene definition
       WIPScenes[name]=[func, options||{}];

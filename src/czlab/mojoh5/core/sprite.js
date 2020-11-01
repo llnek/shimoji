@@ -884,9 +884,9 @@
      * @public
      * @function
      */
-    _S.drawBody=function(cb){
+    _S.drawBody=function(cb,...args){
       let g = new Mojo.PXGraphics();
-      cb(g);
+      cb.apply(_S,[g].concat(args));
       return this.extend(new Mojo.PXSprite(_S.generateTexture(g)))
     };
     /**

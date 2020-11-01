@@ -53,6 +53,9 @@
         if(p.y > scene.b5.y+scene.b5.height*3){
           _S.remove(p);
           _Z.runScene("endGame",{msg: "You Fell!"});
+        }else{
+          p["2d"].motion(dt);
+          p.platformer.motion(dt);
         }
         //if(p.mojoh5.vel[1] > 600) { p.mojoh5.vel[1] = 600; }
       };
@@ -65,31 +68,16 @@
         this.btns.forEach(b => _I.removeButton(b))
       },
       setup(options){
-        let g= this;
         let s1=_S.text("Game Over", {fill:"white",align:"center"});
-        g.insert(s1);
-        //_S.pinTop(g,s1);
         let s2=_S.text(options.msg, {fill:"white",align:"center"});
-        g.insert(s2);
-        _S.pinBottom(s1,s2,0,10);
         let s3=_S.text(" ");
-        g.insert(s3);
-        _S.pinBottom(s2,s3,0,10);
         let s4=_I.makeButton(_S.text("Play Again?",{fill:"white",align:"center"}));
-        g.insert(s4);
-        _S.pinBottom(s3,s4,0,10);
         let s5=_S.text("or",{fill:"white",align:"center"});
-        g.insert(s5);
-        _S.pinBottom(s4,s5,0,10);
         let s6=_I.makeButton(_S.text("Quit",{fill:"white",align:"center"}));
-        g.insert(s6);
-        _S.pinBottom(s5,s6,0,10);
-
+        //let g=_Z.layoutX([s1,s3,s4,s5,s6],options);
+        let g=_Z.layoutY([s1,s2,s3,s4,s5,s6],options);
         this.btns= [s4,s6];
-
-        g.x=(Mojo.canvas.width-g.width)/2;
-        g.y=(Mojo.canvas.height-g.height)/2;
-
+        this.insert(g);
         s4.mojoh5.press=function(){
           _Z.removeScene("level1","endGame");
           _Z.runScene("level1");
