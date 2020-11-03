@@ -134,6 +134,7 @@
         s.mojoh5.enabled = true;
         return _.conj(_buttons,s) && s;
       },
+
       button(source, x = 0, y = 0){
         let s, s0=source[0];
         if(is.str(s0)){
@@ -284,6 +285,11 @@
           ptr.release && ptr.release();
           //e.preventDefault();
         },
+        reset(){
+          ptr.tapped=false;
+          ptr.isDown=false;
+          ptr.isUp=true;
+        },
         hitTestSprite(s){
           return Mojo["2d"].hitTestPointXY(ptr.x,ptr.y,s,true)
         }
@@ -376,31 +382,31 @@
             }
             if(s.mojoh5.state === "down"){
               if(!s.mojoh5.pressed){
-                s.mojoh5.press && s.mojoh5.press();
+                s.mojoh5.press && s.mojoh5.press(s);
                 s.mojoh5.pressed = true;
                 s.mojoh5.action = "pressed";
               }
             }
             if(s.mojoh5.state === "over"){
               if(s.mojoh5.pressed){
-                s.mojoh5.release && s.mojoh5.release();
+                s.mojoh5.release && s.mojoh5.release(s);
+                if(ptr.tapped && s.mojoh5.tap) s.tap(s);
                 s.mojoh5.pressed = false;
                 s.mojoh5.action = "released";
-                if(ptr.tapped && s.mojoh5.tap) s.tap();
               }
               if(!s.mojoh5.hoverOver){
-                s.mojoh5.hover && s.mojoh5.hover();
+                s.mojoh5.hover && s.mojoh5.hover(s);
                 s.mojoh5.hoverOver = true;
               }
             }
             if(s.mojoh5.state === "up"){
               if(s.mojoh5.pressed){
-                s.mojoh5.release && s.mojoh5.release();
+                s.mojoh5.release && s.mojoh5.release(s);
                 s.mojoh5.pressed = false;
                 s.mojoh5.action = "released";
               }
               if(s.mojoh5.hoverOver){
-                s.mojoh5.blur && s.mojoh5.blur();
+                s.mojoh5.blur && s.mojoh5.blur(s);
                 s.mojoh5.hoverOver = false;
               }
             }
@@ -417,7 +423,6 @@
      */
 
     Mojo.EventBus.sub(["canvas.resize"], "onResize",_I);
-    _I.onResize();
 
     function _uh(e){
       _keyInputs.set(e.keyCode,false);

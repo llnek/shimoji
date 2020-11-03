@@ -552,6 +552,21 @@
      * @public
      * @function
      */
+    _S.bboxCenter=function(b4){
+      if(is.num(b4.x1))
+        return _.v2(b4.x1+(b4.x2-b4.x1)/2,b4.y1+(b4.y2-b4.y1)/2)
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.bboxSize=function(b4){
+      return _.v2(b4.x2-b4.x1, b4.y2-b4.y1)
+    };
+    /**
+     * @public
+     * @function
+     */
     _S.pointInBBox=function(pt,box){
       return pt.x > box.x1 && pt.x < box.x2 && pt.y > box.y1 && pt.y < box.y2
     };

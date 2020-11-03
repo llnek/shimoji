@@ -47,9 +47,13 @@
       constructor(id,func,options){
         super();
         this.name= _sceneid(id);
+        this.____sid=id;
         if(is.fun(func)){
-          this.setup= func;
+          this.____setup= func;
         }else if(is.obj(func)){
+          let s= _.dissoc(func,"setup");
+          if(s)
+            func["____setup"]=s;
           _.inject(this, func);
         }
         this.mojoh5={stage:true};
@@ -81,8 +85,14 @@
         return c;
       }
       dispose(){
+        function _clean(o){
+          o.children.length && o.children.forEach(c=> _clean(c));
+          if(o && o.mojoh5.button){
+            _I.removeButton(o);
+          }
+        }
         this.mojoh5.dead=true;
-        this.children.forEach(c=> c.mojoh5.button && _I.removeButton(c));
+        _clean(this);
         this.removeChildren();
       }
       _iterStep(r,dt){
@@ -91,14 +101,14 @@
             c.mojoh5.step(dt);
             Mojo.EventBus.pub(["post.step",c],dt);
           }
-          c.children.length>0 && this._iterStep(c.children, dt)
+          c.children.length && this._iterStep(c.children, dt)
         });
       }
       _iterClean(r){
         _.doseq(r, c=>{
           if(c.mojoh5)
             c.mojoh5.collisions.length=0;
-          c.children.length>0 && this._iterClean(c.children);
+          c.children.length && this._iterClean(c.children);
         });
       }
       update(dt){
@@ -119,9 +129,9 @@
         Mojo.EventBus.pub(["post.update",this],dt);
       }
       runOnce(){
-        if(this.setup){
-          this.setup(this.____options);
-          this.setup=undefined;
+        if(this.____setup){
+          this.____setup(this.____options);
+          this.____setup=undefined;
         }
       }
     };
@@ -150,7 +160,7 @@
       let w= C.width;
       let h= C.height;
       let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
-      r.alpha=0.5;
+      r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
       C.addChildAt(r,0);
       w= C.width;
       h= C.height;
@@ -189,7 +199,7 @@
       let w= C.width;
       let h= C.height;
       let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
-      r.alpha=0.5;
+      r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
       C.addChildAt(r,0);
       w= C.width;
       h= C.height;
@@ -274,6 +284,8 @@
       options = _.inject({},_s[1],options);
       if(is.undef(num))
         num= options["slot"] || -1;
+      //before we run a new scene
+      Mojo.pointer.reset();
       //create new
       y = new Scene(name, _s[0], options);
       //add to where?

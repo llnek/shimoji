@@ -86,7 +86,7 @@
      * @private
      * @function
      */
-    function _scaleCanvas(canvas, bgColor){
+    function _scaleCanvas(canvas){
       let CH=canvas.offsetHeight;
       let CW=canvas.offsetWidth;
       let WH=window.innerHeight;
@@ -116,8 +116,7 @@
                        paddingTop:"0px",
                        paddingBottom:"0px",
                        display:"block"});
-      if(bgColor !== undefined)
-        dom.css(document.body, "backgroundColor",  bgColor);
+      dom.css(document.body, "backgroundColor", Mojo.scaledBorderColor);
       return scale;
     }
     /** Once all the files are loaded, do some post processing.
@@ -245,14 +244,18 @@
       if(cmdArg.border)
         dom.css(Mojo.canvas, "border", cmdArg.border);
       if(cmdArg.backgroundColor !== undefined){
-        _.assert(is.num(cmdArg.backgroundColor));
-        Mojo.ctx.backgroundColor = cmdArg.backgroundColor;
+        Mojo.ctx.backgroundColor = Mojo["Sprites"].color(cmdArg.backgroundColor);
       }
       dom.conj(document.body, Mojo.canvas);
+      Mojo.scaledBorderColor= cmdArg.scaleBorderColor || "#2c3539";
+      Mojo.touchDevice= !!("ontouchstart" in document);
       Mojo.stage.mojoh5={stage: true};
-      Mojo.scale = 1;
-      if(cmdArg.scaleToWindow===true)
-        Mojo.scaleToWindow(cmdArg.scaleBorderColor);
+      Mojo.scale=1;
+      if(cmdArg.scaleToWindow===true){
+        _scaleToWindow();
+        Mojo.scale= _scaleCanvas(Mojo.canvas);
+      }
+      Mojo.pointer = Mojo["Input"].pointer(Mojo.canvas, Mojo.scale);
       _.addEvent("resize", window, () => Mojo.resize());
       _loadFiles(Mojo);
       return Mojo;
@@ -334,6 +337,28 @@
      * @public
      * @function
      */
+    Mojo.scaleXY=function(src,des){
+      return _.v2((des ? des[0] : Mojo.canvas.width)/src[0],
+                  (des ? des[1] : Mojo.canvas.height)/src[1])
+    };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.portrait=function(){
+      return Mojo.canvas.height>Mojo.canvas.width
+    };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.screenCenter=function(){
+      return _.v2(Mojo.canvas.width/2,Mojo.canvas.height/2)
+    };
+    /**
+     * @public
+     * @function
+     */
     Mojo.stageCS=function(cb){
       _.doseq(Mojo.stage.children,cb)
     };
@@ -348,29 +373,27 @@
      * @public
      * @function
      */
-    Mojo.resize=function(canvas, color){
+    Mojo.resize=function(canvas){
       canvas=canvas || Mojo.canvas;
       if(canvas.maxed){
-        canvas.width=window.innerWidth;
-        canvas.height=window.innerHeight;
+        Mojo.scale = 1;
       }else{
-        this.scale = _scaleCanvas(canvas, color);
+        Mojo.scale = _scaleCanvas(canvas);
       }
-      this.EventBus.pub(["canvas.resize"]);
+      if(arguments.length===0)
+        Mojo.EventBus.pub(["canvas.resize"]);
     };
     /**
      * @public
      * @function
      */
-    Mojo.scaleToWindow= function(borderColor = "#2C3539"){
+    function _scaleToWindow(){
       let style = "* {padding: 0; margin: 0}";
       let newStyle = dom.newElm("style");
-      let target=this.canvas;
       dom.conj(newStyle,dom.newTxt(style));
       dom.conj(document.head,newStyle);
-      this.resize(target,borderColor);
-      target.scaled = true;
-    };
+      Mojo.canvas.scaled = true;
+    }
     /**
      * @public
      * @function
@@ -523,11 +546,6 @@
     Mojo.animFromImages=function(x){
       return this.PXASprite.fromImages(x.map(s => Mojo.assetPath(s)));
     };
-    /**
-     * @public
-     * @property {class}
-     */
-    Mojo.Game.state= new GameState();
 
     return _prologue(Mojo,cmdArg);
   }
