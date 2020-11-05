@@ -24,12 +24,14 @@
     Mojo.Scenes.runScene("level1");
   }
 
-  window["io.czlab.mojoh5.AppConfig"]={
-    arena: {width:512, height:512},
-    assetFiles: ["images/animals.json"],
-    scaleToWindow: true,
-    start: setup
-  };
+  window.addEventListener("load",()=>{
+    MojoH5({
+      arena: {width:512, height:512},
+      assetFiles: ["images/animals.json"],
+      scaleToWindow: true,
+      start: setup
+    })
+  });
 
 })(this);
 

@@ -26,12 +26,13 @@
    * @private
    * @function
    */
-  function _module(Mojo,_pointers,_buttons,_draggables){
+  function _module(Mojo,_activeTouches,_buttons,_draggables){
     const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
     const Core=global["io.czlab.mcfud.core"]();
     const _V=global["io.czlab.mcfud.vec2"]();
     let _element=Mojo.canvas;
     let _scale=Mojo.scale;
+    let _pointer=null;
     const _=Core.u;
     const is=Core.is;
     const _keyInputs= _.jsMap();
@@ -88,8 +89,9 @@
         });
       },
       onResize(){
+        if(_pointer)
+          _pointer.dispose();
         Mojo.pointer = _I.pointer(Mojo.canvas, Mojo.scale);
-        _I.scale= Mojo.scale;
       },
       resetInputs(){
         _keyInputs.clear();
@@ -120,7 +122,7 @@
         return key;
       },
       get scale() { return _scale },
-      set scale(v) { _scale=v; _.doseq(_pointers, p=> p.scale=v) },
+      set scale(v) { _scale=v; if(_pointer) _pointer.scale=v },
       removeButton(b){
         b.mojoh5.enabled=false;
         _.disj(_buttons,b);
@@ -149,7 +151,7 @@
       },
       update(dt){
         if(_draggables.length > 0) this.updateDragAndDrop(_draggables);
-        if(_buttons.length > 0) this.updateButtons(dt);
+        //if(_buttons.length > 0) this.updateButtons(dt);
       },
       makeDraggable(...sprites){
         if(sprites.length===1 && is.vec(sprites[0])){
@@ -196,7 +198,7 @@
      * @function
      */
     _I.pointer=function(el, skale){
-      let ptr= {
+      let ptr={
         element: el || _element,
         _scale: skale || _scale,
         tapped: false,
@@ -209,11 +211,6 @@
         height: 1,
         downTime: 0,
         elapsedTime: 0,
-        //press: undefined,
-        //release: undefined,
-        //hover: undefined,
-        //blur: undefined,
-        //tap: undefined,
         dragSprite: null,
         dragOffsetX: 0,
         dragOffsetY: 0,
@@ -232,87 +229,148 @@
         getGlobalPosition(){
           return {x: this.x, y: this.y}
         },
-        moveHandler(e){
-          let t = e.target;
-          ptr._x = (e.pageX - t.offsetLeft);
-          ptr._y = (e.pageY - t.offsetTop);
-          e.preventDefault();
-        },
-        touchmoveHandler(e){
-          let t = e.target;
-          ptr._x = (e.targetTouches[0].pageX - t.offsetLeft);
-          ptr._y = (e.targetTouches[0].pageY - t.offsetTop);
-          e.preventDefault();
-        },
-        downHandler(e){
-          ptr.isDown = true;
-          ptr.isUp = false;
-          ptr.tapped = false;
-          ptr.downTime = _.now();
-          ptr.press && ptr.press();
-          e.preventDefault();
-        },
-        touchstartHandler(e){
-          let t = e.target;
-          ptr._x = e.targetTouches[0].pageX - t.offsetLeft;
-          ptr._y = e.targetTouches[0].pageY - t.offsetTop;
-          ptr.downTime = _.now();
-          ptr.isDown = true;
-          ptr.isUp = false;
-          ptr.tapped = false;
-          ptr.press && ptr.press();
-          e.preventDefault();
-        },
-        upHandler(e){
-          ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
-          if(ptr.elapsedTime <= 200 && ptr.tapped === false){
-            ptr.tapped = true;
-            ptr.tap && ptr.tap();
+        press(){
+          for(let s,i=0,z=_buttons.length;i<z;++i){
+            s=_buttons[i];
+            if(s.mojoh5.enabled &&
+               s.mojoh5.press &&
+               ptr.hitTestSprite(s)){
+              s.mojoh5.press(s);
+              break;
+            }
           }
-          ptr.isUp = true;
-          ptr.isDown = false;
-          ptr.release && ptr.release();
+        },
+        tap(){
+          ptr.press();
+        },
+        mouseDown(e){
+          //left click only
+          if(e.button===0){
+            ptr.downTime = _.now();
+            ptr.isDown = true;
+            ptr.isUp = false;
+            ptr.pressed=true;
+            e.preventDefault();
+          }
+        },
+        mouseMove(e){
+          let t = e.target;
+          ptr._x = e.pageX - t.offsetLeft;
+          ptr._y = e.pageY - t.offsetTop;
           //e.preventDefault();
         },
-        touchendHandler(e){
-          ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
-          if(ptr.elapsedTime <= 200 && ptr.tapped === false){
-            ptr.tapped = true;
-            ptr.tap && ptr.tap();
+        mouseUp(e){
+          if(e.button===0){
+            ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+            ptr.isUp = true;
+            ptr.isDown = false;
+            if(ptr.pressed){
+              ptr.press();
+              ptr.pressed=false;
+            }
+            e.preventDefault();
           }
+        },
+        _copyTouch(t,target){
+          return {
+            offsetLeft:target.offsetLeft,
+            offsetTop:target.offsetTop,
+            clientX:t.clientX,
+            clientY:t.clientY,
+            pageX:t.pageX,
+            pageY:t.pageY,
+            identifier:t.identifier};
+        },
+        touchStart(e){
+          let ct=e.changedTouches; //multitouch
+          let tt=e.targetTouches;//single touch
+          let t = e.target;
+          let tid=tt[0].identifier || 0;
+          ptr._x = tt[0].pageX - t.offsetLeft;
+          ptr._y = tt[0].pageY - t.offsetTop;
+          ptr.downTime = _.now();
+          ptr.isDown = true;
+          ptr.isUp = false;
+          ptr.tapped = true;
+          e.preventDefault();
+          _.assoc(_activeTouches,tid,ptr._copyTouch(tt[0],t));
+        },
+        touchMove(e){
+          let ct=e.changedTouches;
+          let tt=e.targetTouches;
+          let t = e.target;
+          let id= tt[0].identifier || 0;
+          let active = _.get(_activeTouches,id);
+          ptr._x = tt[0].pageX - t.offsetLeft;
+          ptr._y = tt[0].pageY - t.offsetTop;
+          e.preventDefault();
+        },
+        touchEnd(e){
+          let ct=e.changedTouches;
+          let tt=e.targetTouches;
+          let t = e.target;
+          let id= tt[0].identifier || 0;
+          let active = _.get(_activeTouches,id);
+          ptr._x = tt[0].pageX - t.offsetLeft;
+          ptr._y = tt[0].pageY - t.offsetTop;
           ptr.isUp = true;
           ptr.isDown = false;
-          ptr.release && ptr.release();
-          //e.preventDefault();
+          ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+          if(active && ptr.elapsedTime <= 200 && ptr.tapped === true){
+            ptr.tap();
+            ptr.tapped = false;
+          }
+          e.preventDefault();
+        },
+        touchCancel(e){
+          let ct=e.changedTouches;
+          let tt=e.targetTouches;
+          let t=e.target;
+          let t0=tt[0];
+          let touchId= touch.identifier || 0;
+          let active = _.get(_activeTouches,touchId);
+          //EBus.pub("touchEnd", active.obj, active);
+          e.preventDefault();
+          if(active)
+            _.dissoc(_activeTouches,touchId);
         },
         reset(){
+          ptr.pressed=false;
           ptr.tapped=false;
           ptr.isDown=false;
           ptr.isUp=true;
         },
         hitTestSprite(s){
           return Mojo["2d"].hitTestPointXY(ptr.x,ptr.y,s,true)
+        },
+        dispose(){
+          _.delEvent([["mousemove", el, ptr.mouseMove],
+                      ["mousedown", el,ptr.mouseDown],
+                      ["mouseup", window, ptr.mouseUp],
+                      ["touchmove", el, ptr.touchMove],
+                      ["touchstart", el, ptr.touchStart],
+                      ["touchend", window, ptr.touchEnd],
+                      ["touchcancel", window, ptr.touchCancel]]);
         }
       };
-      _.addEvent([["mousemove", el, ptr.moveHandler, false],
-                  ["mousedown", el,ptr.downHandler, false],
-                  //catch mouse button releases outside of the canvas area
-                  ["mouseup", window, ptr.upHandler, false],
-                  ["touchmove", el, ptr.touchmoveHandler, false],
-                  ["touchstart", el, ptr.touchstartHandler, false],
-                  //catch a mouse button release outside of the canvas area
-                  ["touchend", window, ptr.touchendHandler, false]]);
+      _.addEvent([["mousemove", el, ptr.mouseMove],
+                  ["mousedown", el,ptr.mouseDown],
+                  ["mouseup", window, ptr.mouseUp],
+                  ["touchmove", el, ptr.touchMove],
+                  ["touchstart", el, ptr.touchStart],
+                  ["touchend", window, ptr.touchEnd],
+                  ["touchcancel", window, ptr.touchCancel]]);
       //disable the default actions on the canvas
       el.style.touchAction = "none";
-      return (_pointers[0]=ptr);
-      //return _.conj(_pointers,ptr) && ptr;
+      return _pointer=ptr;
     };
     /**
      * @public
      * @function
      */
     _I.updateDragAndDrop=function(sprites){
-      function _F(ptr){
+      if(_pointer){
+        let ptr=_pointer;
         if(ptr.isDown){
           if(!ptr.dragSprite){
             for(let s,i=sprites.length-1; i>=0; --i){
@@ -348,74 +406,16 @@
           }
         });
       }
-      //deal with single pointer for now
-      _pointers.length>0 && _F(_pointers[0]);
     };
     /**
      * @public
      * @function
      */
     _I.updateButtons=function(){
-      function _F(ptr){
+      if(_pointer){
         ptr.shouldBeHand = false;
-        _buttons.forEach(s=>{
-          if(s.mojoh5.enabled){
-            let hit = ptr.hitTestSprite(s);
-            if(ptr.isUp){
-              s.mojoh5.state = "up";
-              if(s.mojoh5.button && s.gotoAndStop) s.gotoAndStop(0);
-            }
-            if(hit){
-              s.mojoh5.state = "over";
-              if(s.totalFrames && s.totalFrames === 3 && s.mojoh5.button){
-                s.gotoAndStop(1);
-              }
-              if(ptr.isDown){
-                s.mojoh5.state = "down";
-                if(s.mojoh5.button && s.gotoAndStop)
-                  (s.totalFrames === 3) ? s.gotoAndStop(2) : s.gotoAndStop(1);
-              }
-              ptr.shouldBeHand = true;
-              if(ptr.visible) ptr.cursor = "pointer";
-            }else{
-              if(ptr.visible) ptr.cursor = "auto";
-            }
-            if(s.mojoh5.state === "down"){
-              if(!s.mojoh5.pressed){
-                s.mojoh5.press && s.mojoh5.press(s);
-                s.mojoh5.pressed = true;
-                s.mojoh5.action = "pressed";
-              }
-            }
-            if(s.mojoh5.state === "over"){
-              if(s.mojoh5.pressed){
-                s.mojoh5.release && s.mojoh5.release(s);
-                if(ptr.tapped && s.mojoh5.tap) s.tap(s);
-                s.mojoh5.pressed = false;
-                s.mojoh5.action = "released";
-              }
-              if(!s.mojoh5.hoverOver){
-                s.mojoh5.hover && s.mojoh5.hover(s);
-                s.mojoh5.hoverOver = true;
-              }
-            }
-            if(s.mojoh5.state === "up"){
-              if(s.mojoh5.pressed){
-                s.mojoh5.release && s.mojoh5.release(s);
-                s.mojoh5.pressed = false;
-                s.mojoh5.action = "released";
-              }
-              if(s.mojoh5.hoverOver){
-                s.mojoh5.blur && s.mojoh5.blur(s);
-                s.mojoh5.hoverOver = false;
-              }
-            }
-          }
-        });
         ptr.cursor = ptr.shouldBeHand ? "pointer" : "auto"
       }
-      //single pointer for now
-      _pointers.length>0 && _F(_pointers[0]);
     };
     /**
      * @public
@@ -439,7 +439,7 @@
    * @module
    */
   global["io.czlab.mojoh5.Input"]=function(Mojo){
-    return Mojo.Input ? Mojo.Input : _module(Mojo,[],[],[])
+    return Mojo.Input ? Mojo.Input : _module(Mojo,new Map(),[],[])
   };
 
 })(this);
