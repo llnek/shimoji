@@ -330,6 +330,7 @@
       //get fps(){ return this.o.fps },
       //get rps(){ return this.o.rps },
       get assets(){ return this.PXLoader.resources },
+      get state(){ return this.Game.state },
       set border(v){ dom.css(this.canvas,"border", v) },
       set bgColor(c){ this.ctx.backgroundColor = this.color(c) }
     };
