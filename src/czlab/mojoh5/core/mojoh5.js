@@ -223,7 +223,6 @@
       function _runM(m){
         global["io.czlab.mojoh5."+m](Mojo)
       }
-      cmdArg.arena=arena;
       if(cmdArg.scaleToWindow === "max"){
         arena = _.inject(arena, {width: window.innerWidth,
                                  height: window.innerHeight});
@@ -239,6 +238,7 @@
       Mojo.canvas.maxed=maxed;
       Mojo.canvas.id="mojo";
       Mojo.stage= new Mojo.PXContainer();
+      Mojo.designResolution=arena;
       _.doseq(_.seq("Sprites,Input,Scenes,Sound"), _runM);
       _.doseq(_.seq("Effects,2d,Tiles,GameLoop"), _runM);
       if(cmdArg.border)
@@ -251,6 +251,7 @@
       Mojo.touchDevice= !!("ontouchstart" in document);
       Mojo.stage.mojoh5={stage: true};
       Mojo.scale=1;
+      Mojo.cmdArg=cmdArg;
       if(cmdArg.scaleToWindow===true){
         _scaleToWindow();
         Mojo.scale= _scaleCanvas(Mojo.canvas);
@@ -331,6 +332,8 @@
       //get rps(){ return this.o.rps },
       get assets(){ return this.PXLoader.resources },
       get state(){ return this.Game.state },
+      get width(){ return this.canvas.width },
+      get height(){ return this.canvas.height },
       set border(v){ dom.css(this.canvas,"border", v) },
       set bgColor(c){ this.ctx.backgroundColor = this.color(c) }
     };
@@ -339,8 +342,14 @@
      * @function
      */
     Mojo.scaleXY=function(src,des){
-      return _.v2((des ? des[0] : Mojo.canvas.width)/src[0],
-                  (des ? des[1] : Mojo.canvas.height)/src[1])
+      return [ des[0]/src[0], des[1]/src[1] ]
+    };
+    /**
+     * @public
+     * @function
+     */
+    Mojo.scaleSZ=function(src,des){
+      return { width: des.width/src.width, height: des.height/src.height }
     };
     /**
      * @public

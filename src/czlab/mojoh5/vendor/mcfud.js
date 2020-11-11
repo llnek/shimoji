@@ -182,7 +182,7 @@
         return min + Math.random() * (max - min);
       },
       randMinus1To1(){ return (Math.random() - 0.5) * 2 },
-      randInt(num){ return _randXYInclusive(0,num) },
+      randInt(num){ return Math.floor(Math.random() * num) },
       randInt2: _randXYInclusive,
       rand(){ return Math.random() },
       inst(type,obj){ return obj instanceof type },
