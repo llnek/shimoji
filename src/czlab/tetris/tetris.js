@@ -17,7 +17,6 @@
       }
     });
 
-
     _Z.defScene("PlayGame", {
       markGrid(){
         let b=_S.sprite("0.png");
@@ -37,6 +36,8 @@
         _G.tileH=w;
         let s=Mojo.scaleXY([b.width,b.height],
                            [_G.tileW,_G.tileH]);
+        _G.rows=H;
+        _G.cols=W;
         _G.scaleX=s[0];
         _G.scaleY=s[1];
         _G.vbox={x1: X, y1: Y - H*w, x2: X+w*W, y2: Y};
@@ -59,24 +60,21 @@
         }
         return this;
       },
-      moveRotate(){
-      },
-      moveRight(){
-      },
-      moveLeft(){
-      },
       setup(){
         let r= this.rightMotion= _I.keyboard(_I.keyRIGHT);
-        r.mojoh5.press=()=>{ this.moveRight };
+        r.press=()=>{ _G.shiftRight(this,_G.curShape) };
         let f= this.leftMotion= _I.keyboard(_I.keyLEFT);
-        f.mojoh5.press=()=>{ this.moveLeft() };
+        f.press=()=>{ _G.shiftLeft(this,_G.curShape) };
         let u= this.upMotion= _I.keyboard(_I.keyUP);
-        u.mojoh5.press=()=>{ this.moveRotate() };
-
+        u.press=()=>{ _G.rotateCCW(this,_G.curShape) };
+        let d= this.downMotion= _I.keyboard(_I.keyDOWN);
+        d.press=()=>{ _G.moveDown(this,_G.curShape) };
+        let s= this.dropMotion= _I.keyboard(_I.keySPACE);
+        s.press=()=>{ _G.dropDown(this,_G.curShape) };
         this.markGrid();
         //this.initBlockMap();
         _G.previewNext();
-        _G.curShape= _G.reifyNextShape(this);
+        _G.reifyNextShape(this);
       }
     });
   }

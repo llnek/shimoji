@@ -5,177 +5,98 @@
     let _=Mojo.u;
 
     class BModel{
-      constructor(a,d){
-        this._dim=d;
-        this._layout=a;
-        this._size=a.length/(d*d);
+      constructor(m){ this.model=m; }
+      dim(){return this.model.length }
+      clone(){
+        let out=[];
+        for(let i=0;i<this.model.length;++i){
+          out.push(this.model[i].slice())
+        }
+        return out;
       }
-      dim(){return this._dim }
-      size(){ return this._size }
-      sq(){ return this._dim*this._dim }
-      test(rID, row, col){
-        return this._layout[rID * this.sq() + row * this._dim + col] === 1
+      rand(){
+        let n=_.randInt(4);
+        let b=this.model;
+        if(n===0){
+          b=this.clone(b);
+        }else{
+          for(let i=0;i<n;++i)
+          b=_G.transposeCCW(b)
+        }
+        return b
       }
     }
+    // piece = []
     class BoxModel extends BModel{
       constructor(){
-        super([1,1,
-               1,1,
-
-               1,1,
-               1,1,
-
-               1,1,
-               1,1,
-
-               1,1,
-               1,1],2);
+        super([[1,1],
+               [1,1]]);
       }
     }
-    //////////////////////////////////////////////////////////////////////////
     // piece = L
     class ElModel extends BModel{
       constructor(){
-        super([0,1,0,
-               0,1,0,
-               0,1,1,
-
-               0,0,1,
-               1,1,1,
-               0,0,0,
-
-               1,1,0,
-               0,1,0,
-               0,1,0,
-
-               0,0,0,
-               1,1,1,
-               1,0,0],3);
+        super([[0,1,0],
+               [0,1,0],
+               [0,1,1]]);
       }
     }
-    //////////////////////////////////////////////////////////////////////////
     // piece J
     class ElxModel extends BModel{
       constructor(){
-        super([0,1,0,
-               0,1,0,
-               1,1,0,
-
-               0,0,0,
-               1,1,1,
-               0,0,1,
-
-               0,1,1,
-               0,1,0,
-               0,1,0,
-
-               1,0,0,
-               1,1,1,
-               0,0,0],3);
+        super([[0,1,0],
+               [0,1,0],
+               [1,1,0]]);
       }
     }
-    //////////////////////////////////////////////////////////////////////////
     // piece I
     class LineModel extends BModel{
       constructor(){
-        super([0,0,0,0,
-               1,1,1,1,
-               0,0,0,0,
-               0,0,0,0,
-
-               0,1,0,0,
-               0,1,0,0,
-               0,1,0,0,
-               0,1,0,0,
-
-               0,0,0,0,
-               0,0,0,0,
-               1,1,1,1,
-               0,0,0,0,
-
-               0,0,1,0,
-               0,0,1,0,
-               0,0,1,0,
-               0,0,1,0],4);
+        super([[0,0,0,0],
+               [1,1,1,1],
+               [0,0,0,0],
+               [0,0,0,0]]);
       }
     }
-    //////////////////////////////////////////////////////////////////////////
     // piece T
     class NubModel extends BModel{
       constructor(){
-        super([0,0,0,
-               0,1,0,
-               1,1,1,
-
-               0,0,1,
-               0,1,1,
-               0,0,1,
-
-               1,1,1,
-               0,1,0,
-               0,0,0,
-
-               1,0,0,
-               1,1,0,
-               1,0,0],3);
+        super([[0,0,0],
+               [0,1,0],
+               [1,1,1]]);
       }
     }
-    //////////////////////////////////////////////////////////////////////////
     // piece S
     class StModel extends BModel{
       constructor(){
-        super([0,1,0,
-               0,1,1,
-               0,0,1,
-
-               0,1,1,
-               1,1,0,
-               0,0,0,
-
-               1,0,0,
-               1,1,0,
-               0,1,0,
-
-               0,0,0,
-               0,1,1,
-               1,1,0],3);
+        super([[0,1,0],
+               [0,1,1],
+               [0,0,1]]);
       }
     }
-    //////////////////////////////////////////////////////////////////////////
     // piece Z
     class StxModel extends BModel{
       constructor(){
-        super([0,1,0,
-               1,1,0,
-               1,0,0,
-
-               0,0,0,
-               1,1,0,
-               0,1,1,
-
-               0,0,1,
-               0,1,1,
-               0,1,0,
-
-               1,1,0,
-               0,1,1,
-               0,0,0],3);
+        super([[0,1,0],
+               [1,1,0],
+               [1,0,0]]);
       }
     }
-
-    _G.Shape=function(info){
-      return {info: info, cells: []}
-    };
 
     _G.ModelList=[new BoxModel(), new ElModel(), new ElxModel(),
                   new LineModel(), new NubModel(), new StModel(), new StxModel()];
 
-    _G.ShapeInfo=function(m){
-      return {model:m,
-              rot: _.randInt(m.size()),
-              png: `${_.randInt(7)}.png`}
-    };
-
+    _G.transposeCCW=function(block){
+      let out=[];
+      for(let i=0;i<block.length;++i) out.push([]);
+      for(let row,i=0;i<block.length;++i){
+        row=block[i];
+        for(let j=0;j<row.length;++j){
+          out[j][i]= row[row.length-1-j]
+        }
+      }
+      return out;
+    }
 
   };
 
