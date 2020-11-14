@@ -10,18 +10,22 @@
       let t2 = tile/2;
       let r=_.floor(((y+t2) - _G.vbox.y1)/tile);
       let c=_.floor(((x+t2) - _G.vbox.x1)/tile);
+      r= _G.rows - 1- r;
+      _.assert(r >=0 && r < _G.rows);
       return [r,c];
     };
 
     function _testTiles(tiles,row,col){
-      let C=_G.grid[0].length;
-      let R=_G.grid.length;
-      for(let r,y=0;y<tiles.length;++y){
+      for(let px,py,r,y=0;y<tiles.length;++y){
         r=tiles[y];
         for(let x=0;x<r.length;++x){
           if(r[x]===1){
-            if(row+y>=R || col+x>=C ||
-               row+y<0 || col+x<0 || _G.grid[row+y][col+x]) return false
+            py=row-y;
+            px=col+x;
+            if(py<0 || px<0 || _G.grid[py][px]){
+              return false;
+            }
+            if(py<0 || px>=_G.cols || px<0) return false;
           }
         }
       }
@@ -29,21 +33,11 @@
     }
 
     _G.drawShape=function(scene,s){
-      if(s.cells.length===0){
-        for(let p,i=0;i<4;++i){
-          p=_S.sprite(s.png);
-          p.scale.x=_G.scaleX;
-          p.scale.y=_G.scaleY;
-          s.cells.push(p);
-          scene.insert(p);
-        }
-      }
-      let k=0;
-      for(let r,y=0;y<s.tiles.length;++y){
+      for(let k=0,r,y=0;y<s.tiles.length;++y){
         r=s.tiles[y];
         for(let p,x=0;x<r.length;++x){
           if(r[x]===1){
-            s.cells[k].y=_G.vbox.y1+(s.row+y)*_G.tileH;
+            s.cells[k].y=_G.vbox.y2-((s.row-y)+1)*_G.tileH;
             s.cells[k].x=_G.vbox.x1+(s.col+x)*_G.tileW;
             ++k;
           }
@@ -52,30 +46,36 @@
     };
 
     _G.reifyNextShape=function(scene){
-      let x= _G.vbox.x1 + 5 * _G.tileW;
-      let y= _G.vbox.y1; //+ 5 * _G.tileH;
-      let [row,col]= this.xrefTile(x,y);
-      console.log("ROW="+row);
       let s=_G.nextShape;
-      if(!_testTiles(s.tiles, row,col)){
-        console.log("game over.  you lose.");
-      }else{
-        s.row=row;
-        s.col=col;
+      _G.nextShape=null;
+      _G.curShape=s;
+      if(s){
+        _G.previewNext(scene);
+        s.row=_G.rows+s.tiles.length-1;
+        s.col=_G.cols/2;
+        s.cells.forEach(c=>c.visible=true);
         _G.drawShape(scene,s);
       }
-      _G.nextShape=null;
-      return (_G.curShape=s);
+      return s;
     };
 
-    _G.previewNext=function(){
+    _G.previewNext=function(scene){
+      //console.log("previewNext called");
       let ln= _G.ModelList.length;
       let n= _.randInt(ln);
       let m= _G.ModelList[n];
+      let png= `${_.randInt(ln)}.png`;
       let s= {tiles: m.rand(),
               cells: [],
-              row: 0, col: 0,
-              png: `${_.randInt(ln)}.png`};
+              row: 0, col: 0};
+      for(let p,i=0;i<4;++i){
+        p= _S.sprite(png);
+        p.scale.x=_G.scaleX;
+        p.scale.y=_G.scaleY;
+        p.visible=false;
+        scene.insert(p);
+        s.cells.push(p);
+      }
       return (_G.nextShape=s);
     };
 
@@ -93,18 +93,52 @@
       return true;
     };
 
+    _G.lockShape=function(scene,s){
+      s.cells.forEach(p=>{
+        let [r,c]=_G.xrefTile(p.x,p.y);
+        _G.grid[r][c]=p;
+      });
+      s.cells.length=0;
+    };
+
+    _G.checkLines=function(scene){
+      for(let r,y=_G.rows-1;y>=0;--y){
+        r=_G.grid[y];
+        if(r.every(c => !!c)){
+          for(let x=0;x<r.length;++x){
+            _S.remove(r[x]);
+            r[x]=null;
+          }
+        }
+      }
+    };
+
+    _G.sinkLine=function(line){
+    }
+
     _G.moveDown=function(scene,s){
-      if(!_testTiles(s.tiles,s.row+1,s.col)){ return false; }
-      ++s.row;
+      if(!_testTiles(s.tiles,s.row-1,s.col)){
+        _G.lockShape(scene,s);
+        _G.checkLines(scene);
+        _G.slowDown(scene,_G.reifyNextShape(scene));
+        return false;
+      }
+      --s.row;
       _G.drawShape(scene,s);
       return true;
     };
 
+    _G.slowDown=function(scene,s){
+      if(_G.moveDown(scene,s)){
+        _G.timer= _.delay(80+700/1,()=>{ _G.slowDown(scene,s) });
+      }
+    };
+
     _G.dropDown=function(scene,s){
-      if(true){
-        if(_G.moveDown(scene,s)){
-          _.delay(30,()=>{ _G.dropDown(scene,s) });
-        }
+      if(_G.timer !== undefined) clearTimeout(_G.timer);
+      _G.timer=undefined;
+      if(_G.moveDown(scene,s)){
+        _G.timer= _.delay(30,()=>{ _G.dropDown(scene,s) });
       }
     };
 

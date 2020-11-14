@@ -12,8 +12,6 @@
 
     _Z.defScene("Bg",{
       setup(){
-        let r= _S.rectangle(Mojo.canvas.width,Mojo.canvas.height,0);
-        this.insert(r);
       }
     });
 
@@ -26,7 +24,7 @@
         let w= Mojo.width/W;
         let X=0;
         let grid=[];
-        for(let row,y=0;y<H;++y){
+        for(let row,y=0;y<(H+4);++y){
           grid.push(row=[]);
           for(let x=0;x<W;++x)
             row.push(null);
@@ -45,17 +43,14 @@
       },
       initBlockMap(){
         let b=_S.sprite("0.png");
-        for(let s,row,y=0;y<_G.grid.length;++y){
-          row=_G.grid[y];
-          for(let p,x=0;x<row.length;++x){
-            p=row[x];
+        for(let s,y=_G.rows-1;y>=0;--y){
+          for(let p,x=0;x<_G.cols;++x){
             s=_S.sprite("3.png");
             s.scale.x=_G.scaleX;
             s.scale.y=_G.scaleY;
-            s.x=p.x;
-            s.y=p.y;
-            p.t=s;
-            this.insert(p.t);
+            s.x=_G.tileW*x;
+            s.y=_G.vbox.y2-_G.tileH*(y+1);
+            this.insert(s);
           }
         }
         return this;
@@ -72,9 +67,13 @@
         let s= this.dropMotion= _I.keyboard(_I.keySPACE);
         s.press=()=>{ _G.dropDown(this,_G.curShape) };
         this.markGrid();
+        let bg= _S.rectangle(_G.cols*_G.tileW,_G.rows*_G.tileH,0);
+        bg.x=_G.vbox.x1;
+        bg.y=_G.vbox.y1;
+        this.insert(bg);
         //this.initBlockMap();
-        _G.previewNext();
-        _G.reifyNextShape(this);
+        _G.previewNext(this);
+        _G.slowDown(this,_G.reifyNextShape(this));
       }
     });
   }
