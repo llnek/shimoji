@@ -93,7 +93,7 @@
       return true;
     };
 
-    _G.lockShape=function(scene,s){
+    _G.lockShape=function(s){
       s.cells.forEach(p=>{
         let [r,c]=_G.xrefTile(p.x,p.y);
         _G.grid[r][c]=p;
@@ -101,25 +101,47 @@
       s.cells.length=0;
     };
 
-    _G.checkLines=function(scene){
-      for(let r,y=_G.rows-1;y>=0;--y){
+    _G.checkGrid=function(){
+      while(_G.checkLines());
+    };
+
+    _G.checkLines=function(){
+      for(let r,y=0;y<_G.rows;++y){
         r=_G.grid[y];
         if(r.every(c => !!c)){
-          for(let x=0;x<r.length;++x){
-            _S.remove(r[x]);
-            r[x]=null;
+          _G.clearLine(y);
+          _G.sink(y);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    _G.sink=function(line){
+      for(let s,y=line+1;y<=_G.rows;++y){
+        for(let x=0;x<_G.cols;++x){
+          s=_G.grid[y][x];
+          _G.grid[y-1][x]=s;
+          if(s){
+            s.y += _G.tileH;
           }
         }
       }
     };
 
-    _G.sinkLine=function(line){
-    }
+    _G.clearLine=function(line){
+      let row=_G.grid[line];
+      for(let i=0;i<row.length;++i){
+        _.assert(row[i],"cell expected to be non-null");
+        _S.remove(row[i]);
+        row[i]=null;
+      }
+    };
 
     _G.moveDown=function(scene,s){
       if(!_testTiles(s.tiles,s.row-1,s.col)){
-        _G.lockShape(scene,s);
-        _G.checkLines(scene);
+        _G.lockShape(s);
+        _G.checkGrid();
         _G.slowDown(scene,_G.reifyNextShape(scene));
         return false;
       }
