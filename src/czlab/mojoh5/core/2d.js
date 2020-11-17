@@ -420,7 +420,7 @@
      *
     */
     function _hitTestAB(a,b,global,react,extra){
-      let m=_hitAB(a,b,global);
+      let c,m=_hitAB(a,b,global);
       if(m){
         if(react){
           a.x -= m.overlapV[0];

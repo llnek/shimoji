@@ -223,6 +223,7 @@
       function _runM(m){
         global["io.czlab.mojoh5."+m](Mojo)
       }
+      Mojo.designResolution=_.inject({},arena);
       if(cmdArg.scaleToWindow === "max"){
         arena = _.inject(arena, {width: window.innerWidth,
                                  height: window.innerHeight});
@@ -238,7 +239,6 @@
       Mojo.canvas.maxed=maxed;
       Mojo.canvas.id="mojo";
       Mojo.stage= new Mojo.PXContainer();
-      Mojo.designResolution=arena;
       _.doseq(_.seq("Sprites,Input,Scenes,Sound"), _runM);
       _.doseq(_.seq("Effects,2d,Tiles,GameLoop"), _runM);
       if(cmdArg.border)

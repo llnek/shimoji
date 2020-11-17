@@ -189,6 +189,9 @@
       isPerc(s){
         return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/);
       },
+      isEven(n){
+        return n>0 ? (n % 2 === 0) : ((-n) % 2 === 0);
+      },
       jsMap(){ return new Map() },
       jsObj(){ return {} },
       jsVec(...args){
