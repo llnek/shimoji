@@ -1022,10 +1022,80 @@
      * @public
      * @function
      */
+    _S.gridSQ=function(dim,ratio=0.6){
+      return this.gridXY(dim,dim,ratio)
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.gridXY=function(dimX,dimY,ratio=0.6){
+      let sz = ratio * (Mojo.portrait()?Mojo.width:Mojo.height);
+      let cx,cy,x0,y0,x1,y1,x2,y2,out= _.jsVec();
+      let cz= sz / (dimX>=dimY ? dimX : dimY);
+      let wb = Mojo.screenCenter();
+      let w= cz * dimX;
+      let h= cz * dimY;
+      //top,left
+      y1=y0=(Mojo.height - h)/2;
+      x1=x0=(Mojo.width - w)/2;
+      for(let v,r=0; r<dimY; ++r){
+        v=[];
+        for(let c= 0; c<dimX; ++c){
+          y2 = y1 + cz;
+          x2 = x1 + cz;
+          _.conj(v,_S.bbox4(x1,x2,y1,y2));
+          x1 = x2;
+        }
+        y1 = y2;
+        x1 = x0;
+        _.conj(out,v);
+      }
+      return out;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.drawGridBox=function(grid,lineWidth,lineColor){
+      let ctx= new Mojo.PXGraphics();
+      let gf = grid[0][0];
+      let n=grid[0].length;
+      let gl = grid[grid.length-1][n-1];
+      ctx.lineStyle(lineWidth,_S.color(lineColor));
+      ctx.drawRect(gf.x1,gf.y1,gl.x2-gf.x1,gl.y2-gf.y1);
+      return this.extend(ctx);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.drawGridLines=function(grid,lineWidth,lineColor){
+      let ctx= new Mojo.PXGraphics();
+      let h= grid.length;
+      let w= grid[0].length;
+      ctx.lineStyle(lineWidth,_S.color(lineColor));
+      for(let r,y=1;y<h;++y){
+        r=grid[y];
+        ctx.moveTo(r[0].x1,r[0].y1);
+        ctx.lineTo(r[w-1].x2,r[w-1].y1);
+      }
+      for(let r,x=1;x<w;++x){
+        r=grid[0];
+        ctx.moveTo(r[x].x1,r[x].y1);
+        r=grid[h-1];
+        ctx.lineTo(r[x].x1,r[x].y2);
+      }
+      return this.extend(ctx);
+    };
+    /**
+     * @public
+     * @function
+     */
     _S.grid=function(cols, rows, cellW, cellH,
-                      centerCell, xOffset, yOffset, spriteCtor, extra){
-      let length = cols * rows;
+                     centerCell, xOffset, yOffset, spriteCtor, extra){
       let container = new Mojo.PXContainer();
+      let length = cols * rows;
       for(let s,x,y,i=0; i < length; ++i){
         x = (i%cols) * cellW;
         y = _.floor(i/cols) * cellH;
