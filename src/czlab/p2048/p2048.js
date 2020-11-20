@@ -43,20 +43,39 @@
       return out;
     }
 
-    const _colorMap={
-      0: "#c8beb4", //setColor(c::Color3B(200,190,180));
-      2: "#f0e6dc", //setColor(c::Color3B(240,230,220));
-      4: "#f0dcc8", //setColor(c::Color3B(240,220,200));
-      8: "#f0b478", //setColor(c::Color3B(240,180,120));
-      16: "#f08c5a", //setColor(c::Color3B(240,140,90));
-      32: "#f0785a", //setColor(c::Color3B(240,120,90));
-      64: "#f05a3c", //setColor(c::Color3B(240,90,60));
-      128: "#f05a3c", //setColor(c::Color3B(240,90,60));
-      256: "#f0c846", //setColor(c::Color3B(240,200,70));
-      512: "#f0c846", //setColor(c::Color3B(240,200,70));
-      1024: "#008200", //setColor(c::Color3B(0,130,0));
-      2048: "#008200" //setColor(c::Color3B(0,130,0));
-    };
+    let TMP=[0,0,0,0];
+    function _resetTMP(){
+      TMP[0]=TMP[1]=TMP[2]=TMP[3]=0;
+      return 4;
+    }
+    function compress(arr,mutate){
+      let k=arr.length;
+      let v2=null;
+      let v1=v2;
+      let out=_.fill(new Array(k),0);
+
+      for(let j=arr.length-1;j>=0;--j){
+        if(arr[j]===0){continue;}
+        if(v2===null){
+          v2=arr[j]
+        }else{
+          v1=arr[j]
+          if(v1===v2){
+            out[--k]=v1+v2;
+            v2=v1=null;
+          }else{
+            out[--k]=v2;
+            v2=v1;
+          }
+        }
+      }
+      if(v2 !== null){
+        out[--k]=v2
+      }
+      if(mutate)
+        for(let i=0;i<out.length;++i) arr[i]=out[i];
+      return out;
+    }
 
     function _loadTiles(){
       let out= [0,2,4,8,16,32,64,256,1024].map(n=> Mojo.tcached(`${n}.png`));
@@ -88,10 +107,87 @@
         let s= _G.TILES[r*DIM+c];
         s.mojoh5.showFrame(_numToFrame(num));
         this.tiles[r][c]=num;
-        let t= _S.text(`${num}`,{fontSize:200,fontFamily:"Arial",fill:0,align:"center"});
-        t.x=0;
-        t.y=0;
-        s.addChild(t);
+        if(num>0){
+          let t= _S.text(`${num}`,{fontSize:200,fontFamily:"Arial",fill:0,align:"center"});
+          t.x=0;
+          t.y=0;
+          s.addChild(t);
+        }
+      },
+      postSwipe(){
+        let p,z,out=[];
+        for(let y=0;y<4;++y)
+          for(let x=0;x<4;++x){
+            if(this.tiles[y][x]===0)
+              out.push([y,x])
+          }
+        z=out.length;
+        switch(z){
+          case 0:
+            p=-1;
+            break;
+          case 1:
+            p=0;
+            break;
+          case 2:
+            p=Math.random()>0.5?1:0;
+            break;
+          default:
+            p=_.randInt2(0,z-1);
+            break;
+        }
+        if(p>=0){
+          let r=out[p];
+          this.setNumber(r[0],r[1],Math.random()>0.5?4:2);
+        }
+      },
+      refreshTiles(){
+        _G.TILES.forEach(t=> t.removeChildren());
+        for(let v,r,y=0;y<4;++y){
+          r=this.tiles[y];
+          for(let c=0;c<4;++c){
+            this.setNumber(y,c,r[c]);
+          }
+        }
+        this.postSwipe();
+      },
+      swipeRight(){
+        this.tiles.forEach(r => compress(r,true));
+        this.refreshTiles();
+      },
+      swipeLeft(){
+        this.tiles.forEach(r => {
+          let out=compress(r.reverse()).reverse();
+          for(let i=0;i<4;++i) r[i]=out[i];
+        });
+        this.refreshTiles();
+      },
+      swipeUp(){
+        let out=[];
+        for(let x=0;x<4;++x){
+          out.length=0;
+          for(let y=3;y>=0;--y){
+            out.push(this.tiles[y][x]);
+          }
+          compress(out,true);
+          out.reverse();
+          for(let y=0;y<4;++y)
+            this.tiles[y][x]=out[y];
+        }
+        this.refreshTiles();
+      },
+      swipeDown(){
+        let out=[];
+        for(let x=0;x<4;++x){
+          out.length=0;
+          for(let y=0;y<4;++y){
+            out.push(this.tiles[y][x]);
+          }
+          compress(out,true);
+          for(let y=0;y<4;++y)
+            this.tiles[y][x]=out[y];
+        }
+        this.refreshTiles();
       },
       initLevel(){
         let v,r,c,E=DIM-1,i=2;
@@ -99,10 +195,18 @@
           r=_.randInt2(0,E);
           c=_.randInt2(0,E);
           if(this.tiles[r][c]===0){
-            this.setNumber(r,c, Math.random()>0.5?2:4);
+            this.setNumber(r,c, Math.random()>0.5?2:2048);
             --i;
           }
         }
+        this.dirRight=_I.keyboard(_I.keyRIGHT);
+        this.dirRight.press=()=>{ this.swipeRight() };
+        this.dirLeft=_I.keyboard(_I.keyLEFT);
+        this.dirLeft.press=()=>{ this.swipeLeft() };
+        this.dirUp=_I.keyboard(_I.keyUP);
+        this.dirUp.press=()=>{ this.swipeUp() };
+        this.dirDown=_I.keyboard(_I.keyDOWN);
+        this.dirDown.press=()=>{ this.swipeDown() }
       },
       setup(){
         let g= _S.gridSQ(DIM);
