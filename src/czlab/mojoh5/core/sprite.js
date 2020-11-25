@@ -1018,40 +1018,59 @@
     _S.moving=function(s){
       return !_.feq(s.mojoh5.vel[0],0.0) || !_.feq(s.mojoh5.vel[1], 0.0)
     };
+    function _mkgrid(sx,sy,rows,cols,tileX,tileY){
+      let out=[];
+      let y1=sy;
+      let x1=sx;
+      for(let x2,y2,v,r=0; r<rows; ++r){
+        v=[];
+        for(let c= 0; c<cols; ++c){
+          y2 = y1 + tileY;
+          x2 = x1 + tileX;
+          _.conj(v,_S.bbox4(x1,x2,y1,y2));
+          x1 = x2;
+        }
+        y1 = y2;
+        x1 = sx;
+        _.conj(out,v);
+      }
+      return out;
+    }
     /**
      * @public
      * @function
      */
-    _S.gridSQ=function(dim,ratio=0.6){
-      return this.gridXY(dim,dim,ratio)
+    _S.makeCells=function(sx,sy,ex,ey,cellX,cellY){
+      let cols=(ex-sx)/cellX;
+      let rows=(ey-sx)/cellY;
+      let out=[];
+      return _mkgrid(sx,sy,rows,cols,cellX,cellY);
     };
     /**
      * @public
      * @function
      */
-    _S.gridXY=function(dimX,dimY,ratio=0.6){
-      let sz = ratio * (Mojo.portrait()?Mojo.width:Mojo.height);
-      let cx,cy,x0,y0,x1,y1,x2,y2,out= _.jsVec();
-      let cz= sz / (dimX>=dimY ? dimX : dimY);
-      let wb = Mojo.screenCenter();
-      let w= cz * dimX;
-      let h= cz * dimY;
-      //top,left
-      y1=y0=(Mojo.height - h)/2;
-      x1=x0=(Mojo.width - w)/2;
-      for(let v,r=0; r<dimY; ++r){
-        v=[];
-        for(let c= 0; c<dimX; ++c){
-          y2 = y1 + cz;
-          x2 = x1 + cz;
-          _.conj(v,_S.bbox4(x1,x2,y1,y2));
-          x1 = x2;
-        }
-        y1 = y2;
-        x1 = x0;
-        _.conj(out,v);
-      }
-      return out;
+    _S.gridSQ=function(dim,ratio=0.6){
+      let sz= ratio* (Mojo.height<Mojo.width ?Mojo.height:Mojo.width);
+      let w=sz/dim;
+      let h=w;
+      let sy=(Mojo.height-sz)/2;
+      let sx=(Mojo.width-sz)/2;
+      return _mkgrid(sx,sy,dim,dim,w,h);
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.gridXY=function(dimX,dimY,ratioX=0.6,ratioY=0.6){
+      let szh=Mojo.height*ratioY;
+      let szw=Mojo.width*ratioX;
+      let w= szw / dimX;
+      let h= szh / dimY;
+      let out=[];
+      let sy= (Mojo.height-szh)/2;
+      let sx= (Mojo.width-szw)/2;
+      return _mkgrid(sx,sy,dimY,dimX,w,h);
     };
     /**
      * @public

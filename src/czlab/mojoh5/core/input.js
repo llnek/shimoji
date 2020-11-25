@@ -425,9 +425,11 @@
     Mojo.EventBus.sub(["canvas.resize"], "onResize",_I);
 
     function _uh(e){
+      e.preventDefault();
       _keyInputs.set(e.keyCode,false);
     }
     function _dh(e){
+      e.preventDefault();
       _keyInputs.set(e.keyCode,true);
     }
     _.addEvent([["keyup", window, _uh, false],
