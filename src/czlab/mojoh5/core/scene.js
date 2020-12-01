@@ -106,8 +106,9 @@
       }
       _iterClean(r){
         _.doseq(r, c=>{
-          if(c.mojoh5)
-            c.mojoh5.collisions.length=0;
+          if(c.mojoh5 && c.mojoh5.collisions){
+            c.mojoh5.collisions.length=0
+          }
           c.children.length && this._iterClean(c.children);
         });
       }

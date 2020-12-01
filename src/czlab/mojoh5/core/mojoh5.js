@@ -239,7 +239,7 @@
       Mojo.canvas.maxed=maxed;
       Mojo.canvas.id="mojo";
       Mojo.stage= new Mojo.PXContainer();
-      _.doseq(_.seq("Sprites,Input,Scenes,Sound"), _runM);
+      _.doseq(_.seq("Sprites,Input,Touch,Scenes,Sound"), _runM);
       _.doseq(_.seq("Effects,2d,Tiles,GameLoop"), _runM);
       if(cmdArg.border)
         dom.css(Mojo.canvas, "border", cmdArg.border);
@@ -313,6 +313,10 @@
       BOTTOM: 7,
       UP: 8,
       DOWN: 9,
+      TOP_LEFT: 10,
+      TOP_RIGHT: 11,
+      BOTTOM_LEFT: 12,
+      BOTTOM_RIGHT: 13,
       NONE: 100,
       TRAPPED: 200,
       Game:{ state: new GameState() },
@@ -327,6 +331,10 @@
       PXLR:PIXI.LoaderResource,
       PXTCache:PIXI.utils.TextureCache,
       PXObservablePoint: PIXI.ObservablePoint,
+      sideRight(d){ return d===Mojo.RIGHT || d===Mojo.TOP_RIGHT || d===Mojo.BOTTOM_RIGHT },
+      sideLeft(d){ return d===Mojo.LEFT || d===Mojo.TOP_LEFT || d===Mojo.BOTTOM_LEFT },
+      sideTop(d){ return d===Mojo.TOP || d===Mojo.TOP_LEFT || d===Mojo.TOP_RIGHT },
+      sideBottom(d){ return d===Mojo.BOTTOM || d===Mojo.BOTTOM_LEFT || d===Mojo.BOTTOM_RIGHT },
       lerpConfig(){ return this.o.i },
       //get fps(){ return this.o.fps },
       //get rps(){ return this.o.rps },

@@ -13,7 +13,7 @@
         let self=this;
         let background = S.sprite("background.png",0,0,false);
         this.insert(background);
-        let cannon = S.sprite("cannon.png",0,0,true);
+        let cannon = G.cannon= S.sprite("cannon.png",0,0,true);
         cannon.mojoh5.uuid="cannon";
         cannon.mojoh5.step=function(dt){
           S.move(cannon);
@@ -85,7 +85,7 @@
         G.score= 0;
         G.alienTimer= 0;
         G.winner= null;
-        Mojo.EventBus.sub(["post.update",self],"doAliens");
+        //Mojo.EventBus.sub(["post.update",self],"doAliens");
       },
       doAliens: function(){
         let self=this;
@@ -178,6 +178,7 @@
           Mojo.Game.music.volume = 1;
           Z.removeScenes();
           Z.runScene("level1");
+          //Z.runScene("ctrl");
           Z.runScene("hud");
         }
         this.future(() => reset(), 120);
@@ -193,11 +194,33 @@
         this.insert(score);
       }
     });
+
+    Z.defScene("ctrl", {
+      setup:function(){
+        let j=Mojo.Touch.joystick({
+          onChange(dir,angle,power){
+            if(Mojo.sideRight(dir)){
+              G.cannon.mojoh5.vel[0] = 5;
+              G.cannon.mojoh5.vel[1] = 0;
+            }
+            if(Mojo.sideLeft(dir)){
+              G.cannon.mojoh5.vel[0] = -5;
+              G.cannon.mojoh5.vel[1] = 0;
+            }
+          }
+        });
+        j.x=Mojo.width/2;
+        j.y=Mojo.height/2;
+        this.insert(j);
+      }
+    });
+
+
   }
 
   window.addEventListener("load", ()=>
     window.MojoH5({
-      assetFiles: ["images/alienArmada.json", "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
+      assetFiles: ["joystick.png","joystick-handle.png","images/alienArmada.json", "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
       arena: { width: 480, height: 320 },
       scaleToWindow: true,
       fps:60,
@@ -211,6 +234,7 @@
         Mojo.Game.scoreNeededToWin= 10;
         defScenes(Mojo);
         Mojo.Scenes.runScene("level1");
+        //Mojo.Scenes.runScene("ctrl");
         Mojo.Scenes.runScene("hud");
       }
     })
