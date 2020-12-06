@@ -160,9 +160,11 @@
       let last=items[items.length-1];
       let w= C.width;
       let h= C.height;
-      let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
-      r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
-      C.addChildAt(r,0);
+      if(bg!=="transparent"){
+        let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
+        r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
+        C.addChildAt(r,0);
+      }
       w= C.width;
       h= C.height;
       let w2=w/2;

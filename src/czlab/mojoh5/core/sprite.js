@@ -812,6 +812,16 @@
       return frames;
     };
     /**
+     * @public
+     * @function
+     */
+    _S.frameImages=function(...pics){
+      if(pics.length===1 && is.vec(pics[0])){
+        pics=pics[0]
+      }
+      return pics.map(p=> Mojo.tcached(p))
+    };
+    /**
      * @private
      * @function
      */
@@ -1435,6 +1445,14 @@
                       false,
                       Mojo.PXMatrix, !!displayObject.parent);
       return renderTexture;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.moveBy=function(s,duration,target){
+      let v=_V.makeVecAB([s.x,s.y],target);
+      let d=_V.vecLen(v);
     };
 
     return (Mojo.Sprites= _S)

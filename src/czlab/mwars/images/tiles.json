@@ -1,0 +1,138 @@
+{"frames": {
+
+"button.png":
+{
+	"frame": {"x":1,"y":1,"w":241,"h":84},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":241,"h":84},
+	"sourceSize": {"w":241,"h":84}
+},
+"button_sel.png":
+{
+	"frame": {"x":87,"y":1,"w":241,"h":84},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":241,"h":84},
+	"sourceSize": {"w":241,"h":84}
+},
+"castle1_atk.png":
+{
+	"frame": {"x":1,"y":244,"w":172,"h":136},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":172,"h":136},
+	"sourceSize": {"w":172,"h":136}
+},
+"castle1_def.png":
+{
+	"frame": {"x":173,"y":1,"w":172,"h":141},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":172,"h":141},
+	"sourceSize": {"w":172,"h":142}
+},
+"castle2_atk.png":
+{
+	"frame": {"x":316,"y":1,"w":172,"h":136},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":172,"h":136},
+	"sourceSize": {"w":172,"h":136}
+},
+"castle2_def.png":
+{
+	"frame": {"x":175,"y":243,"w":172,"h":141},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":172,"h":141},
+	"sourceSize": {"w":172,"h":142}
+},
+"coin.png":
+{
+	"frame": {"x":269,"y":175,"w":26,"h":50},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":26,"h":50},
+	"sourceSize": {"w":26,"h":50}
+},
+"laser1.png":
+{
+	"frame": {"x":173,"y":227,"w":40,"h":14},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":40,"h":14},
+	"sourceSize": {"w":40,"h":14}
+},
+"laser2.png":
+{
+	"frame": {"x":215,"y":227,"w":40,"h":14},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":40,"h":14},
+	"sourceSize": {"w":40,"h":14}
+},
+"munch1.png":
+{
+	"frame": {"x":349,"y":175,"w":98,"h":92},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":98,"h":92},
+	"sourceSize": {"w":98,"h":92}
+},
+"munch2.png":
+{
+	"frame": {"x":349,"y":269,"w":98,"h":92},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":98,"h":92},
+	"sourceSize": {"w":98,"h":92}
+},
+"quirk1.png":
+{
+	"frame": {"x":297,"y":175,"w":40,"h":22},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":40,"h":22},
+	"sourceSize": {"w":40,"h":22}
+},
+"quirk2.png":
+{
+	"frame": {"x":297,"y":199,"w":40,"h":22},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":40,"h":22},
+	"sourceSize": {"w":40,"h":22}
+},
+"zap1.png":
+{
+	"frame": {"x":173,"y":175,"w":50,"h":46},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":50,"h":46},
+	"sourceSize": {"w":50,"h":46}
+},
+"zap2.png":
+{
+	"frame": {"x":221,"y":175,"w":50,"h":46},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":50,"h":46},
+	"sourceSize": {"w":50,"h":46}
+}},
+"animations": {
+	"laser": ["laser1.png","laser2.png"],
+	"munch": ["munch1.png","munch2.png"],
+	"quirk": ["quirk1.png","quirk2.png"],
+	"zap": ["zap1.png","zap2.png"]
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "tiles.png",
+	"format": "RGBA8888",
+	"size": {"w":453,"h":385},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:b912ff6e687f98b03ac4b39ace8ca955:b0c50cbf7de66f3a1cd2a5624fac7f17:accbe1e7e294ded8391337fc1c446319$"
+}
+}
