@@ -60,7 +60,7 @@
       let dist= enemy ? _V.vecDist([m.x,m.y], [enemy.x,enemy.y]) : 0;
       if(m.owner.attacking || (enemy && dist< ATTACK_THRESHHOLD)){
         if(!enemy){
-          enemy=m.owner.getOtherPlayer();
+          enemy=_G.getOtherPlayer(m.owner);
           dist= _V.vecDist([m.x,m.y], [enemy.x,enemy.y]);
         }
         if(enemy){
@@ -124,7 +124,7 @@
 
     _G.updateMelee=function(m,dt){
       if(!m.isMelee) return;
-      let other= m.owner.getOtherPlayer();
+      let other= _G.getOtherPlayer(m.owner);
       m._aoeDamageCaused = false;
       other.army.forEach(e=>_G.checkCollision(m,e));
       _G.checkCollision(m,other);
@@ -142,7 +142,7 @@
       if(!m.isRanged) return;
       let enemy = _G.closestEnemy(m);
       if(!enemy){
-        enemy = m.owner.getOtherPlayer();
+        enemy = _G.getOtherPlayer(m.owner);
       }
       if(!enemy) return;
       let dist= _V.vecDist([m.x,m.y], [enemy.x,enemy.y]);

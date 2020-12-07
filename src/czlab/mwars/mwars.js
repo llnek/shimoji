@@ -11,27 +11,36 @@
     _G.COST_MUNCH=50;
     _G.COST_ZAP=25;
     _G.COST_QUIRK=10;
-    _G.RADAR_RANGE=2000;
+    _G.RADAR_RANGE=200;
 
-    function createMonster(p,what){
+    /**
+     * @private
+     * @function
+     */
+    function _createMonster(p,what){
       let s;
       switch(what){
-        case "quirk": s=createQuirk(p); break;
-        case "zap": s=createZap(p); break;
-        case "munch": s=createMunch(p); break;
+        case "quirk": s=_createQuirk(p); break;
+        case "zap": s=_createZap(p); break;
+        case "munch": s=_createMunch(p); break;
       }
       if(s){
         s.alive=true;
         s.mojoh5.step=function(dt){
-          if (!s.alive) return;
-          _G.updateMelee(s,dt);
-          _G.updateRanged(s,dt);
-          _G.updateMove(s,dt);
+          if(s.alive){
+            _G.updateMelee(s,dt);
+            _G.updateRanged(s,dt);
+            _G.updateMove(s,dt);
+          }
         }
       }
       return s;
     }
-    function createZap(p){
+    /**
+     * @private
+     * @function
+     */
+    function _createZap(p){
       let s= _S.sprite(`zap${p.teamNumber}.png`);
       s.costValue=_G.COST_ZAP;
       s.owner=p;
@@ -46,7 +55,7 @@
       s.rangedSound = "pew.wav";
       return s;
     }
-    function createQuirk(p){
+    function _createQuirk(p){
       let s= _S.sprite(`quirk${p.teamNumber}.png`);
       s.costValue=_G.COST_QUIRK;
       s.owner=p;
@@ -62,7 +71,7 @@
       s.meleeSound = "smallHit.wav";
       return s;
     }
-    function createMunch(p){
+    function _createMunch(p){
       let s= _S.sprite(`munch${p.teamNumber}.png`);
       s.costValue=_G.COST_MUNCH;
       s.owner=p;
@@ -79,6 +88,27 @@
       return s;
     }
 
+    _G.enemiesWithinRange=function(p,range){
+      let es= _G.getOtherPlayer(p).army;
+      let range2=range*range;
+      let out=[];
+      let d;
+      let dx;
+      let dy;
+      es.forEach(e=>{
+        dx=p.x-e.x;
+        dy=p.y-e.y;
+        if((dx*dx+dy*dy) < range2){
+          out.push(e);
+        }
+      });
+      return out;
+    };
+
+    _G.getOtherPlayer=function(p){
+      return p.parent.getChildById(p.teamNumber===1?"player2":"player1")
+    };
+
     _G.spawnLaser=function(p){
       let s=_S.sprite(`laser${p.teamNumber}.png`);
       p.parent.insert(s);
@@ -93,44 +123,49 @@
     };
 
     _G.spawnQuirk=function(p){
-      if(p.coins < _G.COST_QUIRK) return;
-      p.coins -= _G.COST_QUIRK;
-      "spawn.wav";
-      for(let i=0; i<2; ++i){
-        let monster = createMonster(p,"quirk");
-        let randomOffset = _.randInt2(-Mojo.height/4, Mojo.height/4);
-        monster.x = p.x + p.width/2;
-        monster.y= p.y + randomOffset;
-        monster.owner = p;
-        p.army.push(monster);
-        p.parent.insert(monster);
+      let i=Infinity;
+      if(p.coins >= _G.COST_QUIRK){
+        p.coins -= _G.COST_QUIRK;
+        i=0;
+        Mojo.sound("spawn.wav").play();
+      }
+      for(let m,dy; i<2; ++i){
+        m= _createMonster(p,"quirk");
+        dy = _.randInt2(-Mojo.height/4, Mojo.height/4);
+        m.x = p.x + p.width/2;
+        m.y= p.y + dy;
+        m.owner = p;
+        p.army.push(m);
+        p.parent.insert(m);
       }
     };
 
     _G.spawnZap=function(p){
-      if(p.coins < _G.COST_ZAP) return;
-      p.coins -= _G.COST_ZAP;
-      "spawn.wav";
-      let monster = createMonster(p,"zap");
-      let randomOffset = _.randInt2(-Mojo.height * 0.25, Mojo.height * 0.25);
-      monster.x = p.x + p.width/2;
-      monster.y= p.y + randomOffset;
-      monster.owner = p;
-      p.army.push(monster);
-      p.parent.insert(monster);
+      if(p.coins >= _G.COST_ZAP){
+        p.coins -= _G.COST_ZAP;
+        Mojo.sound("spawn.wav").play();
+        let m= _createMonster(p,"zap");
+        let dy = _.randInt2(-Mojo.height/4, Mojo.height/4);
+        m.x = p.x + p.width/2;
+        m.y= p.y + dy;
+        m.owner = p;
+        p.army.push(m);
+        p.parent.insert(m);
+      }
     };
 
     _G.spawnMunch=function(p){
-      if(p.coins < _G.COST_MUNCH) return;
-      p.coins -= _G.COST_MUNCH;
-      "spawn.wav";
-      let monster = createMonster(p,"munch");
-      let randomOffset = _.randInt2(-Mojo.height * 0.25, Mojo.height * 0.25);
-      monster.x = p.x + p.width/2;
-      monster.y= p.y + randomOffset;
-      monster.owner = p;
-      p.army.push(monster);
-      p.parent.insert(monster);
+      if(p.coins >= _G.COST_MUNCH){
+        p.coins -= _G.COST_MUNCH;
+        Mojo.sound("spawn.wav").play();
+        let m= _createMonster(p,"munch");
+        let dy = _.randInt2(-Mojo.height/4, Mojo.height/4);
+        m.x = p.x + p.width/2;
+        m.y= p.y + dy;
+        m.owner = p;
+        p.army.push(m);
+        p.parent.insert(m);
+      }
     };
 
     _Z.defScene("Bg",{
@@ -168,7 +203,7 @@
         this.quirkBtn=q;
         this.zapBtn=z;
         this.munchBtn=m;
-        this.players=[h,e];
+        this.players=[null,h,e];
         m.mojoh5.press=()=>{
           _G.spawnMunch(h)
         };
@@ -184,19 +219,21 @@
       preUpdate(){
         let now=_.now();
         this.players.forEach(p=>{
-          if(now - p.lastCoinDrop > 1500){
-            p.lastCoinDrop = now;
-            p.coins += 5;
+          if(p){
+            if(now - p.lastCoinDrop > 1500){
+              p.lastCoinDrop = now;
+              p.coins += 5;
+            }
+            p.quirkCost=0;
+            p.zapCost=0;
+            p.munchCost=0;
+            p.army.forEach(a=>{
+              if(_G.COST_QUIRK===a.costValue) p.quirkCost+=a.costValue;
+              if(_G.COST_ZAP===a.costValue) p.zapCost+=a.costValue;
+              if(_G.COST_MUNCH===a.costValue) p.munchCost+=a.costValue;
+            });
+            p.totalCost=p.quirkCost+p.zapCost+p.munchCost;
           }
-          p.quirkCost=0;
-          p.zapCost=0;
-          p.munchCost=0;
-          p.army.forEach(a=>{
-            if(_G.COST_QUIRK===a.costValue) p.quirkCost+=a.costValue;
-            if(_G.COST_ZAP===a.costValue) p.zapCost+=a.costValue;
-            if(_G.COST_MUNCH===a.costValue) p.munchCost+=a.costValue;
-          });
-          p.totalCost=p.quirkCost+p.zapCost+p.munchCost;
         });
       },
       postUpdate(){
@@ -205,8 +242,8 @@
   }
 
   function setup(Mojo){
+    window["io.czlab.mwars.players"](Mojo);
     window["io.czlab.mwars.models"](Mojo);
-    window["io.czlab.mwars.ai"](Mojo);
     scenes(Mojo);
     Mojo.Scenes.runScene("Bg");
     Mojo.Scenes.runScene("level1");
@@ -214,12 +251,15 @@
 
   window.addEventListener("load", ()=>{
     MojoH5({
-      assetFiles:["bg.png","tiles.png","images/tiles.json"],
+      assetFiles:["bg.png","tiles.png","images/tiles.json",
+        "attack.wav","bigHit.wav","boom.wav","defend.wav",
+        "mass.wav","pew.wav","pew2.wav","smallHit.wav","spawn.wav"],
       arena: {width:640,height:360},
       scaleToWindow: "max",
       start:setup
     })
   });
+
 })(this);
 
 
