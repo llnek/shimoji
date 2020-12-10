@@ -97,26 +97,28 @@
       let margin;
       dom.css(canvas, {transformOrigin:"0 0",
                        transform:`scale(${scale})`});
-      //lay flat
-      if(CW>CH ? scaledW<WW : !(scaledH>WH)){
-        let margin = _.floor((WW - scaledW)/2);
-        dom.css(canvas, {marginTop:"0px",
-                         marginBottom:"0px",
-                         marginLeft:`${margin}px`,
-                         marginRight:`${margin}px`});
-      }else{
-        let margin = _.floor((WH - scaledH)/2);
-        dom.css(canvas, {marginLeft:"0px",
-                         marginRight:"0px",
-                         marginTop:`${margin}px`,
-                         marginBottom:`${margin}px`});
+      if(!Mojo.maxed){
+        //lay flat
+        if(CW>CH ? scaledW<WW : !(scaledH>WH)){
+          let margin = _.floor((WW - scaledW)/2);
+          dom.css(canvas, {marginTop:"0px",
+                           marginBottom:"0px",
+                           marginLeft:`${margin}px`,
+                           marginRight:`${margin}px`});
+        }else{
+          let margin = _.floor((WH - scaledH)/2);
+          dom.css(canvas, {marginLeft:"0px",
+                           marginRight:"0px",
+                           marginTop:`${margin}px`,
+                           marginBottom:`${margin}px`});
+        }
+        dom.css(canvas, {paddingLeft:"0px",
+                         paddingRight:"0px",
+                         paddingTop:"0px",
+                         paddingBottom:"0px",
+                         display:"block"});
+        dom.css(document.body, "backgroundColor", Mojo.scaledBorderColor);
       }
-      dom.css(canvas, {paddingLeft:"0px",
-                       paddingRight:"0px",
-                       paddingTop:"0px",
-                       paddingBottom:"0px",
-                       display:"block"});
-      dom.css(document.body, "backgroundColor", Mojo.scaledBorderColor);
       return scale;
     }
     /** Once all the files are loaded, do some post processing.
@@ -235,9 +237,8 @@
       Mojo.ctx= PIXI.autoDetectRenderer(arena);
       Mojo.ctx.backgroundColor = 0xFFFFFF;
       Mojo.canvas = Mojo.ctx.view;
-      Mojo.canvas.scaled = false;
-      Mojo.canvas.maxed=maxed;
       Mojo.canvas.id="mojo";
+      Mojo.maxed=maxed;
       Mojo.stage= new Mojo.PXContainer();
       _.doseq(_.seq("Sprites,Input,Touch,Scenes,Sound"), _runM);
       _.doseq(_.seq("Effects,2d,Tiles,GameLoop"), _runM);
@@ -250,14 +251,14 @@
       Mojo.scaledBorderColor= cmdArg.scaleBorderColor || "#2c3539";
       Mojo.touchDevice= !!("ontouchstart" in document);
       Mojo.stage.mojoh5={stage: true};
-      Mojo.scale=1;
       Mojo.cmdArg=cmdArg;
-      if(cmdArg.scaleToWindow===true){
-        _scaleToWindow();
-        Mojo.scale= _scaleCanvas(Mojo.canvas);
-      }
+      _configCSS();
+      Mojo.scale= cmdArg.scaleToWindow===true? _scaleCanvas(Mojo.canvas):1;
       Mojo.pointer = Mojo["Input"].pointer(Mojo.canvas, Mojo.scale);
-      _.addEvent("resize", window, () => Mojo.resize());
+      _.addEvent("resize", window, _.debounce( ()=>{
+        Mojo.ctx.resize(window.innerWidth,window.innerHeight);
+        Mojo.EventBus.pub(["canvas.resize"]);
+      },150));
       _loadFiles(Mojo);
       return Mojo;
     }
@@ -391,26 +392,11 @@
      * @public
      * @function
      */
-    Mojo.resize=function(canvas){
-      canvas=canvas || Mojo.canvas;
-      if(canvas.maxed){
-        Mojo.scale = 1;
-      }else{
-        Mojo.scale = _scaleCanvas(canvas);
-      }
-      if(arguments.length===0)
-        Mojo.EventBus.pub(["canvas.resize"]);
-    };
-    /**
-     * @public
-     * @function
-     */
-    function _scaleToWindow(){
+    function _configCSS(){
       let style = "* {padding: 0; margin: 0}";
       let newStyle = dom.newElm("style");
       dom.conj(newStyle,dom.newTxt(style));
       dom.conj(document.head,newStyle);
-      Mojo.canvas.scaled = true;
     }
     /**
      * @public
@@ -516,6 +502,16 @@
      */
     Mojo.rect=function(x,y,w,h){
       return new Mojo.PXRectangle(x,y,w,h)
+    };
+    /**
+     * @public
+     * @function
+     */
+    const ScrSize={width:0,height:0};
+    Mojo.contentScaleFactor=function(){
+      ScrSize.height=Mojo.height;
+      ScrSize.width=Mojo.width;
+      return Mojo.scaleSZ(Mojo.designResolution,ScrSize);
     };
     /**
      * @public

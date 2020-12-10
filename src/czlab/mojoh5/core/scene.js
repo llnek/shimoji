@@ -60,6 +60,18 @@
         this.____index={};
         this.____queue=[];
         this.____options=options || {};
+        Mojo.EventBus.sub(["canvas.resize"],"onCanvasResize",this);
+      }
+      _iterResize(r){
+        _.doseq(r, c=>{
+          if(c.mojoh5 && c.mojoh5.resize){
+            c.mojoh5.resize();
+          }
+          c.children.length && this._iterResize(c.children)
+        });
+      }
+      onCanvasResize(){
+        this._iterResize(this.children);
       }
       future(expr,delayFrames){
         delayFrames = delayFrames || 60;
@@ -148,15 +160,14 @@
       let fit= options.fit || 20;
       let fit2=fit*2;
       let P=Mojo.Sprites;
-      let C=P.group();
-
+      let C=options.group || P.group();
       for(let p,s,i=0;i<items.length;++i){
-        s=C.addChild(items[i]);
+        s=items[i];
+        if(!options.skipAdd) C.addChild(s);
         if(i>0)
           P.pinRight(p,s,padX,0);
         p=s;
       }
-
       let last=items[items.length-1];
       let w= C.width;
       let h= C.height;
@@ -189,10 +200,11 @@
       let fit= options.fit || 20;
       let fit2=fit*2;
       let P=Mojo.Sprites;
-      let C=P.group();
+      let C=options.group || P.group();
 
       for(let p,s,i=0;i<items.length;++i){
-        s=C.addChild(items[i]);
+        s=items[i];
+        if(!options.skipAdd) C.addChild(s);
         if(i>0)
           P.pinBottom(p,s,0,padY);
         p=s;

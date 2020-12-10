@@ -94,11 +94,13 @@
                             dead: false,
                             circular: false,
                             interact: false, draggable: false });
+        s.mojoh5.csize=[s.width,s.height];
         s.mojoh5.addMixin=function(n,o){
           _.assert(!_.has(s,n),`Error: ${n} not available.`);
           let b= s[n]= _.inject({},o);
           b.added(s);
         };
+        s.mojoh5.resize=function(){};
         s.mojoh5.getContactPoints=function(){
           return _corners(_strAnchor(s.anchor),s.width,s.height)
         };
@@ -698,10 +700,24 @@
       s= _S.extend(s);
       s.x = x;
       s.y = y;
-      if(width) s.width = width;
-      if(height) s.height = height;
+      //if(width) s.width = width;
+      //if(height) s.height = height;
       return s;
     }
+    /**
+     * @public
+     * @function
+     */
+    _S.scaleContent=function(...args){
+      if(args.length===1&&is.vec(args[0])){
+        args=args[0];
+      }
+      let f=Mojo.contentScaleFactor();
+      args.forEach(s=>{
+        s.scale.x=f.width;
+        s.scale.y=f.height;
+      })
+    };
     /**
      * @public
      * @function
@@ -820,6 +836,13 @@
         pics=pics[0]
       }
       return pics.map(p=> Mojo.tcached(p))
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.spriteFrom=function(...pics){
+      return this.sprite(this.frameImages(pics))
     };
     /**
      * @private

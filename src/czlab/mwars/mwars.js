@@ -27,11 +27,12 @@
       if(s){
         s.alive=true;
         s.mojoh5.step=function(dt){
-          if(s.alive){
+          s.alive &&
             _G.updateMelee(s,dt);
+          s.alive &&
             _G.updateRanged(s,dt);
+          s.alive &&
             _G.updateMove(s,dt);
-          }
         }
       }
       return s;
@@ -119,15 +120,18 @@
       s.meleeDamageRate = 1.0;
       s.meleeAoe = false;
       s.meleeSound = "smallHit.wav";
+      s.mojoh5.step=function(dt){
+        _S.move(dt);
+      }
       return s;
     };
 
     _G.spawnQuirk=function(p){
       let i=Infinity;
       if(p.coins >= _G.COST_QUIRK){
+        Mojo.sound("spawn.wav").play();
         p.coins -= _G.COST_QUIRK;
         i=0;
-        Mojo.sound("spawn.wav").play();
       }
       for(let m,dy; i<2; ++i){
         m= _createMonster(p,"quirk");
@@ -170,49 +174,68 @@
 
     _Z.defScene("Bg",{
       setup(){
-        let s= _S.sprite("bg.png");
-        let K= Mojo.scaleXY([s.width,s.height],[Mojo.width,Mojo.height]);
-        s.anchor.set(0.5);
-        s.x=Mojo.width/2;
-        s.y=Mojo.height/2;
-        s.scale.x=K[0];
-        s.scale.y=K[1];
+        let s= this.bg= _S.sprite("bg.png");
+        _S.centerAnchor(s);
+        s.mojoh5.resize=function(){
+          _S.scaleContent(s);
+          s.x=Mojo.width/2;
+          s.y=Mojo.height/2;
+        };
+        s.mojoh5.resize();
         this.insert(s);
       }
     });
 
     _Z.defScene("level1",{
-      mkBtn(png){
+      mkBtn(png,opcode){
         let b=_S.sprite("button.png");
         let s=_S.sprite(png);
         b.addChild(s);
+        b.mojoh5.press=()=>{
+          _G[opstr](this.human)
+        };
         return _I.makeButton(b);
+      },
+      onCanvasResize(){
+        this.human.mojoh5.resize();
+        this.enemy.mojoh5.resize();
+        this._ctrlPanel();
+      },
+      _ctrlBtns(){
+        if(!this.quirkBtn)
+          this.quirkBtn=this.mkBtn("quirk1.png","spawnQuirk");
+        if(!this.zapBtn)
+          this.zapBtn=this.mkBtn("zap1.png","spawnZap");
+        if(!this.munchBtn)
+          this.munchBtn=this.mkBtn("munch1.png","spawnMunch");
+        _S.scaleContent(this.quirkBtn,this.quirkBtn.children[0]);
+        _S.scaleContent(this.zapBtn,this.zapBtn.children[0]);
+        _S.scaleContent(this.munchBtn,this.munchBtn.children[0]);
+      },
+      _ctrlPanel(){
+        this._ctrlBtns();
+        let g=this.ctrlPanel;
+        let options={group:g,
+                     x:0,y:0,
+                     color:"transparent",
+                     padding: this.munchBtn.width/2};
+        let btns=[this.quirkBtn,this.zapBtn,this.munchBtn];
+        if(g){
+          g.removeChildren();
+          g.x=g.y=0;
+        }
+        g= this.ctrlPanel=_Z.layoutX(btns, options);
+        g.x=(Mojo.width-g.width)/2;
+        g.y=Mojo.height-g.height-this.munchBtn.height/4;
+        return g;
       },
       setup(){
         let h=this.human = _G.createHuman();
-        this.insert(h);
         let e= this.enemy= _G.createAI();
-        this.insert(e);
-        let q=this.mkBtn("quirk1.png");
-        let z=this.mkBtn("zap1.png");
-        let m=this.mkBtn("munch1.png");
-        let c=_Z.layoutX([q,z,m],{color:"transparent",padding: m.width/2});
-        c.x=(Mojo.width-c.width)/2;
-        c.y=Mojo.height-c.height-m.height/4;
-        this.insert(c);
-        this.quirkBtn=q;
-        this.zapBtn=z;
-        this.munchBtn=m;
         this.players=[null,h,e];
-        m.mojoh5.press=()=>{
-          _G.spawnMunch(h)
-        };
-        z.mojoh5.press=()=>{
-          _G.spawnZap(h)
-        };
-        q.mojoh5.press=()=>{
-          _G.spawnQuirk(h)
-        };
+        this.insert(h);
+        this.insert(e);
+        this.insert(this._ctrlPanel());
         Mojo.EventBus.sub(["pre.update",this],"preUpdate");
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
@@ -237,6 +260,12 @@
         });
       },
       postUpdate(){
+        if(this.players[1].curHp <=0){
+          console.log("You Lost!")
+        }
+        if(this.players[2].curHp<=0){
+          console.log("You Won!")
+        }
       }
     });
   }
@@ -254,7 +283,7 @@
       assetFiles:["bg.png","tiles.png","images/tiles.json",
         "attack.wav","bigHit.wav","boom.wav","defend.wav",
         "mass.wav","pew.wav","pew2.wav","smallHit.wav","spawn.wav"],
-      arena: {width:640,height:360},
+      arena: {width:1136,height:640},
       scaleToWindow: "max",
       start:setup
     })

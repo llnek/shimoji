@@ -24,9 +24,9 @@
         m.mojoh5.acc[0] = m.mojoh5.acc[1]=0;
         return [0,0];
       }
-      let targetSpeed= dist> slowRadius? m.maxVelocity: m.maxVelocity*dist/slowRadius;
+      let targetSpeed= dist>slowRadius? m.maxVelocity: m.maxVelocity*dist/slowRadius;
       let targetVel= _V.vecMulSelf(_V.vecUnit(vector), targetSpeed);
-      let acc= _V.vecMulSelf(_V.vecSub(targetVel, m.mojoh5.vel), 1/timeToTarget);
+      let acc= _V.vecMulSelf(_V.vecSubSelf(targetVel, m.mojoh5.vel), 1/timeToTarget);
       if(_V.vecLen(acc) > m.maxAcceleration){
         acc= _V.vecMulSelf(_V.vecUnit(acc), m.maxAcceleration);
       }
@@ -40,9 +40,9 @@
       let dist;
       m.owner.army.forEach(a=>{
         if(a !== m){
-          dir= _V.vecSub([m.x,m.y], [a.x,a.y]);
+          dir= _V.vecSubSelf([m.x,m.y], [a.x,a.y]);
           dist= _V.vecLen(dir);
-          if(dist< SEPARATE_THRESHHOLD){
+          if(dist<SEPARATE_THRESHHOLD){
             dir= _V.vecUnitSelf(dir);
             steering = _V.vecAddSelf(steering, _V.vecMulSelf(dir, m.maxAcceleration));
           }
@@ -56,19 +56,19 @@
       if(m.maxAcceleration <= 0 || m.maxVelocity <= 0) return;
       let hasTarget = false;
       let moveTarget=[0,0];
-      let enemy = _G.closestEnemy(m);
-      let dist= enemy ? _V.vecDist([m.x,m.y], [enemy.x,enemy.y]) : 0;
-      if(m.owner.attacking || (enemy && dist< ATTACK_THRESHHOLD)){
-        if(!enemy){
-          enemy=_G.getOtherPlayer(m.owner);
-          dist= _V.vecDist([m.x,m.y], [enemy.x,enemy.y]);
+      let e= _G.closestEnemy(m);
+      let dist= e ? _V.vecDist([m.x,m.y], [e.x,e.y]) : 0;
+      if(m.owner.attacking || (e && dist<ATTACK_THRESHHOLD)){
+        if(!e){
+          e=_G.getOtherPlayer(m.owner);
+          dist= _V.vecDist([m.x,m.y], [e.x,e.y]);
         }
-        if(enemy){
+        if(e){
           hasTarget = true;
-          moveTarget = [enemy.x,enemy.y];
+          moveTarget = [e.x,e.y];
           if(m.isRanged){
-            let vector = _V.vecUnitSelf(_V.vecSub([m.x,m.y], [enemy.x,enemy.y]));
-            moveTarget = _V.vecAdd([enemy.x,enemy.y], _V.vecMul(vector, m.rangedRange));
+            let vector = _V.vecUnitSelf(_V.vecSubSelf([m.x,m.y], [e.x,e.y]));
+            moveTarget = _V.vecAddSelf([e.x,e.y], _V.vecMulSelf(vector, m.rangedRange));
             dist= _V.vecDist([m.x,m.y], moveTarget);
           }
         }
@@ -86,22 +86,22 @@
         // Update current acceleration based on the above, and clamp
         m.mojoh5.acc= _V.vecAddSelf(m.mojoh5.acc, newAcceleration);
         if(_V.vecLen(m.mojoh5.acc) > m.maxAcceleration){
-          m.mojoh5.acc= _V.vecMul(_V.vecUnit(m.mojoh5.acc), m.maxAcceleration);
+          m.mojoh5.acc= _V.vecMul(_V.vecUnitSelf(m.mojoh5.acc), m.maxAcceleration);
         }
         // Update current velocity based on acceleration and dt, and clamp
         m.mojoh5.vel= _V.vecAddSelf(m.mojoh5.vel, _V.vecMul(m.mojoh5.acc, dt));
         if(_V.vecLen(m.mojoh5.vel) > m.maxVelocity){
-          m.mojoh5.vel= _V.vecMul(_V.vecUnit(m.mojoh5.vel), m.maxVelocity);
+          m.mojoh5.vel= _V.vecMulSelf(_V.vecUnitSelf(m.mojoh5.vel), m.maxVelocity);
         }
         // Update position based on velocity
-        let newPosition = _V.vecAdd([m.x,m.y], _V.vecMul(m.mojoh5.vel, dt));
+        let newPosition = _V.vecAddSelf([m.x,m.y], _V.vecMul(m.mojoh5.vel, dt));
         m.x = Math.max(Math.min(newPosition[0], Mojo.width), 0);
         m.y = Math.max(Math.min(newPosition[1], Mojo.height), 0);
       }
     };
 
     _G.checkCollision=function(m,enemy){
-      if(_D.hitTest(m, enemy)){
+      if(m.alive && enemy.alive && _D.hitTest(m, enemy)){
         let now=_.now();
         if(now - m.meleeLastDamageTime > m.meleeDamageRate){
           Mojo.sound(m.meleeSound).play();
@@ -111,12 +111,13 @@
             m.meleeLastDamageTime = now;
           }
           enemy.curHp -= m.meleeDamage;
-          if(enemy.curHp < 0){
+          if(enemy.curHp<0){
             enemy.curHp = 0;
           }
-          if(m.meleeDestroySelf){
+          if(m.meleeDestroySelf && m.owner){
             _.disj(m.owner.army,m);
             _S.remove(m);
+            m.alive=false;
           }
         }
       }
@@ -126,7 +127,9 @@
       if(!m.isMelee) return;
       let other= _G.getOtherPlayer(m.owner);
       m._aoeDamageCaused = false;
-      other.army.forEach(e=>_G.checkCollision(m,e));
+      for(let i=other.army.length-1;i>=0;--i){
+        _G.checkCollision(m,other.army[i]);
+      }
       _G.checkCollision(m,other);
       // Special case for AOE damage - let it attack multiple things before we
       // reset the last damage time
@@ -140,12 +143,12 @@
     let WIGGLE_ROOM = 5;
     _G.updateRanged=function(m,dt){
       if(!m.isRanged) return;
-      let enemy = _G.closestEnemy(m);
-      if(!enemy){
-        enemy = _G.getOtherPlayer(m.owner);
+      let e= _G.closestEnemy(m);
+      if(!e){
+        e= _G.getOtherPlayer(m.owner);
       }
-      if(!enemy) return;
-      let dist= _V.vecDist([m.x,m.y], [enemy.x,enemy.y]);
+      if(!e) return;
+      let dist= _V.vecDist([m.x,m.y], [e.x,e.y]);
       let now=_.now();
       if(Math.abs(dist) <= (m.rangedRange + WIGGLE_ROOM) &&
          now - m.rangedLastDamageTime > m.rangedDamageRate){
@@ -155,10 +158,9 @@
         laser.x=m.x;
         laser.y=m.y;
         laser.meleeDamage = m.rangedDamage;
-        let dir= _V.vecUnitSelf(_V.vecSubSelf([enemy.x,enemy.y], [m.x,m.y]));
+        let dir= _V.vecUnitSelf(_V.vecSubSelf([e.x,e.y], [m.x,m.y]));
         let target = _V.vecMulSelf(dir, laserDistance);
         let duration = laserDistance / laserPointsPerSecond;
-
         laser.rotation= -atan2(dir[1]/dir[0]);
         //laser.zOrder = 1;
         _S.moveBy(laser,duration,target);

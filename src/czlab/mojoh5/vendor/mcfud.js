@@ -14,6 +14,8 @@
 
 ;(function(global){
   "use strict";
+  let _singleton=null;
+  let window=null;
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
@@ -21,8 +23,9 @@
   }
   else if(typeof exports === "object" && exports){
     global=exports;
+  }else if(global.document){
+    window=global;
   }
-  let _singleton=null;
   /**
    * @public
    * @function
@@ -71,6 +74,36 @@
      * @var {number}
       */
     let _seqNum= 0;
+    /**
+     * @private
+     * @function
+     */
+    function _everyF(F,_1,args){
+      let b=F(_1);
+      switch(args.length){
+      case 0: return b;
+      case 1: return b && F(args[0]);
+      case 2: return b && F(args[0]) && F(args[1]);
+      case 3: return b && F(args[0]) && F(args[1]) && F(args[2]);
+      default: return b && args.every(x => F(x));
+      }
+    }
+    /**
+     * @public
+     * @var {object}
+     */
+    const is={
+      fun(f,...args){ return _everyF(isFun,f,args) },
+      str(s,...args){ return _everyF(isStr,s,args) },
+      void0(obj){ return obj === void 0 },
+      undef(obj){ return obj === undefined },
+      obj(o,...args){ return _everyF(isObject,o,args) },
+      map(m,...args){ return _everyF(isMap,m,args) },
+      num(n,...args){ return _everyF(isNum,n,args) },
+      vec(v,...args){ return _everyF(isArray,v,args) },
+      some(obj){ return _.size(obj) > 0 },
+      none(obj){ return _.size(obj) === 0 }
+    };
     /**
      * @public
      * @var {object}
@@ -185,7 +218,12 @@
       randInt(num){ return Math.floor(Math.random() * num) },
       randInt2: _randXYInclusive,
       rand(){ return Math.random() },
+      randSign(){ return _.rand() > 0.5 ? -1 : 1 },
       inst(type,obj){ return obj instanceof type },
+      randArrayItem(arr){
+        if(arr)
+          return arr.length===0 ? null : arr.length === 1 ? arr[0] : arr[_.floor(_.rand() * arr.length)]
+      },
       isPerc(s){
         return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/);
       },
@@ -467,6 +505,340 @@
           if(s) Object.assign(des,s);
         });
         return des;
+      },
+      /**
+       * Merge 2 objects together.
+       * @function
+       * @param {Object} original
+       * @param {Object} extended
+       * @return {Object} a new object
+      */
+      mergeEx(original, extended){
+        return _.merge(_.merge({}, original), extended)
+      },
+      /**
+       * Merge 2 objects in place.
+       * @function
+       * @param {Object} original
+       * @param {Object} extended
+       * @return {Object} the modified original object
+      */
+      merge(original, extended){
+        let key = undefined;
+        let ext = undefined;
+        Object.keys(extended).forEach(key=>{
+          ext = extended[key];
+          if(typeof ext !== "object" || ext === null || !original[key]){
+            original[key] = ext;
+          }else{
+            if(typeof original[key] !== "object"){
+              original[key] = ext instanceof Array ? [] : {}
+            }
+            _.merge(original[key], ext);
+          }
+        });
+        return original;
+      },
+      /**
+       * Creates a throttled function that only invokes `func` at most once per
+       * every `wait` milliseconds (or once per browser frame). The throttled function
+       * comes with a `cancel` method to cancel delayed `func` invocations and a
+       * `flush` method to immediately invoke them. Provide `options` to indicate
+       * whether `func` should be invoked on the leading and/or trailing edge of the
+       * `wait` timeout. The `func` is invoked with the last arguments provided to the
+       * throttled function. Subsequent calls to the throttled function return the
+       * result of the last `func` invocation.
+       *
+       * **Note:** If `leading` and `trailing` options are `true`, `func` is
+       * invoked on the trailing edge of the timeout only if the throttled function
+       * is invoked more than once during the `wait` timeout.
+       *
+       * If `wait` is `0` and `leading` is `false`, `func` invocation is deferred
+       * until the next tick, similar to `setTimeout` with a timeout of `0`.
+       *
+       * If `wait` is omitted in an environment with `requestAnimationFrame`, `func`
+       * invocation will be deferred until the next frame is drawn (typically about
+       * 16ms).
+       *
+       * See [David Corbacho's article](https://css-tricks.com/debouncing-throttling-explained-examples/)
+       * for details over the differences between `throttle` and `debounce`.
+       *
+       * @since 0.1.0
+       * @category Function
+       * @param {Function} func The function to throttle.
+       * @param {number} [wait=0]
+       *  The number of milliseconds to throttle invocations to; if omitted,
+       *  `requestAnimationFrame` is used (if available).
+       * @param {Object} [options={}] The options object.
+       * @param {boolean} [options.leading=true]
+       *  Specify invoking on the leading edge of the timeout.
+       * @param {boolean} [options.trailing=true]
+       *  Specify invoking on the trailing edge of the timeout.
+       * @returns {Function} Returns the new throttled function.
+       * @example
+       *
+       * // Avoid excessively updating the position while scrolling.
+       * jQuery(window).on('scroll', throttle(updatePosition, 100))
+       *
+       * // Invoke `renewToken` when the click event is fired, but not more than once every 5 minutes.
+       * const throttled = throttle(renewToken, 300000, { 'trailing': false })
+       * jQuery(element).on('click', throttled)
+       *
+       * // Cancel the trailing throttled invocation.
+       * jQuery(window).on('popstate', throttled.cancel)
+       */
+      throttle(func, wait, options){
+        let leading = true;
+        let trailing = true;
+        _.assert(is.fun(func),"Expecting a function");
+        if(is.obj(options)){
+          leading = "leading" in options ? !!options.leading : leading;
+          trailing = "trailing" in options ? !!options.trailing : trailing;
+        }
+        return _.debounce(func, wait, { leading, trailing, "maxWait": wait });
+      },
+      /**
+       * Creates a debounced function that delays invoking `func` until after `wait`
+       * milliseconds have elapsed since the last time the debounced function was
+       * invoked, or until the next browser frame is drawn. The debounced function
+       * comes with a `cancel` method to cancel delayed `func` invocations and a
+       * `flush` method to immediately invoke them. Provide `options` to indicate
+       * whether `func` should be invoked on the leading and/or trailing edge of the
+       * `wait` timeout. The `func` is invoked with the last arguments provided to the
+       * debounced function. Subsequent calls to the debounced function return the
+       * result of the last `func` invocation.
+       *
+       * **Note:** If `leading` and `trailing` options are `true`, `func` is
+       * invoked on the trailing edge of the timeout only if the debounced function
+       * is invoked more than once during the `wait` timeout.
+       *
+       * If `wait` is `0` and `leading` is `false`, `func` invocation is deferred
+       * until the next tick, similar to `setTimeout` with a timeout of `0`.
+       *
+       * If `wait` is omitted in an environment with `requestAnimationFrame`, `func`
+       * invocation will be deferred until the next frame is drawn (typically about
+       * 16ms).
+       *
+       * See [David Corbacho's article](https://css-tricks.com/debouncing-throttling-explained-examples/)
+       * for details over the differences between `debounce` and `throttle`.
+       *
+       * @since 0.1.0
+       * @category Function
+       * @param {Function} func The function to debounce.
+       * @param {number} [wait=0]
+       *  The number of milliseconds to delay; if omitted, `requestAnimationFrame` is
+       *  used (if available).
+       * @param {Object} [options={}] The options object.
+       * @param {boolean} [options.leading=false]
+       *  Specify invoking on the leading edge of the timeout.
+       * @param {number} [options.maxWait]
+       *  The maximum time `func` is allowed to be delayed before it's invoked.
+       * @param {boolean} [options.trailing=true]
+       *  Specify invoking on the trailing edge of the timeout.
+       * @returns {Function} Returns the new debounced function.
+       * @example
+       *
+       * // Avoid costly calculations while the window size is in flux.
+       * jQuery(window).on('resize', debounce(calculateLayout, 150))
+       *
+       * // Invoke `sendMail` when clicked, debouncing subsequent calls.
+       * jQuery(element).on('click', debounce(sendMail, 300, {
+       *   'leading': true,
+       *   'trailing': false
+       * }))
+       *
+       * // Ensure `batchLog` is invoked once after 1 second of debounced calls.
+       * const debounced = debounce(batchLog, 250, { 'maxWait': 1000 })
+       * const source = new EventSource('/stream')
+       * jQuery(source).on('message', debounced)
+       *
+       * // Cancel the trailing debounced invocation.
+       * jQuery(window).on('popstate', debounced.cancel)
+       *
+       * // Check for pending invocations.
+       * const status = debounced.pending() ? "Pending..." : "Ready"
+      */
+      //lifted from https://github.com/lodash/lodash
+      debounce(func, wait, options){
+        let lastArgs,
+            lastThis,
+            maxWait,
+            result,
+            timerId,
+            lastCallTime,
+            lastInvokeTime = 0,
+            leading = false,
+            maxing = false,
+            trailing = true;
+        _.assert(is.fun(func),"expecting function");
+        wait = wait || 0;
+        if(is.obj(options)){
+          leading = !!options.leading;
+          maxing = "maxWait" in options;
+          maxWait = maxing ? Math.max(options.maxWait || 0, wait) : maxWait;
+          trailing = "trailing" in options ? !!options.trailing : trailing;
+        }
+        function _invokeFunc(time){
+          let args = lastArgs;
+          let thisArg = lastThis;
+          lastArgs = lastThis = undefined;
+          lastInvokeTime = time;
+          result = func.apply(thisArg, args);
+          return result;
+        }
+        function _leadingEdge(time){
+          // Reset any `maxWait` timer.
+          lastInvokeTime = time;
+          // Start the timer for the trailing edge.
+          timerId = setTimeout(_timerExpired, wait);
+          // Invoke the leading edge.
+          return leading ? _invokeFunc(time) : result;
+        }
+        function _remainingWait(time){
+          let timeSinceLastCall = time - lastCallTime;
+          let timeSinceLastInvoke = time - lastInvokeTime;
+          let timeWaiting = wait - timeSinceLastCall;
+          return maxing
+            ? Math.min(timeWaiting, maxWait - timeSinceLastInvoke)
+            : timeWaiting;
+        }
+        function _shouldInvoke(time){
+          let timeSinceLastCall = time - lastCallTime;
+          let timeSinceLastInvoke = time - lastInvokeTime;
+          // Either this is the first call, activity has stopped and we're at the
+          // trailing edge, the system time has gone backwards and we're treating
+          // it as the trailing edge, or we've hit the `maxWait` limit.
+          return lastCallTime === undefined ||
+                 (timeSinceLastCall >= wait) ||
+                 (timeSinceLastCall < 0) ||
+                 (maxing && timeSinceLastInvoke >= maxWait);
+        }
+        function _timerExpired(){
+          let time = _.now();
+          if(_shouldInvoke(time)){
+            return _trailingEdge(time);
+          }
+          // Restart the timer.
+          timerId = setTimeout(_timerExpired, _remainingWait(time));
+        }
+        function _trailingEdge(time){
+          timerId = undefined;
+          // Only invoke if we have `lastArgs` which means `func` has been
+          // debounced at least once.
+          if(trailing && lastArgs){
+            return _invokeFunc(time);
+          }
+          lastArgs = lastThis = undefined;
+          return result;
+        }
+        function _cancel() {
+          if(timerId !== undefined){
+            clearTimeout(timerId);
+          }
+          lastInvokeTime = 0;
+          lastArgs = lastCallTime = lastThis = timerId = undefined;
+        }
+        function _flush() {
+          return timerId === undefined ? result : _trailingEdge(_.now());
+        }
+        function _debounced(){
+          let time = _.now();
+          let isInvoking = _shouldInvoke(time);
+          lastArgs = arguments;
+          lastThis = this;
+          lastCallTime = time;
+          if(isInvoking){
+            if(timerId === undefined){
+              return _leadingEdge(lastCallTime);
+            }
+            if(maxing){
+              // Handle invocations in a tight loop.
+              clearTimeout(timerId);
+              timerId = setTimeout(_timerExpired, wait);
+              return _invokeFunc(lastCallTime);
+            }
+          }
+          if(timerId === undefined){
+            timerId = setTimeout(_timerExpired, wait);
+          }
+          return result;
+        }
+        //_debounced.cancel = cancel;
+        //_debounced.flush = flush;
+        return _debounced;
+      },
+      negate(func){
+        _.assert(is.fun(func),"expected function");
+        return function(...args){
+          return !func.apply(this, args)
+        }
+      },
+      reject(coll, func){
+        return _.doseq(coll,_.negate(func))
+      },
+      /**
+       * Maybe pad a string (right side.)
+       * @function
+       * @param {String} str
+       * @param {Number} len
+       * @param {String} s
+       * @return {String}
+      */
+      strPadRight(str, len, s){
+        return (len -= str.length)>0 ? str+new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) : str
+      },
+      /**
+       * Maybe pad a string (left side.)
+       * @function
+       * @param {String} str
+       * @param {Number} len
+       * @param {String} s
+       * @return {String}
+      */
+      strPadLeft(str, len, s){
+        return (len -= str.length)>0 ? new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) + str : str
+      },
+      /**
+       * Safely split a string, null and empty strings are removed.
+       * @function
+       * @param {String} s
+       * @param {String} sep
+       * @return {Array.String}
+      */
+      safeSplit(s, sep){
+        return _.reject(s.trim().split(sep), (z) => z.length===0)
+      },
+      capitalize(str){
+        return str.charAt(0).toUpperCase() + str.slice(1)
+      },
+      /**
+       * Maybe pad the number with zeroes.
+       * @function
+       * @param {Number} num
+       * @param {Number} digits
+       * @return {String}
+      */
+      prettyNumber(num, digits=2){
+        return _.strPadLeft(Number(num).toString(), digits, "0")
+      },
+      /**
+       * Remove some arguments from the front.
+       * @function
+       * @param {Javascript.arguments} args
+       * @param {Number} num
+       * @return {Array} remaining arguments
+      */
+      dropArgs(args, num){
+        return args.length > num ? Array.prototype.slice(args, num) : []
+      },
+      isSSL(){
+        return window && window.location && window.location.protocol.indexOf("https") >= 0
+      },
+      isMobile(navigator){
+        return navigator && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      },
+      isSafari(navigator){
+        return navigator && /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor)
       }
     };
     //browser only--------------------------------------------------------------
@@ -484,36 +856,6 @@
           target.removeEventListener(event,cb,arg);
       };
     }
-    /**
-     * @private
-     * @function
-     */
-    function _everyF(F,_1,args){
-      let b=F(_1);
-      switch(args.length){
-      case 0: return b;
-      case 1: return b && F(args[0]);
-      case 2: return b && F(args[0]) && F(args[1]);
-      case 3: return b && F(args[0]) && F(args[1]) && F(args[2]);
-      default: return b && args.every(x => F(x));
-      }
-    }
-    /**
-     * @public
-     * @var {object}
-     */
-    const is={
-      fun(f,...args){ return _everyF(isFun,f,args) },
-      str(s,...args){ return _everyF(isStr,s,args) },
-      void0(obj){ return obj === void 0 },
-      undef(obj){ return obj === undefined },
-      obj(o,...args){ return _everyF(isObject,o,args) },
-      map(m,...args){ return _everyF(isMap,m,args) },
-      num(n,...args){ return _everyF(isNum,n,args) },
-      vec(v,...args){ return _everyF(isArray,v,args) },
-      some(obj){ return _.size(obj) > 0 },
-      none(obj){ return _.size(obj) === 0 }
-    };
     /**
      * @public
      * @var {object}
