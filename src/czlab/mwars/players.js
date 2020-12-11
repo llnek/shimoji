@@ -120,6 +120,7 @@
       s.mojoh5.resize=function(){
         _S.scaleContent(s);
         posfunc(s);
+        s.children.forEach(c=>c.mojoh5.resize());
       };
       s.teamNumber=gid;
       s.army=[];

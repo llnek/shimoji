@@ -25,7 +25,11 @@
         case "munch": s=_createMunch(p); break;
       }
       if(s){
+        _S.scaleContent(s);
         s.alive=true;
+        s.mojoh5.resize=function(){
+          _S.scaleContent(s);
+        };
         s.mojoh5.step=function(dt){
           s.alive &&
             _G.updateMelee(s,dt);
@@ -192,7 +196,7 @@
         let s=_S.sprite(png);
         b.addChild(s);
         b.mojoh5.press=()=>{
-          _G[opstr](this.human)
+          _G[opcode](this.human)
         };
         return _I.makeButton(b);
       },
