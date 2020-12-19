@@ -253,7 +253,7 @@
       Mojo.stage.mojoh5={stage: true};
       Mojo.cmdArg=cmdArg;
       _configCSS();
-      Mojo.scale= cmdArg.scaleToWindow===true? _scaleCanvas(Mojo.canvas):1;
+      Mojo.scale=cmdArg.scaleToWindow===true?_scaleCanvas(Mojo.canvas):1;
       Mojo.pointer = Mojo["Input"].pointer(Mojo.canvas, Mojo.scale);
       _.addEvent("resize", window, _.debounce( ()=>{
         Mojo.ctx.resize(window.innerWidth,window.innerHeight);
@@ -337,6 +337,19 @@
       sideTop(d){ return d===Mojo.TOP || d===Mojo.TOP_LEFT || d===Mojo.TOP_RIGHT },
       sideBottom(d){ return d===Mojo.BOTTOM || d===Mojo.BOTTOM_LEFT || d===Mojo.BOTTOM_RIGHT },
       lerpConfig(){ return this.o.i },
+      // the element contains a class name?
+      hasClass(ele, cls){
+        return new RegExp(`(\\s|^)${cls}(\\s|$)`).test(ele.className)
+      },
+      addClass(ele, cls){
+        if(!_.hasClass(ele, cls)) ele.className += "" + cls;
+        return ele;
+      },
+      removeClass(ele, cls){
+        if(_.hasClass(ele, cls))
+          ele.className = ele.className.replace(new RegExp(`(\\s|^)${cls}(\\s|$)`), "");
+        return ele;
+      },
       //get fps(){ return this.o.fps },
       //get rps(){ return this.o.rps },
       get assets(){ return this.PXLoader.resources },
@@ -508,10 +521,15 @@
      * @function
      */
     const ScrSize={width:0,height:0};
+    const Size11={width:1,height:1};
     Mojo.contentScaleFactor=function(){
-      ScrSize.height=Mojo.height;
-      ScrSize.width=Mojo.width;
-      return Mojo.scaleSZ(Mojo.designResolution,ScrSize);
+      if(Mojo.cmdArg.scaleToWindow!=="max"){
+        return Size11;
+      }else{
+        ScrSize.height=Mojo.height;
+        ScrSize.width=Mojo.width;
+        return Mojo.scaleSZ(Mojo.designResolution,ScrSize);
+      }
     };
     /**
      * @public
@@ -530,13 +548,15 @@
      * @public
      * @function
      */
-    Mojo.resources=function(x){
+    Mojo.resources=function(x,panic=0){
       let t;
       if(x){
         t= this.PXLoader.resources[x];
         if(!t)
           t= this.PXLoader.resources[this.assetPath(x)];
       }
+      if(!t && panic)
+        throw `Error: no such resource ${x}`;
       return t;
     };
     /**

@@ -184,6 +184,22 @@
         return isMap(obj) ? Array.from(obj.keys())
                           : (isObject(obj) ? Object.keys(obj) : []);
       },
+      selectNotKeys(coll,keys){
+        let out;
+        if(isMap(coll) || isObject(coll)){
+          out= isMap(coll) ? new Map() : {};
+          keys=_.seq(keys);
+          _.doseq(coll,(v,k)=>{
+            if(!keys.includes(k)){
+              if(isMap(out))
+                out.set(k, v);
+              else
+                out[k]= v;
+            }
+          });
+        }
+        return out;
+      },
       selectKeys(coll,keys){
         let out;
         if(isMap(coll) || isObject(coll)){
@@ -200,6 +216,11 @@
           });
         }
         return out;
+      },
+      assertNot(cond){
+        if(cond)
+          throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
+        return true
       },
       assert(cond){
         if(!cond)
@@ -505,6 +526,13 @@
           if(s) Object.assign(des,s);
         });
         return des;
+      },
+      deepCopyArray(v){
+        _.assert(is.vec(v),"Expected array");
+        let out = [];
+        for(let i=0,z=v.length; i<z; ++i)
+          out[i]= is.vec(v[i]) ? _.deepCopyArray(v[i]) : v[i];
+        return out;
       },
       /**
        * Merge 2 objects together.

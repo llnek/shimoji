@@ -100,7 +100,7 @@
           let b= s[n]= _.inject({},o);
           b.added(s);
         };
-        s.mojoh5.resize=function(){};
+        //s.mojoh5.resize=function(){};
         s.mojoh5.getContactPoints=function(){
           return _corners(_strAnchor(s.anchor),s.width,s.height)
         };
@@ -722,10 +722,9 @@
      * @public
      * @function
      */
-    _S.container=function(x=0,y=0){
+    _S.container=function(cb){
       let c= this.extend(new Mojo.PXContainer());
-      c.x=x;
-      c.y=y;
+      cb && cb(c);
       return c;
     };
     /**

@@ -62,16 +62,17 @@
         this.____options=options || {};
         Mojo.EventBus.sub(["canvas.resize"],"onCanvasResize",this);
       }
-      _iterResize(r){
-        _.doseq(r, c=>{
-          if(c.mojoh5 && c.mojoh5.resize){
-            c.mojoh5.resize();
-          }
-          c.children.length && this._iterResize(c.children)
-        });
-      }
-      onCanvasResize(){
-        this._iterResize(this.children);
+      onCanvasResize(){}
+      XXXonCanvasResize(){
+        function _iterResize(r){
+          _.doseq(r, c=>{
+            if(c.mojoh5 && c.mojoh5.resize){
+              c.mojoh5.resize();
+            }
+            c.children.length && _iterResize(c.children)
+          })
+        }
+        _iterResize(this.children);
       }
       future(expr,delayFrames){
         delayFrames = delayFrames || 60;

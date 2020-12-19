@@ -43,22 +43,11 @@
      * @private
      * @function
      */
-    function _parseProperties(el){
+    function _parseProps(el){
       return (el.properties|| _DA).reduce((acc,p) => {
         acc[p.name]=p.value;
         return acc;
       }, {})
-    }
-    /**
-     * @private
-     * @function
-     */
-    function _checkVersion(tmap,file){
-      //check version of map-editor
-      let tver= tmap["tiledversion"] || tmap["version"];
-      if(tver && _.cmpVerStrs(tver,"1.4.2") < 0)
-        throw `Error: ${file} version out of date`;
-      return _parseProperties(tmap);
     }
     /**
      * @private
@@ -197,158 +186,157 @@
             gid >= gidMap[idx+1][0]) ++idx;
       return gidMap[idx];
     }
-    /**
+    /**Scans all tilesets and record all custom properties into
+     * one giant map.
      * @private
      * @function
      */
-    function _scanTilesets(tilesets, tileProperties){
+    function _scanTilesets(tilesets, gprops){
       let gidList = [];
-      _.doseq(tilesets, ts => {
-        let tsinfo=_.selectKeys(ts,"firstgid,name,spacing,imageheight,imagewidth,tileheight,tilewidth");
-        tsinfo.image= _getImage(ts);
-        _.doseq(ts.tiles, t => {
-          tileProperties[tsinfo.firstgid + t.id] = _.inject(_parseProperties(t), {id:t.id})
+      _.doseq(tilesets, ts=>{
+        ts.image= _getImage(ts);
+        _.conj(gidList,[ts.firstgid, ts]);
+        _.doseq(ts.tiles, t=>{
+          //grab all custom props for this GID
+          gprops[ts.firstgid + t.id] = _.inject(_parseProps(t), {id:t.id})
         });
-        _.conj(gidList,[tsinfo.firstgid, tsinfo]);
       });
-      return gidList.sort((a,b) => {
-        if(a[0]>b[0]) return 1;
-        if(a[0]<b[0]) return -1;
-        return 0;
-      });
-    }
-    /**
-     * @private
-     * @function
-     */
-    function _container(ps){
-      let c= _S.container();
-      _.assert(!_.has(c,"tiled"));
-      c.tiled=_.inject({},ps);
-      return c;
+      //sort gids ascending
+      return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0));
     }
     /**
      * Load in a Tiled map.
      * @public
      * @function
      */
-    _T.makeTiledWorld=function(jsonTiledMap){
-      let tmx = Mojo.resources(jsonTiledMap);
-      tmx= tmx && tmx.data;
-      if(!tmx)
-        throw `Error: ${jsonTiledMap} not cached`;
-      let tprops= _checkVersion(tmx,jsonTiledMap);
-      let world = _container(tprops);
-      let tiled= world.tiled;
+    _T.tiledWorld=function(json){
+      function _c(ps){
+        return _S.container(c=>{
+          _.assertNot(_.has(c,"tiled"));
+          c.tiled=_.inject({},ps);
+        })
+      }
+      function _ver(tmap){
+        if(!tmap) throw `Error: ${json} not cached`;
+        let tver= tmap["tiledversion"] || tmap["version"];
+        if(tver && _.cmpVerStrs(tver,"1.4.2") < 0)
+          throw `Error: ${json}-${tver} needs an update`;
+        return _parseProps(tmap);
+      }
+      let tmx = Mojo.resources(json,true).data;
+      let W = _c(_ver(tmx));
       let gtileProps={};
-      _.patch(tiled, {tileObjects: [],
-                      objectGroups: {},
-                      tileProps: gtileProps,
-                      tileH: tmx.tileheight,
-                      tileW: tmx.tilewidth,
-                      tilesInX: tmx.width,
-                      tilesInY: tmx.height,
-                      tiledWidth: tmx.width * tmx.tilewidth,
-                      tiledHeight: tmx.height * tmx.tileheight,
-                      tileGidList: _scanTilesets(tmx.tilesets,gtileProps)});
-      _.doseq(tmx.layers, layer => {
-        let gp = _container();
-        world.addChild(gp);
-        gp.alpha = layer.opacity;
-        _.inject(gp.tiled, layer);
-        _.conj(world.tiled.tileObjects,gp);
-        function _doTileLayer(tl){
-          _.assert(tl.name,"Error: tile-layer has no name");
-          for(let gid,i=0;i<tl.data.length;++i){
-            gid=tl.data[i];
-            if(gid===0) continue;
-            let tsinfo=_lookupGid(gid,tiled.tileGidList)[1];
-            let tileId=gid - tsinfo.firstgid;
-            _.assert(tileId>=0, `Bad tile id: ${tileId}`);
-            let cols=_.floor(tsinfo.imagewidth / (tsinfo.tilewidth+tsinfo.spacing));
-            //let frames= cols * (_.floor(tsinfo.imageheight/(tsinfo.tileheight + tsinfo.spacing)));
-            let mapColumn = i % tl.width;
-            let mapRow = _.floor(i/ tl.width);
-            let mapX = mapColumn * tsinfo.tilewidth;
-            let mapY = mapRow * tsinfo.tileheight;
-            let tilesetCol = tileId % cols;
-            let tilesetRow = _.floor(tileId / cols);
-            let tilesetX = tilesetCol * tsinfo.tilewidth;
-            let tilesetY = tilesetRow * tsinfo.tileheight;
-            if(tsinfo.spacing > 0){
-              tilesetX += tsinfo.spacing * tilesetCol;
-              tilesetY += tsinfo.spacing * tilesetRow;
-            }
-            let texture = _S.frame(tsinfo.image, tsinfo.tilewidth,tsinfo.tileheight, tilesetX,tilesetY);
-            let s = _S.extend(new Mojo.PXSprite(texture));
-            let tprops=gtileProps[gid];
-            _.assert(!_.has(s,"tiled"));
-            s.tiled={____gid: gid, ____index: i, id: tileId, ts: tsinfo.name};
-            s.x = mapX;
-            s.y = mapY;
-            if(tprops && _.has(tprops,"name")){
-              _.inject(s.tiled, tprops);
-              _.conj(tiled.tileObjects, s);
-            }
-            gp.addChild(s);
-          }
-        }
-        function _doObjGroup(tl){
-          let props,tsinfo;
-          _.assert(tl.name,"Error: group has no name");
-          tiled.objectGroups[tl.name]=tl;
-          _.doseq(tl.objects,o => {
-            _.assert(!_.has(o,"tiled"));
-            if(o.name){
-              o.tiled={name: o.name};
-              _.conj(tiled.tileObjects,o);
-            }
-          });
-        }
-        if(layer.type === "tilelayer"){
-          _doTileLayer(layer);
-        }else if(layer.type === "objectgroup"){
-          _doObjGroup(layer);
-        }
-      });
-      world.tiled.parseObjects=function(group,cb){
-        let g= world.tiled.objectGroups[group];
-        g && g.objects && g.objects.forEach(o=> {
-          let ts=world.tiled.getTSInfo(o.gid);
-          let ps=world.tiled.tileProps[o.gid];
-          cb(world,group,ts,_.inject({},o,ps))
-        });
+      _.patch(W.tiled, {tileLayers: {tilelayer:[],imagelayer:[],objectgroup:[]},
+                        tileProps: gtileProps,
+                        tileH: tmx.tileheight,
+                        tileW: tmx.tilewidth,
+                        tilesInX:tmx.width,
+                        tilesInY: tmx.height,
+                        tiledWidth: tmx.width * tmx.tilewidth,
+                        tiledHeight: tmx.height * tmx.tileheight,
+                        tileGidList: _scanTilesets(tmx.tilesets,gtileProps)});
+      W.tiled.getTSInfo=function(gid){
+        return _lookupGid(gid,W.tiled.tileGidList)[1];
       };
-      world.tiled.getTSInfo=function(gid){
-        return _lookupGid(gid,world.tiled.tileGidList)[1];
-      };
-      world.tiled.getOne=function(name,panic){
-        let found= _.some(world.tiled.tileObjects, o => {
-          if(o.tiled && o.tiled.name === name)
-            return o;
+      W.tiled.getTileLayer=function(name,panic){
+        let found= _.some(W.tiled.tileLayers["tilelayer"], o=>{
+          if(o.name===name) return o;
         });
         if(!found && panic)
-          throw `There is no object with the property name: ${name}`;
+          throw `There is no layer with name: ${name}`;
         return found;
       };
-      world.tiled.getAll = function(objectNames,panic){
-        let found= [];
-        objectNames=_.seq(objectNames);
-        _.doseq(world.tiled.tileObjects,o => {
-          if(o.tiled && _.has(objectNames,o.tiled.name))
-            _.conj(found,o);
+      W.tiled.getScaleFactor=function(){
+        let r=1,n;
+        if(Mojo.cmdArg.scaleToWindow === "max"){
+          if(Mojo.width>Mojo.height){
+            n=tmx.height*tmx.tileheight;
+            r=Mojo.height/n;
+          }else{
+            n=tmx.width*tmx.tilewidth;
+            r=Mojo.width/n;
+          }
+        }
+        return r;
+      };
+      W.tiled.getObjectGroup=function(name,panic){
+        let found= _.some(W.tiled.tileLayers["objectgroup"], o=>{
+          if(o.name===name) return o;
         });
-        if(found.length ===0 && panic)
-          throw "Could not find those objects";
+        if(!found && panic)
+          throw `There is no layer with name: ${name}`;
         return found;
       };
-      //extend all nested sprites
-      function _addProps(obj){
-        _S.extend(obj);
-        _.doseq(obj.children,_addProps);
+      let F={
+        tilelayer(tl){
+          let data=is.vec(tl.data[0])?tl.data.flat():tl.data;
+          let gp=_c(tl);
+          for(let gid,i=0;i<data.length;++i){
+            gid=data[i];
+            if(gid===0){
+              continue;
+            }
+            let tsi=_lookupGid(gid,W.tiled.tileGidList)[1];
+            let cols=tsi.columns;
+            let _id=gid - tsi.firstgid;
+            _.assertNot(_id<0, `Bad tile id: ${_id}`);
+            if(!is.num(cols))
+              cols=_.floor(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
+            let mapcol = i % tl.width;
+            let maprow = _.floor(i/tl.width);
+            let tscol = _id % cols;
+            let tsrow = _.floor(_id/cols);
+            let tsX = tscol * tsi.tilewidth;
+            let tsY = tsrow * tsi.tileheight;
+            if(tsi.spacing>0){
+              tsX += tsi.spacing * tscol;
+              tsY += tsi.spacing * tsrow;
+            }
+            let s = _S.sprite(_S.frame(tsi.image,
+                                       tsi.tilewidth,
+                                       tsi.tileheight,tsX,tsY));
+            let K=W.tiled.getScaleFactor();
+            let ps=gtileProps[gid];
+            //if(ps && _.has(ps,"anchor")){ s.anchor.set(ps["anchor"]); }
+            _.assertNot(_.has(s,"tiled"));
+            s.tiled={____gid: gid, ____index: i, id: _id, ts: tsi, props: ps};
+            s.scale.x=K;
+            s.scale.y=K;
+            s.x= mapcol * s.width;
+            s.y= maprow * s.height;
+            gp.addChild(s);
+          }
+          return gp;
+        },
+        objectgroup(tl){
+          let gp=_c(tl);
+          _.doseq(tl.objects,o=>{
+            let ps= _parseProps(o);
+            _.dissoc(o,"properties");
+            _.inject(o,ps);
+          });
+          return gp;
+        },
+        imagelayer(tl){
+          tl.image=_getImage(tl);
+          return _c(tl);
+        }
+      };
+      for(let gp,y,i=0;i<tmx.layers.length;++i){
+        y=tmx.layers[i];
+        gp=F[y.type] && F[y.type](y);
+        if(gp){
+          _.inject(gp.tiled,_parseProps(y));
+          _.dissoc(gp.tiled,"properties");
+          gp.tiled.name=y.name;
+          gp.name=y.name;
+          gp.visible= !!y.visible;
+          gp.alpha = y.opacity;
+          W.addChild(gp);
+          W.tiled.tileLayers[y.type].push(gp);
+        }
       }
-      _.doseq(world.children,_addProps);
-      return world;
+      return W;
     };
     /**
      * @private
