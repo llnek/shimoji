@@ -60,10 +60,10 @@
         this.____index={};
         this.____queue=[];
         this.____options=options || {};
-        Mojo.EventBus.sub(["canvas.resize"],"onCanvasResize",this);
+        //Mojo.EventBus.sub(["canvas.resize"],"onCanvasResize",this);
       }
-      onCanvasResize(){
-        Mojo["Sprites"].resize(this);
+      onCanvasResize(old){
+        Mojo["Sprites"].resize({x:0,y:0,width:old[0],height:old[1],children:this.children});
       }
       future(expr,delayFrames){
         delayFrames = delayFrames || 60;
@@ -153,6 +153,12 @@
       let fit2=fit*2;
       let P=Mojo.Sprites;
       let C=options.group || P.group();
+      let K=Mojo.contentScaleFactor();
+
+      borderWidth *= K.width;
+      padX *= K.width;
+      fit *= K.width;
+
       for(let p,s,i=0;i<items.length;++i){
         s=items[i];
         if(!options.skipAdd) C.addChild(s);
@@ -176,8 +182,29 @@
       let wd= w-(last.x+last.width);
       wd= wd/2;
       items.forEach(s=> s.x += wd);
-      C.x= options.x !== undefined ? options.x : (Mojo.canvas.width-w)/2;
-      C.y= options.y !== undefined ? options.y : (Mojo.canvas.height-h)/2;
+      C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2;
+      C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2;
+
+      C.mojoh5.resize=function(px,py,pw,ph){
+        let cx=C.x;
+        let cy=C.y;
+        C.removeChildren();
+        C.x=C.y=0;
+        options.group=C;
+        items.forEach(c=>{
+          c.x=c.y=0;
+          c.mojoh5&&c.mojoh5.resize&&c.mojoh5.resize();
+        });
+        let s=_S.layoutX(items,options);
+        if(s.parent.mojoh5 && s.parent.mojoh5.stage){
+          s.x= cx * Mojo.width/pw;
+          s.y= cy * Mojo.height/ph;
+        }else{
+          s.x= cx * s.parent.width/pw;
+          s.y= cy * s.parent.height/ph;
+        }
+      };
+
       return C;
     };
     /**
@@ -193,6 +220,11 @@
       let fit2=fit*2;
       let P=Mojo.Sprites;
       let C=options.group || P.group();
+      let K=Mojo.contentScaleFactor();
+
+      borderWidth *= K.width;
+      padY *= K.width;
+      fit *= K.width;
 
       for(let p,s,i=0;i<items.length;++i){
         s=items[i];
@@ -205,9 +237,11 @@
       let last=items[items.length-1];
       let w= C.width;
       let h= C.height;
-      let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
-      r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
-      C.addChildAt(r,0);
+      if(bg!=="transparent"){
+        let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
+        r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
+        C.addChildAt(r,0);
+      }
       w= C.width;
       h= C.height;
       let w2=w/2;
@@ -216,8 +250,29 @@
       let hd= h-(last.y+last.height);
       hd= hd/2;
       items.forEach(s=> s.y += hd);
-      C.x= options.x !== undefined ? options.x : (Mojo.canvas.width-w)/2;
-      C.y= options.y !== undefined ? options.y : (Mojo.canvas.height-h)/2;
+      C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2;
+      C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2;
+
+      C.mojoh5.resize=function(px,py,pw,ph){
+        let cx=C.x;
+        let cy=C.y;
+        C.removeChildren();
+        C.x=C.y=0;
+        options.group=C;
+        items.forEach(c=>{
+          c.x=c.y=0;
+          c.mojoh5&&c.mojoh5.resize&&c.mojoh5.resize();
+        });
+        let s=_S.layoutY(items,options);
+        if(s.parent.mojoh5 && s.parent.mojoh5.stage){
+          s.x= cx * Mojo.width/pw;
+          s.y= cy * Mojo.height/ph;
+        }else{
+          s.x= cx * s.parent.width/pw;
+          s.y= cy * s.parent.height/ph;
+        }
+      };
+
       return C;
     };
     /**

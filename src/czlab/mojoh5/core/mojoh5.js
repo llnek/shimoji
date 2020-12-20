@@ -250,14 +250,19 @@
       dom.conj(document.body, Mojo.canvas);
       Mojo.scaledBorderColor= cmdArg.scaleBorderColor || "#2c3539";
       Mojo.touchDevice= !!("ontouchstart" in document);
-      Mojo.stage.mojoh5={stage: true};
+      Mojo.stage.mojoh5={stage:true};
+      Mojo.EventBus.sub(["canvas.resize"],(old)=>{
+        Mojo.stage.children.forEach(s=>s.onCanvasResize(old))
+      });
       Mojo.cmdArg=cmdArg;
       _configCSS();
       Mojo.scale=cmdArg.scaleToWindow===true?_scaleCanvas(Mojo.canvas):1;
       Mojo.pointer = Mojo["Input"].pointer(Mojo.canvas, Mojo.scale);
       _.addEvent("resize", window, _.debounce( ()=>{
+        let h=Mojo.canvas.height;
+        let w=Mojo.canvas.width;
         Mojo.ctx.resize(window.innerWidth,window.innerHeight);
-        Mojo.EventBus.pub(["canvas.resize"]);
+        Mojo.EventBus.pub(["canvas.resize"],[w,h]);
       },150));
       _loadFiles(Mojo);
       return Mojo;

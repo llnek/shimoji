@@ -16,10 +16,13 @@
       let w=s.width;
       let h=s.height;
       s.anchor.set(0.5);
-      s.scale.x=Mojo.canvas.width/w;
-      s.scale.y=Mojo.canvas.height/h;
-      s.x=Mojo.canvas.width/2;
-      s.y=Mojo.canvas.height/2;
+      s.mojoh5.resize=function(){
+        s.scale.x=Mojo.width/w;
+        s.scale.y=Mojo.height/h;
+        s.x=Mojo.width/2;
+        s.y=Mojo.height/2;
+      };
+      s.mojoh5.resize();
       return s;
     };
 
@@ -57,10 +60,20 @@
       return o;
     };
 
-    G.Tile=function(x,y,props){
-      let s= _S.sprite(_S.frames("icons.png",360,360));
+    G.Tile=function(x,y,tileX,tileY,props){
+      let s= _S.sprite(_S.frames("icons.png",tileX,tileY));
       let mo=s.mojoh5;
       const signal= [["ai.moved",s],"aiMoved",mo];
+
+      s.mojoh5.resize=function(){
+        let g= G.state.get("grid");
+        let b=_S.bboxCenter(g[s.mojoh5.gpos]);
+        let K=G.state.get("iconScale");
+        s.scale.x=K[0];
+        s.scale.y=K[1];
+        s.x=b[0];
+        s.y=b[1];
+      };
 
       s.scale.x=props.scale[0];
       s.scale.y=props.scale[1];

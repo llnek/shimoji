@@ -4,48 +4,44 @@
   function setup(Mojo){
     const _S=Mojo.Sprites;
     const _Z=Mojo.Scenes;
-    const _G= Mojo.Game;
+    const G= Mojo.Game;
     const _=Mojo.u;
 
     window["io.czlab.tictactoe.Sprites"](Mojo);
     window["io.czlab.tictactoe.AI"](Mojo);
     window["io.czlab.tictactoe.Scenes"](Mojo);
 
-    _G.getIconValue=function(v){
-      if(v===G.O) return _G.O;
-      if(v===G.X) return _G.X;
-    };
-
-    _G.getIcon=function(v){
-      if(v===_G.O || v==="O") return 0;//"o.png";
-      if(v===_G.X || v==="X") return 2;//"x.png";
-      return 1;//"z.png";
-    };
-
-    _G.getIconImage=function(v){
-      if(v===_G.O) return "O";
-      if(v===_G.X) return "X";
-    };
-
-    _G.switchPlayer=function(){
-      let c=_G.state.get("pcur");
-      let ai=_G.state.get("ai");
-      if(c===_G.X)
-        _G.state.set("pcur", _G.O);
-      if(c===_G.O)
-        _G.state.set("pcur", _G.X);
-      if(ai && ai.pnum !== c)
-        Mojo.EventBus.pub(["ai.move",ai]);
-    };
-
-    _G.checkTie=function(){
-      let data= _G.state.get("cells");
-      for(let i=0;i<data.length;++i)
-        if(data[i]===0)
-          return false;
-      return true;
-    };
-
+    const Ext={
+      getIcon(v){
+        if(v===G.O || v==="O") return 0;//"o.png";
+        if(v===G.X || v==="X") return 2;//"x.png";
+        return 1;//"z.png";
+      },
+      getIconValue(v){
+        if(v===G.O) return G.O;
+        if(v===G.X) return G.X;
+      },
+      getIconImage(v){
+        if(v===G.O) return "O";
+        if(v===G.X) return "X";
+      },
+      switchPlayer(){
+        let c=G.state.get("pcur");
+        let ai= G.state.get("ai");
+        if(c===G.X)
+          G.state.set("pcur", G.O);
+        if(c===G.O)
+          G.state.set("pcur", G.X);
+        if(ai && ai.pnum !== c)
+          Mojo.EventBus.pub(["ai.move",ai]);
+      },
+      checkTie(){
+        let data= G.state.get("cells");
+        for(let i=0;i<data.length;++i)
+          if(data[i]===0)
+            return false;
+        return true;
+      },
       checkState(){
         let goals= G.state.get("goals");
         let d= G.state.get("cells");
@@ -68,7 +64,7 @@
         * so that we can detect when a user clicks on the cell
         */
       mapGridPos(dim){
-        let sz = 0.6 * (Mojo.portrait()?Mojo.canvas.width:Mojo.canvas.height);
+        let sz = 0.6 * (Mojo.portrait()?Mojo.width:Mojo.height);
         let cx,cy,x0,y0,x1,y1,x2,y2,out= _.jsVec();
         let wb = Mojo.screenCenter();
         //size of cell
@@ -76,8 +72,8 @@
         //size of grid
         sz = cz * dim;
         //top,left
-        y1=y0=(Mojo.canvas.height - sz)/2;
-        x1=x0=(Mojo.canvas.width - sz)/2;
+        y1=y0=(Mojo.height - sz)/2;
+        x1=x0=(Mojo.width - sz)/2;
         for(let r=0; r<dim; ++r){
           for(let c= 0; c<dim; ++c){
             y2 = y1 + cz;
@@ -121,7 +117,7 @@
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles:["bgblack.jpg","icons.png","x.mp3","o.mp3","end.mp3"],
-      arena:{width:320, height:480},
+      arena:{width:1600, height:1200},
       scaleToWindow:"max",
       start: setup
     })
