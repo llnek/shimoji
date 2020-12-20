@@ -100,7 +100,7 @@
           let b= s[n]= _.inject({},o);
           b.added(s);
         };
-        //s.mojoh5.resize=function(){};
+        s.mojoh5.resize=function(px,py,pw,ph){_S.resize(s)};
         s.mojoh5.getContactPoints=function(){
           return _corners(_strAnchor(s.anchor),s.width,s.height)
         };
@@ -1335,6 +1335,13 @@
       }
       _.doseq(sprites,s => par.addChild(s));
       return par;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _S.resize=function(s){
+      s && s.children.forEach(c=>c&&c.mojoh5&&c.mojoh5.resize&&c.mojoh5.resize(s.x,s.y,s.width,s.height));
     };
     /**
      * @private

@@ -62,17 +62,8 @@
         this.____options=options || {};
         Mojo.EventBus.sub(["canvas.resize"],"onCanvasResize",this);
       }
-      onCanvasResize(){}
-      XXXonCanvasResize(){
-        function _iterResize(r){
-          _.doseq(r, c=>{
-            if(c.mojoh5 && c.mojoh5.resize){
-              c.mojoh5.resize();
-            }
-            c.children.length && _iterResize(c.children)
-          })
-        }
-        _iterResize(this.children);
+      onCanvasResize(){
+        Mojo["Sprites"].resize(this);
       }
       future(expr,delayFrames){
         delayFrames = delayFrames || 60;

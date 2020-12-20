@@ -68,6 +68,14 @@
         p["towerManControls"].motion(dt);
       };
       p.mojoh5.collide=()=>_collide(scene,p);
+      p.mojoh5.resizeMe=function(px,py,pw,ph){
+        let K=scene.world.tiled.getScaleFactor();
+        p.mojoh5.speed=150 *K;
+        p.scale.x=K;
+        p.scale.y=K;
+        p.x= p.x * scene.world.width/pw;
+        p.y= p.y * scene.world.height/ph;
+      };
       return scene.player=p;
     }
 
@@ -127,20 +135,40 @@
           scene.player=null;
         }
       };
+      s.mojoh5.resizeMe=function(px,py,pw,ph){
+        let K=scene.world.tiled.getScaleFactor();
+        s.mojoh5.speed=150 *K;
+        s.scale.x=K;
+        s.scale.y=K;
+        s.x= s.x * scene.world.width/pw;
+        s.y= s.y * scene.world.height/ph;
+      };
       return s;
     }
 
     _Z.defScene("level1",{
       setup(){
         let world=this.world=_T.tiledWorld("map.json");
+        let self=this;
         world.x=(Mojo.width-world.width)/2;
         world.y=(Mojo.height-world.height)/2;
         this.insert(world);
-        world.addChild(Enemy(this,"e1",10,4));
-        world.addChild(Enemy(this,"e2",15,10));
-        world.addChild(Enemy(this,"e3",5,10));
+        this.enemies=[Enemy(this,"e1",10,4), Enemy(this,"e2",15,10), Enemy(this,"e3",5,10)];
+        this.enemies.forEach(e=>world.addChild(e));
         world.addChild(Player(this,10,7));
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
+      },
+      onCanvasResize(){
+        let ph=this.world.height;
+        let pw=this.world.width;
+        let px=this.world.x;
+        let py=this.world.y;
+        _S.resize(this);
+        this.world.x=(Mojo.width-this.world.width)/2;
+        this.world.y=(Mojo.height-this.world.height)/2;
+        if(this.player)
+          this.player.mojoh5.resizeMe(px,py,pw,ph);
+        this.enemies.forEach(e=>e.mojoh5.resizeMe(px,py,pw,ph));
       },
       postUpdate(){
         let es=this.world.tiled.getTileLayer("Edibles",1);
@@ -170,7 +198,7 @@
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: ["sprites.png", "map.json","tiles.png"],
-      arena: {width:640,height:480},
+      arena: {width:640,height:448},
       scaleToWindow:"max",
       backgroundColor: 0,
       start:setup

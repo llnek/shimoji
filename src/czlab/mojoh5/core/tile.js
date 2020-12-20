@@ -304,6 +304,13 @@
             s.scale.y=K;
             s.x= mapcol * s.width;
             s.y= maprow * s.height;
+            s.mojoh5.resize=function(px,py,pw,ph){
+              let K=W.tiled.getScaleFactor();
+              s.scale.x=K;
+              s.scale.y=K;
+              s.x= mapcol * s.width;
+              s.y= maprow * s.height;
+            };
             gp.addChild(s);
           }
           return gp;
