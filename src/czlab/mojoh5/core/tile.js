@@ -75,6 +75,39 @@
     function _getVector(sprite1,sprite2,global=false){
       return _V.makeVecAB(_S.centerXY(sprite1,global), _S.centerXY(sprite2,global))
     }
+    /** Calculate position of each individual cells in the grid,
+     * so that we can detect when a user clicks on the cell
+     */
+    _T.mapGridPos=function(dim,glwidth,ratio=0.8,align="center"){
+      let sz = ratio * (Mojo.portrait()?Mojo.width:Mojo.height);
+      let cx,cy,x0,y0,x1,y1,x2,y2,out= _.jsVec();
+      let gap=glwidth*(dim+1);
+      //let wb = Mojo.screenCenter();
+      //size of cell
+      let cz = (sz-gap)/dim;
+      //size of grid
+      //sz = cz * dim;
+      //top,left
+      y1=y0=(Mojo.height - sz)/2;
+      switch(align){
+        case "right": x0=x1=Mojo.width-sz; break;
+        case "left": x0=x1=0;break;
+        default: x0=x1=(Mojo.width-sz)/2; break;
+      }
+      for(let arr,r=0; r<dim; ++r){
+        arr=[];
+        for(let c= 0; c<dim; ++c){
+          y2 = y1 + cz;
+          x2 = x1 + cz;
+          arr.push(_S.bbox4(x1+glwidth,x2,y1+glwidth,y2));
+          x1 = x2;
+        }
+        out.push(arr);
+        y1 = y2;
+        x1 = x0;
+      }
+      return out;
+    };
     /**
      * Converts a tile's index number into x/y screen
      * coordinates, and capture's the tile's grid index (`gid`) number.

@@ -38,6 +38,18 @@
    * @private
    * @function
    */
+  function _winWidth(){
+    //use clientWidth to skip scollbars
+    return false ? window.document.documentElement.clientWidth : window.innerWidth;
+  }
+  function _winHeight(){
+    //use clientWidth to skip scollbars
+    return false ? window.document.documentElement.clientHeight : window.innerHeight;
+  }
+  /**
+   * @private
+   * @function
+   */
   function _MojoH5(cmdArg, _sounds, _fonts, _spans){
     const Core=global["io.czlab.mcfud.core"]();
     const _=Core.u;
@@ -89,8 +101,8 @@
     function _scaleCanvas(canvas){
       let CH=canvas.offsetHeight;
       let CW=canvas.offsetWidth;
-      let WH=window.innerHeight;
-      let WW=window.innerWidth;
+      let WH=_winHeight();
+      let WW=_winWidth();
       let scale = _.min(WW/CW, WH/CH);
       let scaledH=CH*scale;
       let scaledW=CW*scale;
@@ -227,12 +239,12 @@
       }
       Mojo.designResolution=_.inject({},arena);
       if(cmdArg.scaleToWindow === "max"){
-        arena = _.inject(arena, {width: window.innerWidth,
-                                 height: window.innerHeight});
+        arena = _.inject(arena, {width: _winWidth(),
+                                 height: _winHeight() });
         maxed=true;
       }else{
-        arena = _.patch(arena, {width: window.innerWidth,
-                                height: window.innerHeight});
+        arena = _.patch(arena, {width: _winWidth(),
+                                height: _winHeight()});
       }
       Mojo.ctx= PIXI.autoDetectRenderer(arena);
       Mojo.ctx.backgroundColor = 0xFFFFFF;
@@ -261,7 +273,7 @@
       _.addEvent("resize", window, _.debounce( ()=>{
         let h=Mojo.canvas.height;
         let w=Mojo.canvas.width;
-        Mojo.ctx.resize(window.innerWidth,window.innerHeight);
+        Mojo.ctx.resize(_winWidth(),_winHeight());
         Mojo.EventBus.pub(["canvas.resize"],[w,h]);
       },150));
       _loadFiles(Mojo);
