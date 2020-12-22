@@ -6,42 +6,62 @@
     const _ = Mojo.u;
     const _G= Mojo.Game;
 
+    //used by the AI to give more importance to the border
+    const BOARD_SCORE = [[9,3,3,3,3,3,3,9],
+                         [3,1,1,1,1,1,1,3],
+                         [3,1,1,1,1,1,1,3],
+                         [3,1,1,1,1,1,1,3],
+                         [3,1,1,1,1,1,1,3],
+                         [3,1,1,1,1,1,1,3],
+                         [3,1,1,1,1,1,1,3],
+                         [9,3,3,3,3,3,3,9]];
+
+    function _possibleMoves(cells,cur,other){
+      let pos=[0,0];
+      let moves=[];
+      for(let f,row,r=0;r<cells.length;++r){
+        row=cells[r];
+        for(let c=0;c<row.length;++c){
+          if(row[c]===0){
+            pos[0]=r;
+            pos[1]=c;
+            f=_G.piecesFlipped(cells, pos,cur,other);
+            if(f.length>0)
+              moves.push([r,c]);
+          }
+        }
+      }
+      return moves;
+    }
+
     class C extends Nega.GameBoard{
       constructor(p1v,p2v){
         super();
         this.actors= [0, p1v, p2v];
-        this.grid=[];
-        this.goals= _G.mapGoalSpace();
+        this.cells=[];
+        this.depth=8;
       }
-      isNil(cellv){
-        return cellv === 0
+      /*
+      getFirstMove(snap){
+        let moves=_possibleMoves(snap.state,snap.cur,snap.other);
+        return moves.length>0?moves[0]:null;
       }
-      getFirstMove(){
-        let sz= this.grid.length;
-        return sz>0 && _.every(this.grid, 0) ? _.randInt2(0,sz-1) : -1;
-      }
+      */
       syncState(seed, actor){
-        this.grid.length=0;
-        _.append(this.grid,seed);
+        this.cells.length=0;
         this.actors[0] = actor;
+        seed.forEach(s=> this.cells.push(s.slice()));
       }
       getNextMoves(snap){
-        let rc= [],
-            sz= snap.state.length;
-        for(let i=0; i<sz; ++i)
-          if(this.isNil(snap.state[i])) _.conj(rc,i);
-        return rc;
-      }
-      undoMove(snap, move){
-        _.assert(move >= 0 && move < snap.state.length);
-        snap.state[move] = 0;
+        return _possibleMoves(snap.state,snap.cur,snap.other);
       }
       makeMove(snap, move){
-        _.assert(move >= 0 && move < snap.state.length);
-        if(this.isNil(snap.state[move]))
-          snap.state[move] = snap.cur;
-        else
-          throw `Error: cell [${move}] is not free`;
+        _.assert(move[1] >= 0 && move[1] < snap.state[0].length);//col
+        _.assert(move[0] >= 0 && move[0] < snap.state.length);//row
+        let f= _G.piecesFlipped(snap.state,move, snap.cur,snap.other);
+        _.assert(f.length>0,"nothing flipped!!!!");
+        f.forEach(p=>{ snap.state[p[0]][p[1]]=snap.cur; });
+        snap.state[move[0]][move[1]]=snap.cur;
       }
       switchPlayer(snap){
         let t = snap.cur;
@@ -54,52 +74,49 @@
         return 0;
       }
       takeFFrame(){
-        let ff = new Nega.FFrame(G.DIM);
+        let ff = new Nega.FFrame();
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
-        _.copy(ff.state,this.grid);
-        ff.lastBestMove= -1;
+        ff.state=_.deepCopyArray(this.cells);
+        ff.lastBestMove= null;
         return ff;
       }
       evalScore(snap){
-        // if we lose, return a negative value
-        for(let g, i=0; i<this.goals.length; ++i){
-          g= this.goals[i];
-          if(this.testWin(snap.state, snap.other, g))
-            return -100;
-        }
-        return 0;
+        let c_cnt=0;
+        let c_sum=0;
+        let o_cnt=0;
+        let o_sum=0;
+        let e_cnt=0;
+        snap.state.forEach((row,r) => row.forEach((v,c) => {
+          if(v===snap.cur){
+            ++c_cnt;
+            c_sum += BOARD_SCORE[r][c];
+          }else if(v===snap.other){
+            ++o_cnt;
+            o_sum += BOARD_SCORE[r][c];
+          }else{
+            ++e_cnt;
+          }
+        }));
+        //less than half the board is full
+        return e_cnt>32 ? (c_sum-o_sum) : (c_cnt-o_cnt);
       }
       isOver(snap){
-        for(let g, i=0; i < this.goals.length; ++i){
-          g= this.goals[i];
-          if (this.testWin(snap.state, snap.cur, g) ||
-              this.testWin(snap.state, snap.other, g)) return true;
+        let e=0;
+        for(let row,r=0;r<snap.state.length;++r){
+          row=snap.state[r];
+          for(let c=0;c<row.length;++c){
+            if(row[c]===0){
+              ++e;
+              break;
+            }
+          }
         }
-        return this.isStalemate(snap);
+        return e===0 || this.isStalemate(snap);
       }
       isStalemate(snap){
-        return _.notAny(snap.state, 0);
-      }
-      getWinner(snap, combo){
-        let win= -1;
-        for(let g,i=0; i< this.goals.length; ++i){
-          g= this.goals[i];
-          if(this.testWin(snap.state, snap.other, g))
-            win=snap.other;
-          else if(this.testWin(snap.state, snap.cur, g))
-            win=snap.cur;
-          ;
-          if(win>0){ _.append(combo,g); break; }
-        }
-        return win;
-      }
-      testWin(vs, actor, g){
-        let cnt=g.length;
-        for(let n= 0; n<g.length; ++n){
-          if(actor === vs[g[n]]) --cnt;
-        }
-        return cnt === 0;
+        return _possibleMoves(snap.state,snap.cur,snap.other).length===0 &&
+               _possibleMoves(snap.state,snap.other,snap.cur).length===0;
       }
     }
 

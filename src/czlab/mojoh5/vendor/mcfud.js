@@ -14,8 +14,8 @@
 
 ;(function(global){
   "use strict";
-  let _singleton=null;
   let window=null;
+  let _singleton=null;
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
@@ -3870,17 +3870,25 @@
     const Core=global["io.czlab.mcfud.core"]();
     const _= Core.u;
     const _N={};
-    const PINF = 1000000;
+    //const PINF = 1000000;
     /**
      * @public
      * @class
      */
     class FFrame{
-      constructor(sz){
-        this.state= _.fill(new Array(sz*sz),0);
-        this.lastBestMove=0;
+      constructor(){
+        this.lastBestMove=null;
+        this.state= null;
         this.other=0;
         this.cur=0;
+      }
+      clone(){
+        let f= new FFrame();
+        f.state=_.deepCopyArray(this.state);
+        f.lastBestMove=this.lastBestMove;
+        f.other=this.other;
+        f.cur=this.cur;
+        return f;
       }
     }
     /**
@@ -3890,11 +3898,12 @@
     class GameBoard{
       constructor(){
       }
+      getFirstMove(frame){}
       getNextMoves(frame){}
       evalScore(frame){}
       isStalemate(frame){}
       isOver(f){}
-      undoMove(frame, move){}
+      //undoMove(frame, move){}
       makeMove(f, move){}
       switchPlayer(frame){}
       takeFFrame(){}
@@ -3904,30 +3913,44 @@
      * @function
      */
     function _negaMax(board, game, maxDepth, depth, alpha, beta){
-      if(depth === 0 ||
-         board.isOver(game)) return board.evalScore(game);
+      if(depth === 0 || board.isOver(game)){
+        let score=board.evalScore(game);
+        if(score !== 0)
+          score -= 0.01*depth*Math.abs(score)/score;
+        return score;
+      }
 
       let openMoves = board.getNextMoves(game),
-          bestValue = -PINF,
+          state=game,
+          bestValue = -Infinity,
           bestMove = openMoves[0];
 
       if(depth === maxDepth)
         game.lastBestMove = openMoves[0];
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
+        if(!board.undoMove){
+          game=state.clone();
+        }
         move = openMoves[i];
         //try a move
         board.makeMove(game, move);
         board.switchPlayer(game);
         rc= - _negaMax(board, game, maxDepth, depth-1, -beta, -alpha);
         //now, roll it back
-        board.switchPlayer(game);
-        board.undoMove(game, move);
+        if(board.undoMove){
+          board.switchPlayer(game);
+          board.undoMove(game, move);
+        }
         //how did we do ?
-        bestValue = _.max(bestValue, rc);
+        //bestValue = _.max(bestValue, rc);
+        if(bestValue < rc){
+          bestValue = rc;
+          bestMove = move
+        }
         if(alpha < rc){
           alpha = rc;
-          bestMove = move;
+          //bestMove = move;
           if(depth === maxDepth)
             game.lastBestMove = move;
           if(alpha >= beta) break;
@@ -3942,7 +3965,7 @@
      */
     _N.evalNegaMax=function(board){
       let f= board.takeFFrame();
-      _negaMax(board, f, 10, 10, -PINF, PINF);
+      _negaMax(board, f, board.depth, board.depth, -Infinity, Infinity);
       return f.lastBestMove;
     };
 

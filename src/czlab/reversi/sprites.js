@@ -26,11 +26,10 @@
       return s;
     };
 
-/*
-    G.AI=function(v){
+    _G.AI=function(scene,v){
       const o={
         pnum:v,
-        board: G.TTToe(G.X, G.O)
+        board: _G.Reversi(_G.X, _G.O)
       };
       const signal=[["ai.move",o], "aiMove",o];
       o.dispose=function(){
@@ -40,37 +39,50 @@
         _.delay(500,()=> o.makeMove())
       };
       o.makeMove=function(){
-        let cells= G.state.get("cells");
+        let cells= _G.state.get("cells");
         let pos,rc;
         this.board.syncState(cells, this.pnum);
-        pos= this.board.getFirstMove();
-        if(pos < 0)
-          pos= _N.evalNegaMax(this.board);
-        cells[pos] = this.pnum;
-        _E.pub(["ai.moved",this.scene],pos);
-        G.playSnd();
-        rc= G.checkState();
-        if(rc===0)
-          G.switchPlayer();
-        else{
-          G.state.set("lastWin", rc===1 ? G.state.get("pcur") : 0);
-          _Z.runScene("EndGame",5);
+        pos= _N.evalNegaMax(this.board);
+        if(pos)
+          rc= _G.checkState(pos);
+        if(rc.length>0){
+          rc.forEach(c=>{
+            _G.flipIcon(scene,c);
+            cells[c[0]][c[1]]=v;
+          });
+          _G.flipIcon(scene,pos,v);
+          cells[pos[0]][pos[1]]=v;
+          //G.playSnd();
+          //_E.pub(["ai.moved",this.scene],pos);
+          //cells[pos[0]][pos[1]] = this.pnum;
+          _G.switchPlayer();
+        }else{
+          //_G.state.set("lastWin", rc===1 ? _G.state.get("pcur") : 0);
+          //_Z.runScene("EndGame",5);
+          console.log("DONE!");
         }
       };
       _E.sub.apply(_E, signal);
       return o;
     };
-    */
-    _G.flipIcon=function(s,pos){
+
+    _G.flipIcon=function(s,pos,V){
       for(let v,p,c,i=0,z=s.children.length;i<z;++i){
         c=s.children[i];
         if(c && c.mojoh5 && c.mojoh5.gpos){
           p=c.mojoh5.gpos;
           if(p[0]===pos[0] && p[1]===pos[1]){
-            _.assert(c.mojoh5.enabled===false);
-            v= c.mojoh5.gval===_G.X?_G.O:_G.X;
+            if(V===undefined){
+              _.assert(c.mojoh5.enabled===false);
+              v= c.mojoh5.gval===_G.X?_G.O:_G.X;
+            }else{
+              _.assert(c.mojoh5.enabled===true);
+              v=V;
+            }
             c.mojoh5.showFrame(v);
             c.mojoh5.gval=v;
+            c.mojoh5.enabled=false;
+            c.mojoh5.marked=true;
             break;
           }
         }
@@ -124,11 +136,8 @@
             _G.flipIcon(s.parent,c);
             cells[c[0]][c[1]]=v;
           });
+          _G.flipIcon(s.parent,mo.gpos,v);
           cells[mo.gpos[0]][mo.gpos[1]]= v;
-          mo.gval=v;
-          mo.showFrame(_G.getIcon(v));
-          mo.enabled=false;
-          mo.marked=true;
           _G.switchPlayer();
         }else{
           //_G.state.set("lastWin", rc===1 ? _G.state.get("pcur") : 0);

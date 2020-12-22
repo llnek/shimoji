@@ -92,10 +92,9 @@
                       pcur: options.startsWith||_G.X,
                       grid: grid,
                       cells: _seeder(),
-                      //goals: G.mapGoalSpace(),
                       players: _.jsVec(null,null,null),
                       iconScale: Mojo.scaleXY(_G.state.get("iconSize"),cz) });
-        return mode;
+        return 1;//mode;
       },
       onCanvasResize(old){
         let g=_T.mapGridPos(_G.DIM,_G.gridLineWidth,0.9);
@@ -147,12 +146,12 @@
         cells[4][4]=1;
         //decide who plays X and who starts
         if(mode===1){
-          let a= this.AI=_G.AI(G.O);
+          let a= this.AI=_G.AI(this,_G.O);
           a.scene=this;
-          Mojo.EventBus.sub(["ai.moved",this],"onAI");
+          //Mojo.EventBus.sub(["ai.moved",this],"onAI");
           _G.state.set("ai",a);
           //ai starts?
-          if(_G.state.get("pcur")===G.O){
+          if(_G.state.get("pcur")===_G.O){
             _.delay(100, () => Mojo.EventBus.pub(["ai.move", a]))
           }
         }
