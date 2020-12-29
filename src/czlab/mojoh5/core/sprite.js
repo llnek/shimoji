@@ -751,10 +751,18 @@
      * @private
      * @function
      */
+    function XX_cfgTexture(t,width,height,x,y){
+      t.frame = new Mojo.PXRectangle(x, y, width, height);
+      t.updateUvs();
+      return t;
+    }
+    /**
+     * @private
+     * @function
+     */
     function _frames(source, tileW, tileH, points){
-      let t= _S.mkTexture(source);
-      return points.map(p =>
-        _cfgTexture(new Mojo.PXTexture(t),tileW,tileH,p[0],p[1]))
+      let bt= _S.mkTexture(source).baseTexture;
+      return points.map(p => new Mojo.PXTexture(bt,new Mojo.PXRectangle(p[0],p[1],tileW,tileH)));
     }
     /**
      * @public
@@ -781,19 +789,12 @@
       return ret;
     };
     /**
-     * @private
-     * @function
-     */
-    function _cfgTexture(t,width,height,x,y){
-      t.frame = new Mojo.PXRectangle(x, y, width, height);
-      return t;
-    }
-    /**
      * @public
      * @function
      */
     _S.frame=function(source, width, height,x,y){
-      return _cfgTexture(this.mkTexture(source),width,height,x,y)
+      let bt= this.mkTexture(source).baseTexture;
+      return new Mojo.PXTexture(bt,new Mojo.PXRectangle(x, y, width,height));
     };
     /**
      * @public
@@ -811,7 +812,7 @@
         y= sy + tileH*r;
         for(let x,c=0;c<cols;++c){
           x= sx + tileW*c;
-          _.conj(out,_cfgTexture(new Mojo.PXTexture(bt),tileW,tileH,x,y));
+          _.conj(out,new Mojo.PXTexture(bt,new Mojo.PXRectangle(x, y, tileW,tileH)));
         }
       }
       return out;

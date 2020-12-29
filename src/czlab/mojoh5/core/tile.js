@@ -75,38 +75,120 @@
     function _getVector(sprite1,sprite2,global=false){
       return _V.makeVecAB(_S.centerXY(sprite1,global), _S.centerXY(sprite2,global))
     }
+
+    class Grid2D{
+      constructor(g){
+        this._grid=g;
+        let dimX = this._grid[0].length;
+        let dimY = this._grid.length;
+        let dx1=dimX-1;
+        let dy1=dimY-1;
+        let s=this._grid[0];
+        let s2=this._grid[1];
+        let e=this._grid[dy1];
+        let gapX=s[1].x1-s[0].x2;
+        let gapY=s2[0].y1-s[0].y2;
+        _.assert(gapX===gapY);
+        this._gap=gapX;
+      }
+      drawBox(color="white"){
+        return _S.drawBody(ctx => this._draw(ctx,color,true))
+      }
+      draw(color="white"){
+        return _S.drawBody(ctx => this._draw(ctx,color))
+      }
+      _draw(ctx,color="white",boxOnly=false){
+        let dimX = this._grid[0].length;
+        let dimY = this._grid.length;
+        let dx1=dimX-1;
+        let dy1=dimY-1;
+        let s=this._grid[0];
+        let e=this._grid[dy1];
+        let gf = s[0];
+        let gl = e[dx1];
+        ctx.lineStyle(this.gap,_S.color(color));
+        for(let r,i=0;i<dimY;++i){
+          r=this._grid[i];
+          if(i===0){
+            //draw the top horz line
+            ctx.moveTo(r[i].x1,r[i].y1);
+            ctx.lineTo(s[dx1].x2,s[dx1].y1);
+          }
+          if(i===dy1){
+            ctx.moveTo(r[0].x1,r[0].y2);
+            ctx.lineTo(r[dx1].x2,r[dx1].y2);
+          }else if(!boxOnly){
+            ctx.moveTo(r[0].x1,r[0].y2);
+            ctx.lineTo(r[dx1].x2,r[dx1].y2);
+          }
+        }
+        for(let i=0;i<dimX;++i){
+          if(i===0){
+            //draw the left vert line
+            ctx.moveTo(s[i].x1,s[i].y1);
+            ctx.lineTo(e[i].x1,e[i].y2);
+          }
+          if(i===dx1){
+            ctx.moveTo(s[i].x2,s[i].y1);
+            ctx.lineTo(e[i].x2,e[i].y2);
+          }else if(!boxOnly){
+            ctx.moveTo(s[i].x2,s[i].y1);
+            ctx.lineTo(e[i].x2,e[i].y2);
+          }
+        }
+      }
+      cell(row,col){ return this._grid[row][col] }
+      get gap() { return this._gap}
+      get data() { return this._grid}
+    }
+
     /** Calculate position of each individual cells in the grid,
      * so that we can detect when a user clicks on the cell
      */
     _T.mapGridPos=function(dim,glwidth,ratio=0.8,align="center"){
-      let sz = ratio * (Mojo.portrait()?Mojo.width:Mojo.height);
       let cx,cy,x0,y0,x1,y1,x2,y2,out= _.jsVec();
-      let gap=glwidth*(dim+1);
-      //let wb = Mojo.screenCenter();
-      //size of cell
-      let cz = (sz-gap)/dim;
-      //size of grid
-      //sz = cz * dim;
-      //top,left
-      y1=y0=(Mojo.height - sz)/2;
-      switch(align){
-        case "right": x0=x1=Mojo.width-sz; break;
-        case "left": x0=x1=0;break;
-        default: x0=x1=(Mojo.width-sz)/2; break;
+      let gapX,gapY,dimX,dimY,cz,szX,szY;
+      if(is.vec(dim)){
+        dimX=dim[0];
+        dimY=dim[1];
+      }else{
+        dimX=dimY=dim;
       }
-      for(let arr,r=0; r<dim; ++r){
+      if(glwidth<0){glwidth=0}
+      gapX=glwidth*(dimX+1);
+      gapY=glwidth*(dimY+1);
+      if(Mojo.portrait()){
+        cz=_.floor((ratio*Mojo.width-gapX)/dimX);
+      }else{
+        cz=_.floor((ratio*(Mojo.height-gapY))/dimY);
+      }
+      szX=cz*dimX+gapX;
+      szY=cz*dimY+gapY;
+      //top,left
+      y0=_.floor((Mojo.height - szY)/2);
+      switch(align){
+        case "right": x0=Mojo.width-szX; break;
+        case "left": x0=0;break;
+        default: x0=_.floor((Mojo.width-szX)/2); break;
+      }
+      x0 +=glwidth;
+      x1=x0;
+      y0 += glwidth;
+      y1=y0;
+      for(let arr,r=0; r<dimY; ++r){
         arr=[];
-        for(let c= 0; c<dim; ++c){
+        for(let c= 0; c<dimX; ++c){
           y2 = y1 + cz;
           x2 = x1 + cz;
-          arr.push(_S.bbox4(x1+glwidth,x2,y1+glwidth,y2));
-          x1 = x2;
+          arr.push(_S.bbox4(x1,x2,y1,y2));
+          x1 = x2+glwidth;
         }
         out.push(arr);
-        y1 = y2;
+        y1 = y2+glwidth;
         x1 = x0;
       }
-      return out;
+      return new Grid2D(out);
+      //return out;
     };
     /**
      * Converts a tile's index number into x/y screen
