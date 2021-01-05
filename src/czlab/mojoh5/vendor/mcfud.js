@@ -241,6 +241,12 @@
       rand(){ return Math.random() },
       randSign(){ return _.rand() > 0.5 ? -1 : 1 },
       inst(type,obj){ return obj instanceof type },
+      hashCode(s){
+        let h=0;
+        for(let i=0; i<s.length; ++i)
+          h = Math.imul(31, h) + s.charCodeAt(i) | 0;// force to be 32 bit int via | 0
+        return h;
+      },
       randArrayItem(arr){
         if(arr)
           return arr.length===0 ? null : arr.length === 1 ? arr[0] : arr[_.floor(_.rand() * arr.length)]
