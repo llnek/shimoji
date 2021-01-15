@@ -367,6 +367,9 @@
           ele.className = ele.className.replace(new RegExp(`(\\s|^)${cls}(\\s|$)`), "");
         return ele;
       },
+      wrapv(v, low, high){
+        return v<low ? high : (v>high ? low : v)
+      },
       //get fps(){ return this.o.fps },
       //get rps(){ return this.o.rps },
       get assets(){ return this.PXLoader.resources },

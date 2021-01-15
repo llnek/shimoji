@@ -1057,7 +1057,7 @@
       let x1=sx;
       for(let x2,y2,v,r=0; r<rows; ++r){
         v=[];
-        for(let c= 0; c<cols; ++c){
+        for(let c=0; c<cols; ++c){
           y2 = y1 + tileY;
           x2 = x1 + tileX;
           _.conj(v,_S.bbox4(x1,x2,y1,y2));
@@ -1095,15 +1095,13 @@
      * @public
      * @function
      */
-    _S.gridXY=function(dimX,dimY,ratioX=0.6,ratioY=0.6){
-      let szh=Mojo.height*ratioY;
-      let szw=Mojo.width*ratioX;
-      let w= szw / dimX;
-      let h= szh / dimY;
-      let out=[];
-      let sy= (Mojo.height-szh)/2;
-      let sx= (Mojo.width-szw)/2;
-      return _mkgrid(sx,sy,dimY,dimX,w,h);
+    _S.gridXY=function(dimX,dimY,ratio=4/5){
+      let szh=Mojo.height*ratio |0; //(int)
+      let szw=Mojo.width*ratio |0; //(int)
+      let z=(szw>szh ? (szh/dimY) : (szw/dimX)) |0;
+      let sy= (Mojo.height-(z*dimY))/2 | 0;
+      let sx= (Mojo.width-(z*dimX))/2 | 0;
+      return _mkgrid(sx,sy,dimY,dimX,z,z);
     };
     /**
      * @public

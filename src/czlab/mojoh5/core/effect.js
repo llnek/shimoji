@@ -65,7 +65,23 @@
                3*b*t*t*(1-t) +
                3*c*t*(1-t)*(1-t) +
                d*(1-t)*(1-t)*(1-t)
-      }
+      },
+      BOUNCE_IN(x){ return 1 - _T.BOUNCE_OUT(1 - x) },
+		  BOUNCE_OUT(x){
+        if(x < 1/2.75){
+          return 7.5625 * x * x
+        }else if(x < 2/2.75){
+          return 7.5625 * (x -= 1.5/2.75) * x + 0.75
+        }else if(x < 2.5/2.75){
+          return 7.5625 * (x -= 2.25/2.75) * x + 0.9375
+        }else{
+          return 7.5625 * (x -= 2.625/2.75) * x + 0.984375
+        }
+		  },
+		  BOUNCE_INOUT(x){
+			  return x < 0.5 ? _T.BOUNCE_IN(x*2) * 0.5
+                       : _T.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5
+		  }
     };
     /**
      * @public
