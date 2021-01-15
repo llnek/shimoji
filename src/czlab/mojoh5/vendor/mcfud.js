@@ -364,7 +364,7 @@ if ((typeof module) == 'object' && module.exports) {
      * @var {object}
      */
     const _={
-      randSeed(){
+      srand(){
         PRNG = new Math.seedrandom()
       },
       feq0(a){
@@ -519,6 +519,15 @@ if ((typeof module) == 'object' && module.exports) {
       jsObj(){ return {} },
       jsVec(...args){
         return args.length===0 ? [] : args.slice();
+      },
+      lastIndex(coll){
+        return (coll && coll.length) ? coll.length-1 : -1
+      },
+      head(coll){
+        return (coll && coll.length) ? coll[0] : undefined
+      },
+      tail(coll){
+        return (coll && coll.length) ? coll[coll.length-1] : undefined
       },
       floor(v){ return Math.floor(v) },
       ceil(v){ return Math.ceil(v) },

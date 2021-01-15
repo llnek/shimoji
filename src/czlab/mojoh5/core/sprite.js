@@ -77,6 +77,7 @@
       },
       extend(s){
         if(!s.mojoh5) s.mojoh5={};
+        if(!s.g) s.g={};
         _.inject(s.mojoh5, {uuid: _.nextId(),
                             _cur: {},
                             _prv: {},
@@ -697,6 +698,7 @@
       if(!s)
         throw `Error: ${source} not found`;
 
+      _.assertNot(s.g,"property g exists!!!");
       s= _S.extend(s);
       s.x = x;
       s.y = y;
@@ -1267,11 +1269,13 @@
         sprites=sprites[0];
       }
       _.doseq(sprites, s=>{
-        if(s.parent)
-          s.parent.removeChild(s);
-        s.mojoh5.dispose &&
-          s.mojoh5.dispose();
-        Mojo.EventBus.pub(["post.remove",s]);
+        if(s){
+          if(s.parent)
+            s.parent.removeChild(s);
+          s.mojoh5.dispose &&
+            s.mojoh5.dispose();
+          Mojo.EventBus.pub(["post.remove",s]);
+        }
       });
     };
     /**

@@ -57,6 +57,7 @@
           _.inject(this, func);
         }
         this.mojoh5={stage:true};
+        this.g={};
         this.____index={};
         this.____queue=[];
         this.____options=options || {};
@@ -335,7 +336,7 @@
      * @public
      * @function
      */
-    _S.runScene = function(name,num,options){
+    _S.runScene=function(name,num,options){
       let y, _s = WIPScenes[name];
       if(!_s)
         throw `Error: unknown scene: ${name}`;

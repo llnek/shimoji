@@ -34,7 +34,17 @@
     const _S=Mojo.Sprites;
     const is=Core.is;
     const _=Core.u;
+    const P5=Math.PI*5;
     const _T={
+		  EXPO_IN(x){ return x===0 ? 0 : Math.pow(1024, x-1) },
+		  EXPO_OUT(x){ return x===1 ? 1 : 1-Math.pow(2, -10*x) },
+		  EXPO_INOUT(x){
+			  return x===0 ? 0
+                     : (x===1) ? 1
+                     : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
+                     : (0.5 * (2 -Math.pow(2, -10 * (x-1))))
+      },
+	    LINEAR(x){ return x },
       SMOOTH(x){ return 3*x*x - 2*x*x*x },
       SMOOTH_QUAD(x){let n= _T.SMOOTH(x); return n*n},
       SMOOTH_CUBIC(x){let n= _T.SMOOTH(x); return n*n*n},
@@ -65,6 +75,26 @@
                3*b*t*t*(1-t) +
                3*c*t*(1-t)*(1-t) +
                d*(1-t)*(1-t)*(1-t)
+      },
+		  ELASTIC_IN(x){
+        return x===0 ? 0
+                     : x===1 ? 1
+                     : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
+		  },
+		  ELASTIC_OUT(x){
+        return x===0 ? 0
+                     : x===1 ? 1
+                     : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5)
+		  },
+		  ELASTIC_INOUT(x){
+        switch(x){
+          case 0: return 0;
+          case 1: return 1;
+          default:
+            x *= 2;
+			      return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
+                       : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5);
+        }
       },
       BOUNCE_IN(x){ return 1 - _T.BOUNCE_OUT(1 - x) },
 		  BOUNCE_OUT(x){
