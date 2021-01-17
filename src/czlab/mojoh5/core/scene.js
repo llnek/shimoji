@@ -74,6 +74,8 @@
         return this.____index[id];
       }
       remove(c){
+        if(is.str(c))
+          c=this.getChildById(c);
         if(c && _.has(this.children,c)){
           this.removeChild(c);
           _.dissoc(this.____index,c.mojoh5.uuid);

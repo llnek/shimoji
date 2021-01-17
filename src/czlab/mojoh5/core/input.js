@@ -246,22 +246,27 @@
         mouseDown(e){
           //left click only
           if(e.button===0){
+            ptr._x = e.pageX - e.target.offsetLeft;
+            ptr._y = e.pageY - e.target.offsetTop;
             ptr.downTime = _.now();
             ptr.isDown = true;
             ptr.isUp = false;
             ptr.pressed=true;
             e.preventDefault();
+            Mojo.EventBus.pub(["mousedown"]);
           }
         },
         mouseMove(e){
-          let t = e.target;
-          ptr._x = e.pageX - t.offsetLeft;
-          ptr._y = e.pageY - t.offsetTop;
+          ptr._x = e.pageX - e.target.offsetLeft;
+          ptr._y = e.pageY - e.target.offsetTop;
           //e.preventDefault();
+          Mojo.EventBus.pub(["mousemove"]);
         },
         mouseUp(e){
           if(e.button===0){
             ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+            ptr._x = e.pageX - e.target.offsetLeft;
+            ptr._y = e.pageY - e.target.offsetTop;
             ptr.isUp = true;
             ptr.isDown = false;
             if(ptr.pressed){
@@ -269,6 +274,7 @@
               ptr.pressed=false;
             }
             e.preventDefault();
+            Mojo.EventBus.pub(["mouseup"]);
           }
         },
         _copyTouch(t,target){
@@ -294,6 +300,7 @@
           ptr.tapped = true;
           e.preventDefault();
           _.assoc(_activeTouches,tid,ptr._copyTouch(tt[0],t));
+          Mojo.EventBus.pub(["touchstart"]);
         },
         touchMove(e){
           let ct=e.changedTouches;
@@ -304,6 +311,7 @@
           ptr._x = tt[0].pageX - t.offsetLeft;
           ptr._y = tt[0].pageY - t.offsetTop;
           e.preventDefault();
+          Mojo.EventBus.pub(["touchmove"]);
         },
         touchEnd(e){
           let ct=e.changedTouches;
@@ -321,6 +329,7 @@
             ptr.tapped = false;
           }
           e.preventDefault();
+          Mojo.EventBus.pub(["touchend"]);
         },
         touchCancel(e){
           let ct=e.changedTouches;

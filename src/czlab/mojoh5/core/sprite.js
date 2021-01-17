@@ -720,6 +720,12 @@
         s.scale.y=f.height;
       })
     };
+    _S.uuid=function(s,id){
+      s.mojoh5.uuid=id;
+      return s;
+    };
+    _S.pset=function(s,p,v){ s.g[p]=v; return s; };
+    _S.pget=function(s,p){ return s.g[p] };
     /**
      * @public
      * @function
