@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -19,8 +19,7 @@
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }else{
     window=global;
@@ -34,25 +33,24 @@
    * @private
    * @var {array}
    */
-  const AUDIO_EXTS= ["mp3", "ogg", "wav", "webm"];
+  const AUDIO_EXTS= ["mp3", "ogg", "wav"];
   /**
    * @private
    * @function
    */
   function _module(Mojo){
+    const {u:_, is}=global["io/czlab/mcfud/core"]();
     const _A={ ctx: new window.AudioContext() };
-    const Core=global["io.czlab.mcfud.core"]();
-    const _=Core.u;
-    const is=Core.is;
     /**
      * @public
      * @function
      */
-    _A.makeSound=function(source){
-      return {
+    function _make(url){
+      return{
         soundNode: null,
         buffer: null,
-        source: source,
+        src: url,
+        name: name,
         loop: false,
         playing: false,
         panValue: 0,
@@ -111,8 +109,8 @@
         pause(){
           this._stop();
           if(this.playing){
-            this.startOffset += _A.ctx.currentTime - this.startTime;
             this.playing = false;
+            this.startOffset += _A.ctx.currentTime - this.startTime;
           }
         },
         playFrom(value){
@@ -173,23 +171,26 @@
      * @public
      * @function
      */
-    _A.decodeSound=function(sndObj, xhr, onLoad, onFail){
-      _A.ctx.decodeAudioData(xhr.response,
-                             b=> onLoad(sndObj.source, sndObj.buffer=b),
-                             e=> onFail && onFail(sndObj.source, e));
-      return sndObj
+    _A.decodeContent=function(url,blob, onLoad, onFail){
+      let snd= _make(url);
+      _A.ctx.decodeAudioData(blob, b=> onLoad(snd.buffer=b),
+                                   e=> { onFail && onFail(url,e) });
+      return snd;
     };
     /**
      * @public
      * @function
      */
-    _A.loadSound=function(sndObj, onLoad, onFail){
-      let xhr = new XMLHttpRequest();
-      xhr.open("GET", sndObj.source, true);
-      xhr.responseType = "arraybuffer";
-      xhr.addEventListener("load", () => this.decodeSound(sndObj, xhr, onLoad, onFail));
+    _A.decodeUrl=function(url, onLoad, onFail){
+      let xhr= new XMLHttpRequest();
+      let snd= _make(url);
+      xhr.open("GET", url, true);
+      xhr.responseType="arraybuffer";
+      xhr.addEventListener("load", ()=>{
+        _A.decodeContent(url, xhr.response, onLoad, onFail)
+      });
       xhr.send();
-      return sndObj
+      return snd;
     };
 
     return (Mojo.Sound= _A)
@@ -198,7 +199,7 @@
    * @public
    * @module
    */
-  global["io.czlab.mojoh5.Sound"]=function(Mojo){
+  global["io/czlab/mojoh5/Sound"]=function(Mojo){
     return Mojo.Sound ? Mojo.Sound : _module(Mojo)
   };
 

@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -18,8 +18,7 @@
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   /**
@@ -27,13 +26,10 @@
    * @function
    */
   function _module(Mojo, WIPShakers){
-    const Core=global["io.czlab.mcfud.core"]();
-    const Geo=global["io.czlab.mcfud.geo2d"]();
-    const _M=global["io.czlab.mcfud.math"]();
-    const _V=global["io.czlab.mcfud.vec2"]();
-    const _=Core.u;
-    const is=Core.is;
-    const dom=Core.dom;
+    const {u:_, is, dom} =global["io/czlab/mcfud/core"]();
+    const Geo=global["io/czlab/mcfud/geo2d"]();
+    const _M=global["io/czlab/mcfud/math"]();
+    const _V=global["io/czlab/mcfud/vec2"]();
     //------------------------------------------------------------------------
     //create aliases for various PIXI objects
     _.inject(Mojo, {PXMatrix:PIXI.Matrix.TEMP_MATRIX,
@@ -51,10 +47,10 @@
         _.assert(s.anchor.x>0.3 && s.anchor.x<0.7, "anchor not in center")
       },
       empty(s){ return s.children.length === 0 },
-      setXY(s,x,y){ s.x = x; s.y = y; return s },
+      setXY(s,x,y){ s.x=x; s.y=y; return s },
       setSize(s,x,y){
-        s.width = x;
-        s.height = y===undefined ? x : y;
+        s.width=x;
+        s.height= y===undefined ? x : y;
         return s
       },
       setScale(s, sx, sy){
@@ -65,46 +61,46 @@
         s.anchor && s.anchor.set(x,y);
         return s
       },
+      /*
       setPivot(s,x,y){
         s.pivot && s.pivot.set(x,y);
         return s
       },
-      halfSize(s){ return _V.V2(s.width/2,s.height/2) },
+      */
+      halfSize(s){ return _V.V2(s.width/2|0, s.height/2|0) },
       centerAnchor(s){ s.anchor.set(0.5,0.5); return s },
       anchorOffsetXY(s){
-        return s.anchor ? _V.V2(s.width*s.anchor.x,
-                                s.height*s.anchor.y) : _V.V2()
+        return s.anchor ? _V.V2(s.width*s.anchor.x|0,
+                                s.height*s.anchor.y|0) : _V.V2()
       },
       extend(s){
-        if(!s.mojoh5) s.mojoh5={};
+        if(!s.m5) s.m5={};
         if(!s.g) s.g={};
-        _.inject(s.mojoh5, {uuid: _.nextId(),
-                            _cur: {},
-                            _prv: {},
-                            static: false,
-                            layer: 0,
-                            mass: 1,
-                            invMass: 1,
-                            gravity: _V.V2(),
-                            friction: _V.V2(),
-                            vel: _V.V2(),
-                            acc: _V.V2(),
-                            collisions: [],
-                            angVel: 0,
-                            stage: false,
-                            dead: false,
-                            circular: false,
-                            interact: false, draggable: false });
-        s.mojoh5.csize=[s.width,s.height];
-        s.mojoh5.addMixin=function(n,o){
-          _.assert(!_.has(s,n),`Error: ${n} not available.`);
-          let b= s[n]= _.inject({},o);
-          b.added(s);
-        };
-        s.mojoh5.resize=function(px,py,pw,ph){_S.resize(s)};
-        s.mojoh5.getContactPoints=function(){
-          return _corners(_strAnchor(s.anchor),s.width,s.height)
-        };
+        _.inject(s.m5, {uuid: _.nextId(),
+                        static: false,
+                        _cur: {},
+                        _prv: {},
+                        layer: 0,
+                        mass: 1,
+                        invMass: 1,
+                        gravity: _V.V2(),
+                        friction: _V.V2(),
+                        vel: _V.V2(),
+                        acc: _V.V2(),
+                        angVel: 0,
+                        stage: false,
+                        dead: false,
+                        circular: false,
+                        interact: false,
+                        draggable: false,
+                        get csize() {return [s.width,s.height]},
+                        resize(px,py,pw,ph){_S.resize(s)},
+                        addMixin(n,o){
+                          _.assert(!_.has(s,n),`Error: ${n} not available.`);
+                          let b= s[n]= _.inject({},o);
+                          b.added(s);
+                        },
+                        getContactPoints(){ return _corners(_strAnchor(s.anchor),s.width,s.height) } });
         return s;
       }
     };
@@ -118,9 +114,9 @@
      * @function
      */
     function _corners(a,w,h){
+      let w2=w/2|0;
+      let h2=h/2|0;
       let v=_V.V2;
-      let w2=w/2;
-      let h2=h/2;
       let R=[];
       switch(a){
       case "0,0":
@@ -157,8 +153,7 @@
     }
     const _mixins= _.jsMap();
     class Mixin{
-      constructor(){
-      }
+      constructor(){}
     }
     /**
      * @public
@@ -182,7 +177,7 @@
      * @function
      */
     Mojo.addMixin=function(obj,...fs){
-      _.assert(obj.mojoh5,`Error: obj is not mojoh5-extended`);
+      _.assert(obj.m5,`Error: obj is not mojoh5-extended`);
       fs.forEach(n=>{
         let b= _mixins.get(n);
         _.assert(is.fun(b),`Error: Invalid mixin ${n}`);
@@ -195,7 +190,7 @@
      * @function
      */
     _S.toPolygon=function(s, global=true){
-      let C=s.mojoh5.getContactPoints()
+      let C=s.m5.getContactPoints()
       let cx=s.x;
       let cy=s.y;
       if(global){
@@ -215,7 +210,7 @@
     _S.toCircle=function(s, global=true){
       this.assertAnchorCenter(s);
       let c= this.centerXY(s,global);
-      let r=s.width/2;
+      let r=s.width/2|0;
       let p= new Geo.Circle(r).setPos(c[0],c[1]).setOrient(s.rotation);
       _V.dropV2(c);
       return p;
@@ -225,7 +220,7 @@
      * @function
      */
     _S.gposXY=function(s){
-      let p= s.getGlobalPosition();
+      const p= s.getGlobalPosition();
       return _V.V2(p.x,p.y)
     };
     /**
@@ -241,8 +236,8 @@
         x=g.x;
         y=g.y;
       }
-      let r= _V.V2(x-a[0] + (s.width/2),
-                   y-a[1] + (s.height/2));
+      let r= _V.V2(x-a[0] + (s.width/2|0),
+                   y-a[1] + (s.height/2|0));
       _V.dropV2(a);
       return r;
     };
@@ -259,77 +254,31 @@
      * @public
      * @function
      */
-    _S.layer=function(s,v){
-      if(v !== undefined){
-        s.mojoh5.layer = v;
-        //sort ascending
-        if(s.parent)
-          s.parent.children.sort((a, b) => a.mojoh5.layer - b.mojoh5.layer)
-      }
-      return s.mojoh5.layer
-    };
-    /**
-     * @public
-     * @function
-     */
-    _S.interact=function(s,v){
-      if(v !== undefined){
-        if(v){
-          s.mojoh5.interact = true;
-          if(!s.mojoh5.interact)
-            Mojo.Input.makeButton(s);
-        }else if(s.mojoh5.interact){
-          s.mojoh5.interact = false;
-          Mojo.Input.removeButton(s);
-        }
-      }
-      return s.mojoh5.interact
-    };
-    /**
-     * @public
-     * @function
-     */
-    _S.draggable=function(s,v){
-      if(v !== undefined){
-        if(v){
-          if(!s.mojoh5.draggable)
-            Mojo.makeDraggable(s);
-        }else{
-          Mojo.makeUndraggable(s);
-        }
-        s.mojoh5.draggable = v;
-      }
-      return s.mojoh5.draggable
-    };
-    /**
-     * @public
-     * @function
-     */
     _S.circular=function(s,v){
       if(v!==undefined){
-        s.mojoh5.circular=v
+        s.m5.circular=v
         if(v)
           s.anchor.set(0.5);
       }
-      return s.mojoh5.circular
+      return s.m5.circular
     };
     /**
      * @public
      * @function
      */
     _S.diameter=function(s){
-      return s.mojoh5.circular ? s.width : undefined
+      return s.m5.circular ? s.width : undefined
     };
     /**
      * @public
      * @function
      */
     _S.radius=function(s,r){
-      if(s.mojoh5.circular && r !== undefined){
+      if(s.m5.circular && r !== undefined){
         s.width=r*2;
         s.height=s.width;
       }
-      return s.mojoh5.circular ? s.width/2 : undefined;
+      return s.m5.circular ? s.width/2|0 : undefined;
     };
     /**
      * @private
@@ -342,11 +291,11 @@
       let cnt = 0;
       let tmID;
       function _reset(){
-        if(s.mojoh5.animating){
+        if(s.m5.animating){
           tmID = _.clear(tmID);
           start=end=total=0;
           cnt=0;
-          s.mojoh5.animating = false;
+          s.m5.animating = false;
         }
       }
       function _advanceFrame(){
@@ -356,20 +305,20 @@
           cnt += 1;
         }else if(s.loop){
           s.gotoAndStop(start);
-          cnt = 1;
+          cnt=1;
         }
       }
-      _.inject(s.mojoh5, {
+      _.inject(s.m5, {
         showFrame(f){
           _reset();
           s.gotoAndStop(f)
         },
         stopFrames(){
-          s.mojoh5.showFrame(s.currentFrame)
+          s.m5.showFrame(s.currentFrame)
         },
         playFrames(seq){
           _reset();
-          start= 0;
+          start=0;
           end= s.totalFrames-1;
           if(seq){
             start= seq[0];
@@ -378,9 +327,9 @@
           total= end- start;
           s.gotoAndStop(start);
           cnt=1;
-          if(!s.mojoh5.animating){
-            s.mojoh5.animating = true;
-            tmID = _.timer(_advanceFrame, 1000/(s.mojoh5.fps||12), true);
+          if(!s.m5.animating){
+            s.m5.animating = true;
+            tmID = _.timer(_advanceFrame, 1000/12, true);
           }
         }
       });
@@ -459,8 +408,8 @@
      */
     _S.move=function(s,dt){
       if(dt === undefined) dt=1;
-      s.x += s.mojoh5.vel[0] * dt;
-      s.y += s.mojoh5.vel[1] * dt;
+      s.x += s.m5.vel[0] * dt;
+      s.y += s.m5.vel[1] * dt;
       return s;
     };
     /**
@@ -539,7 +488,7 @@
       let r= {x1: this.leftSide(s,global),
               x2: this.rightSide(s,global),
               y1: this.topSide(s,global),
-              y2: this.bottomSide(s,global) };
+              y2: this.bottomSide(s,global)};
       _.assert(r.y1 <= r.y2);
       return r;
     };
@@ -557,7 +506,7 @@
      */
     _S.bboxCenter=function(b4){
       if(is.num(b4.x1))
-        return _.v2(b4.x1+(b4.x2-b4.x1)/2,b4.y1+(b4.y2-b4.y1)/2)
+        return _.v2((b4.x1+b4.x2)/2|0, (b4.y1+b4.y2)/2|0)
     };
     /**
      * @public
@@ -572,6 +521,42 @@
      */
     _S.pointInBBox=function(pt,box){
       return pt.x > box.x1 && pt.x < box.x2 && pt.y > box.y1 && pt.y < box.y2
+    };
+    _S.boundingBox=function(s,global=false){
+      let x1,x2,y1,y2;
+      let hw=s.width/2|0;
+      let hh=s.height/2|0;
+      let H=Math.sqrt(hw*hw+hh*hh);
+      let theta=Math.tanh(hh/hw);
+      let z,x=[],y=[];
+      //x2,y1
+      z=Math.PI*2-theta + s.rotation;
+      y.push(H*Math.sin(z));
+      x.push(H*Math.cos(z));
+      //x2,y2
+      z=theta+s.rotation;
+      y.push(H*Math.sin(z));
+      x.push(H*Math.cos(z));
+      //x1,y2
+      z=Math.PI-theta + s.rotation;
+      y.push(H*Math.sin(z));
+      x.push(H*Math.cos(z));
+      //x1,y1
+      z=Math.PI+theta+s.rotation;
+      y.push(H*Math.sin(z));
+      x.push(H*Math.cos(z));
+
+      let c=this.centerXY(s);
+      //find min & max on x and y axis
+      y.sort((a, b) => a - b);
+      x.sort((a, b) => a - b);
+      x1=(x[0]+c[0])|0;
+      x2=(x[3]+c[0])|0;
+      y1=(y[0]+c[1])|0;
+      y2=(y[3]+c[1])|0;
+
+      _V.dropV2(c);
+      return {x1,x2,y1,y2};
     };
     /**
      * @see https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
@@ -597,7 +582,7 @@
      */
     _S.hitTestPoint=function(point, s, global=false){
       let hit;
-      if(s.mojoh5.circular){
+      if(s.m5.circular){
         let c= this.centerXY(s,global);
         let d= _V.makeVAB(c,point);
         let r= this.radius(s);
@@ -650,7 +635,7 @@
      * @function
      */
     _S.update=function(dt){
-      _.rseq(WIPShakers, s => s.mojoh5.updateShake && s.mojoh5.updateShake(dt))
+      _.rseq(WIPShakers, s => s.m5.updateShake && s.m5.updateShake(dt))
     };
     /**
      * @public
@@ -721,7 +706,7 @@
       })
     };
     _S.uuid=function(s,id){
-      s.mojoh5.uuid=id;
+      s.m5.uuid=id;
       return s;
     };
     _S.pset=function(s,p,v){ s.g[p]=v; return s; };
@@ -752,7 +737,7 @@
     _S.tilingSprite=function(source, width, height, x=0, y=0){
       let t= this.mkTexture(source);
       let s = _sprite(source, width || t.width, height || t.height, true, x,y);
-      s.mojoh5.tiling={ x:0,y:0,sx:0,sy:0 };
+      s.m5.tiling={ x:0,y:0,sx:0,sy:0 };
       return s;
     };
     /**
@@ -860,13 +845,13 @@
       let msg=_S.extend(new C(content,spec));
       msg.x = x;
       msg.y = y;
-      msg.mojoh5.kontent=content;
-      msg.mojoh5.content=function(v){
+      msg.m5.kontent=content;
+      msg.m5.content=function(v){
         if(v !== undefined){
-          msg.mojoh5.kontent=v;
+          msg.m5.kontent=v;
           msg.text=v;
         }
-        return msg.mojoh5.kontent
+        return msg.m5.kontent
       };
       return msg
     };
@@ -913,21 +898,21 @@
       this.extend(s);
       s.x = x;
       s.y = y;
-      s.mojoh5.fillStyle=function(v){
+      s.m5.fillStyle=function(v){
         if(v !== undefined){
           gprops.fill= _S.color(v);
           s.texture = draw() && _S.generateTexture(g);
         }
         return gprops.fill;
       };
-      s.mojoh5.strokeStyle=function(v){
+      s.m5.strokeStyle=function(v){
         if(v !== undefined){
           gprops.stroke= _S.color(v);
           s.texture = draw() && _S.generateTexture(g);
         }
         return gprops.stroke;
       };
-      s.mojoh5.lineWidth=function(v){
+      s.m5.lineWidth=function(v){
         if(v !== undefined){
           gprops.lineW= v;
           s.texture = draw() && _S.generateTexture(g);
@@ -974,21 +959,21 @@
       this.circular(s,true);
       s.x = x;
       s.y = y;
-      s.mojoh5.fillStyle=function(v){
+      s.m5.fillStyle=function(v){
         if(v !== undefined){
           gprops.fill= _S.color(v);
           s.texture = draw() && _S.generateTexture(g);
         }
         return gprops.fill;
       };
-      s.mojoh5.strokeStyle=function(v){
+      s.m5.strokeStyle=function(v){
         if(v !== undefined){
           gprops.stroke= _S.color(v);
           s.texture = draw() && _S.generateTexture(g);
         }
         return gprops.stroke;
       };
-      s.mojoh5.radius=function(v){
+      s.m5.radius=function(v){
         if(v !== undefined){
           gprops.radius=v;
           s.texture = draw() && _S.generateTexture(g);
@@ -1020,7 +1005,7 @@
       };
       draw();
       let s=this.extend(g);
-      s.mojoh5.ptA=function(x,y){
+      s.m5.ptA=function(x,y){
         if(x !== undefined){
           gprops.A[0] = x;
           gprops.A[1] = y===undefined?x:y;
@@ -1028,7 +1013,7 @@
         }
         return gprops.A;
       };
-      s.mojoh5.ptB=function(x,y){
+      s.m5.ptB=function(x,y){
         if(x !== undefined){
           gprops.B[0] = x;
           gprops.B[1] = y===undefined?x:y;
@@ -1036,14 +1021,14 @@
         }
         return gprops.B;
       };
-      s.mojoh5.lineWidth=function(v){
+      s.m5.lineWidth=function(v){
         if(v !== undefined){
           gprops.lineW= v;
           draw();
         }
         return gprops.lineW;
       };
-      s.mojoh5.strokeStyle=function(v){
+      s.m5.strokeStyle=function(v){
         if(v !== undefined){
           gprops.stroke= _S.color(v);
           draw();
@@ -1057,7 +1042,7 @@
      * @function
      */
     _S.moving=function(s){
-      return !_.feq(s.mojoh5.vel[0],0.0) || !_.feq(s.mojoh5.vel[1], 0.0)
+      return !_.feq(s.m5.vel[0],0.0) || !_.feq(s.m5.vel[1], 0.0)
     };
     function _mkgrid(sx,sy,rows,cols,tileX,tileY){
       let out=[];
@@ -1181,8 +1166,8 @@
       container.addChild(b);
       b.x= g[0]-soff[0]+x;
       b.y= g[1]-soff[1]+y;
-      b.mojoh5.vel[0] = Math.cos(angle) * bulletSpeed;
-      b.mojoh5.vel[1] = Math.sin(angle) * bulletSpeed;
+      b.m5.vel[0] = Math.cos(angle) * bulletSpeed;
+      b.m5.vel[1] = Math.sin(angle) * bulletSpeed;
       _.conj(bulletArray, b);
       _V.dropV2(soff,g);
       return shooter;
@@ -1278,8 +1263,8 @@
         if(s){
           if(s.parent)
             s.parent.removeChild(s);
-          s.mojoh5.dispose &&
-            s.mojoh5.dispose();
+          s.m5.dispose &&
+            s.m5.dispose();
           Mojo.EventBus.pub(["post.remove",s]);
         }
       });
@@ -1350,115 +1335,90 @@
      * @function
      */
     _S.resize=function(s){
-      s && s.children.forEach(c=>c&&c.mojoh5&&c.mojoh5.resize&&c.mojoh5.resize(s.x,s.y,s.width,s.height));
+      s && s.children.forEach(c=>c&&c.m5&&c.m5.resize&&c.m5.resize(s.x,s.y,s.width,s.height));
     };
-    /**
-     * @private
-     * @function
-     */
-    function _nudge(s, value, axis){
-      let v= s.anchor ? s.anchor[axis] : null;
-      return v !== null ? (v < 0.3 ? value : value * ((1-v) - v)) : value
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //now pin stuff
+    function _pininfo(o){
+      let box=o.m5.stage ? _S.bbox4(0,0,Mojo.width,Mojo.height) : _S.getBBox(o);
+      return [box, (box.x2-box.x1)/2|0,//half width
+                   (box.y2-box.y1)/2|0,//half height
+                   (box.x1+box.x2)/2|0,//center x
+                   (box.y1+box.y2)/2|0]//centery
     }
-    function _compensate(a, b, p1, p2){
-      function comp(s, v, axe){
-        return s.anchor ? (s.anchor[axe] > 0 ? (v*s.anchor[axe]) : 0) : 0 }
-      return comp(a, a[p1], p2) + comp(b, b[p1], p2)
-    }
-    function _adjustForParent(a, b){
-      let bg= _S.gposXY(b.parent);
-      let ag= _S.gposXY(a);
-      if(bg[0] !== 0 || bg[1] !== 0){
-        b.x -= ag[0];
-        b.y -= ag[1];
-      }
-      _V.dropV2(bg,ag);
-    }
-    /**
-     * Pin b inside a's center.
-     *
+    /**Put b on top of C.
      * @public
      * @function
      */
-    _S.pinCenter=function(C, b, xOffset=0, yOffset=0){
-      let a= Mojo.adjustForStage(C);
-      let az= this.halfSize(a);
-      let bz= this.halfSize(b);
-      b.x = a.x + _nudge(a, az[0], "x") - _nudge(b, bz[0], "x") + xOffset;
-      b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
-      if(!C.mojoh5.stage)
-        _adjustForParent(a, b);
-      _V.dropV2(az,bz);
+    _S.pinTop=function(C,b,padY=10,alignX=0.5){
+      let [boxA,w2A,h2A,cxA,cyA] = _pininfo(C);
+      let [boxB,w2B,h2B,cxB,cyB] = _pininfo(b);
+      let y=boxA.y1-padY-(boxB.y2-boxB.y1);
+      let x= (alignX<0.3) ? boxA.x1 : (alignX<0.7 ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
+      //adjust for anchors [0,0.5,1]
+      b.y= (b.anchor.y<0.3) ? y : (b.anchor.y<0.7 ? y+h2B : y+(boxB.y2-boxB.y1));
+      b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
     };
     /**
-     * Position `b` to the left of `a`.
+     * Place `b` below `C`.
      * @public
      * @function
      */
-    _S.pinLeft=function(C,b, xOffset=0, yOffset=0){
-      let a= Mojo.adjustForStage(C);
-      let az= this.halfSize(a);
-      let bz= this.halfSize(b);
-      b.x = a.x - _nudge(b, b.width, "x") + xOffset - _compensate(a, b, "width", "x");
-      b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
-      if(!C.mojoh5.stage)
-        _adjustForParent(a, b);
-      _V.dropV2(az,bz);
+    _S.pinBottom=function(C,b,padY=10,alignX=0.5){
+      let [boxA,w2A,h2A,cxA,cyA] = _pininfo(C);
+      let [boxB,w2B,h2B,cxB,cyB] = _pininfo(b);
+      let y=boxA.y2+padY;
+      let x=(alignX<0.3) ? boxA.x1 : ((alignX<0.7) ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
+      //adjust for anchors [0,0.5,1]
+      b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+      b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
     };
-    /**
-     * Position `b` above `a`.
+    /**Place b at center of C.
      * @public
      * @function
      */
-    _S.pinTop=function(C, b, xOffset = 0, yOffset = 0){
-      let a = Mojo.adjustForStage(C);
-      let az= this.halfSize(a);
-      let bz= this.halfSize(b);
-      b.x = a.x + _nudge(a, az[0], "x") - _nudge(b, bz[0], "x") + xOffset;
-      b.y = a.y - _nudge(b, b.height, "y") + yOffset - _compensate(a, b, "height", "y");
-      if(!C.mojoh5.stage)
-        _adjustForParent(a, b);
-      _V.dropV2(az,bz);
+    _S.pinCenter=function(C,b){
+      let [boxA,w2A,h2A,cxA,cyA] = _pininfo(C);
+      let [boxB,w2B,h2B,cxB,cyB] = _pininfo(b);
+      let x=cxA-w2B;
+      let y=cyA-h2B;
+      //adjust for anchors [0,0.5,1]
+      b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+      b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
     };
-    /**
-     * Position `b` to the right of `a`.
-     *
-     * @function
+    /**Place b left of C.
      * @public
+     * @function
      */
-    _S.pinRight=function(C, b, xOffset = 0, yOffset = 0){
-      let a= Mojo.adjustForStage(C);
-      let az= this.halfSize(a);
-      let bz= this.halfSize(b);
-      b.x = a.x + _nudge(a, a.width, "x") + xOffset + _compensate(a, b, "width", "x");
-      b.y = a.y + _nudge(a, az[1], "y") - _nudge(b, bz[1], "y") + yOffset;
-      if(!C.mojoh5.stage)
-        _adjustForParent(a, b);
-      _V.dropV2(az,bz);
+    _S.pinLeft=function(C,b,padX=10,alignY=0.5){
+      let [boxA,w2A,h2A,cxA,cyA] = _pininfo(a);
+      let [boxB,w2B,h2B,cxB,cyB] = _pininfo(b);
+      let x= boxA.x1 - padX - (boxB.x2-boxB.x1);
+      let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
+      //adjust for anchors [0,0.5,1]
+      b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+      b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
     };
-    /**
-     * Position `b` below `a`.
-     *
+    /**Place b right of C.
      * @public
      * @function
      */
-    _S.pinBottom=function(C, b, xOffset=0, yOffset=0){
-      let a= Mojo.adjustForStage(C);
-      let az= this.halfSize(a);
-      let bz= this.halfSize(b);
-      b.x = a.x + _nudge(a, az[0], "x") - _nudge(b, bz[0], "x") + xOffset;
-      b.y = a.y + _nudge(a, a.height, "y") + yOffset + _compensate(a, b, "height", "y");
-      if(!C.mojoh5.stage)
-        _adjustForParent(a, b);
-      _V.dropV2(az,bz);
+    _S.pinRight=function(C,b,padX=10,alignY=0.5){
+      let [boxA,w2A,h2A,cxA,cyA] = _pininfo(a);
+      let [boxB,w2B,h2B,cxB,cyB] = _pininfo(b);
+      let x= boxA.x2 + padX;
+      let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
+      //adjust for anchors [0,0.5,1]
+      b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+      b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
     };
     /**
      * @public
      * @function
      */
     _S.setMass=function(s,m){
-      s.mojoh5.mass=m;
-      s.mojoh5.invMass= _.feq0(m) ? 0 : 1/m;
+      s.m5.mass=m;
+      s.m5.invMass= _.feq0(m) ? 0 : 1/m;
     };
     /**
      * Copied from pixi.legacy, why didn;t they want to keep this????
@@ -1499,7 +1459,7 @@
    * @public
    * @module
    */
-  global["io.czlab.mojoh5.Sprites"]=function(Mojo){
+  global["io/czlab/mojoh5/Sprites"]=function(Mojo){
     return Mojo.Sprites ? Mojo.Sprites :  _module(Mojo,[])
   };
 

@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -18,8 +18,7 @@
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   /**
@@ -27,11 +26,9 @@
    * @function
    */
   function _module(Mojo, WIPScenes){
-    const _I= global["io.czlab.mojoh5.Input"](Mojo);
-    const Core=global["io.czlab.mcfud.core"]();
+    const _I= global["io/czlab/mojoh5/Input"](Mojo);
+    const {u:_,is}=global["io/czlab/mcfud/core"]();
     const _S = {};
-    const _=Core.u;
-    const is=Core.is;
     /**
      * @private
      * @function
@@ -56,7 +53,7 @@
             func["____setup"]=s;
           _.inject(this, func);
         }
-        this.mojoh5={stage:true};
+        this.m5={stage:true};
         this.g={};
         this.____index={};
         this.____queue=[];
@@ -78,7 +75,7 @@
           c=this.getChildById(c);
         if(c && _.has(this.children,c)){
           this.removeChild(c);
-          _.dissoc(this.____index,c.mojoh5.uuid);
+          _.dissoc(this.____index,c.m5.uuid);
         }
       }
       insert(c,pos){
@@ -88,24 +85,24 @@
         }else{
           this.addChild(c);
         }
-        this.____index[c.mojoh5.uuid]=c;
+        this.____index[c.m5.uuid]=c;
         return c;
       }
       dispose(){
         function _clean(o){
           o.children.length && o.children.forEach(c=> _clean(c));
-          if(o && o.mojoh5.button){
+          if(o && o.m5.button){
             _I.removeButton(o);
           }
         }
-        this.mojoh5.dead=true;
+        this.m5.dead=true;
         _clean(this);
         this.removeChildren();
       }
       _iterStep(r,dt){
         _.doseq(r, c=>{
-          if(c.mojoh5 && c.mojoh5.step){
-            c.mojoh5.step(dt);
+          if(c.m5 && c.m5.step){
+            c.m5.step(dt);
             Mojo.EventBus.pub(["post.step",c],dt);
           }
           c.children.length && this._iterStep(c.children, dt)
@@ -113,14 +110,11 @@
       }
       _iterClean(r){
         _.doseq(r, c=>{
-          if(c.mojoh5 && c.mojoh5.collisions){
-            c.mojoh5.collisions.length=0
-          }
           c.children.length && this._iterClean(c.children);
         });
       }
       update(dt){
-        if(this.mojoh5.dead) {return;}
+        if(this.m5.dead) {return;}
         //handle queued stuff
         let f,futs= this.____queue.filter(q =>{
           q[1] -= 1;
@@ -188,7 +182,7 @@
       C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2;
       C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2;
 
-      C.mojoh5.resize=function(px,py,pw,ph){
+      C.m5.resize=function(px,py,pw,ph){
         let cx=C.x;
         let cy=C.y;
         C.removeChildren();
@@ -196,10 +190,10 @@
         options.group=C;
         items.forEach(c=>{
           c.x=c.y=0;
-          c.mojoh5&&c.mojoh5.resize&&c.mojoh5.resize();
+          c.m5&&c.m5.resize&&c.m5.resize();
         });
         let s=_S.layoutX(items,options);
-        if(s.parent.mojoh5 && s.parent.mojoh5.stage){
+        if(s.parent.m5 && s.parent.m5.stage){
           s.x= cx * Mojo.width/pw;
           s.y= cy * Mojo.height/ph;
         }else{
@@ -256,7 +250,7 @@
       C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2;
       C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2;
 
-      C.mojoh5.resize=function(px,py,pw,ph){
+      C.m5.resize=function(px,py,pw,ph){
         let cx=C.x;
         let cy=C.y;
         C.removeChildren();
@@ -264,10 +258,10 @@
         options.group=C;
         items.forEach(c=>{
           c.x=c.y=0;
-          c.mojoh5&&c.mojoh5.resize&&c.mojoh5.resize();
+          c.m5&&c.m5.resize&&c.m5.resize();
         });
         let s=_S.layoutY(items,options);
-        if(s.parent.mojoh5 && s.parent.mojoh5.stage){
+        if(s.parent.m5 && s.parent.m5.stage){
           s.x= cx * Mojo.width/pw;
           s.y= cy * Mojo.height/ph;
         }else{
@@ -372,7 +366,7 @@
    * @public
    * @module
    */
-  global["io.czlab.mojoh5.Scenes"]=function(Mojo){
+  global["io/czlab/mojoh5/Scenes"]=function(Mojo){
     return Mojo.Scenes ? Mojo.Scenes : _module(Mojo, {})
   };
 

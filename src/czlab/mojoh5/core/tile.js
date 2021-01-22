@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -27,12 +27,10 @@
    * @function
    */
   function _module(Mojo){
-    const _S=global["io.czlab.mojoh5.Sprites"](Mojo);
-    const Core=global["io.czlab.mcfud.core"]();
-    const _M=global["io.czlab.mcfud.math"]();
-    const _V=global["io.czlab.mcfud.vec2"]();
-    const is=Core.is;
-    const _=Core.u;
+    const _S=global["io/czlab/mojoh5/Sprites"](Mojo);
+    const {u:_, is}=global["io/czlab/mcfud/core"]();
+    const _M=global["io/czlab/mcfud/math"]();
+    const _V=global["io/czlab/mcfud/vec2"]();
     const _T= {};
     /** dummy empty array
      * @private
@@ -419,7 +417,7 @@
             s.scale.y=K;
             s.x= mapcol * s.width;
             s.y= maprow * s.height;
-            s.mojoh5.resize=function(px,py,pw,ph){
+            s.m5.resize=function(px,py,pw,ph){
               let K=W.tiled.getScaleFactor();
               s.scale.x=K;
               s.scale.y=K;
@@ -723,7 +721,7 @@
    * @public
    * @module
    */
-  global["io.czlab.mojoh5.Tiles"]=function(Mojo){
+  global["io/czlab/mojoh5/Tiles"]=function(Mojo){
     return Mojo.Tiles ? Mojo.Tiles : _module(Mojo)
   };
 

@@ -27,13 +27,11 @@
    * @function
    */
   function _module(Mojo, WIPTweens, WIPDust){
-    const Core=global["io.czlab.mcfud.core"]();
-    const _M=global["io.czlab.mcfud.math"]();
+    const {u:_, is}=global["io/czlab/mcfud/core"]();
+    const _M=global["io/czlab/mcfud/math"]();
     const TWO_PI= Math.PI*2;
     const PI_2= Math.PI/2;
     const _S=Mojo.Sprites;
-    const is=Core.is;
-    const _=Core.u;
     const P5=Math.PI*5;
     const _T={
 		  EXPO_IN(x){ return x===0 ? 0 : Math.pow(1024, x-1) },
@@ -451,7 +449,7 @@
       _.rseq(WIPTweens, t => t.step(dt))
       _.rseq(WIPDust, p => {
         if(p.particles.length>0)
-          _.rseq(p.particles, k => k.mojoh5.step())
+          _.rseq(p.particles, k => k.m5.step())
         else
           _.disj(WIPDust,p);
       });
@@ -494,25 +492,25 @@
         _S.setSize(p,size);
         _S.setXY(p,x,y);
         _S.centerAnchor(p);
-        p.mojoh5.scaleSpeed = _.randFloat(minScaleSpeed, maxScaleSpeed);
-        p.mojoh5.alphaSpeed = _.randFloat(minAlphaSpeed, maxAlphaSpeed);
-        p.mojoh5.angVel = _.randFloat(minRotationSpeed, maxRotationSpeed);
+        p.m5.scaleSpeed = _.randFloat(minScaleSpeed, maxScaleSpeed);
+        p.m5.alphaSpeed = _.randFloat(minAlphaSpeed, maxAlphaSpeed);
+        p.m5.angVel = _.randFloat(minRotationSpeed, maxRotationSpeed);
         let speed = _.randFloat(minSpeed, maxSpeed);
-        p.mojoh5.vel[0] = speed * Math.cos(angle);
-        p.mojoh5.vel[1] = speed * Math.sin(angle);
+        p.m5.vel[0] = speed * Math.cos(angle);
+        p.m5.vel[1] = speed * Math.sin(angle);
         //the worker
-        p.mojoh5.step=function(){
-          p.mojoh5.vel[1] += gravity[1];
-          p.x += p.mojoh5.vel[0];
-          p.y += p.mojoh5.vel[1];
-          if(p.scale.x - p.mojoh5.scaleSpeed > 0){
-            p.scale.x -= p.mojoh5.scaleSpeed;
+        p.m5.step=function(){
+          p.m5.vel[1] += gravity[1];
+          p.x += p.m5.vel[0];
+          p.y += p.m5.vel[1];
+          if(p.scale.x - p.m5.scaleSpeed > 0){
+            p.scale.x -= p.m5.scaleSpeed;
           }
-          if(p.scale.y - p.mojoh5.scaleSpeed > 0){
-            p.scale.y -= p.mojoh5.scaleSpeed;
+          if(p.scale.y - p.m5.scaleSpeed > 0){
+            p.scale.y -= p.m5.scaleSpeed;
           }
-          p.rotation += p.mojoh5.angVel;
-          p.alpha -= p.mojoh5.alphaSpeed;
+          p.rotation += p.m5.angVel;
+          p.alpha -= p.m5.alphaSpeed;
           if(p.alpha <= 0){
             _.disj(pBag,p);
             container.removeChild(p);
@@ -529,14 +527,14 @@
       return _.conj(WIPDust,o) && o;
     };
 
-    return (Mojo.Effects= _T)
+    return (Mojo.FX= _T)
   }
   /**
    * @public
    * @module
    */
-  global["io.czlab.mojoh5.Effects"]=function(Mojo){
-    return Mojo.Effects ? Mojo.Effects : _module(Mojo, [], [])
+  global["io/czlab/mojoh5/FX"]=function(Mojo){
+    return Mojo.FX ? Mojo.FX : _module(Mojo, [], [])
   };
 
 })(this);

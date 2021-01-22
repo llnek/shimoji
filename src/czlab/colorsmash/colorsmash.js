@@ -22,7 +22,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game scenes
   function scenes(Mojo){
-    const {Scenes,Sprites,Input,Game,Effects,u:_} = Mojo;
+    const {Scenes,Sprites,Input,Game,FX,u:_} = Mojo;
 
     Game.icons= IMAGEFILES;
     Game.tilesInX=6;
@@ -38,29 +38,29 @@
     //levels
     Scenes.defScene("level1",{
       _backdrop(){
-        let rE=_.tail(this.g.grid);
-        let r1=_.head(this.g.grid);
+        let rE=_.tail(Game.grid);
+        let r1=_.head(Game.grid);
         let n=r1.length;
         let f=r1[0];
         let e=rE[n-1];
         let s=Sprites.rectangle(e.x2-f.x1,
                                 e.y2-f.y1,
                                 0xc9d08e,0xc9d08e,0,f.x1,f.y1);
-        if(!this.g.bg){
-          this.g.bg=Sprites.container();
-          this.insert(this.g.bg);
+        let bg=this.getChildById("bg");
+        if(!bg){
+          bg=Sprites.container();
+          this.insert(Sprites.uuid(bg,"bg"));
         }
-        this.g.bg.removeChildren();
-        this.g.bg.addChild(s);
+        bg.removeChildren();
+        bg.addChild(s);
       },
       _randColor(){
         return _.randInt(Game.icons.length)
       },
       _createTile(pos,color){
-        let y= pos/Game.tilesInX | 0;
-        let x= pos%Game.tilesInX;
-        let g= this.g.grid[y][x];
-        let c= color || this._randColor();
+        let c= color===undefined? this._randColor() : color;
+        let [x,y]= Mojo.splitXY(pos,Game.tilesInX);
+        let g= Game.grid[y][x];
         let s=Sprites.sprite(Game.icons[c]);
         Sprites.centerAnchor(s);
         s.width=Game.tileW;
@@ -94,8 +94,7 @@
         for(let x,y,t,i=0;i<Game.tiles.length;++i){
           t=Game.tiles[i];
           if(Mojo.pointer.hitTestSprite(t)){
-            x= i%Game.tilesInX;
-            y= i/Game.tilesInX |0;
+            [x,y]=Mojo.splitXY(i,Game.tilesInX);
             _.delay(0,()=> this._onSelected(y,x))
             Game.busySignal=true;
             break;
@@ -123,7 +122,6 @@
         let c= t.iconColor;
         let garbo={};
         this._matchTiles(garbo,row,col,c);
-        //updateScore(loc);
         this._removeTiles(garbo);
       },
       _shiftTiles(garbo){
@@ -133,8 +131,7 @@
         // belonging to the same column that are above the current tile
         for(let pos,y,x,i=0;i<ts.length;++i){
           pos= +ts[i]; // cast str to int
-          x = pos%Game.tilesInX;
-          y = pos/Game.tilesInX | 0;
+          [x,y]=Mojo.splitXY(pos,Game.tilesInX);
           // iterate through each row above the current tile
           for(let g,s,cur,top,j= y;j>=0; --j){
             // each tile gets the data of the tile exactly above it
@@ -142,8 +139,8 @@
             cur= j*Game.tilesInX + x;
             s= Game.tiles[cur] = Game.tiles[top];
             if(s){
-              g=this.g.grid[j][x];
-              if(!shifts.some(o=>o.mojoh5.uuid===s.mojoh5.uuid)){
+              g=Game.grid[j][x];
+              if(!shifts.some(o=>o.m5.uuid===s.m5.uuid)){
                 shifts.push(s);
               }
               s.g.slideTo=[j,x];
@@ -152,20 +149,19 @@
           //null the very top slot
           Game.tiles[x] = null;
         }
-        this.g.shifts=shifts;
+        Game.shifts=shifts;
       },
       _dropTiles(){
-        let cnt=this.g.shifts.length;
+        let cnt=Game.shifts.length;
         let e,ex,ey,g;
-        this.g.shifts.forEach(s=>{
+        Game.shifts.forEach(s=>{
           let [row,col]=s.g.slideTo;
-          let g=this.g.grid[row][col];
+          let g=Game.grid[row][col];
           ex=(g.x1+g.x2)/2|0;
           ey=(g.y1+g.y2)/2|0;
-          e=Effects.slide(s, Effects.BOUNCE_OUT, ex, ey, 20);
+          e=FX.slide(s, FX.BOUNCE_OUT, ex, ey, 20);
           e.cb=()=>{
             Game.tiles[row*Game.tilesInX+col]=s;
-            delete s.g["slideTo"];
             if(--cnt===0)
               this._addNewTiles();
           };
@@ -174,7 +170,7 @@
           this._addNewTiles();
       },
       _addNewTiles(){
-        this.g.shifts.length=0;
+        Game.shifts.length=0;
         let empty=[];
         for(let i=0;i<Game.tiles.length;++i){
           if(!Game.tiles[i]) empty.push(i);
@@ -183,14 +179,12 @@
         empty.forEach(pos=>{
           let s= this._createTile(pos);
           Game.tiles[pos]=s;
-          let e= Effects.fadeIn(s,30);
+          let e= FX.fadeIn(s,30);
           e.cb=()=>{
             if(--cnt===0)
               Game.busySignal=false;
           };
         });
-        // the move has finally finished, do some cleanup
-        //cleanUpAfterMove();
       },
       _removeTiles(garbo){
         let cnt= _.size(garbo);
@@ -198,7 +192,7 @@
         _.doseq(garbo,(v,pos)=>{
           s=Game.tiles[pos];
           Game.tiles[pos]=null;
-          e=Effects.scale(s,0,0,15);
+          e=FX.scale(s,0,0,15);
           e.cb=()=> {
             Sprites.remove(s);
             if(--cnt===0)
@@ -208,7 +202,7 @@
         this._shiftTiles(garbo);
       },
       onCanvasResize(old){
-        let g= this.g.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
+        let g= Game.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
         let z=g[0][0];
         Game.tileW=z.x2-z.x1;
         Game.tileH=z.y2-z.y1;
@@ -224,19 +218,17 @@
           }
         this._bindPtr();
         this._backdrop();
-        Sprites.remove(this.g.gridBox);
-        this.g.gridBox= Sprites.drawGridBox(g,4,"white");
-        this.insert(this.g.gridBox);
+        this.remove("gbox");
+        this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
       },
       setup(){
-        let g= this.g.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
-        let b= Sprites.drawGridBox(g,4,"white");
+        let g= Game.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
         let z=g[0][0];
         Game.tileW=z.x2-z.x1;
         Game.tileH=z.y2-z.y1;
         this._backdrop();
         this._initLevel();
-        this.g.gridBox= this.insert(b);
+        this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
       }
     });
   }
@@ -246,7 +238,8 @@
   window.addEventListener("load", ()=>{
     MojoH5({
       arena: {width:480,height:800},
-      assetFiles: IMAGEFILES,
+      //assetFiles: IMAGEFILES,
+      assetFiles: ["bounce.wav"].concat(IMAGEFILES),
       scaleToWindow: "max",
       backgroundColor: 0,
       start(Mojo){

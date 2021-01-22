@@ -264,7 +264,7 @@ if ((typeof module) == 'object' && module.exports) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -274,8 +274,7 @@ if ((typeof module) == 'object' && module.exports) {
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }else if(global.document){
     window=global;
@@ -284,7 +283,7 @@ if ((typeof module) == 'object' && module.exports) {
    * @public
    * @function
    */
-  global["io.czlab.mcfud.core"]=function(){
+  global["io/czlab/mcfud/core"]=function(){
     if(_singleton){ return _singleton }
     let PRNG = new Math.seedrandom();
     const document=global.document;
@@ -1284,15 +1283,14 @@ if ((typeof module) == 'object' && module.exports) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
@@ -1300,11 +1298,9 @@ if ((typeof module) == 'object' && module.exports) {
    * @public
    * @function
    */
-  global["io.czlab.mcfud.math"]=function(){
+  global["io/czlab/mcfud/math"]=function(){
     if(_singleton) { return _singleton }
-    const Core= global["io.czlab.mcfud.core"]();
-    const _=Core.u;
-    const is=Core.is;
+    const {is,u:_}= global["io/czlab/mcfud/core"]();
     const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
     const DEG_2PI= 360;
@@ -1437,29 +1433,26 @@ if ((typeof module) == 'object' && module.exports) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   /**
    * @public
    * @function
    */
-  global["io.czlab.mcfud.vec2"]=function(UseOBJ){
+  global["io/czlab/mcfud/vec2"]=function(UseOBJ){
     class V2Obj{ constructor(){ this.x=0; this.y=0; } }
-    const Core= global["io.czlab.mcfud.core"]();
-    const _M= global["io.czlab.mcfud.math"]();
+    const {u:_, is}= global["io/czlab/mcfud/core"]();
+    const _M= global["io/czlab/mcfud/math"]();
     if(_M.Vec2){return _M.Vec2}
     const EPSILON= 0.0000000001;
-    const _=Core.u;
-    const is=Core.is;
     const _V={};
     function _cobj() { return new V2Obj() }
     function _carr() { return [0,0] }
@@ -1954,20 +1947,17 @@ if ((typeof module) == 'object' && module.exports) {
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   /**
    * @public
    * @function
    */
-  global["io.czlab.mcfud.matrix"]=function(){
-    const Core= global["io.czlab.mcfud.core"]();
-    const _M= global["io.czlab.mcfud.math"]();
+  global["io/czlab/mcfud/matrix"]=function(){
+    const {u:_, is}= global["io/czlab/mcfud/core"]();
+    const _M= global["io/czlab/mcfud/math"]();
     if(_M.Matrix){return _M.Matrix}
-    const _=Core.u;
-    const is=Core.is;
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;
@@ -2817,7 +2807,7 @@ if ((typeof module) == 'object' && module.exports) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2020, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   "use strict";
@@ -2825,8 +2815,7 @@ if ((typeof module) == 'object' && module.exports) {
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
@@ -2837,11 +2826,10 @@ if ((typeof module) == 'object' && module.exports) {
    * @public
    * @function
    */
-  global["io.czlab.mcfud.crypt"]=function(){
+  global["io/czlab/mcfud/crypt"]=function(){
     if(_singleton)
       return _singleton;
-    const Core=global["io.czlab.mcfud.core"]();
-    const _=Core.u;
+    const {u:_} =global["io/czlab/mcfud/core"]();
     const _C={};
     /**
      * Find the offset.
@@ -2944,7 +2932,7 @@ if ((typeof module) == 'object' && module.exports) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2020, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   "use strict";
@@ -2952,13 +2940,12 @@ if ((typeof module) == 'object' && module.exports) {
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
 
   let _singleton;
-  global["io.czlab.mcfud.fsm"]=function(){
+  global["io/czlab/mcfud/fsm"]=function(){
     if(_singleton)
       return _singleton;
     const _R={
@@ -3033,23 +3020,21 @@ if ((typeof module) == 'object' && module.exports) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
-  global["io.czlab.mcfud.gfx"]=function(){
+  global["io/czlab/mcfud/gfx"]=function(){
     if(_singleton){ return _singleton }
-    const Core=global["io.czlab.mcfud.core"]();
-    const _M=global["io.czlab.mcfud.math"]();
-    const _=Core.u;
+    const {u:_}=global["io/czlab/mcfud/core"]();
+    const _M=global["io/czlab/mcfud/math"]();
     const _G={};
     const TWO_PI=Math.PI*2;
     /**
@@ -3301,24 +3286,22 @@ if ((typeof module) == 'object' && module.exports) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
-;
-(function(global){
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+
+;(function(global){
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
-  global["io.czlab.mcfud.geo2d"]=function(){
+  global["io/czlab/mcfud/geo2d"]=function(){
     if(_singleton) { return _singleton }
-    const Core=global["io.czlab.mcfud.core"]();
-    const _M=global["io.czlab.mcfud.math"]();
-    const _V=global["io.czlab.mcfud.vec2"]();
-    const _=Core.u;
+    const {u:_}=global["io/czlab/mcfud/core"]();
+    const _M=global["io/czlab/mcfud/math"]();
+    const _V=global["io/czlab/mcfud/vec2"]();
     const _G={};
     const MaxPolyVertexCount=64;
     const LEFT_VORONOI= -1;
@@ -4121,7 +4104,7 @@ if ((typeof module) == 'object' && module.exports) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -4129,12 +4112,11 @@ if ((typeof module) == 'object' && module.exports) {
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
-  global["io.czlab.mcfud.qtree"]=function(){
+  global["io/czlab/mcfud/qtree"]=function(){
     if(_singleton){ return _singleton }
     class QuadTree{
       constructor(x1,y1,x2,y2,maxCount,maxDepth){
@@ -4256,7 +4238,7 @@ if ((typeof module) == 'object' && module.exports) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global) {
   "use strict";
@@ -4264,8 +4246,7 @@ if ((typeof module) == 'object' && module.exports) {
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
@@ -4273,10 +4254,9 @@ if ((typeof module) == 'object' && module.exports) {
    * @public
    * @function
    */
-  global["io.czlab.mcfud.negamax"]= function(){
+  global["io/czlab/mcfud/negamax"]= function(){
     if(_singleton){ return _singleton }
-    const Core=global["io.czlab.mcfud.core"]();
-    const _= Core.u;
+    const {u:_}=global["io/czlab/mcfud/core"]();
     const _N={};
     //const PINF = 1000000;
     /**
