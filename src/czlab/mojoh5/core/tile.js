@@ -12,25 +12,17 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
-    global=exports;
-  }
   /**
    * @private
    * @function
    */
   function _module(Mojo){
-    const _S=global["io/czlab/mojoh5/Sprites"](Mojo);
-    const {u:_, is}=global["io/czlab/mcfud/core"]();
-    const _M=global["io/czlab/mcfud/math"]();
-    const _V=global["io/czlab/mcfud/vec2"]();
+    const _S=gscope["io/czlab/mojoh5/Sprites"](Mojo);
+    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
+    const _V=gscope["io/czlab/mcfud/vec2"]();
     const _T= {};
     /** dummy empty array
      * @private
@@ -336,7 +328,7 @@
           throw `Error: ${json}-${tver} needs an update`;
         return _parseProps(tmap);
       }
-      let tmx = Mojo.resources(json,true).data;
+      let tmx = Mojo.resource(json,true).data;
       let W = _c(_ver(tmx));
       let gtileProps={};
       _.patch(W.tiled, {tileLayers: {tilelayer:[],imagelayer:[],objectgroup:[]},
@@ -715,15 +707,16 @@
                                        : ((v[0] <= 0) ? Mojo.LEFT : Mojo.RIGHT)
     };
 
-    return (Mojo.Tiles=_T)
+    return (Mojo.Tiles=_T);
   }
-  /**
-   * @public
-   * @module
-   */
-  global["io/czlab/mojoh5/Tiles"]=function(Mojo){
-    return Mojo.Tiles ? Mojo.Tiles : _module(Mojo)
-  };
+
+  if(typeof module==="object" && module.exports){
+    module.exports={msg:"not supported in node"}
+  }else{
+    gscope["io/czlab/mojoh5/Tiles"]=function(M){
+      return M.Tiles ? M.Tiles : _module(M)
+    }
+  }
 
 })(this);
 

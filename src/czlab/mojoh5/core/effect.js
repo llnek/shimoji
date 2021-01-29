@@ -10,28 +10,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
-    global=exports;
-  }
   /**
    * @private
    * @function
    */
   function _module(Mojo, WIPTweens, WIPDust){
-    const {u:_, is}=global["io/czlab/mcfud/core"]();
-    const _M=global["io/czlab/mcfud/math"]();
+    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
     const TWO_PI= Math.PI*2;
     const PI_2= Math.PI/2;
-    const _S=Mojo.Sprites;
+    const {Sprites}= Mojo;
     const P5=Math.PI*5;
     const _T={
 		  EXPO_IN(x){ return x===0 ? 0 : Math.pow(1024, x-1) },
@@ -113,7 +105,7 @@
     };
     /**
      * @public
-     * @function
+     * @class
      */
     class Tween{
       constructor(s,t){
@@ -123,27 +115,27 @@
       onEnd(){}
       onFrame(end,alpha){}
       _stop(){ this.on=false }
-      _initStart(frames){
+      _s(frames){
         _.assert(is.num(frames));
         this.step=function(){
           if(this.on){
-            if(this.fcur < frames){
-              let perc=this.fcur/frames;
+            if(this.curf<frames){
+              let perc=this.curf/frames;
               let alpha=this.easing(perc);
               this.onFrame(false,alpha);
-              this.fcur += 1;
+              this.curf += 1;
             }else{
               this.onFrame(true);
-              this._initEnd();
+              this._e();
               this.onEnd();
             }
           }
         };
         this.on = true;
-        this.fcur = 0;
+        this.curf = 0;
         _.conj(WIPTweens,this);
       }
-      _initEnd(){
+      _e(){
         _T.remove(this);
         if(this.cb) this.cb();
       }
@@ -151,287 +143,278 @@
     }
     /**
      * @public
-     * @function
+     * @class
      */
-    class CompositeTween{
+    class MultiTweens{
       constructor(...ts){
         this.cnt=0;
-        let CF= () => {
+        let CF= ()=>{
           if(++this.cnt === this.size()){
-            this.cnt = 0;
+            this.cnt=0;
             if(this.cb) this.cb();
           }
         };
-        this.children= ts.map(t => {
-          let x=t._initEnd
-          t._initEnd=function(){
+        this.children= ts.map(t=>{
+          let x=t._e;
+          t._e=function(){
             x.call(t);
             CF();
-          }
+          };
           return t;
         });
       }
       onComplete(cb){ this.cb=cb }
       size(){ return this.children.length }
       dispose(){
-        _.doseq(this.children, c => _T.remove(c))
+        this.children.forEach(c=> _T.remove(c))
+        this.children.length=0;
       }
-      _stop(){ _.doseq(this.children, c => c._stop()) }
+      _stop(){ this.children.forEach(c=> c._stop()) }
     }
     /**
      * @public
      * @function
      */
-    _T.tweenAlpha=function(sprite,type,endA,frames=60,yoyo=false,delay=0){
+    _T.tweenAlpha=function(sprite,type,endA,frames=60,loop=false){
       let t= _.inject(new Tween(sprite,type),{
         start(sa,ea){
-          this._initStart(frames);
-          this.sa= sa;
-          this.ea=ea;
+          this._s(frames);
+          this._a= [sa,ea];
           return this;
         },
         onFrame(end,alpha){
-          if(end){
-            this.sprite.alpha= this.ea;
-          }else{
-            this.sprite.alpha=_M.lerp(this.sa, this.ea, alpha);
-          }
+          this.sprite.alpha= end ? this._a[1]
+                                 : _M.lerp(this._a[0], this._a[1], alpha)
         },
         onEnd(){
-          if(yoyo)
-            _.delay(delay,() => this.start(this.ea,this.sa));
+          if(loop)
+            _.delay(0,()=> this.start(this._a[1],this._a[0]))
         }
       });
-      let ea,sa=sprite.alpha;
-      if(is.vec(endA)){sa=endA[0];ea=endA[1]}else ea=endA;
+      let sa=sprite.alpha;
+      let ea=endA;
+      if(is.vec(endA)){
+        sa=endA[0];ea=endA[1]}
       return t.start(sa,ea);
     };
     /**
      * @public
      * @function
      */
-    _T.tweenScale=function(sprite,type,endX,endY,frames=60,yoyo=false,delay=0){
+    _T.tweenScale=function(sprite,type,endX,endY,frames=60,loop=false){
       let t= _.inject(new Tween(sprite,type),{
         start(sx,ex,sy,ey){
-          this._initStart(frames);
-          this.sx= sx;
-          this.ex=ex;
-          this.sy=sy;
-          this.ey=ey;
+          this._s(frames);
+          this._x=[sx,ex];
+          this._y=[sy,ey];
           return this;
         },
         onFrame(end,dt){
-          if(is.num(this.ex,this.sx))
-            this.sprite.scale.x= end ? this.ex : _M.lerp(this.sx, this.ex, dt);
-          if(is.num(this.ey,this.sy))
-            this.sprite.scale.y= end ? this.ey : _M.lerp(this.sy, this.ey, dt);
+          if(is.num(this._x[1],this._x[0]))
+            this.sprite.scale.x= end ? this._x[1]
+                                     : _M.lerp(this._x[0], this._x[1], dt);
+          if(is.num(this._y[1],this._y[0]))
+            this.sprite.scale.y= end ? this._y[1]
+                                     : _M.lerp(this._y[0], this._y[1], dt);
         },
         onEnd(){
-          if(yoyo)
-            _.delay(delay,() => this.start(this.ex,this.sx,this.ey,this.sy));
+          if(loop)
+            _.delay(0,()=> this.start(this._x[1],this._x[0],this._y[1],this._y[0]))
         }
       });
-      let ex,sx=sprite.scale.x;
-      let ey,sy=sprite.scale.y;
-      if(is.vec(endX)){sx=endX[0];ex=endX[1]}else ex=endX;
-      if(is.vec(endY)){sy=endY[0];ey=endY[1]}else ey=endY;
+      let sx=sprite.scale.x;
+      let sy=sprite.scale.y;
+      let ex=endX;
+      let ey=endY;
+      if(is.vec(endX)){
+        sx=endX[0];ex=endX[1]}
+      if(is.vec(endY)){
+        sy=endY[0];ey=endY[1]}
       return t.start(sx,ex,sy,ey);
     };
     /**
      * @public
      * @function
      */
-    _T.tweenPosition=function(sprite,type,endX,endY,frames=60,yoyo=false,delay=0){
+    _T.tweenXY=function(sprite,type,endX,endY,frames=60,loop=false){
       let t= _.inject(new Tween(sprite,type), {
         start(sx,ex,sy,ey){
-          this._initStart(frames);
-          this.sx= sx;
-          this.ex=ex;
-          this.sy=sy;
-          this.ey=ey;
+          this._s(frames);
+          this._x=[sx,ex];
+          this._y=[sy,ey];
           return this;
         },
         onFrame(end,dt){
-          if(is.num(this.sx,this.ex))
-            this.sprite.x= end ? this.ex : _M.lerp(this.sx, this.ex, dt);
-          if(is.num(this.sy,this.ey))
-            this.sprite.y= end ? this.ey : _M.lerp(this.sy, this.ey, dt);
+          if(is.num(this._x[0],this._x[1]))
+            this.sprite.x= end ? this._x[1]
+                               : _M.lerp(this._x[0], this._x[1], dt);
+          if(is.num(this._y[0],this._y[1]))
+            this.sprite.y= end ? this._y[1]
+                               : _M.lerp(this._y[0], this._y[1], dt);
         },
         onEnd(){
-          if(yoyo)
-            _.delay(delay,() => this.start(this.ex,this.sx,this.ey,this.sy));
+          if(loop)
+            _.delay(0,()=> this.start(this.ex,this.sx,this.ey,this.sy));
         }
       });
-      let ex,sx=sprite.x;
-      let ey,sy=sprite.y;
-      if(is.vec(endX)){sx=endX[0]; ex=endX[1]} else ex=endX;
-      if(is.vec(endY)){sy=endY[0]; ey=endY[1]} else ey=endY;
+      let sx=sprite.x;
+      let sy=sprite.y;
+      let ex=endX;
+      let ey=endY;
+      if(is.vec(endX)){
+        sx=endX[0]; ex=endX[1]}
+      if(is.vec(endY)){
+        sy=endY[0]; ey=endY[1]}
       return t.start(sx,ex,sy,ey);
     };
     /**
      * @public
      * @function
      */
-    _T.fadeOut=function(sprite, frames = 60){
+    _T.fadeOut=function(sprite, frames=60){
       return this.tweenAlpha(sprite,_T.EASE_OUT_SINE,0,frames)
     };
     /**
      * @public
      * @function
      */
-    _T.fadeIn=function(sprite, frames = 60){
+    _T.fadeIn=function(sprite, frames=60){
       return this.tweenAlpha(sprite,_T.EASE_OUT_SINE,1,frames)
     };
     /**
      * Fades the sprite in and out at a steady rate.
      * @public
      * @function
-     * @param minAlpha greater than 0 if you
-     *                 don't want the sprite to fade away completely.
+     * @param min
      */
-    _T.pulse=function(sprite, minAlpha=0,frames = 60){
-      return this.tweenAlpha(sprite,_T.SMOOTH,minAlpha,frames)
+    _T.pulse=function(sprite, min=0,frames=60){
+      return this.tweenAlpha(sprite,_T.SMOOTH,min,frames)
     };
     /**
      * @public
      * @function
      */
-    _T.slide=function(sprite, type, endX, endY, frames = 60, yoyo = false, delay= 0){
-      return this.tweenPosition(sprite,type,endX,endY,frames,yoyo,delay)
+    _T.slide=function(sprite, type, endX, endY, frames=60, loop=false){
+      return this.tweenXY(sprite,type,endX,endY,frames,loop)
     };
     /**
      * @public
      * @function
      */
-    _T.breathe=function(sprite, endX = 0.8, endY = 0.8,
-                        frames = 60, yoyo = true, delay= 0){
-      return this.tweenScale(sprite, this.SMOOTH_QUAD,endX,endY,frames,yoyo,delay)
+    _T.breathe=function(sprite, endX=0.8, endY=0.8, frames=60, loop=true){
+      return this.tweenScale(sprite, this.SMOOTH_QUAD,endX,endY,frames,loop)
     };
     /**
      * @public
      * @function
      */
-    _T.scale=function(sprite, endX = 0.5, endY = 0.5, frames = 60){
+    _T.scale=function(sprite, endX=0.5, endY=0.5, frames=60){
       return this.tweenScale(sprite,this.SMOOTH,endX,endY,frames)
     };
     /**
      * @public
      * @function
      */
-    _T.strobe=function(sprite, scale= 1.3,
-                       startControl = 10, endControl = 20,
-                       frames = 10, yoyo = true, delay= 0){
+    _T.strobe=function(sprite, scale=1.3, start=10, end=20, frames=10, loop=true){
       return this.tweenScale(sprite,
-                             (v)=> _T.SPLINE(v,startControl,0,1,endControl),
-                             scale,scale,frames,yoyo,delay)
+                             (v)=> _T.SPLINE(v,start,0,1,end), scale,scale,frames,loop)
     };
     /**
      * @public
      * @function
      */
-    _T.wobble= function(sprite, scaleX = 1.2, scaleY = 1.2, frames = 10,
-                        xStartControl = 10, xEndControl = 10,
-                        yStartControl = -10, yEndControl = -10,
-                        friction = 0.98, yoyo = true, delay= 0){
-      let tx= this.tweenScale(sprite,(v)=>_T.SPLINE(v,xStartControl,0,1,xEndControl),
-                              scaleX, null, frames,yoyo,delay);
-      let ty= this.tweenScale(sprite,(v)=>_T.SPLINE(v,yStartControl,0,1,yEndControl),
-                              null,scaleY, frames,yoyo,delay);
+    _T.wobble=function(sprite, sx=1.2, sy=1.2, frames=10,
+                       friction=0.98,xStart=10, xEnd=10, yStart= -10, yEnd= -10, loop=true){
+      let tx=this.tweenScale(sprite,v=>_T.SPLINE(v,xStart,0,1,xEnd),
+                             sx, null, frames,loop);
+      let ty= this.tweenScale(sprite,v=>_T.SPLINE(v,yStart,0,1,yEnd),
+                              null,sy, frames,loop);
       let oldX=tx.onFrame;
       let oldY=ty.onFrame;
       tx.onFrame=function(end,dt){
-        if(end && this.ex > 1){
-          this.ex *= friction;
-          if(this.ex <= 1){ this.ex=1; }
+        if(end && this._x[1] > 1){
+          this._x[1] *= friction;
+          if(this._x[1] <= 1){ this._x[1]=1 }
         }
         oldX.call(tx,end,dt);
       };
       ty.onFrame=function(end,dt){
-        if(end && this.ey > 1){
-          this.ey *= friction;
-          if(this.ey <= 1){ this.ey=1; }
+        if(end && this._y[1] > 1){
+          this._y[1] *= friction;
+          if(this._y[1] <= 1){ this._y[1]=1 }
         }
         oldY.call(ty,end,dt);
       };
-      return new CompositeTween(tx,ty);
+      return new MutiTweens(tx,ty)
     };
     /**
      * @public
      * @function
      */
-    _T.followCurve=function(sprite, type, wayPoints, frames, yoyo = false, delay= 0){
+    _T.followCurve=function(sprite, type, points, frames, loop=false){
       let t= _.inject(new Tween(sprite,_T.SMOOTH), {
         start(points){
-          this._initStart(frames);
-          this.wayPoints = points;
+          this._s(frames);
+          this._p = points;
           return this;
         },
         onFrame(end,alpha){
-          let p = this.wayPoints;
+          let p = this._p;
           if(!end)
-            _S.setXY(sprite, _T.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
-                             _T.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]));
+            Sprites.setXY(sprite, _T.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
+                                  _T.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
         },
         onEnd(){
-          if(yoyo)
-            _.delay(delay,() => this.start(this.wayPoints.reverse()));
+          if(loop)
+            _.delay(0,()=> this.start(this._p.reverse()))
         }
       });
-      return t.start(wayPoints)
+      return t.start(points)
     };
     /** Make object walk in a path.
      * @public
      * @function
      */
-    _T.walkPath=function(sprite,
-                         type,
-                         wayPoints,
-                         totalFrames = 300,
-                         loop = false, yoyo = false, delay = 0){
+    _T.walkPath=function(sprite, type, points, frames=300, loop=false){
       function _calcPath(cur,frames){
-        let t= _T.tweenPosition(sprite,type,[wayPoints[cur][0], wayPoints[cur+1][0]],
-                                            [wayPoints[cur][1], wayPoints[cur+1][1]],frames);
+        let t= _T.tweenXY(sprite,type,[points[cur][0], points[cur+1][0]],
+                                      [points[cur][1], points[cur+1][1]],frames);
         t.onEnd=function(){
-          if(++cur < wayPoints.length-1){
-            _.delay(delay,() => _calcPath(cur,frames));
+          if(++cur < points.length-1){
+            _.delay(0,()=> _calcPath(cur,frames))
           }else if(loop){
-            if(yoyo) wayPoints.reverse();
-            _.delay(delay,() => {
-              _S.setXY(sprite, wayPoints[0][0], wayPoints[0][1]);
+            points.reverse();
+            _.delay(0,()=>{
+              Sprites.setXY(sprite, points[0][0], points[0][1]);
               _calcPath(0,frames);
             });
           }
         };
         return t;
       }
-      return _calcPath(0, totalFrames / wayPoints.length)
+      return _calcPath(0, frames/points.length|0)
     };
     /** Make object appear to walk in a curved path.
      * @public
      * @function
      */
-    _T.walkCurve=function(sprite,
-                          type,
-                          wayPoints,
-                          totalFrames = 300,
-                          loop = false, yoyo = false, delay= 0){
+    _T.walkCurve=function(sprite, type, points, frames=300, loop=false){
       function _calcPath(cur,frames){
-        let t=_T.followCurve(sprite, type, wayPoints[cur], frames);
+        let t=_T.followCurve(sprite, type, points[cur], frames);
         t.onEnd=function(){
-          if(++cur < wayPoints.length){
-            _.delay(delay,() => _calcPath(cur,frames));
+          if(++cur < points.length){
+            _.delay(0,()=> _calcPath(cur,frames));
           }else if(loop){
-            if(yoyo)
-              _.doseq(wayPoints.reverse(),c => c.reverse());
-            _.delay(delay,()=>{
-              _S.setXY(sprite, wayPoints[0][0], wayPoints[0][1]);
+            points.reverse().forEach(c=> c.reverse());
+            _.delay(0,()=>{
+              Sprites.setXY(sprite, points[0][0], points[0][1]);
               _calcPath(0,frames);
             });
           }
         };
         return t;
       }
-      return _calcPath(0, totalFrames / wayPoints.length)
+      return _calcPath(0, frames/points.length|0)
     };
     /**
      * @public
@@ -439,30 +422,27 @@
      */
     _T.remove=function(t){
       t._stop();
-      t instanceof CompositeTween ? t.dispose() : _.disj(WIPTweens,t)
+      t instanceof MultiTweens ? t.dispose() : _.disj(WIPTweens,t)
     };
     /**
      * @public
      * @function
      */
     _T.update=function(dt){
-      _.rseq(WIPTweens, t => t.step(dt))
-      _.rseq(WIPDust, p => {
-        if(p.particles.length>0)
-          _.rseq(p.particles, k => k.m5.step())
+      _.rseq(WIPTweens, t=> t.step(dt))
+      _.rseq(WIPDust, p=>{
+        if(p.bits.length>0)
+          _.rseq(p.bits, k=> k.m5.step())
         else
           _.disj(WIPDust,p);
       });
     };
-
     /**
      * @public
      * @class
      */
     class Particles{
-      constructor(ps){
-        this.particles=ps;
-      }
+      constructor(ps){ this.bits=ps }
     }
     /**
      * @public
@@ -472,30 +452,40 @@
                                 spriteCtor,
                                 container,
                                 gravity,
-                                random= true,
-                                particles = 20,
-                                minAngle = 0, maxAngle = 6.28,
-                                minSize = 4, maxSize = 16,
-                                minSpeed = 0.3, maxSpeed = 3,
-                                minScaleSpeed = 0.01, maxScaleSpeed = 0.05,
-                                minAlphaSpeed = 0.02, maxAlphaSpeed = 0.02,
-                                minRotationSpeed = 0.01, maxRotationSpeed = 0.03){
-      _.assert(particles>1);
-      let pBag = [];
+                                random=true,
+                                count= 20, mins, maxs){
+      mins= _.patch(mins, {
+        angle:0,
+        size:4,
+        speed:0.3,
+        scale:0.01,
+        alpha:0.02,
+        rotate:0.01
+      });
+      maxs=_.patch(maxs,{
+        angle:6.28,
+        size:16,
+        speed:3,
+        scale:0.05,
+        alpha:0.02,
+        rotate:0.03
+      });
+      _.assert(count>1);
+      let pBag=[];
       function _make(angle){
-        let size = _.randInt2(minSize, maxSize);
+        let size = _.randInt2(mins.size, maxs.size);
         let p= spriteCtor();
         _.conj(pBag,p);
         container.addChild(p);
         if(p.totalFrames>0)
           p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
-        _S.setSize(p,size);
-        _S.setXY(p,x,y);
-        _S.centerAnchor(p);
-        p.m5.scaleSpeed = _.randFloat(minScaleSpeed, maxScaleSpeed);
-        p.m5.alphaSpeed = _.randFloat(minAlphaSpeed, maxAlphaSpeed);
-        p.m5.angVel = _.randFloat(minRotationSpeed, maxRotationSpeed);
-        let speed = _.randFloat(minSpeed, maxSpeed);
+        Sprites.setSize(p, size);
+        Sprites.setXY(p,x,y);
+        Sprites.centerAnchor(p);
+        p.m5.scaleSpeed = _.randFloat(mins.scale, maxs.scale);
+        p.m5.alphaSpeed = _.randFloat(mins.alpha, maxs.alpha);
+        p.m5.angVel = _.randFloat(mins.rotate, maxs.rotate);
+        let speed = _.randFloat(mins.speed, maxs.speed);
         p.m5.vel[0] = speed * Math.cos(angle);
         p.m5.vel[1] = speed * Math.sin(angle);
         //the worker
@@ -513,29 +503,31 @@
           p.alpha -= p.m5.alphaSpeed;
           if(p.alpha <= 0){
             _.disj(pBag,p);
-            container.removeChild(p);
+            Sprites.remove(p);
           }
         };
       };
-      for(let gap = (maxAngle-minAngle)/(particles-1),
-          a=minAngle,i=0;
-          i<particles; ++i){
-        _make(random ? _.randFloat(minAngle, maxAngle) : a);
+      for(let gap= (maxs.angle-mins.angle)/(count-1),
+          a=mins.angle,i=0; i<count; ++i){
+        _make(random ? _.randFloat(mins.angle, maxs.angle) : a);
         a += gap;
       }
       let o=new Particles(pBag);
-      return _.conj(WIPDust,o) && o;
+      _.conj(WIPDust,o);
+      return o;
     };
 
-    return (Mojo.FX= _T)
+    return (Mojo.FX= _T);
   }
-  /**
-   * @public
-   * @module
-   */
-  global["io/czlab/mojoh5/FX"]=function(Mojo){
-    return Mojo.FX ? Mojo.FX : _module(Mojo, [], [])
-  };
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports={msg:"not supported in node"}
+  }else{
+    gscope["io/czlab/mojoh5/FX"]=function(M){
+      return M.FX ? M.FX : _module(M, [], [])
+    }
+  }
 
 })(this);
 

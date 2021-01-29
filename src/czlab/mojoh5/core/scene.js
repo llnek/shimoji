@@ -12,29 +12,21 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
   /**
    * @private
    * @function
    */
   function _module(Mojo, WIPScenes){
-    const _I= global["io/czlab/mojoh5/Input"](Mojo);
-    const {u:_,is}=global["io/czlab/mcfud/core"]();
+    const {u:_,is,EventBus}=Mojo;
     const _S = {};
     /**
      * @private
      * @function
      */
     function _sceneid(id){
-      return id.startsWith("scene::") ? id : "scene::"+id
+      return id.startsWith("scene::") ? id : `scene::${id}`
     }
     /**
      * @public
@@ -58,17 +50,15 @@
         this.____index={};
         this.____queue=[];
         this.____options=options || {};
-        //Mojo.EventBus.sub(["canvas.resize"],"onCanvasResize",this);
       }
       onCanvasResize(old){
-        Mojo["Sprites"].resize({x:0,y:0,width:old[0],height:old[1],children:this.children});
+        Mojo["Sprites"].resize({x:0,y:0,width:old[0],height:old[1],children:this.children})
       }
-      future(expr,delayFrames){
-        delayFrames = delayFrames || 60;
-        _.conj(this.____queue, [expr,delayFrames]);
+      future(expr,delay,frames=true){
+        frames ? _.conj(this.____queue, [expr,delay]) : _.delay(delay,expr)
       }
       getChildById(id){
-        return this.____index[id];
+        return id && this.____index[id];
       }
       remove(c){
         if(is.str(c))
@@ -80,43 +70,38 @@
       }
       insert(c,pos){
         if(pos !== undefined &&
-          pos >= 0 && pos < this.children.length){
+           pos >= 0 && pos < this.children.length){
           this.addChildAt(c,pos);
         }else{
           this.addChild(c);
         }
-        this.____index[c.m5.uuid]=c;
-        return c;
+        return (this.____index[c.m5.uuid]=c)
       }
       dispose(){
         function _clean(o){
-          o.children.length && o.children.forEach(c=> _clean(c));
-          if(o && o.m5.button){
-            _I.removeButton(o);
-          }
+          o.children.length>0 && o.children.forEach(c=> _clean(c));
+          o && o.m5.button && Mojo["Input"].undoButton(o);
         }
         this.m5.dead=true;
         _clean(this);
         this.removeChildren();
       }
       _iterStep(r,dt){
-        _.doseq(r, c=>{
+        r.forEach(c=>{
           if(c.m5 && c.m5.step){
             c.m5.step(dt);
-            Mojo.EventBus.pub(["post.step",c],dt);
+            EventBus.pub(["post.step",c],dt);
           }
-          c.children.length && this._iterStep(c.children, dt)
-        });
+          c.children.length>0 && this._iterStep(c.children, dt)
+        })
       }
       _iterClean(r){
-        _.doseq(r, c=>{
-          c.children.length && this._iterClean(c.children);
-        });
+        r.forEach(c=> c.children.length>0 && this._iterClean(c.children))
       }
       update(dt){
         if(this.m5.dead) {return;}
         //handle queued stuff
-        let f,futs= this.____queue.filter(q =>{
+        let f,futs= this.____queue.filter(q=>{
           q[1] -= 1;
           return (q[1]<=0);
         });
@@ -125,10 +110,10 @@
           f[0]();
           _.disj(this.____queue,f);
         }
-        Mojo.EventBus.pub(["pre.update",this],dt);
+        EventBus.pub(["pre.update",this],dt);
         this._iterStep(this.children, dt);
         this._iterClean(this.children);
-        Mojo.EventBus.pub(["post.update",this],dt);
+        EventBus.pub(["post.update",this],dt);
       }
       runOnce(){
         if(this.____setup){
@@ -136,140 +121,140 @@
           this.____setup=undefined;
         }
       }
-    };
+    }
     /**
      * @public
      * @function
      */
-    _S.layoutX=function(items,options={}){
-      let borderWidth=options.borderWidth || 4;
-      let border=options.border || 0xffffff;
-      let bg= options.color || 0x000000;
-      let padX= options.padding || 10;
-      let fit= options.fit || 20;
-      let fit2=fit*2;
-      let P=Mojo.Sprites;
-      let C=options.group || P.group();
+    _S.layoutX=function(items,options){
+      const {Sprites}=Mojo;
+      _.patch(options,{
+        color:0,
+        padding:10,
+        fit:20,
+        borderWidth:4,
+        border:0xffffff});
+      let C=options.group || Sprites.group();
       let K=Mojo.contentScaleFactor();
-
-      borderWidth *= K.width;
-      padX *= K.width;
-      fit *= K.width;
-
+      let borderWidth=options.borderWidth * K.width;
+      let pad=options.padding * K.width;
+      let fit= options.fit * K.width;
+      let fit2= 2*fit;
       for(let p,s,i=0;i<items.length;++i){
         s=items[i];
         if(!options.skipAdd) C.addChild(s);
         if(i>0)
-          P.pinRight(p,s,padX,0);
+          Sprites.pinRight(p,s,pad);
         p=s;
       }
-      let last=items[items.length-1];
+      let last=_.tail(items);
       let w= C.width;
       let h= C.height;
-      if(bg!=="transparent"){
-        let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
-        r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
+      if(options.bg!=="transparent"){
+        let r= Sprites.rectangle(w+fit2,h+fit2,
+                                 options.bg,
+                                 options.border, borderWidth);
+        r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
         C.addChildAt(r,0);
       }
+      //final width,height,center
       w= C.width;
       h= C.height;
-      let w2=w/2;
-      let h2=h/2;
-      items.forEach(s=> s.y=h2-s.height/2);
+      let w2=w/2|0;
+      let h2=h/2|0;
+      items.forEach(s=> s.y=h2-s.height/2|0);
       let wd= w-(last.x+last.width);
-      wd= wd/2;
+      wd= wd/2|0;
       items.forEach(s=> s.x += wd);
-      C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2;
-      C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2;
-
+      C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2|0;
+      C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2|0;
       C.m5.resize=function(px,py,pw,ph){
+        let cs=C.children.slice();
         let cx=C.x;
         let cy=C.y;
         C.removeChildren();
         C.x=C.y=0;
         options.group=C;
-        items.forEach(c=>{
+        cs.forEach(c=>{
           c.x=c.y=0;
           c.m5&&c.m5.resize&&c.m5.resize();
         });
-        let s=_S.layoutX(items,options);
+        let s=_S.layoutX(cs,options);
         if(s.parent.m5 && s.parent.m5.stage){
-          s.x= cx * Mojo.width/pw;
-          s.y= cy * Mojo.height/ph;
+          s.x= cx * Mojo.width/pw|0;
+          s.y= cy * Mojo.height/ph|0;
         }else{
-          s.x= cx * s.parent.width/pw;
-          s.y= cy * s.parent.height/ph;
+          s.x= cx * s.parent.width/pw|0;
+          s.y= cy * s.parent.height/ph|0;
         }
       };
-
       return C;
     };
     /**
      * @public
      * @function
      */
-    _S.layoutY=function(items,options={}){
-      let borderWidth=options.borderWidth || 4;
-      let border=options.border || 0xffffff;
-      let bg= options.color || 0x000000;
-      let padY= options.padding || 10;
-      let fit= options.fit || 20;
-      let fit2=fit*2;
-      let P=Mojo.Sprites;
-      let C=options.group || P.group();
+    _S.layoutY=function(items,options){
+      _.patch(options,{
+        color:0,
+        fit:20,
+        padding:10,
+        borderWidth:4,
+        border:0xffffff
+      });
+      const {Sprites}= Mojo;
+      let C=options.group || Sprites.group();
       let K=Mojo.contentScaleFactor();
-
-      borderWidth *= K.width;
-      padY *= K.width;
-      fit *= K.width;
-
+      let borderWidth= options.borderWidth * K.width;
+      let pad= options.padding * K.width;
+      let fit = options.fit * K.width;
+      let fit2=fit*2;
       for(let p,s,i=0;i<items.length;++i){
         s=items[i];
         if(!options.skipAdd) C.addChild(s);
         if(i>0)
-          P.pinBottom(p,s,0,padY);
+          P.pinBottom(p,s,pad);
         p=s;
       }
-
-      let last=items[items.length-1];
+      let last=_.tail(items);
       let w= C.width;
       let h= C.height;
-      if(bg!=="transparent"){
-        let r= P.rectangle(w+fit2,h+fit2,bg,border,borderWidth);
-        r.alpha= options.opacity === 0 ? 0 : (options.opacity || 0.5);
+      if(options.bg!=="transparent"){
+        let r= Sprites.rectangle(w+fit2, h+fit2,
+                                 options.bg, options.border, borderWidth);
+        r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
         C.addChildAt(r,0);
       }
       w= C.width;
       h= C.height;
-      let w2=w/2;
-      let h2=h/2;
-      items.forEach(s=> s.x=w2-s.width/2);
+      let w2=w/2|0;
+      let h2=h/2|0;
+      items.forEach(s=> s.x=w2-s.width/2|0);
       let hd= h-(last.y+last.height);
-      hd= hd/2;
+      hd= hd/2|0;
       items.forEach(s=> s.y += hd);
-      C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2;
-      C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2;
-
+      C.x= options.x !== undefined ? options.x : (Mojo.width-w)/2|0;
+      C.y= options.y !== undefined ? options.y : (Mojo.height-h)/2|0;
       C.m5.resize=function(px,py,pw,ph){
+        let cs=C.children.slice();
         let cx=C.x;
         let cy=C.y;
         C.removeChildren();
         C.x=C.y=0;
         options.group=C;
-        items.forEach(c=>{
+        cs.forEach(c=>{
           c.x=c.y=0;
           c.m5&&c.m5.resize&&c.m5.resize();
         });
-        let s=_S.layoutY(items,options);
+        let s=_S.layoutY(cs,options);
         if(s.parent.m5 && s.parent.m5.stage){
-          s.x= cx * Mojo.width/pw;
-          s.y= cy * Mojo.height/ph;
+          s.x= cx * Mojo.width/pw|0;
+          s.y= cy * Mojo.height/ph|0;
         }else{
-          s.x= cx * s.parent.width/pw;
-          s.y= cy * s.parent.height/ph;
+          s.x= cx * s.parent.width/pw|0;
+          s.y= cy * s.parent.height/ph|0;
         }
       };
-
       return C;
     };
     /**
@@ -295,17 +280,14 @@
       let c= Mojo.stage.getChildByName(_sceneid(cur));
       if(!c)
         throw `Error: no such scene: ${cur}`;
-      let pos= Mojo.stage.getChildIndex(c);
-      return this.runScene(name,pos,options);
+      return this.runScene(name, Mojo.stage.getChildIndex(c),options);
     }
     /**
      * @public
      * @function
      */
     _S.removeScene=function(...args){
-      if(args.length===1 && is.vec(args[0])){
-        args=args[0];
-      }
+      if(args.length===1 && is.vec(args[0])){ args=args[0] }
       args.forEach(a=>{
         if(is.str(a))
           _killScene(Mojo.stage.getChildByName(_sceneid(a)));
@@ -318,7 +300,7 @@
      * @function
      */
     _S.removeScenes=function(){
-      _.doseq(Mojo.stage.children,c => c.dispose && c.dispose());
+      Mojo.stageCS(c => c.dispose && c.dispose());
       Mojo.stage.removeChildren();
     };
     /**
@@ -362,13 +344,16 @@
     _S.Scene=Scene;
     return (Mojo.Scenes=_S)
   }
-  /**
-   * @public
-   * @module
-   */
-  global["io/czlab/mojoh5/Scenes"]=function(Mojo){
-    return Mojo.Scenes ? Mojo.Scenes : _module(Mojo, {})
-  };
+
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports={msg:"not supported in node"}
+  }else {
+    gscope["io/czlab/mojoh5/Scenes"]=function(M){
+      return M.Scenes ? M.Scenes : _module(M, {})
+    }
+  }
 
 })(this);
 

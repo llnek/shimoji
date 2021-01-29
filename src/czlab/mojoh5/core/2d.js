@@ -10,29 +10,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
-    global=exports;
-  }
   /**
    * @private
    * @function
    */
   function _module(Mojo){
-    const _S=global["io/czlab/mojoh5/Sprites"](Mojo);
-    const _Z=global["io/czlab/mojoh5/Scenes"](Mojo);
-    const {u:_, is}=global["io/czlab/mcfud/core"]();
-    const Geo=global["io/czlab/mcfud/geo2d"]();
-    const _M=global["io/czlab/mcfud/math"]();
-    const _V=global["io/czlab/mcfud/vec2"]();
+    const _S=gscope["io/czlab/mojoh5/Sprites"](Mojo);
+    const _Z=gscope["io/czlab/mojoh5/Scenes"](Mojo);
+    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
+    const _V=gscope["io/czlab/mcfud/vec2"]();
     const _D= {};
     /**
      * @private
@@ -262,7 +254,7 @@
      * @function
      * @public
      */
-    const _PT=_V.V2();
+    const _PT=_V.vec2();
     _D.hitTestPointXY=function(px,py,sprite,global=true){
       _PT[0]=px;
       _PT[1]=py;
@@ -600,15 +592,17 @@
       return camera;
     };
 
-    return (Mojo["2d"]= _D)
+    return (Mojo["2d"]= _D);
   }
-  /**
-   * @public
-   * @module
-   */
-  global["io/czlab/mojoh5/2d"]=function(Mojo){
-    return Mojo["2d"] ? Mojo["2d"] : _module(Mojo)
-  };
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports={msg: "not supported in node"}
+  }else{
+    gscope["io/czlab/mojoh5/2d"]=function(M){
+      return M["2d"] ? M["2d"] : _module(M)
+    }
+  }
 
 })(this);
 

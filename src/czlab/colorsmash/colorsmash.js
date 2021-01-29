@@ -238,8 +238,8 @@
   window.addEventListener("load", ()=>{
     MojoH5({
       arena: {width:480,height:800},
-      //assetFiles: IMAGEFILES,
-      assetFiles: ["bounce.wav"].concat(IMAGEFILES),
+      assetFiles: IMAGEFILES,
+      //assetFiles: ["bounce.wav"].concat(IMAGEFILES),
       scaleToWindow: "max",
       backgroundColor: 0,
       start(Mojo){

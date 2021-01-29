@@ -1,8 +1,8 @@
 ;(function(window){
   "use strict";
 
-  window["io.czlab.tictactoe.Sprites"]= function(Mojo){
-    const _N=window["io.czlab.mcfud.negamax"]();
+  window["io/czlab/tictactoe/Sprites"]= function(Mojo){
+    const _N=window["io/czlab/mcfud/negamax"]();
     const _E=Mojo.EventBus;
     const _S=Mojo.Sprites;
     const _Z=Mojo.Scenes;
@@ -16,13 +16,13 @@
       let w=s.width;
       let h=s.height;
       s.anchor.set(0.5);
-      s.mojoh5.resize=function(){
+      s.m5.resize=function(){
         s.scale.x=Mojo.width/w;
         s.scale.y=Mojo.height/h;
         s.x=Mojo.width/2;
         s.y=Mojo.height/2;
       };
-      s.mojoh5.resize();
+      s.m5.resize();
       return s;
     };
 
@@ -39,7 +39,7 @@
         _.delay(500,()=> o.makeMove())
       };
       o.makeMove=function(){
-        let cells= G.state.get("cells");
+        let cells= G.cells;
         let pos,rc;
         this.board.syncState(cells, this.pnum);
         pos= this.board.getFirstMove();
@@ -52,7 +52,7 @@
         if(rc===0)
           G.switchPlayer();
         else{
-          G.state.set("lastWin", rc===1 ? G.state.get("pcur") : 0);
+          G.lastWin= rc===1 ? G.pcur : 0;
           _Z.runScene("EndGame",5);
         }
       };
@@ -62,13 +62,13 @@
 
     G.Tile=function(x,y,tileX,tileY,props){
       let s= _S.sprite(_S.frames("icons.png",tileX,tileY));
-      let mo=s.mojoh5;
+      let mo=s.m5;
       const signal= [["ai.moved",s],"aiMoved",mo];
 
-      s.mojoh5.resize=function(){
-        let g= G.state.get("grid");
-        let b=_S.bboxCenter(g[s.mojoh5.gpos]);
-        let K=G.state.get("iconScale");
+      s.m5.resize=function(){
+        let g= G.grid;
+        let b=_S.bboxCenter(g[s.m5.gpos]);
+        let K=G.iconScale;
         s.scale.x=K[0];
         s.scale.y=K[1];
         s.x=b[0];
@@ -86,13 +86,13 @@
       mo.aiMoved=function(){
         mo.enabled=false;
         mo.marked=true;
-        mo.showFrame(G.getIcon(G.state.get("pcur")));
+        mo.showFrame(G.getIcon(G.pcur));
       };
       mo.press=function(){
-        let v=G.state.get("pcur");
-        let ai=G.state.get("ai");
-        let p1= G.state.get("pnum");
-        let cells= G.state.get("cells");
+        let v=G.pcur;
+        let ai=G.ai;
+        let p1= G.pnum;
+        let cells= G.cells;
         //if AI is thinking, back off
         if(ai && v===ai.pnum) { return; }
         //if cell already marked, go away
@@ -109,7 +109,7 @@
         if(rc===0)
           G.switchPlayer();
         else{
-          G.state.set("lastWin", rc===1 ? G.state.get("pcur") : 0);
+          G.lastWin= rc===1 ? G.pcur : 0;
           _Z.runScene("EndGame",5);
         }
       }

@@ -7,9 +7,9 @@
     const G= Mojo.Game;
     const _=Mojo.u;
 
-    window["io.czlab.tictactoe.Sprites"](Mojo);
-    window["io.czlab.tictactoe.AI"](Mojo);
-    window["io.czlab.tictactoe.Scenes"](Mojo);
+    window["io/czlab/tictactoe/Sprites"](Mojo);
+    window["io/czlab/tictactoe/AI"](Mojo);
+    window["io/czlab/tictactoe/Scenes"](Mojo);
 
     const Ext={
       getIcon(v){
@@ -26,26 +26,26 @@
         if(v===G.X) return "X";
       },
       switchPlayer(){
-        let c=G.state.get("pcur");
-        let ai= G.state.get("ai");
+        let c=G.pcur;
+        let ai= G.ai;
         if(c===G.X)
-          G.state.set("pcur", G.O);
+          G.pcur=G.O;
         if(c===G.O)
-          G.state.set("pcur", G.X);
+          G.pcur=G.X;
         if(ai && ai.pnum !== c)
           Mojo.EventBus.pub(["ai.move",ai]);
       },
       checkTie(){
-        let data= G.state.get("cells");
+        let data= G.cells;
         for(let i=0;i<data.length;++i)
           if(data[i]===0)
             return false;
         return true;
       },
       checkState(){
-        let goals= G.state.get("goals");
-        let d= G.state.get("cells");
-        let v= G.state.get("pcur");
+        let goals= G.goals;
+        let d= G.cells;
+        let v= G.pcur;
         let tied=true;
         for(let i=0;i<d.length;++i) if(d[i]===0) tied=false;
         if(tied)

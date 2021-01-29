@@ -12,164 +12,52 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
   /**
    * @private
    * @function
    */
-  function _module(Mojo,_activeTouches,_buttons,_draggables){
-    const Sprites=global["io/czlab/mojoh5/Sprites"](Mojo);
-    const {u:_, is}=global["io/czlab/mcfud/core"]();
-    const _V=global["io/czlab/mcfud/vec2"]();
+  function _module(Mojo,_activeTouches,_buttons,_drags){
+    const Sprites=gscope["io/czlab/mojoh5/Sprites"](Mojo);
+    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
+    const _V=gscope["io/czlab/mcfud/vec2"]();
     const _keyInputs= _.jsMap();
-    let _element=Mojo.canvas;
-    let _scale=Mojo.scale;
-    let _pointer=null;
-    const _I={
-      arrowControl(s, speed){
-        _.assert(is.num(speed), "arrowControl requires speed");
-        let left= this.keyboard(37);
-        let up= this.keyboard(38);
-        let down= this.keyboard(40);
-        let right= this.keyboard(39);
-        _.inject(left,{
-          press(){
-            s.m5.vel[0] = -speed;
-            s.m5.vel[1] = 0;
-          },
-          release(){
-            if(s.m5.vel[1] === 0)
-              if(!right.isDown) s.m5.vel[0] = 0;
-          }
-        });
-        _.inject(up,{
-          press(){
-            s.m5.vel[1] = -speed;
-            s.m5.vel[0] = 0;
-          },
-          release(){
-            if(s.m5.vel[0] === 0)
-              if(!down.isDown) s.m5.vel[1] = 0;
-          }
-        });
-        _.inject(right,{
-          press(){
-            s.m5.vel[0] = speed;
-            s.m5.vel[1] = 0;
-          },
-          release(){
-            if(s.m5.vel[1] === 0)
-              if(!left.isDown) s.m5.vel[0] = 0;
-          }
-        });
-        _.inject(down,{
-          press(){
-            s.m5.vel[1] = speed;
-            s.m5.vel[0] = 0;
-          },
-          release(){
-            if(s.m5.vel[0] === 0)
-              if(!up.isDown) s.m5.vel[1] = 0;
-          }
-        });
-      },
-      onResize(){
-        _pointer && _pointer.dispose();
-        Mojo.pointer= _I.pointer(Mojo.canvas, Mojo.scale);
-      },
-      resetInputs(){
-        _keyInputs.clear();
-      },
-      keyboard(keyCode){
-        //press: undefined, //release: undefined,
-        let key={
-          code: keyCode,
-          isDown: false,
-          isUp: true,
-          downHandler(e){
-            if(e.keyCode === key.code){
-              key.isUp && key.press && key.press();
-              key.isUp = !(key.isDown = true);
+    const {EventBus}=Mojo;
+    let _Ptr=null;
+    /**
+     * @private
+     * @function
+     */
+    function _updateDrags(){
+      if(_Ptr && _Ptr.isDown){
+        if(!_Ptr.dragged){
+          for(let s,i=_drags.length-1; i>=0; --i){
+            s=_drags[i];
+            if(s.m5.drag && _Ptr.hitTestSprite(s)){
+              let cs = s.parent.children;
+              let g=Sprites.gposXY(s);
+              _Ptr.dragOffsetX = _Ptr.x - g[0];
+              _Ptr.dragOffsetY = _Ptr.y - g[1];
+              _Ptr.dragged = s;
+              //pop it up to top
+              _.disj(cs,s);
+              _.conj(cs,s);
+              _.disj(_drags,s);
+              _.conj(_drags,s);
+              break;
             }
-            e.preventDefault();
-          },
-          upHandler(e){
-            if(e.keyCode === key.code){
-              key.isDown && key.release && key.release();
-              key.isDown = !(key.isUp = true);
-            }
-            e.preventDefault();
           }
-        };
-        _.addEvent([["keyup", window, key.upHandler, false],
-                    ["keydown", window, key.downHandler, false]]);
-        return key;
-      },
-      get scale() { return _scale },
-      set scale(v) { _scale=v; if(_pointer) _pointer.scale=v },
-      removeButton(b){
-        b.m5.enabled=false;
-        _.disj(_buttons,b);
-      },
-      makeButton(s){
-        s.m5.state = "up";
-        s.m5.action = "";
-        s.m5.pressed = false;
-        s.m5.hoverOver = false;
-        s.m5.button=true;
-        s.m5.enabled = true;
-        return _.conj(_buttons,s) && s;
-      },
-      button(source, x=0, y=0){
-        let s, s0=source[0];
-        if(is.str(s0)){
-          s= Mojo.tcached(s0) ? Mojo.animFromFrames(source)
-                               : Mojo.animFromImages(source);
-        }else if(_.inst(Mojo.PXTexture,s0)){
-          s= new Mojo.PXASprite(source)
+        }else{
+          _Ptr.dragged.x = _Ptr.x - _Ptr.dragOffsetX;
+          _Ptr.dragged.y = _Ptr.y - _Ptr.dragOffsetY;
         }
-        s.x = x;
-        s.y = y;
-        return this.makeButton(Sprites.extend(s))
-      },
-      update(dt){
-        if(_draggables.length > 0) this.updateDragAndDrop(_draggables);
-        //if(_buttons.length > 0) this.updateButtons(dt);
-      },
-      makeDraggable(...sprites){
-        if(sprites.length===1 && is.vec(sprites[0])){
-          sprites=sprites[0];
-        }
-        _.doseq(sprites,s=>{
-          _.conj(_draggables,s);
-          s.m5.draggable = true;
-        });
-      },
-      makeUndraggable(...sprites){
-        if(sprites.length===1 && is.vec(sprites[0])){
-          sprites=sprites[0];
-        }
-        _.doseq(sprites,s=>{
-          _.disj(_draggables,s);
-          s.m5.draggable = false;
-        });
-      },
-      keyUp(code){
-        return ! this.keyDown(code)
-      },
-      keyDown(code){
-        return _keyInputs.get(code)===true
       }
-    };
-    _.inject(_I, {
+      if(_Ptr && _Ptr.isUp){
+        _Ptr.dragged=null;
+      }
+    }
+    const _I= {
       keyLEFT: 37, keyRIGHT: 39, keyUP: 38, keyDOWN: 40,
       keyZERO: 48, keyONE: 49, keyTWO: 50,
       keyTHREE: 51, keyFOUR: 52, keyFIVE: 53,
@@ -182,16 +70,79 @@
       keyENTER: 13, keyESC: 27, keyBACKSPACE: 8, keyTAB: 9,
       keySHIFT: 16, keyCTRL: 17, keyALT: 18, keySPACE: 32,
       keyHOME: 36, keyEND: 35,
-      keyPGGUP: 33, keyPGDOWN: 34
-    });
+      keyPGGUP: 33, keyPGDOWN: 34,
+      resize(){
+        _Ptr && _Ptr.dispose();
+        Mojo.pointer= _I.pointer(Mojo.canvas, Mojo.scale);
+      },
+      reset(){
+        _keyInputs.clear();
+      },
+      keyboard(_key){
+        //press: undefined, //release: undefined,
+        const key={
+          isDown: false,
+          isUp: true,
+          code: _key,
+          _down(e){
+            e.preventDefault();
+            if(e.keyCode === key.code){
+              key.isUp &&
+                key.press && key.press();
+              key.isUp=false;
+              key.isDown=true;
+            }
+          },
+          _up(e){
+            e.preventDefault();
+            if(e.keyCode === key.code){
+              key.isDown &&
+                key.release && key.release();
+              key.isUp=true;
+              key.isDown=false;
+            }
+          }
+        };
+        _.addEvent([["keyup", window, key._up, false],
+                    ["keydown", window, key._down, false]]);
+        return key;
+      },
+      undoButton(b){
+        b.m5.enabled=false;
+        b.m5.button=false;
+        _.disj(_buttons,b);
+        return b;
+      },
+      makeButton(b){
+        b.m5.enabled = true;
+        b.m5.button=true;
+        _.conj(_buttons,b);
+        return b;
+      },
+      update(dt){
+        _drags.length>0 && _updateDrags()
+      },
+      makeDraggable(s){
+        _.conj(_drags,s);
+        s.m5.drag=true;
+      },
+      undoDraggable(s){
+        _.disj(_drags,s);
+        s.m5.drag=false;
+      },
+      keyUp(code){
+        return !this.keyDown(code)
+      },
+      keyDown(code){
+        return _keyInputs.get(code)===true
+      }
+    };
     /**
      * @public
      * @function
      */
-    _I.pointer=function(el, skale){
+    _I.pointer=function(){
       let ptr={
-        element: el || _element,
-        _scale: skale || _scale,
         tapped: false,
         isDown: false,
         isUp: true,
@@ -202,16 +153,14 @@
         height: 1,
         downTime: 0,
         elapsedTime: 0,
-        dragSprite: null,
+        dragged: null,
         dragOffsetX: 0,
         dragOffsetY: 0,
         anchor: Mojo.makeAnchor(0.5,0.5),
-        get cursor() { return this.element.style.cursor },
-        set cursor(v) { this.element.style.cursor = v },
-        get x() { return this._x / this.scale },
-        get y() { return this._y / this.scale },
-        get scale() { return this._scale },
-        set scale(v) { this._scale = v },
+        get cursor() { return Mojo.canvas.style.cursor },
+        set cursor(v) { Mojo.canvas.style.cursor = v },
+        get x() { return this._x / Mojo.scale },
+        get y() { return this._y / Mojo.scale },
         get visible() { return this._visible },
         set visible(v) {
           this.cursor = v ? "auto" : "none";
@@ -244,14 +193,14 @@
             ptr.isUp = false;
             ptr.pressed=true;
             e.preventDefault();
-            Mojo.EventBus.pub(["mousedown"]);
+            EventBus.pub(["mousedown"]);
           }
         },
         mouseMove(e){
           ptr._x = e.pageX - e.target.offsetLeft;
           ptr._y = e.pageY - e.target.offsetTop;
           //e.preventDefault();
-          Mojo.EventBus.pub(["mousemove"]);
+          EventBus.pub(["mousemove"]);
         },
         mouseUp(e){
           if(e.button===0){
@@ -265,7 +214,7 @@
               ptr.pressed=false;
             }
             e.preventDefault();
-            Mojo.EventBus.pub(["mouseup"]);
+            EventBus.pub(["mouseup"]);
           }
         },
         _copyTouch(t,target){
@@ -291,7 +240,7 @@
           ptr.tapped = true;
           e.preventDefault();
           _.assoc(_activeTouches,tid,ptr._copyTouch(tt[0],t));
-          Mojo.EventBus.pub(["touchstart"]);
+          EventBus.pub(["touchstart"]);
         },
         touchMove(e){
           let ct=e.changedTouches;
@@ -302,7 +251,7 @@
           ptr._x = tt[0].pageX - t.offsetLeft;
           ptr._y = tt[0].pageY - t.offsetTop;
           e.preventDefault();
-          Mojo.EventBus.pub(["touchmove"]);
+          EventBus.pub(["touchmove"]);
         },
         touchEnd(e){
           let ct=e.changedTouches;
@@ -320,7 +269,7 @@
             ptr.tapped = false;
           }
           e.preventDefault();
-          Mojo.EventBus.pub(["touchend"]);
+          EventBus.pub(["touchend"]);
         },
         touchCancel(e){
           let ct=e.changedTouches;
@@ -329,7 +278,6 @@
           let t0=tt[0];
           let touchId= touch.identifier || 0;
           let active = _.get(_activeTouches,touchId);
-          //EBus.pub("touchEnd", active.obj, active);
           e.preventDefault();
           if(active)
             _.dissoc(_activeTouches,touchId);
@@ -344,85 +292,28 @@
           return Mojo["2d"].hitTestPointXY(ptr.x,ptr.y,s,true)
         },
         dispose(){
-          _.delEvent([["mousemove", el, ptr.mouseMove],
-                      ["mousedown", el,ptr.mouseDown],
+          _.delEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
+                      ["mousedown", Mojo.canvas,ptr.mouseDown],
                       ["mouseup", window, ptr.mouseUp],
-                      ["touchmove", el, ptr.touchMove],
-                      ["touchstart", el, ptr.touchStart],
+                      ["touchmove", Mojo.canvas, ptr.touchMove],
+                      ["touchstart", Mojo.canvas, ptr.touchStart],
                       ["touchend", window, ptr.touchEnd],
                       ["touchcancel", window, ptr.touchCancel]]);
         }
       };
-      _.addEvent([["mousemove", el, ptr.mouseMove],
-                  ["mousedown", el,ptr.mouseDown],
+      _.addEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
+                  ["mousedown", Mojo.canvas,ptr.mouseDown],
                   ["mouseup", window, ptr.mouseUp],
-                  ["touchmove", el, ptr.touchMove],
-                  ["touchstart", el, ptr.touchStart],
+                  ["touchmove", Mojo.canvas, ptr.touchMove],
+                  ["touchstart", Mojo.canvas, ptr.touchStart],
                   ["touchend", window, ptr.touchEnd],
                   ["touchcancel", window, ptr.touchCancel]]);
       //disable the default actions on the canvas
-      el.style.touchAction = "none";
-      return _pointer=ptr;
+      Mojo.canvas.style.touchAction = "none";
+      return _Ptr=ptr;
     };
-    /**
-     * @public
-     * @function
-     */
-    _I.updateDragAndDrop=function(sprites){
-      if(_pointer){
-        let ptr=_pointer;
-        if(ptr.isDown){
-          if(!ptr.dragSprite){
-            for(let s,i=sprites.length-1; i>=0; --i){
-              s= sprites[i];
-              if(s.m5.draggable && ptr.hitTestSprite(s)){
-                let g= Sprites.gposXY(s);
-                ptr.dragOffsetX = ptr.x - g[0];
-                ptr.dragOffsetY = ptr.y - g[1];
-                ptr.dragSprite = s;
-                //push it to top of zindex
-                let cs = s.parent.children;
-                _.disj(cs,s);
-                _.conj(cs,s);
-                _.disj(sprites,s);
-                _.conj(sprites,s);
-                break;
-              }
-            }
-          }else{
-            ptr.dragSprite.x = ptr.x - ptr.dragOffsetX;
-            ptr.dragSprite.y = ptr.y - ptr.dragOffsetY;
-          }
-        }
-        if(ptr.isUp)
-          ptr.dragSprite = null;
-        sprites.some(s=>{
-          if(s.m5.draggable && ptr.hitTestSprite(s)){
-            if(ptr.visible) ptr.cursor = "pointer";
-            return true;
-          }else{
-            if(ptr.visible) ptr.cursor = "auto";
-            return false;
-          }
-        });
-      }
-    };
-    /**
-     * @public
-     * @function
-     */
-    _I.updateButtons=function(){
-      if(_pointer){
-        ptr.shouldBeHand = false;
-        ptr.cursor = ptr.shouldBeHand ? "pointer" : "auto"
-      }
-    };
-    /**
-     * @public
-     * @function
-     */
 
-    Mojo.EventBus.sub(["canvas.resize"], "onResize",_I);
+    EventBus.sub(["canvas.resize"], "resize",_I);
 
     function _uh(e){
       e.preventDefault();
@@ -434,15 +325,18 @@
     }
     _.addEvent([["keyup", window, _uh, false],
                 ["keydown", window, _dh, false]]);
-    return (Mojo.Input= _I)
+
+    return (Mojo.Input= _I);
   }
-  /**
-   * @public
-   * @module
-   */
-  global["io/czlab/mojoh5/Input"]=function(Mojo){
-    return Mojo.Input ? Mojo.Input : _module(Mojo,new Map(),[],[])
-  };
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports={msg:"not supported in node"}
+  }else {
+    gscope["io/czlab/mojoh5/Input"]=function(M){
+      return M.Input ? M.Input : _module(M,new Map(),[],[])
+    }
+  }
 
 })(this);
 

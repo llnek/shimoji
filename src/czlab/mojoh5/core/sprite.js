@@ -12,24 +12,17 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
   /**
    * @private
    * @function
    */
   function _module(Mojo, WIPShakers){
-    const {u:_, is, dom} =global["io/czlab/mcfud/core"]();
-    const Geo=global["io/czlab/mcfud/geo2d"]();
-    const _M=global["io/czlab/mcfud/math"]();
-    const _V=global["io/czlab/mcfud/vec2"]();
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
+    const _V=gscope["io/czlab/mcfud/vec2"]();
+    const {u:_, is, dom} =Mojo;
     //------------------------------------------------------------------------
     //create aliases for various PIXI objects
     _.inject(Mojo, {PXMatrix:PIXI.Matrix.TEMP_MATRIX,
@@ -61,17 +54,12 @@
         s.anchor && s.anchor.set(x,y);
         return s
       },
-      /*
-      setPivot(s,x,y){
-        s.pivot && s.pivot.set(x,y);
-        return s
-      },
-      */
-      halfSize(s){ return _V.V2(s.width/2|0, s.height/2|0) },
+      halfSize(s){ return _V.vec2(s.width/2|0, s.height/2|0) },
       centerAnchor(s){ s.anchor.set(0.5,0.5); return s },
       anchorOffsetXY(s){
-        return s.anchor ? _V.V2(s.width*s.anchor.x|0,
-                                s.height*s.anchor.y|0) : _V.V2()
+        //offset from top-left
+        return s.anchor ? _V.vec2(s.width*s.anchor.x|0,
+                                s.height*s.anchor.y|0) : _V.vec2()
       },
       extend(s){
         if(!s.m5) s.m5={};
@@ -80,13 +68,12 @@
                         static: false,
                         _cur: {},
                         _prv: {},
-                        layer: 0,
                         mass: 1,
                         invMass: 1,
-                        gravity: _V.V2(),
-                        friction: _V.V2(),
-                        vel: _V.V2(),
-                        acc: _V.V2(),
+                        gravity: _V.vec2(),
+                        friction: _V.vec2(),
+                        vel: _V.vec2(),
+                        acc: _V.vec2(),
                         angVel: 0,
                         stage: false,
                         dead: false,
@@ -116,7 +103,7 @@
     function _corners(a,w,h){
       let w2=w/2|0;
       let h2=h/2|0;
-      let v=_V.V2;
+      let v=_V.vec2;
       let R=[];
       switch(a){
       case "0,0":
@@ -221,7 +208,7 @@
      */
     _S.gposXY=function(s){
       const p= s.getGlobalPosition();
-      return _V.V2(p.x,p.y)
+      return _V.vec2(p.x,p.y)
     };
     /**
      * @public
@@ -236,7 +223,7 @@
         x=g.x;
         y=g.y;
       }
-      let r= _V.V2(x-a[0] + (s.width/2|0),
+      let r= _V.vec2(x-a[0] + (s.width/2|0),
                    y-a[1] + (s.height/2|0));
       _V.dropV2(a);
       return r;
@@ -399,7 +386,7 @@
      * @function
      */
     _S.rotateAroundPoint=function(point, distX, distY, angle){
-      return _V.V2(point[0] + Math.cos(angle) * distX,
+      return _V.vec2(point[0] + Math.cos(angle) * distX,
                    point[1] + Math.sin(angle) * distY)
     };
     /**
@@ -607,7 +594,7 @@
       let v= _V.makeVecAB(s1c,s2c)
       let dist= _V.vecLen(v);
       let u = _V.vecDiv(v,dist);
-      let pt= _V.V2();
+      let pt= _V.vec2();
       let bad=false;
       for(let mag,z= dist/segment,i=1; i<=z && !bad; ++i){
         mag = segment*i;
@@ -775,7 +762,7 @@
           x += spacing + (spacing * i % cols);
           y += spacing + (spacing * _.floor(i/cols));
         }
-        _.conj(pos, _V.V2(x,y));
+        _.conj(pos, _V.vec2(x,y));
       }
       let ret= _frames(texture, tileW, tileH,pos);
       _V.dropV2(...pos);
@@ -988,14 +975,14 @@
      * @function
      */
     _S.line=function(strokeStyle, lineWidth, A,B){
-      //A=A || _V.V2(0,0);
-      //B=B || _V.V2(32,32);
+      //A=A || _V.vec2(0,0);
+      //B=B || _V.vec2(32,32);
       let g = new Mojo.PXGraphics();
       let gprops={
         stroke: _S.color(strokeStyle),
         lineW: lineWidth,
-        A: _V.V2(A[0],A[1]),
-        B: _V.V2(B[0],B[1])
+        A: _V.vec2(A[0],A[1]),
+        B: _V.vec2(B[0],B[1])
       };
       let draw=function(){
         g.clear();
@@ -1453,15 +1440,16 @@
       let d=_V.vecLen(v);
     };
 
-    return (Mojo.Sprites= _S)
+    return (Mojo.Sprites= _S);
   }
-  /**
-   * @public
-   * @module
-   */
-  global["io/czlab/mojoh5/Sprites"]=function(Mojo){
-    return Mojo.Sprites ? Mojo.Sprites :  _module(Mojo,[])
-  };
+
+  if(typeof module === "object" && module.exports){
+    module.exports={msg:"not supported in node"}
+  }else{
+    gscope["io/czlab/mojoh5/Sprites"]=function(M){
+      return M.Sprites ? M.Sprites : _module(M,[])
+    }
+  }
 
 })(this);
 

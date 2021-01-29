@@ -1,8 +1,8 @@
 ;(function(window){
   "use strict";
 
-  window["io.czlab.tictactoe.AI"]=function(Mojo){
-    const Nega= window["io.czlab.mcfud.negamax"]();
+  window["io/czlab/tictactoe/AI"]=function(Mojo){
+    const Nega= window["io/czlab/mcfud/negamax"]();
     const _ = Mojo.u;
     const G= Mojo.Game;
 
@@ -11,6 +11,7 @@
         super();
         this.actors= [0, p1v, p2v];
         this.grid=[];
+        this.depth=6;
         this.goals= G.mapGoalSpace();
       }
       isNil(cellv){
@@ -55,6 +56,7 @@
       }
       takeFFrame(){
         let ff = new Nega.FFrame(G.DIM);
+        ff.state=_.fill(new Array(G.DIM*G.DIM),0);
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
         _.copy(ff.state,this.grid);

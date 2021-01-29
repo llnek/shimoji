@@ -1,257 +1,4 @@
-/*
-Copyright 2019 David Bau.
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-*/
-
-(function (global, pool, math) {
-//
-// The following constants are related to IEEE 754 limits.
-//
-
-var width = 256,        // each RC4 output is 0 <= x < 256
-    chunks = 6,         // at least six RC4 outputs for each double
-    digits = 52,        // there are 52 significant digits in a double
-    rngname = 'random', // rngname: name for Math.random and Math.seedrandom
-    startdenom = math.pow(width, chunks),
-    significance = math.pow(2, digits),
-    overflow = significance * 2,
-    mask = width - 1,
-    nodecrypto;         // node.js crypto module, initialized at the bottom.
-
-//
-// seedrandom()
-// This is the seedrandom function described above.
-//
-function seedrandom(seed, options, callback) {
-  var key = [];
-  options = (options == true) ? { entropy: true } : (options || {});
-
-  // Flatten the seed string or build one from local entropy if needed.
-  var shortseed = mixkey(flatten(
-    options.entropy ? [seed, tostring(pool)] :
-    (seed == null) ? autoseed() : seed, 3), key);
-
-  // Use the seed to initialize an ARC4 generator.
-  var arc4 = new ARC4(key);
-
-  // This function returns a random double in [0, 1) that contains
-  // randomness in every bit of the mantissa of the IEEE 754 value.
-  var prng = function() {
-    var n = arc4.g(chunks),             // Start with a numerator n < 2 ^ 48
-        d = startdenom,                 //   and denominator d = 2 ^ 48.
-        x = 0;                          //   and no 'extra last byte'.
-    while (n < significance) {          // Fill up all significant digits by
-      n = (n + x) * width;              //   shifting numerator and
-      d *= width;                       //   denominator and generating a
-      x = arc4.g(1);                    //   new least-significant-byte.
-    }
-    while (n >= overflow) {             // To avoid rounding up, before adding
-      n /= 2;                           //   last byte, shift everything
-      d /= 2;                           //   right using integer math until
-      x >>>= 1;                         //   we have exactly the desired bits.
-    }
-    return (n + x) / d;                 // Form the number within [0, 1).
-  };
-
-  prng.int32 = function() { return arc4.g(4) | 0; }
-  prng.quick = function() { return arc4.g(4) / 0x100000000; }
-  prng.double = prng;
-
-  // Mix the randomness into accumulated entropy.
-  mixkey(tostring(arc4.S), pool);
-
-  // Calling convention: what to return as a function of prng, seed, is_math.
-  return (options.pass || callback ||
-      function(prng, seed, is_math_call, state) {
-        if (state) {
-          // Load the arc4 state from the given state if it has an S array.
-          if (state.S) { copy(state, arc4); }
-          // Only provide the .state method if requested via options.state.
-          prng.state = function() { return copy(arc4, {}); }
-        }
-
-        // If called as a method of Math (Math.seedrandom()), mutate
-        // Math.random because that is how seedrandom.js has worked since v1.0.
-        if (is_math_call) { math[rngname] = prng; return seed; }
-
-        // Otherwise, it is a newer calling convention, so return the
-        // prng directly.
-        else return prng;
-      })(
-  prng,
-  shortseed,
-  'global' in options ? options.global : (this == math),
-  options.state);
-}
-
-//
-// ARC4
-//
-// An ARC4 implementation.  The constructor takes a key in the form of
-// an array of at most (width) integers that should be 0 <= x < (width).
-//
-// The g(count) method returns a pseudorandom integer that concatenates
-// the next (count) outputs from ARC4.  Its return value is a number x
-// that is in the range 0 <= x < (width ^ count).
-//
-function ARC4(key) {
-  var t, keylen = key.length,
-      me = this, i = 0, j = me.i = me.j = 0, s = me.S = [];
-
-  // The empty key [] is treated as [0].
-  if (!keylen) { key = [keylen++]; }
-
-  // Set up S using the standard key scheduling algorithm.
-  while (i < width) {
-    s[i] = i++;
-  }
-  for (i = 0; i < width; i++) {
-    s[i] = s[j = mask & (j + key[i % keylen] + (t = s[i]))];
-    s[j] = t;
-  }
-
-  // The "g" method returns the next (count) outputs as one number.
-  (me.g = function(count) {
-    // Using instance members instead of closure state nearly doubles speed.
-    var t, r = 0,
-        i = me.i, j = me.j, s = me.S;
-    while (count--) {
-      t = s[i = mask & (i + 1)];
-      r = r * width + s[mask & ((s[i] = s[j = mask & (j + t)]) + (s[j] = t))];
-    }
-    me.i = i; me.j = j;
-    return r;
-    // For robust unpredictability, the function call below automatically
-    // discards an initial batch of values.  This is called RC4-drop[256].
-    // See http://google.com/search?q=rsa+fluhrer+response&btnI
-  })(width);
-}
-
-//
-// copy()
-// Copies internal state of ARC4 to or from a plain object.
-//
-function copy(f, t) {
-  t.i = f.i;
-  t.j = f.j;
-  t.S = f.S.slice();
-  return t;
-};
-
-//
-// flatten()
-// Converts an object tree to nested arrays of strings.
-//
-function flatten(obj, depth) {
-  var result = [], typ = (typeof obj), prop;
-  if (depth && typ == 'object') {
-    for (prop in obj) {
-      try { result.push(flatten(obj[prop], depth - 1)); } catch (e) {}
-    }
-  }
-  return (result.length ? result : typ == 'string' ? obj : obj + '\0');
-}
-
-//
-// mixkey()
-// Mixes a string seed into a key that is an array of integers, and
-// returns a shortened string seed that is equivalent to the result key.
-//
-function mixkey(seed, key) {
-  var stringseed = seed + '', smear, j = 0;
-  while (j < stringseed.length) {
-    key[mask & j] =
-      mask & ((smear ^= key[mask & j] * 19) + stringseed.charCodeAt(j++));
-  }
-  return tostring(key);
-}
-
-//
-// autoseed()
-// Returns an object for autoseeding, using window.crypto and Node crypto
-// module if available.
-//
-function autoseed() {
-  try {
-    var out;
-    if (nodecrypto && (out = nodecrypto.randomBytes)) {
-      // The use of 'out' to remember randomBytes makes tight minified code.
-      out = out(width);
-    } else {
-      out = new Uint8Array(width);
-      (global.crypto || global.msCrypto).getRandomValues(out);
-    }
-    return tostring(out);
-  } catch (e) {
-    var browser = global.navigator,
-        plugins = browser && browser.plugins;
-    return [+new Date, global, plugins, global.screen, tostring(pool)];
-  }
-}
-
-//
-// tostring()
-// Converts an array of charcodes to a string
-//
-function tostring(a) {
-  return String.fromCharCode.apply(0, a);
-}
-
-//
-// When seedrandom.js is loaded, we immediately mix a few bits
-// from the built-in RNG into the entropy pool.  Because we do
-// not want to interfere with deterministic PRNG state later,
-// seedrandom will not call math.random on its own again after
-// initialization.
-//
-mixkey(math.random(), pool);
-
-//
-// Nodejs and AMD support: export the implementation as a module using
-// either convention.
-//
-if ((typeof module) == 'object' && module.exports) {
-  module.exports = seedrandom;
-  // When in node.js, try using crypto package for autoseeding.
-  try {
-    nodecrypto = require('crypto');
-  } catch (ex) {}
-} else if ((typeof define) == 'function' && define.amd) {
-  define(function() { return seedrandom; });
-} else {
-  // When included as a plain script, set up Math.seedrandom global.
-  math['seed' + rngname] = seedrandom;
-}
-
-
-// End anonymous scope, and pass initial values.
-})(
-  // global: `self` in browsers (including strict mode and web workers),
-  // otherwise `this` in Node and other environments
-  (typeof self !== 'undefined') ? self : this,
-  [],     // pool: entropy pool starts empty
-  Math    // math: package containing random, pow, and seedrandom
-);
-
+!function(f,a,c){var s,l=256,p="random",d=c.pow(l,6),g=c.pow(2,52),y=2*g,h=l-1;function n(n,t,r){function e(){for(var n=u.g(6),t=d,r=0;n<g;)n=(n+r)*l,t*=l,r=u.g(1);for(;y<=n;)n/=2,t/=2,r>>>=1;return(n+r)/t}var o=[],i=j(function n(t,r){var e,o=[],i=typeof t;if(r&&"object"==i)for(e in t)try{o.push(n(t[e],r-1))}catch(n){}return o.length?o:"string"==i?t:t+"\0"}((t=1==t?{entropy:!0}:t||{}).entropy?[n,S(a)]:null==n?function(){try{var n;return s&&(n=s.randomBytes)?n=n(l):(n=new Uint8Array(l),(f.crypto||f.msCrypto).getRandomValues(n)),S(n)}catch(n){var t=f.navigator,r=t&&t.plugins;return[+new Date,f,r,f.screen,S(a)]}}():n,3),o),u=new m(o);return e.int32=function(){return 0|u.g(4)},e.quick=function(){return u.g(4)/4294967296},e.double=e,j(S(u.S),a),(t.pass||r||function(n,t,r,e){return e&&(e.S&&v(e,u),n.state=function(){return v(u,{})}),r?(c[p]=n,t):n})(e,i,"global"in t?t.global:this==c,t.state)}function m(n){var t,r=n.length,u=this,e=0,o=u.i=u.j=0,i=u.S=[];for(r||(n=[r++]);e<l;)i[e]=e++;for(e=0;e<l;e++)i[e]=i[o=h&o+n[e%r]+(t=i[e])],i[o]=t;(u.g=function(n){for(var t,r=0,e=u.i,o=u.j,i=u.S;n--;)t=i[e=h&e+1],r=r*l+i[h&(i[e]=i[o=h&o+t])+(i[o]=t)];return u.i=e,u.j=o,r})(l)}function v(n,t){return t.i=n.i,t.j=n.j,t.S=n.S.slice(),t}function j(n,t){for(var r,e=n+"",o=0;o<e.length;)t[h&o]=h&(r^=19*t[h&o])+e.charCodeAt(o++);return S(t)}function S(n){return String.fromCharCode.apply(0,n)}if(j(c.random(),a),"object"==typeof module&&module.exports){module.exports=n;try{s=require("crypto")}catch(n){}}else"function"==typeof define&&define.amd?define(function(){return n}):c["seed"+p]=n}("undefined"!=typeof self?self:this,[],Math);
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -266,50 +13,46 @@ if ((typeof module) == 'object' && module.exports) {
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(window,doco,seed_rand){
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
-  let window=null;
-  let _singleton=null;
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }else if(global.document){
-    window=global;
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  if(typeof module==="object" && module.exports){
+    seed_rand=require("../tpcl/seedrandom.min")
+  }else{
+    doco=window.document
   }
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/core"]=function(){
-    if(_singleton){ return _singleton }
-    let PRNG = new Math.seedrandom();
-    const document=global.document;
+  function _module(){
+    let PRNG= seed_rand?seed_rand():new Math.seedrandom();
     const OBJ=Object.prototype;
     const ARR=Array.prototype;
     const slicer=ARR.slice;
     const tostr=OBJ.toString;
     const _C={};
-
-    function isObject(obj){ return tostr.call(obj) === "[object Object]"; }
+    function isObject(obj){ return tostr.call(obj) === "[object Object]" }
     function isFun(obj){ return tostr.call(obj) === "[object Function]" }
-    function isArray(obj){ return tostr.call(obj) === "[object Array]"; }
-    function isMap(obj){ return tostr.call(obj) === "[object Map]"; }
-    function isStr(obj){ return typeof obj === "string"; }
-    function isNum(obj){ return tostr.call(obj) === "[object Number]"; }
+    function isArray(obj){ return tostr.call(obj) === "[object Array]" }
+    function isMap(obj){ return tostr.call(obj) === "[object Map]" }
+    function isStr(obj){ return typeof obj === "string" }
+    function isNum(obj){ return tostr.call(obj) === "[object Number]" }
     function _randXYInclusive(min,max){
-      return Math.floor(PRNG() * (max - min + 1) + min);
+      return Math.floor(PRNG() * (max - min + 1) + min)
     }
-    function _fext(name){
-      let pos= name.lastIndexOf(".");
-      return pos>0 ? name.substring(pos+1).toLowerCase() : "";
+    //regexes handling file paths
+    const BNAME=/(\/|\\\\)([^(\/|\\\\)]+)$/g;
+    const FEXT=/(\.[^\.\/\?\\]*)(\?.*)?$/;
+    function _fext(path){
+      let t=FEXT.exec(path);
+      return t && t[1]  ? t[1].toLowerCase() : "";
     }
-
     //https://github.com/bryc/code/blob/master/jshash/PRNGs.md
     //xoshiro128+ (128-bit state generator in 32-bit)
-    const xoshiro128p = (function(a,b,c,d){
+    const xoshiro128p=(function(a,b,c,d){
       return function(){
         let t = b << 9, r = a + d;
             c = c ^ a;
@@ -321,7 +64,10 @@ if ((typeof module) == 'object' && module.exports) {
         return (r >>> 0) / 4294967296;
       };
     })(Date.now(),Date.now(),Date.now(),Date.now()); // simple seeding??
-    //const EPSILON= 0.00001;
+    /**
+     * private
+     * @var {number}
+     */
     const EPSILON= 0.0000000001;
     /**
      * @private
@@ -343,7 +89,7 @@ if ((typeof module) == 'object' && module.exports) {
       }
     }
     /**
-     * @public
+     * @private
      * @var {object}
      */
     const is={
@@ -351,51 +97,53 @@ if ((typeof module) == 'object' && module.exports) {
       str(s,...args){ return _everyF(isStr,s,args) },
       void0(obj){ return obj === void 0 },
       undef(obj){ return obj === undefined },
-      obj(o,...args){ return _everyF(isObject,o,args) },
+      some(obj){ return _.size(obj) > 0 },
+      none(obj){ return _.size(obj) === 0 },
       map(m,...args){ return _everyF(isMap,m,args) },
       num(n,...args){ return _everyF(isNum,n,args) },
       vec(v,...args){ return _everyF(isArray,v,args) },
-      some(obj){ return _.size(obj) > 0 },
-      none(obj){ return _.size(obj) === 0 }
+      obj(o,...args){ return _everyF(isObject,o,args) }
     };
     /**
-     * @public
+     * @private
      * @var {object}
      */
     const _={
-      srand(){
-        PRNG = new Math.seedrandom()
-      },
-      feq0(a){
-        return Math.abs(a) < EPSILON
-      },
-      feq(a, b){
-        // <= instead of < for NaN comparison safety
-        return Math.abs(a - b) <= EPSILON;
-      },
-      fgteq(a,b){
-        return a>b || this.feq(a,b);
-      },
-      flteq(a,b){
-        return a<b || this.feq(a,b);
-      },
+      /** Re-seed a random */
+      srand(){ PRNG = new Math.seedrandom() },
+      /** Fuzzy zero */
+      feq0(a){ return Math.abs(a) < EPSILON },
+      /** Fuzzy equals */
+      feq(a, b){ return Math.abs(a - b) < EPSILON },
+      /** Fuzzy greater_equals */
+      fgteq(a,b){ return a>b || this.feq(a,b) },
+      /** Fuzzy less_equals */
+      flteq(a,b){ return a<b || this.feq(a,b) },
+      /** Serialize to JSON */
       pack(o){ return JSON.stringify(o) },
+      /** Deserialize from JSON */
       unpack(s){ return JSON.parse(s) },
+      /** Put values into array */
       v2(x,y){ return [x,y] },
+      /** 2D point(x,y) */
       p2(x,y){ return {x: x, y: y} },
+      /** Return it if it's a number else 0 */
       numOrZero(n){ return isNaN(n) ? 0 : n },
+      /** Return b if a doesn't exist else a */
       or(a,b){ return a===undefined?b:a },
-      parseNumber(s,dft){
+      /** Convert input into number, if not return the default */
+      toNumber(s,dft){
         let n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
       },
+      /** Break version string into Major.Minor.Patch */
       splitVerStr(s){
-        let arr=(""+(s || "")).split(".").filter(s=> s.length>0);
-        let major=this.parseNumber(arr[0],0);
-        let minor=this.parseNumber(arr[1],0);
-        let patch=this.parseNumber(arr[2],0);
-        return [major, minor, patch];
+        const arr=(""+(s || "")).split(".").filter(s=> s.length>0);
+        return [this.toNumber(arr[0],0),
+                this.toNumber(arr[1],0),
+                this.toNumber(arr[2],0)]
       },
+      /** Compare 2 versions like a standard comparator */
       cmpVerStrs(V1,V2){
         let v1= this.splitVerStr(""+V1);
         let v2= this.splitVerStr(""+V2);
@@ -407,186 +155,226 @@ if ((typeof module) == 'object' && module.exports) {
         else if(v1[2] < v2[2]) return -1;
         return 0;
       },
+      /** Look for files matching any one of these extensions */
       findFiles(files, exts){
         return files.filter(s=> exts.indexOf(_fext(s)) > -1);
       },
       pdef(obj){
-        obj.enumerable=true;
-        obj.configurable=true;
+        obj.configurable=obj.enumerable=true;
         return obj;
       },
+      /** Chop input into chunks of `count` items */
       partition(count,arr){
-        let out=[];
-        for(let row,i=0;;){
+        const out=[];
+        for(let row,j,i=0;;){
           row=[];
-          for(let j=0;j<count;++j){
+          for(j=0;j<count;++j){
             if(i<arr.length){
-              row.push(arr[i]);
-              ++i;
+              row.push(arr[i++]);
             }else{
-              if(row.length>0) out.push(row);
-              return out;
-            }
+              j=-1; break; }
           }
+          if(row.length>0) out.push(row);
+          if(j<0) break;
         }
+        return out;
       },
-      range(start,end){
-        _.assert(start !== undefined);
-        let out=[];
+      XXrange(start,end){
+        _.assert(is.num(start));
+        const out=[];
         if(arguments.length===1){ end=start; start=0 }
+        _.assert(is.num(end));
         for(let i=start;i<end;++i){ out.push(i) }
         return out
       },
+      /** Returns keys of object or Map. */
       keys(obj){
         return isMap(obj) ? Array.from(obj.keys())
                           : (isObject(obj) ? Object.keys(obj) : []);
       },
-      selectNotKeys(coll,keys){
-        let out;
-        if(isMap(coll) || isObject(coll)){
-          out= isMap(coll) ? new Map() : {};
-          keys=_.seq(keys);
-          _.doseq(coll,(v,k)=>{
-            if(!keys.includes(k)){
-              if(isMap(out))
-                out.set(k, v);
-              else
-                out[k]= v;
-            }
-          });
-        }
+      /** Clone object/Map but exclude these keys */
+      selectNotKeys(c,keys){
+        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        const out= isMap(c) ? new Map() : {};
+        keys=_.seq(keys);
+        _.doseq(c,(v,k)=>{
+          if(!keys.includes(k))
+            isMap(out) ? out.set(k, v) : out[k]=v;
+        });
         return out;
       },
-      selectKeys(coll,keys){
-        let out;
-        if(isMap(coll) || isObject(coll)){
-          if(isMap(coll)) out=new Map();
-          else out={};
-          this.seq(keys).forEach(k=>{
-            if(isMap(coll)){
-              if(coll.has(k))
-                out.set(k, coll.get(k));
-            }else{
-              if(OBJ.hasOwnProperty.call(coll, k))
-                out[k]= coll[k];
-            }
-          });
-        }
+      /** Choose these keys from object/map */
+      selectKeys(c,keys){
+        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        const out= isMap(c) ? new Map() : {};
+        _.seq(keys).forEach(k=>{
+          if(isMap(c)){
+            c.has(k) && out.set(k, c.get(k));
+          }else if(OBJ.hasOwnProperty.call(c, k)){
+            out[k]=c[k];
+          }
+        });
         return out;
       },
-      assertNot(cond){
-        if(cond)
-          throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
-        return true
+      /** assert the condition is false */
+      assertNot(cond,...args){
+        return _.assert(!cond,...args)
       },
+      /** assert the condition is true */
       assert(cond){
         if(!cond)
           throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
         return true
       },
+      /** true if target has none of these keys */
       noSuchKeys(keys,target){
-        let r=this.some(this.seq(keys),k => this.has(target,k)?k:null);
-        if(r) console.log("keyfound="+r);
-        return !r;
+        return !_.some(_.seq(keys),k => _.has(target,k)?k:null);
+        //if(r) console.log("keyfound="+r);
+        //return !r;
       },
+      /** a random float between min and max-1 */
       randFloat(min, max){
-        return min + PRNG() * (max - min);
+        return min + PRNG() * (max - min)
       },
-      randMinus1To1(){ return (PRNG() - 0.5) * 2 },
-      randInt(num){ return Math.floor(PRNG() * num) },
+      /** a random float between -1 and 1 */
+      randMinus1To1(){ return (PRNG()-0.5) * 2 },
+      /** a random int between 0 and num */
+      randInt(num){ return (PRNG() * num)|0 },
+      /** a random int between min and max */
       randInt2: _randXYInclusive,
+      /** a random float between 0 and 1 */
       rand(){ return PRNG() },
+      /** randomly choose -1 or 1 */
       randSign(){ return _.rand() > 0.5 ? -1 : 1 },
+      /** true if obj is subclass of type */
       inst(type,obj){ return obj instanceof type },
+      /** Calculate hashCode of this string, like java hashCode */
       hashCode(s){
-        let h=0;
+        let n=0;
         for(let i=0; i<s.length; ++i)
-          h = Math.imul(31, h) + s.charCodeAt(i) | 0;// force to be 32 bit int via | 0
-        return h;
+          n= Math.imul(31, n) + s.charCodeAt(i)|0;
+        return n;
       },
+      /** Randomly choose an item from this array */
       randArrayItem(arr){
-        if(arr)
-          return arr.length===0 ? null : arr.length === 1 ? arr[0] : arr[_.floor(_.rand() * arr.length)]
+        if(arr && arr.length>0)
+          return arr.length===1 ? arr[0] : arr[_.randInt(arr.length)]
       },
+      /** true if string represents a percentage value */
       isPerc(s){
-        return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/);
+        return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/)
       },
+      /** true if number is even */
       isEven(n){
         return n>0 ? (n % 2 === 0) : ((-n) % 2 === 0);
       },
+      /** Creates a javascript Map */
       jsMap(){ return new Map() },
+      /** Creates a javascript object */
       jsObj(){ return {} },
+      /** Creates a javascript array */
       jsVec(...args){
-        return args.length===0 ? [] : args.slice();
+        return args.length===0 ? [] : args.slice()
       },
-      lastIndex(coll){
-        return (coll && coll.length) ? coll.length-1 : -1
+      /** Returns the last index */
+      lastIndex(c){
+        return (c && c.length>0) ? c.length-1 : -1
       },
-      head(coll){
-        return (coll && coll.length) ? coll[0] : undefined
-      },
-      tail(coll){
-        return (coll && coll.length) ? coll[coll.length-1] : undefined
-      },
+      /** Returns the first element */
+      first(c){ if(c && c.length>0) return c[0] },
+      /** Returns the last element */
+      last(c){ if(c&& c.length>0) return c[c.length-1] },
+      head(c){ return _.first(c) },
+      tail(c){ return _.last(c) },
+      /** floor a number */
       floor(v){ return Math.floor(v) },
+      /** ceiling a number */
       ceil(v){ return Math.ceil(v) },
+      /** absolute value */
       abs(v){ return Math.abs(v) },
+      /** square root number */
       sqrt(v){ return Math.sqrt(v) },
-      min(a,b){ return Math.min(a,b) },
-      max(a,b){ return Math.max(a,b) },
+      /** choose min from 2 */
+      min(...args){ return Math.min(...args) },
+      /** choose max from 2 */
+      max(...args){ return Math.max(...args) },
+      /** Take a slice of an array */
       slice(a,i){ return slicer.call(a, i) },
+      /** true only if every item in list equals v */
       every(c,v){
         for(let i=0;i<c.length;++i)
           if(c[i] !== v) return false;
         return c.length>0;
       },
+      /** true only if no item in list equals v */
       notAny(c,v){
         for(let i=0;i<c.length;++i)
           if(c[i] === v) return false;
         return c.length>0;
       },
+      /** Copy all or some items from `from` to `to` */
       copy(to,from){
-        if(!from) return to;
-        if(!to) return from.slice();
+        if(!from){return to}
+        if(!to){
+          return from ? from.slice() : undefined }
         let len= Math.min(to.length,from.length);
         for(let i=0;i<len;++i) to[i]=from[i];
         return to;
       },
+      /** Append all or some items from `from` to `to` */
       append(to,from){
-        if(!from) return to;
-        if(!to) return from.slice();
+        if(!from){return to}
+        if(!to){
+          return from ? from.slice() : undefined }
         for(let i=0;i<from.length;++i) to.push(from[i]);
         return to;
       },
+      /** Fill array with v or v() */
       fill(a,v){
         if(a)
           for(let i=0;i<a.length;++i){
-            a[i] = isFun(v) ? v() : v;
+            a[i]= isFun(v) ? v() : v;
           }
         return a;
       },
+      /** Return the size of object/map/array */
       size(obj){
-        let len=0;
-        if(isArray(obj)) len= obj.length;
-        else if(isMap(obj)) len=obj.size;
-        else if(obj) len=_.keys(obj).length;
-        return len;
+        return isArray(obj) ? obj.length
+                            : (isMap(obj) ? obj.size
+                                          : (obj ? _.keys(obj).length : 0))
       },
+      /** Next sequence number */
       nextId(){ return ++_seqNum },
+      /** Time in milliseconds */
       now(){ return Date.now() },
-      fileExt: _fext,
-      fileNoExt(name){
-        let pos= name.lastIndexOf(".");
-        return pos>0 ? name.substring(0,pos) : name;
-      },
-      range(start,stop,step=1){
-        if(typeof stop==="undefined"){
-          stop=start; start=0; step=1;
+      /** Find file extension */
+      fileExt(path){ return _fext(path) },
+      /** Find file name, no extension */
+      fileBase(path){
+        let pos=path.indexOf("?");
+        if(pos>0)
+          path=path.substring(0,pos);
+        let res= BNAME.exec(path.replace(/(\/|\\\\)$/, ""));
+        let name="";
+        if(res){
+          name = res[2];
+          pos=name.lastIndexOf(".");
+          if(pos>0)
+            name=name.substring(0,pos);
         }
-        let res=[];
+        return name;
+      },
+      /** return a list of numbers from start to end - like a Range object */
+      range(start,stop,step=1){
+        if(arguments.length===1){
+          stop=start;
+          start=0;
+          step=1;
+        }
         let len = (stop-start)/step;
-        len = Math.ceil(len);
-        len = Math.max(0, len);
+        const res=[];
+        len= Math.ceil(len);
+        len= Math.max(0,len);
         res.length=len;
         for(let i=0;i<len;++i){
           res[i] = start;
@@ -594,8 +382,9 @@ if ((typeof module) == 'object' && module.exports) {
         }
         return res;
       },
+      /** Shuffle items */
       shuffle(obj){
-        let res=slicer.call(obj,0);
+        const res=slicer.call(obj,0);
         for(let x,j,i= res.length-1; i>0; --i){
           j = Math.floor(PRNG() * (i+1));
           x = res[i];
@@ -604,193 +393,181 @@ if ((typeof module) == 'object' && module.exports) {
         }
         return res;
       },
+      /** Return only the distinct items */
       uniq(arr){
-        let res= [];
-        let prev= null;
-        arr = slicer.call(arr).sort();
-        arr.forEach(a=>{
-          if(a !== undefined &&
-             a !== prev) res.push(a);
-          prev = a;
+        if(false){
+          let prev,res= [];
+          slicer.call(arr).sort().forEach(a=>{
+            if(a !== undefined &&
+               a !== prev) res.push(a);
+            prev = a;
+          });
+          return res;
+        }
+        return Array.from(new Set(arr));
+      },
+      /** functional map */
+      map(obj, fn,target){
+        const res= [];
+        _.doseq(obj, (v,k)=>{
+          res.push(fn.call(target, v,k,obj));
         });
         return res;
       },
-      map(obj, fn,target){
-        let res= [];
-        if(isArray(obj))
-          res= obj.map(fn,target);
-        else if(isMap(obj)){
-          obj.forEach((v,k)=>{
-            res.push(fn.call(target, v,k,obj));
-          });
-        }else if(obj){
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj, k))
-              res.push(fn.call(target, obj[k],k,obj));
-        }
+      /** `find` with extra args */
+      find(coll,fn,target){
+        let args=slicer.call(arguments,3);
+        let res,cont=true;
+        _.doseq(coll, (v,k)=>{
+          if(cont && fn.apply(target, [v, k].concat(args))){
+            res=[k, v];
+            cont=false;
+          }
+        });
         return res;
       },
-      find(obj,fn,target){
+      /** `some` with extra args */
+      some(coll,fn,target){
         let args=slicer.call(arguments,3);
-        if(isArray(obj)){
-          for(let i=0,z=obj.length;i<z;++i)
-            if(fn.apply(target, [obj[i], i].concat(args)))
-              return obj[i];
-        }else if(isMap(obj)){
-          let ks=Array.from(obj.keys());
-          for(let k,i=0,z=ks.length;i<z;++i){
-            k=ks[i];
-            if(fn.apply(target, [obj.get(k), k].concat(args)))
-            return [k, obj.get(k)];
+        let res,cont=true;
+        _.doseq(coll,(v,k)=>{
+          if(cont){
+            res = fn.apply(target, [v, k].concat(args));
+            if(res) cont=false;
           }
-        }else if(obj){
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj, k) &&
-               fn.apply(target, [obj[k], k].concat(args)))
-              return [k,obj[k]];
-        }
+        });
+        return res;
       },
-      some(obj,fn,target){
-        let res;
-        let args=slicer.call(arguments,3);
-        if(isArray(obj)){
-          for(let i=0,z=obj.length;i<z;++i)
-            if(res = fn.apply(target, [obj[i], i].concat(args)))
-              return res;
-        }else if(isMap(obj)){
-          let ks=Array.from(obj.keys());
-          for(let k,i=0,z=ks.length;i<z;++i){
-            k=ks[i];
-            if(res = fn.apply(target, [obj.get(k), k].concat(args)))
-              return res;
-          }
-        }else if(obj){
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj, k))
-              if(res = fn.apply(target, [obj[k], k].concat(args)))
-                return res;
-        }
-      },
-      invoke(arr,key){
+      /** Each item in the array is an object, invoke obj.method with extra args */
+      invoke(arr,method_name){
         let args=slicer.call(arguments,2);
-        if(isArray(arr))
+        isArray(arr) &&
           arr.forEach(x => x[key].apply(x, args));
       },
-      delay(wait,f){
-        return setTimeout(f,wait);
-      },
+      /** Run function after some delay */
+      delay(wait,f){ return setTimeout(f,wait) },
+      /** Create a once/repeat timer */
       timer(f,delay=0,repeat=false){
         return {
           repeat: !!repeat,
           id: repeat ? setInterval(f,delay) : setTimeout(f,delay)
         }
       },
+      /** clear a timer */
       clear(handle){
         if(handle)
           handle.repeat ? clearInterval(handle.id)
                         : clearTimeout(handle.id)
       },
-      rseq(obj,fn,target){
-        if(isArray(obj) && obj.length>0)
-          for(let i=obj.length-1;i>=0;--i)
-            fn.call(target, obj[i],i);
+      /** Iterate a collection in reverse */
+      rseq(coll,fn,target){
+        if(isArray(coll) && coll.length>0)
+          for(let i=coll.length-1;i>=0;--i){
+            fn.call(target, coll[i],i)
+          }
       },
-      doseq(obj,fn,target){
-        if(isArray(obj))
-          obj.forEach(fn,target);
-        else if(isMap(obj))
-          obj.forEach((v,k)=> fn.call(target,v,k,obj));
-        else if(obj)
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj,k))
-            fn.call(target, obj[k], k, obj);
+      /** Iterate a collection */
+      doseq(coll,fn,target){
+        if(isArray(coll)){
+          coll.forEach(fn,target);
+        }else if(isMap(coll)){
+          coll.forEach((v,k)=> fn.call(target,v,k,coll));
+        }else if(coll){
+          Object.keys(coll).forEach(k=>{
+            fn.call(target, coll[k], k, coll);
+          });
+        }
       },
-      dissoc(obj,key){
+      /** Remove a key from collection */
+      dissoc(coll,key){
         if(arguments.length>2){
           let prev,i=1;
           for(;i<arguments.length;++i)
-            prev=this.dissoc(obj,arguments[i]);
+            prev=_.dissoc(coll,arguments[i]);
           return prev;
         }else{
           let val;
-          if(isMap(obj)){
-            val=obj.get(key);
-            obj.delete(key);
-          }else if(obj){
-            val = obj[key];
-            delete obj[key];
+          if(isMap(coll)){
+            val=coll.get(key);
+            coll.delete(key);
+          }else if(coll){
+            val = coll[key];
+            delete coll[key];
           }
           return val;
         }
       },
-      get(obj,key){
-        if(typeof key !== "undefined"){
-          if(isMap(obj)) return obj.get(key);
-          else if(obj) return obj[key];
+      /** Return the value of property `key` */
+      get(coll,key){
+        if(key !== undefined){
+          if(isMap(coll)) return coll.get(key);
+          else if(coll) return coll[key];
         }
       },
-      assoc(obj,key,value){
+      /** Set property `key` */
+      assoc(coll,key,value){
         if(arguments.length>3){
           if(((arguments.length-1)%2) !== 0)
             throw "ArityError: expecting even count of args.";
           let prev, i=1;
           for(;i < arguments.length;){
-            prev= this.assoc(obj,arguments[i],arguments[i+1]);
+            prev= _.assoc(coll,arguments[i],arguments[i+1]);
             i+=2;
           }
           return prev;
         }else{
           let prev;
-          if(isMap(obj)){
-            prev=obj.get(key);
-            obj.set(key,value);
-          }else if(obj){
-            prev=obj[key];
-            obj[key]=value;
+          if(isMap(coll)){
+            prev=coll.get(key);
+            coll.set(key,value);
+          }else if(coll){
+            prev=coll[key];
+            coll[key]=value;
           }
           return prev;
         }
       },
+      /** Remove item from array */
       disj(coll,obj){
         let i = coll ? coll.indexOf(obj) : -1;
         if(i > -1) coll.splice(i,1);
         return i > -1;
       },
+      /** Append item to array */
       conj(coll,...objs){
         if(coll)
           objs.forEach(o => coll.push(o));
         return coll;
       },
+      /** Make input into array */
       seq(arg,sep=","){
         if(typeof arg === "string")
           arg = arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
         if(!isArray(arg)) arg = [arg];
         return arg;
       },
-      has(obj,key){
-        if(!key)
-          return false;
-        if(isMap(obj))
-          return obj.has(key);
-        if(isArray(obj))
-          return obj.indexOf(key) !== -1;
-        if(obj)
-          return OBJ.hasOwnProperty.call(obj, key);
+      /** true if collection has property `key` */
+      has(coll,key){
+        return arguments.length===1 ? false
+          : isMap(coll) ? coll.has(key)
+          : isArray(coll) ? coll.indexOf(key) !== -1
+          : coll ? OBJ.hasOwnProperty.call(coll, key) : false;
       },
+      /** Add these keys to `des` only if the key is missing */
       patch(des,additions){
         des=des || {};
         if(additions)
           Object.keys(additions).forEach(k=>{
-            if(des[k]===undefined)
+            if(!_.has(des,k))
               des[k]=additions[k];
           });
         return des;
       },
+      /** Deep clone */
       clone(obj){
-        if(obj)
-          obj=JSON.parse(JSON.stringify(obj));
-        return obj;
+        return obj ? _.unpack(_.pack(obj)) : obj
       },
+      /** Merge others into `des` */
       inject(des){
         let args=slicer.call(arguments,1);
         des=des || {};
@@ -799,9 +576,10 @@ if ((typeof module) == 'object' && module.exports) {
         });
         return des;
       },
+      /** Deep copy array/array of arrays */
       deepCopyArray(v){
         _.assert(is.vec(v),"Expected array");
-        let out = [];
+        const out = [];
         for(let i=0,z=v.length; i<z; ++i)
           out[i]= is.vec(v[i]) ? _.deepCopyArray(v[i]) : v[i];
         return out;
@@ -824,8 +602,7 @@ if ((typeof module) == 'object' && module.exports) {
        * @return {Object} the modified original object
       */
       merge(original, extended){
-        let key = undefined;
-        let ext = undefined;
+        let key,ext;
         Object.keys(extended).forEach(key=>{
           ext = extended[key];
           if(typeof ext !== "object" || ext === null || !original[key]){
@@ -1067,14 +844,12 @@ if ((typeof module) == 'object' && module.exports) {
         //_debounced.flush = flush;
         return _debounced;
       },
+      /** Return a function that will return the negation of original func */
       negate(func){
         _.assert(is.fun(func),"expected function");
         return function(...args){
           return !func.apply(this, args)
         }
-      },
-      reject(coll, func){
-        return _.doseq(coll,_.negate(func))
       },
       /**
        * Maybe pad a string (right side.)
@@ -1106,8 +881,9 @@ if ((typeof module) == 'object' && module.exports) {
        * @return {Array.String}
       */
       safeSplit(s, sep){
-        return _.reject(s.trim().split(sep), (z) => z.length===0)
+        return s.trim().split(sep).filter(z => z.length>0)
       },
+      /** Capitalize the first char */
       capitalize(str){
         return str.charAt(0).toUpperCase() + str.slice(1)
       },
@@ -1131,18 +907,32 @@ if ((typeof module) == 'object' && module.exports) {
       dropArgs(args, num){
         return args.length > num ? Array.prototype.slice(args, num) : []
       },
+      /** true if url is secure */
       isSSL(){
         return window && window.location && window.location.protocol.indexOf("https") >= 0
       },
+      /** true if url is mobile */
       isMobile(navigator){
         return navigator && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       },
+      /** true if browser is safari */
       isSafari(navigator){
         return navigator && /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor)
+      },
+      /** true if cross-origin */
+      isCrossOrigin(url) {
+        if(url) {
+          let pos= url.indexOf("://");
+          if(pos > 0){
+            let end= url.indexOf("/", pos+3);
+            let o = end<0 ? url : url.substring(0, end);
+            return o !== window.location.origin;
+          }
+        }
       }
     };
     //browser only--------------------------------------------------------------
-    if(document){
+    if(doco){
       _.addEvent=function(event,target,cb,arg){
         if(isArray(event) && arguments.length===1)
           event.forEach(e => this.addEvent.apply(this, e));
@@ -1161,13 +951,13 @@ if ((typeof module) == 'object' && module.exports) {
      * @var {object}
      */
     const dom={
-      qSelector(sel){ return document.querySelectorAll(sel) },
-      qId(id){ return document.getElementById(id) },
-      parent(e){ return e ? e.parentNode : undefined },
+      qSelector(sel){ return doco.querySelectorAll(sel) },
+      qId(id){ return doco.getElementById(id) },
+      parent(e){ if(e) return e.parentNode },
       conj(par,child){ return par.appendChild(child) },
       byTag(tag, ns){
-        return !is.str(ns) ? document.getElementsByTagName(id)
-                           : document.getElementsByTagNameNS(ns,tag) },
+        return !is.str(ns) ? doco.getElementsByTagName(id)
+                           : doco.getElementsByTagNameNS(ns,tag) },
       attrs(e, attrs){
         if(!is.obj(attrs) && attrs){
           if(arguments.length > 2)
@@ -1185,7 +975,7 @@ if ((typeof module) == 'object' && module.exports) {
           return e.style[styles];
         }
         if(styles)
-          _.doseq(styles, (v,k) => { e.style[k]= v; });
+          _.doseq(styles, (v,k) => { e.style[k]= v });
         return e;
       },
       wrap(child,wrapper){
@@ -1195,13 +985,13 @@ if ((typeof module) == 'object' && module.exports) {
         return wrapper;
       },
       newElm(tag, attrs, styles){
-        let e = document.createElement(tag);
+        let e = doco.createElement(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       },
       newTxt(tag, attrs, styles){
-        let e = document.createTextNode(tag);
+        let e = doco.createTextNode(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
@@ -1260,12 +1050,20 @@ if ((typeof module) == 'object' && module.exports) {
       };
     };
 
-    if(document){ _C.dom=dom }
+    if(doco){ _C.dom=dom }
     _C.EventBus= EventBus;
     _C.u= _;
     _C.is= is;
-    return (_singleton=_C);
-  };
+    return _C;
+  }
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module==="object" && module.exports){
+    module.exports=_module()
+  }else{
+    window["io/czlab/mcfud/core"]=_module
+  }
 
 })(this);
 
@@ -1286,35 +1084,20 @@ if ((typeof module) == 'object' && module.exports) {
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
+  "use strict";
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/math"]=function(){
-    if(_singleton) { return _singleton }
-    const {is,u:_}= global["io/czlab/mcfud/core"]();
+  function _module(Core){
+    if(!Core) Core= global["io/czlab/mcfud/core"]();
     const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
     const DEG_2PI= 360;
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
-    const _M={EPSILON: EPSILON};
-    /**
-     * Fuzzy match.
-     * @private
-     * @function
-     */
-    function _cmp_eq(x,y){
-      return Math.abs(x-y) <= (EPSILON * Math.max(1, Math.max(Math.abs(x), Math.abs(y))))
-    }
+    const {is,u:_}= Core;
+    const _M={EPSILON:EPSILON};
     /**
      * @public
      * @function
@@ -1335,17 +1118,13 @@ if ((typeof module) == 'object' && module.exports) {
      * @function
      */
     _M.clamp=function(min,max,v){
-      if(v < min) return min;
-      if(v > max) return max;
-      return v
+      return v<min ? min : (v>max ? max : v)
     };
     /**
      * @function
      * @public
      */
-    _M.sqr=function(a){
-      return a*a
-    };
+    _M.sqr=function(a){ return a*a };
     /**
      * @public
      * @function
@@ -1414,8 +1193,15 @@ if ((typeof module) == 'object' && module.exports) {
       return a >= (b*biasRelative + a*biasAbsolute)
     };
 
-    return (_singleton=_M)
-  };
+    return _M;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    global["io/czlab/mcfud/math"]=_module
+  }
 
 })(this);
 
@@ -1436,40 +1222,35 @@ if ((typeof module) == 'object' && module.exports) {
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
+  "use strict";
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/vec2"]=function(UseOBJ){
-    class V2Obj{ constructor(){ this.x=0; this.y=0; } }
-    const {u:_, is}= global["io/czlab/mcfud/core"]();
-    const _M= global["io/czlab/mcfud/math"]();
-    if(_M.Vec2){return _M.Vec2}
-    const EPSILON= 0.0000000001;
-    const _V={};
+  function _module(UseOBJ=false,Core=null,_M=null){
+    if(!Core) Core=global["io/czlab/mcfud/core"]();
+    if(!_M) _M=global["io/czlab/mcfud/math"]();
+    const {u:_, is}= Core;
+    class V2Obj{ constructor(){ this.x=this.y=0 } }
     function _cobj() { return new V2Obj() }
     function _carr() { return [0,0] }
+    const PLEN=96;
+    const _V={};
     const _CTOR= UseOBJ ? _cobj : _carr;
-    const _POOL= _.fill(new Array(128), _CTOR);
+    const _POOL= _.fill(new Array(PLEN), _CTOR);
     /**
      * @private
      * @function
      */
     function _drop(...args){
-      args.forEach(a => {
+      let ok;
+      args.forEach(a=>{
         if(a){
+          ok=0;
           if(UseOBJ){
-            if(a instanceof V2Obj) _POOL.push(a)
-          }else{
-            if(a.length===2) _POOL.push(a)
-          }
+            if(a instanceof V2Obj){ok=1}
+          }else if(a.length===2){ok=1}
+          if(ok && _POOL.length<PLEN) _POOL.push(a)
         }
       })
     }
@@ -1479,12 +1260,14 @@ if ((typeof module) == 'object' && module.exports) {
      */
     function _take(x,y){
       let out= _POOL.length>0 ? _POOL.pop() : _CTOR();
+      x=x || 0;
+      y=y || 0;
       if(UseOBJ){
-        out.x=x||0;
-        out.y=y||0;
+        out.x=x;
+        out.y=y;
       }else{
-        out[0]=x||0;
-        out[1]=y||0;
+        out[0]=x;
+        out[1]=y;
       }
       return out;
     }
@@ -1492,7 +1275,7 @@ if ((typeof module) == 'object' && module.exports) {
      * @public
      * @function
      */
-    _V.V2=function(x,y){ return _take(x,y) };
+    _V.vec2=function(x,y){ return _take(x,y) };
     _V.takeV2=_take;
     _V.dropV2=_drop;
     /**
@@ -1575,8 +1358,9 @@ if ((typeof module) == 'object' && module.exports) {
      * @returns {number}
      */
     _V.vecDot=function(a,b){
-      return _assertArgs(a,b) ? (UseOBJ ? (a.x * b.x + a.y * b.y)
-                                        : (a[0]*b[0] + a[1]*b[1])) : undefined
+      if(_assertArgs(a,b))
+        return UseOBJ ? (a.x*b.x + a.y*b.y)
+                      : (a[0]*b[0] + a[1]*b[1])
     }
     /**
      * @public
@@ -1618,7 +1402,7 @@ if ((typeof module) == 'object' && module.exports) {
     _V.vecUnit=function(a){
       let d=this.vecLen(a);
       let out= _CTOR();
-      if(d>EPSILON){
+      if(d>_M.EPSILON){
         if(UseOBJ){
           out.x = a.x/d;
           out.y = a.y/d;
@@ -1635,7 +1419,7 @@ if ((typeof module) == 'object' && module.exports) {
      */
     _V.vecUnitSelf=function(a){
       let d=this.vecLen(a);
-      if(d>EPSILON){
+      if(d>_M.EPSILON){
         if(UseOBJ){
           a.x /= d;
           a.y /= d;
@@ -1659,7 +1443,7 @@ if ((typeof module) == 'object' && module.exports) {
         des[0]=src[0];
         des[1]=src[1];
       }
-      return des
+      return des;
     }
     /**
      * @public
@@ -1671,7 +1455,7 @@ if ((typeof module) == 'object' && module.exports) {
     /**
      * @public
      * @function
-     */;
+     */
     _V.vecCopy=function(des,...args){
       _.assert(args.length===2) && _assertArgs(des,des);
       if(UseOBJ){
@@ -1681,19 +1465,19 @@ if ((typeof module) == 'object' && module.exports) {
         des[0]=args[0];
         des[1]=args[1];
       }
-      return des
+      return des;
     };
     /**
      * @private
      * @function
      */
     function _v2rot_arr(a,cos,sin,center,local){
-      let cx=center ? center[0] : 0;
-      let cy=center ? center[1] : 0;
-      let x_= a[0] - cx;
-      let y_= a[1] - cy;
-      let x= cx + (x_*cos - y_*sin);
-      let y= cy + (x_ * sin + y_ * cos);
+      const cx=center ? center[0] : 0;
+      const cy=center ? center[1] : 0;
+      const x_= a[0] - cx;
+      const y_= a[1] - cy;
+      const x= cx + (x_*cos - y_*sin);
+      const y= cy + (x_ * sin + y_ * cos);
       if(local){
         a[0] = x;
         a[1] = y;
@@ -1707,12 +1491,12 @@ if ((typeof module) == 'object' && module.exports) {
      * @function
      */
     function _v2rot_obj(a,cos,sin,center,local){
-      let cx=center ? center.x : 0;
-      let cy=center ? center.y : 0;
-      let x_= a.x - cx;
-      let y_= a.y - cy;
-      let x= cx + (x_*cos - y_*sin);
-      let y= cy + (x_ * sin + y_ * cos);
+      const cx=center ? center.x : 0;
+      const cy=center ? center.y : 0;
+      const x_= a.x - cx;
+      const y_= a.y - cy;
+      const x= cx + (x_*cos - y_*sin);
+      const y= cy + (x_ * sin + y_ * cos);
       if(local){
         a.x = x;
         a.y = y;
@@ -1727,8 +1511,8 @@ if ((typeof module) == 'object' && module.exports) {
      */
     _V.vec2Rot=function(a,rot,center){
       _assertArgs(a, center || a);
-      let c= Math.cos(rot);
-      let s= Math.sin(rot);
+      const c= Math.cos(rot);
+      const s= Math.sin(rot);
       return UseOBJ ? _v2rot_obj(a,c,s,center) : _v2rot_arr(a,c,s,center);
     };
     /**
@@ -1737,8 +1521,8 @@ if ((typeof module) == 'object' && module.exports) {
      */
     _V.vec2RotSelf=function(a,rot,center){
       _assertArgs(a, center || a);
-      let c= Math.cos(rot);
-      let s= Math.sin(rot);
+      const c= Math.cos(rot);
+      const s= Math.sin(rot);
       return UseOBJ ? _v2rot_obj(a,c,s,center,1) : _v2rot_arr(a,c,s,center,1);
     };
     /**
@@ -1798,7 +1582,7 @@ if ((typeof module) == 'object' && module.exports) {
      */
     _V.perpSelf=function(a,ccw){
       _assertArgs(a,a);
-      let x = UseOBJ ? a.x : a[0];
+      const x = UseOBJ ? a.x : a[0];
       if(UseOBJ){
         if(ccw){
           a.x=-a.y;
@@ -1846,10 +1630,8 @@ if ((typeof module) == 'object' && module.exports) {
      * @function
      */
     _V.vecProj=function(a,b){
-      // (a.b')b'
-      let bn = this.vecUnit(b);
+      const bn = this.vecUnit(b);
       return this.vecMulSelf(bn, this.vecDot(a,bn));
-      //return this.vecMul(b, this.vecDot(a,b)/this.vecLen2(b))
     };
     /**
      * Find the perpedicular vector.
@@ -1894,8 +1676,8 @@ if ((typeof module) == 'object' && module.exports) {
     _V.vecNormal=function(v,s){
       _assertArgs(v,v);
       //origin = (0,0) => x1=0,y1=0, x2= vx, y2=vy
-      let x1=0;
-      let y1=0;
+      const x1=0;
+      const y1=0;
       let dy;
       let dx;
       if(UseOBJ){
@@ -1917,12 +1699,21 @@ if ((typeof module) == 'object' && module.exports) {
         args=args[0];
         a=true;
       }
-      return args.length===1 && !a ? this.V2(pos[0]+args[0][0],pos[1]+args[0][1])
-                                   : args.map(p => this.V2(pos[0]+p[0],pos[1]+p[1]))
+      return args.length===1 && !a ? this.vec2(pos[0]+args[0][0],pos[1]+args[0][1])
+                                   : args.map(p=> this.vec2(pos[0]+p[0],pos[1]+p[1]))
     };
 
-    return (_M.Vec2=_V)
-  };
+    return _V;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(false,
+                           require("./core"),
+                           require("./math"))
+  }else{
+    global["io/czlab/mcfud/vec2"]=_module
+  }
 
 })(this);
 
@@ -1940,28 +1731,23 @@ if ((typeof module) == 'object' && module.exports) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
+  "use strict";
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/matrix"]=function(){
-    const {u:_, is}= global["io/czlab/mcfud/core"]();
-    const _M= global["io/czlab/mcfud/math"]();
-    if(_M.Matrix){return _M.Matrix}
+  function _module(Core,_M){
+    if(!Core) Core=global["io/czlab/mcfud/core"]();
+    if(!_M) _M=global["io/czlab/mcfud/math"]();
+
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;
     const TAN= Math.tan;
+    const {u:_, is}= Core;
     const _X={
       V3:function(x,y,z){
         return [x||0,y||0,z||0]
@@ -2788,8 +2574,16 @@ if ((typeof module) == 'object' && module.exports) {
                        : this.V3(ATAN2(-r2[2],r2[1]), ATAN2(-r3[0],sy), 0)
     };
 
-    return (_M.Matrix=_X)
-  };
+    return _X;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"),
+                           require("./math"))
+  }else{
+    global["io/czlab/mcfud/matrix"]=_module
+  }
 
 })(this);
 
@@ -2811,25 +2605,16 @@ if ((typeof module) == 'object' && module.exports) {
 
 ;(function(global){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
   const VISCHS=" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
                "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-";
   const VISCHS_LEN=VISCHS.length;
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/crypt"]=function(){
-    if(_singleton)
-      return _singleton;
-    const {u:_} =global["io/czlab/mcfud/core"]();
+  function _module(Core){
+    if(!Core) Core= global["io/czlab/mcfud/core"]();
+    const {u:_} = Core;
     const _C={};
     /**
      * Find the offset.
@@ -2914,8 +2699,15 @@ if ((typeof module) == 'object' && module.exports) {
       return out.join("")
     };
 
-    return _singleton= _C;
-  };
+    return _C;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    global["io/czlab/mcfud/crypt"]=_module;
+  }
 
 })(this);
 
@@ -2935,19 +2727,10 @@ if ((typeof module) == 'object' && module.exports) {
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-
-  let _singleton;
-  global["io/czlab/mcfud/fsm"]=function(){
-    if(_singleton)
-      return _singleton;
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  function _module(){
     const _R={
       fsm(defn){
         let _state=defn.initState();
@@ -2977,9 +2760,13 @@ if ((typeof module) == 'object' && module.exports) {
         }
       }
     };
-    return (_singleton=_R);
-  };
+    return _R;
+  }
 
+  /**
+   * @private
+   * @var {object}
+   */
   const sample={
     initState(){ return "happy"},
     "happy":{
@@ -3004,6 +2791,13 @@ if ((typeof module) == 'object' && module.exports) {
     }
   };
 
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module()
+  }else{
+    global["io/czlab/mcfud/fsm"]=_module
+  }
+
 })(this);
 
 
@@ -3023,20 +2817,18 @@ if ((typeof module) == 'object' && module.exports) {
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
-  global["io/czlab/mcfud/gfx"]=function(){
-    if(_singleton){ return _singleton }
-    const {u:_}=global["io/czlab/mcfud/core"]();
-    const _M=global["io/czlab/mcfud/math"]();
-    const _G={};
+  "use strict";
+  /**
+   * @private
+   * @function
+   */
+  function _module(Core,_M){
+    if(!Core) Core=global["io/czlab/mcfud/core"]();
+    if(!_M) _M=global["io/czlab/mcfud/math"]();
+
     const TWO_PI=Math.PI*2;
+    const {u:_}=Core;
+    const _G={};
     /**
      * Html5 Text Style object.
      * @public
@@ -3268,8 +3060,16 @@ if ((typeof module) == 'object' && module.exports) {
       }
     }
 
-    return (_singleton= _.inject(_G, {TXMatrix2d: TXMatrix2d}))
-  };
+    return _.inject(_G, {TXMatrix2d: TXMatrix2d});
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"),
+                           require("./math"))
+  }else{
+    global["io/czlab/mcfud/gfx"]=_module
+  }
 
 })(this);
 
@@ -3289,21 +3089,15 @@ if ((typeof module) == 'object' && module.exports) {
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
-  global["io/czlab/mcfud/geo2d"]=function(){
-    if(_singleton) { return _singleton }
-    const {u:_}=global["io/czlab/mcfud/core"]();
-    const _M=global["io/czlab/mcfud/math"]();
-    const _V=global["io/czlab/mcfud/vec2"]();
-    const _G={};
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  "use strict";
+  function _module(Core,_M,_V){
+    if(!Core) Core=global["io/czlab/mcfud/core"]();
+    if(!_M) _M=global["io/czlab/mcfud/math"]();
+    if(!_V) _V=global["io/czlab/mcfud/vec2"]();
     const MaxPolyVertexCount=64;
+    const {u:_}=Core;
+    const _G={};
     const LEFT_VORONOI= -1;
     const MID_VORONOI= 0;
     const RIGHT_VORONOI= 1;
@@ -3328,9 +3122,9 @@ if ((typeof module) == 'object' && module.exports) {
         if(arguments.length===2){
           this.width=x;
           this.height=y;
-          this.pos= _V.V2();
+          this.pos= _V.vec2();
         }else{
-          this.pos=_V.V2(x,y);
+          this.pos=_V.vec2(x,y);
           this.width=width;
           this.height=height;
         }
@@ -3380,7 +3174,7 @@ if ((typeof module) == 'object' && module.exports) {
         cx += (p[0]+q[0]) * (p[0]*q[1]-q[0]*p[1]);
         cy += (p[1]+q[1]) * (p[0]*q[1]-q[0]*p[1]);
       }
-      return _V.V2(cx/A, cy/A)
+      return _V.vec2(cx/A, cy/A)
     };
     /**
      * Lifted from Randy Gaul's impulse-engine:
@@ -3453,8 +3247,8 @@ if ((typeof module) == 'object' && module.exports) {
      */
     class Line{
       constructor(x1,y1,x2,y2){
-        this.p= _V.V2(x1,y1);
-        this.q= _V.V2(x2,y2);
+        this.p= _V.vec2(x1,y1);
+        this.q= _V.vec2(x2,y2);
       }
     }
     /**
@@ -3465,7 +3259,7 @@ if ((typeof module) == 'object' && module.exports) {
       constructor(r){
         this.radius=r;
         this.orient=0;
-        this.pos=_V.V2();
+        this.pos=_V.vec2();
       }
       setOrient(r){
         this.orient=r;
@@ -3484,7 +3278,7 @@ if ((typeof module) == 'object' && module.exports) {
     class Polygon{
       constructor(x,y){
         this.orient = 0;
-        this.pos=_V.V2();
+        this.pos=_V.vec2();
         this.setPos(x,y);
       }
       setPos(x,y){
@@ -3497,9 +3291,9 @@ if ((typeof module) == 'object' && module.exports) {
         if(this.normals) this.normals.length=0; else this.normals = [];
         if(this.edges) this.edges.length=0; else this.edges = [];
         for(let i=0; i < points.length; ++i){
-          this.calcPoints.push(_V.V2());
-          this.edges.push(_V.V2());
-          this.normals.push(_V.V2());
+          this.calcPoints.push(_V.vec2());
+          this.edges.push(_V.vec2());
+          this.normals.push(_V.vec2());
         }
         this.points = points;
         this._recalc();
@@ -3548,9 +3342,9 @@ if ((typeof module) == 'object' && module.exports) {
       }
       toPolygon(){
         return new Polygon(this.pos[0],
-                           this.pos[1]).set([_V.V2(this.width,0),
-                                             _V.V2(this.width,this.height),
-                                             _V.V2(0,this.height),_V.V2()]);
+                           this.pos[1]).set([_V.vec2(this.width,0),
+                                             _V.vec2(this.width,this.height),
+                                             _V.vec2(0,this.height),_V.vec2()]);
       }
     }
     /**
@@ -3561,8 +3355,8 @@ if ((typeof module) == 'object' && module.exports) {
       constructor(A,B){
         this.A = A;
         this.B = B;
-        this.overlapN = _V.V2();
-        this.overlapV = _V.V2();
+        this.overlapN = _V.vec2();
+        this.overlapV = _V.vec2();
         this.clear();
       }
       clear(){
@@ -3625,10 +3419,10 @@ if ((typeof module) == 'object' && module.exports) {
     _G.calcRectPoints=function(w,h){
       let w2=w/2;
       let h2=h/2;
-      return [_V.V2(hw,-hh),
-              _V.V2(hw,hh),
-              _V.V2(-hw,hh),
-              _V.V2(-hw,-hh)];
+      return [_V.vec2(hw,-hh),
+              _V.vec2(hw,hh),
+              _V.vec2(-hw,hh),
+              _V.vec2(-hw,-hh)];
     };
     /**
      * @public
@@ -4081,14 +3875,21 @@ if ((typeof module) == 'object' && module.exports) {
       return _poly_poly(a,b,new Manifold());
     };
 
-    return _singleton= _.inject(_G, {Circle: Circle,
-                                     Line: Line,
-                                     Box: Box,
-                                     Manifold: Manifold,
-                                     Polygon: Polygon, Rect: Rect, Area: Area});
+    return _.inject(_G, {Circle: Circle,
+                         Line: Line,
+                         Box: Box,
+                         Manifold: Manifold,
+                         Polygon: Polygon, Rect: Rect, Area: Area});
+  }
 
-  };
-
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"),
+                           require("./math"),
+                           require("./vec2"))
+  }else{
+    global["io/czlab/mcfud/geo2d"]=_module
+  }
 
 })(this);
 
@@ -4107,17 +3908,14 @@ if ((typeof module) == 'object' && module.exports) {
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
-  global["io/czlab/mcfud/qtree"]=function(){
-    if(_singleton){ return _singleton }
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  /**
+   * @private
+   * @function
+   */
+  function _module(){
     class QuadTree{
       constructor(x1,y1,x2,y2,maxCount,maxDepth){
         this.maxCount= maxCount || 12;
@@ -4214,13 +4012,19 @@ if ((typeof module) == 'object' && module.exports) {
       }
     }
 
-    return _singleton={
+    return {
       quadtree(region,maxcount,maxdepth){
         return new QuadTree(region.x1,region.y1,region.x2,region.y2,maxcount,maxdepth);
       }
     };
+  }
 
-  };
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module()
+  }else{
+    global["io/czlab/mcfud/qtree"]=_module
+  }
 
 })(this);
 
@@ -4240,23 +4044,15 @@ if ((typeof module) == 'object' && module.exports) {
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global) {
+;(function(global){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/negamax"]= function(){
-    if(_singleton){ return _singleton }
-    const {u:_}=global["io/czlab/mcfud/core"]();
+  function _module(Core){
+    if(!Core) Core=global["io/czlab/mcfud/core"]();
+    const {u:_}=Core;
     const _N={};
     //const PINF = 1000000;
     /**
@@ -4357,8 +4153,163 @@ if ((typeof module) == 'object' && module.exports) {
       return f.lastBestMove;
     };
 
-    return _singleton= _.inject(_N,{ FFrame: FFrame, GameBoard: GameBoard });
-  };
+    return _.inject(_N,{ FFrame: FFrame, GameBoard: GameBoard });
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    global["io/czlab/mcfud/negamax"]=_module
+  }
 
 })(this);
+
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
+
+;(function(global){
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  "use strict";
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  /**
+   * @private
+   * @function
+   */
+  function _module(){
+    function _f(s){
+      return s.startsWith("P")
+    }
+    function rstr(len,ch){
+      let out="";
+      while(len>0){
+        out += ch;
+        --len;
+      }
+      return out;
+    }
+    function ex_thrown(expected,e){
+      let out=t_bad;
+      if(e){
+        if(is.str(expected)){
+          out= expected==="any" || expected===e ? t_ok : t_bad;
+        }else if(expected instanceof e){
+          out=t_ok;
+        }
+      }
+      return out;
+    }
+    function ensure_eq(env,form,expected){
+      let out;
+      try{
+        out = form.call(env)===expected ? t_ok : t_bad;
+      }catch(e){
+        out= t_bad;
+      }
+      return out;
+    }
+    function ensure_ex(env,form,error){
+      let out;
+      try{
+        form.call(env);
+        out=ex_thrown(error,null);
+      }catch(e){
+        out=ex_thrown(error,e);
+      }
+      return out;
+    }
+    const t_bad="Failed";
+    const t_ok="Passed";
+    const _T={
+      deftest(name){
+        let iniz=null;
+        let finz=null;
+        let arr=null;
+        let env=null;
+        let x={
+          ensure_eq(n,w,f){
+            arr.push([n,w,f]);
+            return x;
+          },
+          ensure_ex(n,f){
+            arr.push([n,f]);
+            return x;
+          },
+          begin(f){
+            env={};
+            arr=[];
+            iniz=f;
+            return x;
+          },
+          end(f){
+            finz=f;
+            return function(){
+              iniz && iniz(env);
+              let out=[];
+              for(let r,a,i=0;i<arr.length;++i){
+                a=arr[i];
+                r="";
+                switch(a.length){
+                  case 3: r=ensure_eq(env,a[2],a[1]); break;
+                  case 2: r=ensure_ex(env,a[1],"any"); break;
+                }
+                if(r)
+                  out.push(`${r}: ${a[0]}`);
+              }
+              arr.length=0;
+              finz && finz(env);
+              return out;
+            }
+          }
+        };
+        return x;
+      },
+      runtest(title,test){
+        const mark= Date.now();
+        const res=test();
+        const mark2= Date.now();
+        const sum= res.length;
+        const good= res.filter(_f);
+        const ok=good.length;
+        const perc= (ok/sum)*100;
+        const diff=mark2-mark;
+        const out= [
+          rstr(78,"+"),
+          title,
+          new Date().toString(),
+          rstr(78,"+"),
+          res.join("\n"),
+          rstr(78,"="),
+          ["Passed: ",ok,"/",sum," [",perc|0,"%]"].join(""),
+          `Failed: ${sum-ok}`,
+          ["cpu-time: ",diff,"ms"].join("")].join("\n");
+        return out;
+      }
+    };
+    return _T;
+  }
+
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module === "object" && module.exports){
+    module.exports=_module()
+  }else{
+    global["io/czlab/mcfud/test"]= _module
+  }
+
+})(this);
+
 
