@@ -137,6 +137,12 @@
         r.forEach(c=>{
           if(c.m5 && c.m5.step){
             c.m5.step(dt);
+            if(c.m5.flip=="x"){
+              c.scale.x *= -1;
+            }
+            if (c.m5.flip=="y"){
+              c.scale.y *= -1;
+            }
             EventBus.pub(["post.step",c],dt);
           }
           c.children.length>0 && this._iterStep(c.children, dt)
@@ -145,7 +151,9 @@
       /** @ignore */
       _iterClean(r){
         r.forEach(c=> {
-          if(c.m5) if(c.m5.collisions) c.m5.collisions.length=0;
+          if(c.m5)
+            if(c.m5.contacts)
+              c.m5.contacts.length=0;
           c.children.length>0 && this._iterClean(c.children);
         });
       }

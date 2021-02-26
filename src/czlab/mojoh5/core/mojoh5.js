@@ -240,6 +240,12 @@
         maxed=true;
         box= {width: _width(),
               height: _height()};
+        if(cmdArg.arena.width===undefined &&
+           cmdArg.arena.height===undefined){
+          maxed=false;
+          cmdArg.arena=box;
+          cmdArg.scaleToWindow="win";
+        }
       }
       Mojo.ctx= PIXI.autoDetectRenderer(box);
       Mojo.ctx.bgColor = 0xFFFFFF;

@@ -73,7 +73,7 @@
       paddle.m5.static=true;
       paddle.m5.step=(dt)=>{
         paddle.x = Mojo.mouse.x - paddle.width/2;
-        _2d.contain(paddle, paddle.parent);
+        _2d.contain(paddle, paddle.parent,false);
         paddle.y = pY;
       };
 

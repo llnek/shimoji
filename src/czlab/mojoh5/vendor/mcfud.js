@@ -4644,7 +4644,8 @@
       //find which quadrants r touches
       function _locate(r){
         let x,y,width,height;
-        if(_.has(r,"x") && _.has(r,"y") && _.has(r,"width") && _.has(r,"height")){
+        //if(_.has(r,"x") && _.has(r,"y") && _.has(r,"width") && _.has(r,"height")){
+        if(r.x !== undefined && r.y !== undefined && r.width !== undefined && r.height !== undefined){
           x=r.x; y=r.y; width=r.width; height=r.height;
         }else if(r.getNodeRect){
           let b=r.getNodeRect();

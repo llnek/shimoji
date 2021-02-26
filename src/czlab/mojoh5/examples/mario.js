@@ -67,17 +67,17 @@
     CZ.Enemy=function(world,ts,ps){
       let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
       let mo=s.m5;
-      let wall= world.tiled.getTileLayer("Collision");
+      let wall= _T.getTileLayer(world,"Collision");
       mo.uuid= mo.uuid+"_"+ps["sprite"];
       s.x=ps.x;
       s.y=ps.y-72;
       let signals=[[["bump.top",s],"die",mo],
                    [["hit",s],"hit",mo]];
-      _S.addMixin(s,"2d", "aiBounceX");
+      _S.addMixin(s,"2d", "aiBounce");
       mo.speed=150;
       mo.vel[0]=-150;
       mo.deadTimer=0;
-      s.aiBounceX.dftDirection=Mojo.LEFT;
+      s.aiBounce.dftDirection=Mojo.LEFT;
       mo.collide=function(){
         wall.children.forEach(w=> _2d.hit(s,w))
       };
@@ -91,15 +91,15 @@
         }
       };
       mo.hit=function(col){
-        if(!mo.dead && col.B.m5.uuid==="player" && !col.B.m5.immune){
+        if(!mo.dead && col.B.m5.uuid=="player" && !col.B.m5.immune){
           _E.pub(["enemy.hit", col.B],{"enemy":s,"col":col});
           Mojo.sound("hit.mp3").play();
         }
       };
-      mo.step=function(dt){return;
+      mo.step=function(dt){
         s["2d"].motion(dt);
         if(mo.dead){
-          s.aiBounceX.dispose();
+          s.aiBounce.dispose();
           s["2d"]=null;
           mo.deadTimer++;
           if(mo.deadTimer > 24){
@@ -118,7 +118,7 @@
     CZ.Player=function(world,ts,ps){
       let PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
       let p=_S.sprite(_S.frames(ts.image, ts.tilewidth,ts.tileheight));
-      let wall=world.tiled.getTileLayer("Collision");
+      let wall=_T.getTileLayer(world,"Collision");
       let scene=world.parent;
       let mo=p.m5;
       scene.player=p;
@@ -232,7 +232,7 @@
         for(let t,w,i=0;i<wall.children.length;++i){
           w=wall.children[i];
           t=w.tiled;
-          if(t.ts==="Tiles"){
+          if(t.ts.name=="Tiles"){
             if(t.id===81 || t.id===69 || t.id===40 || t.id===52)
               continue;
           }
@@ -263,7 +263,7 @@
           }
         }
         if(mo.onLadder){
-          mo.gravity[0]= mo.gravity[1] = 0;
+          mo.gravity[0]=0; mo.gravity[1] = 0;
           if(_I.keyDown(_I.keyUP)){
             mo.vel[1] = -mo.speed;
             p.x = mo.ladderX;
@@ -278,7 +278,7 @@
           processed = true;
         }
         if(!processed && mo.door){
-          mo.gravity[0]=mo.gravity[1] = 1;
+          mo.gravity[0]=0;mo.gravity[1] = 500;
           if(mo.checkDoor && p.platformer.landed > 0){
             // Enter door.
             p.y = mo.door.y;
@@ -297,7 +297,7 @@
           }
         }
         if(!processed){
-          mo.gravity[0] = mo.gravity[1] = 1;
+          mo.gravity[0] =0; mo.gravity[1] = 500;
           if(_I.keyDown(_I.keyDOWN) && !mo.door){
             mo.ignoreControls = true;
             //f_anim.enact("duck_" + Mojo.dirToStr(this.p.direction));
@@ -354,11 +354,13 @@
       setup(){
         let world= this.world= _T.tiledWorld("mario.json");
         this.insert(world);
-        let g=world.tiled.getObjectGroup("Sprites");
+        let g=_T.getObjectGroup(world,"Sprites");
         g.tiled.objects.forEach(o=>{
-          let ts=world.tiled.getTSInfo(o.gid);
+          let ts=_T.getTSInfo(world,o.gid);
           let ps=world.tiled.tileProps[o.gid];
-          let os=_.inject({},o,ps);
+          let id=ps.id;
+          let os=_.inject({},ps,o);
+          os.id=id;
           let c= ps["Class"];
           if(c==="Snail"||c==="Slime"||c==="Fly") {
             c="Enemy";

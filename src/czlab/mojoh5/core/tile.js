@@ -396,7 +396,7 @@
        */
       getScaleFactor(world){
         let r=1;
-        if(Mojo.u.scaleToWindow == "max"){
+        if(false && Mojo.u.scaleToWindow == "max"){
           if(Mojo.width>Mojo.height){
             r=Mojo.height/world.tiled.tiledHeight;
           }else{

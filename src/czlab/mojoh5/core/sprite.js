@@ -375,7 +375,7 @@
             _acc= _V.vec(),
             _gravity= _V.vec(),
             _friction= _V.vec();
-        _.inject(s.m5, {collisions:[]},
+        _.inject(s.m5, {contacts:[]},
                        {get uuid() {return _uuid},
                         set uuid(n){_uuid=n},
                         get speed() {return _speed},

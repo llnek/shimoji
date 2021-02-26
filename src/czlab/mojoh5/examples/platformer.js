@@ -73,7 +73,7 @@
         e["2d"].motion(dt);
       };
       scene.world.addChild(e);
-      _S.addMixin(e,"2d", "aiBounceX");
+      _S.addMixin(e,"2d", "aiBounce");
       e.m5.onbump=function(col){
         if(col.B.m5.uuid=="player"){
           _S.remove(col.B);

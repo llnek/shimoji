@@ -37,10 +37,9 @@
         dispose(){
           signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
         boom(col){
-          if(col.A && col.A.m5.sensor){
-            EventBus.pub(["2d.sensor", col.A], e);
-          }else if(col.B && col.B.m5.sensor){
-            EventBus.pub(["2d.sensor", col.B], e);
+          _.assert(col.A===e,"got bit by someone else???");
+          if(col.B && col.B.m5.sensor){
+            EventBus.pub(["2d.sensor", col.B], col.A);
           }else{
             let dx= ABS(e.m5.vel[0]),
                 dy= ABS(e.m5.vel[1]);
@@ -83,14 +82,20 @@
           }
         },
         motion(dt){
-          for(let delta=dt;delta>0;){
-            dt = _.min(1/30,delta);
-            e.m5.vel[0] += e.m5.acc[0] * dt + e.m5.gravity[0] * dt;
-            e.m5.vel[1] += e.m5.acc[1] * dt + e.m5.gravity[1] * dt;
-            e.x += e.m5.vel[0] * dt;
-            e.y += e.m5.vel[1] * dt;
+          if(is.num(dt)){
+            for(let delta=dt;delta>0;){
+              dt = _.min(1/30,delta);
+              e.m5.vel[0] += e.m5.acc[0] * dt + e.m5.gravity[0] * dt;
+              e.m5.vel[1] += e.m5.acc[1] * dt + e.m5.gravity[1] * dt;
+              e.x += e.m5.vel[0] * dt;
+              e.y += e.m5.vel[1] * dt;
+              delta -= dt;
+              e.m5.collide && e.m5.collide();
+            }
+          }else{
+            e.x += e.m5.vel[0];
+            e.y += e.m5.vel[1];
             e.m5.collide && e.m5.collide();
-            delta -= dt;
           }
         }
       };
@@ -114,58 +119,58 @@
         motion(dt){
           let _I=Mojo.Input,
               col,
-              j3= self.jumping/3,
+              j3= self.jumpSpeed/3,
               pR= _I.keyDown(_I.keyRIGHT),
               pU= _I.keyDown(_I.keyUP),
               pL= _I.keyDown(_I.keyLEFT);
-          // follow along the current slope, if possible.
-          if(e.m5.collisions.length > 0 &&
-            (pL || pR || self.landed > 0)){
-            col= e.m5.collisions[0];
-            // Don't climb up walls.
-            if(col !== null &&
-              (col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85)){
-              col= null;
+          if(!e.m5.skipCollide){
+            if(e.m5.contacts.length>0 && (pL || pR || self.landed>0)){
+              if(e.m5.contacts.length===1) {
+                col= e.m5.contacts[0]
+              }else{
+                for(let i=0; i< e.m5.contacts.length; ++i){
+                  if(e.m5.contacts[i].overlapN[1] < 0){
+                    col= e.m5.contacts[i]
+                  }
+                }
+              }
+              // don't climb up walls.
+              //if(col && (col.overlapN[1] > -0.3 || col.overlapN[1] < 0.3)) { col= null }//old
+              if(col && (col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85)) { col= null }//mine
             }
-          }
-          if(pL && !pR){
-            e.m5.direction = Mojo.LEFT;
-            if(col && self.landed>0){
-              e.m5.vel[0] = e.m5.speed * col.overlapN[1];
-              e.m5.vel[1] = -1 * e.m5.speed * col.overlapN[0];
+            if(pL){
+              e.m5.direction = Mojo.LEFT;
+              if(col && self.landed > 0){
+                e.m5.vel[0] = e.m5.speed * col.overlapN[1];
+                e.m5.vel[1] = -e.m5.speed * col.overlapN[0];
+              }else{
+                e.m5.vel[0] = -e.m5.speed }
+            }else if(pR){
+              e.m5.direction = Mojo.RIGHT;
+              if(col && self.landed > 0){
+                e.m5.vel[0] = -e.m5.speed * col.overlapN[1];
+                e.m5.vel[1] = e.m5.speed * col.overlapN[0];
+              }else{
+                e.m5.vel[0] = e.m5.speed }
             }else{
-              e.m5.vel[0] = -1 * e.m5.speed;
+              e.m5.vel[0] = 0;
+              if(col && self.landed > 0){ e.m5.vel[1] = 0 }
             }
-          }else if(pR && !pL){
-            e.m5.direction = Mojo.RIGHT;
-            if(col && self.landed>0){
-              e.m5.vel[0] = -1 * e.m5.speed * col.overlapN[1];
-              e.m5.vel[1] = e.m5.speed * col.overlapN[0];
-            }else{
-              e.m5.vel[0] = e.m5.speed;
+            if(self.landed > 0 && pU && !self.jumping){
+              e.m5.vel[1] = self.jumpSpeed;
+              self.landed = -dt;
+              self.jumping = true;
+            }else if(pU){
+              self.jumping = true;
+              EventBus.pub(["jump",e]);
             }
-          }else {
-            e.m5.vel[0] = 0;
-            if(col && self.landed>0){
-              e.m5.vel[1] = 0
-            }
-          }
-          if(self.landed>0 && pU && !self.jumping){
-            e.m5.vel[1] = self.jumpSpeed;
-            self.landed = -dt;
-            self.jumping = true;
-          }else if(pU){
-            EventBus.pub(["jump",e]);
-            self.jumping = true;
-          }
-          if(self.jumping && !pU){
-            self.jumping = false;
-            EventBus.pub(["jumped", e]);
-            if(e.m5.vel[1] < self.jumpSpeed/3){
-              e.m5.vel[1] = j3;
+            if(self.jumping && !pU){
+              self.jumping = false;
+              EventBus.pub(["jumped",e]);
+              if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
             }
           }
-          self.landed -= dt;
+          self.landed -=dt;
         }
       };
       signals.push([["bump.bottom",e],"onLanded",self]);
@@ -174,46 +179,33 @@
       return self;
     });
 
-    /**Define mixin `aiBounceX`.
+    /**Define mixin `aiBounce`.
      */
-    Mojo.Sprites.defMixin("aiBounceX", function(e){
+    Mojo.Sprites.defMixin("aiBounce", function(e){
       const signals=[];
       const self= {
         dispose(){
           signals.forEach(e=>EventBus.unsub.apply(EventBus,e)) },
         goLeft(col){
-          e.m5.vel[0] = -e.m5.speed;
+          e.m5.vel[0] = -col.impact;//-e.m5.speed;
           e.m5.flip= self.dftDirection === Mojo.RIGHT?"x":false;
         },
         goRight(col){
-          e.m5.vel[0] = e.m5.speed;
+          e.m5.vel[0] = col.impact;//e.m5.speed;
           e.m5.flip= self.dftDirection === Mojo.LEFT?"x":false;
+        },
+        goUp(col){
+          e.m5.vel[0] = -col.impact;//-col.overlapV[0];
+          e.m5.flip=self.dftDirection === Mojo.DOWN?"y":false;
+        },
+        goDown(col){
+          e.m5.vel[0] = col.impact;//col.overlapV[0];
+          e.m5.flip=self.defDirection === Mojo.UP?"y":false;
         }
       };
       signals.push([["post.remove",e],"dispose",self]);
       signals.push([["bump.right",e],"goLeft",self]);
       signals.push([["bump.left",e],"goRight",self]);
-      signals.forEach(e=>EventBus.sub.apply(EventBus,e));
-      return self;
-    });
-
-    /**Define mixin `aiBounceY`.
-     */
-    Mojo.Sprites.defMixin("aiBounceY", function(e){
-      const signals=[];
-      const self= {
-        dispose(){
-          signals.forEach(e=>EventBus.unsub.apply(EventBus,e)) },
-        goUp(col){
-          e.m5.vel[0] = -col.overlapV[0];
-          e.m5.flip=self.dftDirection === Mojo.DOWN?"y":false;
-        },
-        goDown(col){
-          e.m5.vel[0] = col.overlapV[0];
-          e.m5.flip=self.defaultDirection === Mojo.UP?"y":false;
-        }
-      };
-      signals.push([["post.remove",e],"dispose",self]);
       signals.push([["bump.top",e],"goDown",self]);
       signals.push([["bump.bottom",e],"goUp",self]);
       signals.forEach(e=>EventBus.sub.apply(EventBus,e));
@@ -236,8 +228,8 @@
       if(m){
         m.A=a;
         m.B=b;
-        a.m5.collisions.push(m);
-        b.m5.collisions.push(m);
+        a.m5.contacts.push(m);
+        b.m5.contacts.push(m);
       }
       return m;
     }
@@ -384,7 +376,7 @@
        * @param {function} [extra]
        * @return {number[]} a list of collision points
        */
-      contain(s, container, bounce=true,extra=null){
+      contain(s, container, bounce=false,extra=null){
         let c,
             _S=Mojo.Sprites;
         if(container instanceof Mojo.Scenes.Scene){
