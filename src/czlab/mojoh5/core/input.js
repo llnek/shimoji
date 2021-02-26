@@ -13,51 +13,63 @@
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Creates the module.
    */
-  function _module(Mojo,_activeTouches,_buttons,_drags){
-    const Sprites=gscope["io/czlab/mojoh5/Sprites"](Mojo);
-    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
+  function _module(Mojo,ActiveTouches,Buttons,DragDrops){
+
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
+    const {ute:_,is,EventBus}=Mojo;
     const _keyInputs= _.jsMap();
-    const {EventBus}=Mojo;
-    let _Ptr=null;
+
     /**
-     * @private
-     * @function
+     * @module mojoh5/Input
      */
-    function _updateDrags(){
-      if(_Ptr && _Ptr.isDown){
-        if(!_Ptr.dragged){
-          for(let s,i=_drags.length-1; i>=0; --i){
-            s=_drags[i];
-            if(s.m5.drag && _Ptr.hitTestSprite(s)){
-              let cs = s.parent.children;
-              let g=Sprites.gposXY(s);
-              _Ptr.dragOffsetX = _Ptr.x - g[0];
-              _Ptr.dragOffsetY = _Ptr.y - g[1];
-              _Ptr.dragged = s;
+
+    /** @ignore */
+    function _uh(e){
+      e.preventDefault();
+      _keyInputs.set(e.keyCode,false); }
+
+    /** @ignore */
+    function _dh(e){
+      e.preventDefault();
+      _keyInputs.set(e.keyCode,true); }
+
+    /** @ignore */
+    function _updateDrags(ptr){
+      if(ptr && ptr.state[0]){
+        if(!ptr.dragged){
+          for(let s,i=DragDrops.length-1; i>=0; --i){
+            s=DragDrops[i];
+            if(s.m5.drag && ptr.hitTest(s)){
+              let cs= s.parent.children,
+                  g=Mojo.Sprites.gposXY(s);
+              ptr.dragOffsetX = ptr.x - g[0];
+              ptr.dragOffsetY = ptr.y - g[1];
+              ptr.dragged = s;
               //pop it up to top
               _.disj(cs,s);
               _.conj(cs,s);
-              _.disj(_drags,s);
-              _.conj(_drags,s);
+              _.disj(DragDrops,s);
+              _.conj(DragDrops,s);
               break;
             }
           }
         }else{
-          _Ptr.dragged.x = _Ptr.x - _Ptr.dragOffsetX;
-          _Ptr.dragged.y = _Ptr.y - _Ptr.dragOffsetY;
+          ptr.dragged.x= ptr.x - ptr.dragOffsetX;
+          ptr.dragged.y= ptr.y - ptr.dragOffsetY;
         }
       }
-      if(_Ptr && _Ptr.isUp){
-        _Ptr.dragged=null;
+      if(ptr && ptr.state[1]){
+        ptr.dragged=null;
       }
     }
-    const _I= {
+
+    const _$={
       keyLEFT: 37, keyRIGHT: 39, keyUP: 38, keyDOWN: 40,
       keyZERO: 48, keyONE: 49, keyTWO: 50,
       keyTHREE: 51, keyFOUR: 52, keyFIVE: 53,
@@ -71,268 +83,299 @@
       keySHIFT: 16, keyCTRL: 17, keyALT: 18, keySPACE: 32,
       keyHOME: 36, keyEND: 35,
       keyPGGUP: 33, keyPGDOWN: 34,
+      ptr:null,
+      /**Resize the mouse pointer.
+       * @memberof module:mojoh5/Input
+       */
       resize(){
-        _Ptr && _Ptr.dispose();
-        Mojo.pointer= _I.pointer(Mojo.canvas, Mojo.scale);
+        this.ptr && this.ptr.dispose();
+        Mojo.mouse= this.pointer(Mojo.canvas, Mojo.scale);
       },
-      reset(){
-        _keyInputs.clear();
-      },
-      keyboard(_key){
-        //press: undefined, //release: undefined,
-        const key={
-          isDown: false,
-          isUp: true,
-          code: _key,
-          _down(e){
-            e.preventDefault();
-            if(e.keyCode === key.code){
-              key.isUp &&
-                key.press && key.press();
-              key.isUp=false;
-              key.isDown=true;
-            }
-          },
-          _up(e){
-            e.preventDefault();
-            if(e.keyCode === key.code){
-              key.isDown &&
-                key.release && key.release();
-              key.isUp=true;
-              key.isDown=false;
-            }
-          }
-        };
-        _.addEvent([["keyup", window, key._up, false],
-                    ["keydown", window, key._down, false]]);
+      /**Clear all keyboard states.
+       * @memberof module:mojoh5/Input
+       */
+      reset(){ _keyInputs.clear() },
+      /**
+       * @memberof module:mojoh5/Input
+       * @param {number} _key
+       */
+      keybd(_key,press,release){
+        const key={press:press, release:release,
+                   isDown:false, isUp:true, code:_key};
+        function _down(e){
+          e.preventDefault();
+          if(e.keyCode === key.code){
+            key.isUp && key.press && key.press();
+            key.isUp=false; key.isDown=true; }
+        }
+        function _up(e){
+          e.preventDefault();
+          if(e.keyCode === key.code){
+            key.isDown && key.release && key.release();
+            key.isUp=true; key.isDown=false; }
+        }
+        _.addEvent([["keyup", window, _up, false],
+                    ["keydown", window, _down, false]]);
+        key.dispose=()=>{
+          _.delEvent([["keyup", window, _up],
+                      ["keydown", window, _down]]);
+        }
         return key;
       },
+      /**This sprite is no longer a button.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} b
+       * @return {Sprite}
+       */
       undoButton(b){
         b.m5.enabled=false;
         b.m5.button=false;
-        _.disj(_buttons,b);
+        _.disj(Buttons,b);
         return b;
       },
+      /**This sprite is now a button.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} b
+       * @return {Sprite}
+       */
       makeButton(b){
         b.m5.enabled = true;
         b.m5.button=true;
-        _.conj(_buttons,b);
+        _.conj(Buttons,b);
         return b;
       },
+      /** @ignore */
       update(dt){
-        _drags.length>0 && _updateDrags()
+        DragDrops.length>0 && _updateDrags(this.ptr)
       },
-      makeDraggable(s){
-        _.conj(_drags,s);
+      /**This sprite is now draggable.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} s
+       * @return {Sprite}
+       */
+      makeDrag(s){
+        _.conj(DragDrops,s);
         s.m5.drag=true;
+        return s;
       },
-      undoDraggable(s){
-        _.disj(_drags,s);
+      /**This sprite is now not draggable.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} s
+       * @return {Sprite}
+       */
+      undoDrag(s){
+        _.disj(DragDrops,s);
         s.m5.drag=false;
+        return s;
       },
-      keyUp(code){
-        return !this.keyDown(code)
-      },
-      keyDown(code){
-        return _keyInputs.get(code)===true
+      /**Check if this key is currently not pressed.
+       * @memberof module:mojoh5/Input
+       * @param {number} code
+       * @return {boolean}
+       */
+      keyUp(code){ return !this.keyDown(code) },
+      /**Check if this key is currently pressed.
+       * @memberof module:mojoh5/input
+       * @param {number} code
+       * @return {boolean}
+       */
+      keyDown(code){ return _keyInputs.get(code)===true },
+      /**Create the default mouse pointer.
+       * @memberof module:mojoh5/Input
+       * @return {object}
+       */
+      pointer(){
+        let ptr={
+          state: [false,true,false],
+          //isDown: false, isUp: true, tapped: false,
+          _visible: true,
+          _x: 0,
+          _y: 0,
+          width: 1,
+          height: 1,
+          downTime: 0,
+          elapsedTime: 0,
+          dragged: null,
+          dragOffsetX: 0,
+          dragOffsetY: 0,
+          anchor: Mojo.makeAnchor(0.5,0.5),
+          get cursor() { return Mojo.canvas.style.cursor },
+          set cursor(v) { Mojo.canvas.style.cursor = v },
+          get x() { return this._x / Mojo.scale },
+          get y() { return this._y / Mojo.scale },
+          get visible() { return this._visible },
+          get isUp(){return this.state[1]},
+          get isDown(){return this.state[0]},
+          get isClicked(){return this.state[2]},
+          set visible(v) {
+            this.cursor = v ? "auto" : "none";
+            this._visible = v;
+          },
+          getGlobalPosition(){
+            return {x: this.x, y: this.y}
+          },
+          press(){
+            for(let s,i=0,z=Buttons.length;i<z;++i){
+              s=Buttons[i];
+              if(s.m5.enabled &&
+                 s.m5.press &&
+                 ptr.hitTest(s)){
+                s.m5.press(s);
+                break;
+              }
+            }
+          },
+          tap(){
+            ptr.press();
+          },
+          mouseDown(e){
+            //left click only
+            if(e.button===0){
+              ptr._x = e.pageX - e.target.offsetLeft;
+              ptr._y = e.pageY - e.target.offsetTop;
+              ptr.downTime = _.now();
+              //down,up,pressed
+              _.setVec(ptr.state,true,false,true);
+              e.preventDefault();
+              EventBus.pub(["mousedown"]);
+            }
+          },
+          mouseMove(e){
+            ptr._x = e.pageX - e.target.offsetLeft;
+            ptr._y = e.pageY - e.target.offsetTop;
+            //e.preventDefault();
+            EventBus.pub(["mousemove"]);
+          },
+          mouseUp(e){
+            if(e.button===0){
+              ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+              ptr._x = e.pageX - e.target.offsetLeft;
+              ptr._y = e.pageY - e.target.offsetTop;
+              _.setVec(ptr.state,false,true);
+              //ptr.isDown = false;
+              //ptr.isUp = true;
+              if(ptr.state[2]){//pressed
+                ptr.press();
+                ptr.state[2]=false;
+              }
+              e.preventDefault();
+              EventBus.pub(["mouseup"]);
+            }
+          },
+          _copyTouch(t,target){
+            return{offsetLeft:target.offsetLeft,
+                   offsetTop:target.offsetTop,
+                   clientX:t.clientX,
+                   clientY:t.clientY,
+                   pageX:t.pageX,
+                   pageY:t.pageY,
+                   identifier:t.identifier}
+          },
+          touchStart(e){
+            let ct=e.changedTouches; //multitouch
+            //let tt=e.targetTouches;//single touch
+            let t = e.target;
+            let tid=ct[0].identifier||0;
+            ptr._x = ct[0].pageX - t.offsetLeft;
+            ptr._y = ct[0].pageY - t.offsetTop;
+            ptr.downTime = _.now();
+            _.setVec(ptr.state,true,false,true);
+            //ptr.isDown = true; ptr.isUp = false; ptr.tapped = true;
+            e.preventDefault();
+            _.assoc(ActiveTouches,tid,ptr._copyTouch(ct[0],t));
+            EventBus.pub(["touchstart"]);
+          },
+          touchMove(e){
+            let ct=e.changedTouches;
+            //let tt=e.targetTouches;
+            let t = e.target;
+            let tid= ct[0].identifier||0;
+            let active = _.get(ActiveTouches,tid);
+            ptr._x = ct[0].pageX - t.offsetLeft;
+            ptr._y = ct[0].pageY - t.offsetTop;
+            e.preventDefault();
+            EventBus.pub(["touchmove"]);
+          },
+          touchEnd(e){
+            let ct=e.changedTouches;
+            //let tt=e.targetTouches;
+            let t = e.target;
+            let tid= ct[0].identifier||0;
+            let active = _.get(ActiveTouches,tid);
+            ptr._x = ct[0].pageX - t.offsetLeft;
+            ptr._y = ct[0].pageY - t.offsetTop;
+            _.setVec(ptr.state,false,true);
+            //ptr.isDown = false; ptr.isUp = true;
+            ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+            if(ptr.state[2]){
+              if(active && ptr.elapsedTime <= 200){
+                ptr.tap();
+              }
+              ptr.state[2]=false;
+            }
+            e.preventDefault();
+            EventBus.pub(["touchend"]);
+          },
+          touchCancel(e){
+            let ct=e.changedTouches;
+            //let tt=e.targetTouches;
+            let t=e.target;
+            let t0=ct[0];
+            let tid= touch.identifier || 0;
+            let active = _.get(ActiveTouches,tid);
+            e.preventDefault();
+            if(active)
+              _.dissoc(ActiveTouches,tid);
+          },
+          reset(){
+            _.setVec(ptr.state,false,true,false);
+            //ptr.pressed=false; ptr.tapped=false; ptr.isDown=false; ptr.isUp=true;
+          },
+          hitTest(s){
+            let _S=Mojo.Sprites,
+                g=_S.gposXY(s),
+                p=_S.toPolygon(s),
+                ps=_V.translate(g,p.calcPoints);
+            return Geo.hitTestPointInPolygon(ptr.x,ptr.y,ps);
+          },
+          dispose(){
+            _.delEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
+                        ["mousedown", Mojo.canvas,ptr.mouseDown],
+                        ["mouseup", window, ptr.mouseUp],
+                        ["touchmove", Mojo.canvas, ptr.touchMove],
+                        ["touchstart", Mojo.canvas, ptr.touchStart],
+                        ["touchend", window, ptr.touchEnd],
+                        ["touchcancel", window, ptr.touchCancel]]);
+          }
+        };
+        _.addEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
+                    ["mousedown", Mojo.canvas,ptr.mouseDown],
+                    ["mouseup", window, ptr.mouseUp],
+                    ["touchmove", Mojo.canvas, ptr.touchMove],
+                    ["touchstart", Mojo.canvas, ptr.touchStart],
+                    ["touchend", window, ptr.touchEnd],
+                    ["touchcancel", window, ptr.touchCancel]]);
+        //disable the default actions on the canvas
+        Mojo.canvas.style.touchAction = "none";
+        return this.ptr=ptr;
       }
     };
-    /**
-     * @public
-     * @function
-     */
-    _I.pointer=function(){
-      let ptr={
-        tapped: false,
-        isDown: false,
-        isUp: true,
-        _visible: true,
-        _x: 0,
-        _y: 0,
-        width: 1,
-        height: 1,
-        downTime: 0,
-        elapsedTime: 0,
-        dragged: null,
-        dragOffsetX: 0,
-        dragOffsetY: 0,
-        anchor: Mojo.makeAnchor(0.5,0.5),
-        get cursor() { return Mojo.canvas.style.cursor },
-        set cursor(v) { Mojo.canvas.style.cursor = v },
-        get x() { return this._x / Mojo.scale },
-        get y() { return this._y / Mojo.scale },
-        get visible() { return this._visible },
-        set visible(v) {
-          this.cursor = v ? "auto" : "none";
-          this._visible = v;
-        },
-        getGlobalPosition(){
-          return {x: this.x, y: this.y}
-        },
-        press(){
-          for(let s,i=0,z=_buttons.length;i<z;++i){
-            s=_buttons[i];
-            if(s.m5.enabled &&
-               s.m5.press &&
-               ptr.hitTestSprite(s)){
-              s.m5.press(s);
-              break;
-            }
-          }
-        },
-        tap(){
-          ptr.press();
-        },
-        mouseDown(e){
-          //left click only
-          if(e.button===0){
-            ptr._x = e.pageX - e.target.offsetLeft;
-            ptr._y = e.pageY - e.target.offsetTop;
-            ptr.downTime = _.now();
-            ptr.isDown = true;
-            ptr.isUp = false;
-            ptr.pressed=true;
-            e.preventDefault();
-            EventBus.pub(["mousedown"]);
-          }
-        },
-        mouseMove(e){
-          ptr._x = e.pageX - e.target.offsetLeft;
-          ptr._y = e.pageY - e.target.offsetTop;
-          //e.preventDefault();
-          EventBus.pub(["mousemove"]);
-        },
-        mouseUp(e){
-          if(e.button===0){
-            ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
-            ptr._x = e.pageX - e.target.offsetLeft;
-            ptr._y = e.pageY - e.target.offsetTop;
-            ptr.isUp = true;
-            ptr.isDown = false;
-            if(ptr.pressed){
-              ptr.press();
-              ptr.pressed=false;
-            }
-            e.preventDefault();
-            EventBus.pub(["mouseup"]);
-          }
-        },
-        _copyTouch(t,target){
-          return {
-            offsetLeft:target.offsetLeft,
-            offsetTop:target.offsetTop,
-            clientX:t.clientX,
-            clientY:t.clientY,
-            pageX:t.pageX,
-            pageY:t.pageY,
-            identifier:t.identifier};
-        },
-        touchStart(e){
-          let ct=e.changedTouches; //multitouch
-          let tt=e.targetTouches;//single touch
-          let t = e.target;
-          let tid=tt[0].identifier || 0;
-          ptr._x = tt[0].pageX - t.offsetLeft;
-          ptr._y = tt[0].pageY - t.offsetTop;
-          ptr.downTime = _.now();
-          ptr.isDown = true;
-          ptr.isUp = false;
-          ptr.tapped = true;
-          e.preventDefault();
-          _.assoc(_activeTouches,tid,ptr._copyTouch(tt[0],t));
-          EventBus.pub(["touchstart"]);
-        },
-        touchMove(e){
-          let ct=e.changedTouches;
-          let tt=e.targetTouches;
-          let t = e.target;
-          let id= tt[0].identifier || 0;
-          let active = _.get(_activeTouches,id);
-          ptr._x = tt[0].pageX - t.offsetLeft;
-          ptr._y = tt[0].pageY - t.offsetTop;
-          e.preventDefault();
-          EventBus.pub(["touchmove"]);
-        },
-        touchEnd(e){
-          let ct=e.changedTouches;
-          let tt=e.targetTouches;
-          let t = e.target;
-          let id= tt[0].identifier || 0;
-          let active = _.get(_activeTouches,id);
-          ptr._x = tt[0].pageX - t.offsetLeft;
-          ptr._y = tt[0].pageY - t.offsetTop;
-          ptr.isUp = true;
-          ptr.isDown = false;
-          ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
-          if(active && ptr.elapsedTime <= 200 && ptr.tapped === true){
-            ptr.tap();
-            ptr.tapped = false;
-          }
-          e.preventDefault();
-          EventBus.pub(["touchend"]);
-        },
-        touchCancel(e){
-          let ct=e.changedTouches;
-          let tt=e.targetTouches;
-          let t=e.target;
-          let t0=tt[0];
-          let touchId= touch.identifier || 0;
-          let active = _.get(_activeTouches,touchId);
-          e.preventDefault();
-          if(active)
-            _.dissoc(_activeTouches,touchId);
-        },
-        reset(){
-          ptr.pressed=false;
-          ptr.tapped=false;
-          ptr.isDown=false;
-          ptr.isUp=true;
-        },
-        hitTestSprite(s){
-          return Mojo["2d"].hitTestPointXY(ptr.x,ptr.y,s,true)
-        },
-        dispose(){
-          _.delEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
-                      ["mousedown", Mojo.canvas,ptr.mouseDown],
-                      ["mouseup", window, ptr.mouseUp],
-                      ["touchmove", Mojo.canvas, ptr.touchMove],
-                      ["touchstart", Mojo.canvas, ptr.touchStart],
-                      ["touchend", window, ptr.touchEnd],
-                      ["touchcancel", window, ptr.touchCancel]]);
-        }
-      };
-      _.addEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
-                  ["mousedown", Mojo.canvas,ptr.mouseDown],
-                  ["mouseup", window, ptr.mouseUp],
-                  ["touchmove", Mojo.canvas, ptr.touchMove],
-                  ["touchstart", Mojo.canvas, ptr.touchStart],
-                  ["touchend", window, ptr.touchEnd],
-                  ["touchcancel", window, ptr.touchCancel]]);
-      //disable the default actions on the canvas
-      Mojo.canvas.style.touchAction = "none";
-      return _Ptr=ptr;
-    };
 
-    EventBus.sub(["canvas.resize"], "resize",_I);
+    //handle resize
+    EventBus.sub(["canvas.resize"], "resize",_$);
 
-    function _uh(e){
-      e.preventDefault();
-      _keyInputs.set(e.keyCode,false);
-    }
-    function _dh(e){
-      e.preventDefault();
-      _keyInputs.set(e.keyCode,true);
-    }
+    //keep tracks of keyboard presses
     _.addEvent([["keyup", window, _uh, false],
                 ["keydown", window, _dh, false]]);
 
-    return (Mojo.Input= _I);
+    return (Mojo.Input= _$);
   }
 
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports={msg:"not supported in node"}
-  }else {
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module==="object" && module.exports){
+    throw "Fatal: browser only"
+  }else{
     gscope["io/czlab/mojoh5/Input"]=function(M){
       return M.Input ? M.Input : _module(M,new Map(),[],[])
     }

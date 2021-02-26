@@ -13,33 +13,27 @@
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope){
+
   "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  if(typeof module === "object" && module.exports){
-    throw "Fatal: no browser."
-  }
+
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   if(!gscope.AudioContext){
     throw "Fatal: no audio."
   }
-  /**
-   * @private
-   * @var {array}
+
+  const CON=console,
+        MFL=Math.floor;
+
+  /**Create the module.
    */
-  //const AUDIO_EXTS= ["mp3", "ogg", "wav"];
-  const CON=console;
-  /**
-   * @private
-   * @function
-   */
-  function _module(Mojo,_sounds){
-    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
-    const _A={ ctx: new gscope.AudioContext() };
+  function _module(Mojo,SoundFiles){
     /**
-     * @public
-     * @function
+     * @module mojoh5/Sound
      */
-    function _make(name, url){
+    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
+
+    /** @ignore */
+    function _make(_A,name, url){
       const s={
         soundNode: null,
         buffer: null,
@@ -47,7 +41,7 @@
         name: name,
         loop: false,
         playing: false,
-        panValue: 0,
+        panValue: 0, //-1(left speaker) <--> 0 <----> 1(right speaker)
         volumeValue: 1,
         startTime: 0,
         startOffset: 0,
@@ -160,48 +154,65 @@
         get volume() { return this.volumeValue },
         set volume(v) { this.gainNode.gain.value = v; this.volumeValue = v }
       };
-      return _sounds[name]=s;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _A.decodeContent=function(name, url,blob, onLoad, onFail){
-      let snd= _make(name, url);
-      _A.ctx.decodeAudioData(blob, b=>{ onLoad(snd.buffer=b);
-                                        CON.log(`decoded sound file:${url}`); },
-                                   e=> { onFail && onFail(url,e) });
-      return snd;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _A.decodeUrl=function(name, url, onLoad, onFail){
-      let xhr= new XMLHttpRequest();
-      let snd= _make(name, url);
-      xhr.open("GET", url, true);
-      xhr.responseType="arraybuffer";
-      xhr.addEventListener("load", ()=>{
-        _A.decodeContent(url, xhr.response, onLoad, onFail)
-      });
-      xhr.send();
-      return snd;
-    };
-    /**
-     * @public
-     * @function
-     */
-    Mojo.sound=function(fname){
-      return _sounds[Mojo.assetPath(fname)] || _.assert(false, `${fname} not loaded.`)
+      return SoundFiles[name]=s;
     };
 
-    return (Mojo.Sound= _A);
+    const _$={
+      ctx: new gscope.AudioContext(),
+      /**Decode these sound bytes.
+       * @memberof module:mojoh5/Sound
+       * @param {string} name
+       * @param {any} url
+       * @param {any} blob
+       * @param {function} onLoad
+       * @param {function} [onFail]
+       * @return {object}
+       */
+      decodeContent(name, url,blob, onLoad, onFail){
+        let snd= _make(this,name, url);
+        this.ctx.decodeAudioData(blob, b=>{ onLoad(snd.buffer=b);
+                                            CON.log(`decoded sound file:${url}`); },
+                                       e=> { onFail && onFail(url,e) });
+        return snd;
+      },
+      /**Decode the sound file at this url.
+       * @memberof module:mojoh5/Sound
+       * @param {string} name
+       * @param {any} url
+       * @param {function} onLoad
+       * @param {function} [onFail]
+       * @return {object}
+       */
+      decodeUrl(name, url, onLoad, onFail){
+        let xhr= new XMLHttpRequest();
+        let snd= _make(this,name, url);
+        xhr.open("GET", url, true);
+        xhr.responseType="arraybuffer";
+        xhr.addEventListener("load", ()=>{
+          this.decodeContent(url, xhr.response, onLoad, onFail)
+        });
+        xhr.send();
+        return snd;
+      }
+    };
+
+    /**Extend Mojo */
+    Mojo.sound=function(fname){
+      return SoundFiles[Mojo.assetPath(fname)] || _.assert(false, `${fname} not loaded.`)
+    };
+
+    return (Mojo.Sound= _$);
   }
 
-  gscope["io/czlab/mojoh5/Sound"]=function(M){
-    return M.Sound ? M.Sound : _module(M, {})
-  };
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module==="object" && module.exports){
+    throw "Fatal: browser only"
+  }else{
+    gscope["io/czlab/mojoh5/Sound"]=function(M){
+      return M.Sound ? M.Sound : _module(M, {})
+    };
+  }
 
 })(this);
 

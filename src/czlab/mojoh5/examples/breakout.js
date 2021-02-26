@@ -1,192 +1,154 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
-  function defScenes(Mojo) {
-    let Z=Mojo.Scenes;
+  function defScenes(Mojo){
     let S=Mojo.Sprites;
-    let T=Mojo.Effects;
+    let Z=Mojo.Scenes;
+    let T=Mojo.FX;
     let I=Mojo.Input;
+    let G=Mojo.Game;
     let _2d= Mojo["2d"];
-    let _=Mojo.u, is=Mojo.is;
+    let _=Mojo.ute, is=Mojo.is;
 
-    let paddleWobble;
+    let gridW= 8,
+        gridH= 2,//5,
+        cellW= 64,
+        cellH= 64;
 
-    //The size of the grid of blocks
-    let gridWidth = 8,
-      gridHeight = 2,//5,
-      cellWidth = 64,
-      cellHeight = 64;
-
-    Z.defScene("splash", {
-      poo:function() {
-        console.log("poo poo");
-      },
-      setup: function() {
-        let self=this;
-        let title = S.sprite("title.png");
-        this.insert(title);
-        let playButton = I.button(["up.png", "over.png", "down.png"]);
-        this.insert(playButton);
-        playButton.x = 514;
-        playButton.y = 350;
-        playButton.mojoh5.press = () => {
-          //let music=Mojo.Game.state.get("music");
-          //if(!music.playing) music.play();
+    Z.defScene("splash",{
+      setup(){
+        let title = this.insert(S.sprite("title.png")),
+            playBtn=this.insert(S.sprite("up.png"));
+        S.setXY(playBtn,514,350);
+        I.makeButton(playBtn);
+        playBtn.m5.press = ()=>{
           let ns= Z.runScene("level1");
           let a= T.slide(this, T.EASE_OUT_CUBIC, 514, 0, 30);
           let b= T.slide(ns, T.EASE_OUT_CUBIC,0, 0, 30);
           a.onComplete= () => { Z.removeScene(this); };
         };
-        let titleMessage = S.text("start game", {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
-        this.insert(titleMessage);
-        T.slide(playButton, T.EASE_OUT_CUBIC, 250, 350, 30);
-        T.slide(titleMessage, T.EASE_OUT_CUBIC,250, 300, 30);
+        let msg = S.text("start game", {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
+        this.insert(msg);
+        T.slide(playBtn, T.EASE_OUT_CUBIC, 250, 350, 30);
+        T.slide(msg, T.EASE_OUT_CUBIC,250, 300, 30);
       }});
 
     Z.defScene("end",function(){
-      let title = S.sprite("title.png");
-      this.insert(title);
-      let playButton = I.button(["up.png", "over.png", "down.png"]);
-      this.insert(playButton);
-      playButton.x = 514;
-      playButton.y = 350;
-      playButton.mojoh5.press = () => {
+      let title = this.insert(S.sprite("title.png")),
+          playBtn = this.insert(S.sprite("up.png"));
+      S.setXY(playBtn, 514,350);
+      I.makeButton(playBtn);
+      playBtn.m5.press = ()=>{
         let ns= Z.runScene("level1");
         let a= T.slide(this, T.EASE_OUT_CUBIC, 514, 0, 30);
         let b= T.slide(ns, T.EASE_OUT_CUBIC, 0, 0, 30);
         a.onComplete = () => { Z.removeScene(this); };
       };
-      let score=Mojo.Game.state.get("score");
-      let msg= `Score: ${score}`;
-      let titleMessage = S.text(msg, {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
-      this.insert(titleMessage);
-      T.slide(playButton, T.EASE_OUT_CUBIC,250, 350, 30);
-      T.slide(titleMessage, T.EASE_OUT_CUBIC,250, 300, 30);
-
-      //Mojo.Game.state.get("music").volume = 0.3;
+      let msg = S.text(`Score: ${G.score}`, {fontFamily:"puzzler",fontSize:20,fill:"white"}, -200, 300);
+      this.insert(msg);
+      T.slide(playBtn, T.EASE_OUT_CUBIC,250, 350, 30);
+      T.slide(msg, T.EASE_OUT_CUBIC,250, 300, 30);
     });
 
     Z.defScene("level1",function(){
-      //Add a black border along the top of the screen
-      let topBorder = S.rectangle(512, 32, "black");
-      let self=this;
-      this.insert(topBorder);
-
-      let paddle = S.sprite("paddle.png");
-      paddle.mojoh5.static=true;
-      paddle.mojoh5.step=function(dt){
-        paddle.x = Mojo.pointer.x - S.halfSize(paddle)[0];
-        //let y=paddle.y;
+      let topBorder = this.insert(S.rectangle(512, 32, "black")),
+          paddle = this.insert(S.sprite("paddle.png"));
+      S.pinBottom(this,paddle, -2.5*paddle.height);
+      let pY=paddle.y;
+      paddle.m5.static=true;
+      paddle.m5.step=(dt)=>{
+        paddle.x = Mojo.mouse.x - paddle.width/2;
         _2d.contain(paddle, paddle.parent);
-        //paddle.y=y;
+        paddle.y = pY;
       };
-      this.insert(paddle);
-      S.pinBottom(this,paddle, 0, -24);
 
-      //Plot the blocks
-      //First create an array that stores references to all the
-      //blocks frames in the texture atlas
-      let blockFrames = [ "blue.png", "green.png", "orange.png", "red.png", "violet.png" ];
-      //Use the `grid` function to randomly plot the
-      //blocks in a grid pattern
-      let blocks = S.grid(gridWidth, gridHeight, 64, 64, false, 0, 0, () => {
-        let r= _.randInt2(0, 4);
-        let s= S.sprite(blockFrames[r]);
-        s.mojoh5.static=true;
+      let colors = [ "blue.png", "green.png", "orange.png", "red.png", "violet.png" ];
+      let blocks = S.grid(gridW, gridH, cellW, cellH, false, 0, 0, ()=>{
+        let s= S.sprite(_.randItem(colors));
+        s.m5.static=true;
         return s;
       });
-
-      //Position the blocks 32 pixels below the top of the canvas
+      blocks.x=0;
       blocks.y = 32;
       this.insert(blocks);
 
-      let message = S.text("test", {fontFamily: "puzzler", fontSize: 20, fill: "white"});
-      message.x = 8;
-      message.y = 8;
-      this.insert(message);
+      let msg = S.text("test", {fontFamily: "puzzler", fontSize: 20, fill: "white"});
+      S.setXY(msg,8,8);
+      this.insert(msg);
 
-      let ball = S.sprite("ball.png",0,0,true);
-      //ball.anchor.set(0.5);
-      ball.mojoh5.step=function(dt){
-        let bounce=Mojo.Game.state.get("bounce");
+      let ball = this.insert(S.sprite("ball.png",true));
+      S.pinBottom(this,ball, -128);
+      ball.m5.vel[0] = 8;//12;
+      ball.m5.vel[1] = 5;//8;
+      ball.m5.step=(dt)=>{
         S.move(ball);
         //ballHitsWall
-        _2d.contain(ball,
-          Mojo.mockStage(0,32),
-          true,
-          (col) => {
-            bounce.play();
-            if(col.has(Mojo.BOTTOM))
-              Mojo.Game.state.dec("score");
-          });
+        _2d.contain(ball, Mojo.mockStage(0,32), true, col=>{
+          G.bounce.play();
+          if(col.has(Mojo.BOTTOM)) --G.score;
+        });
         //ballHitsPaddle
         if(_2d.collide(ball, paddle)){
-          bounce.play();
-          if(paddleWobble){
+          G.bounce.play();
+          if(G.paddleWobble){
             paddle.scale.set(1,1);
-            T.remove(paddleWobble);
-          };
-          paddleWobble = T.wobble( paddle, 1.3, 1.2, 5, 10, 10, -10, -10, 0.96);
+            T.remove(G.paddleWobble);
+          }
+          G.paddleWobble = T.wobble(paddle, {x1:10, x2:10, y1:-10, y2:-10}, 1.3, 1.2, 5);
         }
-
         //ballHitsBlock
-        if(true)
         for(let b,z=blocks.children.length,i=z-1; i>=0; --i){
           b=blocks.children[i];
           if(_2d.collide(ball,b)){
-            Mojo.Game.state.inc("score");
-            bounce.play();
+            ++G.score;
+            G.bounce.play();
             S.remove(b);
-            let sz=S.halfSize(b);
-            let g=S.gposXY(b);
-            let globalCenterX = g[0] + sz[0];
-            let globalCenterY = g[1] + sz[1];
+            let c=S.centerXY(b);
             T.createParticles(
-              globalCenterX, globalCenterY,            //x and y position
-              () => S.sprite("star.png"),              //Particle function
-              self,                                 //The container to add it to
+              //globalCenterX, globalCenterY,            //x and y position
+              c[0],c[1],
+              ()=>S.sprite("star.png"),              //Particle function
+              this,                                 //The container to add it to
               [0.3,0.3],                                     //Gravity
-              true,                                    //Random spacing
-              20,                                      //Number of particles
-              0, 6.28,                                 //Min/max angle
-              12, 24,                                  //Min/max size
-              5, 10,                                   //Min/max speed
-              0.005, 0.01,                             //Min/max scale speed
-              0.005, 0.01,                             //Min/max alpha speed
-              0.05, 0.1                                //Min/max rotation speed
+              {rotate:0.05,alpha:0.005,scale:0.005,angle:0,size:12,speed:5},
+              {rotate:0.1,alpha:0.01,scale:0.01,angle:6.28,size:24,speed:10}
             );
           }
         }
 
-        let score=Mojo.Game.state.get("score");
-        message.mojoh5.content(`Score: ${score}`);
+        msg.text=`Score: ${G.score}`;
         if(blocks.children.length===0) {
           Mojo.pause();
-          _.timer(() => {
+          _.timer(()=>{
             Z.replaceScene("level1","end");
             Mojo.resume();
           },300);
         }
       };
 
-      this.insert(ball);
-      S.pinBottom(this,ball, 0, -128);
-      ball.mojoh5.vel[0] = 8;//12;
-      ball.mojoh5.vel[1] = 5;//8;
-
-      //Add the game sprites to the `gameScene` group
-      //gameScene = g.group(paddle, ball, topBorder, blocks, message);
-
       //Position the `gameScene` offscreen at -514 so that its
       //not visible when the game starts
-
       this.x = -514;
       this.y=0;
 
-      let music= Mojo.Game.state.get("music");
+      let music= G.music;
       //if(!music.playing) music.play();
     });
-
 
   }
 
@@ -196,16 +158,16 @@
       assetFiles: ["images/bloxyee/bloxyee.json", "puzzler.otf", "music.wav", "bounce.wav"],
       arena: {width: 512, height: 512},
       scaleToWindow: true,
-      load: (Mojo,f,p) => {
+      load(Mojo,f,p){
         console.log(`breakout- loading: ${f}`);
         console.log(`breakout- progress: ${p}`);
       },
-      start: (Mojo) => {
+      start(Mojo){
         let G= Mojo.Game;
-        G.state.set("bounce", Mojo.sound("bounce.wav"));
-        G.state.set("music", Mojo.sound("music.wav"));
-        G.state.set("score", 0);
-        G.state.get("music").loop = true;
+        G.bounce=Mojo.sound("bounce.wav");
+        G.music=Mojo.sound("music.wav");
+        G.score=0;
+        G.music.loop = true;
         defScenes(Mojo);
         Mojo.Scenes.runScene("splash");
       }

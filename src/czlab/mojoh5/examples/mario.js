@@ -1,15 +1,31 @@
-(function(window){
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
+;(function(window){
+
   "use strict";
+
   function scenes(Mojo){
-    let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_T=Mojo.Tiles;
-    let _E=Mojo.EventBus;
-    let _=Mojo.u;
+    let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_T=Mojo.Tiles,_2d=Mojo["2d"];
+    let {ute:_,is,EventBus}=Mojo;
+    let _E=EventBus;
     let CZ={};
     let _score=0;
 
     CZ.Collectable=function(world,ts,ps){
       let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
-      let mo=s.mojoh5;
+      let mo=s.m5;
       let signal=[["sensor",s],"onSensor",mo];
       mo.uuid= mo.uuid+"_"+ps["sprite"];
       s.x=ps.x;
@@ -21,16 +37,16 @@
         _E.unsub.apply(_E,signal);
         if(ps.amount){
           _score = _score + (+ps.amount);
-          //Mojo.runScene('hud', 3, colObj.p);
         }
       };
       _E.sub.apply(_E,signal);
       world.addChild(s);
       return s;
     };
+
     CZ.Door=function(world,ts,ps){
       let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
-      let mo=s.mojoh5;
+      let mo=s.m5;
       let signal=[["sensor",s],"onSensor",mo];
       s.x=ps.x;
       s.y=ps.y-72;
@@ -47,42 +63,41 @@
       _E.sub.apply(_E,signal);
       return s;
     };
+
     CZ.Enemy=function(world,ts,ps){
       let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
-      let mo=s.mojoh5;
-      let wall= world.tiled.getOne("Collision");
+      let mo=s.m5;
+      let wall= world.tiled.getTileLayer("Collision");
       mo.uuid= mo.uuid+"_"+ps["sprite"];
       s.x=ps.x;
       s.y=ps.y-72;
       let signals=[[["bump.top",s],"die",mo],
                    [["hit",s],"hit",mo]];
-      Mojo.addMixin(s,"2d", "aiBounceX");
+      _S.addMixin(s,"2d", "aiBounceX");
       mo.speed=150;
       mo.vel[0]=-150;
       mo.deadTimer=0;
-      s.aiBounceX.defaultDirection=Mojo.LEFT;
+      s.aiBounceX.dftDirection=Mojo.LEFT;
       mo.collide=function(){
-        wall.children.forEach(w=>{
-          Mojo["2d"].hit(s,w);
-        })
+        wall.children.forEach(w=> _2d.hit(s,w))
       };
       mo.die=function(col){
-        if(col.B.mojoh5.uuid==="player"){
+        if(col.B.m5.uuid=="player"){
           Mojo.sound("coin.mp3").play();
           mo.vel[0]=mo.vel[1]=0;
           mo.dead=true;
-          col.B.mojoh5.vel[1] = -300;
+          col.B.m5.vel[1] = -300;
           mo.deadTimer = 0;
         }
       };
       mo.hit=function(col){
-        if(!mo.dead && col.B.mojoh5.uuid==="player" && !col.B.mojoh5.immune){
+        if(!mo.dead && col.B.m5.uuid==="player" && !col.B.m5.immune){
           _E.pub(["enemy.hit", col.B],{"enemy":s,"col":col});
           Mojo.sound("hit.mp3").play();
         }
       };
-      mo.step=function(dt){
-        s["2d"] && s["2d"].motion(dt);
+      mo.step=function(dt){return;
+        s["2d"].motion(dt);
         if(mo.dead){
           s.aiBounceX.dispose();
           s["2d"]=null;
@@ -99,63 +114,59 @@
       world.addChild(s);
       return s;
     };
+
     CZ.Player=function(world,ts,ps){
       let PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
       let p=_S.sprite(_S.frames(ts.image, ts.tilewidth,ts.tileheight));
-      let wall= world.tiled.getOne("Collision");
+      let wall=world.tiled.getTileLayer("Collision");
       let scene=world.parent;
-      let mo=p.mojoh5;
+      let mo=p.m5;
       scene.player=p;
       p.x=ps.x-210;
       p.y=ps.y-72;
       let _mode=null;
       world.addChild(p);
       p.anchor.set(0.5);
-      p.mojoh5.gravity[1]=500;
-      p.mojoh5.strength= 100;
-      p.mojoh5.speed= 300;
-      p.mojoh5.score= 0;
-      Mojo.addMixin(p,"2d","platformer");
-      p.mojoh5.showFrame(1);
+      p.m5.gravity[1]=500;
+      p.m5.strength= 100;
+      p.m5.speed= 300;
+      p.m5.score= 0;
+      _S.addMixin(p,"2d","platformer");
+      p.m5.showFrame(1);
       p.platformer.jumpSpeed= -400;
-      p.mojoh5.direction= Mojo.RIGHT;
-      let upArrow = _I.keyboard(_I.keyUP);
-      let downArrow = _I.keyboard(_I.keyDOWN);
-      let leftArrow = _I.keyboard(_I.keyLEFT);
-      let rightArrow = _I.keyboard(_I.keyRIGHT);
-      leftArrow.press=function(){
+      p.m5.direction= Mojo.RIGHT;
+      let leftArrow = _I.keybd(_I.keyLEFT, ()=>{
         p.scale.x = -1;
         if(_mode===null)
-          p.mojoh5.playFrames(PStates.walk_right);
-      };
-      rightArrow.press=function(){
+          p.m5.playFrames(PStates.walk_right);
+      }, ()=>{
+        p.m5.showFrame(1);
+        _mode=null;
+      });
+
+      let rightArrow = _I.keybd(_I.keyRIGHT, ()=>{
         p.scale.x = 1;
         if(_mode===null)
-          p.mojoh5.playFrames(PStates.walk_right);
-      };
-      leftArrow.release=function(){
-        p.mojoh5.showFrame(1);
+          p.m5.playFrames(PStates.walk_right);
+      }, ()=>{
+        p.m5.showFrame(1);
         _mode=null;
-      };
-      rightArrow.release=function(){
-        p.mojoh5.showFrame(1);
-        _mode=null;
-      };
-      upArrow.press=function(){
-        p.mojoh5.showFrame(PStates.jump_right);
+      });
+
+      let upArrow = _I.keybd(_I.keyUP, ()=>{
+        p.m5.showFrame(PStates.jump_right);
         _mode=PStates.jump_right;
-      };
-      upArrow.release=function(){
+      }, ()=>{
         _mode=null;
-      };
-      downArrow.press=function(){
-        p.mojoh5.showFrame(PStates.duck_right);
+      });
+
+      let downArrow = _I.keybd(_I.keyDOWN, ()=>{
+        p.m5.showFrame(PStates.duck_right);
         _mode=PStates.duck_right;
-      };
-      downArrow.release=function(){
-        p.mojoh5.showFrame(1);
+      }, ()=>{
+        p.m5.showFrame(1);
         _mode=null;
-      };
+      });
 
       let signals=[[["bump.top",p],"breakTile"],
                    [["sensor.tile",p],"checkLadder"],
@@ -163,7 +174,7 @@
                    [["jump",p]],
                    [["jumped",p]],
                    [["down",Mojo.input],"checkDoor",p]];
-      p.mojoh5.XgetContactPoints=function(){
+      p.m5.getContactPoints=function(){
         return _mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
                                          : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
       };
@@ -217,7 +228,7 @@
         */
         Mojo.sound("coin.mp3").play();
       };
-      p.mojoh5.collide=function(){
+      p.m5.collide=function(){
         for(let t,w,i=0;i<wall.children.length;++i){
           w=wall.children[i];
           t=w.tiled;
@@ -225,16 +236,16 @@
             if(t.id===81 || t.id===69 || t.id===40 || t.id===52)
               continue;
           }
-          Mojo["2d"].hit(p,w);
+          _2d.hit(p,w);
         }
       };
-      p.mojoh5.step=function(dt){
+      p.m5.step=function(dt){
         p["2d"].motion(dt);
         p["platformer"].motion(dt);
-        if(p.mojoh5.vel[0]===0 && p.mojoh5.vel[1]===0){
-          //if(_.feq0(p.mojoh5.vel[0]) && _.feq0(p.mojoh5.vel[1]))
+        if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
+          //if(_.feq0(p.m5.vel[0]) && _.feq0(p.m5.vel[1]))
           if(!_I.keyDown(_I.keyDOWN))
-            p.mojoh5.showFrame(1);
+            p.m5.showFrame(1);
         }
         let processed = false;
         if(mo.immune){
@@ -341,21 +352,24 @@
 
     _Z.defScene("level1",{
       setup(){
-        //kenl
-        let world= this.world= _T.makeTiledWorld("mario.json");
+        let world= this.world= _T.tiledWorld("mario.json");
         this.insert(world);
-        world.tiled.parseObjects("Sprites",(world,gn,ts,ps)=>{
-          let c=ps["Class"];
+        let g=world.tiled.getObjectGroup("Sprites");
+        g.tiled.objects.forEach(o=>{
+          let ts=world.tiled.getTSInfo(o.gid);
+          let ps=world.tiled.tileProps[o.gid];
+          let os=_.inject({},o,ps);
+          let c= ps["Class"];
           if(c==="Snail"||c==="Slime"||c==="Fly") {
             c="Enemy";
           }
           let f=CZ[c];
           if(f)
-            f(world,ts,ps);
-        });
-        let cam= this.camera= Mojo["2d"].worldCamera(world,world.tiled.tiledWidth,world.tiled.tiledHeight,Mojo.canvas);
+            f(world,ts,os);
+        })
+        let cam= this.camera= _2d.worldCamera(world,world.tiled.tiledWidth,world.tiled.tiledHeight);
         this.camera.centerOver(70*5,70*10);
-        Mojo.EventBus.sub(["post.update",this],"postUpdate");
+        EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
         if(this.player.y > 1000){
@@ -368,27 +382,28 @@
 
     _Z.defScene("bg",{
       setup(){
-        let bg=this.bg=_S.tilingSprite("bg.png",Mojo.canvas.width,Mojo.canvas.height);
+        let bg=this.bg=_S.tilingSprite("bg.png");
+        _S.setSize(bg,Mojo.width,Mojo.height);
         this.insert(bg);
-      },
-      postUpdate(){
       }
     });
   }
-  function setup(Mojo){
-    scenes(Mojo);
-    Mojo.Scenes.runScene("bg");
-    Mojo.Scenes.runScene("level1");
-  }
+
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: ["mario.json",
          "fire.mp3", "jump.mp3", "heart.mp3", "hit.mp3", "coin.mp3",
          "bg.png","bg_castle.png","collectables.png","doors.png","enemies.png","blocks.png", "player.png"],
       scaleToWindow:"max",
-      start: setup
+      arena: {},
+      start(Mojo){
+        scenes(Mojo);
+        Mojo.Scenes.runScene("bg");
+        Mojo.Scenes.runScene("level1");
+      }
     })
   });
+
 })(this);
 
 /*

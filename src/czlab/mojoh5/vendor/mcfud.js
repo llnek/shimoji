@@ -14,70 +14,99 @@
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(window,doco,seed_rand){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   if(typeof module==="object" && module.exports){
     seed_rand=require("../tpcl/seedrandom.min")
   }else{
     doco=window.document
   }
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**
-   * @private
-   * @function
-   */
+
+  /**Create the module.
+  */
   function _module(){
+    const root=window,
+          MFL=Math.floor,
+          Slicer=Array.prototype.slice,
+          toStr=Object.prototype.toString;
+    function isObj(obj){ return toStr.call(obj) == "[object Object]" }
+    function isObject(obj){ return isObj(obj) }
+    function isNil(obj){ return toStr.call(obj) == "[object Null]" }
+    function isFun(obj){ return toStr.call(obj) == "[object Function]" }
+    function isVec(obj){ return toStr.call(obj) == "[object Array]" }
+    function isMap(obj){ return toStr.call(obj) == "[object Map]" }
+    function isSet(obj){ return toStr.call(obj) == "[object Set]" }
+    function isStr(obj){ return toStr.call(obj) == "[object String]" }
+    function isNum(obj){ return toStr.call(obj) == "[object Number]" }
+    function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
+    function isUndef(o){ return o===undefined }
+    function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
+
+    /**
+     * @module mcfud/core
+     */
+
+    /**
+     * @private
+     * @var {function}
+     */
     let PRNG= seed_rand?seed_rand():new Math.seedrandom();
-    const OBJ=Object.prototype;
-    const ARR=Array.prototype;
-    const slicer=ARR.slice;
-    const tostr=OBJ.toString;
-    const _C={};
-    function isObject(obj){ return tostr.call(obj) === "[object Object]" }
-    function isFun(obj){ return tostr.call(obj) === "[object Function]" }
-    function isArray(obj){ return tostr.call(obj) === "[object Array]" }
-    function isMap(obj){ return tostr.call(obj) === "[object Map]" }
-    function isStr(obj){ return typeof obj === "string" }
-    function isNum(obj){ return tostr.call(obj) === "[object Number]" }
+
+    /** @ignore */
     function _randXYInclusive(min,max){
-      return Math.floor(PRNG() * (max - min + 1) + min)
+      return MFL(PRNG() * (max-min+1) + min) }
+
+    /** @ignore */
+    function _preAnd(conds,msg){
+      for(let c,i=0;i<conds.length;++i){
+        c=conds[i];
+        if(!c[0](c[1]))
+          throw new TypeError(`wanted ${msg}`) }
+      return true;
     }
-    //regexes handling file paths
+
+    /** @ignore */
+    function _preOr(conds,msg){
+      for(let c,i=0;i<conds.length;++i){
+        c=conds[i];
+        if(c[0](c[1])){return true}
+      }
+      throw new TypeError(`wanted ${msg}`); }
+
+    /** @ignore */
+    function _pre(f,arg,msg){
+      if(!f(arg)){
+        throw new TypeError(`wanted ${msg}`) } else {return true} }
+
+    //-- regex handling file names
     const BNAME=/(\/|\\\\)([^(\/|\\\\)]+)$/g;
+    //-- regex handling file extensions
     const FEXT=/(\.[^\.\/\?\\]*)(\?.*)?$/;
-    function _fext(path){
+
+    /** @ignore */
+    function _fext(path,incdot){
       let t=FEXT.exec(path);
-      return t && t[1]  ? t[1].toLowerCase() : "";
+      if(t && t[1]){
+        t= t[1].toLowerCase();
+        if(!incdot) t=t.substring(1);
+      }else{ t="" }
+      return t;
     }
-    //https://github.com/bryc/code/blob/master/jshash/PRNGs.md
-    //xoshiro128+ (128-bit state generator in 32-bit)
-    const xoshiro128p=(function(a,b,c,d){
-      return function(){
-        let t = b << 9, r = a + d;
-            c = c ^ a;
-            d = d ^ b;
-            b = b ^ c;
-            a = a ^ d;
-            c = c ^ t;
-            d = (d << 11) | (d >>> 21);
-        return (r >>> 0) / 4294967296;
-      };
-    })(Date.now(),Date.now(),Date.now(),Date.now()); // simple seeding??
+
     /**
      * private
      * @var {number}
      */
     const EPSILON= 0.0000000001;
+
     /**
      * @private
      * @var {number}
-      */
-    let _seqNum= 0;
-    /**
-     * @private
-     * @function
      */
+    let _seqNum= 0;
+
+    /** @ignore */
     function _everyF(F,_1,args){
       let b=F(_1);
       switch(args.length){
@@ -88,82 +117,214 @@
       default: return b && args.every(x => F(x));
       }
     }
-    /**
-     * @private
-     * @var {object}
-     */
+
+    const _$={};
+
+    /** @namespace module:mcfud/core.is */
     const is={
+      /**Check if input(s) are type `function`.
+       * @memberof module:mcfud/core.is
+       * @param {any} f anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
       fun(f,...args){ return _everyF(isFun,f,args) },
+      /**Check if input(s) are type `string`.
+       * @memberof module:mcfud/core.is
+       * @param {any} s anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
       str(s,...args){ return _everyF(isStr,s,args) },
-      void0(obj){ return obj === void 0 },
-      undef(obj){ return obj === undefined },
-      some(obj){ return _.size(obj) > 0 },
-      none(obj){ return _.size(obj) === 0 },
+      //void0(obj){ return obj === void 0 },
+      /**Check if input(s) are type `undefined`.
+       * @memberof module:mcfud/core.is
+       * @param {any} obj anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
+      undef(o,...args){ return _everyF(isUndef,o,args) },
+      /**Check if input(s) are type `Map`.
+       * @memberof module:mcfud/core.is
+       * @param {any} m anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
       map(m,...args){ return _everyF(isMap,m,args) },
+      /**Check if input(s) are type `Set`.
+       * @memberof module:mcfud/core.is
+       * @param {any} m anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
+      set(s,...args){ return _everyF(isSet,s,args) },
+      /**Check if input(s) are type `number`.
+       * @memberof module:mcfud/core.is
+       * @param {any} n anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
       num(n,...args){ return _everyF(isNum,n,args) },
-      vec(v,...args){ return _everyF(isArray,v,args) },
-      obj(o,...args){ return _everyF(isObject,o,args) }
+      /**Check if input(s) are type `array`.
+       * @memberof module:mcfud/core.is
+       * @param {any} v anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
+      vec(v,...args){ return _everyF(isVec,v,args) },
+      /**Check if input(s) are type `object`.
+       * @memberof module:mcfud/core.is
+       * @param {any} o anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
+      obj(o,...args){ return _everyF(isObj,o,args) },
+      /**Check if this collection is `not empty`.
+       * @memberof module:mcfud/core.is
+       * @param {object|array|map} o
+       * @return {boolean}
+       */
+      some(o){ return _.size(o) > 0 },
+      /**Check if this collection is `empty`.
+       * @memberof module:mcfud/core.is
+       * @param {object|array|map} o
+       * @return {boolean}
+       */
+      none(o){ return _.size(o) === 0 },
+      /**Check if this property belongs to this object.
+       * @memberof module:mcfud/core.is
+       * @param {object} o
+       * @param {string} p name of the property
+       * @return {boolean}
+       */
+      own(o,p){ return Object.prototype.hasOwnProperty.call(o,p) }
     };
-    /**
-     * @private
-     * @var {object}
-     */
+
+    /** @namespace module:mcfud/core._ */
     const _={
-      /** Re-seed a random */
-      srand(){ PRNG = new Math.seedrandom() },
-      /** Fuzzy zero */
+      /**Re-seed the internal prng object.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
+      srand(){ PRNG= seed_rand?seed_rand():new Math.seedrandom() },
+      /**Check if this float approximates zero.
+       * @memberof module:mcfud/core._
+       * @param {number} a
+       * @return {boolean}
+       */
       feq0(a){ return Math.abs(a) < EPSILON },
-      /** Fuzzy equals */
-      feq(a, b){ return Math.abs(a - b) < EPSILON },
+      /**Check if these 2 floats are equal.
+       * @memberof module:mcfud/core._
+       * @param {number} a
+       * @param {number} b
+       * @return {boolean}
+       */
+      feq(a, b){ return Math.abs(a-b) < EPSILON },
       /** Fuzzy greater_equals */
-      fgteq(a,b){ return a>b || this.feq(a,b) },
+      //fgteq(a,b){ return a>b || this.feq(a,b) },
       /** Fuzzy less_equals */
-      flteq(a,b){ return a<b || this.feq(a,b) },
-      /** Serialize to JSON */
+      //flteq(a,b){ return a<b || this.feq(a,b) },
+      /**Serialize input to JSON.
+       * @memberof module:mcfud/core._
+       * @param {any} o anything
+       * @return {string} JSON string
+       */
       pack(o){ return JSON.stringify(o) },
-      /** Deserialize from JSON */
+      /**Deserialize from JSON.
+       * @memberof module:mcfud/core._
+       * @param {string} input
+       * @return {any} valid js data
+       */
       unpack(s){ return JSON.parse(s) },
-      /** Put values into array */
-      v2(x,y){ return [x,y] },
-      /** 2D point(x,y) */
-      p2(x,y){ return {x: x, y: y} },
-      /** Return it if it's a number else 0 */
+      /**Package x,y as a tuple.
+       * @memberof module:mcfud/core._
+       * @param {number} x
+       * @param {number} y
+       * @return {number[]} [x,y]
+       */
+      v2(x=0,y=0){ return [x,y] },
+      /**Package x,y as an object.
+       * @memberof module:mcfud/core._
+       * @param {number} x
+       * @param {number} y
+       * @return {object} {x,y}
+       */
+      p2(x=0,y=0){ return {x: x, y: y} },
+      /**Unless n is a number, return it else 0.
+       * @memberof module:mcfud/core._
+       * @param {number} n
+       * @return {number} n or 0
+       */
       numOrZero(n){ return isNaN(n) ? 0 : n },
-      /** Return b if a doesn't exist else a */
+      /**Unless a is defined, return it else b.
+       * @memberof module:mcfud/core._
+       * @param {any} a
+       * @param {any} b
+       * @return {any} a or b
+       */
+      setVec(a,...args){
+        args.forEach((v,i)=> a[i]=v)
+      },
       or(a,b){ return a===undefined?b:a },
-      /** Convert input into number, if not return the default */
-      toNumber(s,dft){
-        let n=parseFloat(s);
+      /**Coerce input into a number, if not return the default.
+       * @memberof module:mcfud/core._
+       * @param {string} input
+       * @param {number} dft
+       * @return {number}
+       */
+      toNum(s,dft){
+        const n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
       },
-      /** Break version string into Major.Minor.Patch */
+      /**Break version string into `Major.Minor.Patch`.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @return {number[]} [major,minor,patch]
+       */
       splitVerStr(s){
         const arr=(""+(s || "")).split(".").filter(s=> s.length>0);
-        return [this.toNumber(arr[0],0),
-                this.toNumber(arr[1],0),
-                this.toNumber(arr[2],0)]
+        return [this.toNum(arr[0],0),
+                this.toNum(arr[1],0),
+                this.toNum(arr[2],0)]
       },
-      /** Compare 2 versions like a standard comparator */
-      cmpVerStrs(V1,V2){
-        let v1= this.splitVerStr(""+V1);
-        let v2= this.splitVerStr(""+V2);
-        if(v1[0] > v2[0]) return 1;
-        else if(v1[0] < v2[0]) return -1;
-        if(v1[1] > v2[1]) return 1;
-        else if(v1[1] < v2[1]) return -1;
-        if(v1[2] > v2[2]) return 1;
-        else if(v1[2] < v2[2]) return -1;
+      /**Compare 2 version strings, like a standard comparator.
+       * @memberof module:mcfud/core._
+       * @param {string} v1
+       * @param {string} v2
+       * @return {number} -1 is less, +1 is greater, 0 is same.
+       */
+      cmpVerStrs(v1,v2){
+        let a1= this.splitVerStr(""+v1);
+        let a2= this.splitVerStr(""+v2);
+        if(a1[0] > a2[0]) return 1;
+        else if(a1[0] < a2[0]) return -1;
+        if(a1[1] > a2[1]) return 1;
+        else if(a1[1] < a2[1]) return -1;
+        if(a1[2] > a2[2]) return 1;
+        else if(a1[2] < a2[2]) return -1;
         return 0;
       },
-      /** Look for files matching any one of these extensions */
-      findFiles(files, exts){
-        return files.filter(s=> exts.indexOf(_fext(s)) > -1);
-      },
+      /**
+      * @ignore
+      */
       pdef(obj){
-        obj.configurable=obj.enumerable=true;
-        return obj;
+        return (obj.configurable=true) && (obj.enumerable=true) && obj
       },
-      /** Chop input into chunks of `count` items */
+      /**Look for files matching any one of these extensions.
+       * @memberof module:mcfud/core._
+       * @param {string[]} list of file paths
+       * @param {string[]} list of file extensions
+       * @return {string[]} matching files
+       */
+      findFiles(files, exts){
+        return files.filter(s=> exts.indexOf(_fext(s,1)) > -1)
+      },
+      /**Chop input into chunks of `count` items.
+       * @memberof module:mcfud/core._
+       * @param {number} count number of items in each chunk
+       * @param {any[]} arr list of items
+       * @return {any[][]}
+       */
       partition(count,arr){
         const out=[];
         for(let row,j,i=0;;){
@@ -179,198 +340,379 @@
         }
         return out;
       },
-      XXrange(start,end){
-        _.assert(is.num(start));
-        const out=[];
-        if(arguments.length===1){ end=start; start=0 }
-        _.assert(is.num(end));
-        for(let i=start;i<end;++i){ out.push(i) }
-        return out
+      /**Get keys of object/map.
+       * @memberof module:mcfud/core._
+       * @param {object|map} o
+       * @return {string[]}
+       */
+      keys(o){
+        return isMap(o) ? Array.from(o.keys())
+                        : (isObj(o) ? Object.keys(o) : [])
       },
-      /** Returns keys of object or Map. */
-      keys(obj){
-        return isMap(obj) ? Array.from(obj.keys())
-                          : (isObject(obj) ? Object.keys(obj) : []);
-      },
-      /** Clone object/Map but exclude these keys */
+      /**Clone object/map but exclude these keys.
+       * @memberof module:mcfud/core._
+       * @param {object|map} c
+       * @param {string[]} keys to exclude
+       * @return {object|map}
+       */
       selectNotKeys(c,keys){
-        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        _preOr([[isMap,c],[isObj,c]],"map/object");
         const out= isMap(c) ? new Map() : {};
-        keys=_.seq(keys);
-        _.doseq(c,(v,k)=>{
-          if(!keys.includes(k))
-            isMap(out) ? out.set(k, v) : out[k]=v;
-        });
+        keys=this.seq(keys);
+        this.doseq(c,(v,k)=> (!keys.includes(k)) && this.assoc(out,k,v));
         return out;
       },
-      /** Choose these keys from object/map */
+      /**Choose these keys from object/map.
+       * @memberof module:mcfud/core._
+       * @param {object|map} c
+       * @param {string[]} keys to copy
+       * @return {object|map}
+       */
       selectKeys(c,keys){
-        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        _preOr([[isMap,c],[isObj,c]],"map/object");
         const out= isMap(c) ? new Map() : {};
-        _.seq(keys).forEach(k=>{
+        this.seq(keys).forEach(k=>{
           if(isMap(c)){
             c.has(k) && out.set(k, c.get(k));
-          }else if(OBJ.hasOwnProperty.call(c, k)){
-            out[k]=c[k];
-          }
+          }else if(is.own(c,k)){ out[k]=c[k] }
         });
         return out;
       },
-      /** assert the condition is false */
+      /**Assert that the condition is not true.
+       * @memberof module:mcfud/core._
+       * @param {any} a boolean expression
+       * @param {...any} anything
+       * @throws Error if condition is true
+       * @return {boolean} true
+       */
       assertNot(cond,...args){
-        return _.assert(!cond,...args)
+        return this.assert(!cond,...args)
       },
-      /** assert the condition is true */
-      assert(cond){
+      /**Assert that the condition is true.
+       * @memberof module:mcfud/core._
+       * @param {any} a boolean expression
+       * @param {...any} anything
+       * @throws Error if condition is false
+       * @return {boolean} true
+       */
+      assert(cond,...args){
         if(!cond)
-          throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
-        return true
+          throw args.length===0 ? "Assertion!" : args.join("");
+        return true;
       },
-      /** true if target has none of these keys */
+      /**Check if target has none of these keys.
+       * @memberof module:mcfud/core._
+       * @param {string[]} keys to test
+       * @param {object|map} target
+       * @return {boolean}
+       */
       noSuchKeys(keys,target){
-        return !_.some(_.seq(keys),k => _.has(target,k)?k:null);
+        return !this.some(this.seq(keys),k=> this.has(target,k)?k:null)
         //if(r) console.log("keyfound="+r);
         //return !r;
       },
-      /** a random float between min and max-1 */
+      /**Get a random int between min and max (inclusive).
+       * @memberof module:mcfud/core._
+       * @param {number} min
+       * @param {number} max
+       * @return {number}
+       */
+      randInt2(min,max){ return _randXYInclusive(min,max) },
+      /**Get a random float between min and max.
+       * @memberof module:mcfud/core._
+       * @param {number} min
+       * @param {number} max
+       * @return {number}
+       */
       randFloat(min, max){
-        return min + PRNG() * (max - min)
+        return min + PRNG() * (max-min)
       },
-      /** a random float between -1 and 1 */
-      randMinus1To1(){ return (PRNG()-0.5) * 2 },
-      /** a random int between 0 and num */
-      randInt(num){ return (PRNG() * num)|0 },
-      /** a random int between min and max */
-      randInt2: _randXYInclusive,
-      /** a random float between 0 and 1 */
-      rand(){ return PRNG() },
-      /** randomly choose -1 or 1 */
-      randSign(){ return _.rand() > 0.5 ? -1 : 1 },
-      /** true if obj is subclass of type */
+      /**Get a random float between -1 and 1.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
+      randMinus1To1(){ return 2*(PRNG()-0.5) },
+      /**Get a random int between 0 and num.
+       * @memberof module:mcfud/core._
+       * @param {number} num
+       * @return {number}
+       */
+      randInt(num){ return MFL(PRNG()*num) },
+      /**Get a random float between 0 and 1.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
+      rand(js=false){ return js? Math.random(): PRNG() },
+      /**Randomly choose -1 or 1.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
+      randSign(){ return PRNG()>0.5 ? -1 : 1 },
+      /**Check if obj is a sub-class of this parent-class.
+       * @memberof module:mcfud/core._
+       * @param {class} type
+       * @param {object} obj
+       * @return {boolean}
+       */
       inst(type,obj){ return obj instanceof type },
-      /** Calculate hashCode of this string, like java hashCode */
+      /**Calculate the hashCode of this string, like java's hashCode.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @return {number}
+       */
       hashCode(s){
         let n=0;
         for(let i=0; i<s.length; ++i)
-          n= Math.imul(31, n) + s.charCodeAt(i)|0;
+          n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
       },
-      /** Randomly choose an item from this array */
-      randArrayItem(arr){
+      /**Randomly choose an item from this array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} arr
+       * @return {any}
+       */
+      randItem(arr){
         if(arr && arr.length>0)
-          return arr.length===1 ? arr[0] : arr[_.randInt(arr.length)]
+          return arr.length===1 ? arr[0]
+                                : arr[MFL(PRNG()*arr.length)]
       },
-      /** true if string represents a percentage value */
+      /**Check if string represents a percentage value.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @return {boolean}
+       */
       isPerc(s){
         return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/)
       },
-      /** true if number is even */
-      isEven(n){
-        return n>0 ? (n % 2 === 0) : ((-n) % 2 === 0);
+      /**Check if number is even.
+       * @memberof module:mcfud/core._
+       * @param {number} n
+       * @return {boolean}
+       */
+      isEven(n){ return isEven(n) },
+      /**Creates a javascript Map.
+       * @memberof module:mcfud/core._
+       * @param {...any} args data to initialize the Map
+       * @return {map}
+       */
+      jsMap(...args){
+        _pre(isEven,args.length,"even n# of args");
+        let out=new Map();
+        for(let i=0;i<args.length;){
+          out.set(args[i],args[i+1]); i+=2; }
+        return out;
       },
-      /** Creates a javascript Map */
-      jsMap(){ return new Map() },
-      /** Creates a javascript object */
-      jsObj(){ return {} },
-      /** Creates a javascript array */
-      jsVec(...args){
-        return args.length===0 ? [] : args.slice()
+      /**Creates a javascript object.
+       * @memberof module:mcfud/core._
+       * @param {...any} args data to initialie the object
+       * @return {object}
+       */
+      jsObj(...args){
+        _pre(isEven,args.length,"even n# of args");
+        let out={};
+        for(let i=0;i<args.length;){
+          out[args[i]]=args[i+1]; i+=2; }
+        return out;
       },
-      /** Returns the last index */
-      lastIndex(c){
-        return (c && c.length>0) ? c.length-1 : -1
-      },
-      /** Returns the first element */
-      first(c){ if(c && c.length>0) return c[0] },
-      /** Returns the last element */
-      last(c){ if(c&& c.length>0) return c[c.length-1] },
-      head(c){ return _.first(c) },
-      tail(c){ return _.last(c) },
-      /** floor a number */
+      /**Creates a javascript array.
+       * @memberof module:mcfud/core._
+       * @param {...any} args data to initialize array
+       * @return {any[]}
+       */
+      jsVec(...args){ return args.length===0 ? [] : args.slice() },
+      /**Get the last index.
+       * memberof module:mcfud/core._
+       * @param {any[]} c
+       * @return {number} -1 if c is empty or not an array
+       */
+      lastIndex(c){ return (isVec(c) && c.length>0) ? c.length-1 : -1 },
+      /**Get the first element.
+       * @memberof module:mcfud/core._
+       * @param {any[]} c
+       * @return {any} undefined if c is empty or not an array
+       */
+      first(c){ if(isVec(c) && c.length>0) return c[0] },
+      /**Get the last element.
+       * @memberof module:mcfud/core._
+       * @param {any[]} c
+       * @return {any} undefined if c is empty or not an array
+       */
+      last(c){ if(isVec(c) && c.length>0) return c[c.length-1] },
+      /**
+       * @memberof module:mcfud/core._
+       * @see {@link module:mcfud/core._.first}
+       */
+      head(c){ return this.first(c) },
+      /**
+       * @memberof module:mcfud/core._
+       * @see {@link module:mcfud/core._.last}
+       */
+      tail(c){ return this.last(c) },
+      /**Get the floor of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       floor(v){ return Math.floor(v) },
-      /** ceiling a number */
+      /**Get the ceiling of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       ceil(v){ return Math.ceil(v) },
-      /** absolute value */
+      /**Get the absolute value of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       abs(v){ return Math.abs(v) },
-      /** square root number */
+      /**Get the square root of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       sqrt(v){ return Math.sqrt(v) },
-      /** choose min from 2 */
+      /**Choose min value from these numbers.
+       * @memberof module:mcfud/core._
+       * @param {...number} args
+       * @return {number}
+       */
       min(...args){ return Math.min(...args) },
-      /** choose max from 2 */
+      /**Choose max value from these numbers.
+       * @memberof module:mcfud/core._
+       * @param {...number} args
+       * @return {number}
+       */
       max(...args){ return Math.max(...args) },
-      /** Take a slice of an array */
-      slice(a,i){ return slicer.call(a, i) },
-      /** true only if every item in list equals v */
+      /**Take a slice of an array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} a source
+       * @param {number} i start index
+       * @return {any[]}
+       */
+      slice(a,i){ return Slicer.call(a, i) },
+      /**Check if *every* item in the list equals v.
+       * @memberof module:mcfud/core._
+       * @param {any[]} c
+       * @param {any|function} v
+       * @return {boolean}
+       */
       every(c,v){
-        for(let i=0;i<c.length;++i)
-          if(c[i] !== v) return false;
+        _pre(isVec,c,"array");
+        for(let i=0;i<c.length;++i){
+          if(isFun(v)){
+            if(!v(c[i])) return false;
+          }else if(c[i] !== v) return false;
+        }
         return c.length>0;
       },
-      /** true only if no item in list equals v */
+      /**Check if *every* item in the list not-equals v.
+       * @memberof module:mcfud/core._
+       * @param {array} c
+       * @param {any|function} v
+       * @return {boolean}
+       */
       notAny(c,v){
-        for(let i=0;i<c.length;++i)
-          if(c[i] === v) return false;
+        _pre(isVec,c,"array");
+        for(let i=0;i<c.length;++i){
+          if(isFun(v)){
+            if(v(c[i])) return false;
+          }else if(c[i] === v) return false;
+        }
         return c.length>0;
       },
-      /** Copy all or some items from `from` to `to` */
-      copy(to,from){
-        if(!from){return to}
-        if(!to){
-          return from ? from.slice() : undefined }
-        let len= Math.min(to.length,from.length);
-        for(let i=0;i<len;++i) to[i]=from[i];
-        return to;
+      /**Copy all or some items from `src` to `des`.
+       * Does not *grow* the `des` array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} des
+       * @param {any[]} src
+       * @return {any[]}
+       */
+      copy(des,src=[]){
+        _preAnd([[isVec,des],[isVec,src]],"arrays");
+        const len= Math.min(des.length,src.length);
+        for(let i=0;i<len;++i) des[i]=src[i];
+        return des;
       },
-      /** Append all or some items from `from` to `to` */
-      append(to,from){
-        if(!from){return to}
-        if(!to){
-          return from ? from.slice() : undefined }
-        for(let i=0;i<from.length;++i) to.push(from[i]);
-        return to;
+      /**Append all or some items from `src` to `des`.
+       * @memberof module:mcfud/core._
+       * @param {any[]} des
+       * @param {any[]} src
+       * @return {any[]}
+       */
+      append(des,src=[]){
+        _preAnd([[isVec,des],[isVec,src]],"arrays");
+        for(let i=0;i<src.length;++i) des.push(src[i]);
+        return des;
       },
-      /** Fill array with v or v() */
+      /**Fill array with v.
+       * @memberof module:mcfud/core._
+       * @param {number|any[]} a if number, creates array of `a` size
+       * @param {number|function} v
+       * @return {any[]}
+       */
       fill(a,v){
-        if(a)
-          for(let i=0;i<a.length;++i){
+        if(isNum(a)){a= new Array(a)}
+        if(isVec(a))
+          for(let i=0;i<a.length;++i)
             a[i]= isFun(v) ? v() : v;
-          }
         return a;
       },
-      /** Return the size of object/map/array */
-      size(obj){
-        return isArray(obj) ? obj.length
-                            : (isMap(obj) ? obj.size
-                                          : (obj ? _.keys(obj).length : 0))
+      /**Get the size of this input.
+       * @memberof module:mcfud/core._
+       * @param {object|array|string|map|set} o
+       * @return {number}
+       */
+      size(o){
+        return (isVec(o)||isStr(o)) ? o.length
+                                    : (isSet(o)||isMap(o)) ? o.size
+                                       : o ? this.keys(o).length : 0
       },
-      /** Next sequence number */
+      /**Get the next sequence number.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
       nextId(){ return ++_seqNum },
-      /** Time in milliseconds */
+      /**Get the current time in millis.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
       now(){ return Date.now() },
-      /** Find file extension */
+      /**Find the file extension.
+       * @memberof module:mcfud/core._
+       * @param {string} path
+       * @return {string}
+       */
       fileExt(path){ return _fext(path) },
-      /** Find file name, no extension */
+      /**Find the file name, no extension.
+       * @memberof module:mcfud/core._
+       * @param {string} path
+       * @return {string}
+       */
       fileBase(path){
-        let pos=path.indexOf("?");
-        if(pos>0)
-          path=path.substring(0,pos);
-        let res= BNAME.exec(path.replace(/(\/|\\\\)$/, ""));
-        let name="";
+        let name,res,pos=path.indexOf("?");
+        if(pos>0) path=path.substring(0,pos);
+        path=path.replace(/(\/|\\\\)$/, "");
+        res= BNAME.exec(path);
+        name="";
         if(res){
-          name = res[2];
+          name=res[2];
           pos=name.lastIndexOf(".");
-          if(pos>0)
-            name=name.substring(0,pos);
+          if(pos>0) name=name.substring(0,pos);
         }
         return name;
       },
-      /** return a list of numbers from start to end - like a Range object */
+      /**Create a list of numbers from start to end,
+       * like a `Range` object.
+       * @memberof module:mcfud/core._
+       * @param {number} start
+       * @param {number} stop
+       * @param {number} step
+       * @return {number[]}
+       */
       range(start,stop,step=1){
         if(arguments.length===1){
-          stop=start;
-          start=0;
-          step=1;
-        }
+          stop=start; start=0; step=1; }
         let len = (stop-start)/step;
         const res=[];
         len= Math.ceil(len);
@@ -382,136 +724,224 @@
         }
         return res;
       },
-      /** Shuffle items */
-      shuffle(obj){
-        const res=slicer.call(obj,0);
+      /**Shuffle items in this array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} obj
+       * @param {boolean} inplace true by default
+       * @return {any[]}
+       */
+      shuffle(obj,inplace=true){
+        _pre(isVec,obj,"array");
+        const res=Slicer.call(obj,0);
         for(let x,j,i= res.length-1; i>0; --i){
-          j = Math.floor(PRNG() * (i+1));
-          x = res[i];
+          j= MFL(PRNG() * (i+1));
+          x= res[i];
           res[i] = res[j];
           res[j] = x;
         }
-        return res;
+        return inplace?this.copy(obj,res):res;
       },
-      /** Return only the distinct items */
+      /**Get the distinct items only.
+       * @memberof module:mcfud/core._
+       * @param {any[]} arr
+       * @return {any[]}
+       */
       uniq(arr){
+        _pre(isVec,arr,"array");
         if(false){
           let prev,res= [];
-          slicer.call(arr).sort().forEach(a=>{
+          Slicer.call(arr).sort().forEach(a=>{
             if(a !== undefined &&
                a !== prev) res.push(a);
             prev = a;
           });
           return res;
         }
+        //faster?
         return Array.from(new Set(arr));
       },
-      /** functional map */
-      map(obj, fn,target){
-        const res= [];
-        _.doseq(obj, (v,k)=>{
-          res.push(fn.call(target, v,k,obj));
-        });
-        return res;
+      /**Functional map but return same type as `obj`.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} obj
+       * @param {callback} fn
+       * @param {any} target context for `fn`
+       * @return {object|map|array}
+       */
+      map(obj, fn, target){
+        _pre(isColl,obj,"array/map/object");
+        if(isVec(obj)){
+          return obj.map(fn,target);
+        }else{
+          const res=isMap(obj)?new Map():{};
+          this.doseq(obj,(v,k)=>{
+            this.assoc(res,k,fn.call(target,v,k,obj))})
+          return res;
+        }
       },
-      /** `find` with extra args */
+      /**`find` with extra arguments.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} coll
+       * @param {callback} fn
+       * @param {any} target
+       * @return {array} [key,value] or undefined
+       */
       find(coll,fn,target){
-        let args=slicer.call(arguments,3);
-        let res,cont=true;
-        _.doseq(coll, (v,k)=>{
-          if(cont && fn.apply(target, [v, k].concat(args))){
-            res=[k, v];
+        let res,
+            cont=true,
+            args=Slicer.call(arguments,3);
+        this.doseq(coll, (v,k)=>{
+          if(cont && fn.apply(target, [v,k].concat(args))){
+            res=[k,v];
             cont=false;
           }
         });
         return res;
       },
-      /** `some` with extra args */
+      /**`some` with extra arguments.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} coll
+       * @param {callback} fn
+       * @param {any} target
+       * @return {any} undefined if not found
+       */
       some(coll,fn,target){
-        let args=slicer.call(arguments,3);
-        let res,cont=true;
-        _.doseq(coll,(v,k)=>{
+        let res,
+            cont=true,
+            args=Slicer.call(arguments,3);
+        this.doseq(coll,(v,k)=>{
           if(cont){
-            res = fn.apply(target, [v, k].concat(args));
-            if(res) cont=false;
+            res=fn.apply(target, [v,k].concat(args));
+            if(res) cont=false; else res=undefined;
           }
         });
         return res;
       },
-      /** Each item in the array is an object, invoke obj.method with extra args */
-      invoke(arr,method_name){
-        let args=slicer.call(arguments,2);
-        isArray(arr) &&
-          arr.forEach(x => x[key].apply(x, args));
+      /**Each item in the array is an object,
+      * invoke obj.method with extra args.
+      * @memberof module:mcfud/core._
+      * @param {object[]} arr
+      * @param {string} key method-name
+      */
+      invoke(arr,key){
+        let args=Slicer.call(arguments,2);
+        isVec(arr) &&
+          //invoke the method on each object
+          arr.forEach(o=> o[key].apply(o, args));
       },
-      /** Run function after some delay */
+      /**Run function after some delay.
+       * @memberof module:mcfud/core._
+       * @param {number} wait
+       * @param {callback} f
+       * @return {number} timeout id
+       */
       delay(wait,f){ return setTimeout(f,wait) },
-      /** Create a once/repeat timer */
+      /**Create a once/repeat timer.
+       * @memberof module:mcfud/core._
+       * @param {callback} f
+       * @param {number} delay
+       * @param {boolean} repeat default false
+       * @return {object} timer handle, use handle.id to cancel
+       */
       timer(f,delay=0,repeat=false){
         return {
           repeat: !!repeat,
           id: repeat ? setInterval(f,delay) : setTimeout(f,delay)
-        }
+        };
       },
-      /** clear a timer */
+      /**Cancel a timer.
+       * @memberof module:mcfud/core._
+       * @param {object} handle
+       */
       clear(handle){
-        if(handle)
+        if(handle && handle.id)
           handle.repeat ? clearInterval(handle.id)
                         : clearTimeout(handle.id)
       },
-      /** Iterate a collection in reverse */
+      /**Iterate a collection(array) in reverse.
+       * @memberof module:mcfud/core._
+       * @param {any[]} coll
+       * @param {callback} fn
+       * @param {any} target
+       */
       rseq(coll,fn,target){
-        if(isArray(coll) && coll.length>0)
-          for(let i=coll.length-1;i>=0;--i){
-            fn.call(target, coll[i],i)
-          }
+        _pre(isVec,coll,"array");
+        if(coll.length>0)
+          for(let i=coll.length-1;i>=0;--i)
+            fn.call(target, coll[i],i,coll)
       },
-      /** Iterate a collection */
+      /**Iterate a collection.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} coll
+       * @param {callback} fn
+       * @param {any} target
+       */
       doseq(coll,fn,target){
-        if(isArray(coll)){
-          coll.forEach(fn,target);
+        if(isVec(coll)){
+          coll.forEach(fn,target)
         }else if(isMap(coll)){
-          coll.forEach((v,k)=> fn.call(target,v,k,coll));
-        }else if(coll){
-          Object.keys(coll).forEach(k=>{
-            fn.call(target, coll[k], k, coll);
-          });
+          coll.forEach((v,k)=> fn.call(target,v,k,coll))
+        }else if(isObj(coll)){
+          Object.keys(coll).forEach(k=> fn.call(target, coll[k], k, coll))
         }
       },
-      /** Remove a key from collection */
+      /**Iterate but ignore nulls/undefs.
+       * @memberof module:mcfud/core._
+       * @see {@link module:mcfud/core._.doseq}
+       */
+      doseqEx(coll,fn,target){
+        this.doseq(coll,(v,k)=>
+          v!==undefined&&v!==null&&fn.call(target,v,k,coll))
+      },
+      /**Remove a key from collection.
+       * @memberof module:mcfud/core._
+       * @param {map|object} coll
+       * @param {string} key
+       * @return {any} previous value
+       */
       dissoc(coll,key){
         if(arguments.length>2){
           let prev,i=1;
           for(;i<arguments.length;++i)
-            prev=_.dissoc(coll,arguments[i]);
+            prev=this.dissoc(coll,arguments[i]);
           return prev;
         }else{
-          let val;
+          let prev;
           if(isMap(coll)){
-            val=coll.get(key);
+            prev=coll.get(key);
             coll.delete(key);
-          }else if(coll){
-            val = coll[key];
+          }else if(isObj(coll)){
+            prev= coll[key];
             delete coll[key];
           }
-          return val;
+          return prev;
         }
       },
-      /** Return the value of property `key` */
+      /**Get the value of property `key`.
+       * @memberof module:mcfud/core._
+       * @param {object|map} coll
+       * @param {string} key
+       * @return {any} undefined if not found
+       */
       get(coll,key){
         if(key !== undefined){
           if(isMap(coll)) return coll.get(key);
           else if(coll) return coll[key];
         }
       },
-      /** Set property `key` */
+      /**Assign value to property `key`.
+       * @memberof module:mcfud/core._
+       * @param {map|object} coll
+       * @param {string} key
+       * @param {any} value
+       * @return {any} previous value
+       */
       assoc(coll,key,value){
         if(arguments.length>3){
           if(((arguments.length-1)%2) !== 0)
-            throw "ArityError: expecting even count of args.";
+            throw "wanted even count of args";
           let prev, i=1;
-          for(;i < arguments.length;){
-            prev= _.assoc(coll,arguments[i],arguments[i+1]);
+          for(;i<arguments.length;){
+            prev= this.assoc(coll,arguments[i],arguments[i+1]);
             i+=2;
           }
           return prev;
@@ -527,91 +957,124 @@
           return prev;
         }
       },
-      /** Remove item from array */
-      disj(coll,obj){
-        let i = coll ? coll.indexOf(obj) : -1;
+      /**Remove an item from this array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} coll
+       * @param {any} item
+       * @return {boolean} true if removed
+       */
+      disj(coll,item){
+        const i = coll ? coll.indexOf(item) : -1;
         if(i > -1) coll.splice(i,1);
         return i > -1;
       },
-      /** Append item to array */
-      conj(coll,...objs){
+      /**Append item to array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} coll
+       * @param {...any} items
+       * @return {any[]} coll
+       */
+      conj(coll,...items){
         if(coll)
-          objs.forEach(o => coll.push(o));
+          items.forEach(o=> coll.push(o));
         return coll;
       },
-      /** Make input into array */
-      seq(arg,sep=","){
+      /**Make input-string into array.
+       * @memberof module:mcfud/core._
+       * @param {string} arg
+       * @param {string|regex} sep
+       * @return {any[]}
+       */
+      seq(arg,sep=/[,; \t\n]+/){
         if(typeof arg === "string")
-          arg = arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
-        if(!isArray(arg)) arg = [arg];
+          arg= arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
+        if(!isVec(arg)){arg = [arg]}
         return arg;
       },
-      /** true if collection has property `key` */
+      /**Check if collection has property `key`.
+       * @memberof module:mcfud/core._
+       * @param {array|map|object} coll
+       * @param {any} key
+       * @return {boolean}
+       */
       has(coll,key){
         return arguments.length===1 ? false
           : isMap(coll) ? coll.has(key)
-          : isArray(coll) ? coll.indexOf(key) !== -1
-          : coll ? OBJ.hasOwnProperty.call(coll, key) : false;
+          : isVec(coll) ? coll.indexOf(key) !== -1
+          : isObj(coll) ? is.own(coll, key) : false;
       },
-      /** Add these keys to `des` only if the key is missing */
+      /**Add keys to `des` only if that key is absent.
+       * @memberof module:mcfud/core._
+       * @param {map|object} des
+       * @param {object} additions
+       * @return {map|object}
+       */
       patch(des,additions){
-        des=des || {};
+        _pre(isObj,(des=des||{}),"object");
         if(additions)
           Object.keys(additions).forEach(k=>{
-            if(!_.has(des,k))
+            if(!this.has(des,k))
               des[k]=additions[k];
           });
         return des;
       },
-      /** Deep clone */
+      /**Deep clone.
+       * @memberof module:mcfud/core._
+       * @param {any} obj
+       * @return {any} obj's clone
+       */
       clone(obj){
-        return obj ? _.unpack(_.pack(obj)) : obj
+        return obj ? this.unpack(this.pack(obj)) : obj
       },
-      /** Merge others into `des` */
-      inject(des){
-        let args=slicer.call(arguments,1);
+      /**Merge other objects into `des`.
+       * @memberof module:mcfud/core._
+       * @param {object} des
+       * @param {...object} args
+       * @return {object}
+       */
+      inject(des,...args){
         des=des || {};
-        args.forEach(s=>{
-          if(s) Object.assign(des,s);
-        });
+        args.forEach(s=> s && Object.assign(des,s));
         return des;
       },
-      /** Deep copy array/array of arrays */
+      /**Deep copy of array/nested arrays.
+       * @memberof module:mcfud/core._
+       * @param {any[]} v
+       * @return {any[]}
+       */
       deepCopyArray(v){
-        _.assert(is.vec(v),"Expected array");
+        _pre(isVec,v,"array");
         const out = [];
         for(let i=0,z=v.length; i<z; ++i)
-          out[i]= is.vec(v[i]) ? _.deepCopyArray(v[i]) : v[i];
+          out[i]= isVec(v[i]) ? this.deepCopyArray(v[i]) : v[i];
         return out;
       },
-      /**
-       * Merge 2 objects together.
-       * @function
-       * @param {Object} original
-       * @param {Object} extended
-       * @return {Object} a new object
+      /**Deep merge of 2 objects.
+       * @memberof module:mcfud/core._
+       * @param {object} original
+       * @param {object} extended
+       * @return {object} a new object
       */
       mergeEx(original, extended){
-        return _.merge(_.merge({}, original), extended)
+        return this.merge(this.merge({}, original), extended)
       },
-      /**
-       * Merge 2 objects in place.
-       * @function
-       * @param {Object} original
-       * @param {Object} extended
-       * @return {Object} the modified original object
+      /**Deep merge of 2 objects in-place.
+       * @memberof module:mcfud/core._
+       * @param {object} original
+       * @param {object} extended
+       * @return {object} the modified original object
       */
       merge(original, extended){
         let key,ext;
         Object.keys(extended).forEach(key=>{
-          ext = extended[key];
+          ext= extended[key];
           if(typeof ext !== "object" || ext === null || !original[key]){
             original[key] = ext;
           }else{
             if(typeof original[key] !== "object"){
               original[key] = ext instanceof Array ? [] : {}
             }
-            _.merge(original[key], ext);
+            this.merge(original[key], ext);
           }
         });
         return original;
@@ -625,54 +1088,24 @@
        * `wait` timeout. The `func` is invoked with the last arguments provided to the
        * throttled function. Subsequent calls to the throttled function return the
        * result of the last `func` invocation.
-       *
-       * **Note:** If `leading` and `trailing` options are `true`, `func` is
-       * invoked on the trailing edge of the timeout only if the throttled function
-       * is invoked more than once during the `wait` timeout.
-       *
-       * If `wait` is `0` and `leading` is `false`, `func` invocation is deferred
-       * until the next tick, similar to `setTimeout` with a timeout of `0`.
-       *
-       * If `wait` is omitted in an environment with `requestAnimationFrame`, `func`
-       * invocation will be deferred until the next frame is drawn (typically about
-       * 16ms).
-       *
-       * See [David Corbacho's article](https://css-tricks.com/debouncing-throttling-explained-examples/)
-       * for details over the differences between `throttle` and `debounce`.
-       *
-       * @since 0.1.0
-       * @category Function
-       * @param {Function} func The function to throttle.
-       * @param {number} [wait=0]
-       *  The number of milliseconds to throttle invocations to; if omitted,
-       *  `requestAnimationFrame` is used (if available).
-       * @param {Object} [options={}] The options object.
-       * @param {boolean} [options.leading=true]
-       *  Specify invoking on the leading edge of the timeout.
-       * @param {boolean} [options.trailing=true]
-       *  Specify invoking on the trailing edge of the timeout.
-       * @returns {Function} Returns the new throttled function.
-       * @example
-       *
-       * // Avoid excessively updating the position while scrolling.
-       * jQuery(window).on('scroll', throttle(updatePosition, 100))
-       *
-       * // Invoke `renewToken` when the click event is fired, but not more than once every 5 minutes.
-       * const throttled = throttle(renewToken, 300000, { 'trailing': false })
-       * jQuery(element).on('click', throttled)
-       *
-       * // Cancel the trailing throttled invocation.
-       * jQuery(window).on('popstate', throttled.cancel)
        */
+      //original source: https://github.com/lodash/lodash/throttle.js
       throttle(func, wait, options){
-        let leading = true;
-        let trailing = true;
-        _.assert(is.fun(func),"Expecting a function");
-        if(is.obj(options)){
-          leading = "leading" in options ? !!options.leading : leading;
-          trailing = "trailing" in options ? !!options.trailing : trailing;
+        let leading = true
+        let trailing = true
+
+        if (typeof func !== 'function') {
+          throw new TypeError('Expected a function')
         }
-        return _.debounce(func, wait, { leading, trailing, "maxWait": wait });
+        if (isObj(options)) {
+          leading = 'leading' in options ? !!options.leading : leading
+          trailing = 'trailing' in options ? !!options.trailing : trailing
+        }
+        return this.debounce(func, wait, {
+          leading,
+          trailing,
+          'maxWait': wait
+        })
       },
       /**
        * Creates a debounced function that delays invoking `func` until after `wait`
@@ -684,377 +1117,539 @@
        * `wait` timeout. The `func` is invoked with the last arguments provided to the
        * debounced function. Subsequent calls to the debounced function return the
        * result of the last `func` invocation.
-       *
-       * **Note:** If `leading` and `trailing` options are `true`, `func` is
-       * invoked on the trailing edge of the timeout only if the debounced function
-       * is invoked more than once during the `wait` timeout.
-       *
-       * If `wait` is `0` and `leading` is `false`, `func` invocation is deferred
-       * until the next tick, similar to `setTimeout` with a timeout of `0`.
-       *
-       * If `wait` is omitted in an environment with `requestAnimationFrame`, `func`
-       * invocation will be deferred until the next frame is drawn (typically about
-       * 16ms).
-       *
-       * See [David Corbacho's article](https://css-tricks.com/debouncing-throttling-explained-examples/)
-       * for details over the differences between `debounce` and `throttle`.
-       *
-       * @since 0.1.0
-       * @category Function
-       * @param {Function} func The function to debounce.
-       * @param {number} [wait=0]
-       *  The number of milliseconds to delay; if omitted, `requestAnimationFrame` is
-       *  used (if available).
-       * @param {Object} [options={}] The options object.
-       * @param {boolean} [options.leading=false]
-       *  Specify invoking on the leading edge of the timeout.
-       * @param {number} [options.maxWait]
-       *  The maximum time `func` is allowed to be delayed before it's invoked.
-       * @param {boolean} [options.trailing=true]
-       *  Specify invoking on the trailing edge of the timeout.
-       * @returns {Function} Returns the new debounced function.
-       * @example
-       *
-       * // Avoid costly calculations while the window size is in flux.
-       * jQuery(window).on('resize', debounce(calculateLayout, 150))
-       *
-       * // Invoke `sendMail` when clicked, debouncing subsequent calls.
-       * jQuery(element).on('click', debounce(sendMail, 300, {
-       *   'leading': true,
-       *   'trailing': false
-       * }))
-       *
-       * // Ensure `batchLog` is invoked once after 1 second of debounced calls.
-       * const debounced = debounce(batchLog, 250, { 'maxWait': 1000 })
-       * const source = new EventSource('/stream')
-       * jQuery(source).on('message', debounced)
-       *
-       * // Cancel the trailing debounced invocation.
-       * jQuery(window).on('popstate', debounced.cancel)
-       *
-       * // Check for pending invocations.
-       * const status = debounced.pending() ? "Pending..." : "Ready"
       */
-      //lifted from https://github.com/lodash/lodash
+      //original source: https://github.com/lodash/lodash/debounce.js
       debounce(func, wait, options){
         let lastArgs,
-            lastThis,
-            maxWait,
-            result,
-            timerId,
-            lastCallTime,
-            lastInvokeTime = 0,
-            leading = false,
-            maxing = false,
-            trailing = true;
-        _.assert(is.fun(func),"expecting function");
-        wait = wait || 0;
-        if(is.obj(options)){
-          leading = !!options.leading;
-          maxing = "maxWait" in options;
-          maxWait = maxing ? Math.max(options.maxWait || 0, wait) : maxWait;
-          trailing = "trailing" in options ? !!options.trailing : trailing;
+          lastThis,
+          maxWait,
+          result,
+          timerId,
+          lastCallTime
+
+        let lastInvokeTime = 0
+        let leading = false
+        let maxing = false
+        let trailing = true
+
+        // Bypass `requestAnimationFrame` by explicitly setting `wait=0`.
+        const useRAF = (!wait && wait !== 0 && typeof root.requestAnimationFrame === 'function')
+
+        if (typeof func !== 'function') {
+          throw new TypeError('Expected a function')
         }
-        function _invokeFunc(time){
-          let args = lastArgs;
-          let thisArg = lastThis;
-          lastArgs = lastThis = undefined;
-          lastInvokeTime = time;
-          result = func.apply(thisArg, args);
-          return result;
+        wait = +wait || 0
+        if (isObject(options)) {
+          leading = !!options.leading
+          maxing = 'maxWait' in options
+          maxWait = maxing ? Math.max(+options.maxWait || 0, wait) : maxWait
+          trailing = 'trailing' in options ? !!options.trailing : trailing
         }
-        function _leadingEdge(time){
+
+        function invokeFunc(time) {
+          const args = lastArgs
+          const thisArg = lastThis
+
+          lastArgs = lastThis = undefined
+          lastInvokeTime = time
+          result = func.apply(thisArg, args)
+          return result
+        }
+
+        function startTimer(pendingFunc, wait) {
+          if (useRAF) {
+            root.cancelAnimationFrame(timerId)
+            return root.requestAnimationFrame(pendingFunc)
+          }
+          return setTimeout(pendingFunc, wait)
+        }
+
+        function cancelTimer(id) {
+          if (useRAF) {
+            return root.cancelAnimationFrame(id)
+          }
+          clearTimeout(id)
+        }
+
+        function leadingEdge(time) {
           // Reset any `maxWait` timer.
-          lastInvokeTime = time;
+          lastInvokeTime = time
           // Start the timer for the trailing edge.
-          timerId = setTimeout(_timerExpired, wait);
+          timerId = startTimer(timerExpired, wait)
           // Invoke the leading edge.
-          return leading ? _invokeFunc(time) : result;
+          return leading ? invokeFunc(time) : result
         }
-        function _remainingWait(time){
-          let timeSinceLastCall = time - lastCallTime;
-          let timeSinceLastInvoke = time - lastInvokeTime;
-          let timeWaiting = wait - timeSinceLastCall;
+
+        function remainingWait(time) {
+          const timeSinceLastCall = time - lastCallTime
+          const timeSinceLastInvoke = time - lastInvokeTime
+          const timeWaiting = wait - timeSinceLastCall
+
           return maxing
             ? Math.min(timeWaiting, maxWait - timeSinceLastInvoke)
-            : timeWaiting;
+            : timeWaiting
         }
-        function _shouldInvoke(time){
-          let timeSinceLastCall = time - lastCallTime;
-          let timeSinceLastInvoke = time - lastInvokeTime;
+
+        function shouldInvoke(time) {
+          const timeSinceLastCall = time - lastCallTime
+          const timeSinceLastInvoke = time - lastInvokeTime
+
           // Either this is the first call, activity has stopped and we're at the
           // trailing edge, the system time has gone backwards and we're treating
           // it as the trailing edge, or we've hit the `maxWait` limit.
-          return lastCallTime === undefined ||
-                 (timeSinceLastCall >= wait) ||
-                 (timeSinceLastCall < 0) ||
-                 (maxing && timeSinceLastInvoke >= maxWait);
+          return (lastCallTime === undefined || (timeSinceLastCall >= wait) ||
+            (timeSinceLastCall < 0) || (maxing && timeSinceLastInvoke >= maxWait))
         }
-        function _timerExpired(){
-          let time = _.now();
-          if(_shouldInvoke(time)){
-            return _trailingEdge(time);
+
+        function timerExpired() {
+          const time = Date.now()
+          if (shouldInvoke(time)) {
+            return trailingEdge(time)
           }
           // Restart the timer.
-          timerId = setTimeout(_timerExpired, _remainingWait(time));
+          timerId = startTimer(timerExpired, remainingWait(time))
         }
-        function _trailingEdge(time){
-          timerId = undefined;
+
+        function trailingEdge(time) {
+          timerId = undefined
+
           // Only invoke if we have `lastArgs` which means `func` has been
           // debounced at least once.
-          if(trailing && lastArgs){
-            return _invokeFunc(time);
+          if (trailing && lastArgs) {
+            return invokeFunc(time)
           }
-          lastArgs = lastThis = undefined;
-          return result;
+          lastArgs = lastThis = undefined
+          return result
         }
-        function _cancel() {
-          if(timerId !== undefined){
-            clearTimeout(timerId);
+
+        function cancel() {
+          if (timerId !== undefined) {
+            cancelTimer(timerId)
           }
-          lastInvokeTime = 0;
-          lastArgs = lastCallTime = lastThis = timerId = undefined;
+          lastInvokeTime = 0
+          lastArgs = lastCallTime = lastThis = timerId = undefined
         }
-        function _flush() {
-          return timerId === undefined ? result : _trailingEdge(_.now());
+
+        function flush() {
+          return timerId === undefined ? result : trailingEdge(Date.now())
         }
-        function _debounced(){
-          let time = _.now();
-          let isInvoking = _shouldInvoke(time);
-          lastArgs = arguments;
-          lastThis = this;
-          lastCallTime = time;
-          if(isInvoking){
-            if(timerId === undefined){
-              return _leadingEdge(lastCallTime);
+
+        function pending() {
+          return timerId !== undefined
+        }
+
+        function debounced(...args) {
+          const time = Date.now()
+          const isInvoking = shouldInvoke(time)
+
+          lastArgs = args
+          lastThis = this
+          lastCallTime = time
+
+          if (isInvoking) {
+            if (timerId === undefined) {
+              return leadingEdge(lastCallTime)
             }
-            if(maxing){
+            if (maxing) {
               // Handle invocations in a tight loop.
-              clearTimeout(timerId);
-              timerId = setTimeout(_timerExpired, wait);
-              return _invokeFunc(lastCallTime);
+              timerId = startTimer(timerExpired, wait)
+              return invokeFunc(lastCallTime)
             }
           }
-          if(timerId === undefined){
-            timerId = setTimeout(_timerExpired, wait);
+          if (timerId === undefined) {
+            timerId = startTimer(timerExpired, wait)
           }
-          return result;
+          return result
         }
-        //_debounced.cancel = cancel;
-        //_debounced.flush = flush;
-        return _debounced;
+        debounced.cancel = cancel
+        debounced.flush = flush
+        debounced.pending = pending
+        return debounced
       },
-      /** Return a function that will return the negation of original func */
+      /**Create a function that will
+      * flip the result of original func.
+      * @memberof module:mcfud/core._
+      * @param {function} func
+      * @return {function} a wrapped function
+      */
       negate(func){
-        _.assert(is.fun(func),"expected function");
+        _pre(isFun,func,"function");
         return function(...args){
           return !func.apply(this, args)
         }
       },
-      /**
-       * Maybe pad a string (right side.)
-       * @function
-       * @param {String} str
-       * @param {Number} len
-       * @param {String} s
-       * @return {String}
+      /**Maybe pad a string (right side.)
+       * @memberof module:mcfud/core._
+       * @param {string} str
+       * @param {number} len
+       * @param {string} s
+       * @return {string}
       */
       strPadRight(str, len, s){
-        return (len -= str.length)>0 ? str+new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) : str
+        return (len -= str.length)>0 ?
+          str+new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) : str
       },
-      /**
-       * Maybe pad a string (left side.)
-       * @function
-       * @param {String} str
-       * @param {Number} len
-       * @param {String} s
-       * @return {String}
+      /**Maybe pad a string (left side.)
+       * @memberof module:mcfud/core._
+       * @param {string} str
+       * @param {number} len
+       * @param {string} s
+       * @return {string}
       */
       strPadLeft(str, len, s){
-        return (len -= str.length)>0 ? new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) + str : str
+        return (len -= str.length)>0 ?
+          new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) + str : str
       },
-      /**
-       * Safely split a string, null and empty strings are removed.
-       * @function
-       * @param {String} s
-       * @param {String} sep
-       * @return {Array.String}
+      /**Safely split a string, null and empty strings are removed.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @param {string} sep
+       * @return {string[]}
       */
       safeSplit(s, sep){
-        return s.trim().split(sep).filter(z => z.length>0)
+        return (s||"").trim().split(sep).filter(z=> z.length>0)
       },
-      /** Capitalize the first char */
+      /**Capitalize the first char.
+       * @memberof module:mcfud/core._
+       * @param {string} str
+       * @return {string}
+       */
       capitalize(str){
         return str.charAt(0).toUpperCase() + str.slice(1)
       },
-      /**
-       * Maybe pad the number with zeroes.
-       * @function
-       * @param {Number} num
-       * @param {Number} digits
-       * @return {String}
+      /**Maybe pad the number with zeroes.
+       * @memberof module:mcfud/core._
+       * @param {number} num
+       * @param {number} digits
+       * @return {string}
       */
       prettyNumber(num, digits=2){
-        return _.strPadLeft(Number(num).toString(), digits, "0")
+        return this.strPadLeft(Number(num).toString(), digits, "0")
       },
-      /**
-       * Remove some arguments from the front.
-       * @function
-       * @param {Javascript.arguments} args
-       * @param {Number} num
-       * @return {Array} remaining arguments
+      /**Pretty print millis in nice
+       * hour,minutes,seconds format.
+       * @memberof module:mcfud/core._
+       * @param {number} ms
+       * @return {string}
+       */
+      prettyMillis(ms){
+        let h,m,s= MFL(ms/1000);
+        m=MFL(s/60);
+        ms=ms-s*1000;
+        s=s-m*60;
+        h= MFL(m/60);
+        m=m-h*60;
+        let out=[];
+        out.push(`${s}.${ms} secs`);
+        if(m>0 || h>0)
+          out.push(`${m} mins, `);
+        if(h>0)
+          out.push(`${h} hrs, `);
+        return out.reverse().join("");
+      },
+      /**Remove some arguments from the front.
+       * @memberof module:mcfud/core._
+       * @param {arguments} args
+       * @param {number} num
+       * @return {any[]} remaining arguments
       */
       dropArgs(args, num){
-        return args.length > num ? Array.prototype.slice(args, num) : []
+        return args.length>num ? Slicer.call(args, num) : []
       },
-      /** true if url is secure */
+      /**Check if url is secure.
+       * @memberof module:mcfud/core._
+       * @return {boolean}
+       */
       isSSL(){
         return window && window.location && window.location.protocol.indexOf("https") >= 0
       },
-      /** true if url is mobile */
+      /**Check if url is mobile.
+       * @memberof module:mcfud/core._
+       * @param {object} navigator
+       * @return {boolean}
+       */
       isMobile(navigator){
         return navigator && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       },
-      /** true if browser is safari */
+      /**Check if browser is safari.
+       * @memberof module:mcfud/core._
+       * @param {object} navigator
+       * @return {boolean}
+       */
       isSafari(navigator){
         return navigator && /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor)
       },
-      /** true if cross-origin */
+      /**Check if url is cross-origin.
+       * @memberof module:mcfud/core._
+       * @param {string} url
+       * @return {boolean}
+       */
       isCrossOrigin(url) {
-        if(url) {
-          let pos= url.indexOf("://");
-          if(pos > 0){
+        let wnd=window;
+        if(arguments.length===2 &&
+           arguments[1].hack===911){ wnd=arguments[1] }
+        if(wnd&&wnd.location&&url){
+          const pos= url.indexOf("://");
+          if(pos>0){
             let end= url.indexOf("/", pos+3);
             let o = end<0 ? url : url.substring(0, end);
-            return o !== window.location.origin;
+            return o != wnd.location.origin;
           }
         }
-      }
-    };
-    //browser only--------------------------------------------------------------
-    if(doco){
-      _.addEvent=function(event,target,cb,arg){
-        if(isArray(event) && arguments.length===1)
-          event.forEach(e => this.addEvent.apply(this, e));
+      },
+      /**Add an event listener to this target.
+       * @memberof module:mcfud/core._
+       * @param {string} event
+       * @param {any} target
+       * @param {callback} cb
+       * @param {any} arg
+       */
+      addEvent(event,target,cb,arg){
+        if(isVec(event) && arguments.length===1)
+          event.forEach(e=> this.addEvent.apply(this, e));
         else
-          target.addEventListener(event,cb,arg);
-      };
-      _.delEvent=function(event,target,cb,arg){
-        if(isArray(event) && arguments.length===1)
+          target.addEventListener(event,cb,arg)
+      },
+      /**Remove this event listener from this target.
+       * @memberof module:mcfud/core._
+       * @param {string} event
+       * @param {any} target
+       * @param {callback} cb
+       * @param {any} arg
+       */
+      delEvent(event,target,cb,arg){
+        if(isVec(event) && arguments.length===1)
           event.forEach(e => this.delEvent.apply(this, e));
         else
-          target.removeEventListener(event,cb,arg);
-      };
-    }
-    /**
-     * @public
-     * @var {object}
-     */
+          target.removeEventListener(event,cb,arg)
+      }
+    };
+
+    /** @namespace module:mcfud/core.dom */
     const dom={
+      /**Get a list of the document's elements that
+       * match the specified selector(s).
+       * @memberof module:mcfud/core.dom
+       * @param {string} sel a valid CSS selector
+       * @return {NodeList}
+       */
       qSelector(sel){ return doco.querySelectorAll(sel) },
+      /**Get the element whose id property
+       * matches the specified string.
+       * @memberof module:mcfud/core.dom
+       * @param {string} id
+       * @return {Element} undefined if not found
+       */
       qId(id){ return doco.getElementById(id) },
+      /**Get the parent node.
+       * @memberof module:mcfud/core.dom
+       * @param {Node}
+       * @return {Node} undefined if not found
+       */
       parent(e){ if(e) return e.parentNode },
+      /**Adds a node to the parent, will be added to the end.
+       * @memberof module:mcfud/core.dom
+       * @param {Node} par
+       * @param {Node}
+       * @return {Node} the child
+       */
       conj(par,child){ return par.appendChild(child) },
+      /**Get a live HTMLCollection of elements with the given tag name.
+       * @memberof module:mcfud/core.dom
+       * @param {string} tag
+       * @param {string} ns namespaceURI
+       * @return {HTMLCollection}
+       */
       byTag(tag, ns){
-        return !is.str(ns) ? doco.getElementsByTagName(id)
-                           : doco.getElementsByTagNameNS(ns,tag) },
+        return !isStr(ns) ? doco.getElementsByTagName(id)
+                          : doco.getElementsByTagNameNS(ns,tag) },
+      /**Get or set attributes on this element.
+       * @memberof module:mcfud/core.dom
+       * @param {Element} e
+       * @param {object|string} attrs
+       * @return {Element} e
+       */
       attrs(e, attrs){
-        if(!is.obj(attrs) && attrs){
+        if(!isObj(attrs) && attrs){
           if(arguments.length > 2)
             e.setAttribute(attrs, arguments[2]);
           return e.getAttribute(attrs);
         }
         if(attrs)
-          _.doseq(attrs, (v,k) => e.setAttribute(k,v));
+          _.doseq(attrs, (v,k)=> e.setAttribute(k,v));
         return e;
       },
+      /**Get or set CSS styles on this element.
+       * @memberof module:mcfud/core.dom
+       * @param {Element} e
+       * @param {object|string} styles
+       * @return {Element} e
+       */
       css(e, styles){
-        if(!is.obj(styles) && styles){
+        if(!isObj(styles) && styles){
           if(arguments.length > 2)
             e.style[styles]= arguments[2];
           return e.style[styles];
         }
         if(styles)
-          _.doseq(styles, (v,k) => { e.style[k]= v });
+          _.doseq(styles, (v,k)=> e.style[k]=v);
         return e;
       },
+      /**Insert a container node between the child and it's current parent,
+       * for example, par <- child will become par <- wrapper <- child.
+       * @memberof module:mcfud/core.dom
+       * @param {Node} child
+       * @param {Node} wrapper
+       * @return {Node} wrapper
+       */
       wrap(child,wrapper){
-        let p=child.parentNode;
+        const p=child.parentNode;
         wrapper.appendChild(child);
         p.appendChild(wrapper);
         return wrapper;
       },
+      /**Create a new element, and maybe assign attributes/styles.
+       * @memberof module:mcfud/core.dom
+       * @param {string} tag
+       * @param {object} attributes
+       * @param {object} styles
+       * @return {Element}
+       */
       newElm(tag, attrs, styles){
-        let e = doco.createElement(tag);
+        const e = doco.createElement(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       },
+      /**Create a new text node, and maybe assign attributes/styles.
+       * @memberof module:mcfud/core.dom
+       * @param {string} tag
+       * @param {object} attributes
+       * @param {object} styles
+       * @return {Node}
+       */
       newTxt(tag, attrs, styles){
-        let e = doco.createTextNode(tag);
+        const e = doco.createTextNode(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       }
     };
-    /**
-     * @public
-     * @function
-     */
-    const EventBus= function(){
-      let _tree= _.jsMap();
-      let NULL={};
-      let ZA=[];
-      return {
-        sub(subject,cb,ctx,extras){
-          let event=subject[0], target=subject[1];
-          //handle multiple events in one string
-          _.seq(event).forEach(e=>{
-            if(!cb) cb=e;
-            if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-            if(!cb) throw "Error: no callback for sub()";
-            if(!_tree.has(e)) _tree.set(e, _.jsMap());
-            let m= _tree.get(e);
-            target=target||NULL;
-            !m.has(target) && m.set(target,[]);
-            m.get(target).push([cb,ctx,extras]);
-          });
-        },
-        pub(subject,...args){
-          let m,t,event=subject[0], target=subject[1] || NULL;
-          _.seq(event).forEach(e=>{
-            t=_tree.get(e);
-            m= t && t.get(target);
-            m && m.forEach(s=>{
-              s[0].apply(s[1],args.concat(s[2] || ZA));
-            });
-          });
-        },
-        unsub(subject,cb,ctx){
-          let event=subject[0], target=subject[1] || NULL;
-          let t,m, es=_.seq(event);
-          es.forEach(e=>{
-            t= _tree.get(e);
-            m= t && t.get(target);
-            if(m){
-              if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-              if(!cb){
-                //t.delete(target);
-              }
-              else
-                for(let i= m.length-1;i>=0;--i)
-                    if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
-            }
-          });
-        }
-      };
-    };
 
-    if(doco){ _C.dom=dom }
-    _C.EventBus= EventBus;
-    _C.u= _;
-    _C.is= is;
-    return _C;
+    /**
+     * @ignore
+     */
+    const NULL={};
+    /**
+     * @ignore
+     */
+    const ZA=[];
+
+    /**Publish-subscribe
+     * @class
+     */
+    class CEventBus{
+      constructor(){
+        this._tree=new Map();
+      }
+      /**
+       * Subscribe to an event.
+       * @param {any[]} [event,target]
+       * @param {callback} cb
+       * @param {any} ctx
+       * @param {array} extras
+       * @return {CEventBus} self
+       */
+      sub(subject,cb,ctx,extras){
+        let event=subject[0],
+            target=subject[1];
+        //handle multiple events in one string
+        _.seq(event).forEach(e=>{
+          if(!cb) cb=e;
+          if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+          if(!cb) throw "Error: no callback for sub()";
+          if(!this._tree.has(e)) this._tree.set(e, _.jsMap());
+          let m= this._tree.get(e);
+          target=target||NULL;
+          !m.has(target) && m.set(target,[]);
+            m.get(target).push([cb,ctx,extras]);
+        });
+        return this;
+      }
+      /**
+       * Trigger an event.
+       * @param {any[]} [event,target]
+       * @param {...any} args
+       * @return {CEventBus} self
+       */
+      pub(subject,...args){
+        let m,t,
+            event=subject[0],
+            target=subject[1] || NULL;
+        _.seq(event).forEach(e=>{
+          t=this._tree.get(e);
+          m= t && t.get(target);
+          m && m.forEach(s=>{
+            s[0].apply(s[1],args.concat(s[2] || ZA));
+          });
+        });
+        return this;
+      }
+      /**
+       * Remove all subscribers.
+       * @return {CEventBus} self
+       */
+      reset(){
+        this._tree.clear();
+        return this;
+      }
+      /**
+       * Unsubscribe to an event.
+       * @param {any[]} [event,target]
+       * @param {callback} cb
+       * @param {any} ctx
+       * @return {CEventBus} self
+       */
+      unsub(subject,cb,ctx){
+        let event=subject[0],
+            target=subject[1] || NULL;
+        let t,m, es=_.seq(event);
+        es.forEach(e=>{
+          t= this._tree.get(e);
+          m= t && t.get(target);
+          if(m){
+            if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+            if(!cb){
+              //t.delete(target);
+            }
+            else
+              for(let i= m.length-1;i>=0;--i)
+                  if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
+          }
+        });
+        return this;
+      }
+    }
+
+    /**Create a pub/sub event manager.
+     * @memberof module:mcfud/core
+     * @return {CEventBus}
+     */
+    function EventBus(){
+      return new CEventBus()
+    }
+
+    //browser only--------------------------------------------------------------
+    if(doco){ _$.dom=dom }else{
+      delete _["addEvent"];
+      delete _["delEvent"];
+    }
+
+    _$.EventBus=EventBus;
+    _$.is=is;
+    _$.u=_;
+
+    return _$;
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1083,124 +1678,124 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Create the module.
    */
   function _module(Core){
-    if(!Core) Core= global["io/czlab/mcfud/core"]();
-    const EPSILON= 0.0000000001;
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    //const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
     const DEG_2PI= 360;
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
     const {is,u:_}= Core;
-    const _M={EPSILON:EPSILON};
+
     /**
-     * @public
-     * @function
+     * @module mcfud/math
      */
-    _M.lerp=function(startv, endv, t){
-      return (1 - t) * startv + t * endv
-    };
-    /**
-     * Proper modulo.
-     * @public
-     * @function
-     */
-    _M.xmod=function(x,N){
-      return x < 0 ? x-(-(N + N*Math.floor(-x/N))) : x%N
-    };
-    /**
-     * @public
-     * @function
-     */
-    _M.clamp=function(min,max,v){
-      return v<min ? min : (v>max ? max : v)
-    };
-    /**
-     * @function
-     * @public
-     */
-    _M.sqr=function(a){ return a*a };
-    /**
-     * @public
-     * @function
-     */
-    _M.fuzzyEq=function(a,b){
-      return Math.abs(a-b) < EPSILON
-    };
-    /**
-     * @public
-     * @function
-     */
-    _M.fuzzyZero=function(n){
-      return this.fuzzyEq(n, 0.0)
-    };
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _mod_deg(deg){
-      return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI
-    }
-    /**
-     * Radian to degree.
-     *
-     * @function
-     * @public
-     */
-    _M.radToDeg=function(r){
-      return _mod_deg(DEG_2PI * r/TWO_PI)
-    };
-    /**
-     * Degree to radian.
-     *
-     * @public
-     * @function
-     */
-    _M.degToRad=function(d){
-      return TWO_PI * _mod_deg(d)/DEG_2PI
-    };
-    /**
-     * Hypotenuse squared.
-     * @public
-     * @function
-     */
-    _M.pythag2=function(x,y){ return x*x + y*y };
-    /**
-     * Hypotenuse.
-     * @public
-     * @function
-     */
-    _M.pythag=function(x,y){ return Math.sqrt(x*x + y*y) };
-    /**
-     * Modulo of the next increment.
-     * @function
-     * @public
-     */
-    _M.wrap=function(i,len){ return (i+1) % len };
-    /**
-     * Is it more a or b?
-     * @public
-     * @function
-     */
-    _M.biasGreater=function(a,b){
-      const biasRelative= 0.95;
-      const biasAbsolute= 0.01;
-      return a >= (b*biasRelative + a*biasAbsolute)
+      return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI }
+
+    const _$={
+      /**Liner interpolation.
+       * @memberof module:mcfud/math
+       * @param {number} startv
+       * @param {number} endv
+       * @param {number} t
+       * @return {number}
+       */
+      lerp(startv, endv, t){
+        return (1-t) * startv + t * endv
+      },
+      /**The modulo operator.
+       * @memberof module:mcfud/math
+       * @param {number} x
+       * @param {number} N
+       * @return {number}
+       */
+      xmod(x,N){
+        return x<0 ? x-(-(N + N*Math.floor(-x/N))) : x%N
+      },
+      /**Limit the value to within these 2 numbers.
+       * @memberof module:mcfud/math
+       * @param {number} min
+       * @param {number} max
+       * @param {number} v a value
+       * @return {number}
+       */
+      clamp(min,max,v){
+        return v<min ? min : (v>max ? max : v)
+      },
+      /**Square a number.
+       * @memberof module:mcfud/math
+       * @param {number} a
+       * @return {number} q^2
+       */
+      sqr(a){ return a*a },
+      /**Check if 2 numbers are approximately the same.
+       * @memberof module:mcfud/math
+       * @param {number} a
+       * @param {number} b
+       * @return {boolean}
+       */
+      fuzzyEq(a,b){ return _.feq(a,b) },
+      /**Check if the number is approximately zero.
+       * @memberof module:mcfud/math
+       * @param {number} n
+       * @return {boolean}
+       */
+      fuzzyZero(n){ return _.feq0(n) },
+      /**Convert radians to degrees.
+       * @memberof module:mcfud/math
+       * @param {number} r
+       * @return {number} degrees
+       */
+      radToDeg(r){ return _mod_deg(DEG_2PI * r/TWO_PI) },
+      /**Convert degrees to radians.
+       * @memberof module:mcfud/math
+       * @param {number} d
+       * @return {number} radians
+       */
+      degToRad(d){ return TWO_PI * _mod_deg(d)/DEG_2PI },
+      /**Hypotenuse squared.
+       * @memberof module:mcfud/math
+       * @param {number} x
+       * @param {number} y
+       * @return {number}
+       */
+      pythag2(x,y){ return x*x + y*y },
+      /**Hypotenuse.
+       * @memberof module:mcfud/math
+       * @param {number} x
+       * @param {number} y
+       * @return {number}
+       */
+      pythag(x,y){ return Math.sqrt(x*x + y*y) },
+      /** @ignore */
+      wrap(i,len){ return (i+1) % len },
+      /**Is it more a or b?
+       * @ignore
+       */
+      biasGreater(a,b){
+        const biasRelative= 0.95;
+        const biasAbsolute= 0.01;
+        return a >= (b*biasRelative + a*biasAbsolute)
+      }
     };
 
-    return _M;
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/math"]=_module
+    gscope["io/czlab/mcfud/math"]=_module
   }
 
 })(this);
@@ -1221,498 +1816,526 @@
 //
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
-   */
-  function _module(UseOBJ=false,Core=null,_M=null){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
+
+  /**Creates the module.
+  */
+  function _module(UseOBJ=false,Core=null){
+    class V2Obj{ constructor(){ this.x=0;this.y=0 } }
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_, is}= Core;
-    class V2Obj{ constructor(){ this.x=this.y=0 } }
-    function _cobj() { return new V2Obj() }
-    function _carr() { return [0,0] }
     const PLEN=96;
-    const _V={};
-    const _CTOR= UseOBJ ? _cobj : _carr;
-    const _POOL= _.fill(new Array(PLEN), _CTOR);
+    /** @ignore */
+    function _CTOR(){
+      return UseOBJ ? new V2Obj() : [0,0] }
+    let _POOL=_.fill(PLEN,_CTOR);
+
+    /** @module mcfud/vec2 */
+
     /**
-     * @private
-     * @function
+     * @typedef {number[]} Vec2
+     */
+
+    /**Put stuff back into the pool.
      */
     function _drop(...args){
-      let ok;
-      args.forEach(a=>{
-        if(a){
-          ok=0;
-          if(UseOBJ){
-            if(a instanceof V2Obj){ok=1}
-          }else if(a.length===2){ok=1}
-          if(ok && _POOL.length<PLEN) _POOL.push(a)
-        }
-      })
-    }
-    /**
-     * @private
-     * @function
-     */
-    function _take(x,y){
-      let out= _POOL.length>0 ? _POOL.pop() : _CTOR();
-      x=x || 0;
-      y=y || 0;
-      if(UseOBJ){
-        out.x=x;
-        out.y=y;
-      }else{
-        out[0]=x;
-        out[1]=y;
+      for(let a,i=0;i<args.length;++i){
+        a=args[i];
+        if(_POOL.length<PLEN){
+          if((UseOBJ && a instanceof V2Obj) ||
+            (!UseOBJ && a && a.length===2)) { _POOL.push(a) }
+        }else{break}
       }
+    }
+
+    /**Take something from the pool.
+     */
+    function _take(x=0,y=0){
+      const out= _POOL.length>0 ? _POOL.pop() : _CTOR();
+      if(UseOBJ){
+        out.x=x; out.y=y
+      }else{
+        out[0]=x; out[1]=y }
       return out;
     }
-    /**
-     * @public
-     * @function
-     */
-    _V.vec2=function(x,y){ return _take(x,y) };
-    _V.takeV2=_take;
-    _V.dropV2=_drop;
-    /**
-     * @private
-     * @var {object}
-     */
+
+    /**4 basic arithmetic ops. */
     const _4ops={ "+": (a,b)=>a+b, "-": (a,b)=>a-b,
                   "*": (a,b)=>a*b, "/": (a,b)=>a/b };
-    /**
-     * @private
-     * @function
+
+    /**Make sure we have good data.
      */
-    function _assertArgs(a,b){
-      if(is.num(b)) b=a;
+    function _assertArgs(a,b,hint){
+      if(hint===0){ /*b's type must be same as a*/ }else if(is.num(b)) {b=a}
       UseOBJ ? _.assert(a instanceof V2Obj && b instanceof V2Obj)
-             : _.assert(a.length===2&&a.length===b.length);
+             : _.assert(a.length===2&&is.vec(b)&&a.length===b.length);
       return true;
     }
-    /**
-     * @private
-     * @function
-     */
-    function _vecXXX(op,a,b,local){
-      let out= _assertArgs(a,b) ? (local ? a : _CTOR()) : null;
-      let n= is.num(b);
+
+    /**Handles various combination of args. */
+    function _vecXXX(op,a,b,c,local){
+      const out= _assertArgs(a,b) ? (local ? a : _CTOR()) : null;
+      const n= is.num(b);
+      if(is.num(c)){
+        _.assert(n,"wanted both numbers")
+      }else if(n){
+        c=b
+      }
       if(UseOBJ){
         out.x=op(a.x, n?b:b.x);
-        out.y=op(a.y, n?b:b.y);
+        out.y=op(a.y, n?c:b.y);
       }else{
         out[0]=op(a[0], n?b:b[0]);
-        out[1]=op(a[1], n?b:b[1]);
+        out[1]=op(a[1], n?c:b[1]);
       }
       return out;
     }
-    /**
-     * @public
-     * @function
+
+    /**Rotate a vector([]) around a pivot.
      */
-    _V.vecAdd=function(a,b){ return _vecXXX(_4ops["+"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecAddSelf=function(a,b){ return _vecXXX(_4ops["+"],a,b,1) };
-    /**
-     * @function
-     * @public
-     */
-    _V.vecSub=function(a,b){ return _vecXXX(_4ops["-"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecSubSelf=function(a,b){ return _vecXXX(_4ops["-"],a,b,1) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecMul=function(a,b){ return _vecXXX(_4ops["*"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecMulSelf=function(a,b){ return _vecXXX(_4ops["*"],a,b,1) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDiv=function(a,b){ return _vecXXX(_4ops["/"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDivSelf=function(a,b){ return _vecXXX(_4ops["/"],a,b,1) };
-    /**
-     * Dot product of vectors, cosα = a·b / (|a| * |b|).
-     *
-     * @public
-     * @function
-     * @returns {number}
-     */
-    _V.vecDot=function(a,b){
-      if(_assertArgs(a,b))
-        return UseOBJ ? (a.x*b.x + a.y*b.y)
-                      : (a[0]*b[0] + a[1]*b[1])
-    }
-    /**
-     * @public
-     * @function
-     */
-    _V.makeVecAB=function(a,b){
-      return _take(b[0]-a[0],b[1]-a[1])
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecLen2=function(a){ return this.vecDot(a,a) }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecLen=function(a){ return Math.sqrt(this.vecLen2(a)) }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDist2=function(a,b){
-      let v= this.vecSub(b,a);
-      let d= this.vecLen2(v);
-      _drop(v);
-      return d;
-    }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDist=function(a,b){ return Math.sqrt(this.vecDist2(a,b)) }
-    /**
-     * Unit-vector.
-     * @public
-     * @function
-     */
-    _V.vecUnit=function(a){
-      let d=this.vecLen(a);
-      let out= _CTOR();
-      if(d>_M.EPSILON){
-        if(UseOBJ){
-          out.x = a.x/d;
-          out.y = a.y/d;
-        }else{
-          out[0] = a[0]/d;
-          out[1] = a[1]/d;
-        }
-      }
-      return out;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecUnitSelf=function(a){
-      let d=this.vecLen(a);
-      if(d>_M.EPSILON){
-        if(UseOBJ){
-          a.x /= d;
-          a.y /= d;
-        }else{
-          a[0] /= d;
-          a[1] /= d;
-        }
-      }
-      return a;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecSet=function(des,src){
-      _assertArgs(des,src);
-      if(UseOBJ){
-        des.x=src.x;
-        des.y=src.y;
-      }else{
-        des[0]=src[0];
-        des[1]=src[1];
-      }
-      return des;
-    }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecClone=function(v){
-      return this.vecSet(_CTOR(),v)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecCopy=function(des,...args){
-      _.assert(args.length===2) && _assertArgs(des,des);
-      if(UseOBJ){
-        des.x=args[0];
-        des.y=args[1];
-      }else{
-        des[0]=args[0];
-        des[1]=args[1];
-      }
-      return des;
-    };
-    /**
-     * @private
-     * @function
-     */
-    function _v2rot_arr(a,cos,sin,center,local){
-      const cx=center ? center[0] : 0;
-      const cy=center ? center[1] : 0;
-      const x_= a[0] - cx;
-      const y_= a[1] - cy;
-      const x= cx + (x_*cos - y_*sin);
-      const y= cy + (x_ * sin + y_ * cos);
-      if(local){
-        a[0] = x;
-        a[1] = y;
-      }else{
-        a= _take(x,y);
+    function _v2rot_arr(a,cos,sin,pivot,local){
+      const cx=pivot ? pivot[0] : 0;
+      const cy=pivot ? pivot[1] : 0;
+      const x_= a[0]-cx;
+      const y_= a[1]-cy;
+      const x= cx+(x_*cos - y_*sin);
+      const y= cy+(x_ * sin + y_ * cos);
+      if(local){ a[0]=x; a[1]=y }else{
+        a= _take(x,y)
       }
       return a;
     }
-    /**
-     * @private
-     * @function
+    /**Rotate a vector(obj) around a pivot.
      */
-    function _v2rot_obj(a,cos,sin,center,local){
-      const cx=center ? center.x : 0;
-      const cy=center ? center.y : 0;
-      const x_= a.x - cx;
-      const y_= a.y - cy;
-      const x= cx + (x_*cos - y_*sin);
-      const y= cy + (x_ * sin + y_ * cos);
-      if(local){
-        a.x = x;
-        a.y = y;
-      }else{
-        a= _take(x,y);
+    function _v2rot_obj(a,cos,sin,pivot,local){
+      const cx=pivot ? pivot.x : 0;
+      const cy=pivot ? pivot.y : 0;
+      const x_= a.x-cx;
+      const y_= a.y-cy;
+      const x= cx+(x_*cos - y_*sin);
+      const y= cy+(x_ * sin + y_ * cos);
+      if(local){ a.x = x; a.y = y }else{
+        a= _take(x,y)
       }
       return a;
     }
-    /**
-     * @public
-     * @function
-     */
-    _V.vec2Rot=function(a,rot,center){
-      _assertArgs(a, center || a);
-      const c= Math.cos(rot);
-      const s= Math.sin(rot);
-      return UseOBJ ? _v2rot_obj(a,c,s,center) : _v2rot_arr(a,c,s,center);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vec2RotSelf=function(a,rot,center){
-      _assertArgs(a, center || a);
-      const c= Math.cos(rot);
-      const s= Math.sin(rot);
-      return UseOBJ ? _v2rot_obj(a,c,s,center,1) : _v2rot_arr(a,c,s,center,1);
-    };
-    /**
-     * @private
-     * @function
+    /**2d cross product, data-type=[].
      */
     function _vecXSS_arr(p1,p2){
+      //v2 X v2
       if(is.vec(p1) && is.vec(p2)){
         _assertArgs(p1,p2);
         return p1[0] * p2[1] - p1[1] * p2[0]
       }
-      if(is.vec(p1) && is.num(a)){
+      //v2 X num
+      if(is.vec(p1) && is.num(p2)){
         _assertArgs(p1,p1);
         return _take(p2 * p1[1], -p2 * p1[0])
       }
+      //num X v2
       if(is.num(p1) && is.vec(p2)){
         _assertArgs(p2,p2);
-        return _take( -p1 * p2[1], p1 * p2[0])
+        return _take(-p1 * p2[1], p1 * p2[0])
       }
+      _.assert(false,"cross(): bad args");
     }
-    /**
-     * @private
-     * @function
+    /**2d cross product, data-type=object.
      */
     function _vecXSS_obj(p1,p2){
+      //v2 X v2
       if(p1 instanceof V2Obj && p2 instanceof V2Obj){
         return p1.x * p2.y - p1.y * p2.x
       }
-      if(p1 instanceof V2Obj && is.num(a)){
+      //v2 X num
+      if(p1 instanceof V2Obj && is.num(p2)){
         return _take(p2 * p1.y, -p2 * p1.x)
       }
+      //num X v2
       if(is.num(p1) && p2 instanceof V2Obj){
-        return _take( -p1 * p2.y, p1 * p2.x)
+        return _take(-p1 * p2.y, p1 * p2.x)
       }
+      _.assert(false,"cross(): bad args");
     }
-    /**
-     * @public
-     * @function
-     */
-    _V.vec2Cross=function(p1,p2){
-      return UseOBJ ? _vecXSS_obj(p1,p2) : _vecXSS_arr(p1,p2)
-    };
-    /**
-     * Angle between these 2 vectors.
-     * a.b = cos(t)*|a||b|
-     * @public
-     * @function
-     */
-    _V.vecAngle=function(a,b){
-      return Math.acos(this.vecDot(a,b) / (this.vecLen(a) * this.vecLen(b)))
-    };
-    /**
-     * Change vector to be perpendicular to what it was before, effectively
-     * rotates it 90 degrees in a clockwise direction.
-     * @public
-     * @function
-     */
-    _V.perpSelf=function(a,ccw){
-      _assertArgs(a,a);
-      const x = UseOBJ ? a.x : a[0];
-      if(UseOBJ){
-        if(ccw){
-          a.x=-a.y;
-          a.y= x;
-        }else{
-          a.x=a.y;
-          a.y= -x;
-        }
-      }else{
-        if(ccw){
-          a[0]=-a[1];
-          a[1]= x;
-        }else{
-          a[0]=a[1];
-          a[1]= -x;
-        }
-      }
-      return a;
-    };
-    /**
-     * Change vector to be perpendicular to what it was before, effectively
-     * rotates it 90 degrees in a clockwise direction.
-     * @public
-     * @function
-     */
-    _V.perp=function(a,ccw){
-      _assertArgs(a,a);
-      if(UseOBJ){
-        return ccw ? _take(-a.y,a.x) : _take(a.y,-a.x)
-      }else{
-        return ccw ? _take(-a[1],a[0]) : _take(a[1],-a[0])
-      }
-    };
-    /**
-     * Find scalar projection.
-     * @public
-     * @function
-     * @returns {number}
-     */
-    _V.proj=function(a,b){
-      return this.vecDot(a,b)/this.vecLen(b)
-    };
-    /**Find vector projection.
-     * @public
-     * @function
-     */
-    _V.vecProj=function(a,b){
-      const bn = this.vecUnit(b);
-      return this.vecMulSelf(bn, this.vecDot(a,bn));
-    };
-    /**
-     * Find the perpedicular vector.
-     * @public
-     * @function
-     */
-    _V.vecPerp=function(a,b){ return this.vecSub(a, this.vecProj(a,b)) };
-    /**
-     * Reflect a normal.
-     * @public
-     * @function
-     */
-    _V.vecReflect=function(src,normal){
-      return this.vecSub(src, this.vecMul(normal, 2*this.vecDot(src,normal)))
-    };
-    /**
-     * Negate a vector.
-     * @public
-     * @function
-     */
-    _V.vecFlip=function(v){ return this.vecMul(v, -1) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecFlipSelf=function(v){ return this.vecMulSelf(v, -1) };
-    /**
-     * Normal of a vector.
-     *
-     * if v is ------------------> then
-     *         |
-     *         |
-     *         v
-     * if s=true, then
-     *         ^
-     *         |
-     *         |
-     *         -------------------->
-     * @public
-     * @function
-     */
-    _V.vecNormal=function(v,s){
-      _assertArgs(v,v);
-      //origin = (0,0) => x1=0,y1=0, x2= vx, y2=vy
-      const x1=0;
-      const y1=0;
-      let dy;
-      let dx;
-      if(UseOBJ){
-        dy= v.y - y1;
-        dx= v.x - x1;
-      }else{
-        dy= v[1] - y1;
-        dx= v[0] - x1;
-      }
-      return s ? _take(-dy, dx) : _take(dy, -dx)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.translate=function(pos,...args){
-      let a=false;
-      if(args.length===1 && is.vec(args[0])){
-        args=args[0];
-        a=true;
-      }
-      return args.length===1 && !a ? this.vec2(pos[0]+args[0][0],pos[1]+args[0][1])
-                                   : args.map(p=> this.vec2(pos[0]+p[0],pos[1]+p[1]))
-    };
 
-    return _V;
+    const _$={
+      /**Internal, for testing only. */
+      _switchMode(bObj,size=16){
+        UseOBJ=bObj;
+        _POOL=_.fill(size||PLEN,_CTOR) },
+      /**Internal, for testing only. */
+      _checkPoolSize(){ return _POOL.length },
+      /**Get a free vec from internal pool.
+       * @memberof module:mcfud/vec2
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
+      take(x=0,y=0){ return _take(x,y) },
+      /**Put back a vec.
+       * @memberof module:mcfud/vec2
+       * @param {...Vec2} args
+       */
+      reclaim(...args){ return _drop(...args) },
+      /**Create a free vector.
+       * @memberof module:mcfud/vec2
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
+      vec(x=0,y=0){ return _take(x,y) },
+      /**Vector addition: A+B.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      add(a,b,c){ return _vecXXX(_4ops["+"],a,b,c) },
+      /**Vector addition: A=A+B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      add$(a,b,c){ return _vecXXX(_4ops["+"],a,b,c,1) },
+      /**Vector subtraction: A-B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      sub(a,b,c){ return _vecXXX(_4ops["-"],a,b,c) },
+      /**Vector subtraction: A=A-B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      sub$(a,b,c){ return _vecXXX(_4ops["-"],a,b,c,1) },
+      /**Vector multiply: A*B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      mul(a,b,c){ return _vecXXX(_4ops["*"],a,b,c) },
+      /**Vector multiply: A=A*B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      mul$(a,b,c){ return _vecXXX(_4ops["*"],a,b,c,1) },
+      /**Vector division: A/B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      div(a,b,c){ return _vecXXX(_4ops["/"],a,b,c) },
+      /**Vector division: A=A/B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
+      div$(a,b,c){ return _vecXXX(_4ops["/"],a,b,c,1) },
+      /**Dot product of 2 vectors,
+       * cos(t) = a·b / (|a| * |b|)
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
+      dot(a,b){
+        if(_assertArgs(a,b,0))
+          return UseOBJ ? (a.x*b.x + a.y*b.y)
+                        : (a[0]*b[0] + a[1]*b[1])
+      },
+      /**Create a vector A->B, calculated by doing B-A.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {Vec2}
+       */
+      vecAB(a,b){
+        if(_assertArgs(a,b,0))
+          return UseOBJ ? _take(b.x-a.x,b.y-a.y)
+                        : _take(b[0]-a[0],b[1]-a[1])
+      },
+      /**Vector length squared.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {number}
+       */
+      len2(a){ return this.dot(a,a) },
+      /**Length of a vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {number}
+       */
+      len(a){ return Math.sqrt(this.len2(a)) },
+      /**Distance between 2 vectors, squared.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
+      dist2(a,b){
+        let v= this.sub(b,a),
+            d= this.len2(v);
+        _drop(v);
+        return d;
+      },
+      /**Distance between 2 vectors.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
+      dist(a,b){ return Math.sqrt(this.dist2(a,b)) },
+      /**Normalize this vector: a/|a|
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {Vec2} undefined if zero length
+       */
+      unit(a){
+        let out,
+            d=this.len(a);
+        if(!_.feq0(d)){
+          out=_CTOR();
+          if(UseOBJ){
+            out.x= a.x/d;
+            out.y= a.y/d;
+          }else{
+            out[0]= a[0]/d;
+            out[1]= a[1]/d;
+          }
+        }
+        return out;
+      },
+      /**Normalize this vector: a=a/|a|
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {Vec2} undefined if zero length
+       */
+      unit$(a){
+        let out,
+            d=this.len(a);
+        if(!_.feq0(d)){
+          if(UseOBJ){
+            a.x /= d;
+            a.y /= d;
+          }else{
+            a[0] /= d;
+            a[1] /= d;
+          }
+          out=a;
+        }
+        return out;
+      },
+      /**Copy `src` into `des`.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} des
+       * @param {Vec2} src
+       * @return {Vec2}
+       */
+      set(des,src){
+        _assertArgs(des,src,0);
+        if(UseOBJ){
+          des.x=src.x;
+          des.y=src.y;
+        }else{
+          des[0]=src[0];
+          des[1]=src[1];
+        }
+        return des;
+      },
+      /**Make a copy of this vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {Vec2}
+       */
+      clone(v){ return this.set(_CTOR(),v) },
+      /**Copy values(args) into `des`.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} des
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
+      copy(des,x,y){
+        _.assert(is.num(x)&&is.num(y),"wanted numbers");
+        if(UseOBJ){
+          des.x=x;
+          des.y=y;
+        }else{
+          des[0]=x;
+          des[1]=y;
+        }
+        return des;
+      },
+      /**Rotate a vector around a pivot.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number} rot
+       * @param {Vec2} [pivot]
+       * @return {Vec2}
+       */
+      rot(a,rot,pivot=null){
+        _assertArgs(a, pivot||a,0);
+        const c= Math.cos(rot);
+        const s= Math.sin(rot);
+        return UseOBJ ? _v2rot_obj(a,c,s,pivot) : _v2rot_arr(a,c,s,pivot);
+      },
+      /**Rotate a vector around a pivot: a=rot(a,...)
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number} rot
+       * @param {Vec2} [pivot]
+       * @return {Vec2}
+       */
+      rot$(a,rot,pivot){
+        _assertArgs(a, pivot||a,0);
+        const c= Math.cos(rot);
+        const s= Math.sin(rot);
+        return UseOBJ ? _v2rot_obj(a,c,s,pivot,1)
+                      : _v2rot_arr(a,c,s,pivot,1);
+      },
+      /**2d cross product.
+       * The sign of the cross product (AxB) tells you whether the 1st vector (A)
+       * is on the left or right side of the 2nd vector (B), -ve implies
+       * A is left of B, (rotate cw to B), +ve means A is right of B (rotate ccw to B).
+       * The absolute value of the 2D cross product is the sine of the angle
+       * in between the two vectors.
+       * @memberof module:mcfud/vec2
+       * @param {number|Vec2} p1
+       * @param {number|Vec2} p2
+       * @return {number|Vec2}
+       */
+      cross(p1,p2){ return UseOBJ ? _vecXSS_obj(p1,p2) : _vecXSS_arr(p1,p2) },
+      /**Angle (in radians) between these 2 vectors.
+       * a.b = cos(t)*|a||b|
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
+      angle(a,b){ return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
+      /**Change vector to be perpendicular to what it was before, effectively
+       * rotates it 90 degrees(normal).
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {boolean} ccw counter-clockwise?
+       * @return {Vec2}
+       */
+      normal(a,ccw=false){
+        _assertArgs(a,a);
+        if(UseOBJ){
+          return ccw ? _take(-a.y,a.x) : _take(a.y,-a.x)
+        }else{
+          return ccw ? _take(-a[1],a[0]) : _take(a[1],-a[0])
+        }
+      },
+      /**Change vector to be perpendicular to what it was before, effectively
+       * rotates it 90 degrees(normal), A=normal(A).
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {boolean} ccw counter-clockwise?
+       * @return {Vec2}
+       */
+      normal$(a,ccw=false){
+        _assertArgs(a,a);
+        const x= UseOBJ ? a.x : a[0];
+        if(UseOBJ){
+          if(ccw){ a.x=-a.y; a.y= x }else{ a.x=a.y; a.y= -x }
+        }else{
+          if(ccw){ a[0]=-a[1]; a[1]= x }else{ a[0]=a[1]; a[1]= -x }
+        }
+        return a;
+      },
+      /**Find scalar projection A onto B.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
+      proj_scalar(a,b){ return this.dot(a,b)/this.len(b) },
+      /**Find vector A projection onto B.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {Vec2}
+       */
+      proj(a,b){
+        const bn = this.unit(b);
+        return this.mul$(bn, this.dot(a,bn));
+      },
+      /**Find the perpedicular vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {Vec2}
+       */
+      perp(a,b){ return this.sub(a, this.proj(a,b)) },
+      /**Reflect a ray, normal must be normalized.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} ray
+       * @param {Vec2} surface_normal
+       * @return {Vec2}
+       */
+      reflect(ray,surface_normal){
+        //ray of light hitting a surface, find the reflected ray
+        //reflect= ray - 2(ray.surface_normal)surface_normal
+        return this.sub(ray, this.mul(surface_normal, 2*this.dot(ray,surface_normal)))
+      },
+      /**Negate a vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {Vec2}
+       */
+      flip(v){ return this.mul(v, -1) },
+      /**Negate a vector, v=flip(v).
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {Vec2}
+       */
+      flip$(v){ return this.mul$(v, -1) },
+      /**Move a bunch of points.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} pos
+       * @param {...Vec2} args
+       * @return {Vec2[]}
+       */
+      translate(pos,...args){
+        _assertArgs(pos,pos);
+        let b,a=false;
+        if(args.length===1 && is.vec(args[0])){
+          args=args[0];
+          a=true;
+        }
+        if(args.length>0){
+          _assertArgs(pos,args[0],0);
+          b=args.length===1&&!a;
+          if(UseOBJ){
+            return b ? this.vec(pos.x+args[0].x,pos.y+args[0].y)
+                     : args.map(p=> this.vec(pos.x+p.x,pos.y+p.y))
+          }else{
+            return b ? this.vec(pos[0]+args[0][0],pos[1]+args[0][1])
+                     : args.map(p=> this.vec(pos[0]+p[0],pos[1]+p[1]))
+          }
+        }
+      }
+    };
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(false,
-                           require("./core"),
-                           require("./math"))
+    module.exports=_module(false, require("./core"))
   }else{
-    global["io/czlab/mcfud/vec2"]=_module
+    gscope["io/czlab/mcfud/vec2"]=_module
   }
 
 })(this);
@@ -1733,980 +2356,765 @@
 //
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  "use strict";
-  /**
-   * @private
-   * @function
-   */
-  function _module(Core,_M){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
+;(function(gscope){
 
+  "use strict";
+
+  /**Create the module.
+   */
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;
     const TAN= Math.tan;
+    const MFL=Math.floor;
     const {u:_, is}= Core;
-    const _X={
-      V3:function(x,y,z){
-        return [x||0,y||0,z||0]
-      },
-      vecDot:function(a,b){
-        return a[0]*b[0] + a[1]*b[1] + a[2]+b[2]
-      },
-      vecCross:function(a,b){
-        return this.V3(a.y * b.z - a.z * b.y,
-                       a.z * b.x - a.x * b.z,
-                       a.x * b.y - a.y * b.x)
-      },
-      vecLen2:function(a){
-        return this.vecDot(a,a)
-      },
-      vecLen:function(a){
-        return Math.sqrt(this.vecLen2(a))
-      },
-      vecUnit:function(a){
-        let d=this.vecLen(a);
-        let out=this.V3();
-        if(d>EPSILON){
-          out[0]=a[0]/d;
-          out[1]=a[1]/d;
-          out[2]=a[2]/d;
-        }
-        return out;
-      },
-      vecSub:function(a,b){
-        return is.num(b) ? this.V3(a[0]-b, a[1]-b, a[2]-b)
-                         : this.V3(a[0]-b[0], a[1]-b[1], a[2]-b[2])
-      },
-      vecAdd:function(a,b){
-        return is.num(b) ? this.V3(a[0]+b, a[1]+b, a[2]+b)
-                         : this.V3(a[0]+b[0], a[1]+b[1], a[2]+b[2])
-      },
-      vecMul:function(a,b){
-        return is.num(b) ? this.V3(a[0]*b, a[1]*b, a[2]*b)
-                         : this.V3(a[0]*b[0], a[1]*b[1], a[2]*b[2])
-      },
-      vecDiv:function(a,b){
-        return is.num(b) ? this.V3(a[0]/b, a[1]/b, a[2]/b)
-                         : this.V3(a[0]/b[0], a[1]/b[1], a[2]/b[2])
-      }
-    };
+
     /**
-     * @private
-     * @function
+     * @module mcfud/matrix
      */
+
+    /**
+     * @typedef {object} MatrixObject
+     * @property {number[]} dim size of the matrix[row,col]
+     * @property {number[]} cells internal data
+     */
+
+    /**
+     * @typedef {number[]} Vec3
+     */
+
+    /**
+     * @typedef {number[]} VecN
+     */
+
+    /** @ignore */
     function _arrayEq(a1,a2){
       //2 numeric arrays are equal?
       for(let i=0;i<a1.length;++i){
-        if(!_M.fuzzyEq(a1[i],a2[i]))
-          return false;
-      }
+        if(!_.feq(a1[i],a2[i])) return false }
       return true
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _odd(n){ return n%2 !== 0 }
-    /**
-     * Index where matrix is mapped to 1D array.
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _cell(rows,cols,r,c){
+      //index where matrix is mapped to 1D array.
       return (c-1) + ((r-1)*cols)
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _matnew(rows,cols,cells){
       return {dim: [rows,cols], cells: cells}
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _new_mat(rows,cols){
-      return _matnew(rows,cols, _.fill(new Array(rows*cols),0))
+      return _matnew(rows,cols, _.fill(rows*cols,0))
     }
-    /**
-     * @public
-     * @function
-     */
-    _X.matrix=function([rows,cols],...args){
-      let sz= rows*cols;
-      return args.length===0 ? _new_mat(rows,cols)
-                             : _.assert(sz===args.length) && _matnew(rows,cols,args)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _X.matIdentity=function(sz){
-      let out=_.fill(new Array(sz*sz),0);
-      for(let i=0;i<sz;++i)
-        out[_cell(sz,sz,i+1,i+1)] = 1;
-      return _matnew(sz, sz, out)
-    };
-    /**
-     * Matrix with zeroes.
-     * @public
-     * @function
-     */
-    _X.matZero=function(sz){
-      return _.assert(sz>0) &&
-             _matnew(sz,sz,_.fill(new Array(sz*sz),0))
-    };
-    /**
-     * A 2x2 matrix.
-     * @public
-     * @function
-     */
-    _X.mat2=function(_11,_12,_21,_22){
-      return this.matrix([2,2], _11,_12,_21,_22)
-    };
-    /**
-     * A 3x3 matrix.
-     * @public
-     * @function
-     */
-    _X.mat3=function(_11,_12,_13,_21,_22,_23,_31,_32,_33){
-      return this.matrix([3,3], _11,_12,_13,_21,_22,_23,_31,_32,_33)
-    };
-    /**
-     * A 4x4 matrix.
-     * @public
-     * @function
-     */
-    _X.mat4=function(_11,_12,_13,_14,_21,_22,_23,_24,
-                     _31,_32,_33,_34, _41,_42,_43,_44){
-      return this.matrix([4,4],
-                         _11,_12,_13,_14,_21,_22,_23,_24,
-                         _31,_32,_33,_34,_41,_42,_43,_44)
-    };
-    /**
-     * Matrices are equals.
-     * @public
-     * @function
-     */
-    _X.matEq=function(a,b){
-      return a.dim[0]===b.dim[0] &&
-             a.dim[1]===b.dim[1] ? _arrayEq(a.cells,b.cells) : false
-    };
-    /**
-     * Matrices are different.
-     * @public
-     * @function
-     */
-    _X.matNeq=function(a,b){ return !this.matEq(a,b) };
-    /**
-     * Transpose a matrix.
-     * @function
-     * @public
-     */
-    _X.matXpose=function(m){
-      let [rows,cols]= m.dim;
-      let sz=rows*cols;
-      let tmp=[];
-      for(let i=0;i<sz;++i)
-        tmp.push(m.cells[(i/rows) + cols*(i%rows)]);
-      return _matnew(cols,rows,tmp)
-    };
-    /**
-     * Inverse a 3x3 matrix - fast.
-     * @public
-     * @function
-     */
-    _X.mat3FastInverse=function(m){
-      return _.assert(m.dim[0]===3 && m.dim[1]===3) && this.matXpose(m)
-    };
-    /**
-     * Inverse a 4x4 matrx - fast.
-     * @public
-     * @function
-     */
-    _X.mat4FastInverse=function(m){
-      _assert(m.dim[0]===4&&m.dim[1]===4);
-      let out=this.matXpose(m);
-      let [rows,cols] =m.dim;
-      let p=_.partition(cols,m.cells);
-      let m1=p[0],m2=p[1],m3=p[2],m4=p[3];
-      let right=m1.slice(0,3);
-      let up=m2.slice(0,3);
-      let forward=m3.slice(0,3);
-      let position=m4.slice(0,3);
-      m.cells[_cell(4,4,1,4)]= 0;
-      m.cells[_cell(4,4,2,4)]= 0;
-      m.cells[_cell(4,4,3,4)]=0;
-      m.cells[_cell(4,4,4,1)]= - this.vecDot(right,position);
-      m.cells[_cell(4,4,4,2)]= - this.vecDot(up,position);
-      m.cells[_cell(4,4,4,3)]= - this.vecDot(forward,position);
-      return out;
-    };
-    /**
-     * Scalar multiply a matrix.
-     * @public
-     * @function
-     */
-    _X.matScale=function(m,n){
-      return _matnew(m.dim[0],m.dim[1],m.cells.map(x => x*n))
-    };
-    /**
-     * Multiply 2 matrices.
-     * @public
-     * @function
-     */
-    _X.matMult=function(a,b){
-      let [aRows,aCols]=a.dim;
-      let [bRows,bCols]=b.dim;
-      let aCells=a.cells;
-      let bCells=b.cells;
-      _.assert(aCols===bRows, "mismatch matrices");
-      let out=new Array(aRows*bCols);
-      for(let i=0; i<aRows; ++i)
-        for(let j=0; j<bCols; ++j){
-          out[j+i*bCols]=
-            _.range(bRows).reduce((acc,k) => {
-              return acc + aCells[k+i*aCols] * bCells[j+ k*bCols] },0);
+
+    const _$={
+      /** @ignore */
+      v4(x=0,y=0,z=0,K=0){ return [x,y,z,K] },
+      /**Create a 3D vector.
+       * @memberof module:mcfud/matrix
+       * @param {number} x
+       * @param {number} y
+       * @param {number} z
+       * @return {Vec3}
+       */
+      v3(x=0,y=0,z=0){ return [x,y,z] },
+      /**Dot product of 3D vectors.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @param {Vec3} b
+       * @return {number}
+      */
+      dot(a,b){
+        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+      },
+      /**Cross product of 2 3D vectors.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @param {Vec3} b
+       * @return {Vec3}
+       */
+      cross(a,b){
+        return this.v3(a[1] * b[2] - a[2] * b[1],
+                       a[2] * b[0] - a[0] * b[2],
+                       a[0] * b[1] - a[1] * b[0])
+      },
+      /**The length of this vector, squared.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @return {number}
+       */
+      len2(a){ return this.dot(a,a) },
+      /**The length of this vector.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @return {number}
+       */
+      len(a){ return Math.sqrt(this.len2(a)) },
+      /**Normalize this vector, if possible.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @return {Vec3} undefined if error
+       */
+      unit(a){
+        let d=this.len(a);
+        if(!_.feq0(d))
+          return [a[0]/d, a[1]/d, a[2]/d];
+      },
+      /**Vector operation A - B.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @param {number|Vec3} b
+       * @return {Vec3}
+       */
+      sub(a,b){
+        return is.num(b) ? this.v3(a[0]-b, a[1]-b, a[2]-b)
+                         : this.v3(a[0]-b[0], a[1]-b[1], a[2]-b[2])
+      },
+      /**Vector operation A + B.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @param {number|Vec3} b
+       * @return {Vec3}
+       */
+      add(a,b){
+        return is.num(b) ? this.v3(a[0]+b, a[1]+b, a[2]+b)
+                         : this.v3(a[0]+b[0], a[1]+b[1], a[2]+b[2])
+      },
+      /**Vector operation A x B.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @param {number|Vec3} b
+       * @return {Vec3}
+       */
+      mul(a,b){
+        return is.num(b) ? this.v3(a[0]*b, a[1]*b, a[2]*b)
+                         : this.v3(a[0]*b[0], a[1]*b[1], a[2]*b[2])
+      },
+      /**Vector operation A / B.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} a
+       * @param {number|Vec3} b
+       * @return {Vec3}
+       */
+      div(a,b){
+        return is.num(b) ? this.v3(a[0]/b, a[1]/b, a[2]/b)
+                         : this.v3(a[0]/b[0], a[1]/b[1], a[2]/b[2])
+      },
+      /**Create a matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number[]} [rows,cols]
+       * @param {...number} args values for the matrix (row-major)
+       * @return {MatrixObject} new matrix
+       */
+      matrix([rows,cols],...args){
+        const sz= rows*cols;
+        return args.length===0 ? _new_mat(rows,cols)
+                               : _.assert(sz===args.length) && _matnew(rows,cols,args)
+      },
+      /**Get or set the value at this position.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m
+       * @param {number} row
+       * @param {number} col
+       * @param {number} [value]
+       * @return {number|MatrixObject}
+       */
+      matCell(m,row,col,value){
+        const c= _cell(m.dim[0],m.dim[1],row,col);
+        if(c>=0 && c<m.cells.length){
+          if(is.num(value)){
+            m.cells[c]=value; return m }
+          return m.cells[c]
         }
-      return _matnew(aRows,bCols,out)
-    };
-    /** Determinent.
-     *
-     * @public
-     * @function
-     */
-    _X.matDet=function(m){
-      let [rows,cols]=m.dim;
-      let tmp=[];
-      for(let c=0; c< cols;++c)
-        _.conj(tmp,this.matDet(this.matCut(m,1,c+1)));
-      return _.range(cols).reduce((acc,j) => {
-        let v=tmp[j];
-        return acc + m.cells[j] * (_odd(j) ? -v : v)
-      },0)
-    };
-    /**
-     * Matrix determinent.
-     * @public
-     * @function
-     */
-    _X.matDet2x2=function(m){
-      _.assert(m.cells.length===4);
-      return m.cells[0]*m.cells[3] - m.cells[1] * m.cells[2]
-    };
-    /**
-     * Extract a portion of a matrix.
-     * Get rid of a row and col.
-     * @public
-     * @function
-     */
-    _X.matCut=function(m,row,col){
-      let [rows,cols]=m.dim;
-      //change to zero indexed
-      let _row = row-1;
-      let _col= col-1;
-      let tmp=[];
-      for(let i=0; i<rows; ++i)
-        for(let j=0; j<cols; ++j){
-          if(!(i === _row || j === _col))
-            _.conj(tmp, m.cells[j+i*cols]);
+      },
+      /**Create an `Identity` matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number} sz  size of the matrix
+       * @return {MatrixObject} new matrix
+       */
+      matIdentity(sz){
+        const out=_.assert(sz>0) &&
+                  _.fill(sz*sz,0);
+        for(let i=0;i<sz;++i)
+          out[_cell(sz,sz,i+1,i+1)] = 1;
+        return _matnew(sz, sz, out);
+      },
+      /**Create a matrix of zeroes.
+       * @memberof module:mcfud/matrix
+       * @param {number} sz  size of the matrix
+       * @return {MatrixObject} new matrix
+       */
+      matZero(sz){
+        return _.assert(sz>0) &&
+               _matnew(sz,sz,_.fill(sz*sz,0))
+      },
+      /**Get the rows of this matrix,
+       * for example, if the matrix is
+       * [1 230
+       *  0 1 0
+       *  0 0 1] then the rows majors are
+       *  [1 2 3], [0 1 0], [0 0 1]
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {number[][]}
+       */
+      matRowMajors(m){
+        const [rows,cols]=m.dim;
+        return _.partition(cols,m.cells)
+      },
+      /**Get the cols of this matrix,
+       * for example, if the matrix is
+       * [1 2 3
+       *  4 5 6
+       *  7 8 9] then the column majors are
+       *  [1 4 7], [2 5 8], [7 8 9]
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {number[][]}
+       */
+      matColMajors(m){
+        const [rows,cols]=m.dim;
+        const out=[];
+        for(let a,c=0;c<cols;++c){
+          a=[];
+          for(let r=0;r<rows;++r){
+            a.push(m.cells[r*cols+c])
+          }
+          out.push(a)
         }
-      return _matnew(rows-1,cols-1, tmp)
-    };
-    /**
-     * Matrix minor.
-     * @public
-     * @function
-     */
-    _X.matMinor=function(m){
-      let [rows,cols]=m.dim;
-      let tmp=[];
-      for(let i=0; i< rows;++i)
-        for(let j=0; j<cols; ++j){
-          //mat-cut is 1-indexed
-          _.conj(tmp,this.matDet(this.matCut(m,i+1,j+1)));
+        return out;
+      },
+      /**Create a 2x2 matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number} _11
+       * @param {number} _12
+       * @param {number} _21
+       * @param {number} _22
+       * @return {MatrixObject} new matrix
+       */
+      mat2(_11,_12,_21,_22){
+        return this.matrix([2,2],_11,_12,_21,_22)
+      },
+      /**Create a 3x3 matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number} _11
+       * @param {number} _12
+       * @param {number} _13
+       * @param {number} _21
+       * @param {number} _22
+       * @param {number} _23
+       * @param {number} _31
+       * @param {number} _32
+       * @param {number} _33
+       * @return {MatrixObject} new matrix
+       */
+      mat3(_11,_12,_13,_21,_22,_23,_31,_32,_33){
+        return this.matrix([3,3], _11,_12,_13,_21,_22,_23,_31,_32,_33)
+      },
+      /**Create a 4x4 matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number} _11
+       * @param {number} _12
+       * @param {number} _13
+       * @param {number} _14
+       * @param {number} _21
+       * @param {number} _22
+       * @param {number} _23
+       * @param {number} _24
+       * @param {number} _31
+       * @param {number} _32
+       * @param {number} _33
+       * @param {number} _34
+       * @param {number} _41
+       * @param {number} _42
+       * @param {number} _43
+       * @param {number} _44
+       * @return {MatrixObject} new matrix
+       */
+      mat4(_11,_12,_13,_14,_21,_22,_23,_24,
+           _31,_32,_33,_34, _41,_42,_43,_44){
+        return this.matrix([4,4],
+                           _11,_12,_13,_14,_21,_22,_23,_24,
+                           _31,_32,_33,_34,_41,_42,_43,_44)
+      },
+      /**Check if these 2 matrices are equal.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} a matrix A
+       * @param {MatrixObject} b matrix B
+       * @return {boolean}
+       */
+      matEq(a,b){
+        return a.dim[0]===b.dim[0] &&
+               a.dim[1]===b.dim[1] && _arrayEq(a.cells,b.cells)
+      },
+      /**Transpose this matrix.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {MatrixObject} new matrix
+       */
+      matXpose(m){
+        const [rows,cols]= m.dim;
+        const sz=rows*cols;
+        const tmp=[];
+        for(let i=0;i<sz;++i)
+          tmp.push(m.cells[MFL(i/rows) + cols*(i%rows)]);
+        return _matnew(cols,rows,tmp)
+      },
+      /**Multiply this matrix with a scalar value.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @param {number} n scalar
+       * @return {MatrixObject} new matrix
+       */
+      matScale(m,n){
+        return _matnew(m.dim[0],m.dim[1],m.cells.map(x=> x*n))
+      },
+      /** Multiply these 2 matrices.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} a matrix A
+       * @param {MatrixObject} b matrix B
+       * @return {MatrixObject} new matrix
+       */
+      matMult(a,b){
+        let [aRows,aCols]=a.dim;
+        let [bRows,bCols]=b.dim;
+        let aCells=a.cells;
+        let bCells=b.cells;
+        _.assert(aCols===bRows, "mismatch matrices");
+        let out=new Array(aRows*bCols);
+        for(let i=0; i<aRows; ++i)
+          for(let j=0; j<bCols; ++j){
+            out[j+i*bCols]=
+              _.range(bRows).reduce((acc,k)=> {
+                return acc + aCells[k+i*aCols] * bCells[j+ k*bCols] },0);
+          }
+        return _matnew(aRows,bCols,out)
+      },
+      /**Find the `Determinent` this matrix.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {number}
+       */
+      matDet(m){
+        let [rows,cols]=m.dim;
+        let tmp=[];
+        if(cols===2)
+          return this._matDet2x2(m);
+        for(let c=0; c< cols;++c)
+          _.conj(tmp,this.matDet(this.matCut(m,1,c+1)));
+        return _.range(cols).reduce((acc,j)=>{
+          let v=tmp[j];
+          return acc + m.cells[j] * (_odd(j) ? -v : v)
+        },0)
+      },
+      /** @ignore */
+      _matDet2x2(m){
+        _.assert(m.cells.length===4);
+        return m.cells[0]*m.cells[3] - m.cells[1]*m.cells[2]
+      },
+      /**Extract a portion of a matrix by
+       * getting rid of a row and col.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @param {number} row the row to cut (1-indexed)
+       * @param {number} col the col to cut (1-indexed)
+       * @return {MatrixObject} new matrix
+       */
+      matCut(m,row,col){
+        const [rows,cols]=m.dim;
+        //change to zero indexed
+        let _row = row-1;
+        let _col= col-1;
+        let tmp=[];
+        for(let i=0; i<rows; ++i)
+          for(let j=0; j<cols; ++j){
+            if(!(i === _row || j === _col))
+              _.conj(tmp, m.cells[j+i*cols]);
+          }
+        return _matnew(rows-1,cols-1, tmp)
+      },
+      /**Find the `Matrix Minor` of this matrix.
+       * A "minor" is the determinant of the square matrix
+       * formed by deleting one row and one column from
+       * some larger square matrix.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {MatrixObject} new matrix
+       */
+      matMinor(m){
+        const [rows,cols]=m.dim;
+        let tmp=[];
+        _.assert(rows===cols);
+        if(cols===2)
+          return this._matMinor2x2(m);
+        for(let i=0; i< rows;++i)
+          for(let j=0; j<cols; ++j){
+            //mat-cut is 1-indexed
+            _.conj(tmp,this.matDet(this.matCut(m,i+1,j+1)));
+          }
+        return _matnew(rows,cols,tmp)
+      },
+      /** @ignore */
+      _matMinor2x2(m){
+        return _.assert(m.cells.length===4) &&
+               this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
+      },
+      /**Find the `Matrix Cofactor` of this matrix.
+       * The cofactor is a signed minor.
+       * The cofactor of aij is denoted by Aij and is defined as
+       * Aij = (-1)^(i+j) Mij
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m
+       * @return {MatrixObject} new matrix
+       */
+      matCofactor(m){
+        const minor=this.matMinor(m);
+        const [rows,cols]=minor.dim;
+        let tmp=minor.cells.slice();
+        for(let r=0;r<rows;++r)
+          for(let p,c=0;c<cols;++c){
+            p=r*cols+c;
+            if(_odd(r+c))
+              tmp[p]= -tmp[p];
+          }
+        return _matnew(rows,cols,tmp)
+      },
+      /**Find the adjugate of a square matrix.
+       * An `Adjugate` is the transpose of its cofactor matrix.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {MatrixObject} new matrix
+       */
+      matAdjugate(m){
+        return this.matXpose(this.matCofactor(m))
+      },
+      /** @ignore */
+      _minv2x2(m){
+        const [rows,cols]=m.dim;
+        _.assert(m.cells.length===4&&rows===2&&cols===2);
+        let r,c=m.cells;
+        let det= c[0]*c[3] - c[1]*c[2];
+        if(_.feq0(det))
+          r=this.matIdentity(rows);
+        else{
+          let _det= 1/det;
+          r= this.mat2(c[3]*_det, -c[1] * _det,
+                       -c[2] * _det, c[0] * _det);
         }
-      return _matnew(rows,cols,tmp)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _X.matMinor2x2=function(m){
-      return _.assert(m.cells.length===4) &&
-             this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
-    };
-    /**
-     * Matrix co-factor.
-     * @public
-     * @function
-     */
-    _X.matCofactor=function(m){
-      let minor=this.matMinor(m);
-      let [rows,cols]=minor.dim;
-      let tmp=m.cells.slice();
-      for(let len=rows*cols,i=0; i< len; ++i){
-        if(_odd(i))
-          tmp[i]= -tmp[i];
+        return r
+      },
+      /**Find the `Inverse` of this matrix.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {MatrixObject} new matrix
+       */
+      matInv(m){
+        const [rows,cols]=m.dim;
+        if(cols===2)
+          return this._minv2x2(m);
+        let d= this.matDet(m);
+        return _.feq0(d) ? this.matIdentity(rows)
+                         : this.matScale(this.matAdjugate(m), 1/d)
+      },
+      /**Matrix from column majors.
+       * @memberof module:mcfud/matrix
+       * @param {number[][]} list of column values
+       * @return {MatrixObject} new matrix
+       */
+      matFromColMajor(arr){
+        let numCols= arr.length,
+            rows=arr[0].length,
+            out=_new_mat(rows,numCols);
+        for(let C,c=0;c<arr.length;++c){
+          C=arr[c];
+          for(let r=0;r<C.length;++r){
+            out.cells[r*numCols+c]=C[r];
+          }
+        }
+        return out;
+      },
+      /**Get the list of `Column Major` vectors from this matrix.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {number[][]}
+       */
+      matToColMajor(m){
+        const [rows,cols]=m.dim;
+        const ret=[],
+              out=m.cells.slice();
+        for(let a,i=0,c=0;c<cols;++c){
+          a=[];
+          for(let r=0;r<rows;++r)
+            a.push(m.cells[r*cols+c]);
+          ret.push(a);
+        }
+        return ret;
+      },
+      /**Create a 3D scale matrix.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} v
+       * @return {MatrixObject} new matrix
+       */
+      scale3D(v){
+        const out=this.matIdentity(4);
+        out.cells[_cell(4,4,1,1)]=v[0];
+        out.cells[_cell(4,4,2,2)]=v[1];
+        out.cells[_cell(4,4,3,3)]=v[2];
+        return out;
+      },
+      /**Create a 3D translation matrix.
+       * @memberof module:mcfud/matrix
+       * @param {Vec3} v
+       * @return {MatrixObject} new matrix
+       */
+      translate3D(v){
+        const out=this.matIdentity(4);
+        out.cells[_cell(4,4,4,1)]=v[0];
+        out.cells[_cell(4,4,4,2)]=v[1];
+        out.cells[_cell(4,4,4,3)]=v[2];
+        return out;
+      },
+      /**Create a 3D rotation matrix, rotation order *IMPORTANT*
+       * @memberof module:mcfud/matrix
+       * @param {number} roll x rotation in radians.
+       * @param {number} pitch y rotation in radians.
+       * @param {number} yaw z rotation in radians.
+       * @return {MatrixObject} new matrix
+       */
+      rot3D(roll,pitch,yaw){
+        //x,y,z order is important, matrix not commutative
+        return this.matMult(this.zRot3D(yaw),
+                            this.matMult(this.yRot3D(pitch),
+                                         this.xRot3D(roll)));
+      },
+      /**Multiply matrix and  vector.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @param {VecN} v the vector
+       * @return {VecN} vector
+       */
+      matVMult(m,v){
+        let cols=m.dim[1];
+        let rows=v.length;
+        _.assert(cols===rows);
+        let r= this.matMult(m, _matnew(rows, 1, v));
+        let c=r.cells;
+        r.cells=null;
+        return c
+      },
+      /**Rotate a 2x2 matrix, counter-clockwise.
+       * @memberof module:mcfud/matrix
+       * @param {number} rot in radians
+       * @return {MatrixObject} new matrix
+       */
+      rot2D(rot){
+        return this.mat2(COS(rot),-SIN(rot),SIN(rot),COS(rot))
+      },
+      /**Rotate on x-axis.
+       * @memberof module:mcfud/matrix
+       * @param {number} rad value in radians
+       * @return {MatrixObject} new matrix
+       */
+      xRot3D(rad){
+        return this.mat4(1,0,0,0,
+                         0,COS(rad),-SIN(rad),0,
+                         0,SIN(rad),COS(rad),0,
+                         0,0,0,1)
+      },
+      /**Rotate on y-axis.
+       * @memberof module:mcfud/matrix
+       * @param {number} rad value in radians
+       * @return {MatrixObject} new matrix
+       */
+      yRot3D(rad){
+        return this.mat4(COS(rad),0,SIN(rad),0,
+                         0,1, 0, 0,
+                         -SIN(rad), 0, COS(rad), 0,
+                         0,0,0,1)
+      },
+      /**Rotate on z-axis.
+       * @memberof module:mcfud/matrix
+       * @param {number} rad value in radians
+       * @return {MatrixObject} new matrix
+       */
+      zRot3D(rad){
+        return this.mat4(COS(rad), -SIN(rad), 0, 0,
+                         SIN(rad),COS(rad), 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1)
+      },
+      /**Check if m is an `identity` matrix.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {boolean}
+       */
+      isIdentity(m){
+        const [rows,cols]=m.dim;
+        if(rows===cols){
+          for(let v,r=0;r<rows;++r){
+            for(let c=0;c<cols;++c){
+              v=m.cells[r*cols+c];
+              if((r+1)===(c+1)){
+                if(v !== 1) return false;
+              }else if(v !== 0) return false;
+            }
+          }
+          return true
+        }else{
+          return false
+        }
+      },
+      /**Check if matrix is `orthogonal`.
+       * @memberof module:mcfud/matrix
+       * @param {MatrixObject} m the matrix
+       * @return {boolean}
+       */
+      isOrthogonal(m){
+        //Given a square matrixA, to check for its orthogonality steps are:
+        //Find the determinant of A. If, it is 1 then,
+        //find the inverse matrix of inv(A) and transpose of xpos(A),
+        //if xpose(A) X inv(A) === I
+        //then A will be orthogonal
+        let r,d= this.matDet(m);
+        return Math.abs(d)===1 &&
+               this.isIdentity(this.matMult(this.matXpose(m), this.matInv(m)));
       }
-      return _matnew(rows,cols,tmp)
-    };
-    /**
-     * Matrix adjugate.
-     * @public
-     * @function
-     */
-    _X.matAdjugate=function(m){
-      return this.matXpose(this.matCofactor(m))
-    };
-    /**
-     * Inverse matrix.
-     * @public
-     * @function
-     */
-    _X.matInverse2x2=function(m){
-      let [rows,cols]=m.dim;
-      _.assert(m.cells.length===4&&rows===2&&cols===2);
-      let r,c=m.cells;
-      let det= c[0]*c[3] - c[1]*c[2];
-      if(_M.fuzzyZero(det))
-        r=this.matIdentity(rows);
-      else{
-        let _det= 1/det;
-        r= this.mat2(c[3]*_det, -c[1] * _det,
-                     -c[2] * _det, c[0] * _det);
-      }
-      return r
-    };
-    /**
-     * @function
-     * @public
-     */
-    _X.matInverse=function(m){
-      let [rows,cols]=m.dim;
-      let d= this.matDet(m);
-      return _M.fuzzyZero(d) ? this.matIdentity(rows)
-                             : this.matScale(this.matAdjugate(m), 1/d)
-    };
-    /**
-     * Matrix from column major.
-     * @function
-     * @public
-     */
-    _X.matFromColMajor=function(m){
-      return this.matXpose(m)
-    };
-    /**
-     * Matrix to column major.
-     * @public
-     * @function
-     */
-    _X.matToColMajor=function(m){
-      return this.matXpose(m)
-    };
-    /**
-     * Translate a 3x3 matrix.
-     * @public
-     * @function
-     */
-    _X.mat4Txlate=function(v3){
-      let out= _.assert(v3.length===3) && this.matIdentity(4);
-      out.cells[_cell(4,4,4,1)]= v3[0];
-      out.cells[_cell(4,4,4,2)]= v3[1];
-      out.cells[_cell(4,4,4,3)]= v3[2];
-      return out
-    };
-    /**
-     * Matrix from matrix-translation.
-     *
-     * @public
-     * @function
-     * @param m a 3x3 matrix
-     * @returns 4x4 matrix
-     */
-    _X.matFromMX_3x3=function(m){
-      _.assert(m.cells.length===9);
-      let [rows,cols]=m.dim;
-      let p=_.partition(cols,m.cells);
-      let r1=p[0], r2=p[1], r3=p[2];
-      return _matnew(rows+1,cols+1, r1.concat(0, r2, 0, r3, 0, [0,0,0,1]))
-    };
-    /**
-     * Get the translation of a matrix.
-     * @public
-     * @function
-     * @param m 4x4 matrix
-     * @returns 3d vector
-     */
-    _X.getTranslation4x4=function(m){
-      _.assert(m.cells.length===16);
-      let c=m.cells;
-      return this.V3(c[_cell(4,4,4,1)], c[_cell(4,4,4,2)], c[_cell(4,4,4,3)])
-    };
-    /**
-     * Matrix from vector-translation.
-     * @public
-     * @function
-     * @param v3 3d vector
-     * @returns 4x4 matrix
-     */
-    _X.matFromVX_V3=function(v3){
-      _.assert(v3.length===3);
-      let out=this.matIdentity(4);
-      let c=out.cells;
-      c[_cell(4,4,1,1)]= v3[0];
-      c[_cell(4,4,2,2)]= v3[1];
-      c[_cell(4,4,3,3)]= v3[2];
-      return out
-    };
-    /**
-     * Get scale from matrix-translation.
-     * @public
-     * @function
-     * @param m4 4x4 matrix
-     * @returns 3d vector
-     */
-    _X.getScaleFromMX_4x4=function(m4){
-      _.assert(m4.cells.length===16);
-      let [rows,cols]=m4.dim;
-      let p= _.partition(cols,m4.cells);
-      let r1=p[0],r2=p[1],r3=p[2];
-      return this.V3(r1[0], r2[1], r3[2])
-    };
-    /**
-     * Multiply matrix and  vector.
-     * @public
-     * @function
-     * @returns vector
-     */
-    _X.matVMult=function(m,v){
-      let cols=m.dim[1];
-      let rows=v.length;
-      _.assert(cols===rows);
-      let r= this.matMult(m, _matnew(rows, 1, v));
-      let c=r.cells;
-      r.cells=null;
-      return c
-    };
-    /**
-     * Rotate a 2x2 matrix, counter-clockwise
-     * @function
-     * @public
-     */
-    _X.rotation2x2=function(rot){
-      return this.mat2(COS(rot),-SIN(rot),SIN(rot),COS(rot))
-    };
-    /**
-     * 3D rotation.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.yawPitchRoll=function(yaw,pitch,roll){
-      return this.mat4(COS(roll) * COS(yaw) +
-                       SIN(roll)*SIN(pitch)*SIN(yaw),
-                       SIN(roll)*COS(pitch),
-                       COS(roll)* -SIN(yaw) +
-                       SIN(roll)*SIN(pitch)*COS(yaw),
-                       0,
-                       -SIN(roll)*COS(yaw) +
-                       COS(roll)*SIN(pitch)*SIN(yaw),
-                       COS(roll)*COS(pitch),
-                       SIN(roll)*SIN(yaw) +
-                       COS(roll)*SIN(pitch)*COS(yaw),
-                       0,
-                       COS(pitch)*SIN(yaw),
-                       -SIN(pitch),
-                       COS(pitch)*COS(yaw),
-                       0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on x-axis in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.xRotation=function(rad){
-      return this.mat4(1,0,0,0,
-                       0,COS(rad),SIN(rad),0,
-                       0,-SIN(rad),COS(rad),0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on x-axis in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.xRotation3x3=function(rad){
-      return this.mat3(1,0,0,
-                       0, COS(rad), SIN(rad),
-                       0, -SIN(rad), COS(rad))
-    };
-    /**
-     * Rotate on y-axis in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.yRotation=function(rad){
-      return this.mat4(COS(rad),0,-SIN(rad),0,
-                       0,1, 0, 0,
-                       SIN(rad), 0, COS(rad), 0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on y-axis in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.yRotation3x3=function(rad){
-      return this.mat3(COS(rad), 0, -SIN(rad),
-                       0, 1, 0,
-                       SIN(rad), 0, COS(rad))
-    };
-    /**
-     * Rotate in z-axis in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.zRotation=function(rad){
-      return this.mat4(COS(rad), SIN(rad), 0, 0,
-                       -SIN(rad),COS(rad), 0, 0,
-                       0, 0, 1, 0,
-                       0, 0, 0, 1)
-    };
-    /**
-     * Rotate in z-axis in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.zRotation3x3=function(rad){
-      return this.mat3(COS(rad),SIN(rad), 0,
-                       -SIN(rad),COS(rad), 0,
-                       0, 0, 1)
-    };
-    /**
-     * Rotation in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4Rotation=function(pitch,yaw,roll){
-      return this.matMult(
-               this.matMult(this.zRotation(roll),
-                            this.xRotation(pitch)), this.yRotation(yaw))
-    };
-    /**
-     * Rotation in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.mat3Rotation=function(pitch,yaw,roll){
-      return this.matMult(
-               this.matMult(this.zRotation3x3(roll),
-                            this.xRotation3x3(pitch)),this.yRotation3x3(yaw))
-    };
-    /**
-     * Orthogonal of matrix.
-     * @public
-     * @function
-     * @param m 4x4 matrix
-     * @returns 4x4 matrix
-     */
-    _X.matOrthogonal4x4=function(m){
-      _.assert(m.cells.length===16);
-      let [rows,cols]=m.dim;
-      let p= _.partition(cols,m.cells);
-      let r1=p[0], r2=p[1], r3=p[2], r4=p[3];
-      let xAxis=r1.slice(0,3);
-      let yAxis=r2.slice(0,3);
-      let zAxis= this.vecCross(xAxis,yAxis);
-      let _x= this.vecCross(yAxis,zAxis);
-      let _y= this.vecCross(zAxis,xAxis);
-      let _z= this.vecCross(xAxis,yAxis);
-      return this.mat4(_x[0],_x[1],_x[2],r1[3],
-                       _y[0],_y[1],_y[2],r2[3],
-                       _z[0],_z[1],_z[2],r3[3],
-                       r4[0],r4[1],r4[2],r4[3])
-    };
-    /**
-     * @public
-     * @function
-     * @param m 3x3 matrix
-     * @returns 3x3 matrix
-     */
-    _X.matOrthogonal3x3=function(m){
-      _.assert(m.cells.length===9);
-      let [rows,cols]=m.dim;
-      let p= _.partition(cols,m.cells);
-      let r1=p[0], r2=p[1], r3=p[2];
-      let xAxis=r1;//this.V3(r1[0],r1[1],r1[2]);
-      let yAxis=r2;//this.V3(r2[0],r2[1],r2[2]);
-      let zAxis= this.vecCross(xAxis,yAxis);
-      let _x= this.vecCross(yAxis,zAxis);
-      let _y= this.vecCross(zAxis,xAxis);
-      let _z= this.vecCross(xAxis,yAxis);
-      return this.mat3(_x[0],_x[1],_x[2],
-                       _y[0],_y[1],_y[2],
-                       _z[0],_z[1],_z[2])
-    };
-    /**
-     * Rotate on this axis by this angle in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4AxisAngle=function(axis ,rad){
-      _.assert(axis.length===3);
-      let x=axis[0],y=axis[1],z=axis[2];
-      let d= this.vecLen(axis);
-      let c=COS(rad);
-      let s=SIN(rad);
-      let t= 1-c;
-      if(!_M.fuzzyEq(d,1)){
-        let ilen= 1/d;
-        x *= ilen;
-        y *= ilen;
-        z *= ilen;
-      }
-      return this.mat4(c+t*x*x,
-                       t*x*y+s*z,
-                       t*x*z-s*y,
-                       0,
-                       t*x*y-s*z,
-                       c + t*y*y,
-                       t*y*z+s*x,
-                       0,
-                       t*x*z+s*y,
-                       t*y*z-s*x,
-                       c + t*z*z,
-                       0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on this axis by this angle in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.axisAngle3x3=function(axis,rad){
-      _.assert(axis.length===3);
-      let x=axis[0],y=axis[1],z=axis[2];
-      let c=COS(rad);
-      let s=SIN(rad);
-      let t= 1-c;
-      let d= this.vecLen(axis);
-      if(!_M.fuzzyEq(d,1)){
-        let ilen=1/d;
-        x *= ilen;
-        y *= ilen;
-        z *= ilen;
-      }
-      return this.mat3(c + t*x*x,
-                       t*x*y + s*z,
-                       t*x*z - s*y,
-                       t*x*y - s*z,
-                       c + t*y*y,
-                       t*y*z + s*x,
-                       t*x*z + s*y,
-                       t*y*z - s*x,
-                       c + t*z*z)
-    };
-    /**
-     * Multiply vector and 4x4 matrix.
-     * @function
-     * @public
-     * @returns 3d vector
-     */
-    _X.matMultV3M4=function(v3,m4){
-      _.assert(v3.length===3&&m4.cells.length===16);
-      let x=v3[0],y=v3[1],z=v3[2];
-      let p=_.partition(4,m4.cells);
-      let r1=p[0],r2=p[1],r3=p[2],r4=p[3];
-      return this.V3(x*r1[0] + y*r2[0] + z*r3[0] + 1*r4[0],
-                     x*r1[1] + y*r2[1] + z*r3[1] + 1*r4[1],
-                     x*r1[2] + y*r2[2] + z*r3[2] + 1*r4[2])
-    };
-    /**
-     * Multiply vector and 4x4 matrix.
-     * @public
-     * @function
-     * @returns 3d vector
-     */
-    _X.mat3MultVX_4x4=function(v3,m4){
-      _.assert(v3.length===3&&m4.cells.length===16);
-      let x=v3[0],y=v3[1],z=v3[2];
-      let p=_.partition(4,m4.cells);
-      let r1=p[0],r2=p[1],r3=p[2],r4=p[3];
-      return [x*r1[0] + y*r2[0] + z*r3[0] + 0*r4[0],
-              x*r1[1] + y*r2[1] + z*r3[1] + 0*r4[1],
-              x*r1[2] + y*r2[2] + z*r3[2] + 0*r4[2]]
-    };
-    /**
-     * Multiply vector and 3x3 matrix.
-     * * @public
-     * @function
-     * @returns 3d vector
-     */
-    _X.mat3MultVX_3x3=function(v3,m3){
-      _.assert(v3.length===3&&m3.cells.length===9);
-      let x=v3[0],y=v3[1],z=v3[2];
-      let p=_.partition(3,m3.cells);
-      let r1=p[0],r2=p[1],r3=p[2];
-      return [this.vecDot(v3, this.V3(r1[0],r2[0],r3[0])),
-              this.vecDot(v3, this.V3(r1[1],r2[1],r3[1])),
-              this.vecDot(v3, this.V3(r1[2],r2[2],r3[2]))]
-    };
-    /**
-     * Transform a 4x4 matrix.
-     * @public
-     * @function
-     * @param eulerRotation 3d vector
-     * @returns 4x4 matrix
-     */
-    _X.mat4TxformViaRotation=function(scale,eulerRotation,translate){
-      _.assert(eulerRotation.length===3);
-      let x=eulerRotation[0];
-      let y=eulerRotation[1];
-      let z=eulerRotation[2];
-      return this.matMult(
-        this.matMult(this.matFromVX(scale),
-                     this.mat4Rotation(x,y,z)),
-        this.mat4Txlate(translate))
-    };
-    /**
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4TxformViaAxisAngle=function(scale,rotationAxis, rotationAngle,translate){
-      return this.matMult(
-        this.matMult(this.matFromVX(scale),
-                     this.mat4AxisAngle(rotationAxis,
-                                        rotationAngle)),
-        this.mat4Txlate(translate))
-    };
-    /**
-     * View of a 4D matrix.
-     * @public
-     * @function
-     */
-    _X.mat4LookAt=function(pos,target,up){
-      let fwd= this.vecUnit(this.vecSub(target,pos));
-      let right= this.vecUnit(this.vecCross(up,fwd));
-      let newUp= this.vecCross(fwd,right);
-      return this.mat4(right[0],newUp[0],fwd[0],0,
-                       right[1],newUp[1],fwd[1],0,
-                       right[2],newUp[2],fwd[2],0,
-                       - this.vecDot(right,pos),
-                       - this.vecDot(newUp,pos),
-                       - this.vecDot(fwd,pos), 1)
-    };
-    /**
-     * 4D projection.
-     * https://msdn.microsoft.com/en-us/library/windows/desktop/bb147302(v=vs.85).aspx
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4Proj=function(fov,aspect,zNear,zFar){
-      let tanHalfFov= TAN(fov*0.5);
-      let fovY=1/tanHalfFov;//cot(fov/2)
-      let fovX=fovY/aspect; //cot(fov/2) / aspect
-      let r33= zFar / (zFar - zNear);// far/range
-      let ret= this.matIdentity(4);
-      ret.cells[_cell(4,4,1,1)]= fovX;
-      ret.cells[_cell(4,4,2,2)]=fovY;
-      ret.cells[_cell(4,4,3,3)]= r33;
-      ret.cells[_cell(4,4,3,4)]= 1;
-      ret.cells[_cell(4,4,4,3)]= -zNear*r33; //-near * (far / range)
-      ret.cells[_cell(4,4,4,4)]=0;
-      return ret
-    };
-    /**
-     * Orthogonal to this 4x4 matrix.
-     * Derived following: http://www.songho.ca/opengl/gl_projectionmatrix.html
-     * Above was wrong, it was OpenGL style, our matrices are DX style
-     * Correct impl:
-     * https://msdn.microsoft.com/en-us/library/windows/desktop/bb205347(v=vs.85).aspx
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4Ortho=function(left,right,bottom,top,zNear,zFar){
-      let _11= (right-left)/2;
-      let _22= (top-bottom)/2;
-      let _33= (zFar-zNear)/1;
-      let _41= (left+right)/(left-right);
-      let _42= (top+bottom)/(bottom-top);
-      let _43= zNear/(zNear-zFar);
-      return this.mat4(_11,0,0,0,
-                       0,_22,0, 0,
-                       0, 0, _33, 0,
-                       _41, _42, _43, 1)
-    };
-    /**
-     * Decompose matrix.
-     * @public
-     * @function
-     * @param rot1 3x3 matrix
-     * @returns 3d vector
-     */
-    _X.matDecompose3x3=function(rot1){
-      let rot= this.matXpose(rot1);
-      let p= _.partition(3, rot);
-      let r1=p[0],r2=p[1],r3=p[2];
-      let sy= Math.sqrt(r1[0]*r1[0] + r2[0]*r2[0]);
-      let singular= sy< 1e-6;
-      return !singular ? this.V3(ATAN2(r3[1],r3[2]),
-                                 ATAN2(-r3[0],sy),
-                                 ATAN2(r2[0],r1[0]))
-                       : this.V3(ATAN2(-r2[2],r2[1]), ATAN2(-r3[0],sy), 0)
     };
 
-    return _X;
-  }
-
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"),
-                           require("./math"))
-  }else{
-    global["io/czlab/mcfud/matrix"]=_module
-  }
-
-})(this);
-
-
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
-
-;(function(global){
-  "use strict";
-  const VISCHS=" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
-               "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-";
-  const VISCHS_LEN=VISCHS.length;
-  /**
-   * @private
-   * @function
-   */
-  function _module(Core){
-    if(!Core) Core= global["io/czlab/mcfud/core"]();
-    const {u:_} = Core;
-    const _C={};
-    /**
-     * Find the offset.
-     * @private
-     * @function
-     */
-    function _calcDelta(shift){
-      return Math.abs(shift) % VISCHS_LEN
-    }
-    /**
-     * Get the char at the index.
-     * @private
-     * @function
-     */
-    function _charat(pos,string_){
-      return (string_ || VISCHS).charAt(pos)
-    }
-    /**
-     * Index for this char.
-     * @private
-     * @function
-     */
-    function _getch(ch){
-      for(let i=0;i<VISCHS_LEN;++i){
-        if(charat(i)===ch)
-          return i;
-      }
-      return -1
-    }
-    /**
-     * Rotate right.
-     * @private
-     * @function
-     */
-    function _rotr(delta, cpos){
-      let pos= cpos+delta;
-      return _charat(pos >= VISCHS_LEN ? (pos-VISCHS_LEN) : pos)
-    }
-    /**
-     * Rotate left.
-     * @private
-     * @function
-     */
-    function _rotl(delta, cpos){
-      let pos= cpos-delta;
-      return _charat(pos< 0 ? (VISCHS_LEN+pos) : pos)
-    }
-    /**
-     * Encrypt source by shifts.
-     * @public
-     * @function
-     */
-    _C.encrypt=function(src, shift){
-      if(shift===0){ return src }
-      function _f(shift,delta,cpos){
-        return shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos)
-      }
-      let out=[];
-      let d=_calcDelta(shift);
-      src.split().forEach(c => {
-        let p=_getch(c);
-        out.push(p<0 ? c : _f(shift,d,p));
-      })
-      return out.join("")
-    };
-    /**
-     * Decrypt text by shifts.
-     * @public
-     * @function
-     */
-    _C.decrypt=function(cipherText,shift){
-      if(shift===0){ return cipherText }
-      function _f(shift,delta,cpos) {
-        return shift< 0 ? _rotl(delta,cpos) : _rotr(delta,cpos)
-      }
-      let p,out=[];
-      let d= _calcDelta(shift);
-      cipherText.split("").forEach(c => {
-        p= _getch(c);
-        out.push(p<0 ? c : _f(shift,d,p));
-      });
-      return out.join("")
-    };
-
-    return _C;
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/crypt"]=_module;
+    gscope["io/czlab/mcfud/matrix"]=_module
+  }
+
+})(this);
+
+
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+
+;(function(gscope){
+
+  "use strict";
+
+  const VISCHS=" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
+               "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-";
+  const VISCHS_LEN=VISCHS.length;
+
+  /**Create the module.
+  */
+  function _module(Core){
+    if(!Core)
+      Core= gscope["io/czlab/mcfud/core"]();
+    const {u:_} = Core;
+
+    /**
+     * @module mcfud/crypt
+     */
+
+    /**Find the offset. */
+    function _calcDelta(shift){
+      return Math.abs(shift) % VISCHS_LEN
+    }
+
+    /**Get the char at the index. */
+    function _charat(pos,string_){
+      return (string_ || VISCHS).charAt(pos)
+    }
+
+    /**Index for this char. */
+    function _getch(ch){
+      for(let i=0;i<VISCHS_LEN;++i){
+        if(_charat(i)===ch)
+          return i;
+      }
+      return -1
+    }
+
+    /**Rotate right. */
+    function _rotr(delta, cpos){
+      let pos= cpos+delta;
+      return _charat(pos >= VISCHS_LEN ? (pos-VISCHS_LEN) : pos)
+    }
+
+    /**Rotate left. */
+    function _rotl(delta, cpos){
+      let pos= cpos-delta;
+      return _charat(pos< 0 ? (VISCHS_LEN+pos) : pos)
+    }
+
+    const _$={
+      /**Encrypt source by shifts.
+       * @memberof module:mcfud/crypt
+       * @param {string} src
+       * @param {number} shift
+       * @return {string} encrypted text
+       */
+      encrypt(src, shift){
+        if(shift===0){ return src }
+        function _f(shift,delta,cpos){
+          return shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos) }
+        let out=[];
+        let p,d=_calcDelta(shift);
+        src.split("").forEach(c=>{
+          p=_getch(c);
+          out.push(p<0 ? c : _f(shift,d,p));
+        });
+        return out.join("");
+      },
+      /**Decrypt text by shifts.
+       * @memberof module:mcfud/crypt
+       * @param {string} cipherText
+       * @param {number} shift
+       * @return {string} decrypted text
+       */
+      decrypt(cipherText,shift){
+        if(shift===0){ return cipherText }
+        function _f(shift,delta,cpos) {
+          return shift< 0 ? _rotl(delta,cpos) : _rotr(delta,cpos) }
+        let p,out=[];
+        let d= _calcDelta(shift);
+        cipherText.split("").forEach(c=>{
+          p= _getch(c);
+          out.push(p<0 ? c : _f(shift,d,p));
+        });
+        return out.join("");
+      }
+    };
+
+    return _$;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    gscope["io/czlab/mcfud/crypt"]=_module;
   }
 
 })(this);
@@ -2726,32 +3134,86 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;(function(gscope){
+
   "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  function _module(){
-    const _R={
+
+  /**Create the module.
+  */
+  function _module(Core){
+
+    if(!Core)
+      Core=gscope["io/czlab/mcfud/core"]();
+
+    /**
+     * @module mcfud/fsm
+     */
+
+    /**
+     * @typedef {object} FSMStateTransition
+     * @property {string} target  switching to this target state
+     * @property {function} action() run this code upon the transition
+     */
+
+    /**
+     * @typedef {object} FSMStateTransitionList
+     * @property {FSMStateTransition} transition-1 user defined transition
+     * @property {FSMStateTransition} ...          more
+     * @property {FSMStateTransition} transition-n  user defined transition
+     */
+
+    /**
+     * @typedef {object} FSMState
+     * @property {function} enter() run this code when the FSM switches to this state
+     * @property {function} exit()  run this code when the FSM switches away from this state
+     * @property {FSMStateTransitionList} transitions  a list of state transition definitions
+     */
+
+    /**
+     * @typedef {object} FSMDefn
+     * @property {function} initState() return the initial state
+     * @property {FSMState} state-1 a user defined state
+     * @property {FSMState} ...     more
+     * @property {FSMState} state-n a user defined state
+     */
+
+    /**
+     * @typedef {object} FSMObject
+     * @property {function} state() returns the current state
+     * @property {function} process() execute any runnable code defined by the current state
+     * @property {function} trigger(event) apply this event to the state machine
+     */
+
+    const _$={
+      /**Create a FSM instance.
+       * @memberof module:mcfud/fsm
+       * @param {FSMDefn} defn
+       * @return {FSMObject}
+       */
       fsm(defn){
         let _state=defn.initState();
         return {
-          state(){ return _state },
+          /** the current state */
+          state(){
+            return _state },
+          /** run the current state `code` */
           process(){
-            let fromStateObj = defn[_state];
+            const fromStateObj=defn[_state];
             if(fromStateObj)
               fromStateObj.run && fromStateObj.run();
           },
-          trigger(event){
-            let fromStateObj = defn[_state];
-            event=event||"change";
-            let tx = fromStateObj &&
-                     fromStateObj.transitions[event];
+          /** apply an event */
+          trigger(event="change"){
+            const fromStateObj= defn[_state];
+            const tx= fromStateObj &&
+                      fromStateObj.transitions[event];
+            //react to this event
             if(tx){
-              let nextState = tx.target;
-              let nextStateObj = defn[nextState];
+              const nextState = tx.target;
+              const nextStateObj = defn[nextState];
               if(nextStateObj){
-                fromStateObj.egress && fromStateObj.egress();
-                nextStateObj.ingress && nextStateObj.ingress();
+                fromStateObj.exit && fromStateObj.exit();
+                nextStateObj.enter && nextStateObj.enter();
                 tx.action && tx.action();
                 return (_state = nextState);
               }
@@ -2760,18 +3222,19 @@
         }
       }
     };
-    return _R;
+    return _$;
   }
 
-  /**
-   * @private
-   * @var {object}
+  /**Sample definition syntax/format.
+   * @ignore
    */
   const sample={
+    /** provides the initial state of this FSM */
     initState(){ return "happy"},
+    /** follow by a list of state definitions */
     "happy":{
-      ingress(){ console.log("happy: entering") },
-      egress(){ console.log("happy: exiting") },
+      enter(){ console.log("happy: entering") },
+      exit(){ console.log("happy: exiting") },
       transitions:{
         "rain":{
           target: "sad",
@@ -2779,9 +3242,9 @@
         }
       }
     },
-    "on":{
-      ingress(){ console.log("sad: entering") },
-      egress(){ console.log("sad: exiting") },
+    "sad":{
+      enter(){ console.log("sad: entering") },
+      exit(){ console.log("sad: exiting") },
       transitions:{
         "sun":{
           target: "happy",
@@ -2793,9 +3256,9 @@
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/fsm"]=_module
+    gscope["io/czlab/mcfud/fsm"]=_module
   }
 
 })(this);
@@ -2816,145 +3279,37 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Create the module.
    */
   function _module(Core,_M){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
+
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
 
     const TWO_PI=Math.PI*2;
     const {u:_}=Core;
-    const _G={};
+
     /**
-     * Html5 Text Style object.
-     * @public
-     * @function
+     * @module mcfud/gfx
      */
-    _G.textStyle=function(font,fill,align,base){
-      //"14px 'Arial'" "#dddddd" "left" "top"
-      return {font: font, fill: fill, align: align, base: base}
-    };
+
     /**
-     * Draw the shape onto the html5 canvas.
-     * @public
-     * @function
+     * @typedef {number[]} Vec2
      */
-    _G.drawShape=function(ctx,s,...args){
-      if(s.draw)
-        s.draw(ctx,...args)
-    };
+
     /**
-     * Apply styles to the canvas.
-     * @public
-     * @function
-     */
-    _G.cfgStyle=function(ctx,styleObj){
-      if(styleObj){
-        let line=styleObj.line;
-        let stroke=styleObj.stroke;
-        if(line){
-          if(line.cap)
-            ctx.lineCap=line.cap;
-          if(line.width)
-            ctx.lineWidth=line.width;
-        }
-        if(stroke){
-          if(stroke.style)
-            ctx.strokeStyle=stroke.style;
-        }
-      }
-    };
-    /**
-     * Draw and connect this set of points onto the canvas.
-     * @public
-     * @function
-     */
-    _G.drawPoints=function(ctx,points,size){
-      if(size === undefined) size=points.length;
-      ctx.beginPath();
-      for(let i=0;i<size;++i){
-        let i2= (i+1)%size;
-        let p=points[i];
-        let q=points[i2];
-        ctx.moveTo(p[0],p[1]);
-        ctx.lineTo(q[0],q[1]);
-      }
-      ctx.stroke();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapePoly=function(ctx,poly){
-      return this.drawPoints(ctx,poly.points);
-    };
-    /**
-     * Draw a circle onto the canvas.  If a starting point
-     * is provided, draw a line to the center.
-     * @public
-     * @function
-     */
-    _G.drawCircle=function(ctx,x,y,radius){
-      ctx.beginPath();
-      ctx.arc(x,y,radius,0,TWO_PI,true);
-      ctx.closePath();
-      ctx.stroke();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapeCircle=function(ctx,circle){
-      this.drawCircle(ctx,circle.pos[0],circle.pos[1],circle.radius);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawRect=function(ctx,x,y,width,height,rot){
-      let left=x;
-      let top= y - height;
-      ctx.save();
-      ctx.translate(left,top);
-      ctx.rotate(rot);
-      ctx.strokeRect(0,0,width,height);
-      ctx.restore();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapeRect=function(ctx,rect){
-      return this.drawRet(ctx,rect.pos[0],rect.pos[1],
-                          rect.width,rect.height,rect.rotation);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawLine=function(ctx,x1,y1,x2,y2){
-      ctx.beginPath();
-      ctx.moveTo(x1,y1);
-      ctx.lineTo(x2,y2);
-      ctx.stroke();
-      //ctx.closePath();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapeLine=function(ctx,line){
-      return this.drawLine(ctx,line.p[0],line.p[1],line.q[0],line.q[1]);
-    };
-    /**
-     * @public
+     * @memberof module:mcfud/gfx
      * @class
+     * @property {number[]} m
      */
-    class TXMatrix2d{
+    class TXMatrix2D{
+      /**
+       * @param {Vec2[]} source
+       */
       constructor(source){
         if(source){
           this.m = [];
@@ -2963,20 +3318,33 @@
           this.m = [1,0,0,0,1,0];
         }
       }
+      /**Toggle this into an `Identity` matrix
+       * @return {TXMatrix2D} self
+       */
       identity(){
-        let m = this.m;
+        const m = this.m;
         m[0] = 1; m[1] = 0; m[2] = 0;
         m[3] = 0; m[4] = 1; m[5] = 0;
         return this;
       }
+      /**Deep clone a matrix.
+       * @param {TXMatrix2D}
+       * @return {TXMatrix2D} self
+       */
       clone(matrix){
-        let d = this.m, s = matrix.m;
+        let d = this.m,
+            s = matrix.m;
         d[0]=s[0]; d[1]=s[1]; d[2] = s[2];
         d[3]=s[3]; d[4]=s[4]; d[5] = s[5];
         return this;
       }
+      /**Multiply by this matrix
+       * @param {TXMatrix2D} matrix
+       * @return {TXMatrix2D} self
+       */
       multiply(matrix){
-        let a = this.m, b = matrix.m;
+        let a = this.m,
+            b = matrix.m;
         let m11 = a[0]*b[0] + a[1]*b[3];
         let m12 = a[0]*b[1] + a[1]*b[4];
         let m13 = a[0]*b[2] + a[1]*b[5] + a[2];
@@ -2988,64 +3356,87 @@
         a[3]=m21; a[4]=m22; a[5] = m23;
         return this;
       }
+      /**Apply rotation.
+       * @param {number} radians
+       * @return {TXMatrix2D} self
+       */
       rotate(radians){
-        if(radians === 0){ return this; }
-        let cos = Math.cos(radians),
-            sin = Math.sin(radians),
-            m = this.m;
-
-        let m11 = m[0]*cos  + m[1]*sin;
-        let m12 = m[0]*-sin + m[1]*cos;
-        let m21 = m[3]*cos  + m[4]*sin;
-        let m22 = m[3]*-sin + m[4]*cos;
-
-        m[0] = m11; m[1] = m12; // m[2] == m[2]
-        m[3] = m21; m[4] = m22; // m[5] == m[5]
+        if(!_.feq0(radians)){
+          let m=this.m,
+              cos = Math.cos(radians),
+              sin = Math.sin(radians);
+          let m11 = m[0]*cos  + m[1]*sin;
+          let m12 = -m[0]*sin + m[1]*cos;
+          let m21 = m[3]*cos  + m[4]*sin;
+          let m22 = -m[3]*sin + m[4]*cos;
+          m[0] = m11; m[1] = m12;
+          m[3] = m21; m[4] = m22;
+        }
         return this;
       }
+      /**Apply rotation (in degrees).
+       * @param {number} degrees
+       * @return {TXMatrix2D} self
+       */
       rotateDeg(degrees){
-        if(degrees === 0){ return this }
-        return this.rotate(Math.PI * degrees / 180);
+        return _.feq0(degrees)? this: this.rotate(Math.PI * degrees / 180)
       }
+      /**Apply scaling.
+       * @param {number} sx
+       * @param {number} sy
+       * @return {TXMatrix2D} self
+       */
       scale(sx,sy){
         let m = this.m;
-        if(sy === undefined){ sy = sx; }
+        if(sy===undefined){ sy=sx }
         m[0] *= sx;
         m[1] *= sy;
         m[3] *= sx;
         m[4] *= sy;
         return this;
       }
+      /**Apply translation.
+       * @param {number} tx
+       * @param {number} ty
+       * @return {TXMatrix2D} self
+       */
       translate(tx,ty){
         let m = this.m;
         m[2] += m[0]*tx + m[1]*ty;
         m[5] += m[3]*tx + m[4]*ty;
         return this;
       }
+      /**Transform this point.
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
       transform(x,y){
         return [ x * this.m[0] + y * this.m[1] + this.m[2],
                  x * this.m[3] + y * this.m[4] + this.m[5] ];
       }
+      /**@see {@link module:mcfud/gfx.TXMatrix2D#transform}
+       * @param {object} obj
+       * @return {object} obj
+       */
       transformPoint(obj){
-        let x = obj.x, y = obj.y;
-        obj.x = x * this.m[0] + y * this.m[1] + this.m[2];
-        obj.y = x * this.m[3] + y * this.m[4] + this.m[5];
+        const [x,y]= this.transform(obj.x,obj.y);
+        obj.x = x;
+        obj.y = y;
         return obj;
       }
-      transformArray(inArr,outArr){
-        let x = inArr[0], y = inArr[1];
-        outArr[0] = x * this.m[0] + y * this.m[1] + this.m[2];
-        outArr[1] = x * this.m[3] + y * this.m[4] + this.m[5];
-        return outArr;
+      /**@see {@link module:mcfud/gfx.TXMatrix2D#transform}
+       * @param {Vec2} inArr
+       * @return {Vec2}
+       */
+      transformArray(inArr){
+        return this.transform(inArr[0],inArr[1])
       }
-      transformX(x,y){
-        return x * this.m[0] + y * this.m[1] + this.m[2];
-      }
-      transformY(x,y){
-        return x * this.m[3] + y * this.m[4] + this.m[5];
-      }
+      /**Set HTML5 2d-context's transformation matrix.
+       * @param {object} html5 2d-context
+       */
       setContextTransform(ctx){
-        let m = this.m;
+        const m = this.m;
         // source:
         //  m[0] m[1] m[2]
         //  m[3] m[4] m[5]
@@ -3060,7 +3451,154 @@
       }
     }
 
-    return _.inject(_G, {TXMatrix2d: TXMatrix2d});
+    const _$={
+      TXMatrix2D,
+      /**Html5 Text Style object.
+       * @example
+       * "14px 'Arial'" "#dddddd" "left" "top"
+       * @memberof module:mcfud/gfx
+       * @param {string} font
+       * @param {string|number} fill
+       * @param {string} [align]
+       * @param {string} [base]
+       * @return {object} style object
+       */
+      textStyle(font,fill,align,base){
+        const x={font: font, fill: fill};
+        if(align) x.align=align;
+        if(base) x.base=base;
+        return x;
+      },
+      /**Draw the shape onto the html5 canvas.
+       * @memberof module:mcfud/gfx
+       * @param {object} ctx html5 2d-context
+       * @param {object} s a shape
+       * @param (...any) args
+       */
+      drawShape(ctx,s,...args){
+        if(s && s.draw)
+          s.draw(ctx,...args)
+      },
+      /**Apply styles to the canvas.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {object} style object
+       */
+      cfgStyle(ctx,styleObj){
+        const {line,stroke} =styleObj;
+        if(line){
+          if(line.cap)
+            ctx.lineCap=line.cap;
+          if(line.width)
+            ctx.lineWidth=line.width;
+        }
+        if(stroke){
+          if(stroke.style)
+            ctx.strokeStyle=stroke.style;
+        }
+      },
+      /**Draw and connect this set of points onto the canvas.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Vec2[]} points
+       * @param {number} [size] n# of points to draw
+       */
+      drawPoints(ctx,points,size){
+        if(size === undefined) size=points.length;
+        _.assert(size<=points.length);
+        ctx.beginPath();
+        for(let p,q,i2,i=0;i<size;++i){
+          i2= (i+1)%size;
+          p=points[i];
+          q=points[i2];
+          ctx.moveTo(p[0],p[1]);
+          ctx.lineTo(q[0],q[1]);
+        }
+        ctx.stroke();
+      },
+      /**Draw a polygonal shape.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Polygon} poly
+       */
+      drawShapePoly(ctx,poly){
+        return this.drawPoints(ctx,poly.points);
+      },
+      /**Draw a circle onto the canvas.  If a starting point
+       * is provided, draw a line to the center.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {number} x
+       * @param {number} y
+       * @param {radius} r
+       */
+      drawCircle(ctx,x,y,radius){
+        ctx.beginPath();
+        ctx.arc(x,y,radius,0,TWO_PI,true);
+        ctx.closePath();
+        ctx.stroke();
+      },
+      /**Draw a circular shape.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Circle} circle
+       */
+      drawShapeCircle(ctx,circle){
+        return this.drawCircle(ctx,circle.pos[0],circle.pos[1],circle.radius)
+      },
+      /**Draw a rectangle.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d=context
+       * @param {number} x
+       * @param {number} y
+       * @param {number} width
+       * @param {number} height
+       * @param {number} rot
+       */
+      drawRect(ctx,x,y,width,height,rot){
+        let left=x;
+        let top= y - height;
+        ctx.save();
+        ctx.translate(left,top);
+        ctx.rotate(rot);
+        ctx.strokeRect(0,0,width,height);
+        ctx.restore();
+      },
+      /**Draw a rectangular shape.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Rect} rect
+       */
+      drawShapeRect(ctx,rect){
+        return this.drawRect(ctx,rect.pos[0],rect.pos[1],
+                             rect.width,rect.height,rect.rotation)
+      },
+      /**Draw a line.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {number} x1
+       * @param {number} y1
+       * @param {number} x2
+       * @param {number} y2
+       */
+      drawLine(ctx,x1,y1,x2,y2){
+        ctx.beginPath();
+        ctx.moveTo(x1,y1);
+        ctx.lineTo(x2,y2);
+        ctx.stroke();
+        //ctx.closePath();
+      },
+      /**Draw a 2d line.
+       * @memberof module:mcfud/gfx
+       * @param {ctx} html5 2d-context
+       * @param {Line} line
+       */
+      drawShapeLine(ctx,line){
+        return this.drawLine(ctx,line.p[0],line.p[1],line.q[0],line.q[1])
+      }
+    };
+
+    return _$;
   }
 
   //export--------------------------------------------------------------------
@@ -3068,7 +3606,7 @@
     module.exports=_module(require("./core"),
                            require("./math"))
   }else{
-    global["io/czlab/mcfud/gfx"]=_module
+    gscope["io/czlab/mcfud/gfx"]=_module
   }
 
 })(this);
@@ -3088,277 +3626,348 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;(function(gscope){
+
   "use strict";
+
+  /** @ignore */
+  const [LEFT_VORONOI, MID_VORONOI, RIGHT_VORONOI]= [1,0,-1];
+
+  /**Create the module.
+   */
   function _module(Core,_M,_V){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
-    if(!_V) _V=global["io/czlab/mcfud/vec2"]();
-    const MaxPolyVertexCount=64;
+
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
+    if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
+
+    const MFL=Math.floor;
+    const ABS=Math.abs;
+    const MaxVerts=36;
     const {u:_}=Core;
-    const _G={};
-    const LEFT_VORONOI= -1;
-    const MID_VORONOI= 0;
-    const RIGHT_VORONOI= 1;
+
     /**
-     * @public
-     * @class
+     * @module mcfud/geo2d
      */
-    class Box4{
-      constructor(left,bottom,right,top){
-        this.left=left;
-        this.right=right;
-        this.top=top;
-        this.bottom=bottom;
-      }
-    }
+
     /**
-     * @public
+     * @typedef {number[]} Vec2
+     */
+
+    /**Check if point inside a polygon.
+     * @see https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+     * @ignore
+     */
+    function _pointInPoly(testx,testy,points){
+      let c=false,
+          nvert=points.length;
+      for(let p,q, i=0, j=nvert-1; i<nvert;){
+        p=points[i];
+        q=points[j];
+        if(((p[1]>testy) !== (q[1]>testy)) &&
+          (testx < (q[0]-p[0]) * (testy-p[1]) / (q[1]-p[1]) + p[0])) c = !c;
+        j=i;
+        ++i;
+      }
+      return c
+    }
+
+    /**Original source from Randy Gaul's impulse-engine:
+     * https://github.com/RandyGaul/ImpulseEngine#Shape.h
+     */
+    function _orderPoints(vertices){
+      const count=vertices.length;
+      const hull= _.assert(count <= MaxVerts) && _.fill(MaxVerts);
+      //find the right-most point
+      let rightMost=0,
+          maxX= vertices[0][0];
+      for(let x,i=1; i<count; ++i){
+        x=vertices[i][0];
+        if(x>maxX){
+          maxX= x;
+          rightMost= i;
+        }else if(_.feq(x, maxX) &&
+                 vertices[i][1]<vertices[rightMost][1]){
+          //if same x then choose one with smaller y
+          rightMost = i;
+        }
+      }
+      let hpos=0,
+          cur=rightMost;
+      //examine all the points, sorting them in order of ccw from the rightmost, one by one
+      //and eventually wraps back to the rightmost point, at which time exit this inf-loop
+      for(;;){
+        hull[hpos]=cur;
+        //search for next index that wraps around the hull
+        //by computing cross products to find the most counter-clockwise
+        //vertex in the set, given the previos hull index
+        let next= 0,
+            hp=hull[hpos];
+        for(let e1,e2,c,i=1; i<count; ++i){
+          if(next===cur){
+            next= i; continue } //same point, skip
+          //cross every set of three unique vertices
+          //record each counter clockwise third vertex and add
+          //to the output hull
+          //see: http://www.oocities.org/pcgpe/math2d.html
+          e1= _V.sub(vertices[next], vertices[hp]);
+          e2= _V.sub(vertices[i], vertices[hp]);
+          c= _V.cross(e1,e2);
+          if(c<0){
+            //counterclockwise, e2 on left of e1
+            next=i}
+          //cross product is zero then e vectors are on same line
+          //therefore want to record vertex farthest along that line
+          if(_.feq0(c) && _V.len2(e2) > _V.len2(e1)){next=i}
+        }
+        //we found the *next* point *left,ccw* of last hull point
+        cur=next;
+        ++hpos;
+        //conclude algorithm upon wrap-around
+        if(next===rightMost){ break }
+      }
+      const result=[];
+      for(let i=0; i<hpos; ++i)
+        result.push(_V.clone(vertices[hull[i]]));
+      return result;
+    }
+
+    /**A Rectangle, standard Cartesian: bottom-left corner + width + height.
+     * @memberof module:mcfud/geo2d
      * @class
+     * @property {Vec2} pos
+     * @property {number} width
+     * @property {number} height
      */
     class Rect{
+      /**
+       * @param {number} x
+       * @param {number} y
+       * @param {number} width
+       * @param {number} height
+       */
       constructor(x,y,width,height){
-        if(arguments.length===2){
-          this.width=x;
-          this.height=y;
-          this.pos= _V.vec2();
-        }else{
-          this.pos=_V.vec2(x,y);
-          this.width=width;
-          this.height=height;
+        switch(arguments.length){
+          case 2:
+            this.pos= _V.vec();
+            this.width=x;
+            this.height=y;
+            break;
+          case 4:
+            this.pos=_V.vec(x,y);
+            this.width=width;
+            this.height=height;
+            break;
+          default:
+            throw "Error: bad input to Rect()";
         }
       }
     }
-    /**
-     * @public
+
+    /**An Area.
+     * @memberof module:mcfud/geo2d
      * @class
+     * @property {number} width
+     * @property {number} height
      */
     class Area{
+      /**
+       * @param {number} w
+       * @param {number} h
+       */
       constructor(w,h){
         this.width=w;
         this.height=h;
       }
+      /**
+       * @return {Area}
+       */
       half(){
-        return new Area(this.width/2,this.height/2)
+        return new Area(MFL(this.width/2),MFL(this.height/2))
       }
     }
-    /**
-     * Calculate the area of this polygon.
-     * @private
-     * @function
-     */
-    _G.polyArea=function(points){
-      let area=0;
-      for(let p,q,i2,len=points.length,i=0;i<len;++i){
-        i2= (i+1)%len;
-        p=poly.points[i];
-        q=poly.points[i2];
-        area += (p[0]*q[1] - q[0]*p[1]);
-      }
-      return Math.abs(area)/2
-    }
-    /**
-     * Find the center point of this polygon.
-     * @public
-     * @function
-     */
-    _G.calcPolyCenter=function(points){
-      let A= 6*this.polyArea(points);
-      let cx=0;
-      let cy=0;
-      for(let p,q,i2,i=0,len=points.length;i<len;++i){
-        i2= (i+1)%len;
-        p=points[i];
-        q=points[i2];
-        cx += (p[0]+q[0]) * (p[0]*q[1]-q[0]*p[1]);
-        cy += (p[1]+q[1]) * (p[0]*q[1]-q[0]*p[1]);
-      }
-      return _V.vec2(cx/A, cy/A)
-    };
-    /**
-     * Lifted from Randy Gaul's impulse-engine:
-     * https://github.com/RandyGaul/ImpulseEngine#Shape.h
-     * @private
-     * @function
-     */
-    function _orderPoints(vertices){
-      let count=vertices.length;
-      _.assert(count > 2 && count <= MaxPolyVertexCount); // at least 3
-      //find the right most point
-      let rightMost=0;
-      let highestX= vertices[0][0];
-      for(let x,i=1; i<count; ++i){
-        x=vertices[i][0];
-        if(x > highestX){
-          highestX= x;
-          rightMost= i;
-        }
-        // if same x then take farthest negative y
-        else if(_M.fuzzyEq(x, highestX)){
-          if(vertices[i][1] < vertices[rightMost][1]) rightMost = i;
-        }
-      }
-      let hull=new Array(MaxPolyVertexCount);
-      let outCount = 0;
-      let indexHull = rightMost;
-      for(;;){
-        hull[outCount] = indexHull;
-        // search for next index that wraps around the hull
-        // by computing cross products to find the most counter-clockwise
-        // vertex in the set, given the previos hull index
-        let nextHullIndex = 0;
-        for(let i=1; i<count; ++i){
-          // skip if same coordinate as we need three unique
-          // points in the set to perform a cross product
-          if(nextHullIndex === indexHull){
-            nextHullIndex = i;
-            continue;
-          }
-          // cross every set of three unique vertices
-          // record each counter clockwise third vertex and add
-          // to the output hull
-          // see : http://www.oocities.org/pcgpe/math2d.html
-          let e1 = _V.vecSub(vertices[nextHullIndex], vertices[hull[outCount]]);
-          let e2 = _V.vecSub(vertices[i], vertices[hull[outCount]]);
-          let c = _V.vec2Cross(e1,e2);
-          if(c < 0.0)
-            nextHullIndex = i;
-          // cross product is zero then e vectors are on same line
-          // therefor want to record vertex farthest along that line
-          if(_M.fuzzyZero(c) && _V.vecLen2(e2) > _V.vecLen2(e1))
-            nextHullIndex = i;
-        }
-        ++outCount;
-        indexHull = nextHullIndex;
-        // conclude algorithm upon wrap-around
-        if(nextHullIndex === rightMost){
-          break;
-        }
-      }
-      const result=[];
-      for(let i=0; i<outCount; ++i)
-        result.push(_V.vecClone(vertices[hull[i]]));
-      return result;
-    }
-    /**
-     * @public
+
+    /**A Line.
+     * @memberof module:mcfud/geo2d
      * @class
+     * @property {Vec2} p
+     * @property {Vec2} q
      */
     class Line{
+      /**
+       * @param {number} x1
+       * @param {number} y1
+       * @param {number} x2
+       * @param {number} y2
+       */
       constructor(x1,y1,x2,y2){
-        this.p= _V.vec2(x1,y1);
-        this.q= _V.vec2(x2,y2);
+        this.p= _V.vec(x1,y1);
+        this.q= _V.vec(x2,y2);
       }
     }
-    /**
-     * @public
+
+    /**A Circle.
+     * @memberof module:mcfud/geo2d
      * @class
+     * @property {Vec2} pos
+     * @property {number} radius
+     * @property {number} orient
      */
     class Circle{
+      /**
+       * @param {number} r
+       */
       constructor(r){
         this.radius=r;
         this.orient=0;
-        this.pos=_V.vec2();
+        this.pos=_V.vec();
       }
+      /**Set the rotation.
+       * @param {number} r
+       * @return {Circle} self
+       */
       setOrient(r){
         this.orient=r;
         return this;
       }
+      /**Set origin.
+       * @param {number} x
+       * @param {number} y
+       * @return {Circle} self
+       */
       setPos(x,y){
-        _V.vecCopy(this.pos,x,y);
+        _V.copy(this.pos,x,y);
         return this;
       }
     }
-    /**
-     * Points are specified in COUNTER-CLOCKWISE order
-     * @public
+
+    /**A Polygon, points are specified in COUNTER-CLOCKWISE order.
+     * @memberof module:mcfud/geo2d
      * @class
+     * @property {Vec2} pos
+     * @property {Vec2[]} normals
+     * @property {Vec2[]} edges
+     * @property {Vec2[]} points
+     * @property {number} orient
+     * @property {Vec2[]} calcPoints
      */
     class Polygon{
+      /**
+       * @param {number} x
+       * @param {number} y
+       */
       constructor(x,y){
+        this.calcPoints=null;
+        this.normals=null;
+        this.edges=null;
+        this.points=null;
         this.orient = 0;
-        this.pos=_V.vec2();
+        this.pos=_V.vec();
         this.setPos(x,y);
       }
-      setPos(x,y){
-        _V.vecCopy(this.pos,x||0,y||0);
+      /**Set origin.
+       * @param {number} x
+       * @param {number} y
+       * @return {Polygon} self
+       */
+      setPos(x=0,y=0){
+        _V.copy(this.pos,x,y);
         return this;
       }
+      /**Set vertices.
+       * @param {Vec2[]} points
+       * @return {Polygon} self
+       */
       set(points){
-        points= _orderPoints(points);
-        if(this.calcPoints) this.calcPoints.length=0; else this.calcPoints = [];
-        if(this.normals) this.normals.length=0; else this.normals = [];
-        if(this.edges) this.edges.length=0; else this.edges = [];
-        for(let i=0; i < points.length; ++i){
-          this.calcPoints.push(_V.vec2());
-          this.edges.push(_V.vec2());
-          this.normals.push(_V.vec2());
-        }
-        this.points = points;
-        this._recalc();
-        return this;
+        this.calcPoints= this.calcPoints || [];
+        this.normals= this.normals || [];
+        this.edges= this.edges || [];
+        this.calcPoints.length=0;
+        this.normals.length=0;
+        this.edges.length=0;
+        this.points= _.assert(points.length>2) &&
+                     _orderPoints(points);
+        _.doseq(this.points, p=>{
+          this.calcPoints.push(_V.vec());
+          this.edges.push(_V.vec());
+          this.normals.push(_V.vec());
+        });
+        return this._recalc();
       }
+      /**Set rotation.
+       * @param {number} rot
+       * @return {Polygon} self
+       */
       setOrient(rot){
         this.orient = rot;
-        this._recalc();
-        return this;
+        return this._recalc();
       }
+      /**Move the points.
+       * @param {number} x
+       * @param {number} y
+       * @return {Polygon} self
+       */
       translate(x, y){
-        if(this.points){
-          for(let i=0; i < this.points.length; ++i){
-            this.points[i][0] += x;
-            this.points[i][1] += y;
-          }
-          this._recalc();
-        }
-        return this;
+        _.doseq(this.points,p=>{
+          p[0] += x; p[1] += y;
+        });
+        return this._recalc();
       }
+      /** @ignore */
       _recalc(){
         if(this.points){
-          for(let i=0; i < this.points.length; ++i){
-            _V.vecSet(this.calcPoints[i],this.points[i]);
-            if(!_M.fuzzyZero(this.orient))
-              _V.vec2RotSelf(this.calcPoints[i],this.orient);
-          }
-          for(let i2,p1,p2,e,i = 0; i < this.points.length; ++i){
-            p1 = this.calcPoints[i];
+          _.doseq(this.points,(p,i)=>{
+            _V.set(this.calcPoints[i],p);
+            if(!_.feq0(this.orient))
+              _V.rot$(this.calcPoints[i],this.orient);
+          });
+          let i2,p1,p2;
+          _.doseq(this.points,(p,i)=>{
             i2= (i+1) % this.calcPoints.length;
+            p1=this.calcPoints[i];
             p2=this.calcPoints[i2];
-            this.edges[i]= _V.vecSub(p2,p1);
-            this.normals[i]= _V.vecUnit(_V.perp(this.edges[i]));
-          }
+            this.edges[i]= _V.sub(p2,p1);
+            this.normals[i]= _V.unit(_V.normal(this.edges[i]));
+          });
         }
         return this;
       }
     }
-    /**
-     * @public
-     * @class
-     */
-    class Box extends Rect{
-      constructor(x,y, w, h){
-        super(x,y,w,h);
-      }
-      toPolygon(){
-        return new Polygon(this.pos[0],
-                           this.pos[1]).set([_V.vec2(this.width,0),
-                                             _V.vec2(this.width,this.height),
-                                             _V.vec2(0,this.height),_V.vec2()]);
-      }
+
+    /** @ignore */
+    function toPolygon(r){
+      return new Polygon(r.pos[0],
+                         r.pos[1]).set([_V.vec(r.width,0),
+                                        _V.vec(r.width,r.height),
+                                        _V.vec(0,r.height),_V.vec()])
     }
-    /**
-     * @public
+
+    /**A collision manifold.
+     * @memberof module:mcfud/geo2d
      * @class
+     * @property {Vec2} overlapN  overlap normal
+     * @property {Vec2} overlapV  overlap vector
+     * @property {number} overlap overlap magnitude
+     * @property {object} A
+     * @property {object} B
+     * @property {boolean} AInB
+     * @property {boolean} BInA
      */
     class Manifold{
+      /**
+       * @param {Vec2} overlapN
+       * @param {Vec2} overlapV
+       * @param {object} A
+       * @param {object} B
+       */
       constructor(A,B){
+        this.overlapN = _V.vec();
+        this.overlapV = _V.vec();
         this.A = A;
         this.B = B;
-        this.overlapN = _V.vec2();
-        this.overlapV = _V.vec2();
         this.clear();
       }
+      /**Reset to zero. */
       clear(){
         this.overlap = Infinity;
         this.AInB = true;
@@ -3367,397 +3976,191 @@
       }
     }
 
-    /**
-     * @public
-     * @function
-     */
-    _G.getAABB=function(obj){
-      if(_.has(obj,"radius")){
-        return new _G.Rect(obj.pos[0]-obj.radius,
-                           obj.pos[1]-obj.radius,
-                           obj.radius*2, obj.radius*2)
-      } else{
-        let cps= _V.translate(obj.pos, obj.calcPoints);
-        let xMin = cps[0][0];
-        let yMin = cps[0][1];
-        let xMax = xMin;
-        let yMax = yMin;
-        for(let p,i=1; i<cps.length; ++i){
-          p= cps[i];
-          if(p[0] < xMin) xMin = p[0];
-          if(p[0] > xMax) xMax = p[0];
-          if(p[1] < yMin) yMin = p[1];
-          if(p[1] > yMax) yMax = p[1];
-        }
-        return new _G.Rect(xMin,
-                           yMin,
-                           xMax - xMin, yMax - yMin)
-      }
-    };
-    /**
-     * Shift a set of points.
-     * @public
-     * @function
-     */
-    _G.shiftPoints=function(ps,delta){
-      return ps.map(v => _V.vecAdd(v,delta))
-    };
-    /**
-     * Rotate a set of points.
-     * @public
-     * @function
-     */
-    _G.rotPoints=function(ps,rot,pivot){
-      return ps.map(v => _V.vec2Rot(v,rot,pivot))
-    };
-    /**
-     * Find the vertices of a rectangle.
-     * @public
-     * @function
-     * @returns points in counter-cwise, bottom-right first.
-     */
-    _G.calcRectPoints=function(w,h){
-      let w2=w/2;
-      let h2=h/2;
-      return [_V.vec2(hw,-hh),
-              _V.vec2(hw,hh),
-              _V.vec2(-hw,hh),
-              _V.vec2(-hw,-hh)];
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.line=function(x1,y1,x2,y2){
-      return new Line(x1,y1,x2,y2)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.rectEqRect=function(r1,r2){
-      return r1.width===r2.width &&
-             r1.height===r2.height &&
-             r1.pos[0]===r2.pos[0] &&
-             r1.pos[1]===r2.pos[1]
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.rectContainsRect=function(R,r){
-      return !(R.pos[0] >= r.pos[0] ||
-               R.pos[1] >= r.pos[1] ||
-               (R.pos[0]+R.width) <= (r.pos[0]+r.width) ||
-               (R.pos[1]+R.height) <= (r.pos[1]+r.height))
-    };
-    /**
-     * Right side on the x-axis.
-     * @public
-     * @function
-     */
-    _G.rectGetMaxX=function(r){
-      return r.pos[0] + r.width
-    }
-    /**
-     * Middle on the x-axis.
-     * @public
-     * @function
-     */
-    _G.rectGetMidX=function(r){
-      return r.pos[0] + r.width/2
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.rectGetMinX=function(r){
-      return r.pos[0]
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.rectGetMaxY=function(r){
-      return r.pos[1] + r.height
-    };
-    /**
-     * Mid point on the y-axis.
-     * @public
-     * @function
-     */
-    _G.rectGetMidY=function(r){
-      return r.pos[1] + r.height/2
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.rectGetMinY=function(r){
-      return r.pos[1]
-    }
-    /**
-     * If point lies inside rect.
-     * @public
-     * @function
-     */
-    _G.containsPoint=function(r,x,y){
-      return x >= this.rectGetMinX(r) &&
-             x <= this.rectGetMaxX(r) &&
-             y >= this.rectGetMinY(r) &&
-             y <= this.rectGetMaxY(r)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.rectIntersectsRect=function(r1,r2){
-      return !((r1.pos[0]+r1.width) < r2.pos[0] ||
-               (r2.pos[0]+r2.width) < r1.pos[0] ||
-               (r1.pos[1]+r1.height) < r2.pos[1] ||
-               (r2.pos[1]+r2.height) < r1.pos[1])
-    };
-    /**
-     * Find the union of two rects.
-     * @public
-     * @function
-     */
-    _G.rectUnionsRect=function(r1,r2){
-      let x= Math.min(r1.pos[0],r2.pos[0]);
-      let y= Math.min(r1.pos[1],r2.pos[1]);
-      return new Rect(x,y,
-                      Math.max(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
-                      Math.max(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.rectIntersectsRect=function(r1,r2){
-      let x= Math.max(r1.pos[0],r2.pos[0]);
-      let y= Math.max(r1.pos[1],r2.pos[1]);
-      return new Rect(x,y,
-                      Math.min(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
-                      Math.min(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
-    };
-
     //------------------------------------------------------------------------
     // 2d collision using Separating Axis Theorem.
     // see https://github.com/jriecken/sat-js
     //------------------------------------------------------------------------
-    /**
-     * @private
-     * @function
+
+    /**Check all shadows onto this axis and
+     * find the min and max.
      */
     function _findProjRange(points, axis){
-      let min = Infinity;
-      let max = -Infinity;
-      for(let dot,i=0; i < points.length; ++i){
-        dot = _V.vecDot(points[i],axis);
-        if(dot < min) min = dot;
-        if(dot > max) max = dot;
+      let min = Infinity,
+          max = -Infinity;
+      for(let dot,i=0; i<points.length; ++i){
+        dot= _V.dot(points[i],axis);
+        if(dot<min) min = dot;
+        if(dot>max) max = dot;
       }
-      return _V.takeV2(min,max)
+      return [min,max]
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _voronoiRegion(line, point){
-      let dp = _V.vecDot(point,line);
-      let len2 = _V.vecLen2(line);
-      // If pt is beyond the start of the line, left voronoi region
-      // If pt is beyond the end of the line, right voronoi region
-      return dp < 0 ? LEFT_VORONOI : (dp > len2 ? RIGHT_VORONOI : MID_VORONOI)
+      let n2 = _V.len2(line),
+          dp = _V.dot(point,line);
+      //If pt is beyond the start of the line, left voronoi region
+      //If pt is beyond the end of the line, right voronoi region
+      return dp<0 ? LEFT_VORONOI : (dp>n2 ? RIGHT_VORONOI : MID_VORONOI)
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _testSAT(aPos,aPoints, bPos,bPoints, axis, resolve){
-      let vAB= _V.vecSub(bPos,aPos); // B relative to A
-      let projectedOffset = _V.vecDot(vAB,axis);
       let [minA,maxA] =_findProjRange(aPoints, axis);
       let [minB,maxB] =_findProjRange(bPoints, axis);
-      // move B's range to its position relative to A.
-      minB += projectedOffset;
-      maxB += projectedOffset;
-      let gap;
-      if(minA > maxB || minB > maxA){
-        gap=true;
-      } else if(resolve){
+      //B relative to A; A--->B
+      let vAB= _V.vecAB(aPos,bPos);
+      let proj= _V.dot(vAB,axis);
+      //move B's range to its position relative to A.
+      minB += proj;
+      maxB += proj;
+      _V.reclaim(vAB);
+      if(minA>maxB || minB>maxA){ return true }
+      if(resolve){
         let overlap = 0;
-        // A starts left of B
-        if(minA < minB){
+        //A starts left of B
+        if(minA<minB){
           resolve.AInB = false;
-          // A ends before B does. We have to pull A out of B
+          //A ends before B does, have to pull A out of B
           if(maxA < maxB){
-            overlap = maxA - minB;
+            overlap= maxA - minB;
             resolve.BInA = false;
           }else{
-            // B is fully inside A.  Pick the shortest way out.
+            //B is fully inside A.  Pick the shortest way out.
             let [d1,d2] = [maxA - minB, maxB - minA];
             overlap = d1 < d2 ? d1 : -d2;
           }
-        // B starts left than A
+        //B starts left than A
         }else{
           resolve.BInA = false;
-          // B ends before A ends. We have to push A out of B
-          if(maxA > maxB){
+          //B ends before A ends, have to push A out of B
+          if(maxA>maxB){
             overlap = minA - maxB;
             resolve.AInB = false;
           }else{
-            // A is fully inside B.  Pick the shortest way out.
+            //A is fully inside B.  Pick the shortest way out.
             let [d1,d2] = [maxA - minB, maxB - minA];
             overlap = d1 < d2 ? d1 : -d2;
           }
         }
-        // If smallest amount of overlap, set it as the minimum overlap.
-        let absOverlap = Math.abs(overlap);
+        //if smallest amount of overlap, set it as the minimum overlap.
+        let absOverlap= Math.abs(overlap);
         if(absOverlap < resolve.overlap){
           resolve.overlap = absOverlap;
-          _V.vecSet(resolve.overlapN,axis);
-          if(overlap < 0)
-            _V.vecFlipSelf(resolve.overlapN);
+          _V.set(resolve.overlapN,axis);
+          if(overlap<0)
+            _V.flip$(resolve.overlapN);
         }
       }
-      _V.dropV2(vAB);
-      return gap;
     }
-    /**
-     * @public
-     * @function
-     */
-    _G.hitTestPointCircle=function(p, c){
-      let d2 = _V.vecLen2(_V.vecSub(p,c.pos));
-      return d2 <= c.radius * c.radius;
-    };
-    const _RES= new Manifold();
-    const _FAKE_POLY= new Box(0,0, 1, 1).toPolygon();
-    /**
-     * @public
-     * @function
-     */
-    _G.hitTestPointPolygon=function(p, poly){
-      _V.vecSet(_FAKE_POLY.pos,p);
-      let res= this.hitTestPolygonPolygon(_FAKE_POLY, poly, _RES.clear());
-      return res ? _RES.AInB : false;
-    };
+
     /**
      * @private
-     * @function
+     * @var {Manifold}
      */
+    const _RES= new Manifold();
+
+    /**
+     * @private
+     * @var {Polygon}
+     */
+    const _FAKE_POLY= toPolygon(new Rect(0,0, 1, 1));
+
+    /** @ignore */
     function _circle_circle(a, b, resolve){
-      let r_ab = a.radius + b.radius;
-      let vAB= _V.vecSub(b.pos,a.pos);
-      let r2 = r_ab * r_ab;
-      let d2 = _V.vecLen2(vAB);
+      let vAB= _V.vecAB(a.pos,b.pos);
+      let r_ab = a.radius+b.radius;
+      let r2 = r_ab*r_ab;
+      let d2 = _V.len2(vAB);
       let status= !(d2 > r2);
       if(status && resolve){
         let dist = Math.sqrt(d2);
         resolve.A = a;
         resolve.B = b;
         resolve.overlap = r_ab - dist;
-        _V.vecSet(resolve.overlapN, _V.vecUnitSelf(vAB));
-        _V.vecSet(resolve.overlapV, _V.vecMul(vAB,resolve.overlap));
+        _V.set(resolve.overlapN, _V.unit$(vAB));
+        _V.set(resolve.overlapV, _V.mul(vAB,resolve.overlap));
         resolve.AInB = a.radius <= b.radius && dist <= b.radius - a.radius;
         resolve.BInA = b.radius <= a.radius && dist <= a.radius - b.radius;
       }
-      _V.dropV2(vAB);
+      _V.reclaim(vAB);
       return status;
     }
-    /**
-     * @public
-     * @function
-     */
-    _G.hitCircleCircle=function(a, b){
-      let m=new Manifold();
-      return _circle_circle(a,b,m) ? m : null
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.hitTestCircleCircle=function(a, b){
-      return _circle_circle(a,b,new Manifold());
-    };
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _poly_circle(polygon, circle, resolve){
       // get position of the circle relative to the polygon.
-      let vPC= _V.vecSub(circle.pos,polygon.pos);
-      let r2 = circle.radius * circle.radius;
+      let vPC= _V.vecAB(polygon.pos,circle.pos);
+      let r2 = circle.radius*circle.radius;
       let cps = polygon.calcPoints;
-      let edge = _V.takeV2();
-      let point;// = _V.takeV2();
+      let edge = _V.vec();
+      let point;
       // for each edge in the polygon:
-      for(let len=cps.length,i=0; i < len; ++i){
-        let next = i === len-1 ? 0 : i+1;
-        let prev = i === 0 ? len-1 : i-1;
-        let overlap = 0;
-        let overlapN = null;
-        _V.vecSet(edge,polygon.edges[i]);
+      for(let next,prev, overlap,overlapN,len=cps.length,i=0; i<len; ++i){
+        next = i === len-1 ? 0 : i+1;
+        prev = i === 0 ? len-1 : i-1;
+        overlap = 0;
+        overlapN = null;
+        _V.set(edge,polygon.edges[i]);
         // calculate the center of the circle relative to the starting point of the edge.
-        point=_V.vecSub(vPC,cps[i]);
+        point=_V.vecAB(cps[i],vPC);
         // if the distance between the center of the circle and the point
         // is bigger than the radius, the polygon is definitely not fully in
         // the circle.
-        if(resolve && _V.vecLen2(point) > r2){
+        if(resolve && _V.len2(point) > r2){
           resolve.AInB = false;
         }
         // calculate which Voronoi region the center of the circle is in.
         let region = _voronoiRegion(edge, point);
         if(region === LEFT_VORONOI){
           // need to make sure we're in the RIGHT_VORONOI of the previous edge.
-          _V.vecSet(edge,polygon.edges[prev]);
+          _V.set(edge,polygon.edges[prev]);
           // calculate the center of the circle relative the starting point of the previous edge
-          let point2= _V.vecSub(vPC,cps[prev]);
+          let point2= _V.vecAB(cps[prev],vPC);
           region = _voronoiRegion(edge, point2);
           if(region === RIGHT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
-            let dist = _V.vecLen(point);
-            if(dist > circle.radius){
+            let dist = _V.len(point);
+            if(dist>circle.radius){
               // No intersection
-              _V.dropV2(vPC,edge,point,point2);
+              _V.reclaim(vPC,edge,point,point2);
               return false;
             } else if(resolve){
               // intersects, find the overlap.
               resolve.BInA = false;
-              overlapN = _V.vecUnit(point);
+              overlapN = _V.unit(point);
               overlap = circle.radius - dist;
             }
           }
-          _V.dropV2(point2);
+          _V.reclaim(point2);
         } else if(region === RIGHT_VORONOI){
           // need to make sure we're in the left region on the next edge
-          _V.vecSet(edge,polygon.edges[next]);
+          _V.set(edge,polygon.edges[next]);
           // calculate the center of the circle relative to the starting point of the next edge.
-          _V.vecSubSelf(_V.vecSet(point,vPC),cps[next]);
+          _V.sub$(_V.set(point,vPC),cps[next]);
           region = _voronoiRegion(edge, point);
           if(region === LEFT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
-            let dist = _V.vecLen(point);
-            if(dist > circle.radius){
-              _V.dropV2(vPC,edge,point);
+            let dist = _V.len(point);
+            if(dist>circle.radius){
+              _V.reclaim(vPC,edge,point);
               return false;
             } else if(resolve){
               resolve.BInA = false;
-              overlapN = _V.vecUnit(point);
+              overlapN = _V.unit(point);
               overlap = circle.radius - dist;
             }
           }
         }else{
           // check if the circle is intersecting the edge,
           // change the edge into its "edge normal".
-          let normal = _V.vecUnitSelf(_V.perp(edge));
+          let normal = _V.unit$(_V.normal(edge));
           // find the perpendicular distance between the center of the circle and the edge.
-          let dist = _V.vecDot(point,normal);
+          let dist = _V.dot(point,normal);
           let distAbs = Math.abs(dist);
           // if the circle is on the outside of the edge, there is no intersection.
           if(dist > 0 && distAbs > circle.radius){
-            _V.dropV2(vPC,normal,point);
+            _V.reclaim(vPC,normal,point);
             return false;
           } else if(resolve){
             overlapN = normal;
@@ -3773,45 +4176,28 @@
         // (overlapN may be null if the circle was in the wrong Voronoi region).
         if(overlapN && resolve && Math.abs(overlap) < Math.abs(resolve.overlap)){
           resolve.overlap = overlap;
-          _V.vecSet(resolve.overlapN,overlapN);
+          _V.set(resolve.overlapN,overlapN);
         }
       }
       // calculate the final overlap vector - based on the smallest overlap.
       if(resolve){
         resolve.A = polygon;
         resolve.B = circle;
-        _V.vecMulSelf(_V.vecSet(resolve.overlapV,resolve.overlapN),resolve.overlap);
+        _V.mul$(_V.set(resolve.overlapV,resolve.overlapN),resolve.overlap);
       }
-      _V.dropV2(vPC,edge,point);
+      _V.reclaim(vPC,edge,point);
       return true;
     }
-    /**
-     * @public
-     * @function
-     */
-    _G.hitPolygonCircle=function(polygon, circle){
-      let m=new Manifold();
-      return _poly_circle(polygon,circle,m) ? m : null
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.hitTestPolygonCircle=function(polygon, circle){
-      return _poly_circle(polygon,circle,new Manifold());
-    };
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _circle_poly(circle, polygon, resolve){
       let result = _poly_circle(polygon, circle, resolve);
       if(result && resolve){
         // flip A and B
         let a = resolve.A;
         let aInB = resolve.AInB;
-        _V.vecFlipSelf(resolve.overlapN);
-        _V.vecFlipSelf(resolve.overlapV);
+        _V.flip$(resolve.overlapN);
+        _V.flip$(resolve.overlapV);
         resolve.A = resolve.B;
         resolve.B = a;
         resolve.AInB = resolve.BInA;
@@ -3819,25 +4205,8 @@
       }
       return result;
     }
-    /**
-     * @public
-     * @function
-     */
-    _G.hitCirclePolygon=function(circle, polygon){
-      let m=new Manifold();
-      return _circle_poly(circle,polygon,m) ? m : null
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.hitTestCirclePolygon=function(circle, polygon){
-      return _circle_poly(circle,polygon,new Manifold());
-    };
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _poly_poly(a, b, resolve){
       let pa = a.calcPoints;
       let pb = b.calcPoints;
@@ -3850,36 +4219,361 @@
           return false;
       }
       if(resolve){
-        if(resolve.overlap===0 || _M.fuzzyZero(resolve.overlap))
+        if(resolve.overlap===0 || _.feq0(resolve.overlap))
           return false;
         resolve.A = a;
         resolve.B = b;
-        _V.vecSet(resolve.overlapV,resolve.overlapN);
-        _V.vecMulSelf(resolve.overlapV,resolve.overlap);
+        _V.set(resolve.overlapV,resolve.overlapN);
+        _V.mul$(resolve.overlapV,resolve.overlap);
       }
       return true;
     }
-    /**
-     * @public
-     * @function
-     */
-    _G.hitPolygonPolygon=function(a, b){
-      let m=new Manifold();
-      return _poly_poly(a,b,m) ? m : null
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.hitTestPolygonPolygon=function(a, b){
-      return _poly_poly(a,b,new Manifold());
+
+    const _$={
+      Rect,
+      Area,
+      Line,
+      Circle,
+      Polygon,
+      Manifold,
+      /**Sort vertices in counter clockwise order.
+       * @memberof module:mcfud/geo2d
+       * @param {Vec2[]} vs
+       * @return {Vec2[]}
+       */
+      orderVertices(vs){ return _orderPoints(vs) },
+      /**Calculate the area of this polygon.
+       * @memberof module:mcfud/geo2d
+       * @param{Vec2[]} points
+       * @return {number}
+       */
+      polyArea(points,sort=false){
+        let ps= sort? this.orderVertices(points) : points;
+        let area=0;
+        for(let p,q,i2,len=ps.length,i=0;i<len;++i){
+          i2= (i+1)%len;
+          p=ps[i];
+          q=ps[i2];
+          area += (p[0]*q[1] - q[0]*p[1]);
+        }
+        return MFL(ABS(area)/2)
+      },
+      /**Find the center point of this polygon.
+       * @memberof module:mcfud/geo2d
+       * @param {Vec2[]} points
+       * @return {Vec2}
+       */
+      calcPolygonCenter(points,sort=false){
+        const ps= sort?this.orderVertices(points):points;
+        const A= 6*this.polyArea(ps);
+        let cx=0;
+        let cy=0;
+        for(let p,q,i2,i=0,len=ps.length;i<len;++i){
+          i2= (i+1)%len;
+          p=ps[i];
+          q=ps[i2];
+          cx += (p[0]+q[0]) * (p[0]*q[1]-q[0]*p[1]);
+          cy += (p[1]+q[1]) * (p[0]*q[1]-q[0]*p[1]);
+        }
+        return _V.vec(MFL(cx/A), MFL(cy/A))
+      },
+      /**Get the AABB rectangle.
+       * @memberof module:mcfud/geo2d
+       * @param {Circle|Polygon} obj
+       * @return {Rect}
+       */
+      getAABB(obj){
+        if(_.has(obj,"radius")){
+          return new Rect(obj.pos[0]-obj.radius,
+                          obj.pos[1]-obj.radius,
+                          obj.radius*2, obj.radius*2)
+        }else{
+          let cps= _V.translate(obj.pos, obj.calcPoints);
+          let xMin= cps[0][0];
+          let yMin= cps[0][1];
+          let xMax= xMin;
+          let yMax= yMin;
+          for(let p,i=1; i<cps.length; ++i){
+            p= cps[i];
+            if(p[0] < xMin) xMin = p[0];
+            if(p[0] > xMax) xMax = p[0];
+            if(p[1] < yMin) yMin = p[1];
+            if(p[1] > yMax) yMax = p[1];
+          }
+          return new Rect(xMin, yMin, xMax - xMin, yMax - yMin)
+        }
+      },
+      /**Shift a set of points.
+       * @memberof module:mcfud/geo2d
+       * @param {Vec2[]} points
+       * @param {Vec2|number} delta
+       * @return {Vec2[]}
+       */
+      shiftPoints(points,delta){
+        return points.map(v=> _V.add(v,delta))
+      },
+      /**Rotate a set of points.
+       * @memberof module:mcfud/geo2d
+       * @param {Vec2[]} points
+       * @param {number} rot
+       * @param {Vec2} [pivot]
+       */
+      rotPoints(points,rot,pivot){
+        return points.map(v=> _V.rot(v,rot,pivot))
+      },
+      /**Find the vertices of a rectangle, centered at origin.
+       * @memberof module:mcfud/geo2d
+       * @param {number} w
+       * @param {number} h
+       * @return {Vec2[]} points in counter-cwise, bottom-right first
+       */
+      calcRectPoints(w,h){
+        const hw=MFL(w/2);
+        const hh=MFL(h/2);
+        return [_V.vec(hw,-hh), _V.vec(hw,hh),
+                _V.vec(-hw,hh), _V.vec(-hw,-hh)]
+      },
+      /**Create a Line object.
+       * @memberof module:mcfud/geo2d
+       * @return {Line}
+       */
+      line(x1,y1,x2,y2){ return new Line(x1,y1,x2,y2) },
+      /**Check if 2 rects are equal.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r1
+       * @param {Rect} r2
+       * @return {boolean}
+       */
+      rectEqRect(r1,r2){
+        return r1.width===r2.width &&
+               r1.height===r2.height &&
+               r1.pos[0]===r2.pos[0] &&
+               r1.pos[1]===r2.pos[1]
+      },
+      /**Check if `R` contains `r`.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} R
+       * @param {Rect} r
+       * @return {boolean}
+       */
+      rectContainsRect(R,r){
+        return !(R.pos[0] >= r.pos[0] ||
+                 R.pos[1] >= r.pos[1] ||
+                 (R.pos[0]+R.width) <= (r.pos[0]+r.width) ||
+                 (R.pos[1]+R.height) <= (r.pos[1]+r.height))
+      },
+      /**Get the right side on the x-axis.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r
+       * @return {number}
+       */
+      rectGetMaxX(r){ return r.pos[0] + r.width },
+      /**Get the middle on the x-axis.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r
+       * @return {number}
+       */
+      rectGetMidX(r){ return r.pos[0] + MFL(r.width/2) },
+      /**Get the left on the x-axis.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r
+       * @return {number}
+       */
+      rectGetMinX(r){ return r.pos[0] },
+      /**Get the top on the y-axis.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r
+       * @return {number}
+       */
+      rectGetMaxY(r){ return r.pos[1] + r.height },
+      /**Get the mid point on the y-axis.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r
+       * @return {number}
+       */
+      rectGetMidY(r){ return r.pos[1] + MFL(r.height/2) },
+      /**Get the bottom on the y-axis.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r
+       * @return {number}
+       */
+      rectGetMinY(r){ return r.pos[1] },
+      /**Check if point lies inside rect.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} R
+       * @param {number} x
+       * @param {number} y
+       * @return {boolean}
+       */
+      rectContainsPoint(R,x,y){
+        return x >= this.rectGetMinX(R) &&
+               x <= this.rectGetMaxX(R) &&
+               y >= this.rectGetMinY(R) &&
+               y <= this.rectGetMaxY(R)
+      },
+      /**Check if 2 rects intersects.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r1
+       * @param {Rect} r2
+       * @return {boolean}
+       */
+      rectOverlayRect(r1,r2){
+        return !((r1.pos[0]+r1.width) < r2.pos[0] ||
+                 (r2.pos[0]+r2.width) < r1.pos[0] ||
+                 (r1.pos[1]+r1.height) < r2.pos[1] ||
+                 (r2.pos[1]+r2.height) < r1.pos[1])
+      },
+      /**Find the union of these 2 rects.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r1
+       * @param {Rect} r2
+       * @return {Rect}
+       */
+      rectUnion(r1,r2){
+        const x= Math.min(r1.pos[0],r2.pos[0]);
+        const y= Math.min(r1.pos[1],r2.pos[1]);
+        return new Rect(x,y,
+                        Math.max(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
+                        Math.max(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
+      },
+      /**Find the intersection of these 2 rects.
+       * @memberof module:mcfud/geo2d
+       * @param {Rect} r1
+       * @param {Rect} r2
+       * @return {Rect}
+       */
+      rectIntersection(r1,r2){
+        if(this.rectOverlayRect(r1,r2)){
+          const x= Math.max(r1.pos[0],r2.pos[0]);
+          const y= Math.max(r1.pos[1],r2.pos[1]);
+          return new Rect(x,y,
+                          Math.min(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
+                          Math.min(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
+        }
+      },
+      /**Check if circle contains this point.
+       * @memberof module:mcfud/geo2d
+       * @param {Vec2} p
+       * @param {Circle} c
+       * @return {boolean}
+       */
+      hitTestPointCircle(p, c){
+        const d2 = _V.len2(_V.sub(p,c.pos));
+        return d2 <= c.radius * c.radius;
+      },
+      XXhitTestPointPolygon(p, poly){
+        _V.set(_FAKE_POLY.pos,p);
+        let res= this.hitTestPolygonPolygon(_FAKE_POLY, poly, _RES.clear());
+        return res ? _RES.AInB : false;
+      },
+      /**If these 2 circles collide, return the manifold.
+       * @memberof module:mcfud/geo2d
+       * @param {Circle} a
+       * @param {Circle} b
+       * @return {Manifold} if false undefined
+       */
+      hitCircleCircle(a, b){
+        let m=new Manifold();
+        if(_circle_circle(a,b,m)) return m;
+      },
+      /**Check if these 2 circles collide.
+       * @memberof module:mcfud/geo2d
+       * @param {Circle} a
+       * @param {Circle} b
+       * @return {boolean}
+       */
+      hitTestCircleCircle(a, b){
+        return _circle_circle(a,b,new Manifold());
+      },
+      /**If this polygon collides with the circle, return the manifold.
+       * @memberof module:mcfud/geo2d
+       * @param {Polygon} p
+       * @param {Circle} c
+       * @return {Manifold} if false undefined
+       */
+      hitPolygonCircle(p, c){
+        let m=new Manifold();
+        if(_poly_circle(p,c,m)) return m;
+      },
+      /**Check if polygon collides with the circle.
+       * @memberof module:mcfud/geo2d
+       * @param {Polygon} p
+       * @param {Circle} c
+       * @return {boolean}
+       */
+      hitTestPolygonCircle(p, c){
+        return _poly_circle(p,c,new Manifold())
+      },
+      /**If this circle collides with polygon, return the manifold.
+       * @memberof module:mcfud/geo2d
+       * @param {Circle} c
+       * @param {Polygon} p
+       * @return {Manifold} if false undefined
+       */
+      hitCirclePolygon(c, p){
+        let m=new Manifold();
+        if(_circle_poly(c,p,m)) return m;
+      },
+      /**Check if this circle collides with the polygon.
+       * @memberof module:mcfud/geo2d
+       * @param {Circle} c
+       * @param {Polygon} p
+       * @return {boolean}
+       */
+      hitTestCirclePolygon(c, p){
+        return _circle_poly(c,p,new Manifold())
+      },
+      /**If these 2 polygons collide, return the manifold.
+       * @memberof module:mcfud/geo2d
+       * @param {Polygon} a
+       * @param {Polygon} b
+       * @return {Manifold} if false undefined
+       */
+      hitPolygonPolygon(a, b){
+        let m=new Manifold();
+        if(_poly_poly(a,b,m)) return m;
+      },
+      /**Check if these 2 polygons collide.
+       * @memberof module:mcfud/geo2d
+       * @param {Polygon} a
+       * @param {Polygon} b
+       * @return {boolean}
+       */
+      hitTestPolygonPolygon(a, b){
+        return _poly_poly(a,b,new Manifold())
+      },
+      /**Check if a point is inside these polygon vertices.
+       * @memberof module:mcfud/geo2d
+       * @param {number} testx
+       * @param {number} testy
+       * @param {Vec2[]} ps
+       * @return {boolean}
+       */
+      hitTestPointInPolygon(testx,testy,ps){
+        let c;
+        for(let p,q,len=ps.length, i=0, j=len-1; i<len;){
+          p=ps[i];
+          q=ps[j];
+          if(((p[1]>testy) !== (q[1]>testy)) &&
+             (testx < (q[0]-p[0]) * (testy-p[1]) / (q[1]-p[1]) + p[0])) c = !c;
+          j=i;
+          ++i;
+        }
+        return c;
+      },
+      /**Check if point is inside this polygon.
+       * @memberof module:mcfud/geo2d
+       * @param {number[]} [testx,testy]
+       * @param {Polygon} poly
+       * @return {boolean}
+       */
+      hitTestPointPolygon([testx,testy],poly){
+        return this.hitTestPointInPolygon(testx,testy,
+                                          _V.translate(poly.pos,poly.calcPoints))
+      }
     };
 
-    return _.inject(_G, {Circle: Circle,
-                         Line: Line,
-                         Box: Box,
-                         Manifold: Manifold,
-                         Polygon: Polygon, Rect: Rect, Area: Area});
+    return _$;
   }
 
   //export--------------------------------------------------------------------
@@ -3888,7 +4582,7 @@
                            require("./math"),
                            require("./vec2"))
   }else{
-    global["io/czlab/mcfud/geo2d"]=_module
+    gscope["io/czlab/mcfud/geo2d"]=_module
   }
 
 })(this);
@@ -3907,123 +4601,152 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;(function(gscope){
+
   "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**
-   * @private
-   * @function
+
+  /**Creates the module.
    */
-  function _module(){
-    class QuadTree{
-      constructor(x1,y1,x2,y2,maxCount,maxDepth){
-        this.maxCount= maxCount || 12;
-        this.maxDepth= maxDepth || 5;
-        this.objects = [];
-        this.boxes=null;
-        this.level=0;
-        this.x1=x1;
-        this.x2=x2;
-        this.y1=y1;
-        this.y2=y2;
-        this.midX= (x1+x2)/2;
-        this.midY= (y1+y2)/2;
+  function _module(Core){
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    const MFL=Math.floor;
+    const {u:_} = Core;
+
+    /**
+      * @module mcfud/quadtree
+      */
+
+    /**
+     * @typedef {object} QuadTree
+     * @property {function} insert(node)
+     * @property {function} search(node)
+     * @property {function} reset()
+     */
+
+    /**
+     * @typedef {object} QuadTreeNode
+     * @property {number} x
+     * @property {number} y
+     * @property {number} width
+     * @property {number} height
+     * @property {function} getNodeRect()
+     */
+
+    /**Creates a QuadTree. */
+    function QuadTree(left,right,top,bottom,maxCount,maxDepth,level){
+      let boxes=null,
+          objects = [];
+      //if flipped the co-ord system is LHS (like a browser, y grows down, objects are top-left+width_height)
+      //else RHS (standard, y grows up, objects are left-bottom+width_height)
+      let flipped=(top<bottom),
+          midX= MFL((left+right)/2),
+          midY= MFL((top+bottom)/2);
+      //find which quadrants r touches
+      function _locate(r){
+        let x,y,width,height;
+        if(_.has(r,"x") && _.has(r,"y") && _.has(r,"width") && _.has(r,"height")){
+          x=r.x; y=r.y; width=r.width; height=r.height;
+        }else if(r.getNodeRect){
+          let b=r.getNodeRect();
+          x=b.x; y=b.y; width=b.width; height=b.height;
+        }
+        let out=[],
+            left= x<midX,
+            right= x+width>midX,
+            up= flipped? (y<midY) : (y+height>midY),
+            down= flipped? (y+height>midY): (y<midY);
+        if(up){
+          if(left) out.push(3);
+          if(right) out.push(0); }
+        if(down){
+          if(left) out.push(2);
+          if(right) out.push(1); }
+        return out;
       }
-      _ctree(x1,y1,x2,y2){
-        let q=new QuadTree(x1,y1,x2,y2,this.maxCount,this.maxDepth);
-        q.level=this.level+1;
-        return q;
-      }
-      _split(){
-        _.assert(this.boxes===null);
+
+      //split into 4 quadrants
+      function _split(){
         //3|0
         //---
         //2|1
-        this.boxes=[this._ctree(this.midX, this.y1,this.x2,this.midY),
-                    this._ctree(this.midX, this.midY, this.x2,this.y2),
-                    this._ctree(this.x1, this.midY, this.midX, this.y2),
-                    this._ctree( this.x1, this.y1, this.midX,this.midY)];
+        _.assert(boxes===null);
+        boxes=[QuadTree(midX, right,top,midY,maxCount,maxDepth,level+1),
+               QuadTree(midX, right, midY, bottom,maxCount,maxDepth,level+1),
+               QuadTree(left, midX, midY, bottom,maxCount,maxDepth,level+1),
+               QuadTree(left, midX, top, midY,maxCount,maxDepth,level+1)];
       }
-      _locate(r){
-        let up= r.y < this.midY;
-        let left= r.x < this.midX;
-        let right= r.x + r.width > this.midX;
-        let down= r.y + r.height > this.midY;
-        if(up){
-          if(left) out.push(3);
-          if(right) out.push(0);
-        }
-        if(down){
-          if(left) out.push(2);
-          if(right) out.push(1);
-        }
-        return out;
-      }
-      insert(node){
-        let out;
-        if(this.boxes){
-          this._locate(node).forEach(i=>{
-            this.boxes[i].insert(node)
-          });
-        }else{
-          this.objects.push(node);
-          if(this.objects.length > this.maxCount &&
-             this.level < this.maxDepth){
-            this._split();
-            this.objects.forEach(o=>{
-              this._locate(o).forEach(i=>{
-                this.boxes[i].insert(o)
-              });
-            });
-            this.objects.length=0;
-          }
-        }
-      }
-      search(node){
-        //handle duplicates
-        let bin=new Map();
-        let out = [];
-        if(this.boxes){
-          this._locate(node).forEach(i=>{
-            this.boxes[i].search(node).forEach(o=>{
-              if(!bin.has(o)){
-                bin.set(o,null);
-                out.push(o);
+
+      return{
+        dbg(f){ return f(objects,boxes,maxCount,maxDepth,level) },
+        insert:function(node){
+          for(let n=0;n<arguments.length;++n){
+            node=arguments[n];
+            if(boxes){
+              _locate(node).forEach(i=> boxes[i].insert(node))
+            }else{
+              objects.push(node);
+              if(objects.length > maxCount && level < maxDepth){
+                _split();
+                objects.forEach(o=> _locate(o).forEach(i=> boxes[i].insert(o)));
+                objects.length=0;
               }
-            })
-          })
-        }
-        this.objects.forEach(o=>{
-          if(!bin.has(o)){
-            bin.set(o,null);
-            out.push(o);
+            }
           }
-        });
-        //found all objects closeby
-        return out;
-      }
-      reset(){
-        this.objects.length=0;
-        this.boxes && this.boxes.forEach(b=>{
-          b.reset()
-        });
-        this.boxes=null;
-      }
+        },
+        reset(){
+          objects.length=0;
+          boxes && boxes.forEach(b=> b.reset());
+          boxes=null;
+        },
+        search(node){
+          //handle duplicates
+          const bin=new Map();
+          const out = [];
+          if(boxes){
+            _locate(node).forEach(i=>{
+              boxes[i].search(node).forEach(o=>{
+                if(!bin.has(o)){
+                  bin.set(o,null);
+                  out.push(o);
+                }
+              })
+            })
+          }
+          objects.forEach(o=>{
+            if(!bin.has(o)){
+              bin.set(o,null);
+              out.push(o);
+            }
+          });
+          //found all objects closeby
+          bin.clear();
+          return out;
+        }
+      };
     }
 
-    return {
-      quadtree(region,maxcount,maxdepth){
-        return new QuadTree(region.x1,region.y1,region.x2,region.y2,maxcount,maxdepth);
+    const _$={
+      /**
+       * @memberof module:mcfud/quadtree
+       * @param {object} region {left,right,top,bottom} the bounding region
+       * @param {number} maxCount maximum number of objects in each tree
+       * @param {number} maxDepth maximum depth of tree
+       * @return {QuadTree}
+       */
+      quadtree(region,maxCount=12,maxDepth=5){
+        const {left,right,top,bottom}=region;
+        return QuadTree(left,right,top,bottom,maxCount,maxDepth,0)
       }
     };
+
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"));
   }else{
-    global["io/czlab/mcfud/qtree"]=_module
+    gscope["io/czlab/mcfud/qtree"]=_module
   }
 
 })(this);
@@ -4044,57 +4767,113 @@
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Creates the module.
    */
   function _module(Core){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_}=Core;
-    const _N={};
-    //const PINF = 1000000;
+
     /**
-     * @public
+      * @module mcfud/negamax
+      */
+
+    /**
+     * @memberof module:mcfud/negamax
      * @class
+     * @property {any} lastBestMove
+     * @property {any} state
+     * @property {any} other
+     * @property {any} cur
      */
-    class FFrame{
-      constructor(){
+    class GFrame{
+      /**
+       * @param {any} cur
+       * @param {any} other
+       */
+      constructor(cur,other){
         this.lastBestMove=null;
         this.state= null;
-        this.other=0;
-        this.cur=0;
+        this.other=other;
+        this.cur=cur;
       }
-      clone(){
-        let f= new FFrame();
-        f.state=_.deepCopyArray(this.state);
+      /**Make a copy of this.
+       * @param {function} cp  able to make a copy of state
+       * @return {GFrame}
+       */
+      clone(cp){
+        const f= new GFrame();
+        f.state=cp(this.state);
         f.lastBestMove=this.lastBestMove;
         f.other=this.other;
         f.cur=this.cur;
         return f;
       }
     }
-    /**
-     * @public
+
+    /**Represents a game board.
+     * @memberof module:mcfud/negamax
      * @class
      */
     class GameBoard{
-      constructor(){
-      }
+      constructor(){}
+      /**Get the function that copies a game state.
+       * @return {function}
+       */
+      getStateCopier(){}
+      /**Get the first move.
+       * @param {GFrame} frame
+       * @return {any}
+       */
       getFirstMove(frame){}
+      /**Get the list of next possible moves.
+       * @param {GFrame} frame
+       * @return {any[]}
+       */
       getNextMoves(frame){}
+      /**Calculate the score.
+       * @param {GFrame} frame
+       * @return {number}
+       */
       evalScore(frame){}
+      /**Check if game is a draw.
+       * @param {GFrame} frame
+       * @return {boolean}
+       */
       isStalemate(frame){}
-      isOver(f){}
+      /**Check if game is over.
+       * @param {GFrame} frame
+       * @return {boolean}
+       */
+      isOver(frame){}
       //undoMove(frame, move){}
-      makeMove(f, move){}
+      /**Make a move.
+       * @param {GFrame} frame
+       * @param {any} move
+       */
+      makeMove(frame, move){}
+      /**Switch to the other player.
+       * @param {GFrame} frame
+       */
       switchPlayer(frame){}
-      takeFFrame(){}
+      /**Take a snapshot of current game state.
+       * @return {GFrame}
+       */
+      takeGFrame(){}
     }
-    /**Nega Min-Max algo.
-     * @private
-     * @function
+
+    /**Implements the NegaMax Min-Max algo.
+     * @see {@link https://github.com/Zulko/easyAI}
+     * @param {GameBoard} board
+     * @param {GFrame} game
+     * @param {number} maxDepth
+     * @param {number} depth
+     * @param {number} alpha
+     * @param {number} beta
+     * @return {number}
      */
     function _negaMax(board, game, maxDepth, depth, alpha, beta){
       if(depth === 0 || board.isOver(game)){
@@ -4103,7 +4882,6 @@
           score -= 0.01*depth*Math.abs(score)/score;
         return score;
       }
-
       let openMoves = board.getNextMoves(game),
           state=game,
           bestValue = -Infinity,
@@ -4113,9 +4891,8 @@
         game.lastBestMove = openMoves[0];
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
-        if(!board.undoMove){
-          game=state.clone();
-        }
+        if(!board.undoMove)
+          game=state.clone(board.getStateCopier());
         move = openMoves[i];
         //try a move
         board.makeMove(game, move);
@@ -4142,25 +4919,30 @@
       }
       return bestValue;
     }
-    /**
-     * Main method for nega-max algo.
-     * @public
-     * @function
-     */
-    _N.evalNegaMax=function(board){
-      let f= board.takeFFrame();
-      _negaMax(board, f, board.depth, board.depth, -Infinity, Infinity);
-      return f.lastBestMove;
+
+    const _$={
+      GFrame,
+      GameBoard,
+      /**Make a move on the game-board using negamax algo.
+       * @memberof module:mcfud/negamax
+       * @param {GameBoard} board
+       * @return {any} next best move
+       */
+      evalNegaMax(board){
+        const f= board.takeGFrame();
+        _negaMax(board, f, board.depth, board.depth, -Infinity, Infinity);
+        return f.lastBestMove;
+      }
     };
 
-    return _.inject(_N,{ FFrame: FFrame, GameBoard: GameBoard });
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/negamax"]=_module
+    gscope["io/czlab/mcfud/negamax"]=_module
   }
 
 })(this);
@@ -4180,71 +4962,141 @@
 //
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**
-   * @private
-   * @function
+  /**Creates the module.
    */
-  function _module(){
-    function _f(s){
-      return s.startsWith("P")
+  function _module(Core,Colors){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!Colors){
+      throw "Fatal: No Colors!"
     }
+    const {is,u:_}=Core;
+
+    /** @module mcfud/test */
+
+    /**
+     * @typedef {object} TestSuiteObject
+     * @property {function} ensure(name,func)
+     * @property {function} eerror(name,func)
+     * @property {function} begin(set-up)
+     * @property {function} end(tear-down)
+     */
+
+    /**
+     * @typedef {object} TestSuiteReport
+     * @property {string} title
+     * @property {string} date
+     * @property {number} total
+     * @property {number} duration
+     * @property {any[]} passed
+     * @property {any[]} skippd
+     * @property {any[]} failed
+     */
+
+    /**Checks for non-failure. */
+    function _f(s){ return !s.startsWith("F") }
+
+    /**Make a string. */
     function rstr(len,ch){
       let out="";
       while(len>0){
-        out += ch;
-        --len;
-      }
+        out += ch; --len }
       return out;
     }
+
+    /**Check if valid exception was thrown. */
     function ex_thrown(expected,e){
       let out=t_bad;
       if(e){
         if(is.str(expected)){
-          out= expected==="any" || expected===e ? t_ok : t_bad;
-        }else if(expected instanceof e){
-          out=t_ok;
+          out= expected==="any" || expected===e ? t_ok : t_bad
+        }else if(expected instanceof e){ out=t_ok }
+      }
+      return out;
+    }
+
+    /**Run the given form and check its result. */
+    function ensure_eq(env,name,form){
+      return new Promise((resolve,reject)=>{
+        let out;
+        try{
+          out=form.call(env);
+          if(out instanceof Promise){
+            out.then(function(res){
+              resolve(`${res?t_ok:t_bad}: ${name}`);
+            })
+          }else{
+            out= out ? (out===709394?t_skip:t_ok) : t_bad;
+            resolve(`${out}: ${name}`);
+          }
+        }catch(e){
+          out= t_bad;
+          resolve(`${out}: ${name}`);
         }
-      }
-      return out;
+      })
     }
-    function ensure_eq(env,form,expected){
-      let out;
-      try{
-        out = form.call(env)===expected ? t_ok : t_bad;
-      }catch(e){
-        out= t_bad;
-      }
-      return out;
+
+    /** Run the given form and check if exception was thrown. */
+    function ensure_ex(env,name,form,error){
+      return new Promise((resolve,reject)=>{
+        let out;
+        try{
+          out=form.call(env);
+          out=out===709394?t_ok:ex_thrown(error,null);
+        }catch(e){
+          out=ex_thrown(error,e) }
+        resolve(`${out}: ${name}`);
+      })
     }
-    function ensure_ex(env,form,error){
-      let out;
-      try{
-        form.call(env);
-        out=ex_thrown(error,null);
-      }catch(e){
-        out=ex_thrown(error,e);
-      }
-      return out;
-    }
-    const t_bad="Failed";
-    const t_ok="Passed";
-    const _T={
+
+    /**
+     * @private
+     * @var {string}
+     */
+    const [t_skip,t_bad,t_ok]=["Skippd", "Failed", "Passed"];
+
+    const _$={
+      /**Print report to stdout.
+       * @memberof module:mcfud/test
+       * @param {TestSuiteReport} r
+       */
+      prn(r){
+        const ok= r.passed.length;
+        const sum=r.total;
+        const perc=ok/sum*100;
+        console.log(Colors.white(rstr(78,"+")));
+        console.log(Colors.white.bold(r.title));
+        console.log(Colors.white(r.date));
+        console.log(Colors.white(rstr(78,"+")));
+        if(r.passed.length>0)
+          console.log(Colors.green(r.passed.join("\n")));
+        if(r.skippd.length>0)
+          console.log(Colors.grey(r.skippd.join("\n")));
+        if(r.failed.length>0)
+          console.log(Colors.magenta(r.failed.join("\n")));
+        console.log(Colors.white(rstr(78,"=")));
+        console.log(Colors.yellow(["Passed: ",ok,"/",sum," [",perc|0,"%]"].join("")));
+        console.log(Colors.magenta(`Failed: ${sum-ok}`));
+        console.log(Colors.white(["cpu-time: ",_.prettyMillis(r.duration)].join("")));
+        console.log(Colors.white(rstr(78,"=")));
+      },
+      /**Define a test suite.
+       * @memberof module:mcfud/test
+       * @param {string} name
+       * @return {TestSuiteObject}
+       */
       deftest(name){
-        let iniz=null;
-        let finz=null;
-        let arr=null;
-        let env=null;
-        let x={
-          ensure_eq(n,w,f){
-            arr.push([n,w,f]);
+        let [iniz,finz,arr,env]= [null,null,null,null];
+        const x={
+          ensure(n,f){
+            arr.push([1,n,f]);
             return x;
           },
-          ensure_ex(n,f){
-            arr.push([n,f]);
+          eerror(n,f){
+            arr.push([911,n,f]);
             return x;
           },
           begin(f){
@@ -4255,59 +5107,79 @@
           },
           end(f){
             finz=f;
-            return function(){
-              iniz && iniz(env);
-              let out=[];
-              for(let r,a,i=0;i<arr.length;++i){
-                a=arr[i];
-                r="";
-                switch(a.length){
-                  case 3: r=ensure_eq(env,a[2],a[1]); break;
-                  case 2: r=ensure_ex(env,a[1],"any"); break;
+            let F=function(){
+              return new Promise((RR,j)=>{
+                iniz && iniz(env);
+                let _prev,out=[];
+                for(let p,a,i=0;i<arr.length;++i){
+                  a=arr[i];
+                  switch(a[0]){
+                    case 1: p=ensure_eq(env,a[1],a[2]); break;
+                    case 911: p=ensure_ex(env,a[1],a[2],"any"); break; }
+                  if(!_prev){_prev=p}else{
+                    _prev= _prev.then(function(msg){
+                      out.push(msg);
+                      return p;
+                    });
+                  }
                 }
-                if(r)
-                  out.push(`${r}: ${a[0]}`);
-              }
-              arr.length=0;
-              finz && finz(env);
-              return out;
-            }
+                if(_prev){
+                  _prev.then(function(msg){
+                    out.push(msg);
+                    arr.length=0;
+                    finz && finz(env);
+                    RR(out);
+                  });
+                }
+              });
+            };
+            return (F.title=name) && F;
           }
         };
         return x;
       },
-      runtest(title,test){
+      /** @ignore */
+      _run(test){
+        return new Promise((resolve,reject)=>{
+          test().then(function(arr){
+            resolve(arr);
+          });
+        })
+      },
+      /**Execute this test suite.
+       * @memberof module:mcfud/test
+       * @param {function} test
+       * @param {string} title
+       * @return {Promise}
+       */
+      runtest(test,title){
         const mark= Date.now();
-        const res=test();
-        const mark2= Date.now();
-        const sum= res.length;
-        const good= res.filter(_f);
-        const ok=good.length;
-        const perc= (ok/sum)*100;
-        const diff=mark2-mark;
-        const out= [
-          rstr(78,"+"),
-          title,
-          new Date().toString(),
-          rstr(78,"+"),
-          res.join("\n"),
-          rstr(78,"="),
-          ["Passed: ",ok,"/",sum," [",perc|0,"%]"].join(""),
-          `Failed: ${sum-ok}`,
-          ["cpu-time: ",diff,"ms"].join("")].join("\n");
-        return out;
+        return this._run(test).then(function(res){
+          const mark2= Date.now();
+          const out={
+            title: title||test.title,
+            date: new Date().toString(),
+            total: res.length,
+            duration: mark2-mark,
+            passed: res.filter(s=>s[0]==="P"),
+            skippd: res.filter(s=>s[0]==="S"),
+            failed: res.filter(s=>s[0]==="F")
+          };
+          return new Promise((resolve)=>{
+            resolve(out);
+          })
+        })
       }
     };
-    return _T;
+
+    return _$;
   }
-
-
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"), require("colors/safe"))
   }else{
-    global["io/czlab/mcfud/test"]= _module
+    gscope["io/czlab/mcfud/test"]= _module
   }
 
 })(this);

@@ -1,68 +1,85 @@
-(function(window,undefiend){
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
+;(function(window){
+
   "use strict";
-  const MojoH5=window.MojoH5;
+
   function scenes(Mojo){
-const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
+    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
 
     _Z.defScene("level1",{
-      setup:function(){
-        let box = this.box= _S.rectangle(64, 64, "seaGreen", "hotPink", 4);
-        box.anchor.set(0.5, 0.5);
+      setup(){
+        let box = this.box= _S.rectangle(64, 64, "green", "red", 4);
         this.insert(box);
-        _S.putCenter(this,box);
+        _S.pinCenter(this,box);
 
-        //Create a cat sprite and center its rotation pivot point
         let cat = this.cat= _S.sprite("cat.png");
-        cat.anchor.set(0.5, 0.5);
         this.insert(cat);
-        //Position the cat to the
-        //left of the box, with an additional x offset of -16 pixels
-        _S.putLeft(box,cat, -16);
+        _S.pinLeft(box,cat);
 
         let tiger = this.tiger= _S.sprite("tiger.png");
-        tiger.anchor.set(0.5, 0.5);
         this.insert(tiger);
-        _S.putRight(box,tiger);
+        _S.pinRight(box,tiger);
 
         let hedgehog = this.hedgehog=  _S.sprite("hedgehog.png");
-        hedgehog.anchor.set(0.5, 0.5);
         this.insert(hedgehog);
-        _S.putBottom(box,hedgehog);
+        _S.pinTop(box,hedgehog);
 
-        let rocket = this.rocket= _S.sprite("images/rocket.png");
-        rocket.anchor.set(0.5, 0.5);
+        let rocket = this.rocket= _S.sprite("rocket.png");
         this.insert(rocket);
+        _S.pinBottom(box,rocket);
 
-        //Position the rocket on top of the box with a y offset of -20
-        //pixels
-        //_S.putTop(box,rocket, 0, -20);
-        _S.putBottom(hedgehog,rocket);
-
-        //Create a star and position it in the center of the box
-        let star = this.star= _S.sprite("images/star.png");
-        star.anchor.set(0.5, 0.5);
+        let star = this.star= _S.sprite("star.png");
+        star.alpha=0.5;
         this.insert(star);
-        _S.putCenter(box,star);
+        _S.pinCenter(box,star);
+
+        let b1 = _S.rectangle(10, 10, "white");
+        box.addChild(b1);
+        _S.pinRight(box,b1,-b1.width);
+        b1 = _S.rectangle(10, 10, "white");
+        box.addChild(b1);
+        _S.pinLeft(box,b1,-b1.width);
+        b1 = _S.rectangle(10, 10, "white");
+        box.addChild(b1);
+        _S.pinTop(box,b1,-b1.height);
+        b1 = _S.rectangle(10, 10, "white");
+        box.addChild(b1);
+        _S.pinBottom(box,b1,-b1.height);
+        b1 = _S.rectangle(10, 10, "white");
+        box.addChild(b1);
+        _S.pinCenter(box,b1);
+
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate:function(){
-        this.cat.rotation -= 0.01;
-        this.tiger.rotation -= 0.01;
-        this.hedgehog.rotation += 0.01;
-        this.rocket.rotation += 0.01;
-        this.star.rotation += 0.01;
       }
     });
   }
-  function setup(Mojo){
-    scenes(Mojo);
-    Mojo.Scenes.runScene("level1");
-  }
-  MojoH5.Config={
-    assetFiles: [ "rocket.png", "images/animals.json", "star.png" ],
-    arena: {width:256, height:256},
-    scaleToWindow:true,
-    start: setup
-  };
+
+  window.addEventListener("load",()=>{
+    MojoH5({
+      assetFiles: [ "rocket.png", "images/animals.json", "star.png" ],
+      arena: {width:256, height:256},
+      scaleToWindow:true,
+      start(Mojo){
+        scenes(Mojo);
+        Mojo.Scenes.runScene("level1");
+      }
+    })
+  });
+
 })(this);
 

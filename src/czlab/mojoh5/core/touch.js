@@ -13,27 +13,27 @@
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Create the module.
    */
   function _module(Mojo){
-    const {Sprites,u:_}=Mojo;
-    const P8=Math.PI/8;
+    const {is,ute:_}=Mojo,
+          P8=Math.PI/8;
+
     /**
-     * @private
-     * @function
+     * @module mojoh5/Touch
      */
+
+    /** @ignore */
     function _calcPower(s,cx,cy){
       const a= +cx;
       const b= +cy;
       return Math.min(1, Math.sqrt(a*a + b*b)/s.m5.outerRadius)
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _calcDir(cx,cy){
       const rad= Math.atan2(+cy, +cx);
       let ret= Mojo.TOP_RIGHT;
@@ -60,10 +60,8 @@
       }
       return ret
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _bindEvents(s){
       function onDragStart(e){
         let ct=e.changedTouches;
@@ -77,20 +75,20 @@
           s.m5.startY= e.pageY - t.offsetTop;
           s.m5.touchId=0;
         }
-        s.m5.dragging = true;
+        s.m5.drag= true;
         s.m5.inner.alpha = 1;
         s.m5.onStart();
       }
       function onDragEnd(e){
-        if(s.m5.dragging){
+        if(s.m5.drag){
           s.m5.inner.alpha = s.m5.innerAlphaStandby;
           s.m5.inner.position.set(0,0);
-          s.m5.dragging = false;
+          s.m5.drag= false;
           s.m5.onEnd();
         }
       }
       function onDragMove(e){
-        if(!s.m5.dragging){return}
+        if(!s.m5.drag){return}
         let ct=e.changedTouches;
         let t= e.target;
         let cx=null;
@@ -208,7 +206,13 @@
                   ["touchmove", Mojo.canvas, onDragMove],
                   ["touchstart", Mojo.canvas, onDragStart]]);
     }
-    const _T={
+
+    const _$={
+      /**Create the joystick.
+       * @memberof module:mojoh5/Touch
+       * @param {object} options
+       * @return {PIXIContainer} the stick
+       */
       joystick(options){
         let mo= _.inject({outerScaleX:1,
                           outerScaleY:1,
@@ -220,8 +224,8 @@
                           onStart(){},
                           onEnd(){},
                           onChange(dir,angle,power){}}, options);
-        let outer= mo.outer= Sprites.sprite("joystick.png");
-        let inner= mo.inner= Sprites.sprite("joystick-handle.png");
+        let outer= mo.outer= Mojo.Sprites.sprite("joystick.png");
+        let inner= mo.inner= Mojo.Sprites.sprite("joystick-handle.png");
         let stick=new PIXI.Container();
         stick.m5=mo;
         outer.alpha = 0.5;
@@ -239,11 +243,13 @@
       }
     };
 
-    return (Mojo.Touch=_T);
+    return (Mojo.Touch=_$);
   }
 
-  if(typeof module === "object" && module.exports){
-    module.exports={msg:"not supported in node"}
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module==="object" && module.exports){
+    throw "Fatal: browser only"
   }else{
     gscope["io/czlab/mojoh5/Touch"]=function(M){
       return M.Touch ? M.Touch : _module(M)

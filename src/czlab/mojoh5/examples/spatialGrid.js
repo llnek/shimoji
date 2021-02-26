@@ -1,37 +1,43 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
   "use strict";
 
   function scenes(Mojo){
-    const _=Mojo.u;
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
+    const {ute:_,is,EventBus}=Mojo;
 
     _Z.defScene("level1",{
-      setup:function(){
-
+      setup(){
         let marbles = this.marbles= _S.grid(
-
           5, 5, 128, 128,
           true, 0, 0,
-
-          //A function that describes how to make each marble in the grid
-          () => {
-            let frames = _S.animation("marbles.png", 32, 32);
-            let marble = _S.sprite(frames);
-            marble.mojoh5.showFrame(_.randInt2(0, 5));
-            _S.circular(marble, true);
+          ()=>{
+            let marble = _S.animation("marbles.png", 32, 32);
+            marble.m5.showFrame(_.randInt2(0, 5));
+            marble.m5.circular=true;
             let sizes = [8, 12, 16, 20, 24, 28, 32];
-            _S.radius(marble, sizes[_.randInt2(0, 6)]/2);
-            marble.mojoh5.vel[0] = _.randInt2(-400, 400);
-            marble.mojoh5.vel[1] = _.randInt2(-400, 400);
-            marble.mojoh5.friction[0] = 0.99;
-            marble.mojoh5.friction[1] = 0.99;
-            marble.mojoh5.mass = 0.75 + (_S.radius(marble)/32);
-            //marble.anchor.set(0.5);
+            _S.setSize(marble, sizes[_.randInt2(0, 6)]);
+            marble.m5.vel[0] = _.randInt2(-400, 400);
+            marble.m5.vel[1] = _.randInt2(-400, 400);
+            marble.m5.friction[0] = 0.99;
+            marble.m5.friction[1] = 0.99;
+            marble.m5.mass = 0.75 + marble.width/2/32;
+            marble.anchor.set(0.5);
             return marble;
-          },
-
-          //Run any extra code after each peg is made, if you want to
-          () => console.log("extra!")
+          }
         );
         this.insert(marbles);
 
@@ -44,53 +50,53 @@
         //A variable to store the captured marble
         this.capturedMarble = null;
 
-        Mojo.EventBus.sub(["post.update",this],"postUpdate");
+        EventBus.sub(["post.update",this],"postUpdate");
       },
-      postUpdate:function(dt){
+      postUpdate(dt){
         let self=this;
         //If a marble has been captured, draw the
         //sling (the yellow line) between the pointer and
         //the center of the captured marble
         if(this.capturedMarble){
-          let c=_S.centerXY(this.capturedMarble,true);
+          let c=_S.centerXY(this.capturedMarble);
           this.sling.visible = true;
-          this.sling.mojoh5.ptA(c[0],c[1]);
-          this.sling.mojoh5.ptB(Mojo.pointer.x,Mojo.pointer.y);
+          this.sling.m5.ptA(c[0],c[1]);
+          this.sling.m5.ptB(Mojo.mouse.x,Mojo.mouse.y);
         }
         //Shoot the marble if the pointer has been released
-        if (Mojo.pointer.isUp){
+        if (Mojo.mouse.isUp){
           this.sling.visible = false;
           if(this.capturedMarble){
             //Find out how long the sling is
-            this.sling.mojoh5.length = _S.distance(this.capturedMarble, Mojo.pointer);
+            this.sling.m5.length = _S.distance(this.capturedMarble, Mojo.mouse);
             //Get the angle between the center of the marble and the pointer
-            this.sling.angle = _S.angle(Mojo.pointer, this.capturedMarble);
+            this.sling.angle = _S.angle(Mojo.mouse, this.capturedMarble);
             //Shoot the marble away from the pointer with a velocity
             //proportional to the sling's length
-            this.capturedMarble.mojoh5.vel[0] = 64 * Math.cos(this.sling.angle) * this.sling.mojoh5.length / 5;
-            this.capturedMarble.mojoh5.vel[1] = 64 * Math.sin(this.sling.angle) * this.sling.mojoh5.length / 5;
+            this.capturedMarble.m5.vel[0] = 64 * Math.cos(this.sling.angle) * this.sling.m5.length / 5;
+            this.capturedMarble.m5.vel[1] = 64 * Math.sin(this.sling.angle) * this.sling.m5.length / 5;
             //Release the captured marble
             this.capturedMarble = null;
           }
         }
         this.marbles.children.forEach(marble => {
           //Check for a collision with the pointer and marble
-          if(Mojo.pointer.isDown && !this.capturedMarble){
-            if(_2d.hitTestPointXY(Mojo.pointer.x,Mojo.pointer.y, marble)){
+          if(Mojo.mouse.isDown && !this.capturedMarble){
+            if(_2d.hitTestPointXY(Mojo.mouse.x,Mojo.mouse.y, marble)){
               //If there's a collision, capture the marble
               this.capturedMarble = marble;
-              this.capturedMarble.mojoh5.vel[0] = 0;
-              this.capturedMarble.mojoh5.vel[1] = 0;
+              this.capturedMarble.m5.vel[0] = 0;
+              this.capturedMarble.m5.vel[1] = 0;
             }
           }
-          marble.mojoh5.vel[0] *= marble.mojoh5.friction[0];
-          marble.mojoh5.vel[1] *= marble.mojoh5.friction[1];
+          marble.m5.vel[0] *= marble.m5.friction[0];
+          marble.m5.vel[1] *= marble.m5.friction[1];
           //Move the marble by applying the new calculated velocity
           //to the marble's x and y position
           _S.move(marble,dt);
           //Contain the marble inside the stage and make it bounce
           //off the edges
-          _2d.contain(marble, self, true);
+          _2d.contain(marble, self);
         });
         //Add the marbles to the spatial grid
         //this.marbles.children.forEach(marble => _T.getIndex(marble));
@@ -160,9 +166,9 @@
                 //sprite in the main loop, then check for a collision
                 //between those sprites
                 if(surroundingSprite !== sprite){
-                  _2d.collide(sprite, surroundingSprite,true);
-                  _2d.contain(sprite, self, true);
-                  _2d.contain(surroundingSprite, self, true);
+                  _2d.collide(sprite, surroundingSprite);
+                  _2d.contain(sprite, self);
+                  _2d.contain(surroundingSprite, self);
                 }
               }
             }
@@ -176,18 +182,15 @@
     });
   }
 
-  function setup(Mojo){
-    scenes(Mojo);
-    Mojo.Scenes.runScene("level1");
-  }
-
   window.addEventListener("load",()=>{
     MojoH5({
-    assetFiles: ["marbles.png"],
-    arena: {width:512, height:512},
-    scaleToWindow:true,
-    start: setup,
-    backgroundColor: 0
+      assetFiles: ["marbles.png"],
+      arena: {width:512, height:512},
+      scaleToWindow:true,
+      start(Mojo){
+        scenes(Mojo);
+        Mojo.Scenes.runScene("level1");
+      }
     })
   });
 

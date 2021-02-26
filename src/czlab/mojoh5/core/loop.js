@@ -13,54 +13,51 @@
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope){
+
   "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  if(typeof module === "object" && module.exports){
-    throw "Fatal: requires browser."
-  }
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  let _ModuleInited;
-  /**
-   * @private
-   * @function
+
+  /**Extend Mojo with game loop capabilities.
    */
   function _module(Mojo,_bgTasks){
+
     const {u:_, is}=gscope["io/czlab/mcfud/core"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    let _startTime = Date.now();
-    let _paused = false;
+
+    let _paused = false,
+        _startTime = Date.now();
+
     //------------------------------------------------------------------------
-    /**
-     * @private
-     * @function
+    /**Code to run per tick.
      */
     function _update(dt){
       //process any backgorund tasks
       _bgTasks.forEach(m=> m.update && m.update(dt));
-      //game content stuff
+      //update all scenes
       if(!_paused)
         Mojo.stageCS(s=> s.update && s.update(dt));
-      //draw
+      //render drawings
       Mojo.ctx.render(Mojo.stage);
     }
+
     //------------------------------------------------------------------------
     //register these background tasks
     _.conj(_bgTasks, Mojo.FX, Mojo.Sprites, Mojo.Input);
+
     /**1 sec div 60
      * @private
      * @var {number}
      */
     const _DT60=1/60;
+
     /**1 sec div 15
      * @private
      * @var {number}
      */
     const _DT15=1/15;
-    /**
-     * @private
-     * @function
-     */
-    function _raf(cb){ gscope.requestAnimationFrame(cb) }
+
+    /** @ignore */
+    function _raf(cb){
+      gscope.requestAnimationFrame(cb) }
+
     //------------------------------------------------------------------------
     //extensions
     _.inject(Mojo,{
@@ -87,17 +84,24 @@
       }
     });
 
-    _ModuleInited=true;
     return Mojo;
   }
 
-  if(typeof module === "object" && module.exports){
-    module.exports={msg:"not supported in node"}
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  let _ModuleInited;
+  //exports
+  if(typeof module==="object" && module.exports){
+    throw "Fatal: browser only."
   }else{
     gscope["io/czlab/mojoh5/GameLoop"]=function(M){
-      return _ModuleInited ? M : _module(M,[])
+      if(!_ModuleInited){
+        _ModuleInited=true;
+        _module(M,[]);
+      }
+      return M;
     }
   }
+
 })(this);
 
 

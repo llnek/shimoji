@@ -1,68 +1,67 @@
-(function(window,undefined){
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
+;(function(window){
+
   "use strict";
-  const MojoH5=window.MojoH5;
 
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
     _Z.defScene("level1",{
-      setup:function(){
+      setup(){
         let blue = this.blue= _S.rectangle(64, 64, "blue");
-        let sz=_S.halfSize(blue);
         this.insert(blue);
-        blue.pivot.set(0.5, 0.5);
-        _S.putCenter(this,blue, sz.x+ 16, sz.y+ 16);
-        _I.makeDraggable(blue);
+        blue.anchor.set(0.5, 0.5);
+        blue.angle=60;
+        _S.pinCenter(this,blue);
+        _I.makeDrag(blue);
 
-        let red = this.red= _S.rectangle(64, 64, "red");
-        sz=_S.halfSize(red);
+        let red = this.red= _S.rectangle(32, 32, "red");
         this.insert(red);
-        red.pivot.set(0.5, 0.5);
-        _S.putCenter(this,red, -sz.x-16, -sz.y-16);
-        _I.makeDraggable(red);
-        //Add some text
-        this.message = _S.text("Drag the circles...",{fontFamily:"sans-serif",fontSize:16,fill:"black"},10,10);
+        red.anchor.set(0.5, 0.5);
+        //red.rotation=15;
+        _S.pinTop(this,red,-60);
+        _I.makeDrag(red);
+
+        this.message = _S.text("Drag the boxes...",{fontFamily:"sans-serif",fontSize:16,fill:"white"},10,10);
         this.insert(this.message);
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
-      postUpdate:function(){
-        /*
-        Use the universal `hit` method to prevent two rectangles from
-        overlapping. It returns a `collision` variable that tells you the side on which
-        the first rectangle touched the second rectangle. (The `collision`
-        variable will be `undefined` if there's no collision.). The second
-        sprite in the argument will block the movement of the first sprite.
-        The second sprite in the argument can push the first sprite.
-        //`hit` arguments:
-        //spriteOne, spriteTwo, reactToCollision?, bounceApart?
-        */
-        let collision = _2d.hit(this.blue, this.red, true, false);
-        /*
-        You can alternatively use the lower-level `rectangleCollision`
-        method
-        `rectangleCollision` arguments:
-        sprite1, sprite2, bounce?, useGlobalCoordinates?
-        (the third and fourth arguments default to `true`);
-        */
-        //let collision = g.rectangleCollision(blue, red);
-
-        //Change the message if there's a collision between the rectangles
-        if(collision) {
-          this.message.mojoh5.content( "Collision on: " + collision);
-        } else {
-          this.message.mojoh5.content("Drag the squares...");
+      postUpdate(){
+        let s,col= _2d.collide(this.blue, this.red, true);
+        if(col){
+          s=`Collided on: ${_2d.dbgShowCol(col)}`;
+        }else{
+          s= `Drag the squares...`;
         }
+        this.message.text=s;
       }
+
     });
   }
-  function setup(Mojo){
-    scenes(Mojo);
-    Mojo.Scenes.runScene("level1");
-  }
-  MojoH5.Config={
-    arena: {width:256, height:256},
-    scaleToWindow: true,
-    start: setup
-  };
+
+  window.addEventListener("load",()=>{
+    MojoH5({
+      arena: {width:256, height:256},
+      scaleToWindow: true,
+      start(Mojo){
+        scenes(Mojo);
+        Mojo.Scenes.runScene("level1");
+      }
+    })
+  });
+
 })(this);
 
 
