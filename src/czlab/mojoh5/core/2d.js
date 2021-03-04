@@ -90,12 +90,12 @@
               e.x += e.m5.vel[0] * dt;
               e.y += e.m5.vel[1] * dt;
               delta -= dt;
-              e.m5.collide && e.m5.collide();
+              e.parent.collideAB(e);
             }
           }else{
             e.x += e.m5.vel[0];
             e.y += e.m5.vel[1];
-            e.m5.collide && e.m5.collide();
+            e.parent.collideAB(e);
           }
         }
       };
@@ -360,12 +360,10 @@
        * @memberof module:mojoh5/2d
        * @param {Sprite} a
        * @param {Sprite} b
-       * @pqram {boolean} [react]
-       * @param {function} extra
-       * @return {boolean}
+       * @return {Manifold}
        */
-      hitTest(a,b,react,extra){
-        return _hitTestAB(a,b,react,extra)
+      hitTest(a,b){
+        return _hitAB(a,b)
       },
       /**Use to contain a sprite with `x` and
        * `y` properties inside a rectangular area.

@@ -72,16 +72,22 @@
       return renderTexture;
     }
 
-    //ensure PIXI doesnt have `m5` property
-    (function(g){
+    //ensure PIXI doesnt have special properties
+    (function(c,g,s){
       g.clear();
       g.beginFill(0);
       g.drawCircle(0, 0, 4);
       g.endFill();
-      _.assertNot(_.has(new PIXI.Sprite(_genTexture(g)), "m5"), "PIXI Sprite has m5 property!");
-      _.assertNot(_.has(new PIXI.Container(), "m5"), "PIXI Container has m5 property!");
-      _.assertNot(_.has(g, "m5"), "PIXI Graphics has m5 property!");
-    })(new PIXI.Graphics());
+      s=new PIXI.Sprite(_genTexture(g));
+      ["m5","tiled",
+       "collideAB",
+       "getGuid","getBBox",
+       "getSpatial","getSpatialGrid"].forEach(n=>{
+        [[c,"Container"],[g,"Graphics"],[s,"Sprite"]].forEach(x=>{
+          _.assertNot(_.has(x[0],n),`PIXI ${x[1]} has ${n} property!`)
+        })
+      });
+    })(new PIXI.Container(),new PIXI.Graphics());
 
     /**
      * @module mojoh5/Sprites
@@ -363,6 +369,8 @@
             _uuid= _.nextId(),
             _angVel= 0,
             _speed=0,
+            _cmask=0,
+            _type=0,
             _mass=1,
             _invMass=1,
             _sensor=false,
@@ -375,9 +383,13 @@
             _acc= _V.vec(),
             _gravity= _V.vec(),
             _friction= _V.vec();
-        _.inject(s.m5, {contacts:[]},
+        _.inject(s.m5, {sgrid: {}, contacts:[]},
                        {get uuid() {return _uuid},
                         set uuid(n){_uuid=n},
+                        get type() {return _type},
+                        set type(x){_type=x},
+                        get cmask(){return _cmask},
+                        set cmask(m){_cmask=m},
                         get speed() {return _speed},
                         set speed(s){_speed=s},
                         get static() {return _static},
@@ -403,8 +415,11 @@
                         set drag(b){_drag=b},
                         get dead(){ return _dead },
                         set dead(x){ _dead=true },
-                        //resize(px,py,pw,ph){self.resize(s,px,py,pw,ph)},
+                        resize(px,py,pw,ph){self.resize(s,px,py,pw,ph)},
                         getContactPoints(){ return _corners(_sa(s.anchor),s.width,s.height) }});
+        s.getBBox=function(){ return self.boundingBox(s) };
+        s.getGuid=function(){ return s.m5.uuid };
+        s.getSpatial=function(){ return s.m5.sgrid; }
         return s;
       },
       /**Define a mixin.

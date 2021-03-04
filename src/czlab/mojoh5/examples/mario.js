@@ -23,8 +23,11 @@
     let CZ={};
     let _score=0;
 
-    CZ.Collectable=function(world,ts,ps){
+    CZ.Collectable=function(world,ts,ps,os){
       let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
+      s.x=os.x;
+      s.y=os.y;
+      /*
       let mo=s.m5;
       let signal=[["sensor",s],"onSensor",mo];
       mo.uuid= mo.uuid+"_"+ps["sprite"];
@@ -40,12 +43,16 @@
         }
       };
       _E.sub.apply(_E,signal);
-      world.addChild(s);
+      */
+      //world.addChild(s);
       return s;
     };
 
-    CZ.Door=function(world,ts,ps){
+    CZ.Door=function(world,ts,ps,os){
       let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
+      s.x=os.x;
+      s.y=os.y;
+      /*
       let mo=s.m5;
       let signal=[["sensor",s],"onSensor",mo];
       s.x=ps.x;
@@ -59,13 +66,17 @@
         // Mark the door object on the player.
         //colObj.p.door = this;
       };
-      world.addChild(s);
       _E.sub.apply(_E,signal);
+      */
+      //world.addChild(s);
       return s;
     };
 
-    CZ.Enemy=function(world,ts,ps){
+    CZ.Enemy=function(world,ts,ps,os){
       let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
+      s.x=os.x;
+      s.y=os.y;
+      /*
       let mo=s.m5;
       let wall= _T.getTileLayer(world,"Collision");
       mo.uuid= mo.uuid+"_"+ps["sprite"];
@@ -111,22 +122,19 @@
         }
       };
       signals.forEach(s=>_E.sub.apply(_E,s));
-      world.addChild(s);
+      */
+      //world.addChild(s);
       return s;
     };
+    CZ.Snail=CZ.Slime=CZ.Fly=CZ.Enemy;
 
-    CZ.Player=function(world,ts,ps){
+    CZ.Player=function(world,ts,ps,os){
       let PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
       let p=_S.sprite(_S.frames(ts.image, ts.tilewidth,ts.tileheight));
-      let wall=_T.getTileLayer(world,"Collision");
-      let scene=world.parent;
-      let mo=p.m5;
-      scene.player=p;
-      p.x=ps.x-210;
-      p.y=ps.y-72;
       let _mode=null;
-      world.addChild(p);
-      p.anchor.set(0.5);
+      let mo=p.m5;
+      p.x=os.x;
+      p.y=os.y;
       p.m5.gravity[1]=500;
       p.m5.strength= 100;
       p.m5.speed= 300;
@@ -135,6 +143,7 @@
       p.m5.showFrame(1);
       p.platformer.jumpSpeed= -400;
       p.m5.direction= Mojo.RIGHT;
+
       let leftArrow = _I.keybd(_I.keyLEFT, ()=>{
         p.scale.x = -1;
         if(_mode===null)
@@ -168,9 +177,9 @@
         _mode=null;
       });
 
-      let signals=[[["bump.top",p],"breakTile"],
-                   [["sensor.tile",p],"checkLadder"],
-                   [["enemy.hit",p],"enemyHit"],
+      let signals=[//[["bump.top",p],"breakTile"],
+                   //[["sensor.tile",p],"checkLadder"],
+                   //[["enemy.hit",p],"enemyHit"],
                    [["jump",p]],
                    [["jumped",p]],
                    [["down",Mojo.input],"checkDoor",p]];
@@ -178,6 +187,7 @@
         return _mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
                                          : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
       };
+
       p.jumped=function(col){ mo.playedJump = false; };
       p.checkDoor=function(){ mo.checkDoor = true; };
       p.resetLevel=function(){ };
@@ -187,6 +197,39 @@
           mo.playedJump = true;
         }
       };
+
+      p.m5.collide=function(){
+        return;
+        for(let t,w,i=0;i<wall.children.length;++i){
+          w=wall.children[i];
+          t=w.tiled;
+          if(t.ts.name=="Tiles"){
+            if(t.id===81 || t.id===69 || t.id===40 || t.id===52)
+              continue;
+          }
+          _2d.hit(p,w);
+        }
+      };
+
+      p.m5.step=function(dt){
+        p["2d"].motion(dt);
+        p["platformer"].motion(dt);
+        if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
+          //if(_.feq0(p.m5.vel[0]) && _.feq0(p.m5.vel[1]))
+          if(!_I.keyDown(_I.keyDOWN))
+            p.m5.showFrame(1);
+        }
+      };
+
+      /*
+      let wall=_T.getTileLayer(world,"Collision");
+      let scene=world.parent;
+      let mo=p.m5;
+      scene.player=p;
+      p.x=ps.x-210;
+      p.y=ps.y-72;
+      world.addChild(p);
+
       p.checkLadder=function(col){
         if(col.B.tiled.ladder){
           mo.onLadder = true;
@@ -220,24 +263,11 @@
         //a.enact((this.p.vx !== 0 ? "walk_" : "stand_") + Mojo.dirToStr(this.p.direction));
       };
       p.breakTile=function(col){
-        /*
         if(_.inst(Mojo.TileLayer,col.obj)) {
           if(col.tile == 24) { col.obj.setTile(col.tileX,col.tileY, 36); }
           else if(col.tile == 36) { col.obj.setTile(col.tileX,col.tileY, 24); }
         }
-        */
         Mojo.sound("coin.mp3").play();
-      };
-      p.m5.collide=function(){
-        for(let t,w,i=0;i<wall.children.length;++i){
-          w=wall.children[i];
-          t=w.tiled;
-          if(t.ts.name=="Tiles"){
-            if(t.id===81 || t.id===69 || t.id===40 || t.id===52)
-              continue;
-          }
-          _2d.hit(p,w);
-        }
       };
       p.m5.step=function(dt){
         p["2d"].motion(dt);
@@ -334,9 +364,11 @@
           //p.resetLevel();
         }
       };
+    */
       signals.forEach(s=>_E.sub.apply(_E,s));
       return p;
     }
+
     _Z.defScene("hud",{
       setup(){
         let container = this.insert(new Mojo.UI.Container({
@@ -352,32 +384,23 @@
 
     _Z.defScene("level1",{
       setup(){
-        let world= this.world= _T.tiledWorld("mario.json");
+        let self=this,
+            old=CZ.Player,
+            F=function(...args){
+              let p=old(...args);
+              return self.player=p;
+            },
+            world= this.world= _T.tiledWorld("mario.json",_.inject(CZ,{Player:F}));
         this.insert(world);
-        let g=_T.getObjectGroup(world,"Sprites");
-        g.tiled.objects.forEach(o=>{
-          let ts=_T.getTSInfo(world,o.gid);
-          let ps=world.tiled.tileProps[o.gid];
-          let id=ps.id;
-          let os=_.inject({},ps,o);
-          os.id=id;
-          let c= ps["Class"];
-          if(c==="Snail"||c==="Slime"||c==="Fly") {
-            c="Enemy";
-          }
-          let f=CZ[c];
-          if(f)
-            f(world,ts,os);
-        })
         let cam= this.camera= _2d.worldCamera(world,world.tiled.tiledWidth,world.tiled.tiledHeight);
-        this.camera.centerOver(70*5,70*10);
+        this.camera.centerOver(world.tiled.tileW*5,world.tiled.tileH*10);
         EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
         if(this.player.y > 1000){
           //this.camera.unfollow();
         }else{
-          this.camera.follow(this.player);
+          //this.camera.follow(this.player);
         }
       }
     });

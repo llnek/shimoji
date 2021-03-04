@@ -27,6 +27,94 @@
      * @module mojoh5/Scenes
      */
 
+    /**Creates a 2d spatial grid. */
+    function SpatialGrid(cellW=320,cellH=320){
+      const _grid= new Map();
+      return{
+        searchAndExec(item,cb){
+          let ret,
+              g= item.m5.sgrid;
+          for(let X,Y,y = g.y1; y <= g.y2; ++y){
+            if(Y=_grid.get(y))
+              for(let vs,r,x= g.x1; x <= g.x2; ++x)
+                if(X=Y.get(x)){
+                  vs=X.values();
+                  r= vs.next();
+                  while(!r.done){
+                    if(ret=cb(item,r.value)){
+                      x=y=Infinity;
+                      break;
+                    }
+                    ret=null;
+                    r= vs.next();
+                  }
+                }
+          }
+          return ret;
+        },
+        search(item){
+          let out=[],
+              g= item.m5.sgrid;
+          for(let y = g.y1; y <= g.y2; ++y){
+            if(Y=_grid.get(y))
+              for(let x= g.x1; x <= g.x2; ++x)
+                if(X=Y.get(x))
+                  X.forEach(v=>out.push(v))
+          }
+          return out;
+        },
+        engrid(item,skipAdd){
+          let g = item.m5.sgrid,
+              r = Mojo.Sprites.boundingBox(item),
+              gridX1 = MFL(r.x1 / cellW),
+              gridY1 = MFL(r.y1 / cellH),
+              gridX2 = MFL(r.x2/cellW),
+              gridY2 = MFL(r.y2/ cellH);
+
+          if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
+             g.y1 !== gridY1 || g.y2 !== gridY2){
+            this.degrid(item);
+            g.x1= gridX1;
+            g.x2= gridX2;
+            g.y1= gridY1;
+            g.y2= gridY2;
+            if(!skipAdd) this._insert(item);
+          }
+          return item;
+        },
+        reset(){
+          _grid.clear()
+        },
+        _insert(item){
+          let g= item.m5.sgrid;
+          if(is.num(g.x1)){
+            for(let X,Y,y= g.y1; y <= g.y2; ++y){
+              if(!_grid.has(y))
+                _grid.set(y, new Map());
+              Y=_grid.get(y);
+              for(let x= g.x1; x <= g.x2; ++x){
+                if(!Y.has(x))
+                  Y.set(x, new Map());
+                X=Y.get(x);
+                _.assoc(X,item.m5.uuid, item);
+              }
+            }
+          }
+        },
+        degrid(item){
+          let g= item.m5.sgrid;
+          if(is.num(g.x1)){
+            for(let X,Y,y= g.y1; y <= g.y2; ++y){
+              if(Y=_grid.get(y))
+                for(let x= g.x1; x<=g.x2; ++x)
+                  if(X=Y.get(x))
+                    _.dissoc(X,item.m5.uuid)
+            }
+          }
+        }
+      }
+    }
+
     /** @ignore */
     function _sceneid(id){
       return id.startsWith("scene::") ? id : `scene::${id}`
@@ -56,20 +144,45 @@
       constructor(id,func,options){
         super();
         this.name= _sceneid(id);
-        this.____sid=id;
+        this.g={};
+        this.m5={
+          sid:id,
+          index:{},
+          queue:[],
+          stage:true,
+          options,
+          sgrid:SpatialGrid(options.sgridX||320,options.sgridY||320)
+        };
         if(is.fun(func)){
-          this.____setup= func;
+          this.m5.setup= func.bind(this);
         }else if(is.obj(func)){
           let s= _.dissoc(func,"setup");
-          if(s)
-            func["____setup"]=s;
+          if(s) this.m5.setup=s.bind(this);
           _.inject(this, func);
         }
-        this.m5={stage:true};
-        this.g={};
-        this.____index={};
-        this.____queue=[];
-        this.____options=_.or(options, {});
+      }
+      _hitObject(obj){
+        function _hitTest(a,b){
+          if(a !== b && a.m5.cmask & b.m5.type){
+            return Mojo["2d"].hitTest(a,b)
+          }
+        }
+        return this.m5.sgrid.searchAndExec(obj,_hitTest)
+      }
+      collideAB(obj){
+        let col,col2,
+            skip,
+            maxCol=1,
+            curCol=maxCol,
+            grid=this.m5.sgrid;
+        grid.engrid(obj);
+        while(curCol>0 &&
+              (col2 = this._hitObject(obj))){
+          EventBus.pub(["hit",obj],col2);
+          grid.engrid(obj);
+          --curCol;
+        }
+        return col2 || col;
       }
       /**Callback to handle window resizing.
        * @param {number[]} old  window size before resize
@@ -83,14 +196,14 @@
        * @param {boolean} frames
        */
       future(expr,delay,frames=true){
-        frames ? this.____queue.push([expr,delay]) : _.delay(delay,expr)
+        frames ? this.m5.queue.push([expr,delay]) : _.delay(delay,expr)
       }
       /**Get the child with this id.
        * @param {string} id
        * @return {Sprite}
        */
       getChildById(id){
-        return id && this.____index[id];
+        return id && this.m5.index[id]
       }
       /**Remove this child
        * @param {string|Sprite} c
@@ -100,7 +213,7 @@
           c=this.getChildById(c);
         if(c && _.has(this.children,c)){
           this.removeChild(c);
-          _.dissoc(this.____index,c.m5.uuid);
+          _.dissoc(this.m5.index,c.m5.uuid);
         }
       }
       /**Insert this child sprite at this position.
@@ -115,7 +228,8 @@
         }else{
           this.addChild(c);
         }
-        return (this.____index[c.m5.uuid]=c)
+        this.m5.sgrid.engrid(c);
+        return (this.m5.index[c.m5.uuid]=c)
       }
       /**Clean up.
       */
@@ -163,14 +277,13 @@
       update(dt){
         if(this.m5.dead){return;}
         //handle queued stuff
-        let f,futs= this.____queue.filter(q=>{
+        let f,futs= this.m5.queue.filter(q=>{
           q[1] -= 1;
           return (q[1]<=0);
         });
         //run ones that have expired
         while(futs.length>0){
-          _.disj(this.____queue,
-                 f=futs.shift());
+          _.disj(this.m5.queue, f=futs.shift());
           f[0]();
         }
         EventBus.pub(["pre.update",this],dt);
@@ -181,9 +294,9 @@
       /**Initial bootstrap of this scene.
       */
       runOnce(){
-        if(this.____setup){
-          this.____setup(this.____options);
-          delete this.____setup;
+        if(this.m5.setup){
+          this.m5.setup(this.m5.options);
+          delete this.m5.setup;
         }
       }
     }
@@ -343,7 +456,7 @@
        */
       defScene(name, func, options){
         //add a new scene definition
-        ScenesDict[name]=[func, options||{}];
+        ScenesDict[name]=[func, options]
       },
       /**Replace the current scene with this one.
        * @memberof module:mojoh5/Scenes
@@ -394,7 +507,7 @@
        * @return {Scene}
        */
       runScene(name,num,options){
-        let y, _s = ScenesDict[name];
+        let tmx, y, _s = ScenesDict[name];
         if(!_s)
           throw `Error: unknown scene: ${name}`;
         if(is.obj(num)){
@@ -407,7 +520,13 @@
         //before we run a new scene
         Mojo.mouse.reset();
         //create new
-        y = new Scene(name, _s[0], options);
+        if(options.tiled){
+          tmx=options.tiled.name;
+          _.assert(tmx, "no tmx file!");
+          y = new Mojo.Tiles.TiledScene(name, _s[0], options);
+        }else{
+          y = new Scene(name, _s[0], options);
+        }
         //add to where?
         if(num >= 0 && num < Mojo.stage.children.length){
           let cur= Mojo.stage.getChildAt(num);

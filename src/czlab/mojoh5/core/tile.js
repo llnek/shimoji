@@ -25,6 +25,7 @@
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_, is}=Mojo;
     const ABS=Math.abs,
+          CEIL=Math.ceil,
           MFL=Math.floor;
 
     /** dummy empty array
@@ -33,22 +34,9 @@
      */
     const _DA=[];
 
-    //ensure PIXI doesnt have `tiled` property
-    (function(){
-      _.assertNot(_.has(new PIXI.Container(),"tiled"),"PIXI Container has tiled!");
-      _.assertNot(_.has(Mojo.Sprites.circle(10),"tiled"),"PIXI Sprite has tiled!") })();
-
     /**
      * @module mojoh5/Tiles
      */
-
-    /** @ignore */
-    function _parseProps(el){
-      return (el.properties||_DA).reduce((acc,p)=> {
-        acc[p.name]=p.value;
-        return acc;
-      }, {})
-    }
 
     /** @ignore */
     function _getIndex3(x, y, world){
@@ -103,18 +91,328 @@
      * @private
      * @function
      */
-    function _scanTilesets(tilesets, gprops){
-      let gidList = [];
+    function _scanTilesets(tilesets, tsi, gprops){
+      let p, gid, lprops, gidList = [];
       tilesets.forEach(ts=>{
+        lprops={};
         ts.image=_getImage(ts);
+        if(ts.spacing===undefined){ts.spacing=0}
         gidList.push([ts.firstgid, ts]);
         ts.tiles.forEach(t=>{
-          //grab all custom props for this GID
-          gprops[ts.firstgid + t.id] = _.inject(_parseProps(t), {id:t.id})
+          p=_.inject({},t);
+          delete p.properties;
+          p=_.inject(p,_parseProps(t));
+          p.gid=ts.firstgid + t.id;
+          lprops[t.id]=p;
+          gprops[p.gid] = p;
         });
+        tsi[ts.name]=lprops;
       });
       //sort gids ascending
       return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0));
+    }
+
+    /** @ignore */
+    function _checkTiledVersion(json){
+      let tmap = Mojo.resource(json,true).data;
+      let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
+      return (tver && _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
+                                                       : _.assert(false,`${json} needs update`)
+    }
+
+    /** @ignore */
+    function _parseProps(el){
+      return (el.properties||_DA).reduce((acc,p)=> {
+        acc[p.name]=p.value;
+        return acc;
+      }, {})
+    }
+
+    /** @ignore */
+    function _loadTMX(scene,json,objFactory){
+      let tsProps={},
+          gtileProps={},
+          tmx= _checkTiledVersion(json);
+      _.inject(scene.tiled,{tileW:tmx.tilewidth,
+                            tileH:tmx.tileheight,
+                            tileInX:tmx.width,
+                            tileInY:tmx.height,
+                            saved_tileW:tmx.tilewidth,
+                            saved_tileH:tmx.tileheight,
+                            tiledWidth:tmx.tilewidth*tmx.width,
+                            tiledHeight:tmx.tileheight*tmx.height}, _parseProps(tmx));
+      let K=scene.getScaleFactor();
+      function ctor(gid,mapcol,maprow,opacity){
+        let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
+            ps=gtileProps[gid],
+            cz=ps && ps["Class"],
+            cFunc=cz && objFactory[cz],
+            cols=tsi.columns,
+            _id=gid - tsi.firstgid;
+        _.assertNot(_id<0, `Bad tile id: ${_id}`);
+        if(!is.num(cols))
+          cols=MFL(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
+        let tscol = _id % cols,
+            tsrow = MFL(_id/cols),
+            tsX = tscol * tsi.tilewidth,
+            tsY = tsrow * tsi.tileheight;
+        if(tsi.spacing>0){
+          tsX += tsi.spacing * tscol;
+          tsY += tsi.spacing * tsrow;
+        }
+        let s = Mojo.Sprites.frame(tsi.image,
+                                   tsi.tilewidth,
+                                   tsi.tileheight,tsX,tsY);
+        s.tiled={gid: gid, id: _id};
+        if(opacity !== undefined){
+          s.alpha=opacity
+        }
+        s.scale.x=K;
+        s.scale.y=K;
+        s.x= mapcol * s.width;
+        s.y= maprow * s.height;
+        return s;
+      }
+      const F={
+        tilelayer(tl){
+          if(is.vec(tl.data[0])){
+            if(tl.width===undefined)
+              tl.width=tl.data[0].length;
+            if(tl.height===undefined)
+              tl.height=tl.data.length;
+            tl.data=tl.data.flat();
+          }
+          if(tl.visible !== undefined && !tl.visible){ return }
+          if(tl.collision !== false){
+            _.assertNot(scene.tiled.collision,"too many collision layers");
+            scene.tiled.collision=tl;
+          }
+          for(let s,gid,i=0;i<tl.data.length;++i){
+            if((gid=tl.data[i])===0){continue}
+            let mapcol = i % tl.width,
+                maprow = MFL(i/tl.width),
+                s= ctor(gid,mapcol,maprow,tl.opacity);
+            let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
+                ps=gtileProps[gid],
+                cz=ps && ps["Class"],
+                cFunc=cz && objFactory[cz];
+            s.tiled.index=i;
+            s.m5.static=true;
+            scene.insert(s);
+            //special tile
+            if(cFunc){ s=cFunc(scene,s,tsi,ps) }
+          }
+        },
+        objectgroup(tl){
+          tl.objects.forEach(o=> {
+            let ps=gtileProps[o.gid];
+            let cz= ps && ps["Class"];
+            let createFunc= cz && objFactory[cz];
+            let tsi=_lookupGid(o.gid,scene.tiled.tileGidList)[1];
+            _.inject(o,_parseProps(o));
+            _.assert(is.num(o.x),"wanted xy position");
+            o.y -= tsi.tileheight; //jiggle to top-left
+            let [tx,ty]=scene.getTileXY(o.x+MFL(scene.tiled.tileW/2),
+                                        o.y+MFL(scene.tiled.tileH/2));
+            let s= ctor(o.gid,tx,ty);
+            if(createFunc){
+              s= createFunc(scene,s,tsi,ps,o);
+              s && scene.insert(s);
+            }
+          });
+        },
+        imagelayer(tl){ tl.image=_getImage(tl) }
+      };
+      objFactory=_.or(objFactory,{});
+      _.inject(scene.tiled, {tileProps: gtileProps,
+                             tileSets: tsProps,
+                             imagelayer:[],objectgroup:[],tilelayer:[],
+                             tileGidList: _scanTilesets(tmx.tilesets,tsProps,gtileProps)});
+      ["imagelayer","tilelayer","objectgroup"].forEach(s=>{
+        tmx.layers.filter(y=>y.type==s).forEach(y=>{
+          F[s](y);
+          scene.tiled[s].push(y);
+        });
+      });
+      //reset due to possible scaling
+      let nw= K*tmx.tilewidth;
+      let nh= K*tmx.tileheight;
+      scene.tiled.tileW=nw;
+      scene.tiled.tileH=nh;
+      scene.tiled.tiledWidth=nw * tmx.width;
+      scene.tiled.tiledHeight=nh * tmx.height;
+    }
+
+    const _contactObj = {width: 0,
+                         height: 0,
+                         x:0, y:0,
+                         rotation:0,
+                         anchor: {x:0,y:0},
+                         getGlobalPosition(){ return {x:this.x,y:this.y} } };
+    /**
+     * @memberof module:mojoh5/Tiles
+     * @class
+     */
+    class TiledScene extends Mojo.Scenes.Scene{
+      /**
+       * @param {any} id
+       * @param {function|object} func
+       * @param {object} [options]
+       */
+      constructor(id,func,options){
+        super(id,func,options);
+        this.tiled={};
+        Mojo.Sprites.extend(_contactObj);
+      }
+      runOnce(){
+        let t= this.m5.options.tiled;
+        _loadTMX(this, t.name, t.factory(this));
+        super.runOnce();
+      }
+      removeTile(s){
+        let x= s.x, y=s.y;
+        if(s.anchor.x < 0.3){
+          x= s.x+MFL(s.width/2);
+          y= s.y+MFL(s.height/2);
+        }
+        let tx= MFL(x/this.tiled.tileW);
+        let ty= MFL(y/this.tiled.tileH);
+        let pos= ty*this.tiled.tileInX + tx;
+        let len = this.tiled.collision.data.length;
+        _.assert(pos>=0&&pos<len,"bad index to remove");
+        this.tiled.collision.data[pos]=0;
+        Mojo.Sprites.remove(s);
+      }
+      /**Get a tile layer.
+       * @param {object} world
+       * @param {string} name
+       * @param {boolean} [panic] if none found, throws error
+       * @return {Container}
+       */
+      getTileLayer(name,panic){
+        let found= _.some(this.tiled.tilelayer, o=>{
+          if(o.name==name) return o;
+        });
+        if(!found && panic)
+          throw `There is no layer with name: ${name}`;
+        return found;
+      }
+      /**Get a object group.
+       * @param {object} world
+       * @param {string} name
+       * @param {boolean} [panic] if none found, throws error
+       * @return {Container}
+       */
+      getObjectGroup(name,panic){
+        let found= _.some(this.tiled.objectgroup, o=>{
+          if(o.name==name) return o;
+        });
+        if(!found && panic)
+          throw `There is no group with name: ${name}`;
+        return found;
+      }
+      getTile(s){
+        let x=s.x,y=s.y;
+        if(s.anchor.x<0.3){
+          y += MFL(s.height/2);
+          x += MFL(s.width/2);
+        }
+        return this.getTileXY(x,y);
+      }
+      getTileXY(x,y){
+        let tx= MFL(x/this.tiled.tileW);
+        let ty= MFL(y/this.tiled.tileH);
+        _.assert(tx>=0 && tx<this.tiled.tileInX, `bad tile col:${tx}`);
+        _.assert(ty>=0 && ty<this.tiled.tileInY, `bad tile row:${ty}`);
+        return [tx,ty];
+      }
+      /**Get item with this name.
+       * @param {string} name
+       * @return {any}
+       */
+      getNamedItem(name){
+        let out=[];
+        this.tiled.objectgroup.forEach(c=>{
+          c.objects.forEach(o=>{
+            if(name==_.get(o,"name")) out.push(c)
+          });
+        });
+        return out;
+      }
+      /**Get scale factor for this world.
+       * @return {number}
+       */
+      getScaleFactor(){
+        let r=1;
+        if(Mojo.u.scaleToWindow == "max"){
+          if(Mojo.width>Mojo.height){
+            r=Mojo.height/this.tiled.tiledHeight;
+          }else{
+            r=Mojo.width/this.tiled.tiledWidth;
+          }
+        }
+        return r;
+      }
+      /**Cross reference a point's position to a tile index.
+       * @param {number} x
+       * @param {number} y
+       * @return {number} the tile position
+       */
+      getTileIndex(x,y){
+        return _getIndex3(x,y,this)
+      }
+      /**Get tileset information.
+       * @param {number} gid
+       * @return {object}
+       */
+      getTSInfo(gid){
+        return _lookupGid(gid,this.tiled.tileGidList)[1]
+      }
+      getTileProps(gid){
+        return this.tiled.tileProps[gid]
+      }
+      _getContactObj(gid, tX, tY){
+        let c= _contactObj;
+        c.height=this.tiled.tileH;
+        c.width=this.tiled.tileW;
+        c.x = tX * c.width;
+        c.y = tY * c.height;
+        return c;
+      }
+      collideAB(obj){
+        let box,
+            tw=this.tiled.tileW,
+            th=this.tiled.tileH,
+            tiles=this.tiled.collision;
+        let _S=Mojo.Sprites;
+        if(_.feq0(obj.rotation)){
+          box=_S.getBBox(obj)
+        }else{
+          box=_S.boundingBox(obj)
+        }
+        let sX = Math.max(0,MFL(box.x1 / tw));
+        let sY = Math.max(0,MFL(box.y1 / th));
+        let eX =  Math.min(this.tiled.tileInX-1,CEIL(box.x2 / tw));
+        let eY =  Math.min(this.tiled.tileInY-1,CEIL(box.y2 / th));
+        for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
+          for(let tX = sX; tX<=eX; ++tX){
+            pos=tY*this.tiled.tileInX+tX;
+            gid=tiles.data[pos];
+            if(!is.num(gid)){
+              _.assert(is.num(gid),"bad gid");
+            }
+            if(gid===0){continue}
+            B=this._getContactObj(gid,tX, tY);
+            ps=this.getTileProps(gid);
+            if(ps && ps["Class"]){
+              //special object, do nothing
+            }else{
+              Mojo["2d"].hit(obj,B);
+            }
+          }
+        }
+        return super.collideAB(obj);
+      }
     }
 
     class Grid2D{
@@ -205,33 +503,8 @@
       }
     }
 
-    /**
-     * @memberof module:mojoh5/Tiles
-     * @class
-     */
-    class TiledWorld{
-      constructor(tw,th,tcols,trows){
-        this.tileH=th;
-        this.tileW=tw;
-        this.tilesInX=tcols;
-        this.tilesInY=trows;
-        this.tiledWidth=tw*tccols;
-        this.tiledHeight=th*trows;
-      }
-    }
-
     const _$={
-      TiledWorld,
-      /**Cross reference a point's position to a tile index.
-       * @memberof module:mojoh5/Tiles
-       * @param {number} x
-       * @param {number} y
-       * @param {object} world
-       * @return {number} the tile position
-       */
-      getTileIndex(x,y,world){
-        return _getIndex3(x,y,world)
-      },
+      TiledScene,
       /**Calculate position of each individual cells in the grid,
        * so that we can detect when a user clicks on the cell.
        * @memberof module:mojoh5/Tiles
@@ -292,7 +565,7 @@
        * @param {object} world
        * @return {Sprite} a tile object
        */
-      getTile(index, gidList, world){
+      XXgetTile(index, gidList, world){
         const t=world.tiled;
         return Mojo.Sprites.extend({gid: gidList[index],
                                     width: t.tileW,
@@ -360,197 +633,12 @@
                          : sprites.forEach(_mapper);
         return ret;
       },
-      /**Create a TiledWorld.
-       * @membeof module:mojoh5/Tiles
-       * @param {number} tw tile width
-       * @param {number} th tile height
-       * @param {number} tcols number of tiles in columns
-       * @param {number} trows number of tiles in rows
-       * @return {TiledWorld}
-       */
-      mockTiledWorld(tw,th,tcols,trows){
-        let w= Mojo.Sprites.container();
-        w.tiled={
-          tileH:th,
-          tileW:tw,
-          tilesInX:tcols,
-          tilesInY:trows,
-          tiledWidth:tw*tcols,
-          tiledHeight:th*trows
-        };
-        return w;
-      },
-      /**Get tileset information.
-       * @memberof module:mojoh5/Tiles
-       * @param {object} world
-       * @param {number} gid
-       * @param {object}
-       */
-      getTSInfo(world,gid){
-        return _lookupGid(gid,world.tiled.tileGidList)[1]
-      },
-      /**Get scale factor for this world.
-       * @memberof module:mojoh5/Tiles
-       * @param {object} world
-       * @param {object}
-       */
-      getScaleFactor(world){
-        let r=1;
-        if(false && Mojo.u.scaleToWindow == "max"){
-          if(Mojo.width>Mojo.height){
-            r=Mojo.height/world.tiled.tiledHeight;
-          }else{
-            r=Mojo.width/world.tiled.tiledWidth;
-          }
-        }
-        return r;
-      },
-      /**Get a tile layer.
-       * @memberof module:mojoh5/Tiles
-       * @param {object} world
-       * @param {string} name
-       * @param {boolean} [panic] if none found, throws error
-       * @return {Container}
-       */
-      getTileLayer(world,name,panic){
-        let found= _.some(world.tiled.tileLayers["tiles"], o=>{
-          if(o.name==name) return o;
-        });
-        if(!found && panic)
-          throw `There is no layer with name: ${name}`;
-        return found;
-      },
-      /**Get a object group.
-       * @memberof module:mojoh5/Tiles
-       * @param {object} world
-       * @param {string} name
-       * @param {boolean} [panic] if none found, throws error
-       * @return {Container}
-       */
-      getObjectGroup(world,name,panic){
-        let found= _.some(world.tiled.tileLayers["objects"], o=>{
-          if(o.name==name) return o;
-        });
-        if(!found && panic)
-          throw `There is no group with name: ${name}`;
-        return found;
-      },
-      /**Get item with this name.
-       * @memberof module:mojoh5/Tiles
-       * @param {Container} gp
-       * @param {string} name
-       * @return {any}
-       */
-      getNamedItem(gp,name){
-        let out=[];
-        if(gp.tiled.objects){
-          gp.tiled.objects.forEach(c=>{
-            if(name==_.get(c,"name"))
-              out.push(c)
-          });
-        }else{
-          gp.children.forEach(c=>{
-            if(c.tiled.props && name==_.get(c.tiled.props,"name"))
-              out.push(c)
-          });
-        }
-        return out;
-      },
       /**Check to ensure tiled map is valid.
        * @memberof module:mojoh5/Tiles
        * @param {string} json
        * @return {object} exception if error
        */
-      checkTiledVersion(json){
-        let tmap = Mojo.resource(json,true).data;
-        let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
-        return (tver && _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
-                                                         : _.assert(false,`${json} needs update`)
-      },
-      /**Load in a Tiled map.
-       * @memberof module:mojoh5/Tiles
-       * @param {object} json
-       * @return {}
-       */
-      tiledWorld(json){
-        let self=this,
-            gtileProps={},
-            tmx= this.checkTiledVersion(json),
-            W= _.inject(this.mockTiledWorld(tmx.tilewidth,
-                                            tmx.tileheight,
-                                            tmx.width,tmx.height), _parseProps(tmx)),
-            _c=(ps)=>Mojo.Sprites.container(c=>{ c.tiled= _.inject({},ps) }),
-            F={
-              tilelayer(tl,gp){
-                let data=is.vec(tl.data[0])?tl.data.flat():tl.data;
-                W.tiled.tileLayers["tiles"].push(gp=_c(tl));
-                for(let gid,i=0;i<data.length;++i){
-                  gid=data[i];
-                  if(gid===0){ continue }
-                  let tsi=_lookupGid(gid,W.tiled.tileGidList)[1],
-                      cols=tsi.columns,
-                      _id=gid - tsi.firstgid;
-                  _.assertNot(_id<0, `Bad tile id: ${_id}`);
-                  if(!is.num(cols))
-                    cols=MFL(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
-                  let mapcol = i % tl.width,
-                      maprow = MFL(i/tl.width),
-                      tscol = _id % cols,
-                      tsrow = MFL(_id/cols),
-                      tsX = tscol * tsi.tilewidth,
-                      tsY = tsrow * tsi.tileheight;
-                  if(tsi.spacing>0){
-                    tsX += tsi.spacing * tscol;
-                    tsY += tsi.spacing * tsrow;
-                  }
-                  let s = Mojo.Sprites.frame(tsi.image,
-                                             tsi.tilewidth,
-                                             tsi.tileheight,tsX,tsY),
-                      ps=gtileProps[gid],
-                      K=self.getScaleFactor(W);
-                  //if(ps && _.has(ps,"anchor")){ s.anchor.set(ps["anchor"]); }
-                  s.tiled={____gid: gid, ____index: i, id: _id, ts: tsi, props: ps};
-                  s.scale.x=K;
-                  s.scale.y=K;
-                  s.x= mapcol * s.width;
-                  s.y= maprow * s.height;
-                  s.m5.resize=function(px,py,pw,ph){
-                    let K=self.getScaleFactor(W);
-                    s.scale.x=K;
-                    s.scale.y=K;
-                    s.x= mapcol * s.width;
-                    s.y= maprow * s.height;
-                  };
-                  gp.addChild(s);
-                }
-                return gp;
-              },
-              objectgroup(tl,gp){
-                W.tiled.tileLayers["objects"].push(gp=_c(tl));
-                tl.objects.forEach(o=> _.inject(o, _parseProps(o)));
-                return gp;
-              },
-              imagelayer(tl,gp){
-                tl.image=_getImage(tl);
-                W.tiled.tileLayers["images"].push(gp=_c(tl));
-                return gp;
-              }
-            };
-        _.patch(W.tiled, {tileProps: gtileProps,
-                          tileLayers: {tiles:[],images:[],objects:[]},
-                          tileGidList: _scanTilesets(tmx.tilesets,gtileProps)});
-        tmx.layers.forEach(y=>{
-          let gp=F[y.type] && F[y.type](y);
-          if(gp){
-            _.inject(gp.tiled,_parseProps(y));
-            gp.tiled.name=y.name;
-            gp.name=y.name;
-            gp.visible= !!y.visible;
-            gp.alpha = y.opacity;
-            W.addChild(gp);
-          }
-        })
-        return W;
+      collide(world,obj){
       },
       /**A-Star search.
        * @memberof module:mojoh5/Tiles

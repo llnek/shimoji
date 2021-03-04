@@ -268,12 +268,14 @@
       Mojo.scale= cmdArg.scaleToWindow===true?_scaleCanvas(Mojo.canvas):1;
       Mojo.mouse= Mojo["Input"].pointer(Mojo.canvas, Mojo.scale);
       Mojo.frame=1/cmdArg.fps;
-      _.addEvent("resize", gscope, _.debounce(()=>{
-        //save the current size and tell others
-        const [w,h]=[Mojo.width, Mojo.height];
-        Mojo.ctx.resize(_width(),_height());
-        EventBus.pub(["canvas.resize"],[w,h]);
-      },cmdArg.debounceRate||150));
+      if(cmdArg.resize !== false){
+        _.addEvent("resize", gscope, _.debounce(()=>{
+          //save the current size and tell others
+          const [w,h]=[Mojo.width, Mojo.height];
+          Mojo.ctx.resize(_width(),_height());
+          EventBus.pub(["canvas.resize"],[w,h]);
+        },cmdArg.debounceRate||150));
+      }
       _loadFiles(Mojo);
       return Mojo;
     }
@@ -366,6 +368,18 @@
        * @return {boolean}
        */
       sideBottom(d){ return d===Mojo.BOTTOM || d===Mojo.BOTTOM_LEFT || d===Mojo.BOTTOM_RIGHT },
+      /**Check if 2 bboxes overlap.
+       * @memberof module:mojoh5/Mojo
+       * @param {object} a
+       * @param {object} b
+       * @return {boolean}
+       */
+      overlap(a,b){
+        return !(a.x2 < b.x1 ||
+                 b.x2 < a.x1 ||
+                 a.y2 < b.y1 ||
+                 b.y2 < a.y1)
+      },
       /**Check if this element contains a class name.
        * @memberof module:mojoh5/Mojo
        * @param {Element} e

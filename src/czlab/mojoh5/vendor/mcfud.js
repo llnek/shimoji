@@ -4620,7 +4620,10 @@
      * @typedef {object} QuadTree
      * @property {function} insert(node)
      * @property {function} search(node)
+     * @property {function} remove(node)
      * @property {function} reset()
+     * @property {function} prune()
+     * @property {function} searchAndExec(node,cb)
      */
 
     /**
@@ -4629,7 +4632,7 @@
      * @property {number} y
      * @property {number} width
      * @property {number} height
-     * @property {function} getNodeRect()
+     * @property {function} getBBox()
      */
 
     /**Creates a QuadTree. */
@@ -4644,12 +4647,11 @@
       //find which quadrants r touches
       function _locate(r){
         let x,y,width,height;
-        //if(_.has(r,"x") && _.has(r,"y") && _.has(r,"width") && _.has(r,"height")){
-        if(r.x !== undefined && r.y !== undefined && r.width !== undefined && r.height !== undefined){
+        if(r.getBBox){
+          let {x1,x2,y1,y2}=r.getBBox();
+          x=x1;y=y1;width=x2-x1;height=flipped? y2-y1:y1-y2;
+        }else if(r.x !== undefined && r.y !== undefined && r.width !== undefined && r.height !== undefined){
           x=r.x; y=r.y; width=r.width; height=r.height;
-        }else if(r.getNodeRect){
-          let b=r.getNodeRect();
-          x=b.x; y=b.y; width=b.width; height=b.height;
         }
         let out=[],
             left= x<midX,
@@ -4694,10 +4696,66 @@
             }
           }
         },
+        remove(node){
+          if(boxes){
+            boxes.forEach(b=>b.remove(node))
+          }else{
+            _.disj(objects,node)
+          }
+        },
+        isLeaf(){
+          return boxes===null ? -1 : objects.length
+        },
+        prune(){
+          if(boxes){
+            let sum=0,
+                total=0;
+            for(let b,i=0;i<boxes.length;++i){
+              b=boxes[i];
+              b.prune();
+              n=b.isLeaf();
+              if(n>=0){
+                ++sum;
+                total+=n;
+              }
+            }
+            if(sum===boxes.length){//4
+              //subtrees are leaves and total count is small
+              //enough so pull them up into this node
+              if(total<maxCount){
+                _.assert(objects.length===0,
+                         "quadtree wanted zero items");
+                boxes.forEach(b=>b._swap(objects));
+                boxes=null;
+                //now this node is a leaf!
+              }
+            }
+          }
+        },
+        _swap(out){
+          objects.forEach(b=>out.push(b))
+          objects.length=0;
+        },
         reset(){
           objects.length=0;
           boxes && boxes.forEach(b=> b.reset());
           boxes=null;
+        },
+        searchAndExec(node,cb){
+          let ret;
+          if(boxes){
+            let ns=_locate(node);
+            for(let i=0;i<ns.length;++i){
+              ret=boxes[ns[i]].searchAndExec(node,cb);
+              if(ret){break;}
+            }
+          }else{
+            for(let o,i=0;i<objects.length;++i){
+              o=objects[i];
+              if(ret=cb(o,node)){ break }
+            }
+          }
+          return ret;
         },
         search(node){
           //handle duplicates
