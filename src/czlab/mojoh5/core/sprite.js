@@ -383,7 +383,7 @@
             _acc= _V.vec(),
             _gravity= _V.vec(),
             _friction= _V.vec();
-        _.inject(s.m5, {sgrid: {}, contacts:[]},
+        _.inject(s.m5, {sgrid: {}, contacts:[1]},
                        {get uuid() {return _uuid},
                         set uuid(n){_uuid=n},
                         get type() {return _type},
@@ -1225,22 +1225,25 @@
         }
         return C;
       },
-      /**
+      /**Create a bullet shooting out of a shooter.
        * @memberof module:mojoh5/Sprites
-       * @return {}
+       * @param {any} shooter
+       * @param {number} angle
+       * @param {number} bulletSpeed
+       * @param {function} bulletCtor
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite}
        */
-      shoot(shooter, angle, container,
-            bulletSpeed, bulletArray, bulletCtor,x,y){
+      shoot(shooter, angle, bulletSpeed, bulletCtor,x,y){
         let soff=this.topLeftOffsetXY(shooter);
-        let b= this.extend(bulletCtor());
-        container.addChild(b);
+        let b= bulletCtor();
         b.x= shooter.x+soff[0]+x;
         b.y= shooter.y+soff[1]+y;
         b.m5.vel[0] = Math.cos(angle) * bulletSpeed;
         b.m5.vel[1] = Math.sin(angle) * bulletSpeed;
-        bulletArray.push(b);
         _V.reclaim(soff);
-        return shooter;
+        return b;
       },
       /**
        * @memberof module:mojoh5/Sprites
@@ -1317,8 +1320,13 @@
       remove(...cs){
         if(cs.length===1 && is.vec(cs[0])){ cs=cs[0] }
         _.doseqEx(cs,s=>{
-          if(s.parent)
-            s.parent.removeChild(s);
+          if(s.parent){
+            if(_.inst(Mojo.Scenes.Scene,s.parent)){
+              s.parent.remove(s);
+            }else{
+              s.parent.removeChild(s);
+            }
+          }
           s.m5.dispose &&
             s.m5.dispose();
           EventBus.pub(["post.remove",s]);

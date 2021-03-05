@@ -213,6 +213,7 @@
           c=this.getChildById(c);
         if(c && _.has(this.children,c)){
           this.removeChild(c);
+          this.m5.sgrid.degrid(c);
           _.dissoc(this.m5.index,c.m5.uuid);
         }
       }
@@ -258,6 +259,7 @@
               c.scale.y *= -1;
             }
             EventBus.pub(["post.step",c],dt);
+            this.m5.sgrid.engrid(c);
           }
           c.children.length>0 && this._iterStep(c.children, dt)
         })
@@ -265,9 +267,9 @@
       /** @ignore */
       _iterClean(r){
         r.forEach(c=> {
-          if(c.m5)
-            if(c.m5.contacts)
-              c.m5.contacts.length=0;
+          if(c.m5 &&
+             c.m5.contacts &&
+             c.m5.contacts.length>0) c.m5.contacts[0]=null;
           c.children.length>0 && this._iterClean(c.children);
         });
       }

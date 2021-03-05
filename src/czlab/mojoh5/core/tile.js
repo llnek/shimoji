@@ -235,6 +235,7 @@
         });
       });
       //reset due to possible scaling
+      //let K=scene.getScaleFactor();
       let nw= K*tmx.tilewidth;
       let nh= K*tmx.tileheight;
       scene.tiled.tileW=nw;

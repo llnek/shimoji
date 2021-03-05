@@ -123,7 +123,6 @@
     }
 
     function Player(scene,p,ts,ps,os){
-      //let p=_S.frame(ts.image, ts.tilewidth,ts.tileheight,0,0);
       p.m5.type=E_PLAYER;
       p.m5.cmask=E_TOWER | E_COIN;
       p.anchor.set(0.5);
@@ -142,7 +141,6 @@
     }
 
     function Enemy(scene,s,ts,ps,os){
-      //let s=_S.frame(ts.image, ts.tilewidth,ts.tileheight,0,32);
       s.m5.type=E_ENEMY;
       s.m5.cmask=E_PLAYER;
       s.m5.uuid=`enemy#${_.nextId()}`;

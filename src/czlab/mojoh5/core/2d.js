@@ -124,16 +124,8 @@
               pU= _I.keyDown(_I.keyUP),
               pL= _I.keyDown(_I.keyLEFT);
           if(!e.m5.skipCollide){
-            if(e.m5.contacts.length>0 && (pL || pR || self.landed>0)){
-              if(e.m5.contacts.length===1) {
-                col= e.m5.contacts[0]
-              }else{
-                for(let i=0; i< e.m5.contacts.length; ++i){
-                  if(e.m5.contacts[i].overlapN[1] < 0){
-                    col= e.m5.contacts[i]
-                  }
-                }
-              }
+            if(e.m5.contacts[0] && (pL || pR || self.landed>0)){
+              col= e.m5.contacts[0];
               // don't climb up walls.
               //if(col && (col.overlapN[1] > -0.3 || col.overlapN[1] < 0.3)) { col= null }//old
               if(col && (col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85)) { col= null }//mine
@@ -228,8 +220,8 @@
       if(m){
         m.A=a;
         m.B=b;
-        a.m5.contacts.push(m);
-        b.m5.contacts.push(m);
+        a.m5.contacts[0]=m;
+        b.m5.contacts[0]=m;
       }
       return m;
     }
