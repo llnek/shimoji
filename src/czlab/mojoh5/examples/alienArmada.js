@@ -16,35 +16,47 @@
 
   "use strict";
 
-  function defScenes(Mojo){
-    const I=Mojo.Input, S=Mojo.Sprites, Z=Mojo.Scenes, _2d=Mojo["2d"], G=Mojo.Game;
+  function scenes(Mojo){
+    const Z=Mojo.Scenes, _2d=Mojo["2d"];
+    const I=Mojo.Input, S=Mojo.Sprites;
+    const G=Mojo.Game;
+    const MFL=Math.floor;
     let {ute:_,is,EventBus}=Mojo;
     let alienFrames = ["alien.png", "explosion.png"];
     let alienStates=[0,1];
+    G.boomSound = Mojo.sound("explosion.wav");
+    G.shootSound = Mojo.sound("shoot.wav");
+    G.music = Mojo.sound("music.wav");
+    G.spawnInterval= 100;
+    G.target= 10;
     Z.defScene("level1",{
       setup(){
-        let bg=this.insert( S.sprite("background.png")),
+        let K=Mojo.contentScaleFactor(),
+            bg=this.insert( S.sprite("background.png")),
             cannon = G.cannon= S.sprite("cannon.png",true);
+        S.scaleToCanvas(bg);
+        S.scaleContent(cannon);
         cannon.m5.step=(dt)=>{
           _2d.contain(S.move(cannon), this,false); };
         this.insert(cannon);
-        S.pinBottom(this,cannon,-cannon.height-10);
+        S.pinBottom(this,cannon,-cannon.height-10*K.height);
         let goLeft = I.keybd(I.keyLEFT,
-          ()=>{cannon.m5.vel[0] = -5;
+          ()=>{cannon.m5.vel[0] = -5*K.width;
                cannon.m5.vel[1] = 0; },
           ()=>{if(!goRight.isDown && cannon.m5.vel[1] === 0){ cannon.m5.vel[0] = 0 } });
         let goRight =I.keybd(I.keyRIGHT,
-          ()=>{cannon.m5.vel[0] = 5;
+          ()=>{cannon.m5.vel[0] = 5*K.width;
                cannon.m5.vel[1] = 0; },
           ()=>{if(!goLeft.isDown && cannon.m5.vel[1] === 0) { cannon.m5.vel[0] = 0 } });
         let fire = I.keybd(I.keySPACE,
           ()=>{
-            S.shoot(cannon, -Math.PI/2, this, 7, G.bullets, ()=>{
+            S.shoot(cannon, -Math.PI/2, this, 7*K.height, G.bullets, ()=>{
               let b=S.sprite("bullet.png",true);
+              S.scaleContent(b);
               b.m5.step=()=>{ if(!b.m5.dead) S.move(b) };
               return b;
             },
-            cannon.width/2, 0);
+            MFL(cannon.width/2), 0);
             G.shootSound.play();
           });
         G.bullets=[];
@@ -61,10 +73,12 @@
       },
       postUpdate(dt){
         if(++G.alienTimer === G.spawnInterval){
-          let alien = S.sprite(alienFrames);
+          let K=Mojo.contentScaleFactor(),
+              alien = S.sprite(alienFrames);
+          S.scaleContent(alien);
           S.pinTop(this,alien);
           alien.x = alien.width*_.randInt2(0, 14);
-          alien.m5.vel[1] = 1;
+          alien.m5.vel[1] = 1*K.height;
           this.insert(alien);
           alien.m5.step=()=>{ if(!alien.m5.dead) S.move(alien) };
           _2d.contain(alien,this,false);
@@ -98,30 +112,33 @@
           G.winner = "p1";
         }
         if(G.winner){
-          Mojo.EventBus.unsub(["post.update",this]);
+          EventBus.unsub(["post.update",this]);
           this.end();
         }
       },
       end(){
+        let K=Mojo.contentScaleFactor();
         let bg=this.children[0];
         this.removeChildren();
         this.insert(bg);
-        let msg = S.text("", {fontFamily: "emulogic", fontSize: 20, fill: "#00FF00"}, 90, 120);
+        let msg = S.text("", {fontFamily:"emulogic",
+                              fill: "#00FF00",
+                              fontSize: 20 * K.width}, 90 * K.width, 120 * K.height);
         this.insert(msg);
         G.music.loop=false;
         G.music.pause();
         if(G.winner === "p1"){
-          msg.x = 120;
+          msg.x = 120 * K.width;
           msg.text="Earth Saved!";
         }else if(G.winner === "p2"){
           msg.text= "Earth Destroyed!";
         }
         function reset(){
-          Mojo.Game.score= 0;
-          Mojo.Game.spawnInterval= 100;
-          Mojo.Game.alienTimer= 0;
-          Mojo.Game.winner= "";
-          Mojo.Game.music.volume = 1;
+          G.score= 0;
+          G.spawnInterval= 100;
+          G.alienTimer= 0;
+          G.winner= "";
+          G.music.volume = 1;
           Z.removeScenes();
           Z.runScene("level1");
           //Z.runScene("ctrl");
@@ -133,7 +150,9 @@
 
     Z.defScene("hud", {
       setup(){
-        let score= S.text("0", {fontFamily: "emulogic", fontSize: 20, fill: "#00FF00"}, 400, 10);
+        let K=Mojo.contentScaleFactor();
+        let score= S.text("0", {fontFamily: "emulogic",
+                                fontSize: 20*K.width, fill: "#00FF00"}, 400*K.width, 10*K.height);
         score.m5.step=function(){
           score.text= ""+G.score;
         };
@@ -143,20 +162,21 @@
 
     Z.defScene("ctrl", {
       setup(){
+        let K=Mojo.contentScaleFactor();
         let j=Mojo.Touch.joystick({
           onChange(dir,angle,power){
             if(Mojo.sideRight(dir)){
-              G.cannon.m5.vel[0] = 5;
+              G.cannon.m5.vel[0] = 5*K.width;
               G.cannon.m5.vel[1] = 0;
             }
             if(Mojo.sideLeft(dir)){
-              G.cannon.m5.vel[0] = -5;
+              G.cannon.m5.vel[0] = -5*K.width;
               G.cannon.m5.vel[1] = 0;
             }
           }
         });
-        j.x=Mojo.width/2;
-        j.y=Mojo.height/2;
+        j.x=MFL(Mojo.width/2);
+        j.y=MFL(Mojo.height/2);
         this.insert(j);
       }
     });
@@ -170,17 +190,11 @@
                    "images/alienArmada.json",
                    "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
       arena: { width: 480, height: 320 },
-      scaleToWindow: true,
+      scaleToWindow:"max",
       start(Mojo){
-        Mojo.Game.boomSound = Mojo.sound("explosion.wav");
-        Mojo.Game.shootSound = Mojo.sound("shoot.wav");
-        Mojo.Game.music = Mojo.sound("music.wav");
-        Mojo.Game.spawnInterval= 100;
-        Mojo.Game.target= 10;
-        defScenes(Mojo);
-        Mojo.Scenes.runScene("level1");
-        //Mojo.Scenes.runScene("ctrl");
-        Mojo.Scenes.runScene("hud");
+        scenes(Mojo);
+        //["level1","ctrl","hud"].forEach(s=> Mojo.Scenes.runScene(s));
+        ["level1","hud"].forEach(s=> Mojo.Scenes.runScene(s));
       }
     })
   );

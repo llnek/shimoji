@@ -745,6 +745,16 @@
           s.scale.y=f.height;
         })
       },
+      /**Scale this object to be as big as canvas.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      scaleToCanvas(s){
+        s.height=Mojo.height;
+        s.width= Mojo.width;
+        return s;
+      },
       /**Set the uuid of a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
