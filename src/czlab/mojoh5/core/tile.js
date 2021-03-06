@@ -242,14 +242,29 @@
       scene.tiled.tileH=nh;
       scene.tiled.tiledWidth=nw * tmx.width;
       scene.tiled.tiledHeight=nh * tmx.height;
+
+      if(scene.tiled.tiledHeight<Mojo.height){
+        scene.y += MFL((Mojo.height-scene.tiled.tiledHeight)/2)
+      }
+      if(scene.tiled.tiledWidth<Mojo.width){
+        scene.x += MFL((Mojo.width-scene.tiled.tiledWidth)/2)
+      }
+      _contactObj.offsetX = scene.x;
+      _contactObj.offsetY = scene.y;
     }
 
     const _contactObj = {width: 0,
                          height: 0,
                          x:0, y:0,
+                         offsetX: 0,
+                         offsetY: 0,
                          rotation:0,
                          anchor: {x:0,y:0},
-                         getGlobalPosition(){ return {x:this.x,y:this.y} } };
+                         getGlobalPosition(){
+                           return{
+                             x:this.x+this.offsetX,
+                             y:this.y+this.offsetY}
+                         }};
     /**
      * @memberof module:mojoh5/Tiles
      * @class
@@ -381,11 +396,11 @@
         return c;
       }
       collideAB(obj){
+        let _S=Mojo.Sprites;
         let box,
             tw=this.tiled.tileW,
             th=this.tiled.tileH,
             tiles=this.tiled.collision;
-        let _S=Mojo.Sprites;
         if(_.feq0(obj.rotation)){
           box=_S.getBBox(obj)
         }else{
@@ -408,7 +423,9 @@
             if(ps && ps["Class"]){
               //special object, do nothing
             }else{
-              Mojo["2d"].hit(obj,B);
+              if(Mojo["2d"].hit(obj,B)){
+                let i=0;
+              }
             }
           }
         }

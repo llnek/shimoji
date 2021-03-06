@@ -34,6 +34,13 @@
      * @module mojoh5/Mojo
      */
 
+    class PixiStage extends PIXI.Container {
+      constructor(){
+        super();
+        this.m5={ stage:true }
+      }
+    }
+
     //////////////////////////////////////////////////////////////////////////
     //add optional defaults
     _.patch(cmdArg,{
@@ -230,12 +237,10 @@
     /** @ignore */
     function _prologue(Mojo){
       _.assert(cmdArg.arena,"design resolution req'd.");
-      const {EventBus}= Mojo,
-            S= new Mojo.PXContainer();
       let maxed=false,
-          box= cmdArg.arena;
-      Mojo.stage=S;
-      S.m5={stage:true};
+          {EventBus}= Mojo,
+          box= cmdArg.arena,
+          S= Mojo.stage= new PixiStage();
       if(cmdArg.scaleToWindow=="max"){
         maxed=true;
         box= {width: _width(),
@@ -497,9 +502,11 @@
        * @param {number} cellW
        * @param {number} cellH
        * @param {number} widthInCols
+       * @param {number} offsetX
+       * @param {number} offsetY
        * @return {number}
        */
-      getIndex(x, y, cellW, cellH, widthInCols){
+      getIndex(x, y, cellW, cellH, widthInCols,offsetX,offsetY){
         if(x<0 || y<0)
           throw `Error: ${x},${y}, values must be positive`;
         return MFL(x/cellW) + MFL(y/cellH) * widthInCols
