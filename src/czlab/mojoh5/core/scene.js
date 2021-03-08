@@ -64,6 +64,7 @@
           return out;
         },
         engrid(item,skipAdd){
+          if(!item || !item.anchor){return}
           let g = item.m5.sgrid,
               r = Mojo.Sprites.boundingBox(item),
               gridX1 = MFL(r.x1 / cellW),
@@ -78,14 +79,14 @@
             g.x2= gridX2;
             g.y1= gridY1;
             g.y2= gridY2;
-            if(!skipAdd) this._insert(item);
+            if(!skipAdd) this._register(item);
           }
           return item;
         },
         reset(){
           _grid.clear()
         },
-        _insert(item){
+        _register(item){
           let g= item.m5.sgrid;
           if(is.num(g.x1)){
             for(let X,Y,y= g.y1; y <= g.y2; ++y){
@@ -102,13 +103,15 @@
           }
         },
         degrid(item){
-          let g= item.m5.sgrid;
-          if(is.num(g.x1)){
-            for(let X,Y,y= g.y1; y <= g.y2; ++y){
-              if(Y=_grid.get(y))
-                for(let x= g.x1; x<=g.x2; ++x)
-                  if(X=Y.get(x))
-                    _.dissoc(X,item.m5.uuid)
+          if(item && item.anchor){
+            let g= item.m5.sgrid;
+            if(is.num(g.x1)){
+              for(let X,Y,y= g.y1; y <= g.y2; ++y){
+                if(Y=_grid.get(y))
+                  for(let x= g.x1; x<=g.x2; ++x)
+                    if(X=Y.get(x))
+                      _.dissoc(X,item.m5.uuid)
+              }
             }
           }
         }
@@ -125,6 +128,14 @@
       if(s){
         s.dispose && s.dispose();
         s.parent.removeChild(s);
+      }
+    }
+
+    class SceneWrapper extends Mojo.PXContainer{
+      constructor(s){
+        super();
+        this.addChild(s);
+        this.m5={stage:true};
       }
     }
 
@@ -163,8 +174,12 @@
       }
       _hitObject(obj){
         function _hitTest(a,b){
-          if(a !== b && a.m5.cmask & b.m5.type){
-            return Mojo["2d"].hitTest(a,b)
+          if(a !== b && !b.m5.dead && (a.m5.cmask & b.m5.type)){
+            let m= Mojo["2d"].hitTest(a,b);
+            if(m){
+              let i=0;
+            }
+            return m;
           }
         }
         return this.m5.sgrid.searchAndExec(obj,_hitTest)
@@ -179,6 +194,7 @@
         while(curCol>0 &&
               (col2 = this._hitObject(obj))){
           EventBus.pub(["hit",obj],col2);
+          EventBus.pub(["hit",col2.B],col2);
           grid.engrid(obj);
           --curCol;
         }
@@ -213,7 +229,9 @@
           c=this.getChildById(c);
         if(c && _.has(this.children,c)){
           this.removeChild(c);
-          this.m5.sgrid.degrid(c);
+          if(c instanceof PIXI.TilingSprite){}else{
+            this.m5.sgrid.degrid(c);
+          }
           _.dissoc(this.m5.index,c.m5.uuid);
         }
       }
@@ -229,7 +247,9 @@
         }else{
           this.addChild(c);
         }
-        this.m5.sgrid.engrid(c);
+        if(c instanceof PIXI.TilingSprite){}else{
+          this.m5.sgrid.engrid(c);
+        }
         return (this.m5.index[c.m5.uuid]=c)
       }
       /**Clean up.
@@ -307,6 +327,7 @@
     //the module
     const _$={
       Scene,
+      SceneWrapper,
       /**Lay items out horizontally.
        * @memberof module:mojoh5/Scenes
        * @param {Sprite[]} items
@@ -509,7 +530,7 @@
        * @return {Scene}
        */
       runScene(name,num,options){
-        let tmx, y, _s = ScenesDict[name];
+        let tmx, py, y, _s = ScenesDict[name];
         if(!_s)
           throw `Error: unknown scene: ${name}`;
         if(is.obj(num)){
@@ -529,13 +550,17 @@
         }else{
           y = new Scene(name, _s[0], options);
         }
+        py=y;
+        if(options.centerStage){
+          py=new SceneWrapper(y);
+        }
         //add to where?
         if(num >= 0 && num < Mojo.stage.children.length){
           let cur= Mojo.stage.getChildAt(num);
-          Mojo.stage.addChildAt(y,num);
+          Mojo.stage.addChildAt(py,num);
           _killScene(cur);
         }else{
-          Mojo.stage.addChild(y);
+          Mojo.stage.addChild(py);
         }
         y.runOnce();
         return y;

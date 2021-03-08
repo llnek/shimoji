@@ -80,10 +80,14 @@
 
     /** @ignore */
     function _lookupGid(gid,gidMap){
-      let idx = 0;
-      while(gidMap[idx+1] &&
-            gid >= gidMap[idx+1][0]) ++idx;
-      return gidMap[idx];
+      let idx = -1;
+      if(gid>0){
+        idx=0;
+        while(gidMap[idx+1] &&
+              gid >= gidMap[idx+1][0]) ++idx;
+      }
+      if(idx>=0)
+        return gidMap[idx];
     }
 
     /**Scans all tilesets and record all custom properties into
@@ -182,13 +186,13 @@
               tl.height=tl.data.length;
             tl.data=tl.data.flat();
           }
-          if(tl.visible !== undefined && !tl.visible){ return }
-          if(tl.collision !== false){
-            _.assertNot(scene.tiled.collision,"too many collision layers");
-            scene.tiled.collision=tl;
-          }
-          for(let s,gid,i=0;i<tl.data.length;++i){
-            if((gid=tl.data[i])===0){continue}
+          if(tl.visible === false){ return }
+          for(let tlprops=_parseProps(tl), s,gid,i=0;i<tl.data.length;++i){
+            if((gid=tl.data[i])===0){ continue }
+            if(tlprops.collision === false){}else{
+              if(gid>0)
+                scene.tiled.collision[i]=gid;
+            }
             let mapcol = i % tl.width,
                 maprow = MFL(i/tl.width),
                 s= ctor(gid,mapcol,maprow,tl.opacity);
@@ -200,24 +204,36 @@
             s.m5.static=true;
             scene.insert(s);
             //special tile
-            if(cFunc){ s=cFunc(scene,s,tsi,ps) }
+            if(cFunc){
+              s=cFunc(scene,s,tsi,ps) }
           }
         },
         objectgroup(tl){
           tl.objects.forEach(o=> {
-            let ps=gtileProps[o.gid];
-            let cz= ps && ps["Class"];
-            let createFunc= cz && objFactory[cz];
-            let tsi=_lookupGid(o.gid,scene.tiled.tileGidList)[1];
-            _.inject(o,_parseProps(o));
             _.assert(is.num(o.x),"wanted xy position");
-            o.y -= tsi.tileheight; //jiggle to top-left
-            let [tx,ty]=scene.getTileXY(o.x+MFL(scene.tiled.tileW/2),
-                                        o.y+MFL(scene.tiled.tileH/2));
-            let s= ctor(o.gid,tx,ty);
+            let s,ps,gid=_.or(o.gid,-1);
+            let os=_parseProps(o);
+            if(gid>0)ps=gtileProps[gid];
+            let cz= _.or(ps && ps["Class"],os["Class"]);
+            let createFunc= cz && objFactory[cz];
+            let w=scene.tiled.saved_tileW;
+            let h=scene.tiled.saved_tileH;
+            let tx=MFL((o.x+w/2)/w);
+            let ty=MFL((o.y-(o.height||h)/2)/h);
+            let tsi=_lookupGid(gid,scene.tiled.tileGidList);
+            if(tsi)tsi=tsi[1];
+            _.inject(o,os);
+            //jiggle everything to top-left
+            //o.y=ty*scene.tiled.tileH;
+            //o.x=tx*scene.tiled.tileW;
+            o.column=tx;
+            o.row=ty;
+            if(gid>0){
+              s= ctor(gid,tx,ty);
+            }
             if(createFunc){
               s= createFunc(scene,s,tsi,ps,o);
-              s && scene.insert(s);
+              if(s){ scene.insert(s) }
             }
           });
         },
@@ -226,6 +242,7 @@
       objFactory=_.or(objFactory,{});
       _.inject(scene.tiled, {tileProps: gtileProps,
                              tileSets: tsProps,
+                             collision: _.fill(tmx.width*tmx.height,0),
                              imagelayer:[],objectgroup:[],tilelayer:[],
                              tileGidList: _scanTilesets(tmx.tilesets,tsProps,gtileProps)});
       ["imagelayer","tilelayer","objectgroup"].forEach(s=>{
@@ -242,28 +259,26 @@
       scene.tiled.tileH=nh;
       scene.tiled.tiledWidth=nw * tmx.width;
       scene.tiled.tiledHeight=nh * tmx.height;
-
-      if(scene.tiled.tiledHeight<Mojo.height){
-        scene.y += MFL((Mojo.height-scene.tiled.tiledHeight)/2)
+      if(scene.parent instanceof Mojo.Scenes.SceneWrapper){
+        if(scene.tiled.tiledHeight<Mojo.height){
+          scene.parent.y += MFL((Mojo.height-scene.tiled.tiledHeight)/2)
+        }
+        if(scene.tiled.tiledWidth<Mojo.width){
+          scene.parent.x += MFL((Mojo.width-scene.tiled.tiledWidth)/2)
+        }
       }
-      if(scene.tiled.tiledWidth<Mojo.width){
-        scene.x += MFL((Mojo.width-scene.tiled.tiledWidth)/2)
-      }
-      _contactObj.offsetX = scene.x;
-      _contactObj.offsetY = scene.y;
     }
 
     const _contactObj = {width: 0,
                          height: 0,
+                         parent:null,
                          x:0, y:0,
-                         offsetX: 0,
-                         offsetY: 0,
                          rotation:0,
                          anchor: {x:0,y:0},
                          getGlobalPosition(){
                            return{
-                             x:this.x+this.offsetX,
-                             y:this.y+this.offsetY}
+                             x:this.x+this.parent.x,
+                             y:this.y+this.parent.y}
                          }};
     /**
      * @memberof module:mojoh5/Tiles
@@ -278,6 +293,7 @@
       constructor(id,func,options){
         super(id,func,options);
         this.tiled={};
+        _contactObj.parent=this;
         Mojo.Sprites.extend(_contactObj);
       }
       runOnce(){
@@ -294,9 +310,9 @@
         let tx= MFL(x/this.tiled.tileW);
         let ty= MFL(y/this.tiled.tileH);
         let pos= ty*this.tiled.tileInX + tx;
-        let len = this.tiled.collision.data.length;
+        let len = this.tiled.collision.length;
         _.assert(pos>=0&&pos<len,"bad index to remove");
-        this.tiled.collision.data[pos]=0;
+        this.tiled.collision[pos]=0;
         Mojo.Sprites.remove(s);
       }
       /**Get a tile layer.
@@ -413,7 +429,7 @@
         for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
           for(let tX = sX; tX<=eX; ++tX){
             pos=tY*this.tiled.tileInX+tX;
-            gid=tiles.data[pos];
+            gid=tiles[pos];
             if(!is.num(gid)){
               _.assert(is.num(gid),"bad gid");
             }

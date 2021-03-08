@@ -31,7 +31,7 @@
 
     /**Define a mixin object.
      */
-    Mojo.Sprites.defMixin("2d",function(e){
+    Mojo.defMixin("2d",function(e){
       const signals=[];
       const self={
         dispose(){
@@ -107,7 +107,7 @@
 
     /**Define a mixin to handle platform games
      */
-    Mojo.Sprites.defMixin("platformer", function(e){
+    Mojo.defMixin("platformer", function(e){
       const signals=[];
       const self={
         jumpSpeed: -300,//y-axis goes down
@@ -173,7 +173,7 @@
 
     /**Define mixin `aiBounce`.
      */
-    Mojo.Sprites.defMixin("aiBounce", function(e){
+    Mojo.defMixin("aiBounce", function(e){
       const signals=[];
       const self= {
         dispose(){
@@ -204,6 +204,119 @@
       return self;
     });
 
+    /**Define mixin `camera`.
+     */
+    /**The `worldCamera` method returns a `camera` object
+     * with `x` and `y` properties. It has
+     * two useful methods: `centerOver`, to center the camera over
+     * a sprite, and `follow` to make it follow a sprite.
+     * `worldCamera` arguments: worldObject, theCanvas
+     * The worldObject needs to have a `width` and `height` property.
+     * @memberof module:mojoh5/2d
+     * @param {object} world
+     * @param {number} worldWidth
+     * @param {number} worldHeight
+     * @param {object} canvas
+     * @return {object}
+     */
+    Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
+      const _height= canvas?canvas.height:worldHeight;
+      const _width= canvas?canvas.width:worldWidth;
+      const height2=MFL(_height/2);
+      const width2=MFL(_width/2);
+      const height4=MFL(_height/4);
+      const width4=MFL(_width/4);
+      const signals=[];
+      const world=e;
+      let _x=0;
+      let _y=0;
+      const self= {
+        dispose(){
+          signals.forEach(e=>EventBus.unsub.apply(EventBus,e)) },
+        //`x` and `y` getters/setters
+        //When you change the camera's position,
+        //they shift the position of the world in the opposite direction
+        get x() { return _x },
+        get y() { return _y },
+        set x(v) { _x = v; world.x = -_x },
+        set y(v) { _y = v; world.y = -_y },
+        get width() {return _width},
+        get height() {return _height},
+        get worldWidth() { return worldWidth},
+        get worldHeight() { return worldHeight},
+        get centerX() { return this.x + width2 },
+        get centerY() { return this.y + height2 },
+        //Boundary properties that define a rectangular area, half the size
+        //of the game screen. If the sprite that the camera is following
+        //is inide this area, the camera won't scroll. If the sprite
+        //crosses this boundary, the `follow` function ahead will change
+        //the camera's x and y position to scroll the game world
+        get rightInnerBoundary() {
+          return this.x + MFL(width2 + width4)
+        },
+        get leftInnerBoundary() {
+          return this.x + MFL(width2 - width4)
+        },
+        get topInnerBoundary() {
+          return this.y + MFL(height2 - height4)
+        },
+        get bottomInnerBoundary() {
+          return this.y + MFL(height2 + height4)
+        },
+        //Use the `follow` method to make the camera follow a sprite
+        follow(s){
+          //Check the sprites position in relation to the inner
+          //boundary. Move the camera to follow the sprite if the sprite
+          //strays outside the boundary
+          if(s.x < this.leftInnerBoundary){
+            this.x = s.x - width4
+          }
+          if(s.y < this.topInnerBoundary){
+            this.y = s.y - height4
+          }
+          if(s.x + s.width > this.rightInnerBoundary){
+            this.x = s.x + s.width - width4 * 3
+          }
+          if(s.y + s.height > this.bottomInnerBoundary){
+            this.y = s.y + s.height - height4 * 3
+          }
+          //If the camera reaches the edge of the map, stop it from moving
+          if(this.x < 0) { this.x = 0 }
+          if(this.y < 0) { this.y = 0 }
+          if(this.x + _width > worldWidth){
+            this.x = worldWidth - _width
+          }
+          if(this.y + _height > worldHeight){
+            this.y = worldHeight - _height
+          }
+          //contain the object
+          let {x1,x2,y1,y2}=s.m5.getImageOffsets();
+          let n= Mojo.Sprites.rightSide(s) - x2;
+          if(n>worldWidth){ s.x -= (n-worldWidth) }
+          n=Mojo.Sprites.bottomSide(s) - y2;
+          if(n>worldHeight){ s.y -= (n-worldHeight) }
+          n=Mojo.Sprites.leftSide(s) + x1;
+          if(n<0) { s.x += -n }
+          n=Mojo.Sprites.topSide(s) + y1;
+          if(n<0) { s.y += -n }
+        },
+        centerOver:function(s,y){
+          if(arguments.length===1 && !is.num(s)){
+            //an object
+            let sz= Mojo.Sprites.halfSize(s);
+            //Center the camera over a sprite
+            this.x = s.x + sz.width - width2;
+            this.y = s.y + sz.height - height2;
+          }else{
+            if(is.num(s)) this.x=s - width2;
+            if(is.num(y)) this.y=y - height2;
+          }
+        }
+      };
+      signals.push([["post.remove",e],"dispose",self]);
+      signals.forEach(e=>EventBus.sub.apply(EventBus,e));
+      return self;
+    });
     /** @ignore */
     function _hitAB(a,b){
       let a_,b_,m,
@@ -427,97 +540,6 @@
           collision=null;
         }
         return collision;
-      },
-      /**The `worldCamera` method returns a `camera` object
-       * with `x` and `y` properties. It has
-       * two useful methods: `centerOver`, to center the camera over
-       * a sprite, and `follow` to make it follow a sprite.
-       * `worldCamera` arguments: worldObject, theCanvas
-       * The worldObject needs to have a `width` and `height` property.
-       * @memberof module:mojoh5/2d
-       * @param {object} world
-       * @param {number} worldWidth
-       * @param {number} worldHeight
-       * @param {object} canvas
-       * @return {object}
-       *
-       */
-      worldCamera(world, worldWidth, worldHeight, canvas){
-        canvas=_.or(canvas,Mojo.canvas);
-        const camera={
-          height: canvas.height,
-          width: canvas.width,
-          _x:0,
-          _y:0,
-          //`x` and `y` getters/setters
-          //When you change the camera's position,
-          //they shift the position of the world in the opposite direction
-          get x() { return this._x },
-          get y() { return this._y },
-          set x(value) { this._x = value; world.x = -this._x },
-          set y(value) { this._y = value; world.y = -this._y },
-          get centerX() { return this.x + (this.width / 2) },
-          get centerY() { return this.y + (this.height / 2) },
-          //Boundary properties that define a rectangular area, half the size
-          //of the game screen. If the sprite that the camera is following
-          //is inide this area, the camera won't scroll. If the sprite
-          //crosses this boundary, the `follow` function ahead will change
-          //the camera's x and y position to scroll the game world
-          get rightInnerBoundary() {
-            return this.x + (this.width/2) + (this.width/4)
-          },
-          get leftInnerBoundary() {
-            return this.x + (this.width/2) - (this.width/4)
-          },
-          get topInnerBoundary() {
-            return this.y + (this.height/2) - (this.height/4)
-          },
-          get bottomInnerBoundary() {
-            return this.y + (this.height/2) + (this.height/4)
-          },
-          //Use the `follow` method to make the camera follow a sprite
-          follow(s){
-            //Check the sprites position in relation to the inner
-            //boundary. Move the camera to follow the sprite if the sprite
-            //strays outside the boundary
-            if(s.x < this.leftInnerBoundary){
-              this.x = s.x - (this.width/4);
-            }
-            if(s.y < this.topInnerBoundary){
-              this.y = s.y - (this.height/4);
-            }
-            if(s.x + s.width > this.rightInnerBoundary){
-              this.x = s.x + s.width - (this.width / 4 * 3);
-            }
-            if(s.y + s.height > this.bottomInnerBoundary){
-              this.y = s.y + s.height - (this.height / 4 * 3);
-            }
-            //If the camera reaches the edge of the map, stop it from moving
-            if(this.x < 0) { this.x = 0 }
-            if(this.y < 0) { this.y = 0 }
-            if(this.x + this.width > worldWidth){
-              this.x = worldWidth - this.width
-            }
-            if(this.y + this.height > worldHeight){
-              this.y = worldHeight - this.height
-            }
-          },
-          centerOver:function(s,y){
-            let w2=this.width/2,
-                h2=this.height/2;
-            if(arguments.length===1 && !is.num(s)){
-              //an object
-              let sz= Mojo.Sprites.halfSize(s);
-              //Center the camera over a sprite
-              this.x = s.x + sz.width - w2;
-              this.y = s.y + sz.height - h2;
-            }else{
-              if(is.num(s)) this.x=s - w2;
-              if(is.num(y)) this.y=y - h2;
-            }
-          }
-        };
-        return camera;
       },
       dbgShowCol(col){
         let out=[];

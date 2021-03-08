@@ -109,18 +109,32 @@
     /** @ignore */
     function _sa(a){ return `${a.x},${a.y}` }
 
-    /** @ignore */
     function _corners(a,w,h){
+      let v=_V.vec,
+          _3=v(0,0),
+          _2=v(w,0),
+          _4=v(0,h),
+          _1=v(w,h),
+          out=[_1,_2,_3,_4];
+      out.forEach(r=>{
+        r[0] -= MFL(w * a.x);
+        r[1] -= MFL(h * a.y);
+      });
+      return out;
+    }
+
+    /** @ignore */
+    function XX_corners(a,w,h){
       let r,
           v=_V.vec,
           w2=MFL(w/2),
           h2=MFL(h/2);
       switch(a){
       case "0,0":
-        r=[v(0,h), v(w,h), v(w,0), v()];
+        r=[v(w,h), v(w,0), v(), v(0,h)];
       break;
       case "0.5,0":
-        r=[ v(-w2,h), v(w2,h), v(w2,0), v(-w2,0)];
+        r=[ v(w2,h2), v(w2,h), v(w2,0), v(-w2,0)];
       break;
       case "1,0":
         r=[ v(-w,h), v(0,h), v(), v(-w,0)];
@@ -147,26 +161,6 @@
         _.assert(false,"Error: bad anchor values: "+a);
       }
       return r
-    }
-
-    /**Mixin registry.
-    */
-    const _mixins= _.jsMap();
-
-    /** @ignore */
-    class Mixin{
-      constructor(){}
-    }
-
-    /** @ignore */
-    function _mixinAdd(s,name,f){
-      _.assert(!_.has(s,name),`Error: ${name} not available.`);
-      //call f to create the mixin object
-      const o= f(s);
-      s[name]=o;
-      o.name=name;
-      o.mixinName= "."+name;
-      return s;
     }
 
     /**Add more to an AnimatedSprite.
@@ -416,31 +410,11 @@
                         get dead(){ return _dead },
                         set dead(x){ _dead=true },
                         resize(px,py,pw,ph){self.resize(s,px,py,pw,ph)},
-                        getContactPoints(){ return _corners(_sa(s.anchor),s.width,s.height) }});
+                        getImageOffsets(){ return {x1:0,x2:0,y1:0,y2:0} },
+                        getContactPoints(){ return _corners(s.anchor,s.width,s.height) }});
         s.getBBox=function(){ return self.boundingBox(s) };
         s.getGuid=function(){ return s.m5.uuid };
         s.getSpatial=function(){ return s.m5.sgrid; }
-        return s;
-      },
-      /**Define a mixin.
-       * @memberof module:mojoh5/Sprites
-       * @param {string} name
-       * @param {function} body
-       */
-      defMixin(name,body){
-        if(_.has(_mixins,name))
-          throw `Error: mixin: "${name}" already defined.`;
-        _.assert(is.fun(body),"mixin must be a function");
-        _.assoc(_mixins,name, body);
-      },
-      /**Add these mixins to the sprite.
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {...string} fs names of mixins
-       * @return {Sprite} s
-       */
-      addMixin(s,...fs){
-        fs.forEach(n=> _mixinAdd(s,n, _mixins.get(n)))
         return s;
       },
       /**Convert sprite to a polygonal shape.
@@ -449,10 +423,10 @@
        * @return {Polygon}
        */
       toPolygon(s){
-        let g=this.gposXY(s),
-            ps=s.m5.getContactPoints(),
-            p=new Geo.Polygon(g[0],g[1]).setOrient(s.rotation).set(ps);
-        _V.reclaim(g);
+        let ps= s.m5.getContactPoints();
+        //let g=this.gposXY(s);
+        let p=new Geo.Polygon(s.x,s.y).setOrient(s.rotation).set(ps);
+        //_V.reclaim(g);
         return p;
       },
       /**Convert sprite to a circular shape.
@@ -463,9 +437,9 @@
       toCircle(s){
         this.assertCenter(s);
         let r=MFL(s.width/2),
-            g=this.gposXY(s),
-            p= new Geo.Circle(r).setPos(g[0],g[1]).setOrient(s.rotation);
-        _V.reclaim(g);
+            //g=this.gposXY(s),
+            p= new Geo.Circle(r).setPos(s.x,s.y).setOrient(s.rotation);
+        //_V.reclaim(g);
         return p;
       },
       /**Get the PIXI global position.
@@ -786,6 +760,9 @@
         let s= new Mojo.PXContainer();
         _.assertNot(_.has(s,"m5")||_.has(s,"g"),"found m5+g properties");
         s= this.extend(s);
+        s.collideAB=function(...args){
+          return s.parent.collideAB(...args)
+        };
         cb && cb(s);
         return s;
       },

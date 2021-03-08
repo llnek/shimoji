@@ -21,6 +21,7 @@
         _S=Mojo.Sprites,
         _T=Mojo.Tiles,
         _I=Mojo.Input,_2d=Mojo["2d"];
+    let MFL=Math.floor;
     let {ute:_,is,EventBus}=Mojo;
 
     const E_PLAYER=1;
@@ -28,7 +29,7 @@
     const E_COIN=4;
     const E_TOWER=8;
 
-    _S.defMixin("towerManControls", function(e){
+    Mojo.defMixin("towerManControls", function(e){
       e.m5.direction=Mojo.UP;
       //e.m5.speed=100;
       let self={
@@ -58,7 +59,7 @@
       return self;
     });
 
-    _S.defMixin("enemyControls", function(e){
+    Mojo.defMixin("enemyControls", function(e){
       e.m5.direction=Mojo.LEFT;
       //e.m5.speed=100;
       e.m5.switchPercent=2;
@@ -132,7 +133,8 @@
       p.m5.speed= 150 * scene.getScaleFactor();
       p.m5.vel[0]=p.m5.speed;
       p.m5.vel[1]=p.m5.speed;
-      _S.addMixin(p,"2d","towerManControls");
+      Mojo.addMixin(p,"2d");
+      Mojo.addMixin(p,"towerManControls");
       p.m5.step=function(dt){
         p["2d"].motion(dt);
         p["towerManControls"].step(dt);
@@ -141,16 +143,17 @@
     }
 
     function Enemy(scene,s,ts,ps,os){
+      s.m5.uuid=`e#${_.nextId()}`;
       s.m5.type=E_ENEMY;
       s.m5.cmask=E_PLAYER;
-      s.m5.uuid=`enemy#${_.nextId()}`;
-      s.x += Math.floor(s.width/2);
-      s.y += Math.floor(s.height/2);
+      s.x = os.column * s.width+MFL(s.width/2);
+      s.y = os.row * s.height+MFL(s.height/2);
       s.anchor.set(0.5);
       s.m5.speed= 150 * scene.getScaleFactor();
       s.m5.vel[0]=s.m5.speed;
       s.m5.vel[1]=s.m5.speed;
-      _S.addMixin(s,"2d","enemyControls");
+      Mojo.addMixin(s,"2d");
+      Mojo.addMixin(s,"enemyControls");
       s.m5.boom=function(col){
         if(col.B.m5.uuid=="player"){
           Mojo.pause();
@@ -177,7 +180,7 @@
     _Z.defScene("level1",{
       setup(options){
       }
-    },{sgridX:128,sgridY:128,
+    },{sgridX:128,sgridY:128,centerStage:true,
        tiled:{name: "tower_man.json",factory:_objFactory}});
   }
 
@@ -185,7 +188,6 @@
     MojoH5({
       assetFiles: ["sprites.png", "tower_man.json","tiles.png"],
       arena: {width:640,height:480},
-      resize:false,
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);

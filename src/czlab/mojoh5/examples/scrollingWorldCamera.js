@@ -16,6 +16,9 @@
 
   "use strict";
 
+  const E_PLAYER=1;
+  const E_ITEM=2;
+
   function scenes(Mojo) {
     const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,G=Mojo.Game,_2d=Mojo["2d"],T=Mojo.Tiles;
     const {ute:_,is,EventBus} =Mojo;
@@ -30,130 +33,145 @@
       syncUI(msg){
         this.message.text=msg;
         this.message.visible=true;
+        _.delay(3000,()=> this.hideMessage());
       },
       hideMessage(){
         this.message.visible=false;
       }
     });
 
+    function Player(scene,p,ts,ps,os){
+      let mapcol=os.column,
+          maprow=os.row,
+          K= scene.getScaleFactor();
+      p = S.animation("walkcycle.png", 64, 64);
+      p.m5.type=E_PLAYER;
+      p.m5.cmask=E_ITEM;
+      p.m5.speed=80 * K;
+      p.m5.uuid="player";
+      p.scale.x=K;
+      p.scale.y=K;
+      p.x=mapcol * scene.tiled.tileW;
+      p.y=maprow * scene.tiled.tileH;
+      G.elf=p;
+      Mojo.addMixin(p,"2d");
+      p.m5.getImageOffsets=function(){
+        return {x1:p.scale.x*18,x2: p.scale.x*16,
+                y1:p.scale.y*10,y2:p.scale.y*4}
+      };
+      p.m5.getContactPoints=function(){
+        let a=[[48,60],[48,10],[18,10],[18,60]];
+        a.forEach(o=>{
+          o[0] *= p.scale.x;
+          o[1] *= p.scale.y;
+        });
+        return a;
+      };
+      p.g.states = {
+        up: 0,
+        left: 9,
+        down: 18,
+        right: 27,
+        walkUp: [1, 8],
+        walkLeft: [10, 17],
+        walkDown: [19, 26],
+        walkRight: [28, 35]
+      };
+      p.m5.showFrame(p.g.states.right);
+      p.m5.step=(dt)=>{
+        p["2d"].motion(dt)
+      }
+
+      scene.leftArrow = I.keybd(I.keyLEFT, ()=>{
+        G.elf.m5.playFrames(G.elf.g.states.walkLeft);
+        G.elf.m5.vel[0] = -G.elf.m5.speed;
+        G.elf.m5.vel[1] = 0;
+      }, ()=>{
+        if(!scene.rightArrow.isDown && G.elf.m5.vel[1] === 0){
+          G.elf.m5.vel[0] = 0;
+          G.elf.m5.showFrame(G.elf.g.states.left);
+        }
+      });
+      scene.upArrow = I.keybd(I.keyUP, ()=>{
+        G.elf.m5.playFrames(G.elf.g.states.walkUp);
+        G.elf.m5.vel[1] = -G.elf.m5.speed;
+        G.elf.m5.vel[0] = 0;
+      }, ()=>{
+        if(!scene.downArrow.isDown && G.elf.m5.vel[0] === 0) {
+          G.elf.m5.vel[1] = 0;
+          G.elf.m5.showFrame(G.elf.g.states.up);
+        }
+      });
+      scene.rightArrow = I.keybd(I.keyRIGHT, ()=>{
+        G.elf.m5.playFrames(G.elf.g.states.walkRight);
+        G.elf.m5.vel[0] = G.elf.m5.speed;
+        G.elf.m5.vel[1] = 0;
+      }, ()=>{
+        if(!scene.leftArrow.isDown && G.elf.m5.vel[1] === 0) {
+          G.elf.m5.vel[0] = 0;
+          G.elf.m5.showFrame(G.elf.g.states.right);
+        }
+      });
+      scene.downArrow = I.keybd(I.keyDOWN, ()=>{
+        G.elf.m5.playFrames(G.elf.g.states.walkDown);
+        G.elf.m5.vel[1] = G.elf.m5.speed;
+        G.elf.m5.vel[0] = 0;
+      }, ()=>{
+        if(!scene.upArrow.isDown && G.elf.m5.vel[0] === 0) {
+          G.elf.m5.vel[1] = 0;
+          G.elf.m5.showFrame(G.elf.g.states.down);
+        }
+      });
+
+      return p;
+    }
+
+    function _item(scene,s,id,ts,ps,os){
+      s.m5.type=E_ITEM;
+      s.m5.uuid=id;
+      s.m5.sensor=true;
+      s.m5.onSensor=()=>{
+        let hud=Z.findScene("hud");
+        S.remove(s);
+        EventBus.pub(["sync.ui", hud], `You found a ${id}`);
+      };
+      EventBus.sub(["2d.sensor",s],"onSensor",s.m5);
+      return s;
+    }
+
+    function Heart(scene,s,ts,ps,os){
+      return _item(scene,s,"heart", ts,ps,os);
+    }
+    function Marmot(scene,s,ts,ps,os){
+      return _item(scene,s,"marmot", ts,ps,os);
+    }
+
+    function Skull(scene,s,ts,ps,os){
+      return _item(scene,s,"skull", ts,ps,os);
+    }
+
+    const _objFactory=function(){
+      return {Elf:Player,Heart,Marmot,Skull}
+    };
+
     Z.defScene("level1",{
       setup(){
-        let w=this.world = T.tiledWorld("fantasy.json");
-        this.insert(w);
-        this.elf = S.animation("walkcycle.png", 64, 64);
-        let objects=T.getObjectGroup(w,"objects");
-        objects.addChild(this.elf);
-        let elfObj=T.getNamedItem(objects,"elf")[0];
-        this.elf.x = elfObj.x;
-        this.elf.y = elfObj.y;
-        let items= T.getTileLayer(w,"items");
-        this.items= items.children.slice();
-
-        this.camera = _2d.worldCamera(w, w.tiled.tiledWidth, w.tiled.tiledHeight, Mojo.canvas);
-        this.camera.centerOver(this.elf);
-
-        //Define a `collisionArea` on the elf that will be sensitive to
-        //collisions. `hitTestTile` will use this information later to check
-        //whether the elf is colliding with any of the tiles
-        this.elf.m5.collisionArea = {x1: 22, y1: 44, x2:42, y2: 64};
-        this.elf.states = {
-          up: 0,
-          left: 9,
-          down: 18,
-          right: 27,
-          walkUp: [1, 8],
-          walkLeft: [10, 17],
-          walkDown: [19, 26],
-          walkRight: [28, 35]
-        };
-
-        this.elf.m5.showFrame(this.elf.states.right);
-        this.elf.fps = 18;
-
-        this.leftArrow = I.keybd(I.keyLEFT, ()=>{
-          this.elf.m5.playFrames(this.elf.states.walkLeft);
-          this.elf.m5.vel[0] = -2;
-          this.elf.m5.vel[1] = 0;
-        }, ()=>{
-          if(!this.rightArrow.isDown && this.elf.m5.vel[1] === 0) {
-            this.elf.m5.vel[0] = 0;
-            this.elf.m5.showFrame(this.elf.states.left);
-          }
-        });
-        this.upArrow = I.keybd(I.keyUP, ()=>{
-          this.elf.m5.playFrames(this.elf.states.walkUp);
-          this.elf.m5.vel[1] = -2;
-          this.elf.m5.vel[0] = 0;
-        }, ()=>{
-          if(!this.downArrow.isDown && this.elf.m5.vel[0] === 0) {
-            this.elf.m5.vel[1] = 0;
-            this.elf.m5.showFrame(this.elf.states.up);
-          }
-        });
-        this.rightArrow = I.keybd(I.keyRIGHT, ()=>{
-          this.elf.m5.playFrames(this.elf.states.walkRight);
-          this.elf.m5.vel[0] = 2;
-          this.elf.m5.vel[1] = 0;
-        }, ()=>{
-          if(!this.leftArrow.isDown && this.elf.m5.vel[1] === 0) {
-            this.elf.m5.vel[0] = 0;
-            this.elf.m5.showFrame(this.elf.states.right);
-          }
-        });
-        this.downArrow = I.keybd(I.keyDOWN, ()=>{
-          this.elf.m5.playFrames(this.elf.states.walkDown);
-          this.elf.m5.vel[1] = 2;
-          this.elf.m5.vel[0] = 0;
-        }, ()=>{
-          if(!this.upArrow.isDown && this.elf.m5.vel[0] === 0) {
-            this.elf.m5.vel[1] = 0;
-            this.elf.m5.showFrame(this.elf.states.down);
-          }
-        });
-
+        Mojo.addMixin(this,"camera2d", this.tiled.tiledWidth, this.tiled.tiledHeight);
+        //this["camera2d"].centerOver(G.elf);
         EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate:function(dt){
-        //Move the elf and constrain it to the world boundaries
-        //(-10 and -18 are to compensate for image padding around the sprite)
-        this.elf.x = Math.max(-18, Math.min(this.elf.x + this.elf.m5.vel[0], this.world.tiled.tiledWidth - this.elf.width + 18));
-        this.elf.y = Math.max(-10, Math.min(this.elf.y + this.elf.m5.vel[1], this.world.tiled.tiledHeight - this.elf.height));
-        this.camera.follow(this.elf);
-        let obs= T.getTileLayer(this.world,"obstacles");
-        let elfVsGround = T.hitTestTile(this.elf, obs.tiled.data, 0, this.world, Mojo.EVERY);
-        if(!elfVsGround.hit){
-          this.elf.x -= this.elf.m5.vel[0];
-          this.elf.y -= this.elf.m5.vel[1];
-          this.elf.m5.vel[0] = 0;
-          this.elf.m5.vel[1] = 0;
-        }
-        let items=T.getTileLayer(this.world,"items");
-        let elfVsItems = T.hitTestTile(this.elf, items.tiled.data, 0, this.world, Mojo.SOME);
-        if(!elfVsItems.hit){
-          this.items = this.items.filter(item => {
-            if(item.tiled.____index === elfVsItems.index){
-              let hud=Z.findScene("hud");
-              EventBus.pub(["sync.ui", hud], `You found a ${item.tiled.props.name}`);
-              hud.future(function(){ hud.hideMessage(); }, 180);
-              //Remove the item
-              items.tiled.data[elfVsItems.index]=0;
-              S.remove(item);
-              return false;
-            } else {
-              return true;
-            }
-          });
-        }
+        this["camera2d"].follow(G.elf);
       }
-    });
-
+    },{sgridX:128,sgridY:128,centerStage:true,
+       tiled:{name:"fantasy.json",factory:_objFactory}});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: [ "fantasy.png", "walkcycle.png", "puzzler.otf", "fantasy.json"],//, "level1.tmx" ],
       arena: {width:512, height:512},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

@@ -33,7 +33,15 @@
       _bgTasks.forEach(m=> m.update && m.update(dt));
       //update all scenes
       if(!_paused)
-        Mojo.stageCS(s=> s.update && s.update(dt));
+        Mojo.stageCS(s=> {
+          if(s instanceof Mojo.Scenes.SceneWrapper){
+            s.children.forEach(c=>{
+             c.update && c.update(dt);
+            });
+          }else{
+            s.update && s.update(dt);
+          }
+        });
       //render drawings
       Mojo.ctx.render(Mojo.stage);
     }
@@ -56,7 +64,7 @@
 
     /** @ignore */
     function _raf(cb){
-      gscope.requestAnimationFrame(cb) }
+      return gscope.requestAnimationFrame(cb) }
 
     //------------------------------------------------------------------------
     //extensions
@@ -80,7 +88,7 @@
           last = cur;
           _raf(F);
         };
-        _raf(F);
+        return _raf(F);
       }
     });
 

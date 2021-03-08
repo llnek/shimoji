@@ -210,7 +210,7 @@
         _onAssetLoaded(Mojo);
       }
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      Mojo.start(); // starting the game loop
+      return Mojo.start(); // starting the game loop
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     }
 
@@ -267,22 +267,41 @@
       dom.conj(document.body, Mojo.canvas);
       Mojo.scaledBgColor= cmdArg.scaledBgColor || "#323232";
       Mojo.touchDevice= !!("ontouchstart" in document);
-      EventBus.sub(["canvas.resize"],
-                   old=> S.children.forEach(s=> s.onCanvasResize(old)));
       _configCSS();
       Mojo.scale= cmdArg.scaleToWindow===true?_scaleCanvas(Mojo.canvas):1;
       Mojo.mouse= Mojo["Input"].pointer(Mojo.canvas, Mojo.scale);
       Mojo.frame=1/cmdArg.fps;
-      if(cmdArg.resize !== false){
+      if(cmdArg.resize === true){
         _.addEvent("resize", gscope, _.debounce(()=>{
           //save the current size and tell others
           const [w,h]=[Mojo.width, Mojo.height];
           Mojo.ctx.resize(_width(),_height());
           EventBus.pub(["canvas.resize"],[w,h]);
         },cmdArg.debounceRate||150));
+        EventBus.sub(["canvas.resize"],
+                     old=> S.children.forEach(s=> s.onCanvasResize(old)));
       }
-      _loadFiles(Mojo);
-      return Mojo;
+      return _loadFiles(Mojo) && Mojo;
+    }
+
+    /**Mixin registry.
+    */
+    const _mixins= _.jsMap();
+
+    /** @ignore */
+    class Mixin{
+      constructor(){}
+    }
+
+    /** @ignore */
+    function _mixinAdd(s,name,f,...args){
+      _.assert(!_.has(s,name),`Error: ${name} not available.`);
+      //call f to create the mixin object
+      const o= f(s,...args);
+      s[name]=o;
+      o.name=name;
+      o.mixinName= "."+name;
+      return s;
     }
 
     const Mojo={
@@ -424,6 +443,26 @@
        */
       wrapv(v, low, high){
         return v<low ? high : (v>high ? low : v)
+      },
+      /**Define a mixin.
+       * @memberof module:mojoh5/Mojo
+       * @param {string} name
+       * @param {function} body
+       */
+      defMixin(name,body){
+        if(_.has(_mixins,name))
+          throw `Error: mixin: "${name}" already defined.`;
+        _.assert(is.fun(body),"mixin must be a function");
+        _.assoc(_mixins,name, body);
+      },
+      /**Add these mixins to the sprite.
+       * @memberof module:mojoh5/Mojo
+       * @param {Sprite} s
+       * @param {...string} fs names of mixins
+       * @return {Sprite} s
+       */
+      addMixin(s,n,...args){
+        return _mixinAdd(s,n, _mixins.get(n),...args)
       },
       /**Get the loaded resources.
        * @memberof module:mojoh5/Mojo
