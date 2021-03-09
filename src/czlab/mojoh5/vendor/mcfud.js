@@ -3967,6 +3967,23 @@
         this.B = B;
         this.clear();
       }
+      swap(){
+        let m=new Manifold();
+        let aib=this.AInB;
+        let bia=this.BInA;
+        let a=this.A;
+
+        m.overlap=this.overlap;
+        m.A=this.B;
+        m.B=a;
+        m.AInB=bia;
+        m.BInA=aib;
+        m.overlapN=_V.flip(this.overlapN);
+        m.overlapV=_V.flip(this.overlapV);
+        //m.overlapV[0]=m.overlapN[0]*this.overlap;
+        //m.overlapV[1]=m.overlapN[1]*this.overlap;
+        return m;
+      }
       /**Reset to zero. */
       clear(){
         this.overlap = Infinity;

@@ -194,7 +194,7 @@
         while(curCol>0 &&
               (col2 = this._hitObject(obj))){
           EventBus.pub(["hit",obj],col2);
-          EventBus.pub(["hit",col2.B],col2);
+          EventBus.pub(["hit",col2.B],col2.swap());
           grid.engrid(obj);
           --curCol;
         }

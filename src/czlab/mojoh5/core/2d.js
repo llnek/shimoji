@@ -37,7 +37,10 @@
         dispose(){
           signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
         boom(col){
-          _.assert(col.A===e,"got bit by someone else???");
+          if(col.A !== e){
+            console.log(`2d.boom: ${e.m5.uuid} != ${col.A.m5.uuid}`);
+            _.assert(false,"got hit by someone else???");
+          }
           if(col.B && col.B.m5.sensor){
             EventBus.pub(["2d.sensor", col.B], col.A);
           }else{
@@ -173,11 +176,11 @@
 
     /**Define mixin `aiBounce`.
      */
-    Mojo.defMixin("aiBounce", function(e){
+    Mojo.defMixin("aiBounce", function(e,xDir,yDir){
       const signals=[];
       const self= {
         dispose(){
-          signals.forEach(e=>EventBus.unsub.apply(EventBus,e)) },
+          signals.forEach(a=>EventBus.unsub.apply(EventBus,a)) },
         goLeft(col){
           e.m5.vel[0] = -col.impact;//-e.m5.speed;
           e.m5.flip= self.dftDirection === Mojo.RIGHT?"x":false;
@@ -187,20 +190,24 @@
           e.m5.flip= self.dftDirection === Mojo.LEFT?"x":false;
         },
         goUp(col){
-          e.m5.vel[0] = -col.impact;//-col.overlapV[0];
+          e.m5.vel[1] = -col.impact;//-e.m5.speed;
           e.m5.flip=self.dftDirection === Mojo.DOWN?"y":false;
         },
         goDown(col){
-          e.m5.vel[0] = col.impact;//col.overlapV[0];
+          e.m5.vel[1] = col.impact;//e.m5.speed;
           e.m5.flip=self.defDirection === Mojo.UP?"y":false;
         }
       };
       signals.push([["post.remove",e],"dispose",self]);
-      signals.push([["bump.right",e],"goLeft",self]);
-      signals.push([["bump.left",e],"goRight",self]);
-      signals.push([["bump.top",e],"goDown",self]);
-      signals.push([["bump.bottom",e],"goUp",self]);
-      signals.forEach(e=>EventBus.sub.apply(EventBus,e));
+      if(xDir){
+        signals.push([["bump.right",e],"goLeft",self]);
+        signals.push([["bump.left",e],"goRight",self]);
+      }
+      if(yDir){
+        signals.push([["bump.top",e],"goDown",self]);
+        signals.push([["bump.bottom",e],"goUp",self]);
+      }
+      signals.forEach(a=>EventBus.sub.apply(EventBus,a));
       return self;
     });
 
@@ -442,7 +449,7 @@
         let m= _hitAB(a,b);
         if(m){
           EventBus.pub(["hit",a],m);
-          EventBus.pub(["hit",b],m) }
+          EventBus.pub(["hit",b],m.swap()) }
         return m;
       },
       /**Check if these 2 sprites is colliding.

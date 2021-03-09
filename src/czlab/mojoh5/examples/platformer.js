@@ -16,80 +16,72 @@
 
   "use strict";
 
+  const E_PLAYER=1;
+  const E_ENEMY=2;
+  const E_TOWER=4;
+
   function scenes(Mojo){
     let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input, _2d=Mojo["2d"],_T=Mojo.Tiles;
     let {ute:_,is,EventBus}=Mojo;
 
-    function Player(scene){
-      let p= _S.frame("sprites.png",30,30,0,0);
+    //0,12
+    function Player(scene,p,ts,ps,o){
+      Mojo.addMixin(p,"platformer");
+      Mojo.addMixin(p,"2d");
+      p.m5.type=E_PLAYER;
+      p.m5.cmask=E_TOWER;
       p.m5.uuid="player";
       p.m5.speed=200;
       p.m5.gravity[1]=200;
-      p.x=410;
-      p.y=90;
-      _S.addMixin(p,"2d","platformer");
       p.m5.step=function(dt){
         p["2d"].motion(dt);
         p["platformer"].motion(dt);
       };
-      let tiles=scene.world.tiles;
-      p.m5.collide=function(){
-        for(let i=0;i<tiles.length;++i){
-          Mojo["2d"].hit(p,tiles[i]);
-        }
-      }
-      return scene.world.addChild(p);
+      return p;
     }
-    function Tower(){
-      let t= _S.frame("sprites.png",32,32,0,64);
-      t.m5.uuid="tower";
-      return t;
-    }
-    function Enemy(scene,id,x,y){
-      let e= _S.frame("sprites.png",30,24,0,34);
-      e.m5.uuid=id;
-      e.m5.gravity[1]=60;
-      scene.world.badies.push(e);
-      let tiles=scene.world.tiles;
-      e.m5.collide=function(){
-        for(let i=0;i<tiles.length;++i){
-          let m=_2d.hit(e,tiles[i]);
-          if(m) {
-            break;
-          }
-        }
-        for(let b,i=0;i<scene.world.badies.length;++i){
-          b=scene.world.badies[i];
-          if(b===e)continue;
-          _2d.collide(e,b);
-        }
-        _2d.hit(e,scene.player);
+
+    //5,1
+    function Tower(scene,s,ts,ps,o){
+      s.m5.type=E_TOWER;
+      s.m5.uuid="tower";
+      s.m5.sensor=true;
+      s.m5.onSensor=()=>{
+        Mojo.pause();
       };
-      e.m5.speed=80;
-      e.m5.vel[0]=80;
-      e.x=x;
-      e.y=y;
+      EventBus.sub(["2d.sensor",s],"onSensor",s.m5);
+      return s;
+    }
+
+    //32,3,22,3
+    function Enemy(scene,e,ts,ps,o){
+      Mojo.addMixin(e,"aiBounce",true,false);
+      Mojo.addMixin(e,"2d");
+      e.m5.uuid=`e#${_.nextId()}`;
+      e.m5.cmask=E_PLAYER|E_ENEMY;
+      e.m5.type=E_ENEMY;
+      e.m5.gravity[1]=60;
+      e.m5.speed=100*scene.getScaleFactor();
+      e.m5.vel[0]= e.m5.speed;
       e.m5.step=function(dt){
         e["2d"].motion(dt);
       };
-      scene.world.addChild(e);
-      _S.addMixin(e,"2d", "aiBounce");
       e.m5.onbump=function(col){
         if(col.B.m5.uuid=="player"){
-          _S.remove(col.B);
+          //scene.remove(col.B);
           console.log("die!!!");
+          Mojo.pause();
           //_Z.runScene("endGame",{msg: "You Died"});
         }
       };
       e.m5.onbtop=function(col){
         if(col.B.m5.uuid=="player"){
-          _S.remove(e);
-          _.disj(scene.world.badies,e);
+          scene.remove(e);
           col.B.m5.vel[1] = -300;
         }
       };
-      EventBus.sub(["bump.top",e],e.m5.onbtop);
-      EventBus.sub(["bump.left,bump.right,bump.bottom",e], e.m5.onbump);
+      EventBus.sub(["bump.top",e],"onbtop",e.m5);
+      EventBus.sub(["bump.left,bump.right,bump.bottom",e], "onbump",e.m5);
+      return e;
     }
 
     _Z.defScene("bg",{
@@ -100,54 +92,19 @@
       }
     });
 
+    function _objFactory(s){
+      return {Player,Enemy,Tower}
+    }
+
     _Z.defScene("level1",{
       setup(){
-        let level= Mojo.resource("platformer.json").data;
-        let world= this.world=_T.mockTiledWorld(32,32, level[0].length, level.length);
-        let layers = world.tiled.layers = level;
-        this.world.tiles=[];
-        this.world.badies=[];
-        this.insert(world);
-        for(let layer,y=0;y<layers.length;++y){
-          layer=layers[y];
-          for(let gid,x=0;x<layer.length;++x){
-            gid=layer[x];
-            if(gid !== 0){
-              let sprite;
-              let px = x * world.tiled.tileW;
-              let py = y * world.tiled.tileH;
-              switch(gid){
-              case 1:
-                sprite = _S.frame("tiles.png",32,32,32,0);
-              break;
-              case 2:
-                sprite = _S.frame("tiles.png", 32,32,64,0);
-              break;
-              case 3:
-                sprite= Tower();
-              break;
-              }
-              if(sprite){
-                sprite.x = px;
-                sprite.y = py;
-                this.world.tiles.push(sprite);
-                world.addChild(sprite);
-              }
-            }
-          }
-        }
-        this.camera=_2d.worldCamera(this.world,this.world.tiled.tiledWidth,this.world.tiled.tiledHeight);
-        let player = this.player= Player(this);
-
-        Enemy(this,"e1",26*32,100);
-        Enemy(this,"e2", 28*32,100);
-
         EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
-        this.camera.follow(this.player);
+        //this.camera.follow(this.player);
       }
-    });
+    },{sgridX:160,sgridY:160,centerStage:true,
+       tiled:{name:"platformer.json",factory:_objFactory}});
 
     _Z.defScene("endGame",()=>{
     });
