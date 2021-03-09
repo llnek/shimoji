@@ -53,7 +53,7 @@
           return ret;
         },
         search(item){
-          let out=[],
+          let X,Y,out=[],
               g= item.m5.sgrid;
           for(let y = g.y1; y <= g.y2; ++y){
             if(Y=_grid.get(y))
@@ -172,33 +172,27 @@
           _.inject(this, func);
         }
       }
-      _hitObject(obj){
-        function _hitTest(a,b){
-          if(a !== b && !b.m5.dead && (a.m5.cmask & b.m5.type)){
-            let m= Mojo["2d"].hitTest(a,b);
+      _hitObjects(grid,obj,found,maxCol=3){
+        let curCol=maxCol;
+        for(let m,b,i=0,z=found.length;i<z;++i){
+          b=found[i];
+          if(obj !== b &&
+             !b.m5.dead &&
+             (obj.m5.cmask & b.m5.type)){
+            m= Mojo["2d"].hitTest(obj,b);
             if(m){
-              let i=0;
+              EventBus.pub(["hit",obj],m);
+              if(m.B.m5.static){ m=null }else{
+                EventBus.pub(["hit",m.B],m.swap())
+              }
+              grid.engrid(obj);
+              if(--curCol ===0){break}
             }
-            return m;
           }
         }
-        return this.m5.sgrid.searchAndExec(obj,_hitTest)
       }
       collideAB(obj){
-        let col,col2,
-            skip,
-            maxCol=1,
-            curCol=maxCol,
-            grid=this.m5.sgrid;
-        grid.engrid(obj);
-        while(curCol>0 &&
-              (col2 = this._hitObject(obj))){
-          EventBus.pub(["hit",obj],col2);
-          EventBus.pub(["hit",col2.B],col2.swap());
-          grid.engrid(obj);
-          --curCol;
-        }
-        return col2 || col;
+        this._hitObjects(this.m5.sgrid,obj,this.m5.sgrid.search(obj),3)
       }
       /**Callback to handle window resizing.
        * @param {number[]} old  window size before resize
@@ -530,7 +524,7 @@
        * @return {Scene}
        */
       runScene(name,num,options){
-        let tmx, py, y, _s = ScenesDict[name];
+        let tmx, py, y, s0,_s = ScenesDict[name];
         if(!_s)
           throw `Error: unknown scene: ${name}`;
         if(is.obj(num)){
@@ -538,6 +532,7 @@
           num = _.dissoc(options,"slot");
         }
         options = _.inject({},_s[1],options);
+        s0=_.inject({},_s[0]);
         if(is.undef(num))
           num= options["slot"] || -1;
         //before we run a new scene
@@ -546,9 +541,9 @@
         if(options.tiled){
           tmx=options.tiled.name;
           _.assert(tmx, "no tmx file!");
-          y = new Mojo.Tiles.TiledScene(name, _s[0], options);
+          y = new Mojo.Tiles.TiledScene(name, s0, options);
         }else{
-          y = new Scene(name, _s[0], options);
+          y = new Scene(name, s0, options);
         }
         py=y;
         if(options.centerStage){

@@ -16,15 +16,33 @@
 
   "use strict";
 
+  const E_PLAYER=1;
+  const E_BLOCK=2;
+  const E_TOWER=4;
+
   function scenes(Mojo){
     let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
     let {ute:_,is,EventBus}=Mojo;
+    const MFL=Math.floor;
 
-    function Block(x,y,width,height,points){
-      let inPoints=points;
-      if(!points){
-        let w2=Math.floor(width/2);
-        let h2=Math.floor(height/2);
+    function Block(x,xoff,y,yoff,width,height,points){
+      let K=Mojo.contentScaleFactor();
+      let inPoints;
+      xoff *= K.width;
+      yoff *= K.height;
+      width *= K.width;
+      height *= K.height;
+      x += xoff;
+      y += yoff;
+      if(points){
+        points.forEach(p=>{
+          p[0] *= K.width;
+          p[1] *= K.height;
+        });
+        inPoints=points;
+      }else{
+        let h2=MFL(height/2);
+        let w2=MFL(width/2);
         inPoints=points=[[-w2,-h2],[w2,-h2],[w2,h2],[-w2,h2]];
       }
       function draw(ctx){
@@ -32,7 +50,7 @@
         ctx.lineStyle(1, 0, 1);
         ctx.moveTo(points[0][0],points[0][1]);
         for(let i=0;i<points.length;++i){
-          ctx.lineTo(points[i][0],points[i][1]);
+          ctx.lineTo(points[i][0],points[i][1])
         }
         ctx.lineTo(points[0][0],points[0][1]);
         ctx.closePath();
@@ -40,7 +58,8 @@
       }
       let s= _S.drawBody(draw);
       if(inPoints)
-        s.m5.getContactPoints=function(){ return inPoints };
+        s.m5.getContactPoints=()=> { return inPoints};
+      s.m5.type=E_BLOCK;
       s.m5.static=true;
       s.anchor.set(0.5);
       s.alpha=0.5;
@@ -48,32 +67,49 @@
       s.y=y;
       return s;
     }
+
     function Player(scene){
-      let p=_S.frame("sprites.png",30,29,0,0);
-      scene.insert(p);
-      _S.setXY(p,Mojo.canvas.width/2 - 200,-180);
+      let p=_S.frame("sprites.png",32,32,0,0);
+      let K=Mojo.contentScaleFactor();
+      p.scale.y=K.height;
+      p.scale.x=K.width;
+      p.m5.uuid="player";
+      p.m5.type=E_PLAYER;
+      p.m5.cmask=E_BLOCK|E_TOWER;
+      p.x= MFL(Mojo.width/2) - K.width*200;
+      p.y= -180*K.height;
       p.anchor.set(0.5);
-      _S.addMixin(p,"2d","platformer");
-      p.m5.gravity[1]=200;
-      p.m5.speed=200;
-      p.m5.collide=function(){
-        if(_2d.hit(p,scene.tower)){
-          _S.remove(p);
-          _Z.runScene("endGame",{ msg: "You Won!" });
-        }else{
-          scene.blocks.forEach(b=> _2d.hit(p,b))
-        }
-      };
+      scene.insert(p);
+      Mojo.addMixin(p,"2d");
+      Mojo.addMixin(p,"platformer");
+      p.m5.gravity[1]=200 * K.height;
+      p.m5.speed=200 * K.width;
+      p["platformer"].jumpSpeed *= K.height;
       p.m5.step=function(dt){
-        if(p.y > scene.b5.y+scene.b5.height*3){
-          _S.remove(p);
+        if(p.y > scene.b5.y+scene.b5.height*3*K.height){
+          scene.remove(p);
           _Z.runScene("endGame",{msg: "You Fell!"});
         }else{
           p["2d"].motion(dt);
-          p.platformer.motion(dt);
+          p["platformer"].motion(dt);
         }
       };
       return p;
+    }
+
+    function Tower(scene,b5){
+      let t= _S.frame("sprites.png",32, 32, 0,64);
+      let K=Mojo.contentScaleFactor();
+      t.scale.y=K.height;
+      t.scale.x=K.width;
+      t.m5.uuid="tower";
+      t.m5.type=E_TOWER;
+      t.m5.sensor=true;
+      t.m5.onSensor=()=>{ _Z.runScene("endGame",{ msg: "You Won!" }); };
+      EventBus.sub(["2d.sensor",t],"onSensor",t.m5);
+      t.y= b5.y - MFL(b5.height/2) - t.height;
+      t.x= b5.x - MFL(t.width/2);
+      return scene.insert(t);
     }
 
     _Z.defScene("endGame",{
@@ -92,8 +128,11 @@
         this.btns= [s4,s6];
         this.insert(g);
         s4.m5.press=function(){
-          _Z.removeScene("level1","endGame");
-          _Z.runScene("level1");
+          _Z.removeScenes();
+          _.delay(0,()=>{
+            _Z.runScene("bg");
+            _Z.runScene("level1");
+          })
         }
       }
     });
@@ -102,47 +141,33 @@
       setup(){
         let w= this.wall= _S.tilingSprite("background-wall.png");
         this.insert(_S.setSize(w,Mojo.width,Mojo.height));
-        //Mojo.EventBus.sub(["post.update",this],"postUpdate");
-      },
-      postUpdate(){
-        //this.wall.tilePosition.x += 1;
-        //this.wall.tilePosition.y += 1;
       }
     });
 
     _Z.defScene("level1",{
       setup(){
-        let t= this.tower= _S.frame("sprites.png",30, 30, 0,54);
-        t.m5.CLASS="Tower";
-        this.insert(t);
-        let player = this.player = Player(this);
-        let X=Math.floor(Mojo.width/2);
-        let Y=Math.floor(Mojo.height/2);
+        let K=Mojo.contentScaleFactor();
+        let Y=MFL(Mojo.height/2);
+        let X=MFL(Mojo.width/2);
         let b1,b2,b3,b4,b5;
         let bs=this.blocks=[];
-        bs.push(b1=Block(X-130, Y-30, 50,30));
-        b1.m5.uuid="b1";
-        bs.push(b2=Block(X-180,Y, 150,50));
-        b2.m5.uuid="b2";
-        bs.push(b3=Block(X, Y, 100,50, [ [ 0, -15], [ 50, 0 ], [ 0, 15 ], [ -50, 0 ] ]));
-        b3.m5.uuid="b3";
-        bs.push(b4=Block(X+180, Y, 100, 140, [[ 0, -50], [25, -40], [ 50, 0 ], [ 0, 50 ], [ -90, 0 ] ]));
-        b4.m5.uuid="b4";
-        b4.m5.getContactPoints=function(){
-          //need to redefine the shape
-          return [[70,0],[20,50],[-70,0],[20,-50],[45,-40]]
+        bs.push(b1=_S.uuid(Block(X,-130, Y,-30, 50,30),"b1"));
+        bs.push(b2=_S.uuid(Block(X,-180,Y,0, 150,50),"b2"));
+        bs.push(b3=_S.uuid(Block(X,0,Y,0,100,50,[[0,-15],[50,0],[0,15],[-50,0]]),"b3"));
+        bs.push(b4=_S.uuid(Block(X,180,Y,0,100,140,[[0,-50],[25,-40],[50,0],[0,50],[-90,0]]),"b4"));
+        b4.m5.getContactPoints=()=>{
+          let ps=[[70,0],[20,50],[-70,0],[20,-50],[45,-40]];
+          ps.forEach(p=>{
+            p[0] *= K.width;
+            p[1] *= K.height;
+          });
+          return ps;
         };
-        bs.push(b5=Block(X+360, Y+40, 50, 50));
-        b5.m5.uuid="b5";
+        bs.push(b5=_S.uuid(Block(X,360, Y,40, 50, 50),"b5"));
         bs.forEach(b=> this.insert(b));
-        this.tower.y= b5.y - Math.floor(b5.height/2) - this.tower.height;
-        this.tower.x= b5.x - Math.floor(this.tower.width/2);
+        let player = this.player = Player(this);
+        let t= this.tower= Tower(this,b5);
         this.b5=b5;
-
-        let stage=Mojo.mockStage();
-        let camera= this.camera = _2d.worldCamera(this,stage.width,stage.height);
-        this.camera.follow(player);
-        //EventBus.sub(["post.update",this],"postUpdate");
       }
     });
   }
@@ -150,8 +175,8 @@
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: ["sprites.png","background-wall.png"],
-      arena: {},
-      scaleToWindow: true,
+      arena: {width:960,height:480},
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("bg");

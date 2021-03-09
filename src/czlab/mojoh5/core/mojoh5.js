@@ -604,7 +604,7 @@
        * @param {object} des
        * @return {object} {width,height}
        */
-      scaleSZ(src,des){ return { width: MFL(des.width/src.width), height: MFL(des.height/src.height)} },
+      scaleSZ(src,des){ return { width: des.width/src.width, height: des.height/src.height} },
       /**Get the cached Texture.
        * @memberof module:mojoh5/Mojo
        * @param {string} frame
