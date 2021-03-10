@@ -541,11 +541,9 @@
        * @param {number} cellW
        * @param {number} cellH
        * @param {number} widthInCols
-       * @param {number} offsetX
-       * @param {number} offsetY
        * @return {number}
        */
-      getIndex(x, y, cellW, cellH, widthInCols,offsetX,offsetY){
+      getIndex(x, y, cellW, cellH, widthInCols){
         if(x<0 || y<0)
           throw `Error: ${x},${y}, values must be positive`;
         return MFL(x/cellW) + MFL(y/cellH) * widthInCols

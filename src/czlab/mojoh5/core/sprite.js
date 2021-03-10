@@ -80,7 +80,7 @@
       g.endFill();
       s=new PIXI.Sprite(_genTexture(g));
       ["m5","tiled",
-       "collideAB",
+       "collideXY",
        "getGuid","getBBox",
        "getSpatial","getSpatialGrid"].forEach(n=>{
         [[c,"Container"],[g,"Graphics"],[s,"Sprite"]].forEach(x=>{
@@ -376,7 +376,7 @@
             _vel= _V.vec(),
             _acc= _V.vec(),
             _gravity= _V.vec(),
-            _friction= _V.vec();
+            _friction= _V.vec(1,1);
         _.inject(s.m5, {sgrid: {}, contacts:[1]},
                        {get uuid() {return _uuid},
                         set uuid(n){_uuid=n},
@@ -760,8 +760,8 @@
         let s= new Mojo.PXContainer();
         _.assertNot(_.has(s,"m5")||_.has(s,"g"),"found m5+g properties");
         s= this.extend(s);
-        s.collideAB=function(...args){
-          return s.parent.collideAB(...args)
+        s.collideXY=function(...args){
+          return s.parent.collideXY(...args)
         };
         cb && cb(s);
         return s;

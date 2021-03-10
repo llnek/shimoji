@@ -93,12 +93,12 @@
               e.x += e.m5.vel[0] * dt;
               e.y += e.m5.vel[1] * dt;
               delta -= dt;
-              e.parent.collideAB(e);
+              e.parent.collideXY(e);
             }
           }else{
             e.x += e.m5.vel[0];
             e.y += e.m5.vel[1];
-            e.parent.collideAB(e);
+            e.parent.collideXY(e);
           }
         }
       };

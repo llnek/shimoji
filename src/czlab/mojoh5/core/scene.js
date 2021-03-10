@@ -191,7 +191,7 @@
           }
         }
       }
-      collideAB(obj){
+      collideXY(obj){
         this._hitObjects(this.m5.sgrid,obj,this.m5.sgrid.search(obj),3)
       }
       /**Callback to handle window resizing.

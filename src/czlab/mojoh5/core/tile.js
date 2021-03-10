@@ -378,9 +378,9 @@
         let r=1;
         if(Mojo.u.scaleToWindow == "max"){
           if(Mojo.width>Mojo.height){
-            r=Mojo.height/this.tiled.tiledHeight;
+            r=Mojo.height/(this.tiled.saved_tileH*this.tiled.tileInY)
           }else{
-            r=Mojo.width/this.tiled.tiledWidth;
+            r=Mojo.width/(this.tiled.saved_tileW*this.tiled.tileInX)
           }
         }
         return r;
@@ -411,7 +411,7 @@
         c.y = tY * c.height;
         return c;
       }
-      collideAB(obj){
+      collideXY(obj){
         let _S=Mojo.Sprites;
         let box,
             tw=this.tiled.tileW,
@@ -436,7 +436,7 @@
             if(gid===0){continue}
             B=this._getContactObj(gid,tX, tY);
             ps=this.getTileProps(gid);
-            if(ps && ps["Class"]){
+            if(ps && ps["NonTile"]){
               //special object, do nothing
             }else{
               if(Mojo["2d"].hit(obj,B)){
@@ -445,7 +445,7 @@
             }
           }
         }
-        return super.collideAB(obj);
+        return super.collideXY(obj);
       }
     }
 

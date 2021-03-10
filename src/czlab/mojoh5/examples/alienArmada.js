@@ -141,7 +141,7 @@
         for(let a,i=G.aliens.length-1;i>=0;--i){
           a=G.aliens[i];
           if(!a.m5.dead)
-            this.collideAB(a);
+            this.collideXY(a);
         }
         G.aliens=G.aliens.filter(a=> !a.m5.dead);
         if(G.winner=="p2"){}

@@ -19,177 +19,122 @@
   //let level, world, player, output, score;
   function scenes(Mojo){
     const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
+    const MFL=Math.floor;
     const G=Mojo.Game;
     const {ute:_,is,EventBus}=Mojo;
-    G.score=0;
-    G.level=_T.mockTiledWorld(32,32,16,16);
-    G.level.tiled.tileset={
-        //The source image
-        source: "platforms.png",
-        //The x/y coordinates for the sprites on the tileset
-        player: [32, 32],
-        treasure: [32, 0],
-        cloud: [64, 0],
-        sky: [64, 32],
-        rock: [0, 32],
-        grass: [0, 0]
-    };
-    function makeWorld(level){
-      let world = S.container();
-      world.tiled={
-        player: null,
-        map: [],
-        platforms: [],
-        treasures: [],
-        itemLocations: []
-      };
-      makeMap();
-      terraformMap();
-      addItems();
-      makeTileSprites();
-      function makeMap(){
-        let cellIsAlive = () => _.randInt2(0, 3) === 0;
-        let numberOfCells = level.tiled.tilesInY * level.tiled.tilesInX;
-        for(let x,y,cell,i=0; i<numberOfCells; ++i){
-          x = i % level.tiled.tilesInX;
-          y = Math.floor(i / level.tiled.tilesInX);
-          cell = { x: x, y: y, item: "" };
-          cell.terrain= cellIsAlive() ? "rock" : "sky";
-          world.tiled.map.push(cell);
-        }
-      }
-      function terraformMap() {
-        //add border and grass.
-        let _index = (x, y) => { return x + (y * level.tiled.tilesInX) };
-        world.tiled.map.forEach((cell, index, map) => {
-          let cellTotheLeft = map[_index(cell.x - 1, cell.y)],
-              cellTotheRight = map[_index(cell.x + 1, cell.y)],
-              cellBelow = map[_index(cell.x, cell.y + 1)],
-              cellAbove = map[_index(cell.x, cell.y - 1)],
-              cellTwoAbove = map[_index(cell.x, cell.y - 2)];
-          if(cell.x === 0 || cell.y === 0 ||
-            cell.x === level.tiled.tilesInX - 1 ||
-            cell.y === level.tiled.tilesInY - 1){
-            cell.terrain = "border";
+
+    const E_PLAYER=1;
+    const E_ITEM=2;
+
+    function _initTiles(scene,tl){
+      let h= scene.tiled.tileInY,
+          w= scene.tiled.tileInX,
+          len=h*w,
+          lasty= (h-1)*w;
+      scene.tiled.collision=_.fill(len,0);
+      tl.data.length=len;
+      for(let i,y=0;y<h;++y){
+        for(let x=0;x<w;++x){
+          i=y*w+x;
+          if(x===0 || x===w-1){
+            tl.data[i]=3;
+          }else if(i>=lasty || _.randInt2(0,3)===0){
+            tl.data[i]=4;//ground
           }else{
-            if(cell.terrain == "rock")
-              if(cellAbove && cellAbove.terrain == "sky"){
-                cell.terrain = "grass";
-                if(cellTwoAbove)
-                  if(cellTwoAbove.terrain == "rock" ||
-                    cellTwoAbove.terrain == "grass"){
-                    cellTwoAbove.terrain = "sky";
-                  }
-              }
+            tl.data[i]=6;//sky
           }
-        });
-        world.tiled.map.forEach((cell, index, map) => {
-          if(cell.terrain == "grass"){
-            let cellAbove = map[_index(cell.x, cell.y - 1)];
-            world.tiled.itemLocations.push(cellAbove);
-          }
-        });
-      }
-      function addItems(){
-        let _findStartLocation = () => {
-          let r = _.randInt2(0, world.tiled.itemLocations.length - 1);
-          let location = world.tiled.itemLocations[r];
-          _.disj(world.tiled.itemLocations,location);
-          return location;
-        };
-        let cell = _findStartLocation();
-        cell.item = "player";
-        for(let i = 0; i < 3; ++i) {
-          cell = _findStartLocation();
-          cell.item = "treasure";
         }
       }
-      function makeTileSprites(){
-        world.tiled.map.forEach((cell, index, map) => {
-          let sprite,
-              frame,
-              x = cell.x * level.tiled.tileW,
-              y = cell.y * level.tiled.tileH,
-              width = level.tiled.tileW,
-              height = level.tiled.tileH;
-          switch(cell.terrain){
-          case "rock":
-            sprite = S.frame(level.tiled.tileset.source,
-                             width, height,
-                             level.tiled.tileset.rock[0],
-                             level.tiled.tileset.rock[1]);
-            S.setXY(sprite, x, y);
-            world.addChild(sprite);
-            world.tiled.platforms.push(sprite);
-          break;
-          case "grass":
-            sprite = S.frame(level.tiled.tileset.source,
-                             width, height,
-                             level.tiled.tileset.grass[0],
-                             level.tiled.tileset.grass[1]);
-            S.setXY(sprite,x, y);
-            world.addChild(sprite);
-            world.tiled.platforms.push(sprite);
-          break;
-          case "sky":
-            //Add clouds every 6 cells and only on the top 80% of the level
-            let sourceY=
-                (index % 6 === 0 && index < map.length * 0.8)
-                ? level.tiled.tileset.cloud[1] : level.tiled.tileset.sky[1];
-            sprite = S.frame(level.tiled.tileset.source,
-                             width, height,
-                             level.tiled.tileset.sky[0], sourceY);
-            S.setXY(sprite,x, y);
-            world.addChild(sprite);
-          break;
-          case "border":
-            sprite = S.rectangle(level.tiled.tileW, level.tiled.tileH,"black");
-            //sprite.fillStyle = "black";
-            sprite.x = cell.x * level.tiled.tileW;
-            sprite.y = cell.y * level.tiled.tileH;
-            //sprite.width = level.tiled.tilewidth;
-            //sprite.height = level.tiled.tileheight;
-            world.addChild(sprite);
-            world.tiled.platforms.push(sprite);
-          break;
+    }
+
+    function _editTiles(scene,tl){
+      let w=scene.tiled.tileInX;
+      let locs=[];
+      tl.data.forEach((gid,i)=>{
+        let top =tl.data[i-w],
+            top2 =tl.data[i-2*w];
+        if(gid===4 && top===6){
+          tl.data[i]=1;//change from rock to grass
+          if(top2===4 || top2===1){
+            tl.data[i-2*w]=6;//change solid to sky
           }
-        });
-        world.tiled.map.forEach(cell => {
-          if(cell.item != ""){
-            let sprite,
-                frame,
-                x = cell.x * level.tiled.tileW + level.tiled.tileW / 4,
-                y = cell.y * level.tiled.tileH + level.tiled.tileW / 2,
-                width = level.tiled.tileW / 2,
-                height = level.tiled.tileH / 2;
-            switch(cell.item){
-            case "player":
-              sprite = S.frame("platforms.png", 32, 32, 32, 32);
-              sprite.width = width;
-              sprite.height = height;
-              S.setXY(sprite,x, y);
-              sprite.m5.friction[0] =
-              sprite.m5.friction[0] =1;
-              sprite.m5.gravity[0] =
-              sprite.m5.gravity[1] = 0.3;
-              sprite.m5.jumpForce = [-6.8,-6.8];
-              sprite.m5.isOnGround = true;
-              world.tiled.player = sprite;
-              world.addChild(sprite);
+        }
+      });
+    }
+
+    function _ctor(K,scene,px,py,tx,ty,Class){
+      let s=S.frame("platforms.png",32,32,px,py);
+      s.scale.x=K;
+      s.scale.y=K;
+      //s.width=MFL(s.width);
+      //s.height=MFL(s.height);
+      s.x=tx*s.width;
+      s.y=ty*s.height;
+      s=G.objFactory[Class](scene,s);
+      return scene.insert(s);
+    }
+
+    function _makeTiles(scene,tl){
+      let K=scene.getScaleFactor();
+      let w = scene.tiled.tileInX;
+      let len = tl.data.length;
+      let locs=[];
+      let m,ps,gid,tx,ty,px,py,s,t,i;
+      for(i=0; i<len; ++i){
+        ty = MFL(i/w);
+        tx = i % w;
+        gid=tl.data[i];
+        ps=scene.getTileProps(gid);
+        switch(gid){
+          case 1://grass
+            px=0;py=0;
             break;
-            case "treasure":
-              sprite = S.frame("platforms.png", 32, 32, 32, 0);
-              sprite.width = width;
-              sprite.height = height;
-              S.setXY(sprite,x, y);
-              world.addChild(sprite);
-              world.tiled.treasures.push(sprite);
+          case 2://treasure
+            px=32;py=0;
+            tl.data[i]=6;
             break;
-            }
-          }
-        });
+          case 3://border
+            px=64;py=0;
+            break;
+          case 4://ground
+            px=0,py=32;
+            break;
+          case 5://player
+            px=32;py=32;
+            tl.data[i]=6;
+            break;
+          case 6://sky
+            px=64,py=32;
+            break;
+        }
+        s=_ctor(K,scene,px,py,tx,ty,ps["Class"]);
+        s.tiled={ gid:gid,index:i };
+        s.m5.static=true;
+        gid=tl.data[i];
+        if(gid===3){
+          scene.tiled.collision[i]=gid;
+        }else if(gid===4 || gid===1){
+          t=i-w;
+          if(t>=0 && tl.data[t]===6){ locs.push(t) }
+          scene.tiled.collision[i]=gid;
+        }
       }
-      return world;
+      m=new Map();
+      while(true){
+        i=_.randItem(locs);
+        if(!m.has(i)){
+          m.set(i,null);
+          if(m.size===4){ break }
+        }
+      }
+      i=0;
+      m.forEach((v,k)=>{
+        ty = MFL(k/w);
+        tx = k % w;
+        i===0? _ctor(K,scene,32,32,tx,ty,"Player")
+             : _ctor(K,scene,32,0,tx,ty,"Treasure");
+        ++i;
+      });
     }
 
     Z.defScene("hud", {
@@ -199,102 +144,90 @@
         this.insert(this.output);
         EventBus.sub(["post.update",this],"postUpdate");
       },
-      postUpdate:function() {
+      postUpdate(){
         this.output.text=`score: ${G.score}`;
       }
     });
 
+    function Player(scene,p){
+      Mojo.addMixin(p,"platformer");
+      Mojo.addMixin(p,"2d");
+      p.m5.static=false;
+      p.m5.uuid="player";
+      p.m5.type=E_PLAYER;
+      p.m5.cmask=E_ITEM;
+      p.m5.speed=100 * scene.getScaleFactor();
+      p.m5.vel[0]=p.m5.speed;
+      p.m5.gravity[1] = 700;
+      p["platformer"].jumpSpeed=-500;
+      p.m5.step=function(dt){
+        p["2d"].motion(dt);
+        p["platformer"].motion(dt);
+      }
+      return p;
+    }
+    function Ground(scene,g){
+      g.m5.uuid="ground";
+      return g;
+    }
+    function Sky(scene,s){
+      s.m5.uuid="sky";
+      return s;
+    }
+    function Border(scene,c){
+      c.m5.uuid="cloud";
+      return c;
+    }
+    function Grass(scene,g){
+      g.m5.uuid="grass";
+      return g;
+    }
+    function Treasure(scene,t){
+      t.m5.uuid="treasure";
+      t.m5.type=E_ITEM;
+      t.m5.sensor=true;
+      t.m5.onSensor=()=>{
+        t.m5.dead=true;
+        scene.remove(t);
+        ++G.score;
+      }
+      EventBus.sub(["2d.sensor",t],"onSensor",t.m5);
+      return t;
+    }
+    function _objFactory(scene){
+      return {Player,Ground,Sky,Border,Grass,Treasure}
+    }
+
     Z.defScene("level1", {
       setup(){
-        let world = makeWorld(G.level);
-        let player = world.tiled.player;
-        this.world=world;
-        this.insert(world);
-
-        let leftArrow = I.keybd(I.keyLEFT, ()=>{
-          if(rightArrow.isUp)
-            player.m5.acc[0]= -0.2;
-        }, ()=>{
-          if(rightArrow.isUp)
-            player.m5.acc[0] = 0;
-        });
-
-        let rightArrow = I.keybd(I.keyRIGHT, ()=>{
-          if(leftArrow.isUp)
-            player.m5.acc[0] = 0.2;
-        }, ()=>{
-          if(leftArrow.isUp)
-            player.m5.acc[0] = 0;
-        });
-
-        let spaceBar = I.keybd(I.keySPACE, ()=>{
-          if(player.m5.isOnGround){
-            player.m5.vel[1] += player.m5.jumpForce[1];
-            player.m5.isOnGround = false;
-            player.m5.friction[0] = 1;
-          }
-        });
-
+        let player,tl=this.getTileLayer("Tiles");
+        G.objFactory=_objFactory(this);
+        G.score=0;
+        _initTiles(this,tl);
+        _editTiles(this,tl);
+        _makeTiles(this,tl);
+        player=this.getChildById("player");
         EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(dt){
-        let player=this.world.tiled.player;
-        if(player.m5.isOnGround){
-          player.m5.friction[0] = 0.92;
-        } else {
-          player.m5.friction[0] = 0.97;
-        }
-        player.m5.vel[0] += player.m5.acc[0];
-        player.m5.vel[1] += player.m5.acc[1];
-        player.m5.vel[0] *= player.m5.friction[0];
-        player.m5.vel[1] += player.m5.gravity[1];
-        S.move(player);
-        function extra(col, platform){
-          if(col){
-            if(col.has(Mojo.BOTTOM) && player.m5.vel[1] >= 0){
-              player.m5.isOnGround = true;
-              player.m5.vel[1] = -player.m5.gravity[1];
-            }
-            else if(col.has(Mojo.TOP) && player.m5.vel[1] <= 0){
-              player.m5.vel[1] = 0;
-            }
-            else if(col.has(Mojo.RIGHT) && player.m5.vel[0] >= 0){
-              player.m5.vel[0] = 0;
-            }
-            else if(col.has(Mojo.LEFT) && player.m5.vel[0] <= 0){
-              player.m5.vel[0] = 0;
-            }
-            if(!col.has(Mojo.BOTTOM) && player.m5.vel[1] > 0){
-              player.m5.isOnGround = false;
-            }
-          }
-        }
-        _.rseq(this.world.tiled.platforms,p=> _2d.hitTest(player, p,true,extra));
-        this.world.tiled.treasures = this.world.tiled.treasures.filter(function(star){
-          if (_2d.hitTest(player, star)){
-            G.score += 1;
-            S.remove(star);
-            return false;
-          } else {
-            return true;
-          }
-        });
       }
-    });
-
+    },{sgridX:128,sgridY:128,
+       centerStage:true,
+       tiled:{name:"platforms.json",factory:_objFactory}});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["platforms.png", "puzzler.otf" ],
+      assetFiles: ["platforms.png", "platforms.json", "puzzler.otf" ],
       arena: { width: 512, height: 512 },
-      scaleToWindow: true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
         Mojo.Scenes.runScene("hud");
+        Mojo.Scenes.runScene("level1");
       }
     })
   });
 
 })(this);
+
