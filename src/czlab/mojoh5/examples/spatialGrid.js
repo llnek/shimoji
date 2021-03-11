@@ -18,114 +18,155 @@
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
     const _G=Mojo.Game;
+    const MFL=Math.floor;
     const {ute:_,is,EventBus}=Mojo;
+    const QT= window["io/czlab/mcfud/qtree"]();
 
-    _Z.defScene("level1",{
-      setup(){
-        let qt= window["io/czlab/mcfud/qtree"]();
-        _G.qtree=qt.quadtree({left:0,top:0,right:Mojo.width,bottom:Mojo.height});
-        let marbles = this.marbles= _S.grid(
-          5, 5, 128, 128,
-          true, 0, 0,
-          ()=>{
-            let marble = _S.animation("marbles.png", 32, 32);
-            marble.m5.showFrame(_.randInt2(0, 5));
-            marble.m5.circular=true;
-            let sizes = [8, 12, 16, 20, 24, 28, 32];
-            _S.setSize(marble, sizes[_.randInt2(0, 6)]);
-            marble.m5.vel[0] = _.randInt2(-400, 400);
-            marble.m5.vel[1] = _.randInt2(-400, 400);
-            marble.m5.friction[0] = 0.99;
-            marble.m5.friction[1] = 0.99;
-            marble.m5.mass = 0.75 + marble.width/2/32;
-            marble.anchor.set(0.5);
-            return marble;
-          }
-        );
-        this.insert(marbles);
-
-        //Create the "sling" which is a line that will connect
-        //the pointer to the marbles
-        let sling = this.sling= _S.line("Yellow", 4, [0,0],[32,32]);
-        this.insert(sling);
-        sling.visible = false;
-
-        //A variable to store the captured marble
-        this.capturedMarble = null;
-
-        EventBus.sub(["post.update",this],"postUpdate");
-      },
-      postUpdate(dt){
-        let self=this;
-        _G.qtree.reset();
-        this.marbles.children.forEach(c=>_G.qtree.insert(c));
-        //If a marble has been captured, draw the
-        //sling (the yellow line) between the pointer and
-        //the center of the captured marble
-        if(this.capturedMarble){
-          let c=_S.centerXY(this.capturedMarble);
-          this.sling.visible = true;
-          this.sling.m5.ptA(c[0],c[1]);
-          this.sling.m5.ptB(Mojo.mouse.x,Mojo.mouse.y);
-        }
-        //Shoot the marble if the pointer has been released
-        if (Mojo.mouse.isUp){
-          this.sling.visible = false;
-          if(this.capturedMarble){
-            //Find out how long the sling is
-            this.sling.m5.length = _S.distance(this.capturedMarble, Mojo.mouse);
-            //Get the angle between the center of the marble and the pointer
-            this.sling.angle = _S.angle(Mojo.mouse, this.capturedMarble);
-            //Shoot the marble away from the pointer with a velocity
-            //proportional to the sling's length
-            this.capturedMarble.m5.vel[0] = 64 * Math.cos(this.sling.angle) * this.sling.m5.length / 5;
-            this.capturedMarble.m5.vel[1] = 64 * Math.sin(this.sling.angle) * this.sling.m5.length / 5;
-            //Release the captured marble
-            this.capturedMarble = null;
-          }
-        }
-        this.marbles.children.forEach(marble => {
-          //Check for a collision with the pointer and marble
-          if(Mojo.mouse.isDown && !this.capturedMarble){
-            if(_2d.hitTestPointXY(Mojo.mouse.x,Mojo.mouse.y, marble)){
-              //If there's a collision, capture the marble
-              this.capturedMarble = marble;
-              this.capturedMarble.m5.vel[0] = 0;
-              this.capturedMarble.m5.vel[1] = 0;
-            }
-          }
-          marble.m5.vel[0] *= marble.m5.friction[0];
-          marble.m5.vel[1] *= marble.m5.friction[1];
-          //Move the marble by applying the new calculated velocity
-          //to the marble's x and y position
-          _S.move(marble,dt);
-          //Contain the marble inside the stage and make it bounce
-          //off the edges
-          _2d.contain(marble, self,true);
-        });
-        for(let objs,sprite,i=0; i < this.marbles.children.length; ++i){
-          sprite = this.marbles.children[i];
-          objs=_G.qtree.search(sprite);
-          objs.forEach(o=>{
-            if(o !== sprite){
-              _2d.collide(sprite, o);
-              _2d.contain(sprite, self,true);
-              _2d.contain(o, self,true);
-            }
-          });
+    function _init(self){
+      let K=Mojo.contentScaleFactor();
+      let SIZES = [8, 12, 16, 20, 24, 28, 32].map(x=> x*K.height);
+      let grid=_S.gridSQ(5,0.8,self);
+      let pbox=_S.gridBBox(0,0,grid);
+      for(let r,y=0;y<grid.length;++y){
+        r=grid[y];
+        for(let m,g,x=0;x<r.length;++x){
+          g=r[x];
+          m= _S.animation("marbles.png", 32, 32);
+          m.m5.showFrame(_.randInt2(0,5));
+          m.m5.circular=true;
+          m.anchor.set(0.5);
+          m.x=MFL((g.x1+g.x2)/2);
+          m.y=MFL((g.y1+g.y2)/2);
+          _S.setSize(m, SIZES[_.randInt2(0, 6)]);
+          m.m5.vel[0] = _.randInt2(-400, 400);
+          m.m5.vel[1] = _.randInt2(-400, 400);
+          m.m5.friction[0] = 0.99;
+          m.m5.friction[1] = 0.99;
+          m.m5.mass = 0.75 + m.width/2/32;
+          self.insert(m);
         }
       }
-    });
+      _G.capturedMarble = null;
+      _G.arena=Mojo.mockStage(self.x,self.y,pbox.x2-pbox.x1,pbox.y2-pbox.y1);
+      //Create the "sling", a line that will connect the mouse to the marbles
+      _G.sling= _S.line("Yellow",4*K.height, [0,0],[32,32]);
+      _G.sling.visible = false;
+      self.addChild(_G.sling);
+      self.addChild(_S.drawGridBox(pbox));
+      EventBus.sub(["post.update",self],"postUpdate");
+    }
+
+    function _onCaptured(self){
+      if(_G.capturedMarble){
+        //draw the sling between the mouse and the captured marble
+        let c=_S.centerXY(_G.capturedMarble);
+        _G.sling.visible = true;
+        _G.sling.m5.ptA(c[0],c[1]);
+        _G.sling.m5.ptB(Mojo.mouse.x-self.x,Mojo.mouse.y-self.y);
+      }
+    }
+    function _offCaptured(self){
+      if(Mojo.mouse.isUp){
+        let K=Mojo.contentScaleFactor();
+        //Shoot the marble when the pointer is released
+        _G.sling.visible = false;
+        if(_G.capturedMarble){
+          _G.sling.m5.length = _S.distance(_G.capturedMarble, Mojo.mouse);
+          //Get the angle between the center of the marble and the pointer
+          _G.sling.angle = _S.angle(Mojo.mouse, _G.capturedMarble);
+          //Shoot the marble away from the pointer with a velocity
+          //proportional to the sling's length
+          _G.capturedMarble.m5.vel[0] = K.height*64 * Math.cos(_G.sling.angle) * _G.sling.m5.length / 5;
+          _G.capturedMarble.m5.vel[1] = K.height*64 * Math.sin(_G.sling.angle) * _G.sling.m5.length / 5;
+          _G.capturedMarble = null;
+        }
+      }
+    }
+
+    function _moveCircle(self,m,dt){
+      if(m.m5 && m.m5.circular){
+        if(Mojo.mouse.isDown && !_G.capturedMarble){
+          if(Mojo.mouse.hitTest(m)){
+            m.m5.vel[0] = 0;
+            m.m5.vel[1] = 0;
+            _G.capturedMarble = m;
+          }
+        }
+        m.m5.vel[0] *= m.m5.friction[0];
+        m.m5.vel[1] *= m.m5.friction[1];
+        _S.move(m,dt);
+        _2d.contain(m,_G.arena,true);
+      }
+    }
+
+    function _hitCircles(s,objs){
+      objs.forEach(o=>{
+        if(o !== s){
+          _2d.collide(s, o);
+          //_2d.contain(s, _G.arena,true);
+          //_2d.contain(o, _G.arena,true);
+        }
+      })
+    }
+
+    //use default spatial grid
+    _Z.defScene("spatial",{
+      setup(){
+        _init(this);
+      },
+      postUpdate(dt){
+        let K=Mojo.contentScaleFactor();
+        let self=this;
+        _onCaptured(this);
+        _offCaptured(this);
+        this.children.forEach(m=>{
+          if(m.m5 && m.m5.circular){
+            _moveCircle(self,m,dt);
+            this.m5.sgrid.engrid(m);
+          }
+        });
+        this.children.forEach(s=>{
+          if(s.m5 && s.m5.circular)
+            _hitCircles(s, this.m5.sgrid.search(s))
+        });
+      }
+    },{centerStage:true});
+
+    //use quadtree
+    _Z.defScene("quadtree",{
+      setup(){
+        _init(this);
+        _G.qtree=QT.quadtree({left:0,top:0,right:_G.arena.width,bottom:_G.arena.height});
+      },
+      postUpdate(dt){
+        let K=Mojo.contentScaleFactor();
+        let self=this;
+        _onCaptured(this);
+        _offCaptured(this);
+        _G.qtree.reset();
+        this.children.forEach(m=>{
+          if(m.m5 && m.m5.circular){
+            _moveCircle(this,m,dt);
+            _G.qtree.insert(m)
+          }
+        });
+        this.children.forEach(s=>{
+          if(s.m5 && s.m5.circular)
+            _hitCircles(s, _G.qtree.search(s))
+        });
+      }
+    },{centerStage:true});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: ["marbles.png"],
       arena: {width:512, height:512},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        //Mojo.Scenes.runScene("quadtree");
+        Mojo.Scenes.runScene("spatial");
       }
     })
   });

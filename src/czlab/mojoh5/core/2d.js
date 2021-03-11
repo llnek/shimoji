@@ -90,6 +90,8 @@
               dt = _.min(1/30,delta);
               e.m5.vel[0] += e.m5.acc[0] * dt + e.m5.gravity[0] * dt;
               e.m5.vel[1] += e.m5.acc[1] * dt + e.m5.gravity[1] * dt;
+              e.m5.vel[0] *= e.m5.friction[0];
+              e.m5.vel[1] *= e.m5.friction[1];
               e.x += e.m5.vel[0] * dt;
               e.y += e.m5.vel[1] * dt;
               delta -= dt;
@@ -116,6 +118,9 @@
         jumpSpeed: -300,//y-axis goes down
         jumping:false,
         landed:0,
+        leftKey: _I.keyLEFT,
+        jumpKey: _I.keyUP,
+        rightKey: _I.keyRIGHT,
         dispose(){
           signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
         onLanded(){ self.landed=0.2 },
@@ -123,9 +128,9 @@
           let _I=Mojo.Input,
               col,
               j3= self.jumpSpeed/3,
-              pR= _I.keyDown(_I.keyRIGHT),
-              pU= _I.keyDown(_I.keyUP),
-              pL= _I.keyDown(_I.keyLEFT);
+              pR= _I.keyDown(self.rightKey),
+              pU= _I.keyDown(self.jumpKey),
+              pL= _I.keyDown(self.leftKey);
           if(!e.m5.skipCollide){
             if(e.m5.contacts[0] && (pL || pR || self.landed>0)){
               col= e.m5.contacts[0];
@@ -419,6 +424,13 @@
         _PT[0]=px;
         _PT[1]=py;
         return this.hitTestPoint(_PT,s)
+      },
+      /**Apply bounce to the objects in this manifold.
+       * @memberof module:mojoh5/2d
+       * @param {Manifold} m
+       */
+      bounceOff(m){
+        return _bounceOff(m.A,m.B,m)
       },
       /**Find out if a point is touching a circlular or rectangular sprite.
        * @memberof module:mojoh5/2d
