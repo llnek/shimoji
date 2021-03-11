@@ -1111,96 +1111,99 @@
       /**Create a square grid.
        * @memberof module:mojoh5/Sprites
        * @param {number} dim
-       * @param {number} ration
+       * @param {number} ratio
+       * @param {Container} [C]
+       * @return {number[][]}
        */
-      gridSQ(dim,ratio=0.6){
+      gridSQ(dim,ratio=0.6,C=null){
         let sz= ratio* (Mojo.height<Mojo.width ?Mojo.height:Mojo.width),
             w=MFL(sz/dim),
             h=w,
             sy=MFL((Mojo.height-sz)/2),
             sx=MFL((Mojo.width-sz)/2);
+        if(C){
+          C.x=sx; C.y=sy;
+          sx=0; sy=0;
+        }
         return _mkgrid(sx,sy,dim,dim,w,h);
       },
       /**Create a rectangular grid.
        * @memberof module:mojoh5/Sprites
-       * @param {number} dimX
-       * @param {number} dimY
+       * @param {number[]} [dimX,dimY]
        * @param {number} ratio
+       * @param {Container} [C]
        * @return {number[][]}
        */
-      gridXY(dimX,dimY,ratio=4/5){
+      gridXY([dimX,dimY],ratio=4/5,C=null){
         let szh=MFL(Mojo.height*ratio),
             szw=MFL(Mojo.width*ratio),
             z=MFL(szw>szh ? (szh/dimY) : (szw/dimX)),
             sy= MFL((Mojo.height-(z*dimY))/2),
             sx= MFL((Mojo.width-(z*dimX))/2);
+        if(C){
+          C.x=sx; C.y=sy;
+          sx=0; sy=0;
+        }
         return _mkgrid(sx,sy,dimY,dimX,z,z);
+      },
+      /**Find the bounding box for this grid.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} sx
+       * @param {number} sy
+       * @param {number[][]} grid
+       * @return {object} {x1,x2,y1,y2}
+       */
+      gridBBox(sx,sy,grid){
+        let w=grid[0].length,
+            f=grid[0][0],
+            e=grid[grid.length-1][w-1];
+        return {x1:sx+f.x1,
+                x2:sx+e.x2,
+                y1:sy+f.y1,
+                y2:sy+e.y2};
       },
       /**Draw borders around this grid.
        * @memberof module:mojoh5/Sprites
-       * @param {number[][]} grid
+       * @param {number} sx
+       * @param {number} sy
+       * @param {number} width
+       * @param {number} height
        * @param {number} lineWidth
        * @param {number|string} lineColor
        * @return {PIXIGraphics}
        */
-      drawGridBox(grid,lineWidth,lineColor){
-        let ctx= new Mojo.PXGraphics(),
-            gf = grid[0][0], //topleft
-            n=grid[0].length,
-            gl = grid[grid.length-1][n-1]; //btmright
+      drawGridBox(bbox,lineWidth=1,lineColor="white"){
+        let ctx= new Mojo.PXGraphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
-        ctx.drawRect(gf.x1,gf.y1,gl.x2-gf.x1,gl.y2-gf.y1);
+        ctx.drawRect(bbox.x1,bbox.y1,bbox.x2-bbox.x1,bbox.y2-bbox.y1);
         return ctx;
       },
       /**Draw grid lines.
        * @memberof module:mojoh5/Sprites
+       * @param {number} sx
+       * @param {number} sy
        * @param {number[][]} grid
        * @param {number} lineWidth
        * @param {number|string} lineColor
        * @return {PIXIGraphics}
        */
-      drawGridLines(grid,lineWidth,lineColor){
+      drawGridLines(sx,sy,grid,lineWidth,lineColor){
         let ctx= new Mojo.PXGraphics(),
             h= grid.length,
             w= grid[0].length;
         ctx.lineStyle(lineWidth,this.color(lineColor));
         for(let r,y=1;y<h;++y){
           r=grid[y];
-          ctx.moveTo(r[0].x1,r[0].y1);
-          ctx.lineTo(r[w-1].x2,r[w-1].y1);
+          ctx.moveTo(sx+r[0].x1,sy+r[0].y1);
+          ctx.lineTo(sx+r[w-1].x2,sy+r[w-1].y1);
         }
         for(let r,x=1;x<w;++x){
           r=grid[0];
-          ctx.moveTo(r[x].x1,r[x].y1);
+          ctx.moveTo(sx+r[x].x1,sy+r[x].y1);
           r=grid[h-1];
-          ctx.lineTo(r[x].x1,r[x].y2);
+          ctx.lineTo(sx+r[x].x1,sy+r[x].y2);
         }
         return ctx;
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @return {}
-       */
-      grid(cols, rows, cellW, cellH,
-           centerCell, xOffset, yOffset, spriteCtor, extra){
-        let len= cols*rows,
-            cw2=MFL(cellW/2),
-            ch2=MFL(cellH/2),
-            C= this.container();
-        for(let s,x,y,i=0; i<len; ++i){
-          x = (i%cols) * cellW;
-          y = MFL(i/cols) * cellH;
-          s= spriteCtor();
-          C.addChild(s);
-          s.x = x + xOffset;
-          s.y = y + yOffset;
-          if(centerCell){
-            s.x += cw2 - MFL(s.width/2);
-            s.y += ch2 - MFL(s.height/2);
-          }
-          extra && extra(s);
-        }
-        return C;
       },
       /**Create a bullet shooting out of a shooter.
        * @memberof module:mojoh5/Sprites

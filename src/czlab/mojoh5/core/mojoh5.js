@@ -519,19 +519,21 @@
       makeAnchor(x,y){ return new Mojo.PXObservablePoint(Mojo.noop,this,x,y) },
       /**Ducktype a stage object.
        * @memberof module:mojoh5/Mojo
-       * @param {number} px
-       * @param {number} py
+       * @param {number} [px]
+       * @param {number} [py]
+       * @param {number} [width]
+       * @param {number} [height]
        * @return {object}
        */
-      mockStage(px=0,py=0){
+      mockStage(px=0,py=0,width=undefined,height=undefined){
         return{
-          getGlobalPosition(){ return {x:px,y:py} },
+          getGlobalPosition(){ return {x: this.x,y: this.y} },
           anchor: Mojo.makeAnchor(0,0),
           m5:{stage:true},
           x:px,
           y:py,
-          width: Mojo.width,
-          height: Mojo.height
+          width: _.or(width,Mojo.width),
+          height: _.or(height,Mojo.height)
         }
       },
       /**Convert the position into a grid index.
