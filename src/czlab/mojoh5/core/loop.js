@@ -80,6 +80,7 @@
         let F=function(){
           let cur= _.now();
           let dt= (cur-last)/1000;
+          //console.log(`frames per sec= ${Math.floor(1/dt)}`);
           //limit the time gap between calls
           if(dt>_DT15) dt= _DT15;
           for(acc += dt;

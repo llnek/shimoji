@@ -135,6 +135,7 @@
       constructor(s){
         super();
         this.addChild(s);
+        this.name=s.name;
         this.m5={stage:true};
       }
     }
@@ -235,16 +236,20 @@
        * @return {Sprite} c
        */
       insert(c,pos){
+        c=this.addit(c,pos);
+        if(c instanceof PIXI.TilingSprite){}else{
+          this.m5.sgrid.engrid(c);
+        }
+        return c;
+      }
+      addit(c,pos){
         if(pos !== undefined &&
            pos >= 0 && pos < this.children.length){
           this.addChildAt(c,pos);
         }else{
           this.addChild(c);
         }
-        if(c instanceof PIXI.TilingSprite){}else{
-          this.m5.sgrid.engrid(c);
-        }
-        return (this.m5.index[c.m5.uuid]=c)
+        return (this.m5.index[c.m5.uuid]=c);
       }
       /**Clean up.
       */
@@ -273,7 +278,7 @@
               c.scale.y *= -1;
             }
             EventBus.pub(["post.step",c],dt);
-            this.m5.sgrid.engrid(c);
+            if(!c.m5.ephemeral) this.m5.sgrid.engrid(c);
           }
           c.children.length>0 && this._iterStep(c.children, dt)
         })

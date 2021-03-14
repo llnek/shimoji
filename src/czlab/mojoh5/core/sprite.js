@@ -251,9 +251,21 @@
     }
 
     /** @ignore */
-    function _pininfo(X,o,p){
-      let box=o.m5.stage ? {x1:0,y1:0,x2:Mojo.width,y2:Mojo.height} : X.getBBox(o);
-      if(o.parent===p){
+    function _pininfo(X,o,p=null){
+      let par=null,box;
+      if(o.m5.stage){
+        if(o.m5.parent && o.m5.parent()){
+          par=o.m5.parent();
+          box=X.getBBox(o);
+        }else{
+          box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
+          par=null;
+        }
+      }else{
+        box=X.getBBox(o);
+        par=o.parent;
+      }
+      if(p && par===p){
         box.x1 += p.x;
         box.x2 += p.x;
         box.y1 += p.y;
@@ -516,7 +528,7 @@
        * @return {Sprite} s
        */
       move(s,dt){
-        dt=_.or(dt,1);
+        dt=_.nor(dt,1);
         s.x += s.m5.vel[0] * dt;
         s.y += s.m5.vel[1] * dt;
         return s;
@@ -1112,39 +1124,46 @@
        * @memberof module:mojoh5/Sprites
        * @param {number} dim
        * @param {number} ratio
-       * @param {Container} [C]
+       * @param {object} [out]
        * @return {number[][]}
        */
-      gridSQ(dim,ratio=0.6,C=null){
+      gridSQ(dim,ratio=0.6,out=null){
         let sz= ratio* (Mojo.height<Mojo.width ?Mojo.height:Mojo.width),
             w=MFL(sz/dim),
             h=w,
             sy=MFL((Mojo.height-sz)/2),
-            sx=MFL((Mojo.width-sz)/2);
-        if(C){
-          C.x=sx; C.y=sy;
-          sx=0; sy=0;
+            sx=MFL((Mojo.width-sz)/2),
+            _x=sx,_y=sy;
+        if(out){
+          out.width=sz;out.height=sz;
+          if(out.x !== undefined) _x=out.x;
+          if(out.y !== undefined) _y=out.y;
+          out.x=sx;out.y=sy;
         }
-        return _mkgrid(sx,sy,dim,dim,w,h);
+        return _mkgrid(_x,_y,dim,dim,w,h);
       },
       /**Create a rectangular grid.
        * @memberof module:mojoh5/Sprites
        * @param {number[]} [dimX,dimY]
        * @param {number} ratio
-       * @param {Container} [C]
+       * @param {object} [out]
        * @return {number[][]}
        */
-      gridXY([dimX,dimY],ratio=4/5,C=null){
-        let szh=MFL(Mojo.height*ratio),
-            szw=MFL(Mojo.width*ratio),
-            z=MFL(szw>szh ? (szh/dimY) : (szw/dimX)),
-            sy= MFL((Mojo.height-(z*dimY))/2),
-            sx= MFL((Mojo.width-(z*dimX))/2);
-        if(C){
-          C.x=sx; C.y=sy;
-          sx=0; sy=0;
+      gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
+        let szh=MFL(Mojo.height*ratioY),
+            szw=MFL(Mojo.width*ratioX),
+            sy= MFL((Mojo.height-szh)/2),
+            sx= MFL((Mojo.width-szw)/2),
+            cw=MFL(szw/dimX),
+            ch=MFL(szh/dimY),
+            _x=sx,_y=sy;
+        if(out){
+          out.width=szw;out.height=szh;
+          if(out.x !== undefined) _x=out.x;
+          if(out.y !== undefined) _y=out.y;
+          out.x=sx;out.y=sy;
         }
-        return _mkgrid(sx,sy,dimY,dimX,z,z);
+        return _mkgrid(_x,_y,dimY,dimX,cw,ch);
       },
       /**Find the bounding box for this grid.
        * @memberof module:mojoh5/Sprites
@@ -1176,6 +1195,7 @@
         let ctx= new Mojo.PXGraphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
         ctx.drawRect(bbox.x1,bbox.y1,bbox.x2-bbox.x1,bbox.y2-bbox.y1);
+        ctx.m5={uuid:`${_.nextId()}`};
         return ctx;
       },
       /**Draw grid lines.

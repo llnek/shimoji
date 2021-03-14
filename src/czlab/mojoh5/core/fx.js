@@ -20,7 +20,7 @@
    */
   function _module(Mojo, TweensQueue, DustBin){
     const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_, is}=Mojo;
+    const {ute:_, is,EventBus}=Mojo;
     const MFL=Math.floor,
           P5=Math.PI*5,
           PI_2= Math.PI/2,
@@ -34,50 +34,134 @@
      * @memberof module:mojoh5/FX
      * @class
      */
-    class Particles{
-      constructor(ps){ this.bits=ps }
+    class Tween{
+      constructor(s,t,frames=60,loop=false){
+        this.sprite=s;
+        this.easing=t;
+        this.on=false;
+        this.curf=0;
+        this.loop=loop;
+        this.frames=frames;
+      }
+      onFrame(end,alpha){}
+      _run(){
+        this.on = true;
+        this.curf = 0;
+        _.conj(TweensQueue,this);
+      }
+      ____onUpdate(){
+        if(this.on){
+          if(this.curf<this.frames){
+            this.onFrame(false,
+                         this.easing(this.curf/this.frames));
+            this.curf += 1;
+          }else{
+            this.onFrame(true);
+            if(this.loop){
+              this.onLoopReset()
+              this.curf=0;
+            }else{
+              this.on=false;
+              this.cb &&
+                _.delay(0,()=> this.cb());
+              this.dispose();
+            }
+          }
+        }
+      }
+      dispose(){
+        _.disj(TweensQueue,this);
+        EventBus.pub(["tween.disposed"],this);
+      }
+      /**Set a function to be called when the tween is done.
+       * @param {function} cb
+       */
+      onComplete(cb){ this.cb=cb }
     }
 
     /**
      * @memberof module:mojoh5/FX
      * @class
      */
-    class Tween{
-      constructor(s,t){
-        this.sprite=s;
-        this.easing=t;
+    class TweenScale extends Tween{
+      constructor(s,type,frames,loop){
+        super(s,type,frames,loop)
       }
-      onEnd(){}
-      onFrame(end,alpha){}
-      _stop(){ this.on=false }
-      _s(frames){
-        _.assert(is.num(frames));
-        this.step=function(){
-          if(this.on){
-            if(this.curf<frames){
-              let perc=this.curf/frames;
-              let alpha=this.easing(perc);
-              this.onFrame(false,alpha);
-              this.curf += 1;
-            }else{
-              this.onFrame(true);
-              this._e();
-              this.onEnd();
-            }
-          }
-        };
-        this.on = true;
-        this.curf = 0;
-        _.conj(TweensQueue,this);
+      start(sx,ex,sy,ey){
+        this._x=is.num(ex)?[sx,ex]:null;
+        this._y=is.num(ey)?[sy,ey]:null;
+        this._run();
       }
-      _e(){
-        _$.remove(this);
-        if(this.cb) this.cb();
+      onLoopReset(){
+        if(this._x){
+          let [a,b]=this._x;
+          this._x[0]=b;
+          this._x[1]=a;
+        }
+        if(this._y){
+          let [a,b]=this._y;
+          this._y[0]=b;
+          this._y[1]=a;
+        }
       }
-      /**Set a function to be called when the tween is done.
-       * @param {function} cb
-       */
-      onComplete(cb){ this.cb=cb }
+      onFrame(end,dt){
+        if(this._x)
+          this.sprite.scale.x= end ? this._x[1]
+                                   : _M.lerp(this._x[0], this._x[1], dt);
+        if(this._y)
+          this.sprite.scale.y= end ? this._y[1]
+                                   : _M.lerp(this._y[0], this._y[1], dt);
+      }
+    }
+
+    class TweenAlpha extends Tween{
+      constructor(s,type,frames,loop){
+        super(s,type,frames,loop)
+      }
+      start(sa,ea){
+        this._a= [sa,ea];
+        this._run();
+      }
+      onLoopReset(){
+        let [a,b]=this._a;
+        this._a[0]=b;
+        this._a[1]=a;
+      }
+      onFrame(end,alpha){
+        this.sprite.alpha= end ? this._a[1]
+                               : _M.lerp(this._a[0], this._a[1], alpha)
+      }
+    }
+
+    class TweenXY extends Tween{
+      constructor(s,type,frames,loop){
+        super(s,type,frames,loop)
+      }
+      start(sx,ex,sy,ey){
+        this._x=is.num(ex)?[sx,ex]:null;
+        this._y=is.num(ey)?[sy,ey]:null;
+        this._run();
+      }
+      onLoopReset(){
+        if(this._x){
+          let [a,b]=this._x;
+          this._x[0]=b;
+          this._x[1]=a;
+        }
+        if(this._y){
+          let [a,b]=this._y;
+          this._y[0]=b;
+          this._y[1]=a;
+        }
+      }
+      onFrame(end,dt){
+        if(this._x)
+          this.sprite.x= end ? this._x[1]
+                             : _M.lerp(this._x[0], this._x[1], dt);
+        if(this._y)
+          this.sprite.y= end ? this._y[1]
+                             : _M.lerp(this._y[0], this._y[1], dt);
+      }
     }
 
     /**
@@ -86,21 +170,21 @@
      */
     class BatchTweens{
       constructor(...ts){
-        this.cnt=0;
-        let CF= ()=>{
-          if(++this.cnt === this.size()){
-            this.cnt=0;
-            if(this.cb) this.cb();
+        this.children=ts.slice();
+        EventBus.sub(["tween.disposed"],"onTweenEnd",this);
+      }
+      onTweenEnd(t){
+        for(let c,i=0;i<this.children.length;++i){
+          c=this.children[i];
+          if(c===t){
+            this.children.splice(i,1);
+            break;
           }
-        };
-        this.children= ts.map(t=>{
-          let x=t._e;
-          t._e=function(){
-            x.call(t);
-            CF();
-          };
-          return t;
-        });
+        }
+        if(this.children.length===0){
+          this.cb && _.delay(0,()=>this.cb())
+          this.dispose();
+        }
       }
       /**Set a function to be called when the tween is done.
        * @param {function} cb
@@ -108,10 +192,10 @@
       onComplete(cb){ this.cb=cb }
       size(){ return this.children.length }
       dispose(){
-        this.children.forEach(c=> Mojo.FX.remove(c))
+        EventBus.unsub(["tween.disposed"],"onTweenEnd",this);
+        this.children.forEach(c=>c.dispose());
         this.children.length=0;
       }
-      _stop(){ this.children.forEach(c=> c._stop()) }
     }
 
     const _$={
@@ -316,70 +400,43 @@
        * @param {Sprite} s
        * @param {function} type
        * @param {number|number[]} endA
-       * @param {number} frames
-       * @param {boolean} loop
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenAlpha}
        */
       tweenAlpha(s,type,endA,frames=60,loop=false){
-        const t= _.inject(new Tween(s,type),{
-          start(sa,ea){
-            this._s(frames);
-            this._a= [sa,ea];
-            return this;
-          },
-          onFrame(end,alpha){
-            this.sprite.alpha= end ? this._a[1]
-                                   : _M.lerp(this._a[0], this._a[1], alpha)
-          },
-          onEnd(){
-            if(loop)
-              _.delay(0,()=> this.start(this._a[1],this._a[0]))
-          }
-        });
+        const t= new TweenAlpha(s,type,frames,loop);
         let sa=s.alpha;
         let ea=endA;
         if(is.vec(endA)){
-          sa=endA[0];ea=endA[1]}
-        return t.start(sa,ea);
+          sa=endA[0]; ea=endA[1]}
+        t.start(sa,ea);
+        return t;
       },
       /**Create a tween operating on sprite's scale value.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
        * @param {function} type
-       * @param {number|number[]} endX
-       * @param {number|number[]} endY
-       * @param {number} frames
-       * @param {boolean} loop
+       * @param {null|number|number[]} endX
+       * @param {null|number|number[]} endY
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenScale}
        */
       tweenScale(s,type,endX,endY,frames=60,loop=false){
-        const t= _.inject(new Tween(s,type),{
-          start(sx,ex,sy,ey){
-            this._s(frames);
-            this._x=[sx,ex];
-            this._y=[sy,ey];
-            return this;
-          },
-          onFrame(end,dt){
-            if(is.num(this._x[1],this._x[0]))
-              this.sprite.scale.x= end ? this._x[1]
-                                       : _M.lerp(this._x[0], this._x[1], dt);
-            if(is.num(this._y[1],this._y[0]))
-              this.sprite.scale.y= end ? this._y[1]
-                                       : _M.lerp(this._y[0], this._y[1], dt);
-          },
-          onEnd(){
-            if(loop)
-              _.delay(0,()=> this.start(this._x[1],this._x[0],this._y[1],this._y[0]))
-          }
-        });
+        const t= new TweenScale(s,type,frames,loop);
         let sx=s.scale.x;
         let sy=s.scale.y;
         let ex=endX;
         let ey=endY;
         if(is.vec(endX)){
-          sx=endX[0];ex=endX[1]}
+          sx=endX[0]; ex=endX[1] }
         if(is.vec(endY)){
-          sy=endY[0];ey=endY[1]}
-        return t.start(sx,ex,sy,ey);
+          sy=endY[0]; ey=endY[1]}
+        if(!is.num(ex)){ sx=ex=null }
+        if(!is.num(ey)){ sy=ey=null }
+        t.start(sx,ex,sy,ey);
+        return t;
       },
       /**Create a tween operating on sprite's position.
        * @memberof module:mojoh5/FX
@@ -387,30 +444,12 @@
        * @param {function} type
        * @param {number|number[]} endX
        * @param {number|number[]} endY
-       * @param {number} frames
-       * @param {boolean} loop
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenXY}
        */
       tweenXY(s,type,endX,endY,frames=60,loop=false){
-        const t= _.inject(new Tween(s,type), {
-          start(sx,ex,sy,ey){
-            this._s(frames);
-            this._x=[sx,ex];
-            this._y=[sy,ey];
-            return this;
-          },
-          onFrame(end,dt){
-            if(is.num(this._x[0],this._x[1]))
-              this.sprite.x= end ? this._x[1]
-                                 : _M.lerp(this._x[0], this._x[1], dt);
-            if(is.num(this._y[0],this._y[1]))
-              this.sprite.y= end ? this._y[1]
-                                 : _M.lerp(this._y[0], this._y[1], dt);
-          },
-          onEnd(){
-            if(loop)
-              _.delay(0,()=> this.start(this.ex,this.sx,this.ey,this.sy));
-          }
-        });
+        const t= new TweenXY(s,type,frames,loop);
         let sx=s.x;
         let sy=s.y;
         let ex=endX;
@@ -419,7 +458,10 @@
           sx=endX[0]; ex=endX[1]}
         if(is.vec(endY)){
           sy=endY[0]; ey=endY[1]}
-        return t.start(sx,ex,sy,ey);
+        if(!is.num(ex)){sx=ex=null}
+        if(!is.num(ey)){sy=ey=null}
+        t.start(sx,ex,sy,ey);
+        return t;
       },
       /**Slowly fade out this object.
        * @memberof module:mojoh5/FX
@@ -443,11 +485,12 @@
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
        * @param {number} min
-       * @param {number} frames
-       * @return {}
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenAlpha}
        */
-      pulse(s, min=0,frames=60){
-        return this.tweenAlpha(s,this.SMOOTH,min,frames)
+      pulse(s, min=0,frames=60,loop=false){
+        return this.tweenAlpha(s,this.SMOOTH,min,frames,loop)
       },
       /**Slide this sprite into view.
        * @memberof module:mojoh5/FX
@@ -456,22 +499,21 @@
        * @param {number|number[]} endX
        * @param {number|number[]} endY
        * @param {number} frames
-       * @param {boolean} loop
-       * @return {}
+       * @return {TweenXY}
        */
-      slide(s, type, endX, endY, frames=60, loop=false){
-        return this.tweenXY(s,type,endX,endY,frames,loop)
+      slide(s, type, endX, endY, frames=60){
+        return this.tweenXY(s,type,endX,endY,frames)
       },
-      /**Slide this sprite into view.
+      /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
        * @param {number|number[]} endX
        * @param {number|number[]} endY
-       * @param {number} frames
-       * @param {boolean} loop
-       * @return {}
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenScale}
        */
-      breathe(s, endX=0.8, endY=0.8, frames=60, loop=true){
+      breathe(s, endX=0.8, endY=0.8, frames=60,loop=true){
         return this.tweenScale(s, this.SMOOTH_QUAD,endX,endY,frames,loop)
       },
       /**Scale this sprite.
@@ -479,8 +521,8 @@
        * @param {Sprite} s
        * @param {number|number[]} endX
        * @param {number|number[]} endY
-       * @param {number} frames
-       * @return {}
+       * @param {number} [frames]
+       * @return {TweenScale}
        */
       scale(s, endX=0.5, endY=0.5, frames=60){
         return this.tweenScale(s,this.SMOOTH,endX,endY,frames)
@@ -491,48 +533,31 @@
        * @param {number|number[]} scale
        * @param {number} start
        * @param {number} end
-       * @param {number} frames
-       * @param {boolean} loop
-       * @return {}
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenScale}
        */
-      strobe(s, scale=1.3, start=10, end=20, frames=10, loop=true){
+      strobe(s, scale=1.3, start=10, end=20, frames=10,loop=true){
         return this.tweenScale(s,
                                (v)=> this.SPLINE(v,start,0,1,end), scale,scale,frames,loop)
       },
       /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
-       * @param {number} sx
-       * @param {number} sy
-       * @param {number} frames
-       * @param {number} friction
        * @param {object} bounds {x1,x2,y1,y2}
-       * @param {boolean}
-       * @return {}
+       * @param {number} ex
+       * @param {number} ey
+       * @param {number} frames
+       * @param {boolean} [loop]
+       * @return {BatchTweens}
        */
-      wobble(s, bounds, sx=1.2, sy=1.2, frames=10, friction=0.98, loop=true){
+      wobble(s, bounds, ex=1.2, ey=1.2, frames=10, loop=true){
         let {x1,x2,y1,y2}= bounds;
-        let tx=this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,_.or(x2,10)),
-                               sx, null, frames,loop);
-        let ty= this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,_.or(y2,-10)),
-                                null,sy, frames,loop);
-        let oldX=tx.onFrame;
-        let oldY=ty.onFrame;
-        tx.onFrame=function(end,dt){
-          if(end && this._x[1] > 1){
-            this._x[1] *= friction;
-            if(this._x[1] <= 1){ this._x[1]=1 }
-          }
-          oldX.call(tx,end,dt);
-        };
-        ty.onFrame=function(end,dt){
-          if(end && this._y[1] > 1){
-            this._y[1] *= friction;
-            if(this._y[1] <= 1){ this._y[1]=1 }
-          }
-          oldY.call(ty,end,dt);
-        };
-        return new BatchTweens(tx,ty)
+        let tx=this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
+                                                  _.or(x2,10)), ex, null, frames,loop);
+        let ty=this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
+                                                  _.or(y2,-10)), null,ey, frames,loop);
+        return new BatchTweens(tx,ty);
       },
       /**
        * @memberof module:mojoh5/FX
@@ -540,29 +565,23 @@
        * @param {function} type
        * @param {Vec2[]} points
        * @param {number} frames
-       * @param {boolean} [loop]
-       * @return {}
+       * @return {TweenXY}
        */
-      followCurve(s, type, points, frames=60, loop=false){
-        let self=this,
-          t= _.inject(new Tween(s,this.SMOOTH), {
-          start(points){
-            this._s(frames);
-            this._p = points;
-            return this;
-          },
-          onFrame(end,alpha){
-            let p = this._p;
-            if(!end)
-              Mojo.Sprites.setXY(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
-                                    self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
-          },
-          onEnd(){
-            if(loop)
-              _.delay(0,()=> this.start(this._p.reverse()))
-          }
-        });
-        return t.start(points)
+      followCurve(s, type, points, frames=60){
+        let t= new TweenXY(s,type,frames);
+        let self=this;
+        t.start=function(points){
+          this._s(frames);
+          this._p = points;
+          return this;
+        };
+        t.onFrame=function(end,alpha){
+          let p = this._p;
+          if(!end)
+            Mojo.Sprites.setXY(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
+                                  self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
+        };
+        return t.start(points);
       },
       /**Make object walk in a path.
        * @memberof module:mojoh5/FX
@@ -570,27 +589,20 @@
        * @param {function} type
        * @param {Vec2[]} points
        * @param {number} frames
-       * @param {boolean} [loop]
-       * @return {}
+       * @return {TweenXY}
        */
-      walkPath(s, type, points, frames=300, loop=false){
+      walkPath(s, type, points, frames=300){
         let _calcPath=(cur,frames)=>{
           let t= this.tweenXY(s,type,[points[cur][0], points[cur+1][0]],
                                      [points[cur][1], points[cur+1][1]],frames);
-          t.onEnd=function(){
+          t.onComplete(()=>{
             if(++cur < points.length-1){
               _.delay(0,()=> _calcPath(cur,frames))
-            }else if(loop){
-              points.reverse();
-              _.delay(0,()=>{
-                Mojo.Sprites.setXY(s, points[0][0], points[0][1]);
-                _calcPath(0,frames);
-              });
             }
-          };
+          });
           return t;
         }
-        return _calcPath(0, MFL(frames/points.length))
+        return _calcPath(0, MFL(frames/points.length));
       },
       /**Make object appear to walk in a curved path.
        * @memberof module:mojoh5/FX
@@ -598,44 +610,31 @@
        * @param {function} type
        * @param {Vec2[]} points
        * @param {number} frames
-       * @param {boolean} [loop]
-       * @return {}
+       * @return {TweenXY}
        */
-      walkCurve(s, type, points, frames=300, loop=false){
+      walkCurve(s, type, points, frames=300){
         let _calcPath=(cur,frames)=>{
           let t=this.followCurve(s, type, points[cur], frames);
-          t.onEnd=function(){
+          t.onComplete(()=>{
             if(++cur < points.length){
               _.delay(0,()=> _calcPath(cur,frames));
-            }else if(loop){
-              points.reverse().forEach(c=> c.reverse());
-              _.delay(0,()=>{
-                Mojo.Sprites.setXY(s, points[0][0], points[0][1]);
-                _calcPath(0,frames);
-              });
             }
-          };
+          });
           return t;
         }
-        return _calcPath(0, MFL(frames/points.length))
+        return _calcPath(0, MFL(frames/points.length));
       },
       /**Remove this tween object.
        * @memberof module:mojoh5/FX
        * @param {Tween} t
        */
       remove(t){
-        t._stop();
-        t instanceof BatchTweens ? t.dispose() : _.disj(TweensQueue,t)
+        t && t.dispose();
       },
       /** @ignore */
       update(dt){
-        _.rseq(TweensQueue, t=> t.step(dt))
-        _.rseq(DustBin, p=>{
-          if(p.bits.length>0)
-            _.rseq(p.bits, k=> k.m5.step())
-          else
-            _.disj(DustBin,p);
-        });
+        _.rseq(TweensQueue, t=> t.____onUpdate(dt));
+        _.rseq(DustBin, p=> p.____onUpdate(dt));
       },
       /**Create particles.
        * @memberof module:mojoh5/FX
@@ -647,13 +646,12 @@
         maxs=_.patch(maxs,{angle:6.28, size:16, speed:3,
                            scale:0.05, alpha:0.02, rotate:0.03 });
         _.assert(count>1);
-        let pBag=[];
         function _make(angle){
           let size = _.randInt2(mins.size, maxs.size);
           let p= spriteCtor();
-          pBag.push(p);
+          DustBin.push(p);
           container.addChild(p);
-          if(p.totalFrames>0)
+          if(p.totalFrames)
             p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
           Mojo.Sprites.setSize(p, size);
           Mojo.Sprites.setXY(p,x,y);
@@ -665,7 +663,7 @@
           p.m5.vel[0] = speed * Math.cos(angle);
           p.m5.vel[1] = speed * Math.sin(angle);
           //the worker
-          p.m5.step=function(){
+          p.____onUpdate=function(){
             p.m5.vel[1] += gravity[1];
             p.x += p.m5.vel[0];
             p.y += p.m5.vel[1];
@@ -678,7 +676,7 @@
             p.rotation += p.m5.angVel;
             p.alpha -= p.m5.alphaSpeed;
             if(p.alpha <= 0){
-              _.disj(pBag,p);
+              _.disj(DustBin,p);
               Mojo.Sprites.remove(p);
             }
           };
@@ -688,9 +686,6 @@
           _make(random ? _.randFloat(mins.angle, maxs.angle) : a);
           a += gap;
         }
-        let o=new Particles(pBag);
-        _.conj(DustBin,o);
-        return o;
       }
     };
 

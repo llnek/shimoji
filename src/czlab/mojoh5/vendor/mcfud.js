@@ -265,6 +265,7 @@
       setVec(a,...args){
         args.forEach((v,i)=> a[i]=v)
       },
+      nor(a,b){ return a===undefined||a===null?b:a },
       or(a,b){ return a===undefined?b:a },
       /**Coerce input into a number, if not return the default.
        * @memberof module:mcfud/core._

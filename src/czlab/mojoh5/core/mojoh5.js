@@ -526,15 +526,14 @@
        * @return {object}
        */
       mockStage(px=0,py=0,width=undefined,height=undefined){
-        return{
-          getGlobalPosition(){ return {x: this.x,y: this.y} },
-          anchor: Mojo.makeAnchor(0,0),
-          m5:{stage:true},
-          x:px,
-          y:py,
-          width: _.or(width,Mojo.width),
-          height: _.or(height,Mojo.height)
-        }
+        let self=is.obj(px)?px
+                           :{x:px, y:py,
+                             width: _.or(width,Mojo.width),
+                             height: _.or(height,Mojo.height)};
+        self.getGlobalPosition=()=>{ return {x: this.x, y: this.y} };
+        self.anchor=Mojo.makeAnchor(0,0);
+        self.m5={stage:true};
+        return self;
       },
       /**Convert the position into a grid index.
        * @memberof module:mojoh5/Mojo

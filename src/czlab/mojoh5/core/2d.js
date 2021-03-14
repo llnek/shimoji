@@ -520,6 +520,73 @@
         let CX=false,CY=false;
         let R= Geo.getAABB(s.m5.circular ? _S.toCircle(s)
                                          : _S.toPolygon(s))
+        let cl= c.x+coff[0],
+            cr= cl+c.width,
+            ct= c.y+coff[1],
+            cb= ct+c.height;
+        let rx=R.pos[0];
+        let ry=R.pos[1];
+        //left
+        if(rx<cl){
+          s.x += cl-rx;
+          CX=true;
+          collision.add(Mojo.LEFT);
+        }
+        //right
+        if(rx+R.width > cr){
+          s.x -= rx+R.width- cr;
+          CX=true;
+          collision.add(Mojo.RIGHT);
+        }
+        //top
+        if(ry < ct){
+          s.y += ct-ry;
+          CY=true;
+          collision.add(Mojo.TOP);
+        }
+        //bottom
+        if(ry+R.height > cb){
+          s.y -= ry+R.height - cb;
+          CY=true;
+          collision.add(Mojo.BOTTOM);
+        }
+        if(collision.size > 0){
+          if(CX){
+            s.m5.vel[0] /= s.m5.mass;
+            if(bounce) s.m5.vel[0] *= -1;
+          }
+          if(CY){
+            s.m5.vel[1] /= s.m5.mass;
+            if(bounce) s.m5.vel[1] *= -1;
+          }
+          extra && extra(collision)
+        }else{
+          collision=null;
+        }
+        return collision;
+      },
+      XXcontain(s, container, bounce=false,extra=null){
+        let c,
+            _S=Mojo.Sprites;
+        if(container instanceof Mojo.Scenes.Scene){
+          c=Mojo.mockStage();
+        }else if(container.m5 && container.m5.stage){
+          c=container;
+        }else{
+          if(container.isSprite)
+            _.assert(s.parent===container);
+          else
+            _.assert(false,"Error: contain() using bad container");
+          _.assert(container.rotation===0,"Error: contain() container can't rotate");
+          _.assert(container.anchor.x===0,"Error: contain() container anchor.x !==0");
+          _.assert(container.anchor.y===0,"Error: contain() container anchor.y !==0");
+          c=container;
+        }
+        let coff= _S.topLeftOffsetXY(c);
+        let collision = new Set();
+        let CX=false,CY=false;
+        let R= Geo.getAABB(s.m5.circular ? _S.toCircle(s)
+                                         : _S.toPolygon(s))
         let cl= c.x-coff[0], cb=c.y-coff[1], cr=cl+c.width, ct=cb+c.height;
         //left
         if(R.pos[0]+cl < cl){
