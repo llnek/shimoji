@@ -18,124 +18,126 @@
 
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
+    const G=Mojo.Game;
     const {ute:_, is, EventBus}=Mojo;
 
-    //`isAtIntersection` returns true or false depending on whether a
-    //sprite is exactly aligned to anintersection in the maze corridors
-    function isCenteredOverCell(sprite,world){
-      return Math.floor(sprite.x) % world.tiled.tileW === 0 &&
-             Math.floor(sprite.y) % world.tiled.tileH === 0;
-    }
-    function directionToVelocity(dir,speed){
-      let r=[0,0];
-      switch(dir){
-        case Mojo.UP: r[1]= -speed; break;
-        case Mojo.DOWN: r[1]= speed; break;
-        case Mojo.LEFT: r[0]= -speed; break;
-        case Mojo.RIGHT: r[0]= speed; break;
+    const E_PLAYER=1,
+      E_ITEM=2;
+
+    Mojo.defMixin("enemyControls", function(e){
+      e.m5.direction=Mojo.LEFT;
+      e.m5.switchPercent=2;
+      function tryDirection(){
+        let from = e.m5.direction;
+        if(e.m5.vel[1] !== 0 && e.m5.vel[0]=== 0){
+          e.m5.direction = Math.random() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
+        }else if(e.m5.vel[0] !== 0 && e.m5.vel[1]=== 0){
+          e.m5.direction = Math.random() < 0.5 ? Mojo.UP : Mojo.DOWN;
+        }
       }
-      return r;
+      function changeDirection(col){
+        if(e.m5.vel[0]=== 0 && e.m5.vel[1]=== 0){
+          let c=col.overlapN;
+          if(c[1] !== 0){
+            e.m5.direction = Math.random() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
+          }else if(c[0] !== 0){
+            e.m5.direction = Math.random() < 0.5 ? Mojo.UP : Mojo.DOWN;
+          }
+        }
+      }
+      let self={
+        step(dt){
+          if(Math.random() < e.m5.switchPercent/100){
+            tryDirection()
+          }
+          switch(e.m5.direction){
+            case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
+            case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
+            case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
+            case Mojo.DOWN: e.m5.vel[1] = e.m5.speed; break;
+          }
+        }
+      };
+      EventBus.sub(["hit",e],changeDirection);
+      return self;
+    });
+    function Player(scene,s,ts,ps,os){
+      let K=scene.getScaleFactor();
+      Mojo.addMixin(s,"2dControls",false);
+      Mojo.addMixin(s,"2d");
+      s.m5.type=E_PLAYER;
+      s.m5.speed=4*K;
+      s.m5.direction=Mojo.RIGHT;
+      s.anchor.set(0.5);
+      s.x += Math.floor(s.width/2);
+      s.y += Math.floor(s.height/2);
+      s.m5.uuid="player";
+      s.m5.vel[0]=s.m5.speed;
+      s.m5.vel[1]=s.m5.speed;
+      s.m5.step=()=>{
+        s["2d"].motion();
+        s["2dControls"].step();
+      };
+      return G.player=s;
     }
-    function _validDirections(sprite, tiles, validGid, world){
-      let index = _T.getTileIndex(sprite.x,sprite.y, world);
-      let crossGids = _T.getCrossTiles(index, tiles, world);
-      let vdirs = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
-      return crossGids.map((gid, i) => {
-        return gid === validGid ? vdirs[i] : Mojo.NONE;
-      }).filter(d=> d !== Mojo.NONE);
+    function Monster(scene,m,ts,ps,os){
+      let fs = _S.frameSelect("monsterMaze.png", 64,64, [ [128, 0], [128, 64] ]);
+      let K=scene.getScaleFactor();
+      let s = _S.sprite(fs);
+      s.m5.uuid=`e#${_.nextId()}`;
+      s.m5.cmask=E_PLAYER;
+      s.m5.type=E_ITEM;
+      s.scale.x=K;
+      s.scale.y=K;
+      s.x = m.x+ Math.floor(s.width/2);
+      s.y = m.y + Math.floor(s.height/2);
+      s.m5.direction = Mojo.NONE;
+      s.m5.speed = 1*K;
+      s.anchor.set(0.5);
+      s.m5.vel[0]=s.m5.speed;
+      s.m5.vel[1]=s.m5.speed;
+      Mojo.addMixin(s,"2d");
+      Mojo.addMixin(s,"enemyControls");
+      s.m5.boom=function(col){
+        if(col.B.m5.uuid=="player"){
+          Mojo.pause();
+          //game over
+        }
+      };
+      s.m5.step=function(dt){
+        s["2d"].motion();
+        s["enemyControls"].step();
+        let ca= _S.centerXY(G.player);
+        let cm= _S.centerXY(s);
+        let vx=ca[0]-cm[0];
+        let vy=ca[1]-cm[1];
+        let d2 = vx * vx + vy * vy;
+        //3. If the monster is less than 192 pixels away from the alien,
+        //change the monster's state to `scared`. Otherwise, set its
+        //state to `normal`
+        if(d2 < 36864*K){//192 x 192
+          s.m5.showFrame(1);
+        } else {
+          s.m5.showFrame(0);
+        }
+      };
+      EventBus.sub(["bump",s],"boom",s.m5);
+      return s;
     }
-    function canChangeDirection(dirs){
-      //let stuck = dirs.length === 1;
-      //let trapped = dirs.length === 0;
-      let up = _.has(dirs, Mojo.UP),
-        down = _.has(dirs, Mojo.DOWN),
-        left = _.has(dirs, Mojo.LEFT),
-        right = _.has(dirs, Mojo.RIGHT),
-        atIntersection = (up || down) && (left || right);
-      return atIntersection || dirs.length < 2;
-    }
-    function randomDirection(s, dirs){
-      return dirs.length===0 ? Mojo.NONE : dirs[_.randInt2(0, dirs.length-1)];
-    }
+    function _objF(){ return {Player,Monster} }
 
     _Z.defScene("level1",{
       setup(){
-        let w = this.world= _T.tiledWorld("monsterMaze.json");
-        this.insert(w);
-        let alien= this.alien= _T.getNamedItem(_T.getTileLayer(w,"playerLayer"),"alien")[0];
-        alien.m5.speed = 4;
-        let monsters = _T.getTileLayer(w,"monsterLayer");
-        let wall= _T.getTileLayer(w,"wallLayer");
-        let mons= _T.getNamedItem(monsters,"monster");
-        let monsterFrames = _S.frameSelect( "monsterMaze.png", 64,64, [ [128, 0], [128, 64] ]);
-        this.monsters= mons.map(m=>{
-          let monster = _S.sprite(monsterFrames);
-          monster.x = m.x;
-          monster.y = m.y;
-          monster.m5.direction = Mojo.NONE;
-          monster.m5.speed = 4;
-          monsters.addChild(monster);
-          _S.remove(m);//m.visible = false;
-          return monster;
-        });
-        alien.m5.direction = Mojo.NONE;
-
-        let leftArrow = _I.keybd(_I.keyLEFT, ()=> alien.m5.direction = Mojo.LEFT);
-        let upArrow = _I.keybd(_I.keyUP, ()=> alien.m5.direction = Mojo.UP);
-        let rightArrow = _I.keybd(_I.keyRIGHT, ()=> alien.m5.direction = Mojo.RIGHT);
-        let downArrow = _I.keybd(_I.keyDOWN, ()=> alien.m5.direction = Mojo.DOWN);
-        EventBus.sub(["post.update",this],"postUpdate");
-      },
-      postUpdate(){
-        let self=this;
-        if(isCenteredOverCell(this.alien,this.world)){
-          let [vx,vy] = directionToVelocity(this.alien.m5.direction, this.alien.m5.speed);
-          this.alien.m5.vel[0] = vx;
-          this.alien.m5.vel[1] = vy;
-        }
-        _S.move(this.alien);
-        let wall=_T.getTileLayer(this.world,"wallLayer");
-        let alienVsFloor = _T.hitTestTile(this.alien, wall.tiled.data, 0, this.world, Mojo.EVERY);
-        if(!alienVsFloor.hit){
-          this.alien.x -= this.alien.m5.vel[0];
-          this.alien.y -= this.alien.m5.vel[1];
-          this.alien.m5.vel[0] = 0;
-          this.alien.m5.vel[1] = 0;
-        }
-        this.monsters.forEach(m=> {
-          if(isCenteredOverCell(m, this.world)){
-            let dirs = _validDirections(m, wall.tiled.data, 0, self.world);
-            if(canChangeDirection(dirs)){
-              m.m5.direction = randomDirection(m, dirs);
-            }
-            let [vx,vy]= directionToVelocity(m.m5.direction, m.m5.speed);
-            m.m5.vel[0] = vx;
-            m.m5.vel[1] = vy;
-          }
-          m.x += m.m5.vel[0];
-          m.y += m.m5.vel[1];
-          let ca= _S.centerXY(this.alien);
-          let cm= _S.centerXY(m);
-          let v= {x:ca.x-cm.x,y:ca.y-cm.y};
-          let dist = Math.sqrt(v.x * v.x + v.y * v.y);
-          //3. If the monster is less than 192 pixels away from the alien,
-          //change the monster's state to `scared`. Otherwise, set its
-          //state to `normal`
-          if(dist < 192){
-            m.m5.showFrame(1);
-          } else {
-            m.m5.showFrame(0);
-          }
-        });
       }
-    });
+    },{sgridX:180,sgridX:180,
+       centerStage:true,tiled:{name:"monsterMaze.json",factory:_objF}});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: [ "monsterMaze.png", "monsterMaze.json" ],
       arena: {width:704, height:512},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

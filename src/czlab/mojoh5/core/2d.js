@@ -1,5 +1,4 @@
 /* Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
@@ -28,6 +27,41 @@
     /**
      * @module mojoh5/2d
      */
+
+
+    /**Define a mixin object.
+     */
+    Mojo.defMixin("2dControls", function(e,bRotate){
+      e.m5.direction=Mojo.UP;
+      let _I=Mojo.Input;
+      let self={
+        step(dt){
+          if(bRotate){
+            if(e.m5.vel[0] > 0){
+              e.rotation = Math.PI/2 //90
+            }else if(e.m5.vel[0] < 0){
+              e.rotation = -Math.PI/2 //90
+            }else if(e.m5.vel[1] > 0){
+              e.rotation = Math.PI //180
+            }else if(e.m5.vel[1] < 0){
+              e.rotation = 0
+            }
+          }
+          //grab a direction from the input
+          e.m5.direction = _I.keyDown(_I.keyLEFT)  ? Mojo.LEFT :
+                           _I.keyDown(_I.keyRIGHT) ? Mojo.RIGHT :
+                           _I.keyDown(_I.keyUP) ? Mojo.UP :
+                           _I.keyDown(_I.keyDOWN) ? Mojo.DOWN : e.m5.direction;
+          switch(e.m5.direction){
+            case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
+            case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
+            case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
+            case Mojo.DOWN: e.m5.vel[1] = e.m5.speed; break;
+          }
+        }
+      };
+      return self;
+    });
 
     /**Define a mixin object.
      */

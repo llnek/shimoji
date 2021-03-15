@@ -14,7 +14,7 @@
          "height":8,
          "id":1,
          "name":"floorLayer",
-         "opacity":1,
+         "properties":[{"name":"collision","type":"boolean","value":false}],
          "type":"tilelayer",
          "visible":true,
          "width":11,
@@ -34,28 +34,14 @@
          "y":0
         }, 
         {
-         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-         "height":8,
-         "id":3,
-         "name":"playerLayer",
-         "opacity":1,
-         "type":"tilelayer",
-         "visible":true,
-         "width":11,
-         "x":0,
-         "y":0
-        }, 
-        {
-         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-         "height":8,
-         "id":4,
-         "name":"monsterLayer",
-         "opacity":1,
-         "type":"tilelayer",
-         "visible":true,
-         "width":11,
-         "x":0,
-         "y":0
+        "type":"objectgroup",
+        "name":"Objects",
+        "objects":[
+           {"gid":4,"x":192,"y":320},
+           {"gid":3,"x":64,"y":128},
+           {"gid":3,"x":576,"y":128},
+           {"gid":3,"x":576,"y":448}
+        ]
         }],
  "nextlayerid":5,
  "nextobjectid":1,
@@ -79,20 +65,16 @@
                 {
                  "id":2,
                  "properties":[
-                        {
-                         "name":"name",
-                         "type":"string",
-                         "value":"monster"
-                        }]
+                        { "name":"Class", "type":"string", "value":"Monster" },
+                        { "name":"name", "type":"string", "value":"monster" }
+                 ]
                 }, 
                 {
                  "id":3,
                  "properties":[
-                        {
-                         "name":"name",
-                         "type":"string",
-                         "value":"alien"
-                        }]
+                        { "name":"name", "type":"string", "value":"alien" },
+                        { "name":"Class", "type":"string", "value":"Player" }
+                 ]
                 }, 
                 {
                  "id":5,

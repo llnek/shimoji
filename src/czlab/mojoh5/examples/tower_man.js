@@ -29,36 +29,6 @@
     const E_COIN=4;
     const E_TOWER=8;
 
-    Mojo.defMixin("towerManControls", function(e){
-      e.m5.direction=Mojo.UP;
-      //e.m5.speed=100;
-      let self={
-        step(dt){
-          if(e.m5.vel[0] > 0){
-            e.angle = 90
-          }else if(e.m5.vel[0] < 0){
-            e.angle = -90
-          }else if(e.m5.vel[1] > 0){
-            e.angle = 180
-          }else if(e.m5.vel[1] < 0){
-            e.angle = 0
-          }
-          // grab a direction from the input
-          e.m5.direction = _I.keyDown(_I.keyLEFT)  ? Mojo.LEFT :
-                           _I.keyDown(_I.keyRIGHT) ? Mojo.RIGHT :
-                           _I.keyDown(_I.keyUP) ? Mojo.UP :
-                           _I.keyDown(_I.keyDOWN) ? Mojo.DOWN : e.m5.direction;
-          switch(e.m5.direction) {
-            case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
-            case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
-            case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
-            case Mojo.DOWN: e.m5.vel[1] = e.m5.speed; break;
-          }
-        }
-      };
-      return self;
-    });
-
     Mojo.defMixin("enemyControls", function(e){
       e.m5.direction=Mojo.LEFT;
       //e.m5.speed=100;
@@ -134,10 +104,10 @@
       p.m5.vel[0]=p.m5.speed;
       p.m5.vel[1]=p.m5.speed;
       Mojo.addMixin(p,"2d");
-      Mojo.addMixin(p,"towerManControls");
+      Mojo.addMixin(p,"2dControls",true);
       p.m5.step=function(dt){
         p["2d"].motion(dt);
-        p["towerManControls"].step(dt);
+        p["2dControls"].step(dt);
       };
       return p;
     }

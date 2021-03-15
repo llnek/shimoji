@@ -20,86 +20,53 @@
     const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,G=Mojo.Game,T=Mojo.Tiles,_2d=Mojo["2d"];
     const {ute:_,is,EventBus}=Mojo;
 
+    const E_PLAYER=1,
+      E_ITEM=2;
+
+    function Player(scene,s,ts,ps,os){
+      let K=scene.getScaleFactor();
+      Mojo.addMixin(s,"2dControls",false);
+      Mojo.addMixin(s,"2d");
+      s.m5.type=E_PLAYER;
+      s.m5.cmask=E_ITEM;
+      s.m5.speed=4*K;
+      s.m5.direction=Mojo.RIGHT;
+      s.anchor.set(0.5);
+      s.x += Math.floor(s.width/2);
+      s.y += Math.floor(s.height/2);
+      s.m5.uuid="player";
+      s.m5.vel[0]=s.m5.speed;
+      s.m5.vel[1]=s.m5.speed;
+      s.m5.step=()=>{
+        s["2d"].motion();
+        s["2dControls"].step();
+      };
+      return s;
+    }
+    function Monster(scene,s,ts,ps,os){
+      s.m5.sensor=true;
+      s.m5.type=E_ITEM;
+      s.m5.onSensor=()=>{
+        scene.remove(s)
+      };
+      EventBus.sub(["2d.sensor",s],"onSensor",s.m5);
+      return s;
+    }
+    function _objF(){
+      return {Player,Monster}
+    }
+
     Z.defScene("level1", {
       setup(){
-        let world= this.world = T.tiledWorld("monsterMaze.json");
-        let wt=world.tiled;
-        this.insert(world);
-
-        let alien= this.alien=T.getNamedItem(T.getTileLayer(world,"playerLayer"),"alien")[0];
-        alien.m5.direction = Infinity;
-
-        this.leftArrow = I.keybd(I.keyLEFT, ()=>alien.m5.direction =Mojo.LEFT);
-        this.upArrow = I.keybd(I.keyUP, ()=>alien.m5.direction = Mojo.UP);
-        this.rightArrow = I.keybd(I.keyRIGHT, ()=>alien.m5.direction = Mojo.RIGHT);
-        this.downArrow = I.keybd(I.keyDOWN, ()=>alien.m5.direction = Mojo.DOWN);
-
-        EventBus.sub(["post.update",this],"postUpdate");
-      },
-      postUpdate(dt){
-        let _isAtIntersection=s=>{
-          return Math.floor(s.x) % this.world.tiled.tileW === 0 &&
-                 Math.floor(s.y) % this.world.tiled.tileH === 0;
-        }
-        if(_isAtIntersection(this.alien)){
-          switch(this.alien.m5.direction){
-          case Mojo.UP:
-            this.alien.m5.vel[1] = -4;
-            this.alien.m5.vel[0] = 0;
-          break;
-          case Mojo.DOWN:
-            this.alien.m5.vel[1] = 4;
-            this.alien.m5.vel[0] = 0;
-          break;
-          case Mojo.LEFT:
-            this.alien.m5.vel[0] = -4;
-            this.alien.m5.vel[1] = 0;
-          break;
-          case Mojo.RIGHT:
-            this.alien.m5.vel[0] = 4;
-            this.alien.m5.vel[1] = 0;
-          break;
-          case Mojo.NONE:
-            this.alien.m5.vel[0] = 0;
-            this.alien.m5.vel[1] = 0;
-          break;
-          }
-        }
-        S.move(this.alien);
-        let walls= T.getTileLayer(this.world,"wallLayer");
-        let alienVsFloor = T.hitTestTile(this.alien, walls.tiled.data, 0, this.world, Mojo.EVERY);
-
-        if(!alienVsFloor.hit){
-          //To prevent the alien from moving, subtract its velocity from its position
-          this.alien.x -= this.alien.m5.vel[0];
-          this.alien.y -= this.alien.m5.vel[1];
-          this.alien.m5.vel[0] = 0;
-          this.alien.m5.vel[1] = 0;
-        }
-
-        let monsters=T.getTileLayer(this.world,"monsterLayer");
-        let alienVsBomb = T.hitTestTile(this.alien, monsters.tiled.data, 3, this.world, Mojo.EVERY);
-        if (alienVsBomb.hit) {
-          let ms= T.getNamedItem(monsters,"monster");
-          for(let pos,m,i=0;i<ms.length;++i){
-            m=ms[i];
-            pos=m.tiled.____index;
-            if(pos===alienVsBomb.index){
-              monsters.tiled.data[pos]=0;
-              S.remove(m);
-            }
-          }
-        }
       }
-    });
-
+    },{centerStage:true,tiled:{name:"monsterMaze.json",factory:_objF}});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: [ "monsterMaze.png", "monsterMaze.json" ],
       arena: { width: 704, height: 512 },
-      scaleToWindow: true,
+      scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

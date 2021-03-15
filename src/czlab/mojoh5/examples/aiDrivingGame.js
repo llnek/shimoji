@@ -90,7 +90,6 @@
                                        this.tiled.tileH, this.tiled.tileInX);
         let angleMap = this.getTileLayer("Angles").data;
         let mapAngle = angleMap[aiCarIndex];
-        mapAngle *= K;
         if(!_.feq(mapAngle,G.previousMapAngle)){
           G.targetAngle = mapAngle + _.randInt2(-20*K, 20*K);
           G.previousMapAngle = mapAngle;
