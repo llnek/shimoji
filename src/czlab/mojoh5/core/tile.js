@@ -187,6 +187,8 @@
             tl.data=tl.data.flat();
           }
           if(tl.visible === false){ return }
+          if(!tl.width) tl.width=scene.tiled.tileInX;
+          if(!tl.height) tl.height=scene.tiled.tileInY;
           for(let tlprops=_parseProps(tl), s,gid,i=0;i<tl.data.length;++i){
             if((gid=tl.data[i])===0){ continue }
             if(tlprops.collision === false){}else{
@@ -214,7 +216,8 @@
             let s,ps,gid=_.or(o.gid,-1);
             let os=_parseProps(o);
             if(gid>0)ps=gtileProps[gid];
-            let cz= _.or(ps && ps["Class"],os["Class"]);
+            _.inject(o,os);
+            let cz= _.or(ps && ps["Class"],o["Class"]);
             let createFunc= cz && objFactory[cz];
             let w=scene.tiled.saved_tileW;
             let h=scene.tiled.saved_tileH;
@@ -222,7 +225,6 @@
             let ty=MFL((o.y-(o.height||h)/2)/h);
             let tsi=_lookupGid(gid,scene.tiled.tileGidList);
             if(tsi)tsi=tsi[1];
-            _.inject(o,os);
             //jiggle everything to top-left
             //o.y=ty*scene.tiled.tileH;
             //o.x=tx*scene.tiled.tileW;
@@ -375,12 +377,14 @@
        * @return {number}
        */
       getScaleFactor(){
-        let r=1;
+        let x,y,r=1;
         if(Mojo.u.scaleToWindow == "max"){
           if(Mojo.width>Mojo.height){
-            r=Mojo.height/(this.tiled.saved_tileH*this.tiled.tileInY)
+            y=Mojo.height/(this.tiled.saved_tileH*this.tiled.tileInY);
+            r=y;
           }else{
-            r=Mojo.width/(this.tiled.saved_tileW*this.tiled.tileInX)
+            x=Mojo.width/(this.tiled.saved_tileW*this.tiled.tileInX)
+            r=x;
           }
         }
         return r;
