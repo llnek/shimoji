@@ -186,6 +186,9 @@
           s.height = MFL(s.height);
           if(!_.isEven(s.height))--s.height;
         }
+        if(ps && ps.sensor){
+          s.m5.sensor=true
+        }
         s.x= mapcol * s.width;
         s.y= maprow * s.height;
         return s;
@@ -426,6 +429,7 @@
         c.width=this.tiled.tileW;
         c.x = tX * c.width;
         c.y = tY * c.height;
+        c.m5.sensor=false;
         return c;
       }
       collideXY(obj){
@@ -455,6 +459,9 @@
             if(gid===0){continue}
             B=this._getContactObj(gid,tX, tY);
             ps=this.getTileProps(gid);
+            if(ps){
+              B.m5.sensor= !!ps.sensor;
+            }
             if(ps && ps["NonTile"]){
               //special object, do nothing
             }else{

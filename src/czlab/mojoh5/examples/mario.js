@@ -29,7 +29,8 @@
       E_DOOR=4,
       E_SNAIL=8,
       E_FLY=16,
-      E_SLIME=32;
+      E_SLIME=32,
+      E_ENEMY=64;
 
     function Collectable(scene,s,ts,ps,os){
       /*
@@ -75,54 +76,51 @@
     };
 
     function Enemy(scene,s,ts,ps,os){
-      /*
-      let mo=s.m5;
-      let wall= _T.getTileLayer(world,"Collision");
-      mo.uuid= mo.uuid+"_"+ps["sprite"];
-      s.x=ps.x;
-      s.y=ps.y-72;
-      let signals=[[["bump.top",s],"die",mo],
-                   [["hit",s],"hit",mo]];
-      _S.addMixin(s,"2d", "aiBounce");
-      mo.speed=150;
-      mo.vel[0]=-150;
-      mo.deadTimer=0;
+      let signals=[[["bump.top",s],"onKill",s.m5],
+                   [["hit",s],"onHit",s.m5]];
+      s.anchor.set(0.5);
+      s.x += Math.floor(s.width/2);
+      s.y += Math.floor(s.height/2);
+      Mojo.addMixin(s,"aiBounce",true,false);
+      Mojo.addMixin(s,"2d");
+      s.m5.speed= 150;
+      s.m5.vel[0]= -150;
+      s.m5.deadTimer=0;
       s.aiBounce.dftDirection=Mojo.LEFT;
-      mo.collide=function(){
-        wall.children.forEach(w=> _2d.hit(s,w))
-      };
-      mo.die=function(col){
+
+
+      s.m5.onKill=(col)=>{
         if(col.B.m5.uuid=="player"){
           Mojo.sound("coin.mp3").play();
-          mo.vel[0]=mo.vel[1]=0;
-          mo.dead=true;
+          s.m5.vel[0]=0;
+          s.m5.vel[1]=0;
+          s.m5.dead=true;
           col.B.m5.vel[1] = -300;
-          mo.deadTimer = 0;
+          s.m5.deadTimer = 0;
         }
       };
-      mo.hit=function(col){
-        if(!mo.dead && col.B.m5.uuid=="player" && !col.B.m5.immune){
-          _E.pub(["enemy.hit", col.B],{"enemy":s,"col":col});
+
+      s.m5.onHit=function(col){
+        if(!s.m5.dead && col.B.m5.uuid=="player" && !col.B.m5.immune){
+          EventBus.pub(["enemy.hit", col.B],{"enemy":s,"col":col});
           Mojo.sound("hit.mp3").play();
         }
       };
-      mo.step=function(dt){
-        s["2d"].motion(dt);
-        if(mo.dead){
+      s.m5.step=(dt)=>{
+        s["2d"] && s["2d"].motion(dt);
+        if(s.m5.dead){
           s.aiBounce.dispose();
           s["2d"]=null;
-          mo.deadTimer++;
-          if(mo.deadTimer > 24){
+          ++s.m5.deadTimer;
+          if(s.m5.deadTimer > 24){
             // Dead for 24 frames, remove it.
-            _S.remove(s);
+            scene.remove(s);
           }
         }else{
           //Mojo.getf(this,"animation").enact('walk');
         }
       };
-      signals.forEach(s=>_E.sub.apply(_E,s));
-      */
-      //world.addChild(s);
+      signals.forEach(s=>EventBus.sub.apply(EventBus,s));
       return s;
     }
 
@@ -130,15 +128,21 @@
     }
 
     function Snail(scene,s,ts,ps,os){
-      return Enemy(scene,s,ts,ps,os)
+      s= Enemy(scene,s,ts,ps,os);
+      s.m5.type=E_ENEMY;
+      return s;
     }
 
     function Slime(scene,s,ts,ps,os){
-      return Enemy(scene,s,ts,ps,os)
+      s= Enemy(scene,s,ts,ps,os);
+      s.m5.type=E_ENEMY;
+      return s;
     }
 
     function Fly(scene,s,ts,ps,os){
-      return Enemy(scene,s,ts,ps,os)
+      s= Enemy(scene,s,ts,ps,os);
+      s.m5.type=E_ENEMY;
+      return s;
     }
 
     function Player(scene,s,ts,ps,os){
@@ -146,7 +150,9 @@
       let p=_S.sprite(_S.frames(ts.image, ts.tilewidth,ts.tileheight));
       let _mode=null;
       let mo=p.m5;
+      p.m5.uuid="player";
       p.m5.type=E_PLAYER;
+      p.m5.cmask=E_ENEMY|E_ITEM;
       p.height=s.height;
       p.width=s.width;
       p.x = s.x + Math.floor(p.width/2);
@@ -413,7 +419,7 @@
         if(G.player.y > 1000){
           //this.camera.unfollow();
         }else{
-          //this["camera2d"].follow(G.player);
+          this["camera2d"].follow(G.player);
         }
       }
     },{tiled:{name:"mario.json",factory:_objF}});
