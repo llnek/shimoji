@@ -87,7 +87,7 @@
         curAngle += Math.ceil(-curAngle / 360) * 360;
         let aiCarIndex = Mojo.getIndex(G.aiCar.x, G.aiCar.y,
                                        this.tiled.tileW,
-                                       this.tiled.tileH, this.tiled.tileInX);
+                                       this.tiled.tileH, this.tiled.tilesInX);
         let angleMap = this.getTileLayer("Angles").data;
         let mapAngle = angleMap[aiCarIndex];
         if(!_.feq(mapAngle,G.previousMapAngle)){

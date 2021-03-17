@@ -20,13 +20,18 @@
     let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_T=Mojo.Tiles,_2d=Mojo["2d"];
     let {ute:_,is,EventBus}=Mojo;
     let _E=EventBus;
-    let CZ={};
-    let _score=0;
+    let G=Mojo.Game;
 
-    CZ.Collectable=function(world,ts,ps,os){
-      let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
-      s.x=os.x;
-      s.y=os.y;
+    G.score=0;
+
+    const E_PLAYER=1,
+      E_ITEM=2,
+      E_DOOR=4,
+      E_SNAIL=8,
+      E_FLY=16,
+      E_SLIME=32;
+
+    function Collectable(scene,s,ts,ps,os){
       /*
       let mo=s.m5;
       let signal=[["sensor",s],"onSensor",mo];
@@ -48,10 +53,7 @@
       return s;
     };
 
-    CZ.Door=function(world,ts,ps,os){
-      let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
-      s.x=os.x;
-      s.y=os.y;
+    function Door(scene,s,ts,ps,os){
       /*
       let mo=s.m5;
       let signal=[["sensor",s],"onSensor",mo];
@@ -72,10 +74,7 @@
       return s;
     };
 
-    CZ.Enemy=function(world,ts,ps,os){
-      let s= _S.sprite(_S.frames(ts.image,ts.tilewidth,ts.tileheight)[ps.id]);
-      s.x=os.x;
-      s.y=os.y;
+    function Enemy(scene,s,ts,ps,os){
       /*
       let mo=s.m5;
       let wall= _T.getTileLayer(world,"Collision");
@@ -125,27 +124,46 @@
       */
       //world.addChild(s);
       return s;
-    };
-    CZ.Snail=CZ.Slime=CZ.Fly=CZ.Enemy;
+    }
 
-    CZ.Player=function(world,ts,ps,os){
+    function Heart(scene,s,ts,ps,os){
+    }
+
+    function Snail(scene,s,ts,ps,os){
+      return Enemy(scene,s,ts,ps,os)
+    }
+
+    function Slime(scene,s,ts,ps,os){
+      return Enemy(scene,s,ts,ps,os)
+    }
+
+    function Fly(scene,s,ts,ps,os){
+      return Enemy(scene,s,ts,ps,os)
+    }
+
+    function Player(scene,s,ts,ps,os){
       let PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
       let p=_S.sprite(_S.frames(ts.image, ts.tilewidth,ts.tileheight));
       let _mode=null;
       let mo=p.m5;
-      p.x=os.x;
-      p.y=os.y;
-      p.m5.gravity[1]=500;
+      p.m5.type=E_PLAYER;
+      p.height=s.height;
+      p.width=s.width;
+      p.x = s.x + Math.floor(p.width/2);
+      p.y= scene.tiled.tileH*4;
+      p.m5.gravity[1]=555;
       p.m5.strength= 100;
       p.m5.speed= 300;
       p.m5.score= 0;
-      _S.addMixin(p,"2d","platformer");
+      p.anchor.set(0.5);
+      Mojo.addMixin(p,"platformer");
+      Mojo.addMixin(p,"2d");
       p.m5.showFrame(1);
-      p.platformer.jumpSpeed= -400;
+      p.platformer.jumpSpeed= -700;
       p.m5.direction= Mojo.RIGHT;
 
       let leftArrow = _I.keybd(_I.keyLEFT, ()=>{
-        p.scale.x = -1;
+        if(p.scale.x>0) p.scale.x *= -1;
         if(_mode===null)
           p.m5.playFrames(PStates.walk_right);
       }, ()=>{
@@ -154,7 +172,7 @@
       });
 
       let rightArrow = _I.keybd(_I.keyRIGHT, ()=>{
-        p.scale.x = 1;
+        if(p.scale.x<0) p.scale.x *= -1;
         if(_mode===null)
           p.m5.playFrames(PStates.walk_right);
       }, ()=>{
@@ -187,7 +205,6 @@
         return _mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
                                          : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
       };
-
       p.jumped=function(col){ mo.playedJump = false; };
       p.checkDoor=function(){ mo.checkDoor = true; };
       p.resetLevel=function(){ };
@@ -198,7 +215,7 @@
         }
       };
 
-      p.m5.collide=function(){
+      p.m5.XXcollide=function(){
         return;
         for(let t,w,i=0;i<wall.children.length;++i){
           w=wall.children[i];
@@ -366,7 +383,7 @@
       };
     */
       signals.forEach(s=>_E.sub.apply(_E,s));
-      return p;
+      return G.player=p;
     }
 
     _Z.defScene("hud",{
@@ -382,34 +399,30 @@
       }
     });
 
+    function _objF(){
+      return {Player,Collectable,Heart,Slime,Fly,Door,Snail}
+    }
+
     _Z.defScene("level1",{
       setup(){
-        let self=this,
-            old=CZ.Player,
-            F=function(...args){
-              let p=old(...args);
-              return self.player=p;
-            },
-            world= this.world= _T.tiledWorld("mario.json",_.inject(CZ,{Player:F}));
-        this.insert(world);
-        let cam= this.camera= _2d.worldCamera(world,world.tiled.tiledWidth,world.tiled.tiledHeight);
-        this.camera.centerOver(world.tiled.tileW*5,world.tiled.tileH*10);
+        Mojo.addMixin(this,"camera2d",this.tiled.tiledWidth,this.tiled.tiledHeight,Mojo.canvas);
+        this["camera2d"].centerOver(this.tiled.tileW*5, this.tiled.tileH*10);
         EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
-        if(this.player.y > 1000){
+        if(G.player.y > 1000){
           //this.camera.unfollow();
         }else{
-          //this.camera.follow(this.player);
+          //this["camera2d"].follow(G.player);
         }
       }
-    });
+    },{tiled:{name:"mario.json",factory:_objF}});
 
     _Z.defScene("bg",{
       setup(){
         let bg=this.bg=_S.tilingSprite("bg.png");
         _S.setSize(bg,Mojo.width,Mojo.height);
-        this.insert(bg);
+        this.addit(bg);
       }
     });
   }

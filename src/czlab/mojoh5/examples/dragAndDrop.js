@@ -18,16 +18,18 @@
 
   function scenes(Mojo){
     let _Z=Mojo.Scenes,_S=Mojo.Sprites, _I=Mojo.Input;
+    let G=Mojo.Game;
 
     _Z.defScene("level1", function(){
       let hedgehog = _S.sprite("hedgehog.png");
       let tiger = _S.sprite("tiger.png");
       let cat = _S.sprite("cat.png");
+      let K=Mojo.getScaleFactor();
       _I.makeDrag(hedgehog);
       _I.makeDrag(cat);
       _I.makeDrag(tiger);
-      _S.setXY(tiger,64, 64);
-      _S.setXY(hedgehog,128, 128);
+      _S.setXY(tiger,64*K, 64*K);
+      _S.setXY(hedgehog,128*K, 128*K);
       this.insert(cat);
       this.insert(tiger);
       this.insert(hedgehog);
@@ -38,7 +40,7 @@
     MojoH5({
       arena: {width:640, height:640},
       assetFiles: ["images/animals.json"],
-      scaleToWindow: true,
+      scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

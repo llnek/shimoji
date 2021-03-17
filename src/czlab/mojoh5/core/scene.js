@@ -478,6 +478,9 @@
        */
       defScene(name, func, options){
         //add a new scene definition
+        if(is.fun(func)){
+          func={setup:func}
+        }
         ScenesDict[name]=[func, options]
       },
       /**Replace the current scene with this one.

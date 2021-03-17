@@ -139,14 +139,18 @@
           tmx= _checkTiledVersion(json);
       _.inject(scene.tiled,{tileW:tmx.tilewidth,
                             tileH:tmx.tileheight,
-                            tileInX:tmx.width,
-                            tileInY:tmx.height,
+                            tilesInX:tmx.width,
+                            tilesInY:tmx.height,
                             saved_tileW:tmx.tilewidth,
                             saved_tileH:tmx.tileheight,
                             tiledWidth:tmx.tilewidth*tmx.width,
                             tiledHeight:tmx.tileheight*tmx.height}, _parseProps(tmx));
       let K=scene.getScaleFactor();
-      function ctor(gid,mapcol,maprow,opacity){
+      let NW= MFL(K*tmx.tilewidth);
+      let NH= MFL(K*tmx.tileheight);
+      if(!_.isEven(NW)) {--NW}
+      if(!_.isEven(NH)) {--NH}
+      function ctor(gid,mapcol,maprow,tw,th){
         let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
             ps=gtileProps[gid],
             cz=ps && ps["Class"],
@@ -165,14 +169,23 @@
           tsY += tsi.spacing * tsrow;
         }
         let s = Mojo.Sprites.frame(tsi.image,
-                                   tsi.tilewidth,
-                                   tsi.tileheight,tsX,tsY);
+                                   tw||tsi.tilewidth,
+                                   th||tsi.tileheight,tsX,tsY);
         s.tiled={gid: gid, id: _id};
-        if(opacity !== undefined){
-          s.alpha=opacity
+        if(tw===scene.tiled.saved_tileW){
+          s.width=NW;
+        }else{
+          s.scale.x=K;
+          s.width = MFL(s.width);
+          if(!_.isEven(s.width))--s.width;
         }
-        s.scale.x=K;
-        s.scale.y=K;
+        if(th===scene.tiled.saved_tileH){
+          s.height=NH;
+        }else{
+          s.scale.y=K;
+          s.height = MFL(s.height);
+          if(!_.isEven(s.height))--s.height;
+        }
         s.x= mapcol * s.width;
         s.y= maprow * s.height;
         return s;
@@ -187,17 +200,20 @@
             tl.data=tl.data.flat();
           }
           if(tl.visible === false){ return }
-          if(!tl.width) tl.width=scene.tiled.tileInX;
-          if(!tl.height) tl.height=scene.tiled.tileInY;
+          if(!tl.width) tl.width=scene.tiled.tilesInX;
+          if(!tl.height) tl.height=scene.tiled.tilesInY;
           for(let tlprops=_parseProps(tl), s,gid,i=0;i<tl.data.length;++i){
             if((gid=tl.data[i])===0){ continue }
-            if(tlprops.collision === false){}else{
+            if(tl.collision===false ||
+               tlprops.collision === false){}else{
               if(gid>0)
                 scene.tiled.collision[i]=gid;
             }
             let mapcol = i % tl.width,
                 maprow = MFL(i/tl.width),
-                s= ctor(gid,mapcol,maprow,tl.opacity);
+                tw=tlprops.width,
+                th=tlprops.height,
+                s=ctor(gid,mapcol,maprow,tw,th);
             let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
                 ps=gtileProps[gid],
                 cz=ps && ps["Class"],
@@ -231,7 +247,7 @@
             o.column=tx;
             o.row=ty;
             if(gid>0){
-              s= ctor(gid,tx,ty);
+              s= ctor(gid,tx,ty,o.width,o.height);
             }
             if(createFunc){
               s= createFunc(scene,s,tsi,ps,o);
@@ -254,13 +270,10 @@
         });
       });
       //reset due to possible scaling
-      //let K=scene.getScaleFactor();
-      let nw= K*tmx.tilewidth;
-      let nh= K*tmx.tileheight;
-      scene.tiled.tileW=nw;
-      scene.tiled.tileH=nh;
-      scene.tiled.tiledWidth=nw * tmx.width;
-      scene.tiled.tiledHeight=nh * tmx.height;
+      scene.tiled.tileW=NW;
+      scene.tiled.tileH=NH;
+      scene.tiled.tiledWidth=NW * tmx.width;
+      scene.tiled.tiledHeight=NH * tmx.height;
       if(scene.parent instanceof Mojo.Scenes.SceneWrapper){
         if(scene.tiled.tiledHeight<Mojo.height){
           scene.parent.y += MFL((Mojo.height-scene.tiled.tiledHeight)/2)
@@ -311,7 +324,7 @@
         }
         let tx= MFL(x/this.tiled.tileW);
         let ty= MFL(y/this.tiled.tileH);
-        let pos= ty*this.tiled.tileInX + tx;
+        let pos= ty*this.tiled.tilesInX + tx;
         let len = this.tiled.collision.length;
         _.assert(pos>=0&&pos<len,"bad index to remove");
         this.tiled.collision[pos]=0;
@@ -356,8 +369,8 @@
       getTileXY(x,y){
         let tx= MFL(x/this.tiled.tileW);
         let ty= MFL(y/this.tiled.tileH);
-        _.assert(tx>=0 && tx<this.tiled.tileInX, `bad tile col:${tx}`);
-        _.assert(ty>=0 && ty<this.tiled.tileInY, `bad tile row:${ty}`);
+        _.assert(tx>=0 && tx<this.tiled.tilesInX, `bad tile col:${tx}`);
+        _.assert(ty>=0 && ty<this.tiled.tilesInY, `bad tile row:${ty}`);
         return [tx,ty];
       }
       /**Get item with this name.
@@ -380,10 +393,10 @@
         let x,y,r=1;
         if(Mojo.u.scaleToWindow == "max"){
           if(Mojo.width>Mojo.height){
-            y=Mojo.height/(this.tiled.saved_tileH*this.tiled.tileInY);
+            y=Mojo.height/(this.tiled.saved_tileH*this.tiled.tilesInY);
             r=y;
           }else{
-            x=Mojo.width/(this.tiled.saved_tileW*this.tiled.tileInX)
+            x=Mojo.width/(this.tiled.saved_tileW*this.tiled.tilesInX)
             r=x;
           }
         }
@@ -416,23 +429,25 @@
         return c;
       }
       collideXY(obj){
-        let _S=Mojo.Sprites;
-        let box,
+        let _S=Mojo.Sprites,
             tw=this.tiled.tileW,
             th=this.tiled.tileH,
-            tiles=this.tiled.collision;
-        if(_.feq0(obj.rotation)){
-          box=_S.getBBox(obj)
-        }else{
-          box=_S.boundingBox(obj)
-        }
+            tiles=this.tiled.collision,
+            box=_.feq0(obj.rotation)?_S.getBBox(obj):_S.boundingBox(obj);
+            //bw=box.x2-box.x1,
+            //bh=box.y2-box.y1;
+        //for camera
+        //box.x1 += obj.parent.x;
+        //box.y1 += obj.parent.y;
+        //box.x2 = box.x1+bw;
+        //box.y2 = box.y1+bh;
         let sX = Math.max(0,MFL(box.x1 / tw));
         let sY = Math.max(0,MFL(box.y1 / th));
-        let eX =  Math.min(this.tiled.tileInX-1,CEIL(box.x2 / tw));
-        let eY =  Math.min(this.tiled.tileInY-1,CEIL(box.y2 / th));
+        let eX =  Math.min(this.tiled.tilesInX-1,CEIL(box.x2 / tw));
+        let eY =  Math.min(this.tiled.tilesInY-1,CEIL(box.y2 / th));
         for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
           for(let tX = sX; tX<=eX; ++tX){
-            pos=tY*this.tiled.tileInX+tX;
+            pos=tY*this.tiled.tilesInX+tX;
             gid=tiles[pos];
             if(!is.num(gid)){
               _.assert(is.num(gid),"bad gid");

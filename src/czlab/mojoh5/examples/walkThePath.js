@@ -16,89 +16,91 @@
 
   "use strict";
 
-  function _isCenteredOverCell(sprite,world) {
-    return Math.floor(sprite.x) % world.tiled.tileW === 0 &&
-           Math.floor(sprite.y) % world.tiled.tileH === 0
-  }
-
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_G=Mojo.Game,_2d=Mojo["2d"],_T=Mojo.Tiles;
     const {ute:_,is,EventBus}=Mojo;
+    const G=Mojo.Game;
+
+    function _isCenteredOverCell(s,world){
+      return Math.floor(s.x) % world.tiled.tileW === 0 &&
+             Math.floor(s.y) % world.tiled.tileH === 0
+    }
+
+    function Player(scene,s,ts,ps,os){
+      return G.player=s;
+    }
+    function _objF(){ return {Player} }
 
     _Z.defScene("level1",{
       setup(){
-        let world =this.world= _T.tiledWorld("walkThePath.json");
-        let alien= this.alien= _T.getTileLayer(world,"alienLayer").children[0];
-        this.insert(world);
+        let offX=this.parent.x;
+        let offY=this.parent.y;
 
-        this.calculateNewPath = false;
-        this.wayPoints2DArray = [];
-        let onMouseUp=()=>{
-          this.destinationX = Mojo.mouse.x;
-          this.destinationY = Mojo.mouse.y;
-          this.calculateNewPath = true;
+        G.calculateNewPath = false;
+        G.wayPoints2DArray = [];
+        G.onMouseUp=()=>{
+          G.destinationX = Mojo.mouse.x-offX;
+          G.destinationY = Mojo.mouse.y-offY;
+          G.calculateNewPath = true;
         };
-        EventBus.sub(["mouseup"],onMouseUp);
+        EventBus.sub(["mouseup"],G.onMouseUp);
         EventBus.sub(["post.update",this], "postUpdate");
       },
       postUpdate(dt){
-        if(_isCenteredOverCell(this.alien,this.world)){
-          if(this.calculateNewPath) {
-            let c=_S.centerXY(this.alien);
+        let K=Mojo.getScaleFactor();
+        if(_isCenteredOverCell(G.player,this)){
+          if(G.calculateNewPath){
+            let c=_S.centerXY(G.player);
+            let tw=this.tiled.tileW,
+                th=this.tiled.tileH;
             let path = _T.shortestPath(
-              Mojo.getIndex(c[0], c[1], 64, 64, 13),
-              Mojo.getIndex(this.destinationX, this.destinationY, 64, 64, 13),
-              _T.getTileLayer(this.world,"wallLayer").tiled.data,
-              this.world,
-              [2, 3],
+              Mojo.getIndex(c[0], c[1], tw,th, this.tiled.tilesInX),
+              Mojo.getIndex(G.destinationX, G.destinationY, tw,th, this.tiled.tilesInX),
+              this.getTileLayer("Tiles").data,
+              this,
+              [2,3],
               "manhattan",
               false
             );
             //ignore first node, the start point
             path.shift();
-            if(path.length !== 0) {
-              this.wayPoints2DArray = path.map(node => {
-                return [node.col * 64, node.row * 64]
-              });
+            if(path.length>0){
+              G.wayPoints2DArray = path.map(n => [n.col * tw, n.row * th]);
             }
-            this.calculateNewPath = false;
+            G.calculateNewPath = false;
           }
-          if(this.wayPoints2DArray.length !== 0) {
-            //Left
-            if(this.wayPoints2DArray[0][0] < this.alien.x){
-              this.alien.m5.vel[0] = -4;
-              this.alien.m5.vel[1] = 0;
-              //Right
-            } else if(this.wayPoints2DArray[0][0] > this.alien.x) {
-              this.alien.m5.vel[0] = 4;
-              this.alien.m5.vel[1] = 0;
-              //Up
-            } else if(this.wayPoints2DArray[0][1] < this.alien.y) {
-              this.alien.m5.vel[0] = 0;
-              this.alien.m5.vel[1] = -4;
-              //Down
-            } else if(this.wayPoints2DArray[0][1] > this.alien.y) {
-              this.alien.m5.vel[0] = 0;
-              this.alien.m5.vel[1] = 4;
+          if(G.wayPoints2DArray.length > 0){
+            if(G.wayPoints2DArray[0][0] < G.player.x){//left
+              G.player.m5.vel[0] = -2;
+              G.player.m5.vel[1] = 0;
+            }else if(G.wayPoints2DArray[0][0] > G.player.x){ //right
+              G.player.m5.vel[0] = 2;
+              G.player.m5.vel[1] = 0;
+            }else if(G.wayPoints2DArray[0][1] < G.player.y){//up
+              G.player.m5.vel[0] = 0;
+              G.player.m5.vel[1] = -2;
+            }else if(G.wayPoints2DArray[0][1] > G.player.y){//down
+              G.player.m5.vel[0] = 0;
+              G.player.m5.vel[1] = 2;
             }
-            this.wayPoints2DArray.shift();
-          } else {
-            this.alien.m5.vel[0] = 0;
-            this.alien.m5.vel[1] = 0;
+            G.wayPoints2DArray.shift();
+          }else{
+            G.player.m5.vel[0] = 0;
+            G.player.m5.vel[1] = 0;
           }
         }
-
-        this.alien.x += this.alien.m5.vel[0];
-        this.alien.y += this.alien.m5.vel[1];
+        G.player.x += G.player.m5.vel[0];
+        G.player.y += G.player.m5.vel[1];
       }
-    });
+    },{centerStage:true,
+       tiled:{name:"walkThePath.json",factory:_objF}});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: ["timeBombPanic.png","walkThePath.json"],
       arena: {width: 832, height:768},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

@@ -18,13 +18,28 @@
 
   function scenes(Mojo){
     let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input;
+    let {ute:_,is,EventBus}=Mojo;
+    let G=Mojo.Game;
+
     _Z.defScene("level1",{
       setup(){
-        let forest=this.forest= _S.sprite("forest.png");
-        let elf= this.elf=_S.animation("walkcycle.png", 64, 64);
-        this.insert(forest);
-        this.insert(elf);
-        _S.setXY(elf,32, 128);
+        let elf= G.elf=_S.animation("walkcycle.png", 64, 64);
+        let forest=G.forest= _S.sprite("forest.png");
+        let K=Mojo.getScaleFactor();
+
+        forest.scale.x=K;
+        forest.scale.y=K;
+        elf.scale.x=K;
+        elf.scale.y=K;
+
+        this.addit(forest);
+        this.addit(elf);
+        _S.setXY(elf,32*K, 128*K);
+
+        this.x=Math.floor((Mojo.width-forest.width)/2);
+        this.y=Math.floor((Mojo.height-forest.height)/2);
+
+
         elf.states = {
           up: 0,
           left: 9,
@@ -35,6 +50,7 @@
           walkDown: [19, 26],
           walkRight: [28, 35]
         };
+
         elf.m5.showFrame(elf.states.right);
         let goLeft = _I.keybd(_I.keyLEFT, ()=>{
           elf.m5.playFrames(elf.states.walkLeft);
@@ -76,23 +92,23 @@
             elf.m5.showFrame(elf.states.down);
           }
         });
-        Mojo.EventBus.sub(["post.update",this],"postUpdate");
+        EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(dt){
         //-18 and +18 are to compensate for image padding around the sprite
-        this.elf.x = Math.max(-18, Math.min(this.elf.x + this.elf.m5.vel[0],
-                                            Mojo.width - this.elf.width + 18));
-        this.elf.y = Math.max(64, Math.min(this.elf.y + this.elf.m5.vel[1],
-                                           Mojo.height - this.elf.height));
+        G.elf.x = Math.max(-18, Math.min(G.elf.x + G.elf.m5.vel[0],
+                                            Mojo.width - G.elf.width + 18));
+        G.elf.y = Math.max(64, Math.min(G.elf.y + G.elf.m5.vel[1],
+                                           Mojo.height - G.elf.height));
       }
-    });
+    },{centerStage:true});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles:[ "forest.png", "walkcycle.png" ],
       arena:{width:256,height:256},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

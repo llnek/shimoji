@@ -561,13 +561,18 @@
        * @return {AnimatedSprite}
        */
       animFromVec(x){
-        if(is.vec(x)){
-          if(is.str(x[0]))
-            return this.tcached(x[0]) ? this.PXASprite.fromFrames(x)
-                                      : this.PXASprite.fromImages(x.map(s=>this.assetPath(s)))
-          if(_.inst(Mojo.PXTexture,x[0]))
-            return new this.PXASprite(x)
+        _.assert(is.vec(x),"bad arg to animFromVec");
+        if(is.str(x[0])){
+          if(this.tcached(x[0])){
+            x= x.map(s=> this.tcached(s));
+          }else{
+            x=x.map(s=> this.assetPath(s));
+            return this.PXASprite.fromImages(x);
+          }
         }
+        _.assert(_.inst(Mojo.PXTexture,x[0]),
+                 "call to animFromVec: bad arg");
+        return new this.PXASprite(x);
       },
       /**Get a cached Texture.
        * @memberof module:mojoh5/Mojo
@@ -655,6 +660,20 @@
         _ScrSize.height=Mojo.height;
         _ScrSize.width=Mojo.width;
         return cmdArg.scaleToWindow!=="max" ? _Size11 : Mojo.scaleSZ(Mojo.designSize,_ScrSize)
+      },
+      /**Get the minimum scale factor for this maximized viewport.
+       * @memberof module:mojoh5/Mojo
+       * @return {number}
+       */
+      getScaleFactor(){
+        if(cmdArg.scaleToWindow!=="max"){
+          return 1;
+        }else{
+          _ScrSize.height=Mojo.height;
+          _ScrSize.width=Mojo.width;
+          let z=Mojo.scaleSZ(Mojo.designSize,_ScrSize);
+          return Math.min(z.width,z.height);
+        }
       },
       /**Get the named resource from the asset cache.
        * @memberof module:mojoh5/Mojo

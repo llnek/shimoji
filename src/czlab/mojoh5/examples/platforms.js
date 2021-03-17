@@ -27,8 +27,8 @@
     const E_ITEM=2;
 
     function _initTiles(scene,tl){
-      let h= scene.tiled.tileInY,
-          w= scene.tiled.tileInX,
+      let h= scene.tiled.tilesInY,
+          w= scene.tiled.tilesInX,
           len=h*w,
           lasty= (h-1)*w;
       scene.tiled.collision=_.fill(len,0);
@@ -48,7 +48,7 @@
     }
 
     function _editTiles(scene,tl){
-      let w=scene.tiled.tileInX;
+      let w=scene.tiled.tilesInX;
       let locs=[];
       tl.data.forEach((gid,i)=>{
         let top =tl.data[i-w],
@@ -76,7 +76,7 @@
 
     function _makeTiles(scene,tl){
       let K=scene.getScaleFactor();
-      let w = scene.tiled.tileInX;
+      let w = scene.tiled.tilesInX;
       let len = tl.data.length;
       let locs=[];
       let m,ps,gid,tx,ty,px,py,s,t,i;

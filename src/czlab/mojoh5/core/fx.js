@@ -571,9 +571,8 @@
         let t= new TweenXY(s,type,frames);
         let self=this;
         t.start=function(points){
-          this._s(frames);
           this._p = points;
-          return this;
+          this._run();
         };
         t.onFrame=function(end,alpha){
           let p = this._p;
@@ -581,7 +580,8 @@
             Mojo.Sprites.setXY(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
                                   self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
         };
-        return t.start(points);
+        t.start(points);
+        return t;
       },
       /**Make object walk in a path.
        * @memberof module:mojoh5/FX

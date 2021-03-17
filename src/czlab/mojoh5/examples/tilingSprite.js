@@ -21,13 +21,13 @@
     Mojo.Scenes.defScene("level1",{
       setup(){
         let box = this.box= _S.tilingSprite("tile.png");
-        this.insert(_S.setSize(box,Mojo.width,Mojo.height));
+        this.addit(_S.setSize(box,Mojo.width,Mojo.height));
         _S.pinCenter(this,box);
         Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(dt){
-        //this.box.tilePosition.x += 0.5;
-        this.box.tilePosition.y -= 0.5;
+        this.box.tilePosition.x += 0.5;
+        //this.box.tilePosition.y -= 0.5;
       }
     });
   }
@@ -36,7 +36,7 @@
     MojoH5({
       arena: {width:256, height:256},
       assetFiles: ["tile.png"],
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

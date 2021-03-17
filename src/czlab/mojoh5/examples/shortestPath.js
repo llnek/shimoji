@@ -19,61 +19,60 @@
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
     const {ute:_,is,EventBus}=Mojo;
+    const G=Mojo.Game;
+
+    function Player(scene,s,ts,ps,os){
+      return G.player=s;
+    }
+
+    function _objF(){ return {Player} }
 
     _Z.defScene("level1",{
       setup(){
-        let self=this;
-        let world = this.world= _T.tiledWorld("astar.json");
-        this.insert(world);
-        let alien=_T.getTileLayer(world,"alienLayer").children[0];
-        let wall= _T.getTileLayer(world,"wallLayer");
-        let currentPathSprites = [];
-        let mouseup= () => {
+        let self=this,
+            tw=this.tiled.tileW,
+            th=this.tiled.tileH;
+
+        let offX=this.parent.x;
+        let offY=this.parent.y;
+
+        G.pathSprites = [];
+
+        function _mouseup(){
           let path = _T.shortestPath(
-            Mojo.getIndex(alien.x, alien.y, 64, 64, 13), //The start map index
-            Mojo.getIndex(Mojo.mouse.x, Mojo.mouse.y, 64, 64, 13), //The destination index
-            wall.tiled.data,
-            world,
-            [2, 3], //Obstacle gid array
+            Mojo.getIndex(G.player.x, G.player.y, tw,th,self.tiled.tilesInX),
+            Mojo.getIndex(Mojo.mouse.x-offX, Mojo.mouse.y-offY, tw,th,self.tiled.tilesInX),
+            self.getTileLayer("Tiles").data,
+            self,
+            [2, 3, 5], //Obstacle gid array
             "euclidean",
             //"diagonal",
             //"manhattan", //Heuristic to use
             true //Either use all diagonal nodes (true) or orthagonally adjacent nodes (false)
           );
-          //Use Hexi's `remove` method to remove any possible
-          //sprites in the `currentPathSprites` array
-          _S.remove(currentPathSprites);
-          currentPathSprites.length=0;
-          //Display the shortest path
+          _S.remove(G.pathSprites);
+          G.pathSprites.length=0;
+          //show path
           path.forEach(node => {
-            //Figure out the x and y location of each square in the path by
-            //multiplying the node's `column` and `row` by the height, in
-            //pixels, of each square: 64
-            let x = node.col * 64;
-            let y = node.row * 64;
-            //Create the square sprite and set it to the x and y location
-            //we calculated above
-            let square = _S.rectangle(64, 64, "yellow");
-            square.x = x;
-            square.y = y;
-            //Push the sprites into the `currentPath` array,
-            //so that we can easily remove them the next time
-            //the mouse is clicked
-            currentPathSprites.push(square);
+            let x = node.col * tw,
+                y = node.row * th,
+                s= _S.rectangle(tw,th,"yellow");
+            s.x = x;
+            s.y = y;
+            self.addit(s);
+            G.pathSprites.push(s);
           });
-          currentPathSprites.forEach(s=> this.insert(s));
         };
-
-        EventBus.sub(["mouseup"],mouseup);
+        EventBus.sub(["mouseup"],_mouseup);
       }
-    });
+    },{centerStage:true,tiled:{name:"astar.json",factory:_objF}});
   }
 
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: [ "timeBombPanic.png", "astar.json" ],
       arena: {width:832, height:768},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

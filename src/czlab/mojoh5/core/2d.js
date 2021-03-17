@@ -147,6 +147,7 @@
     /**Define a mixin to handle platform games
      */
     Mojo.defMixin("platformer", function(e){
+      const _I=Mojo.Input;
       const signals=[];
       const self={
         jumpSpeed: -300,//y-axis goes down
@@ -159,8 +160,7 @@
           signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
         onLanded(){ self.landed=0.2 },
         motion(dt){
-          let _I=Mojo.Input,
-              col,
+          let col,
               j3= self.jumpSpeed/3,
               pR= _I.keyDown(self.rightKey),
               pU= _I.keyDown(self.jumpKey),
@@ -272,6 +272,7 @@
       const width2=MFL(_width/2);
       const height4=MFL(_height/4);
       const width4=MFL(_width/4);
+      const _S=Mojo.Sprites;
       const signals=[];
       const world=e;
       let _x=0;
@@ -290,8 +291,8 @@
         get height() {return _height},
         get worldWidth() { return worldWidth},
         get worldHeight() { return worldHeight},
-        get centerX() { return this.x + width2 },
-        get centerY() { return this.y + height2 },
+        //get centerX() { return this.x + width2 },
+        //get centerY() { return this.y + height2 },
         //Boundary properties that define a rectangular area, half the size
         //of the game screen. If the sprite that the camera is following
         //is inide this area, the camera won't scroll. If the sprite
@@ -311,20 +312,21 @@
         },
         //Use the `follow` method to make the camera follow a sprite
         follow(s){
+          let bx= _.feq0(s.rotation)? _S.getBBox(s) : _S.boundingBox(s);
           //Check the sprites position in relation to the inner
           //boundary. Move the camera to follow the sprite if the sprite
           //strays outside the boundary
-          if(s.x < this.leftInnerBoundary){
-            this.x = s.x - width4
+          if(bx.x1 < this.leftInnerBoundary){
+            this.x = bx.x1 - width4
           }
-          if(s.y < this.topInnerBoundary){
-            this.y = s.y - height4
+          if(bx.y1 < this.topInnerBoundary){
+            this.y = bx.y1 - height4
           }
-          if(s.x + s.width > this.rightInnerBoundary){
-            this.x = s.x + s.width - width4 * 3
+          if(bx.x2 > this.rightInnerBoundary){
+            this.x = bx.x2 - width4*3
           }
-          if(s.y + s.height > this.bottomInnerBoundary){
-            this.y = s.y + s.height - height4 * 3
+          if(bx.y2 > this.bottomInnerBoundary){
+            this.y = bx.y2- height4*3
           }
           //If the camera reaches the edge of the map, stop it from moving
           if(this.x < 0) { this.x = 0 }
@@ -337,22 +339,22 @@
           }
           //contain the object
           let {x1,x2,y1,y2}=s.m5.getImageOffsets();
-          let n= Mojo.Sprites.rightSide(s) - x2;
+          let n= bx.x2 - x2;
           if(n>worldWidth){ s.x -= (n-worldWidth) }
-          n=Mojo.Sprites.bottomSide(s) - y2;
+          n=bx.y2 - y2;
           if(n>worldHeight){ s.y -= (n-worldHeight) }
-          n=Mojo.Sprites.leftSide(s) + x1;
+          n=bx.x1 + x1;
           if(n<0) { s.x += -n }
-          n=Mojo.Sprites.topSide(s) + y1;
+          n=bx.y1  + y1;
           if(n<0) { s.y += -n }
         },
         centerOver:function(s,y){
           if(arguments.length===1 && !is.num(s)){
-            //an object
-            let sz= Mojo.Sprites.halfSize(s);
             //Center the camera over a sprite
-            this.x = s.x + sz.width - width2;
-            this.y = s.y + sz.height - height2;
+            let c=_S.centerXY(s)
+            this.x = c[0]- width2;
+            this.y = c[1] - height2;
+            _V.reclaim(c);
           }else{
             if(is.num(s)) this.x=s - width2;
             if(is.num(y)) this.y=y - height2;

@@ -19,35 +19,45 @@
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_W=Mojo.FX,_2d=Mojo["2d"],_T=Mojo.Tiles;
     const {ute:_,is,EventBus}=Mojo;
+    const G=Mojo.Game;
 
     _Z.defScene("level1",function(){
-      let cat = this.cat= _S.sprite("cat.png",32,32);
-      this.insert(cat);
+      let cat = G.cat= _S.sprite("cat.png",32,32);
+      let K=Mojo.getScaleFactor();
+
+      function _scale(arr){
+        return arr.map(p=>{
+          p[0]*=K;p[1]*=K;return p;
+        })
+      }
+
+      cat.scale.x=K;
+      cat.scale.y=K;
+      this.addit(cat);
+
       let catPath = _W.walkPath(cat,                   //The sprite
                                 _W.SMOOTH,
-                                [
-                                  [32, 32],            //First x/y point
-                                  [32, 128],           //Next x/y point
-                                  [300, 128],          //Next x/y point
-                                  [300, 32],           //Next x/y point
-                                  [32, 32]             //Last x/y point
-                                ],
+                                _scale([
+                                  [32, 32],
+                                  [32, 128],
+                                  [300, 128],
+                                  [300, 32],
+                                  [32, 32]
+                                ]),
                                 300,
                                 true
                               );
       let hedgehog = _S.sprite("hedgehog.png",32,256);
-      this.insert(hedgehog);
-        //Use `walkCurve` to make the hedgehog follow a curved path
-        //between a series of connected waypoints. Here's how to use it:
-      let hedgehogPath = _W.walkCurve(hedgehog,              //The sprite
+      hedgehog.scale.x=K;
+      hedgehog.scale.y=K;
+      this.addit(hedgehog);
+      let hedgehogPath = _W.walkCurve(hedgehog,
                                       _W.SMOOTH,
-                                      //An array of Bezier curve points that
-                                      //you want to connect in sequence
                                       [
-                                        [[hedgehog.x, hedgehog.y],[75, 500],[200, 500],[300, 300]],
-                                        [[300, 300],[250, 100],[100, 100],[hedgehog.x, hedgehog.y]]
+                                        _scale([[hedgehog.x, hedgehog.y],[75, 500],[200, 500],[300, 300]]),
+                                        _scale([[300, 300],[250, 100],[100, 100],[hedgehog.x, hedgehog.y]])
                                       ],
-                                      300,                   //Total duration, in frames
+                                      300,
                                       true
                                     );
     });
@@ -57,7 +67,7 @@
     MojoH5({
       assetFiles: ["cat.png","hedgehog.png"],
       arena: {width:512, height:600},
-      scaleToWindow: true,
+      scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

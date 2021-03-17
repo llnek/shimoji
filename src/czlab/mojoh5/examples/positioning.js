@@ -18,51 +18,56 @@
 
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
+    const {ute:_,is,EventBus}=Mojo;
+    const G=Mojo.Game;
 
     _Z.defScene("level1",{
       setup(){
-        let box = this.box= _S.rectangle(64, 64, "green", "red", 4);
-        this.insert(box);
+        let K=Mojo.getScaleFactor();
+        let _64=64*K;
+        let _10=10*K;
+        let box = G.box= _S.rectangle(_64, _64, "green", "red", 4*K);
+        this.addit(box);
         _S.pinCenter(this,box);
 
-        let cat = this.cat= _S.sprite("cat.png");
-        this.insert(cat);
+        let cat = G.cat= _S.sprite("cat.png");
+        this.addit(cat);
         _S.pinLeft(box,cat);
 
-        let tiger = this.tiger= _S.sprite("tiger.png");
-        this.insert(tiger);
+        let tiger = G.tiger= _S.sprite("tiger.png");
+        this.addit(tiger);
         _S.pinRight(box,tiger);
 
-        let hedgehog = this.hedgehog=  _S.sprite("hedgehog.png");
-        this.insert(hedgehog);
+        let hedgehog = G.hedgehog=  _S.sprite("hedgehog.png");
+        this.addit(hedgehog);
         _S.pinTop(box,hedgehog);
 
-        let rocket = this.rocket= _S.sprite("rocket.png");
-        this.insert(rocket);
+        let rocket = G.rocket= _S.sprite("rocket.png");
+        this.addit(rocket);
         _S.pinBottom(box,rocket);
 
-        let star = this.star= _S.sprite("star.png");
+        let star = G.star= _S.sprite("star.png");
         star.alpha=0.5;
-        this.insert(star);
+        this.addit(star);
         _S.pinCenter(box,star);
 
-        let b1 = _S.rectangle(10, 10, "white");
+        let b1 = _S.rectangle(_10, _10, "white");
         box.addChild(b1);
         _S.pinRight(box,b1,-b1.width);
-        b1 = _S.rectangle(10, 10, "white");
+        b1 = _S.rectangle(_10, _10, "white");
         box.addChild(b1);
         _S.pinLeft(box,b1,-b1.width);
-        b1 = _S.rectangle(10, 10, "white");
+        b1 = _S.rectangle(_10, _10, "white");
         box.addChild(b1);
         _S.pinTop(box,b1,-b1.height);
-        b1 = _S.rectangle(10, 10, "white");
+        b1 = _S.rectangle(_10, _10, "white");
         box.addChild(b1);
         _S.pinBottom(box,b1,-b1.height);
-        b1 = _S.rectangle(10, 10, "white");
+        b1 = _S.rectangle(_10, _10, "white");
         box.addChild(b1);
         _S.pinCenter(box,b1);
 
-        Mojo.EventBus.sub(["post.update",this],"postUpdate");
+        EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate:function(){
       }
@@ -73,7 +78,7 @@
     MojoH5({
       assetFiles: [ "rocket.png", "images/animals.json", "star.png" ],
       arena: {width:256, height:256},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

@@ -18,34 +18,39 @@
 
   function scenes(Mojo){
     const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
+    const {ute:_,is,EventBus}=Mojo;
+    const G=Mojo.Game;
+
     _Z.defScene("level1",{
       setup(){
-        let blue = this.blue= _S.rectangle(64, 64, "blue");
-        this.insert(blue);
+        let K=Mojo.getScaleFactor();
+        let blue = G.blue= _S.rectangle(64*K, 64*K, "blue");
+        this.addit(blue);
         blue.anchor.set(0.5, 0.5);
         blue.angle=60;
         _S.pinCenter(this,blue);
         _I.makeDrag(blue);
 
-        let red = this.red= _S.rectangle(32, 32, "red");
-        this.insert(red);
+        let red = G.red= _S.rectangle(32*K, 32*K, "red");
+        this.addit(red);
         red.anchor.set(0.5, 0.5);
         //red.rotation=15;
-        _S.pinTop(this,red,-60);
+        _S.pinTop(this,red,-60*K);
         _I.makeDrag(red);
 
-        this.message = _S.text("Drag the boxes...",{fontFamily:"sans-serif",fontSize:16,fill:"white"},10,10);
-        this.insert(this.message);
-        Mojo.EventBus.sub(["post.update",this],"postUpdate");
+        G.message = _S.text("Drag the boxes...",{fontFamily:"sans-serif",
+          fontSize:16*K,fill:"white"},10,10);
+        this.addit(G.message);
+        EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
-        let s,col= _2d.collide(this.blue, this.red, true);
+        let s,col= _2d.collide(G.blue, G.red, true);
         if(col){
           s=`Collided on: ${_2d.dbgShowCol(col)}`;
         }else{
           s= `Drag the squares...`;
         }
-        this.message.text=s;
+        G.message.text=s;
       }
 
     });
@@ -54,7 +59,7 @@
   window.addEventListener("load",()=>{
     MojoH5({
       arena: {width:256, height:256},
-      scaleToWindow: true,
+      scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");
