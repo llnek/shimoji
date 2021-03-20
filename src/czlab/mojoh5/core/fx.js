@@ -49,7 +49,7 @@
         this.curf = 0;
         _.conj(TweensQueue,this);
       }
-      ____onUpdate(){
+      onTick(){
         if(this.on){
           if(this.curf<this.frames){
             this.onFrame(false,
@@ -633,8 +633,8 @@
       },
       /** @ignore */
       update(dt){
-        _.rseq(TweensQueue, t=> t.____onUpdate(dt));
-        _.rseq(DustBin, p=> p.____onUpdate(dt));
+        _.rseq(TweensQueue, t=> t.onTick(dt));
+        _.rseq(DustBin, p=> p.onTick(dt));
       },
       /**Create particles.
        * @memberof module:mojoh5/FX
@@ -653,7 +653,7 @@
           container.addChild(p);
           if(p.totalFrames)
             p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
-          Mojo.Sprites.setSize(p, size);
+          Mojo.Sprites.sizeXY(p, size,size);
           Mojo.Sprites.setXY(p,x,y);
           Mojo.Sprites.centerAnchor(p);
           p.m5.scaleSpeed = _.randFloat(mins.scale, maxs.scale);
@@ -663,7 +663,7 @@
           p.m5.vel[0] = speed * Math.cos(angle);
           p.m5.vel[1] = speed * Math.sin(angle);
           //the worker
-          p.____onUpdate=function(){
+          p.onTick=function(){
             p.m5.vel[1] += gravity[1];
             p.x += p.m5.vel[0];
             p.y += p.m5.vel[1];

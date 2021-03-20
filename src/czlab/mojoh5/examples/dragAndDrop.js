@@ -17,8 +17,11 @@
   "use strict";
 
   function scenes(Mojo){
-    let _Z=Mojo.Scenes,_S=Mojo.Sprites, _I=Mojo.Input;
-    let G=Mojo.Game;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     _Z.defScene("level1", function(){
       let hedgehog = _S.sprite("hedgehog.png");
@@ -38,8 +41,8 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      arena: {width:640, height:640},
       assetFiles: ["images/animals.json"],
+      arena: {width:640, height:640},
       scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);

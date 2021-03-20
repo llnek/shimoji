@@ -17,9 +17,13 @@
   "use strict";
 
   function scenes(Mojo){
-    let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input;
-    let {ute:_,is,EventBus}=Mojo;
-    let G=Mojo.Game;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           "2d":_2d,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
+
 
     _Z.defScene("level1",{
       setup(){
@@ -27,18 +31,15 @@
         let forest=G.forest= _S.sprite("forest.png");
         let K=Mojo.getScaleFactor();
 
-        forest.scale.x=K;
-        forest.scale.y=K;
-        elf.scale.x=K;
-        elf.scale.y=K;
+        _S.scaleXY(forest,K,K);
+        _S.scaleXY(elf,K,K);
 
-        this.addit(forest);
-        this.addit(elf);
+        this.insert(forest);
+        this.insert(elf);
         _S.setXY(elf,32*K, 128*K);
 
-        this.x=Math.floor((Mojo.width-forest.width)/2);
-        this.y=Math.floor((Mojo.height-forest.height)/2);
-
+        _S.setXY(this, Math.floor((Mojo.width-forest.width)/2),
+                       Math.floor((Mojo.height-forest.height)/2));
 
         elf.states = {
           up: 0,
@@ -52,54 +53,52 @@
         };
 
         elf.m5.showFrame(elf.states.right);
+
         let goLeft = _I.keybd(_I.keyLEFT, ()=>{
           elf.m5.playFrames(elf.states.walkLeft);
-          elf.m5.vel[0] = -1;
-          elf.m5.vel[1] = 0;
+          _S.velXY(elf, -K,0);
         }, ()=>{
           if (!goRight.isDown && elf.m5.vel[1] === 0){
-            elf.m5.vel[0] = 0;
+            _S.velXY(elf,0);
             elf.m5.showFrame(elf.states.left);
           }
         });
         let goUp = _I.keybd(_I.keyUP, ()=>{
           elf.m5.playFrames(elf.states.walkUp);
-          elf.m5.vel[1] = -1;
-          elf.m5.vel[0] = 0;
+          _S.velXY(elf,0,-K);
         }, ()=>{
-          if(!goDown.isDown && elf.m5.vel[0] === 0) {
-            elf.m5.vel[1] = 0;
+          if(!goDown.isDown && elf.m5.vel[0] === 0){
+            _S.velXY(elf,null,0);
             elf.m5.showFrame(elf.states.up);
           }
         });
         let goRight = _I.keybd(_I.keyRIGHT, ()=>{
           elf.m5.playFrames(elf.states.walkRight);
-          elf.m5.vel[0] = 1;
-          elf.m5.vel[1] = 0;
+          _S.velXY(elf,K,0);
         }, ()=>{
-          if(!goLeft.isDown && elf.m5.vel[1] === 0) {
-            elf.m5.vel[0] = 0;
+          if(!goLeft.isDown && elf.m5.vel[1] === 0){
+            _S.velXY(elf,0);
             elf.m5.showFrame(elf.states.right);
           }
         });
         let goDown = _I.keybd(_I.keyDOWN, ()=>{
           elf.m5.playFrames(elf.states.walkDown);
-          elf.m5.vel[1] = 1;
-          elf.m5.vel[0] = 0;
+          _S.velXY(elf,0,K);
         }, ()=>{
-          if (!goUp.isDown && elf.m5.vel[0] === 0) {
-            elf.m5.vel[1] = 0;
+          if(!goUp.isDown && elf.m5.vel[0] === 0){
+            _S.velXY(elf,null,0);
             elf.m5.showFrame(elf.states.down);
           }
         });
-        EventBus.sub(["post.update",this],"postUpdate");
+
+
+        let out={x:0,y:0,width:forest.width,height:forest.height};
+        G.arena=Mojo.mockStage(out);
       },
       postUpdate(dt){
-        //-18 and +18 are to compensate for image padding around the sprite
-        G.elf.x = Math.max(-18, Math.min(G.elf.x + G.elf.m5.vel[0],
-                                            Mojo.width - G.elf.width + 18));
-        G.elf.y = Math.max(64, Math.min(G.elf.y + G.elf.m5.vel[1],
-                                           Mojo.height - G.elf.height));
+        G.elf.x += G.elf.m5.vel[0];
+        G.elf.y += G.elf.m5.vel[1];
+        _2d.contain(G.elf,G.arena,false);
       }
     },{centerStage:true});
   }
@@ -115,6 +114,7 @@
       }
     });
   });
+
 
 })(this);
 

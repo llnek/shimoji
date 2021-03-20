@@ -17,44 +17,48 @@
   "use strict";
 
   function scenes(Mojo){
-    let _Z=Mojo.Scenes,
-        _S=Mojo.Sprites,
-        _T=Mojo.Tiles,
-        _I=Mojo.Input,_2d=Mojo["2d"];
-    let MFL=Math.floor;
-    let {ute:_,is,EventBus}=Mojo;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Tiles:_T,
+           Input:_I,
+           "2d":_2d,
+           Game:_G,
+           ute:_,is,EventBus}=Mojo;
+    const MFL=Math.floor;
 
     const E_PLAYER=1;
     const E_ENEMY=2;
     const E_COIN=4;
     const E_TOWER=8;
 
-    Mojo.defMixin("enemyControls", function(e){
+    Mojo.defMixin("enemyAI", function(e){
       e.m5.direction=Mojo.LEFT;
       //e.m5.speed=100;
       e.m5.switchPercent=2;
-      function tryDirection(){
-        let from = e.m5.direction;
+      function tryDir(){
         if(e.m5.vel[1] !== 0 && e.m5.vel[0]=== 0){
-          e.m5.direction = Math.random() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
+          e.m5.direction = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
         }else if(e.m5.vel[0] !== 0 && e.m5.vel[1]=== 0){
-          e.m5.direction = Math.random() < 0.5 ? Mojo.UP : Mojo.DOWN;
+          e.m5.direction = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
         }
       }
-      function changeDirection(col){
+      function changeDir(col){
         if(e.m5.vel[0]=== 0 && e.m5.vel[1]=== 0){
           let c=col.overlapN;
           if(c[1] !== 0){
-            e.m5.direction = Math.random() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
+            e.m5.direction = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
           }else if(c[0] !== 0){
-            e.m5.direction = Math.random() < 0.5 ? Mojo.UP : Mojo.DOWN;
+            e.m5.direction = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
           }
         }
       }
       let self={
-        step(dt){
-          if(Math.random() < e.m5.switchPercent/100){
-            tryDirection()
+        dispose(){
+          EventBus.unsub(["hit",e],changeDir)
+        },
+        onTick(dt){
+          if(_.rand() < e.m5.switchPercent/100){
+            tryDir()
           }
           switch(e.m5.direction){
             case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
@@ -64,7 +68,7 @@
           }
         }
       };
-      EventBus.sub(["hit",e],changeDirection);
+      EventBus.sub(["hit",e],changeDir);
       return self;
     });
 
@@ -73,6 +77,9 @@
       t.m5.sensor=true;
       t.m5.onSensor=(colObj)=>{
         scene.removeTile(t)
+      };
+      t.m5.dispose=()=>{
+        EventBus.unsub(["2d.sensor",t],"onSensor",t.m5)
       };
       EventBus.sub(["2d.sensor",t],"onSensor",t.m5);
       return t;
@@ -89,6 +96,9 @@
         scene.dotCount -= 1;
         if(scene.dotCount===0){}
       };
+      s.m5.dispose=()=>{
+        EventBus.unsub(["2d.sensor",s],"onSensor",s.m5)
+      };
       EventBus.sub(["2d.sensor",s],"onSensor",s.m5);
       return s;
     }
@@ -96,18 +106,17 @@
     function Player(scene,p,ts,ps,os){
       p.m5.type=E_PLAYER;
       p.m5.cmask=E_TOWER | E_COIN;
-      p.anchor.set(0.5);
-      p.x += Math.floor(p.width/2);
-      p.y += Math.floor(p.height/2);
+      _S.centerAnchor(p);
+      p.x += MFL(p.width/2);
+      p.y += MFL(p.height/2);
       p.m5.uuid="player";
       p.m5.speed= 150 * scene.getScaleFactor();
-      p.m5.vel[0]=p.m5.speed;
-      p.m5.vel[1]=p.m5.speed;
+      _S.velXY(p,p.m5.speed, p.m5.speed);
       Mojo.addMixin(p,"2d");
       Mojo.addMixin(p,"2dControls",true);
-      p.m5.step=function(dt){
-        p["2d"].motion(dt);
-        p["2dControls"].step(dt);
+      p.m5.tick=function(dt){
+        p["2d"].onTick(dt);
+        p["2dControls"].onTick(dt);
       };
       return p;
     }
@@ -118,33 +127,26 @@
       s.m5.cmask=E_PLAYER;
       s.x = os.column * s.width+MFL(s.width/2);
       s.y = os.row * s.height+MFL(s.height/2);
-      s.anchor.set(0.5);
+      _S.centerAnchor(s);
       s.m5.speed= 150 * scene.getScaleFactor();
-      s.m5.vel[0]=s.m5.speed;
-      s.m5.vel[1]=s.m5.speed;
+      _S.velXY(s,s.m5.speed, s.m5.speed);
       Mojo.addMixin(s,"2d");
-      Mojo.addMixin(s,"enemyControls");
+      Mojo.addMixin(s,"enemyAI");
       s.m5.boom=function(col){
         if(col.B.m5.uuid=="player"){
           Mojo.pause();
-          //game over
         }
       };
-      s.m5.step=function(dt){
-        s["2d"].motion(dt);
-        s["enemyControls"].step(dt);
+      s.m5.tick=function(dt){
+        s["2d"].onTick(dt);
+        s["enemyAI"].onTick(dt);
       };
       EventBus.sub(["bump",s],"boom",s.m5);
       return s;
     }
 
     function _objFactory(scene){
-      return{
-        Player,
-        Enemy,
-        Dot,
-        Tower
-      }
+      return{ Player, Enemy, Dot, Tower }
     }
 
     _Z.defScene("level1",{

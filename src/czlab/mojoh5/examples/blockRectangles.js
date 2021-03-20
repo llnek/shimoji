@@ -17,31 +17,38 @@
   "use strict";
 
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
-    const {ute:_,is,EventBus}=Mojo;
-    const G=Mojo.Game;
+
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           Game:G,
+           "2d":_2d,
+           ute:_,is,EventBus}=Mojo;
+
 
     _Z.defScene("level1",{
       setup(){
         let K=Mojo.getScaleFactor();
+        let red = G.red= _S.rectangle(32*K, 32*K, "red");
         let blue = G.blue= _S.rectangle(64*K, 64*K, "blue");
-        this.addit(blue);
-        blue.anchor.set(0.5, 0.5);
+
         blue.angle=60;
+        _S.centerAnchor(blue);
         _S.pinCenter(this,blue);
         _I.makeDrag(blue);
+        this.insert(blue,true);
 
-        let red = G.red= _S.rectangle(32*K, 32*K, "red");
-        this.addit(red);
-        red.anchor.set(0.5, 0.5);
         //red.rotation=15;
+        _S.centerAnchor(red);
         _S.pinTop(this,red,-60*K);
         _I.makeDrag(red);
+        this.insert(red,true);
 
-        G.message = _S.text("Drag the boxes...",{fontFamily:"sans-serif",
-          fontSize:16*K,fill:"white"},10,10);
-        this.addit(G.message);
-        EventBus.sub(["post.update",this],"postUpdate");
+
+        G.message = _S.text("Drag the boxes...",
+                            {fontFamily:"sans-serif",
+                             fontSize:16*K,fill:"white"},10,10);
+        this.insert(G.message);
       },
       postUpdate(){
         let s,col= _2d.collide(G.blue, G.red, true);
@@ -52,7 +59,6 @@
         }
         G.message.text=s;
       }
-
     });
   }
 

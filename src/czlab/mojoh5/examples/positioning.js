@@ -17,9 +17,12 @@
   "use strict";
 
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
-    const {ute:_,is,EventBus}=Mojo;
-    const G=Mojo.Game;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           "2d":_2d,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     _Z.defScene("level1",{
       setup(){
@@ -27,28 +30,28 @@
         let _64=64*K;
         let _10=10*K;
         let box = G.box= _S.rectangle(_64, _64, "green", "red", 4*K);
-        this.addit(box);
+        this.insert(box);
         _S.pinCenter(this,box);
 
         let cat = G.cat= _S.sprite("cat.png");
-        this.addit(cat);
+        this.insert(cat);
         _S.pinLeft(box,cat);
 
         let tiger = G.tiger= _S.sprite("tiger.png");
-        this.addit(tiger);
+        this.insert(tiger);
         _S.pinRight(box,tiger);
 
         let hedgehog = G.hedgehog=  _S.sprite("hedgehog.png");
-        this.addit(hedgehog);
+        this.insert(hedgehog);
         _S.pinTop(box,hedgehog);
 
         let rocket = G.rocket= _S.sprite("rocket.png");
-        this.addit(rocket);
+        this.insert(rocket);
         _S.pinBottom(box,rocket);
 
         let star = G.star= _S.sprite("star.png");
         star.alpha=0.5;
-        this.addit(star);
+        this.insert(star);
         _S.pinCenter(box,star);
 
         let b1 = _S.rectangle(_10, _10, "white");
@@ -67,9 +70,6 @@
         box.addChild(b1);
         _S.pinCenter(box,b1);
 
-        EventBus.sub(["post.update",this],"postUpdate");
-      },
-      postUpdate:function(){
       }
     });
   }

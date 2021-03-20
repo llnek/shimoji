@@ -66,12 +66,14 @@
             "properties":[ { "name":"Class", "type":"string", "value":"Enemy" }]
          },{
             "id":2,
-            "NonTile":true,
-            "properties":[ { "name":"Class", "type":"string", "value":"Tower" }]
+            "properties":[ 
+               { "name":"sensor", "type":"boolean", "value":true },
+               { "name":"Class", "type":"string", "value":"Tower" }]
          },{
             "id":3,
-            "NonTile":true,
-            "properties":[ { "name":"Class", "type":"string", "value":"Dot" }]
+            "properties":[ 
+               { "name":"sensor", "type":"boolean", "value":true },
+               { "name":"Class", "type":"string", "value":"Dot" }]
          }]
    }]
 }

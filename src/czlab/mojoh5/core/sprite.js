@@ -299,7 +299,11 @@
        * @param {number} y
        * @return {Sprite} s
        */
-      setXY(s,x,y){ s.x=x; s.y= _.or(y,x); return s },
+      setXY(s,x,y){
+        if(is.num(x)) s.x=x;
+        if(is.num(y)) s.y=y;
+        return s;
+      },
       /**Change size of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -307,7 +311,11 @@
        * @param {number} h
        * @return {Sprite} s
        */
-      setSize(s,w,h){ s.width=w; s.height= _.or(h,w); return s },
+      sizeXY(s,w,h){
+        if(is.num(h)) s.height=h;
+        if(is.num(w)) s.width=w;
+        return s;
+      },
       /**Change scale factor of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -315,7 +323,11 @@
        * @param {number} sy
        * @return {Sprite} s
        */
-      setScale(s, sx, sy){ s.scale.set(sx,_.or(sy,sx)); return s },
+      scaleXY(s, sx, sy){
+        if(is.num(sx)) s.scale.x=sx;
+        if(is.num(sy)) s.scale.y=sy;
+        return s;
+      },
       /**Change sprite's anchor position.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -323,7 +335,60 @@
        * @param {number} y
        * @return {Sprite} s
        */
-      setAnchor(s,x,y){ s.anchor.set(x,_.or(y,x)); return s },
+      anchorXY(s,x,y){
+        if(is.num(x)) s.anchor.x= x;
+        if(is.num(y)) s.anchor.y= y;
+        return s;
+      },
+      /**Change sprite's velocity.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} vx
+       * @param {number} vy
+       * @return {Sprite} s
+       */
+      velXY(s,vx,vy){
+        if(is.num(vx)) s.m5.vel[0]= vx;
+        if(is.num(vy)) s.m5.vel[1]= vy;
+        return s;
+      },
+      /**Change sprite's acceleration.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} ax
+       * @param {number} ay
+       * @return {Sprite} s
+       */
+      accXY(s,ax,ay){
+        if(is.num(ax)) s.m5.acc[0]= ax;
+        if(is.num(ay)) s.m5.acc[1]= ay;
+        return s;
+      },
+      /**Change sprite's gravity.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} gx
+       * @param {number} gy
+       * @return {Sprite} s
+       */
+      gravityXY(s,gx,gy){
+        if(is.num(gx)) s.m5.gravity[0]= gx;
+        if(is.num(gy)) s.m5.gravity[1]= gy;
+        return s;
+      },
+      /**Change sprite's friction.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} fx
+       * @param {number} fy
+       * @return {Sprite} s
+       */
+      frictionXY(s,fx,fy){
+        if(is.num(fx)) s.m5.friction[0]= fx;
+        if(is.num(fy)) s.m5.friction[1]= fy;
+        return s;
+      },
+
       /**Get the size of sprite, but halved.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -378,6 +443,7 @@
             _cmask=0,
             _type=0,
             _mass=1,
+            //_wantGrid=false,
             _invMass=1,
             _sensor=false,
             _static= false,
@@ -915,7 +981,8 @@
        */
       text(content,fontSpec, x=0, y=0){
         let s=new Mojo.PXText(content,fontSpec);
-        return this.setXY(this.extend(s),x,y);
+        s= this.extend(s);
+        return this.setXY(s,x,y);
       },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
@@ -927,7 +994,8 @@
        */
       bitmapText(content, fontStyle, x=0, y=0){
         let s= new Mojo.PXBText(content,fontStyle);
-        return this.setXY(this.extend(s),x,y);
+        s= this.extend(s);
+        return this.setXY(s,x,y);
       },
       /**Create a rectangular sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites

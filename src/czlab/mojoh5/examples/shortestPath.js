@@ -17,9 +17,13 @@
   "use strict";
 
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"],_T=Mojo.Tiles;
-    const {ute:_,is,EventBus}=Mojo;
-    const G=Mojo.Game;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           "2d":_2d,
+           Tiles:_T,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     function Player(scene,s,ts,ps,os){
       return G.player=s;
@@ -30,11 +34,10 @@
     _Z.defScene("level1",{
       setup(){
         let self=this,
+            offX=this.parent.x,
+            offY=this.parent.y,
             tw=this.tiled.tileW,
             th=this.tiled.tileH;
-
-        let offX=this.parent.x;
-        let offY=this.parent.y;
 
         G.pathSprites = [];
 
@@ -53,13 +56,12 @@
           _S.remove(G.pathSprites);
           G.pathSprites.length=0;
           //show path
-          path.forEach(node => {
+          path.forEach(node=>{
             let x = node.col * tw,
                 y = node.row * th,
                 s= _S.rectangle(tw,th,"yellow");
-            s.x = x;
-            s.y = y;
-            self.addit(s);
+            _S.setXY(s,x,y);
+            self.insert(s);
             G.pathSprites.push(s);
           });
         };

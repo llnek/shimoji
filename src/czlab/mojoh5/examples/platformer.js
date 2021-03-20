@@ -21,8 +21,14 @@
   const E_TOWER=4;
 
   function scenes(Mojo){
-    let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input, _2d=Mojo["2d"],_T=Mojo.Tiles;
-    let {ute:_,is,EventBus}=Mojo;
+
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           "2d":_2d,
+           Tiles:_T,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     //0,12
     function Player(scene,p,ts,ps,o){
@@ -32,82 +38,79 @@
       p.m5.cmask=E_TOWER;
       p.m5.uuid="player";
       p.m5.speed=200;
-      p.m5.gravity[1]=200;
-      p.m5.step=function(dt){
-        p["2d"].motion(dt);
-        p["platformer"].motion(dt);
+      _S.gravityXY(p,null,200);
+      p.m5.tick=(dt)=>{
+        p["2d"].onTick(dt);
+        p["platformer"].onTick(dt);
       };
       return p;
     }
 
     //5,1
     function Tower(scene,s,ts,ps,o){
+      const e=[["2d.sensor",s],"onSensor",s.m5];
       s.m5.type=E_TOWER;
       s.m5.uuid="tower";
       s.m5.sensor=true;
       s.m5.onSensor=()=>{
-        Mojo.pause();
+        Mojo.pause()
       };
-      EventBus.sub(["2d.sensor",s],"onSensor",s.m5);
+      s.m5.dispose=()=>{
+        EventBus.unsub.apply(EventBus,e)
+      }
+      EventBus.sub.apply(EventBus,e);
       return s;
     }
 
     //32,3,22,3
     function Enemy(scene,e,ts,ps,o){
+      const signals= [[["bump.top",e],"onbtop",e.m5],
+                      [["bump.left,bump.right,bump.bottom",e], "onbump",e.m5]];
       Mojo.addMixin(e,"aiBounce",true,false);
       Mojo.addMixin(e,"2d");
+      e.m5.speed=100*scene.getScaleFactor();
       e.m5.uuid=`e#${_.nextId()}`;
       e.m5.cmask=E_PLAYER|E_ENEMY;
       e.m5.type=E_ENEMY;
-      e.m5.gravity[1]=60;
-      e.m5.speed=100*scene.getScaleFactor();
-      e.m5.vel[0]= e.m5.speed;
-      e.m5.step=function(dt){
-        e["2d"].motion(dt);
+      _S.gravityXY(e,null,60);
+      _S.velXY(e, e.m5.speed);
+      e.m5.dispose=()=>{
+        signals.forEach(s=> EventBus.unsub.apply(EventBus,s))
       };
-      e.m5.onbump=function(col){
+      e.m5.tick=(dt)=>{
+        e["2d"].onTick(dt)
+      };
+      e.m5.onbump=(col)=>{
         if(col.B.m5.uuid=="player"){
-          //scene.remove(col.B);
           console.log("die!!!");
           Mojo.pause();
-          //_Z.runScene("endGame",{msg: "You Died"});
         }
       };
-      e.m5.onbtop=function(col){
+      e.m5.onbtop=(col)=>{
         if(col.B.m5.uuid=="player"){
-          scene.remove(e);
+          _S.remove(e);
           col.B.m5.vel[1] = -300;
         }
       };
-      EventBus.sub(["bump.top",e],"onbtop",e.m5);
-      EventBus.sub(["bump.left,bump.right,bump.bottom",e], "onbump",e.m5);
+      signals.forEach(s=> EventBus.sub.apply(EventBus,s));
       return e;
     }
 
     _Z.defScene("bg",{
       setup(){
-        let w= this.wall=_S.tilingSprite("background-wall.png");
-        _S.setSize(w,Mojo.width,Mojo.height);
+        let w= _S.tilingSprite("background-wall.png");
+        _S.sizeXY(w,Mojo.width,Mojo.height);
         this.insert(w);
       }
     });
 
-    function _objFactory(s){
-      return {Player,Enemy,Tower}
-    }
+    function _objFactory(s){ return {Player,Enemy,Tower} }
 
     _Z.defScene("level1",{
       setup(){
-        EventBus.sub(["post.update",this],"postUpdate");
-      },
-      postUpdate(){
-        //this.camera.follow(this.player);
       }
     },{sgridX:160,sgridY:160,centerStage:true,
        tiled:{name:"platformer.json",factory:_objFactory}});
-
-    _Z.defScene("endGame",()=>{
-    });
 
   }
 

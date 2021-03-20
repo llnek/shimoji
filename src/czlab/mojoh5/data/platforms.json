@@ -6,6 +6,12 @@
    "height":16,
    "layers":[
       {
+      "name": "Sky",
+      "type":"tilelayer",
+      "data": [ ],
+      "collision":false
+   },
+      {
       "name": "Tiles",
       "type":"tilelayer",
       "data": [ ]

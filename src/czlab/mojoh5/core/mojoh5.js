@@ -347,6 +347,10 @@
       /**Enum (100)
        * @memberof module:mojoh5/Mojo */
       NONE: 100,
+      PI_90:Math.PI/2,
+      PI_180:Math.PI,
+      PI_270:Math.PI*1.5,
+      PI_360:Math.PI*2,
       ute:_,
       is:is,
       dom:dom,

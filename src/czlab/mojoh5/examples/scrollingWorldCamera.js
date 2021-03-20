@@ -20,12 +20,19 @@
   const E_ITEM=2;
 
   function scenes(Mojo) {
-    const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,G=Mojo.Game,_2d=Mojo["2d"],T=Mojo.Tiles;
-    const {ute:_,is,EventBus} =Mojo;
+    const {Scenes:Z,
+           Sprites:S,
+           Input:I,
+           Game:G,
+           "2d":_2d,
+           Tiles:T,
+           ute:_,is,EventBus} =Mojo;
 
     Z.defScene("hud",{
       setup(){
-        this.message = S.text("No items found", {fontSize:12, fontFamily:"puzzler", fill:"black"},10,10);
+        let K=Mojo.getScaleFactor();
+        this.message = S.text("No items found",
+          {fontSize:12*K, fontFamily:"puzzler", fill:"white"},10*K,10*K);
         this.insert(this.message);
         this.message.visible = false;
         EventBus.sub(["sync.ui",this],"syncUI");
@@ -40,19 +47,18 @@
       }
     });
 
-    function Player(scene,p,ts,ps,os){
+    function Player(scene,s,ts,ps,os){
       let mapcol=os.column,
           maprow=os.row,
-          K= scene.getScaleFactor();
-      p = S.animation("walkcycle.png", 64, 64);
+          K= scene.getScaleFactor(),
+          p = S.animation("walkcycle.png", 64, 64);
       p.m5.type=E_PLAYER;
       p.m5.cmask=E_ITEM;
-      p.m5.speed=80 * K;
+      p.m5.speed=80*K;
       p.m5.uuid="player";
-      p.scale.x=K;
-      p.scale.y=K;
-      p.x=mapcol * scene.tiled.tileW;
-      p.y=maprow * scene.tiled.tileH;
+      S.scaleXY(p,K,K);
+      S.setXY(p,mapcol * s.width,
+                maprow * s.height);
       G.elf=p;
       Mojo.addMixin(p,"2d");
       p.m5.getImageOffsets=function(){
@@ -78,14 +84,13 @@
         walkRight: [28, 35]
       };
       p.m5.showFrame(p.g.states.right);
-      p.m5.step=(dt)=>{
-        p["2d"].motion(dt)
+      p.m5.tick=(dt)=>{
+        p["2d"].onTick(dt)
       }
 
       scene.leftArrow = I.keybd(I.keyLEFT, ()=>{
         G.elf.m5.playFrames(G.elf.g.states.walkLeft);
-        G.elf.m5.vel[0] = -G.elf.m5.speed;
-        G.elf.m5.vel[1] = 0;
+        S.velXY(G.elf, -G.elf.m5.speed,0);
       }, ()=>{
         if(!scene.rightArrow.isDown && G.elf.m5.vel[1] === 0){
           G.elf.m5.vel[0] = 0;
@@ -94,8 +99,7 @@
       });
       scene.upArrow = I.keybd(I.keyUP, ()=>{
         G.elf.m5.playFrames(G.elf.g.states.walkUp);
-        G.elf.m5.vel[1] = -G.elf.m5.speed;
-        G.elf.m5.vel[0] = 0;
+        S.velXY(G.elf,0, -G.elf.m5.speed)
       }, ()=>{
         if(!scene.downArrow.isDown && G.elf.m5.vel[0] === 0) {
           G.elf.m5.vel[1] = 0;
@@ -104,8 +108,7 @@
       });
       scene.rightArrow = I.keybd(I.keyRIGHT, ()=>{
         G.elf.m5.playFrames(G.elf.g.states.walkRight);
-        G.elf.m5.vel[0] = G.elf.m5.speed;
-        G.elf.m5.vel[1] = 0;
+        S.velXY(G.elf, G.elf.m5.speed,0)
       }, ()=>{
         if(!scene.leftArrow.isDown && G.elf.m5.vel[1] === 0) {
           G.elf.m5.vel[0] = 0;
@@ -114,8 +117,7 @@
       });
       scene.downArrow = I.keybd(I.keyDOWN, ()=>{
         G.elf.m5.playFrames(G.elf.g.states.walkDown);
-        G.elf.m5.vel[1] = G.elf.m5.speed;
-        G.elf.m5.vel[0] = 0;
+        S.velXY(G.elf,0, G.elf.m5.speed)
       }, ()=>{
         if(!scene.upArrow.isDown && G.elf.m5.vel[0] === 0) {
           G.elf.m5.vel[1] = 0;
@@ -130,6 +132,9 @@
       s.m5.type=E_ITEM;
       s.m5.uuid=id;
       s.m5.sensor=true;
+      s.m5.dispose=()=>{
+        EventBus.unsub(["2d.sensor",s],"onSensor",s.m5)
+      };
       s.m5.onSensor=()=>{
         let hud=Z.findScene("hud");
         S.remove(s);
@@ -157,8 +162,6 @@
     Z.defScene("level1",{
       setup(){
         Mojo.addMixin(this,"camera2d", this.tiled.tiledWidth, this.tiled.tiledHeight);
-        //this["camera2d"].centerOver(G.elf);
-        EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate:function(dt){
         this["camera2d"].follow(G.elf);

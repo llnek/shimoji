@@ -230,21 +230,34 @@
           _.dissoc(this.m5.index,c.m5.uuid);
         }
       }
+      /**Insert this child sprite.
+       * @param {Sprite} c
+       * @param {boolean} [engrid]
+       * @return {Sprite} c
+       */
+      insert(c,engrid=false){
+        return this.insertAt(c,null,engrid)
+      }
       /**Insert this child sprite at this position.
        * @param {Sprite} c
        * @param {number} pos
+       * @param {boolean} [engrid]
        * @return {Sprite} c
        */
-      insert(c,pos){
-        c=this.addit(c,pos);
-        if(c instanceof PIXI.TilingSprite){}else{
-          this.m5.sgrid.engrid(c);
+      insertAt(c,pos,engrid=false){
+        c=this._addit(c,pos);
+        if(engrid){
+          if(!(c instanceof PIXI.TilingSprite)){
+            c.m5._engrid=true;
+            this.m5.sgrid.engrid(c);
+          }
         }
         return c;
       }
-      addit(c,pos){
-        if(pos !== undefined &&
-           pos >= 0 && pos < this.children.length){
+      _addit(c,pos){
+        if(is.num(pos) &&
+           pos >= 0 &&
+           pos < this.children.length){
           this.addChildAt(c,pos);
         }else{
           this.addChild(c);
@@ -254,8 +267,8 @@
       /**Clean up.
       */
       dispose(){
-        function _clean(o){
-          o.children.length>0 && o.children.forEach(c=> _clean(c));
+        function _c(o){
+          o.children.length>0 && o.children.forEach(c=> _c(c));
           if(o){
             const i=Mojo.Input;
             o.m5.button && i.undoButton(o);
@@ -263,35 +276,41 @@
           }
         }
         this.m5.dead=true;
-        _clean(this);
+        _c(this);
         this.removeChildren();
       }
       /** @ignore */
-      _iterStep(r,dt){
+      _tick(r,dt){
         r.forEach(c=>{
-          if(c.m5 && c.m5.step){
-            c.m5.step(dt);
+          if(c.m5 && c.m5.tick){
+            c.m5.tick(dt);
             if(c.m5.flip=="x"){
               c.scale.x *= -1;
             }
-            if (c.m5.flip=="y"){
+            if(c.m5.flip=="y"){
               c.scale.y *= -1;
             }
-            EventBus.pub(["post.step",c],dt);
-            if(!c.m5.ephemeral) this.m5.sgrid.engrid(c);
+            c.m5.flip="";
+            EventBus.pub(["post.tick",c],dt);
+            if(c.m5._engrid) this.m5.sgrid.engrid(c);
           }
-          c.children.length>0 && this._iterStep(c.children, dt)
+          c.children.length>0 && this._tick(c.children, dt)
         })
       }
       /** @ignore */
-      _iterClean(r){
+      _clean(r){
         r.forEach(c=> {
           if(c.m5 &&
              c.m5.contacts &&
              c.m5.contacts.length>0) c.m5.contacts[0]=null;
-          c.children.length>0 && this._iterClean(c.children);
+          c.children.length>0 && this._clean(c.children);
         });
       }
+      /**Find objects that may collide with this object.
+       * @param {object} obj
+       * @return {object[]}
+       */
+      searchSGrid(obj){ return this.m5.sgrid.search(obj) }
       /**
        * @param {number} dt
        */
@@ -307,10 +326,12 @@
           _.disj(this.m5.queue, f=futs.shift());
           f[0]();
         }
-        EventBus.pub(["pre.update",this],dt);
-        this._iterStep(this.children, dt);
-        this._iterClean(this.children);
-        EventBus.pub(["post.update",this],dt);
+        //EventBus.pub(["pre.update",this],dt);
+        if(this.preUpdate) this.preUpdate(dt);
+        this._tick(this.children, dt);
+        this._clean(this.children);
+        if(this.postUpdate) this.postUpdate(dt);
+        //EventBus.pub(["post.update",this],dt);
       }
       /**Initial bootstrap of this scene.
       */

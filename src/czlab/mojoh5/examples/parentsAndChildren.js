@@ -17,16 +17,20 @@
   "use strict";
 
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
-    const G=Mojo.Game;
-    const {ute:_,is,EventBus}=Mojo;
+
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           "2d":_2d,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     _Z.defScene("level1",{
       setup(){
         let K=Mojo.getScaleFactor();
         let square = _S.rectangle(100*K, 100*K, "blue", "white", 1*K);
-        square.anchor.set(1,1);
         this.insert(square);
+        square.anchor.set(1,1);
         _S.pinBottom(this,square,-110*K);
 
         let square2 = _S.rectangle(60*K, 40*K, "red", "white", 1*K);
@@ -34,8 +38,8 @@
         _S.pinTop(square,square2,40*K);
 
         let square3 = _S.rectangle(20*K, 40*K, "green", "white", 1*K);
-        square3.anchor.set(0.5, 0.5);
         this.insert(square3);
+        _S.centerAnchor(square3);
         _S.pinTop(square2,square3,30*K);
       }
     });

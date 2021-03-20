@@ -21,9 +21,8 @@
     Mojo.Scenes.defScene("level1",{
       setup(){
         let box = this.box= _S.tilingSprite("tile.png");
-        this.addit(_S.setSize(box,Mojo.width,Mojo.height));
+        this.insert(_S.sizeXY(box,Mojo.width,Mojo.height));
         _S.pinCenter(this,box);
-        Mojo.EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(dt){
         this.box.tilePosition.x += 0.5;

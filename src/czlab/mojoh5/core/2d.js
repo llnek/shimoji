@@ -35,14 +35,14 @@
       e.m5.direction=Mojo.UP;
       let _I=Mojo.Input;
       let self={
-        step(dt){
+        onTick(dt){
           if(bRotate){
             if(e.m5.vel[0] > 0){
-              e.rotation = Math.PI/2 //90
+              e.rotation = Mojo.PI_90
             }else if(e.m5.vel[0] < 0){
-              e.rotation = -Math.PI/2 //90
+              e.rotation = -Mojo.PI_90
             }else if(e.m5.vel[1] > 0){
-              e.rotation = Math.PI //180
+              e.rotation = Mojo.PI_180
             }else if(e.m5.vel[1] < 0){
               e.rotation = 0
             }
@@ -72,7 +72,7 @@
           signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
         boom(col){
           if(col.A !== e){
-            console.log(`2d.boom: ${e.m5.uuid} != ${col.A.m5.uuid}`);
+            //console.log(`2d.boom: ${e.m5.uuid} != ${col.A.m5.uuid}`);
             _.assert(false,"got hit by someone else???");
           }
           if(col.B && col.B.m5.sensor){
@@ -118,7 +118,7 @@
             }
           }
         },
-        motion(dt){
+        onTick(dt){
           if(is.num(dt)){
             for(let delta=dt;delta>0;){
               dt = _.min(1/30,delta);
@@ -159,7 +159,7 @@
         dispose(){
           signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
         onLanded(){ self.landed=0.2 },
-        motion(dt){
+        onTick(dt){
           let col,
               j3= self.jumpSpeed/3,
               pR= _I.keyDown(self.rightKey),

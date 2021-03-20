@@ -17,9 +17,14 @@
   "use strict";
 
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_W=Mojo.FX,_2d=Mojo["2d"],_T=Mojo.Tiles;
-    const {ute:_,is,EventBus}=Mojo;
-    const G=Mojo.Game;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           FX:_W,
+           "2d":_2d,
+           Tiles:_T,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     _Z.defScene("level1",function(){
       let cat = G.cat= _S.sprite("cat.png",32,32);
@@ -31,9 +36,8 @@
         })
       }
 
-      cat.scale.x=K;
-      cat.scale.y=K;
-      this.addit(cat);
+      _S.scaleXY(cat,K,K);
+      this.insert(cat);
 
       let catPath = _W.walkPath(cat,                   //The sprite
                                 _W.SMOOTH,
@@ -48,9 +52,8 @@
                                 true
                               );
       let hedgehog = _S.sprite("hedgehog.png",32,256);
-      hedgehog.scale.x=K;
-      hedgehog.scale.y=K;
-      this.addit(hedgehog);
+      _S.scaleXY(hedgehog,K,K);
+      this.insert(hedgehog);
       let hedgehogPath = _W.walkCurve(hedgehog,
                                       _W.SMOOTH,
                                       [

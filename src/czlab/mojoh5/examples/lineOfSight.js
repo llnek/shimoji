@@ -17,22 +17,25 @@
   "use strict";
 
   function scenes(Mojo){
-    const _Z=Mojo.Scenes,_S=Mojo.Sprites,_2d=Mojo["2d"],_I=Mojo.Input;
-    const {ute:_,is,EventBus}=Mojo;
-    const G=Mojo.Game;
+    const {Scenes:_Z,
+           Sprites:_S,
+           "2d":_2d,
+           Input:_I,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     _Z.defScene("level1",{
       setup(){
         let player = G.player= _S.sprite("alien.png");
         let K=Mojo.getScaleFactor();
 
-        this.addit(player);
-        _S.pinCenter(this,player)
+        this.insert(player);
+        _S.pinCenter(this,player);
         player.x -= Mojo.width/4;
 
         let monster = G.monster= _S.sprite(["monsterNormal.png",
                                             "monsterAngry.png" ]);
-        this.addit(monster);
+        this.insert(monster);
         _S.pinCenter(this,monster);
         monster.x += Mojo.width/4;
 
@@ -41,10 +44,9 @@
         let bw,bh,bw2,bh2;
         for(let s,i=0; i < boxes.length; ++i){
           boxes[i]=(s=_S.sprite("box.png"));
-          s.scale.x=K;
-          s.scale.y=K;
-          this.addit(s);
+          _S.scaleXY(s,K,K);
           _I.makeDrag(s);
+          this.insert(s);
           _S.pinCenter(this,s);
         }
         bh=boxes[0].height;
@@ -59,13 +61,13 @@
         _I.makeDrag(monster);
         _I.makeDrag(player);
 
-        let line = G.line= _S.line("red", 4,_S.centerXY(monster),_S.centerXY(player));
-        this.addit(line);
+        let line = G.line= _S.line("red", 4*K,
+                                   _S.centerXY(monster),_S.centerXY(player));
+        this.insert(line);
         line.alpha = 0.3;
         let message = G.message= _S.text("Drag and drop the sprites",
           {fontFamily: "Futura", fontSize:16*K, fill:"white"}, 30*K,10*K);
-        this.addit(message);
-        EventBus.sub(["post.update",this],"postUpdate");
+        this.insert(message);
       },
       postUpdate(){
         let m= _S.centerXY(G.monster),

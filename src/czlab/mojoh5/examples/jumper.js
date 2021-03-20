@@ -21,23 +21,27 @@
   const E_TOWER=4;
 
   function scenes(Mojo){
-    let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_2d=Mojo["2d"];
-    let {ute:_,is,EventBus}=Mojo;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           "2d":_2d,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
     const MFL=Math.floor;
 
     function Block(x,xoff,y,yoff,width,height,points){
-      let K=Mojo.contentScaleFactor();
+      let K=Mojo.getScaleFactor();
       let inPoints;
-      xoff *= K.width;
-      yoff *= K.height;
-      width *= K.width;
-      height *= K.height;
+      xoff *= K;
+      yoff *= K;
+      width *= K;
+      height *= K;
       x += xoff;
       y += yoff;
       if(points){
         points.forEach(p=>{
-          p[0] *= K.width;
-          p[1] *= K.height;
+          p[0] *= K;
+          p[1] *= K;
         });
         inPoints=points;
       }else{
@@ -61,37 +65,34 @@
         s.m5.getContactPoints=()=> { return inPoints};
       s.m5.type=E_BLOCK;
       s.m5.static=true;
-      s.anchor.set(0.5);
       s.alpha=0.5;
-      s.x=x;
-      s.y=y;
-      return s;
+      _S.centerAnchor(s);
+      return _S.setXY(s,x,y);
     }
 
     function Player(scene){
       let p=_S.frame("sprites.png",32,32,0,0);
-      let K=Mojo.contentScaleFactor();
-      p.scale.y=K.height;
-      p.scale.x=K.width;
+      let K=Mojo.getScaleFactor();
+      _S.scaleXY(p,K,K);
       p.m5.uuid="player";
       p.m5.type=E_PLAYER;
       p.m5.cmask=E_BLOCK|E_TOWER;
-      p.x= MFL(Mojo.width/2) - K.width*200;
-      p.y= -180*K.height;
-      p.anchor.set(0.5);
-      scene.insert(p);
+      p.x= MFL(Mojo.width/2) - K*200;
+      p.y= -180*K;
+      _S.centerAnchor(p);
+      scene.insert(p,true);
       Mojo.addMixin(p,"2d");
       Mojo.addMixin(p,"platformer");
-      p.m5.gravity[1]=200 * K.height;
-      p.m5.speed=200 * K.width;
-      p["platformer"].jumpSpeed *= K.height;
-      p.m5.step=function(dt){
-        if(p.y > scene.b5.y+scene.b5.height*3*K.height){
-          scene.remove(p);
+      _S.gravityXY(p,null,200 * K);
+      p.m5.speed=200 * K;
+      p["platformer"].jumpSpeed *= K;
+      p.m5.tick=function(dt){
+        if(p.y > scene.b5.y+scene.b5.height*3*K){
+          _S.remove(p);
           _Z.runScene("endGame",{msg: "You Fell!"});
         }else{
-          p["2d"].motion(dt);
-          p["platformer"].motion(dt);
+          p["2d"].onTick(dt);
+          p["platformer"].onTick(dt);
         }
       };
       return p;
@@ -99,9 +100,8 @@
 
     function Tower(scene,b5){
       let t= _S.frame("sprites.png",32, 32, 0,64);
-      let K=Mojo.contentScaleFactor();
-      t.scale.y=K.height;
-      t.scale.x=K.width;
+      let K=Mojo.getScaleFactor();
+      _S.scaleXY(t,K,K);
       t.m5.uuid="tower";
       t.m5.type=E_TOWER;
       t.m5.sensor=true;
@@ -109,7 +109,7 @@
       EventBus.sub(["2d.sensor",t],"onSensor",t.m5);
       t.y= b5.y - MFL(b5.height/2) - t.height;
       t.x= b5.x - MFL(t.width/2);
-      return scene.insert(t);
+      return scene.insert(t,true);
     }
 
     _Z.defScene("endGame",{
@@ -123,7 +123,6 @@
         let s4=_I.makeButton(_S.text("Play Again?",{fill:"white",align:"center"}));
         let s5=_S.text("or",{fill:"white",align:"center"});
         let s6=_I.makeButton(_S.text("Quit",{fill:"white",align:"center"}));
-        //let g=_Z.layoutX([s1,s3,s4,s5,s6],options);
         let g=_Z.layoutY([s1,s2,s3,s4,s5,s6],options);
         this.btns= [s4,s6];
         this.insert(g);
@@ -140,13 +139,13 @@
     _Z.defScene("bg",{
       setup(){
         let w= this.wall= _S.tilingSprite("background-wall.png");
-        this.insert(_S.setSize(w,Mojo.width,Mojo.height));
+        this.insert(_S.sizeXY(w,Mojo.width,Mojo.height));
       }
     });
 
     _Z.defScene("level1",{
       setup(){
-        let K=Mojo.contentScaleFactor();
+        let K=Mojo.getScaleFactor();
         let Y=MFL(Mojo.height/2);
         let X=MFL(Mojo.width/2);
         let b1,b2,b3,b4,b5;
@@ -158,13 +157,13 @@
         b4.m5.getContactPoints=()=>{
           let ps=[[70,0],[20,50],[-70,0],[20,-50],[45,-40]];
           ps.forEach(p=>{
-            p[0] *= K.width;
-            p[1] *= K.height;
+            p[0] *= K;
+            p[1] *= K;
           });
           return ps;
         };
         bs.push(b5=_S.uuid(Block(X,360, Y,40, 50, 50),"b5"));
-        bs.forEach(b=> this.insert(b));
+        bs.forEach(b=> this.insert(b,true));
         let player = this.player = Player(this);
         let t= this.tower= Tower(this,b5);
         this.b5=b5;
@@ -184,5 +183,6 @@
       }
     })
   });
+
 })(this);
 

@@ -17,44 +17,48 @@
   "use strict";
 
   function scenes(Mojo){
-    const Z=Mojo.Scenes,S=Mojo.Sprites,I=Mojo.Input,G=Mojo.Game,T=Mojo.Tiles,_2d=Mojo["2d"];
-    const {ute:_,is,EventBus}=Mojo;
+    const {Scenes:Z,
+           Sprites:S,
+           Input:I,
+           Game:G,
+           Tiles:T,
+           "2d":_2d,
+           ute:_,is,EventBus}=Mojo;
 
     const E_PLAYER=1,
-      E_ITEM=2;
+          E_ITEM=2;
 
     function Player(scene,s,ts,ps,os){
       let K=scene.getScaleFactor();
       Mojo.addMixin(s,"2dControls",false);
       Mojo.addMixin(s,"2d");
+      s.m5.direction=Mojo.RIGHT;
       s.m5.type=E_PLAYER;
       s.m5.cmask=E_ITEM;
       s.m5.speed=4*K;
-      s.m5.direction=Mojo.RIGHT;
-      s.anchor.set(0.5);
+      S.centerAnchor(s);
       s.x += Math.floor(s.width/2);
       s.y += Math.floor(s.height/2);
       s.m5.uuid="player";
-      s.m5.vel[0]=s.m5.speed;
-      s.m5.vel[1]=s.m5.speed;
-      s.m5.step=()=>{
-        s["2d"].motion();
-        s["2dControls"].step();
+      s.m5.tick=()=>{
+        s["2d"].onTick();
+        s["2dControls"].onTick();
       };
-      return s;
+      return S.velXY(s,s.m5.speed, s.m5.speed);
     }
+
     function Monster(scene,s,ts,ps,os){
+      const e= [["2d.sensor",s],"onSensor",s.m5];
       s.m5.sensor=true;
       s.m5.type=E_ITEM;
-      s.m5.onSensor=()=>{
-        scene.remove(s)
-      };
-      EventBus.sub(["2d.sensor",s],"onSensor",s.m5);
+      s.m5.onSensor=()=>{ S.remove(s) };
+      s.m5.dispose=()=>{
+        EventBus.unsub.apply(EventBus,e) };
+      EventBus.sub.apply(EventBus, e);
       return s;
     }
-    function _objF(){
-      return {Player,Monster}
-    }
+
+    function _objF(){ return {Player,Monster} }
 
     Z.defScene("level1", {
       setup(){

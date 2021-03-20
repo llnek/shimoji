@@ -117,7 +117,7 @@
     }
 
     /** @ignore */
-    function _checkTiledVersion(json){
+    function _checkVer(json){
       let tmap = Mojo.resource(json,true).data;
       let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
       return (tver && _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
@@ -133,14 +133,15 @@
     }
 
     /** @ignore */
-    function _loadTMX(scene,json,objFactory){
-      let tsProps={},
-          gtileProps={},
-          tmx= _checkTiledVersion(json);
+    function _loadTMX(scene,arg,objFactory){
+      let tmx= is.str(arg)?_checkVer(arg):arg;
+      let tsProps={}, gtileProps={};
+      _.assert(is.obj(tmx),"bad tiled map");
       _.inject(scene.tiled,{tileW:tmx.tilewidth,
                             tileH:tmx.tileheight,
                             tilesInX:tmx.width,
                             tilesInY:tmx.height,
+                            tiledMap:tmx,
                             saved_tileW:tmx.tilewidth,
                             saved_tileH:tmx.tileheight,
                             tiledWidth:tmx.tilewidth*tmx.width,
@@ -150,6 +151,8 @@
       let NH= MFL(K*tmx.tileheight);
       if(!_.isEven(NW)) {--NW}
       if(!_.isEven(NH)) {--NH}
+      scene.tiled.new_tileW=NW;
+      scene.tiled.new_tileH=NH;
       function ctor(gid,mapcol,maprow,tw,th){
         let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
             ps=gtileProps[gid],
@@ -186,11 +189,10 @@
           s.height = MFL(s.height);
           if(!_.isEven(s.height))--s.height;
         }
-        if(ps && ps.sensor){
-          s.m5.sensor=true
-        }
-        s.x= mapcol * s.width;
-        s.y= maprow * s.height;
+        s.x=mapcol*NW;
+        s.y=maprow*NH;
+        //s.x= mapcol * s.width;
+        //s.y= maprow * s.height;
         return s;
       }
       const F={
@@ -223,10 +225,13 @@
                 cFunc=cz && objFactory[cz];
             s.tiled.index=i;
             s.m5.static=true;
-            scene.insert(s);
             //special tile
-            if(cFunc){
-              s=cFunc(scene,s,tsi,ps) }
+            if(cFunc)
+              s=cFunc(scene,s,tsi,ps);
+            if(s && ps){
+              if(ps.sensor) s.m5.sensor=true;
+            }
+            scene.insert(s,!!cFunc);
           }
         },
         objectgroup(tl){
@@ -241,20 +246,22 @@
             let w=scene.tiled.saved_tileW;
             let h=scene.tiled.saved_tileH;
             let tx=MFL((o.x+w/2)/w);
-            let ty=MFL((o.y-(o.height||h)/2)/h);
+            let ty=MFL((o.y-h/2)/h);
             let tsi=_lookupGid(gid,scene.tiled.tileGidList);
             if(tsi)tsi=tsi[1];
-            //jiggle everything to top-left
-            //o.y=ty*scene.tiled.tileH;
-            //o.x=tx*scene.tiled.tileW;
             o.column=tx;
             o.row=ty;
             if(gid>0){
-              s= ctor(gid,tx,ty,o.width,o.height);
+              s= ctor(gid,tx,ty,o.width,o.height)
+            }else{
+              s={width:NW,height:NH}
             }
             if(createFunc){
               s= createFunc(scene,s,tsi,ps,o);
-              if(s){ scene.insert(s) }
+            }
+            if(s){
+              if(ps && ps.sensor) s.m5.sensor=true;
+              scene.insert(s,true);
             }
           });
         },
@@ -279,10 +286,10 @@
       scene.tiled.tiledHeight=NH * tmx.height;
       if(scene.parent instanceof Mojo.Scenes.SceneWrapper){
         if(scene.tiled.tiledHeight<Mojo.height){
-          scene.parent.y += MFL((Mojo.height-scene.tiled.tiledHeight)/2)
+          scene.parent.y = MFL((Mojo.height-scene.tiled.tiledHeight)/2)
         }
         if(scene.tiled.tiledWidth<Mojo.width){
-          scene.parent.x += MFL((Mojo.width-scene.tiled.tiledWidth)/2)
+          scene.parent.x = MFL((Mojo.width-scene.tiled.tiledWidth)/2)
         }
       }
     }
@@ -313,6 +320,11 @@
         this.tiled={};
         _contactObj.parent=this;
         Mojo.Sprites.extend(_contactObj);
+      }
+      reloadMap(options){
+        let t= this.m5.options.tiled=options;
+        this.tiled={};
+        _loadTMX(this, t.name, t.factory(this));
       }
       runOnce(){
         let t= this.m5.options.tiled;

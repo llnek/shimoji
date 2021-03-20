@@ -17,10 +17,13 @@
   "use strict";
 
   function scenes(Mojo){
-    let _Z=Mojo.Scenes,_S=Mojo.Sprites,_I=Mojo.Input,_T=Mojo.Tiles,_2d=Mojo["2d"];
-    let {ute:_,is,EventBus}=Mojo;
-    let _E=EventBus;
-    let G=Mojo.Game;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           Tiles:_T,
+           "2d":_2d,
+           Game:G,
+           ute:_,is,EventBus}=Mojo;
 
     G.score=0;
 
@@ -55,6 +58,9 @@
     };
 
     function Door(scene,s,ts,ps,os){
+      s.m5.type=E_DOOR;
+      s.y += scene.tiled.new_tileH;
+      s.y -= s.height;
       /*
       let mo=s.m5;
       let signal=[["sensor",s],"onSensor",mo];
@@ -106,8 +112,8 @@
           Mojo.sound("hit.mp3").play();
         }
       };
-      s.m5.step=(dt)=>{
-        s["2d"] && s["2d"].motion(dt);
+      s.m5.tick=(dt)=>{
+        s["2d"] && s["2d"].onTick(dt);
         if(s.m5.dead){
           s.aiBounce.dispose();
           s["2d"]=null;
@@ -149,27 +155,25 @@
       let PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
       let p=_S.sprite(_S.frames(ts.image, ts.tilewidth,ts.tileheight));
       let _mode=null;
-      let mo=p.m5;
+      p.m5.cmask=E_ENEMY|E_ITEM;
       p.m5.uuid="player";
       p.m5.type=E_PLAYER;
-      p.m5.cmask=E_ENEMY|E_ITEM;
       p.height=s.height;
       p.width=s.width;
-      p.x = s.x + Math.floor(p.width/2);
-      p.y= scene.tiled.tileH*4;
-      p.m5.gravity[1]=555;
+      _S.setXY(p,s.x + Math.floor(p.width/2), scene.tiled.tileH*4);
+      _S.gravityXY(p,null,333);
       p.m5.strength= 100;
       p.m5.speed= 300;
       p.m5.score= 0;
-      p.anchor.set(0.5);
+      _S.centerAnchor(p);
       Mojo.addMixin(p,"platformer");
       Mojo.addMixin(p,"2d");
       p.m5.showFrame(1);
-      p.platformer.jumpSpeed= -700;
+      p.platformer.jumpSpeed= -500;
       p.m5.direction= Mojo.RIGHT;
 
       let leftArrow = _I.keybd(_I.keyLEFT, ()=>{
-        if(p.scale.x>0) p.scale.x *= -1;
+        if(p.scale.x>0) p.m5.flip="x";
         if(_mode===null)
           p.m5.playFrames(PStates.walk_right);
       }, ()=>{
@@ -178,7 +182,7 @@
       });
 
       let rightArrow = _I.keybd(_I.keyRIGHT, ()=>{
-        if(p.scale.x<0) p.scale.x *= -1;
+        if(p.scale.x<0) p.m5.flip="x";
         if(_mode===null)
           p.m5.playFrames(PStates.walk_right);
       }, ()=>{
@@ -211,32 +215,19 @@
         return _mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
                                          : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
       };
-      p.jumped=function(col){ mo.playedJump = false; };
-      p.checkDoor=function(){ mo.checkDoor = true; };
+      p.jumped=function(col){ p.m5.playedJump = false; };
+      p.checkDoor=function(){ p.m5.checkDoor = true; };
       p.resetLevel=function(){ };
       p.jump=function(col){
-        if(!mo.playedJump){
+        if(!p.m5.playedJump){
           Mojo.sound("jump.mp3").play();
-          mo.playedJump = true;
+          p.m5.playedJump = true;
         }
       };
 
-      p.m5.XXcollide=function(){
-        return;
-        for(let t,w,i=0;i<wall.children.length;++i){
-          w=wall.children[i];
-          t=w.tiled;
-          if(t.ts.name=="Tiles"){
-            if(t.id===81 || t.id===69 || t.id===40 || t.id===52)
-              continue;
-          }
-          _2d.hit(p,w);
-        }
-      };
-
-      p.m5.step=function(dt){
-        p["2d"].motion(dt);
-        p["platformer"].motion(dt);
+      p.m5.tick=function(dt){
+        p["2d"].onTick(dt);
+        p["platformer"].onTick(dt);
         if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
           //if(_.feq0(p.m5.vel[0]) && _.feq0(p.m5.vel[1]))
           if(!_I.keyDown(_I.keyDOWN))
@@ -292,9 +283,9 @@
         }
         Mojo.sound("coin.mp3").play();
       };
-      p.m5.step=function(dt){
-        p["2d"].motion(dt);
-        p["platformer"].motion(dt);
+      p.m5.tick=function(dt){
+        p["2d"].onTick(dt);
+        p["platformer"].onTick(dt);
         if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
           //if(_.feq0(p.m5.vel[0]) && _.feq0(p.m5.vel[1]))
           if(!_I.keyDown(_I.keyDOWN))
@@ -388,7 +379,7 @@
         }
       };
     */
-      signals.forEach(s=>_E.sub.apply(_E,s));
+      signals.forEach(s=>EventBus.sub.apply(EventBus,s));
       return G.player=p;
     }
 
@@ -413,11 +404,9 @@
       setup(){
         Mojo.addMixin(this,"camera2d",this.tiled.tiledWidth,this.tiled.tiledHeight,Mojo.canvas);
         this["camera2d"].centerOver(this.tiled.tileW*5, this.tiled.tileH*10);
-        EventBus.sub(["post.update",this],"postUpdate");
       },
       postUpdate(){
-        if(G.player.y > 1000){
-          //this.camera.unfollow();
+        if(G.player && G.player.y > 1000){
         }else{
           this["camera2d"].follow(G.player);
         }
@@ -426,9 +415,9 @@
 
     _Z.defScene("bg",{
       setup(){
-        let bg=this.bg=_S.tilingSprite("bg.png");
-        _S.setSize(bg,Mojo.width,Mojo.height);
-        this.addit(bg);
+        let bg=_S.tilingSprite("bg.png");
+        _S.sizeXY(bg,Mojo.width,Mojo.height);
+        this.insert(bg);
       }
     });
   }
