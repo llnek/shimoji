@@ -34,8 +34,11 @@
         _S.pinBottom(this,square,-110*K);
 
         let square2 = _S.rectangle(60*K, 40*K, "red", "white", 1*K);
+        _S.centerAnchor(square2);
         this.insert(square2);
         _S.pinTop(square,square2,40*K);
+        //_S.shake(square2,10,true);
+        _S.shake(square2);
 
         let square3 = _S.rectangle(20*K, 40*K, "green", "white", 1*K);
         this.insert(square3);

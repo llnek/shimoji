@@ -133,8 +133,7 @@
     });
 
     function Player(scene,p,ts,ps,os){
-      Mojo.addMixin(p,"platformer");
-      Mojo.addMixin(p,"2d");
+      Mojo.addMixin(p,"2d",true);
       p.m5.static=false;
       p.m5.uuid="player";
       p.m5.type=E_PLAYER;
@@ -142,10 +141,9 @@
       p.m5.speed=100 * scene.getScaleFactor();
       S.velXY(p,p.m5.speed);
       S.gravityXY(p,null,700);
-      p["platformer"].jumpSpeed=-500;
+      p["2d"].platformer.jumpSpeed=-500;
       p.m5.tick=(dt)=>{
         p["2d"].onTick(dt);
-        p["platformer"].onTick(dt);
       }
       return p;
     }

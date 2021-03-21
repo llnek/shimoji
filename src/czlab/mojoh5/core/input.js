@@ -374,7 +374,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only"
+    throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Input"]=function(M){
       return M.Input ? M.Input : _module(M,new Map(),[],[])

@@ -20,7 +20,7 @@
    */
   function _module(Mojo,_bgTasks){
 
-    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
+    const {ute:_, is}=Mojo;
 
     let _paused = false,
         _startTime = Date.now();
@@ -33,15 +33,7 @@
       _bgTasks.forEach(m=> m.update && m.update(dt));
       //update all scenes
       if(!_paused)
-        Mojo.stageCS(s=> {
-          if(s instanceof Mojo.Scenes.SceneWrapper){
-            s.children.forEach(c=>{
-             c.update && c.update(dt);
-            });
-          }else{
-            s.update && s.update(dt);
-          }
-        });
+        Mojo.stageCS(s=> s.update && s.update(dt));
       //render drawings
       Mojo.ctx.render(Mojo.stage);
     }
@@ -100,7 +92,7 @@
   let _ModuleInited;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only."
+    throw "Panic: browser only."
   }else{
     gscope["io/czlab/mojoh5/GameLoop"]=function(M){
       if(!_ModuleInited){

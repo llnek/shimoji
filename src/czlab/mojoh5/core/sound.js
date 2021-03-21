@@ -27,10 +27,12 @@
   /**Create the module.
    */
   function _module(Mojo,SoundFiles){
+
+    const {ute:_, is}=Mojo;
+
     /**
      * @module mojoh5/Sound
      */
-    const {u:_, is}=gscope["io/czlab/mcfud/core"]();
 
     /** @ignore */
     function _make(_A,name, url){
@@ -207,7 +209,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only"
+    throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Sound"]=function(M){
       return M.Sound ? M.Sound : _module(M, {})

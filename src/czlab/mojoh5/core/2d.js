@@ -15,8 +15,7 @@
 
   "use strict";
 
-  /**Create the module.
-   */
+  /**Create the module. */
   function _module(Mojo){
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
@@ -63,18 +62,84 @@
       return self;
     });
 
+    /**A internal mixin to handle platform games. */
+    function Platformer(e){
+      const _I=Mojo.Input;
+      const signals=[];
+      const self={
+        jumpSpeed: -300,//y-axis goes down
+        jumping:false,
+        landed:0,
+        leftKey: _I.keyLEFT,
+        jumpKey: _I.keyUP,
+        rightKey: _I.keyRIGHT,
+        dispose(){
+          signals.forEach(s=> EventBus.unsub(...s)) },
+        onLanded(){ self.landed=0.2 },
+        onTick(dt,collisions){
+          let col=collisions[0],
+              j3= self.jumpSpeed/3,
+              pR= _I.keyDown(self.rightKey),
+              pU= _I.keyDown(self.jumpKey),
+              pL= _I.keyDown(self.leftKey);
+          if(!e.m5.skipCollide){
+            if(col && (pL || pR || self.landed>0)){
+              // don't climb up walls.
+              //if(col && (col.overlapN[1] > -0.3 || col.overlapN[1] < 0.3)) { col= null }//old
+              if(col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85){ col= null }//mine
+            }
+            if(pL){
+              e.m5.direction = Mojo.LEFT;
+              if(col && self.landed > 0){
+                e.m5.vel[0] = e.m5.speed * col.overlapN[1];
+                e.m5.vel[1] = -e.m5.speed * col.overlapN[0];
+              }else{
+                e.m5.vel[0] = -e.m5.speed }
+            }else if(pR){
+              e.m5.direction = Mojo.RIGHT;
+              if(col && self.landed > 0){
+                e.m5.vel[0] = -e.m5.speed * col.overlapN[1];
+                e.m5.vel[1] = e.m5.speed * col.overlapN[0];
+              }else{
+                e.m5.vel[0] = e.m5.speed }
+            }else{
+              e.m5.vel[0] = 0;
+              if(col && self.landed > 0){ e.m5.vel[1] = 0 }
+            }
+            if(self.landed > 0 && pU && !self.jumping){
+              e.m5.vel[1] = self.jumpSpeed;
+              self.landed = -dt;
+              self.jumping = true;
+            }else if(pU){
+              self.jumping = true;
+              EventBus.pub(["jump",e]);
+            }
+            if(self.jumping && !pU){
+              self.jumping = false;
+              EventBus.pub(["jumped",e]);
+              if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
+            }
+          }
+          self.landed -=dt;
+        }
+      };
+      signals.push([["bump.bottom",e],"onLanded",self]);
+      signals.forEach(s=> EventBus.sub(...s));
+      return self;
+    }
+
     /**Define a mixin object.
      */
-    Mojo.defMixin("2d",function(e){
+    Mojo.defMixin("2d",function(e,_platformer=false){
+      const collisions=[];
       const signals=[];
       const self={
         dispose(){
-          signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
+          self.platformer &&
+            self.platformer.dispose();
+          signals.forEach(s=> EventBus.unsub(...s)) },
         boom(col){
-          if(col.A !== e){
-            //console.log(`2d.boom: ${e.m5.uuid} != ${col.A.m5.uuid}`);
-            _.assert(false,"got hit by someone else???");
-          }
+          _.assert(col.A===e,"got hit by someone else???");
           if(col.B && col.B.m5.sensor){
             EventBus.pub(["2d.sensor", col.B], col.A);
           }else{
@@ -117,8 +182,11 @@
               col.impact=0;
             }
           }
+          collisions.shift(col);
         },
         onTick(dt){
+          collisions.length=0;
+          let _dt=dt;
           if(is.num(dt)){
             for(let delta=dt;delta>0;){
               dt = _.min(1/30,delta);
@@ -136,80 +204,14 @@
             e.y += e.m5.vel[1];
             e.parent.collideXY(e);
           }
+          if(self.platformer)
+            self.platformer.onTick(_dt,collisions);
         }
       };
       signals.push([["hit",e],"boom",self]);
       signals.push([["post.remove",e],"dispose",self]);
-      signals.forEach(s=> EventBus.sub.apply(EventBus,s));
-      return self;
-    });
-
-    /**Define a mixin to handle platform games
-     */
-    Mojo.defMixin("platformer", function(e){
-      const _I=Mojo.Input;
-      const signals=[];
-      const self={
-        jumpSpeed: -300,//y-axis goes down
-        jumping:false,
-        landed:0,
-        leftKey: _I.keyLEFT,
-        jumpKey: _I.keyUP,
-        rightKey: _I.keyRIGHT,
-        dispose(){
-          signals.forEach(s=> EventBus.unsub.apply(EventBus,s)) },
-        onLanded(){ self.landed=0.2 },
-        onTick(dt){
-          let col,
-              j3= self.jumpSpeed/3,
-              pR= _I.keyDown(self.rightKey),
-              pU= _I.keyDown(self.jumpKey),
-              pL= _I.keyDown(self.leftKey);
-          if(!e.m5.skipCollide){
-            if(e.m5.contacts[0] && (pL || pR || self.landed>0)){
-              col= e.m5.contacts[0];
-              // don't climb up walls.
-              //if(col && (col.overlapN[1] > -0.3 || col.overlapN[1] < 0.3)) { col= null }//old
-              if(col && (col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85)) { col= null }//mine
-            }
-            if(pL){
-              e.m5.direction = Mojo.LEFT;
-              if(col && self.landed > 0){
-                e.m5.vel[0] = e.m5.speed * col.overlapN[1];
-                e.m5.vel[1] = -e.m5.speed * col.overlapN[0];
-              }else{
-                e.m5.vel[0] = -e.m5.speed }
-            }else if(pR){
-              e.m5.direction = Mojo.RIGHT;
-              if(col && self.landed > 0){
-                e.m5.vel[0] = -e.m5.speed * col.overlapN[1];
-                e.m5.vel[1] = e.m5.speed * col.overlapN[0];
-              }else{
-                e.m5.vel[0] = e.m5.speed }
-            }else{
-              e.m5.vel[0] = 0;
-              if(col && self.landed > 0){ e.m5.vel[1] = 0 }
-            }
-            if(self.landed > 0 && pU && !self.jumping){
-              e.m5.vel[1] = self.jumpSpeed;
-              self.landed = -dt;
-              self.jumping = true;
-            }else if(pU){
-              self.jumping = true;
-              EventBus.pub(["jump",e]);
-            }
-            if(self.jumping && !pU){
-              self.jumping = false;
-              EventBus.pub(["jumped",e]);
-              if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
-            }
-          }
-          self.landed -=dt;
-        }
-      };
-      signals.push([["bump.bottom",e],"onLanded",self]);
-      signals.push([["post.remove",e],"dispose",self]);
-      signals.forEach(s=> EventBus.sub.apply(EventBus,s));
+      signals.forEach(s=> EventBus.sub(...s));
+      if(_platformer){ self.platformer=Platformer(e) }
       return self;
     });
 
@@ -219,7 +221,7 @@
       const signals=[];
       const self= {
         dispose(){
-          signals.forEach(a=>EventBus.unsub.apply(EventBus,a)) },
+          signals.forEach(a=>EventBus.unsub(...a)) },
         goLeft(col){
           e.m5.vel[0] = -col.impact;//-e.m5.speed;
           e.m5.flip= self.dftDirection === Mojo.RIGHT?"x":false;
@@ -246,25 +248,11 @@
         signals.push([["bump.top",e],"goDown",self]);
         signals.push([["bump.bottom",e],"goUp",self]);
       }
-      signals.forEach(a=>EventBus.sub.apply(EventBus,a));
+      signals.forEach(a=>EventBus.sub(...a));
       return self;
     });
 
-    /**Define mixin `camera`.
-     */
-    /**The `worldCamera` method returns a `camera` object
-     * with `x` and `y` properties. It has
-     * two useful methods: `centerOver`, to center the camera over
-     * a sprite, and `follow` to make it follow a sprite.
-     * `worldCamera` arguments: worldObject, theCanvas
-     * The worldObject needs to have a `width` and `height` property.
-     * @memberof module:mojoh5/2d
-     * @param {object} world
-     * @param {number} worldWidth
-     * @param {number} worldHeight
-     * @param {object} canvas
-     * @return {object}
-     */
+    /**Define mixin `camera`. */
     Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
       const _height= canvas?canvas.height:worldHeight;
       const _width= canvas?canvas.width:worldWidth;
@@ -277,9 +265,9 @@
       const world=e;
       let _x=0;
       let _y=0;
-      const self= {
+      const self={
         dispose(){
-          signals.forEach(e=>EventBus.unsub.apply(EventBus,e)) },
+          signals.forEach(e=>EventBus.unsub(...e)) },
         //`x` and `y` getters/setters
         //When you change the camera's position,
         //they shift the position of the world in the opposite direction
@@ -291,8 +279,6 @@
         get height() {return _height},
         get worldWidth() { return worldWidth},
         get worldHeight() { return worldHeight},
-        //get centerX() { return this.x + width2 },
-        //get centerY() { return this.y + height2 },
         //Boundary properties that define a rectangular area, half the size
         //of the game screen. If the sprite that the camera is following
         //is inide this area, the camera won't scroll. If the sprite
@@ -310,7 +296,6 @@
         get bottomInnerBoundary() {
           return this.y + MFL(height2 + height4)
         },
-        //Use the `follow` method to make the camera follow a sprite
         follow(s){
           let bx= _.feq0(s.rotation)? _S.getBBox(s) : _S.boundingBox(s);
           //Check the sprites position in relation to the inner
@@ -350,7 +335,6 @@
         },
         centerOver:function(s,y){
           if(arguments.length===1 && !is.num(s)){
-            //Center the camera over a sprite
             let c=_S.centerXY(s)
             this.x = c[0]- width2;
             this.y = c[1] - height2;
@@ -362,9 +346,10 @@
         }
       };
       signals.push([["post.remove",e],"dispose",self]);
-      signals.forEach(e=>EventBus.sub.apply(EventBus,e));
+      signals.forEach(e=>EventBus.sub(...e));
       return self;
     });
+
     /** @ignore */
     function _hitAB(a,b){
       let a_,b_,m,
@@ -381,8 +366,6 @@
       if(m){
         m.A=a;
         m.B=b;
-        a.m5.contacts[0]=m;
-        b.m5.contacts[0]=m;
       }
       return m;
     }
@@ -509,12 +492,7 @@
        */
       collide(a,b, bounce=true){
         let m= _collideAB(a,b,bounce);
-        let hit= m && _collideDir(m);
-        if(m){
-          //EventBus.pub(["hit",a],m);
-          //EventBus.pub(["hit",b],m);
-        }
-        return hit;
+        return m && _collideDir(m);
       },
       /**Check if these 2 sprites is colliding.
        * @memberof module:mojoh5/2d
@@ -522,9 +500,7 @@
        * @param {Sprite} b
        * @return {Manifold}
        */
-      hitTest(a,b){
-        return _hitAB(a,b)
-      },
+      hitTest(a,b){ return _hitAB(a,b) },
       /**Use to contain a sprite with `x` and
        * `y` properties inside a rectangular area.
        * @memberof module:mojoh5/2d
@@ -546,9 +522,9 @@
             _.assert(s.parent===container);
           else
             _.assert(false,"Error: contain() using bad container");
-          _.assert(container.rotation===0,"Error: contain() container can't rotate");
-          _.assert(container.anchor.x===0,"Error: contain() container anchor.x !==0");
-          _.assert(container.anchor.y===0,"Error: contain() container anchor.y !==0");
+          _.assert(_.feq0(container.rotation),"Error: contain() container can't rotate");
+          _.assert(_.feq0(container.anchor.x),"Error: contain() container anchor.x !==0");
+          _.assert(_.feq0(container.anchor.y),"Error: contain() container anchor.y !==0");
           c=container;
         }
         let coff= _S.topLeftOffsetXY(c);
@@ -601,68 +577,6 @@
         }
         return collision;
       },
-      XXcontain(s, container, bounce=false,extra=null){
-        let c,
-            _S=Mojo.Sprites;
-        if(container instanceof Mojo.Scenes.Scene){
-          c=Mojo.mockStage();
-        }else if(container.m5 && container.m5.stage){
-          c=container;
-        }else{
-          if(container.isSprite)
-            _.assert(s.parent===container);
-          else
-            _.assert(false,"Error: contain() using bad container");
-          _.assert(container.rotation===0,"Error: contain() container can't rotate");
-          _.assert(container.anchor.x===0,"Error: contain() container anchor.x !==0");
-          _.assert(container.anchor.y===0,"Error: contain() container anchor.y !==0");
-          c=container;
-        }
-        let coff= _S.topLeftOffsetXY(c);
-        let collision = new Set();
-        let CX=false,CY=false;
-        let R= Geo.getAABB(s.m5.circular ? _S.toCircle(s)
-                                         : _S.toPolygon(s))
-        let cl= c.x-coff[0], cb=c.y-coff[1], cr=cl+c.width, ct=cb+c.height;
-        //left
-        if(R.pos[0]+cl < cl){
-          s.x += (cl-R.pos[0]-cl);
-          CX=true;
-          collision.add(Mojo.LEFT);
-        }
-        //bottom
-        if(R.pos[1]+cb < cb){
-          s.y += (cb-R.pos[1]-cb);
-          CY=true;
-          collision.add(Mojo.TOP);
-        }
-        //right
-        if(R.pos[0]+R.width+cl > cr){
-          s.x -= R.pos[0]+R.width+cl - cr;
-          CX=true;
-          collision.add(Mojo.RIGHT);
-        }
-        //top
-        if(R.pos[1]+R.height+cb > ct){
-          s.y -= R.pos[1]+R.height+cb - ct;
-          CY=true;
-          collision.add(Mojo.BOTTOM);
-        }
-        if(collision.size > 0){
-          if(CX){
-            s.m5.vel[0] /= s.m5.mass;
-            if(bounce) s.m5.vel[0] *= -1;
-          }
-          if(CY){
-            s.m5.vel[1] /= s.m5.mass;
-            if(bounce) s.m5.vel[1] *= -1;
-          }
-          extra && extra(collision)
-        }else{
-          collision=null;
-        }
-        return collision;
-      },
       dbgShowCol(col){
         let out=[];
         if(is.set(col))
@@ -691,7 +605,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only"
+    throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/2d"]=function(M){
       return M["2d"] ? M["2d"] : _module(M)

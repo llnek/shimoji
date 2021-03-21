@@ -26,6 +26,7 @@
    */
   function _module(cmdArg, _fonts, _spans){
 
+    //import mcfud's core module
     const {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"]();
     const MFL=Math.floor;
     const CON=console;
@@ -34,10 +35,19 @@
      * @module mojoh5/Mojo
      */
 
-    class PixiStage extends PIXI.Container {
+
+    class PixiStage extends PIXI.Container{
       constructor(){
         super();
         this.m5={ stage:true }
+      }
+      onResize(old){
+        this.children.forEach(s=>{
+          if(s instanceof Mojo.Scenes.SceneWrapper){
+            s=s.children[0]
+          }
+          s.onCanvasResize(old);
+        })
       }
     }
 
@@ -55,8 +65,8 @@
     function _height(){ return gscope.innerHeight }
     //return window.document.documentElement.clientHeight
 
-    /**Built-in progress bar, shown during the loading of asset files
-     * if no user-defined load function is provided in the config options.
+    /**Built-in progress bar, shown during the loading of
+     * assets if no user-defined load function is provided.
      */
     function _PBar(Mojo,f,p,handle){
       const {Sprites}=Mojo;
@@ -92,8 +102,7 @@
       return handle;
     }
 
-    /**Scale canvas to max via CSS.
-     */
+    /**Scale canvas to max via CSS. */
     function _scaleCanvas(canvas){
       const [CH,CW]=[canvas.offsetHeight, canvas.offsetWidth];
       const [WH,WW]=[_height(), _width()];
@@ -130,26 +139,23 @@
     /**Once all the files are loaded, do some post processing,
      * mainly to deal with sound files.
      */
-    function _onAssetLoaded(Mojo,ldrObj,handle){
+    function _postAssetLoad(Mojo,ldrObj,handle){
       const {Sound} = Mojo;
+      //clean up stuff used during load
       function _finz(){
-        //clean up a whole bunch of stuff used during bootstrap
-        _spans.forEach(e=> dom.css(e, "display", "none"));
-        //get rid of any loading scene
+        _spans.forEach(e=> dom.css(e,"display","none"));
         Mojo.delBgTask(ldrObj);
-        //clean up user handle
         handle &&
           handle.dispose && handle.dispose();
-        //finally run the user start function
+        //run the user start function
         Mojo.u.start(Mojo);
       }
       let s, ext, fcnt=0;
       function _minus1(){ --fcnt===0 && _finz() }
-      //decode audio files
       _.doseq(Mojo.assets, (r,k)=>{
         ext= _.fileExt(k);
         if(_.has(AUDIO_EXTS,ext)){
-          fcnt+=1;
+          fcnt +=1;
           Sound.decodeContent(r.name, r.url, r.xhr.response, _minus1);
         }
       });
@@ -157,11 +163,10 @@
       fcnt===0 && _finz();
     }
 
-    /** Fetch required files.
-     */
+    /** Fetch required files. */
     function _loadFiles(Mojo){
-      let filesToLoad= _.map(Mojo.u.assetFiles || [], f=> Mojo.assetPath(f));
-      let ffiles= _.findFiles(filesToLoad, FONT_EXTS);
+      let filesWanted= _.map(Mojo.u.assetFiles || [], f=> Mojo.assetPath(f));
+      let ffiles= _.findFiles(filesWanted, FONT_EXTS);
       const {PXLR,PXLoader}= Mojo;
       //common hack to trick browser to load in font files.
       let family, face, span, style;
@@ -170,7 +175,7 @@
         span= dom.newElm("span");
         family= s.split("/").pop().split(".")[0];
         face= `@font-face {font-family: '${family}'; src: url('${s}');}`;
-        CON.log(`fontface = ${face}`);
+        //CON.log(`fontface = ${face}`);
         _fonts.push(family);
         dom.conj(style,dom.newTxt(face));
         dom.conj(document.head,style);
@@ -185,12 +190,12 @@
         PXLR.setExtensionXhrType(e, PXLR.XHR_RESPONSE_TYPE.BUFFER);
       });
       PXLoader.reset();
-      if(filesToLoad.length>0){
+      if(filesWanted.length>0){
         let handle,
             fs=[],
             pg=[],
             cb= Mojo.u.load || _PBar;
-        PXLoader.add(filesToLoad);
+        PXLoader.add(filesWanted);
         PXLoader.onProgress.add((ld,r)=>{
           fs.unshift(r.url);
           pg.unshift(ld.progress);
@@ -202,12 +207,12 @@
             let n= pg.pop();
             if(f && is.num(n))
               handle=cb(Mojo,f,n,handle);
-            n===100 && _onAssetLoaded(Mojo,this,handle);
+            n===100 && _postAssetLoad(Mojo,this,handle);
           }
         });
       }else{
         //no asset, call user start function right away
-        _onAssetLoaded(Mojo);
+        _postAssetLoad(Mojo);
       }
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       return Mojo.start(); // starting the game loop
@@ -215,20 +220,18 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const _ScrSize={width:0,height:0},
-          _Size11={width:1,height:1},
-          _CT="* {padding: 0; margin: 0}";
+    const _CT="* {padding: 0; margin: 0}";
+    const _ScrSize={width:0,height:0};
+    const _Size11={width:1,height:1};
 
-    /**Set some global CSS.
-    */
+    /**Set some global CSS. */
     function _configCSS(){
       const style= dom.newElm("style");
       dom.conj(style,dom.newTxt(_CT));
       dom.conj(document.head,style);
     }
 
-    /**Install a module.
-     */
+    /**Install a module. */
     function _runM(m){
       CON.log(`installing module ${m}...`);
       gscope[`io/czlab/mojoh5/${m}`](Mojo)
@@ -237,10 +240,10 @@
     /** @ignore */
     function _prologue(Mojo){
       _.assert(cmdArg.arena,"design resolution req'd.");
-      let maxed=false,
-          {EventBus}= Mojo,
-          box= cmdArg.arena,
-          S= Mojo.stage= new PixiStage();
+      let maxed=false;
+      let {EventBus}= Mojo;
+      let box= cmdArg.arena;
+      let S= Mojo.stage= new PixiStage();
       if(cmdArg.scaleToWindow=="max"){
         maxed=true;
         box= {width: _width(),
@@ -278,29 +281,21 @@
           Mojo.ctx.resize(_width(),_height());
           EventBus.pub(["canvas.resize"],[w,h]);
         },cmdArg.debounceRate||150));
-        EventBus.sub(["canvas.resize"],
-                     old=> S.children.forEach(s=> s.onCanvasResize(old)));
+        EventBus.sub(["canvas.resize"], old=> S.onResize(old))
       }
       return _loadFiles(Mojo) && Mojo;
     }
 
-    /**Mixin registry.
-    */
+    /** @ignore */
+    class Mixin{ constructor(){} }
+
+    /**Mixin registry. */
     const _mixins= _.jsMap();
 
     /** @ignore */
-    class Mixin{
-      constructor(){}
-    }
-
-    /** @ignore */
     function _mixinAdd(s,name,f,...args){
-      _.assert(!_.has(s,name),`Error: ${name} not available.`);
-      //call f to create the mixin object
-      const o= f(s,...args);
-      s[name]=o;
-      o.name=name;
-      o.mixinName= "."+name;
+      _.assert(!_.has(s,name),`Fatal: mixin ${name} unavailable.`);
+      s[name]=f(s,...args);
       return s;
     }
 
@@ -405,8 +400,7 @@
       overlap(a,b){
         return !(a.x2 < b.x1 ||
                  b.x2 < a.x1 ||
-                 a.y2 < b.y1 ||
-                 b.y2 < a.y1)
+                 a.y2 < b.y1 || b.y2 < a.y1)
       },
       /**Check if this element contains a class name.
        * @memberof module:mojoh5/Mojo
@@ -414,7 +408,7 @@
        * @param {string} c
        * @return {boolean}
        */
-      hasClass(e, c){
+      hasClass(e,c){
         return new RegExp(`(\\s|^)${c}(\\s|$)`).test(e.className)
       },
       /**Add a class name to this element.
@@ -423,8 +417,8 @@
        * @param {string} c
        * @return {Element} e
        */
-      addClass(e, c){
-        if(!_.hasClass(e, c)) e.className += `${c}`
+      addClass(e,c){
+        if(!_.hasClass(e,c)) e.className += `${c}`
         return e;
       },
       /**Remove a class name from this element.
@@ -433,8 +427,8 @@
        * @param {string} c
        * @return {Element} e
        */
-      removeClass(e, c){
-        if(_.hasClass(e, c))
+      removeClass(e,c){
+        if(_.hasClass(e,c))
           e.className= e.className.replace(new RegExp(`(\\s|^)${c}(\\s|$)`), "");
         return e;
       },
@@ -455,9 +449,9 @@
        */
       defMixin(name,body){
         if(_.has(_mixins,name))
-          throw `Error: mixin: "${name}" already defined.`;
+          throw `MixinError: "${name}" already defined.`;
         _.assert(is.fun(body),"mixin must be a function");
-        _.assoc(_mixins,name, body);
+        _.assoc(_mixins, name, body);
       },
       /**Add these mixins to the sprite.
        * @memberof module:mojoh5/Mojo
@@ -496,7 +490,14 @@
        * @memberof module:mojoh5/Mojo
        * @param {function} cb
        */
-      stageCS(cb){ Mojo.stage.children.forEach(cb) },
+      stageCS(cb){
+        Mojo.stage.children.forEach(s=>{
+          if(s instanceof Mojo.Scenes.SceneWrapper){
+            s=s.children[0]
+          }
+          cb(s)
+        })
+      },
       /**Check if viewport is in portrait mode.
        * @memberof module:mojoh5/Mojo
        * @return {boolean}
@@ -532,8 +533,8 @@
       mockStage(px=0,py=0,width=undefined,height=undefined){
         let self=is.obj(px)?px
                            :{x:px, y:py,
-                             width: _.or(width,Mojo.width),
-                             height: _.or(height,Mojo.height)};
+                             width: _.nor(width,Mojo.width),
+                             height: _.nor(height,Mojo.height)};
         self.getGlobalPosition=()=>{ return {x: this.x, y: this.y} };
         self.anchor=Mojo.makeAnchor(0,0);
         self.m5={stage:true};
@@ -550,7 +551,7 @@
        */
       getIndex(x, y, cellW, cellH, widthInCols){
         if(x<0 || y<0)
-          throw `Error: ${x},${y}, values must be positive`;
+          throw `IndexError: ${x},${y}, values must be positive`;
         return MFL(x/cellW) + MFL(y/cellH) * widthInCols
       },
       /**Create a Texture from this image.
@@ -558,7 +559,9 @@
        * @param {any} x
        * @return {Texture}
        */
-      textureFromImage(x){ return Mojo.PXTexture.from(x) },
+      textureFromImage(x){
+        return Mojo.PXTexture.from(this.assetPath(x))
+      },
       /**Create a AnimatedSprite from these frames/images.
        * @memberof module:mojoh5/Mojo
        * @param {any[]} x
@@ -567,16 +570,11 @@
       animFromVec(x){
         _.assert(is.vec(x),"bad arg to animFromVec");
         if(is.str(x[0])){
-          if(this.tcached(x[0])){
-            x= x.map(s=> this.tcached(s));
-          }else{
-            x=x.map(s=> this.assetPath(s));
-            return this.PXASprite.fromImages(x);
-          }
+          x=this.tcached(x[0])?x.map(s=> this.tcached(s))
+                               :x.map(s=> this.assetPath(s))
         }
-        _.assert(_.inst(Mojo.PXTexture,x[0]),
-                 "call to animFromVec: bad arg");
-        return new this.PXASprite(x);
+        return _.inst(Mojo.PXTexture,x[0])? new this.PXASprite(x)
+                                          : this.PXASprite.fromImages(x)
       },
       /**Get a cached Texture.
        * @memberof module:mojoh5/Mojo
@@ -618,25 +616,28 @@
        * @param {string} frame
        * @return {Texture}
        */
-      id(frame){ return Mojo.image(frame) },
+      id(frame){ return this.image(frame) },
       /**Get the cached Texture.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {Texture}
        */
-      image(n){ return this.tcached(n) || _.assert(false, `${n} not loaded.`) },
+      image(n){ return this.tcached(n) ||
+                       _.assert(false, `AssetError: ${n} not loaded.`) },
       /**Get the cached XML file.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {object}
        */
-      xml(n){ return (Mojo.assets[n] || _.assert(false, `${n} not loaded.`)).data },
+      xml(n){ return (this.assets[n] ||
+                      _.assert(false, `AssetError: ${n} not loaded.`)).data },
       /**Get the cached JSON file.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {object}
        */
-      json(n){ return (Mojo.assets[n] || _.assert(false, `${n} not loaded.`)).data },
+      json(n){ return (this.assets[n] ||
+                       _.assert(false, `AssetError: ${n} not loaded.`)).data },
       /**Get the relative path for this file.
        * @memberof module:mojoh5/Mojo
        * @param {string} name
@@ -648,13 +649,13 @@
             ext= _.fileExt(fname);
         //if(ext) ext=ext.substring(1);
         if(_.has(IMAGE_EXTS,ext)){
-          pfx="images";
+          pfx="images"
         }else if(_.has(FONT_EXTS,ext)){
-          pfx="fonts";
+          pfx="fonts"
         }else if(_.has(AUDIO_EXTS,ext)){
-          pfx="audio";
+          pfx="audio"
         }
-        return `${pfx}/${fname}`;
+        return `${pfx}/${fname}`
       },
       /**Get the scale factor for this maximized viewport.
        * @memberof module:mojoh5/Mojo
@@ -663,7 +664,8 @@
       contentScaleFactor(){
         _ScrSize.height=Mojo.height;
         _ScrSize.width=Mojo.width;
-        return cmdArg.scaleToWindow!=="max" ? _Size11 : Mojo.scaleSZ(Mojo.designSize,_ScrSize)
+        return cmdArg.scaleToWindow!=="max"?_Size11
+                                           :this.scaleSZ(this.designSize,_ScrSize)
       },
       /**Get the minimum scale factor for this maximized viewport.
        * @memberof module:mojoh5/Mojo
@@ -671,11 +673,11 @@
        */
       getScaleFactor(){
         if(cmdArg.scaleToWindow!=="max"){
-          return 1;
+          return 1
         }else{
           _ScrSize.height=Mojo.height;
           _ScrSize.width=Mojo.width;
-          let z=Mojo.scaleSZ(Mojo.designSize,_ScrSize);
+          let z=this.scaleSZ(this.designSize,_ScrSize);
           return Math.min(z.width,z.height);
         }
       },
@@ -686,8 +688,8 @@
        * @return {any}
        */
       resource(x,panic){
-        let t= x ? (this.assets[x] || this.assets[Mojo.assetPath(x)]) : null;
-        return t || (panic ? _.assert(false, `Error: no such resource ${x}.`) : undefined)
+        let t= x ? (this.assets[x] || this.assets[this.assetPath(x)]) : null;
+        return t || (panic ? _.assert(false, `AssetError: no such resource ${x}.`) : undefined)
       }
     };
 
@@ -697,9 +699,8 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only!"
+    throw "Panic: browser only!"
   }else{
-    //window.addEventListener("load", ()=> console.log("MojoH5 loaded!"));
     return gscope.MojoH5=function(arg){ return _module(arg, [], []) }
   }
 

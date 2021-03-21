@@ -32,8 +32,7 @@
 
     //0,12
     function Player(scene,p,ts,ps,o){
-      Mojo.addMixin(p,"platformer");
-      Mojo.addMixin(p,"2d");
+      Mojo.addMixin(p,"2d",true);
       p.m5.type=E_PLAYER;
       p.m5.cmask=E_TOWER;
       p.m5.uuid="player";
@@ -41,7 +40,6 @@
       _S.gravityXY(p,null,200);
       p.m5.tick=(dt)=>{
         p["2d"].onTick(dt);
-        p["platformer"].onTick(dt);
       };
       return p;
     }

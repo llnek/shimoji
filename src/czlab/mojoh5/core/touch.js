@@ -16,9 +16,9 @@
 
   "use strict";
 
-  /**Create the module.
-   */
+  /**Create the module. */
   function _module(Mojo){
+
     const {is,ute:_}=Mojo,
           P8=Math.PI/8;
 
@@ -249,7 +249,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only"
+    throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Touch"]=function(M){
       return M.Touch ? M.Touch : _module(M)

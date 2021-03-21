@@ -16,8 +16,7 @@
 
   "use strict";
 
-  /**Create the module.
-   */
+  /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
     const _M=gscope["io/czlab/mcfud/math"]();
     const {ute:_, is,EventBus}=Mojo;
@@ -695,7 +694,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only"
+    throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/FX"]=function(M){
       return M.FX ? M.FX : _module(M, [], [])

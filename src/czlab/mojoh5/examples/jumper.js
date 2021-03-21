@@ -81,18 +81,16 @@
       p.y= -180*K;
       _S.centerAnchor(p);
       scene.insert(p,true);
-      Mojo.addMixin(p,"2d");
-      Mojo.addMixin(p,"platformer");
+      Mojo.addMixin(p,"2d",true);
       _S.gravityXY(p,null,200 * K);
       p.m5.speed=200 * K;
-      p["platformer"].jumpSpeed *= K;
+      p["2d"].platformer.jumpSpeed *= K;
       p.m5.tick=function(dt){
         if(p.y > scene.b5.y+scene.b5.height*3*K){
           _S.remove(p);
           _Z.runScene("endGame",{msg: "You Fell!"});
         }else{
           p["2d"].onTick(dt);
-          p["platformer"].onTick(dt);
         }
       };
       return p;

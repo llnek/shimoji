@@ -16,9 +16,7 @@
 
   "use strict";
 
-
-  /**Create the module.
-   */
+  /**Create the module. */
   function _module(Mojo){
 
     const _DIRS = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
@@ -157,9 +155,9 @@
         let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
             ps=gtileProps[gid],
             cz=ps && ps["Class"],
-            cFunc=cz && objFactory[cz],
             cols=tsi.columns,
-            _id=gid - tsi.firstgid;
+            _id=gid - tsi.firstgid,
+            cFunc=cz && objFactory[cz];
         _.assertNot(_id<0, `Bad tile id: ${_id}`);
         if(!is.num(cols))
           cols=MFL(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
@@ -191,8 +189,6 @@
         }
         s.x=mapcol*NW;
         s.y=maprow*NH;
-        //s.x= mapcol * s.width;
-        //s.y= maprow * s.height;
         return s;
       }
       const F={
@@ -450,13 +446,6 @@
             th=this.tiled.tileH,
             tiles=this.tiled.collision,
             box=_.feq0(obj.rotation)?_S.getBBox(obj):_S.boundingBox(obj);
-            //bw=box.x2-box.x1,
-            //bh=box.y2-box.y1;
-        //for camera
-        //box.x1 += obj.parent.x;
-        //box.y1 += obj.parent.y;
-        //box.x2 = box.x1+bw;
-        //box.y2 = box.y1+bh;
         let sX = Math.max(0,MFL(box.x1 / tw));
         let sY = Math.max(0,MFL(box.y1 / th));
         let eX =  Math.min(this.tiled.tilesInX-1,CEIL(box.x2 / tw));
@@ -474,12 +463,8 @@
             if(ps){
               B.m5.sensor= !!ps.sensor;
             }
-            if(ps && ps["NonTile"]){
-              //special object, do nothing
-            }else{
-              if(Mojo["2d"].hit(obj,B)){
-                let i=0;
-              }
+            if(Mojo["2d"].hit(obj,B)){
+              let i=0;
             }
           }
         }
@@ -629,24 +614,6 @@
         }
         return new Grid2D(out);
       },
-      /**Converts a tile's index number into x/y screen
-       * coordinates, and capture's the tile's grid index (`gid`) number.
-       * @memberof module:mojoh5/Tiles
-       * @param {number} index
-       * @param {number[]} gidList
-       * @param {object} world
-       * @return {Sprite} a tile object
-       */
-      XXgetTile(index, gidList, world){
-        const t=world.tiled;
-        return Mojo.Sprites.extend({gid: gidList[index],
-                                    width: t.tileW,
-                                    height: t.tileH,
-                                    anchor: Mojo.makeAnchor(0,0),
-                                    x:((index%t.tilesInX)*t.tileW)+world.x,
-                                    y:((MFL(index/t.tilesInX))*t.tileH)+world.y,
-                                    getGlobalPosition(){ return {x: this.x, y: this.y } } })
-      },
       /**Get the indices of the neighbor cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -698,19 +665,12 @@
         let _mapper=(s)=>{
           let pos= this.getTileIndex(Mojo.Sprites.centerXY(s),world);
           _.assert(pos >= 0 && pos < ret.length, "tiled index outofbound");
-          s.tiled.____index = pos;
-          ret[pos] = s.tiled.____gid;
+          s.tiled.index = pos;
+          ret[pos] = s.tiled.gid;
         };
         !is.vec(sprites) ? _mapper(sprites)
                          : sprites.forEach(_mapper);
         return ret;
-      },
-      /**Check to ensure tiled map is valid.
-       * @memberof module:mojoh5/Tiles
-       * @param {string} json
-       * @return {object} exception if error
-       */
-      collide(world,obj){
       },
       /**A-Star search.
        * @memberof module:mojoh5/Tiles
@@ -956,7 +916,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module==="object" && module.exports){
-    throw "Fatal: browser only"
+    throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Tiles"]=function(M){
       return M.Tiles ? M.Tiles : _module(M)

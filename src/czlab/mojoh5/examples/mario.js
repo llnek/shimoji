@@ -166,10 +166,9 @@
       p.m5.speed= 300;
       p.m5.score= 0;
       _S.centerAnchor(p);
-      Mojo.addMixin(p,"platformer");
-      Mojo.addMixin(p,"2d");
+      Mojo.addMixin(p,"2d",true);
       p.m5.showFrame(1);
-      p.platformer.jumpSpeed= -500;
+      p["2d"].platformer.jumpSpeed= -500;
       p.m5.direction= Mojo.RIGHT;
 
       let leftArrow = _I.keybd(_I.keyLEFT, ()=>{
@@ -227,7 +226,6 @@
 
       p.m5.tick=function(dt){
         p["2d"].onTick(dt);
-        p["platformer"].onTick(dt);
         if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
           //if(_.feq0(p.m5.vel[0]) && _.feq0(p.m5.vel[1]))
           if(!_I.keyDown(_I.keyDOWN))
