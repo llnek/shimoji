@@ -16,6 +16,7 @@
 
   "use strict";
 
+  const MFL=Math.floor;
   const E_PLAYER=1;
   const E_BLOCK=2;
   const E_TOWER=4;
@@ -27,7 +28,6 @@
            "2d":_2d,
            Game:G,
            ute:_,is,EventBus}=Mojo;
-    const MFL=Math.floor;
 
     function Block(x,xoff,y,yoff,width,height,points){
       let K=Mojo.getScaleFactor();

@@ -22,8 +22,7 @@
   const AUDIO_EXTS= ["mp3", "wav", "ogg"];
   const IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"];
 
-  /**Create the module.
-   */
+  /**Create the module. */
   function _module(cmdArg, _fonts, _spans){
 
     //import mcfud's core module
@@ -35,7 +34,7 @@
      * @module mojoh5/Mojo
      */
 
-
+    /**Main Stage class, holds scenes or scene-wrappers. */
     class PixiStage extends PIXI.Container{
       constructor(){
         super();
@@ -44,6 +43,7 @@
       onResize(old){
         this.children.forEach(s=>{
           if(s instanceof Mojo.Scenes.SceneWrapper){
+            //only 1 child - should be the scene
             s=s.children[0]
           }
           s.onCanvasResize(old);
@@ -68,38 +68,47 @@
     /**Built-in progress bar, shown during the loading of
      * assets if no user-defined load function is provided.
      */
-    function _PBar(Mojo,f,p,handle){
+    function _PBar(Mojo){
       const {Sprites}=Mojo;
-      if(!handle){
-        //first time call
-        const cy= MFL(Mojo.height/2);
-        const cx= MFL(Mojo.width/2);
-        const w4= MFL(Mojo.width/4);
-        const RH=24;
-        const Y=cy-RH/2;
-        const bgColor=0x404040;
-        const fgColor=0xff8a00;
-        //make a progress bar
-        handle={
-          dispose(){ Sprites.remove(this.fg,this.bg,this.perc) },
-          width:w4*2,
-          fg:Sprites.rectangle(cx, RH, fgColor),
-          bg:Sprites.rectangle(cx, RH, bgColor),
-          perc:Sprites.text("0%", {fontSize:MFL(RH/2),
-                                   fill:"black",
-                                   fontFamily:"sans-serif"})
-        };
-        Sprites.add(Mojo.stage,handle.bg,handle.fg,handle.perc);
-        Sprites.setXY(handle.bg, cx-w4, Y);
-        Sprites.setXY(handle.fg, cx-w4, Y);
-        Sprites.setXY(handle.perc, cx-w4+10,  MFL(cy-handle.perc.height/2));
-      }else{
-        //update the progress
-        handle.fg.width = handle.width*(p/100);
-        handle.perc.text=`${Math.round(p)}%`;
-        CON.log(`file= ${f}, progr= ${p}`);
-      }
-      return handle;
+      const cy= MFL(Mojo.height/2);
+      const cx= MFL(Mojo.width/2);
+      const w4= MFL(Mojo.width/4);
+      const WIDTH=w4*2;
+      const RH=24;
+      const Y=cy-RH/2;
+      const bgColor=0x404040;
+      const fgColor=0xff8a00;
+      return {
+        init(){
+          this.fg=Sprites.rectangle(cx, RH, fgColor);
+          this.bg=Sprites.rectangle(cx, RH, bgColor);
+          this.perc=Sprites.text("0%", {fontSize:MFL(RH/2),
+                                        fill:"black",
+                                        fontFamily:"sans-serif"});
+          Sprites.setXY(this.bg, cx-w4, Y);
+          Sprites.setXY(this.fg, cx-w4, Y);
+          Sprites.setXY(this.perc, cx-w4+10,  MFL(cy-this.perc.height/2));
+          this.insert(this.bg);
+          this.insert(this.fg);
+          this.insert(this.perc);
+        },
+        update(file,progress){
+          this.fg.width = WIDTH*(progress/100);
+          this.perc.text=`${Math.round(progress)}%`;
+          CON.log(`file= ${file}, progr= ${progress}`);
+        }
+      };
+    }
+
+    function _makeLoadingScene(obj){
+      const z= new Mojo.Scenes.Scene("loader",{
+        setup(){
+          obj.init.call(this)
+        }
+      },{});
+      Mojo.stage.addChild(z);
+      z.runOnce();
+      return z;
     }
 
     /**Scale canvas to max via CSS. */
@@ -139,16 +148,21 @@
     /**Once all the files are loaded, do some post processing,
      * mainly to deal with sound files.
      */
-    function _postAssetLoad(Mojo,ldrObj,handle){
+    function _postAssetLoad(Mojo,ldrObj,scene){
       const {Sound} = Mojo;
       //clean up stuff used during load
       function _finz(){
         _spans.forEach(e=> dom.css(e,"display","none"));
-        Mojo.delBgTask(ldrObj);
-        handle &&
-          handle.dispose && handle.dispose();
-        //run the user start function
-        Mojo.u.start(Mojo);
+        if(ldrObj){
+          Mojo.delBgTask(ldrObj);
+          _.delay(100,()=>{
+            scene.dispose();
+            scene.parent.removeChild(scene);
+            Mojo.u.start(Mojo)
+          });
+        }else{
+          Mojo.u.start(Mojo)
+        }
       }
       let s, ext, fcnt=0;
       function _minus1(){ --fcnt===0 && _finz() }
@@ -191,10 +205,10 @@
       });
       PXLoader.reset();
       if(filesWanted.length>0){
-        let handle,
-            fs=[],
+        let fs=[],
             pg=[],
-            cb= Mojo.u.load || _PBar;
+            cbObj=(Mojo.u.load || _PBar)(Mojo);
+        let scene=_makeLoadingScene(cbObj);
         PXLoader.add(filesWanted);
         PXLoader.onProgress.add((ld,r)=>{
           fs.unshift(r.url);
@@ -206,8 +220,8 @@
             let f= fs.pop();
             let n= pg.pop();
             if(f && is.num(n))
-              handle=cb(Mojo,f,n,handle);
-            n===100 && _postAssetLoad(Mojo,this,handle);
+              cbObj.update.call(scene,f,n);
+            n===100 && _postAssetLoad(Mojo,this,scene);
           }
         });
       }else{
