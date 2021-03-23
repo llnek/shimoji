@@ -34,9 +34,113 @@
     _G.bullets=[];
     _G.astros=[];
     _G.RANK1=3;
-    _G.RANK2=4;
-    _G.RANK3=5;
+    _G.RANK2=3;
+    _G.RANK3=6;
     _G.STARS=500;
+
+    function outline(radius,verts=64){
+      let out=[];
+      for(let noise,i=0; i<verts; ++i){
+        noise = radius * (_.rand() * 0.2 + 0.9);
+        out.push(new PIXI.Point(noise * Math.sin(i/verts * 6.28318),
+                                noise * Math.cos(i/verts * 6.28318)));
+      }
+      return out;
+    }
+
+    function XXXmakeAstro(x,y){
+      let white=Mojo.Sprites.color("white");
+      let P2=Math.PI*2;
+      let out=[];
+      let radius=100;
+      let max=20;
+      let len,px,py,angle=0;
+      while(angle < P2){
+        len= (0.75 + _.rand()*0.25) * radius;
+        px  = Math.cos(angle) * len;
+        py  = Math.sin(angle) * len;
+        out.push([px,py]);
+        angle += _.rand() * 0.5;
+        if(--max<0){break;}
+      }
+      let verts=out.length;
+      let s= Mojo.Sprites.drawBody((gfx)=>{
+        gfx.lineStyle(4, white, 1);
+        for(let j,i=0; i<=verts; ++i){
+          j = i+1;
+          gfx.moveTo(out[i%verts][0], out[i% verts][1]);
+          gfx.lineTo(out[j % verts][0], out[j % verts][1]);
+        }
+      });
+      //_S.scaleXY(s,5,5);
+      s.x=x;
+      s.y=y;
+      return s;
+    }
+
+    function XXXmakeAstro(x,y){
+      let angle = _.rand()*2*Math.PI,
+          numPoints = 7 + Math.floor(_.rand()*5),
+          minX = 0, maxX = 0,
+          minY = 0, maxY = 0,
+          curX, curY;
+      let startAmount = 60;
+      let out=[];
+      let white=Mojo.Sprites.color("white");
+
+      for(let i = 0;i < numPoints;++i){
+        curX = Math.floor(Math.cos(angle)*startAmount);
+        curY = Math.floor(Math.sin(angle)*startAmount);
+        if(curX < minX) minX = curX;
+        if(curX > maxX) maxX = curX;
+        if(curY < minY) minY = curY;
+        if(curY > maxY) maxY = curY;
+        out.push([curX,curY]);
+        startAmount += Math.floor(_.rand()*3);
+        angle += (Math.PI * 2) / (numPoints+1);
+      }
+      maxX += 30;
+      minX -= 30;
+      maxY += 30;
+      minY -= 30;
+      let w = maxX - minX;
+      let h = maxY - minY;
+      for(let i = 0;i < numPoints;++i){
+        out[i][0] -= minX + w/2;
+        out[i][1] -= minY + h/2;
+      }
+      let verts=out.length;
+      let s= Mojo.Sprites.drawBody((gfx)=>{
+        gfx.lineStyle(4, white, 1);
+        for(let j,i=0; i<=verts; ++i){
+          j = i+1;
+          gfx.moveTo(out[i%verts][0], out[i% verts][1]);
+          gfx.lineTo(out[j % verts][0], out[j % verts][1]);
+        }
+      });
+      //_S.scaleXY(s,5,5);
+      s.x=x;
+      s.y=y;
+      return s;
+    }
+
+    function makeAstro(x,y){
+      let white=Mojo.Sprites.color("white");
+      let ps= outline(16);
+      let verts=ps.length;
+      let s= Mojo.Sprites.drawBody((gfx)=>{
+        gfx.lineStyle(1, white, 1);
+        for(let j,i=0; i<=verts; ++i){
+          j = i+1;
+          gfx.moveTo(ps[i%verts].x, ps[i% verts].y);
+          gfx.lineTo(ps[j % verts].x, ps[j % verts].y);
+        }
+      });
+      _S.scaleXY(s,5,5);
+      s.x=x;
+      s.y=y;
+      return s;
+    }
 
     _Z.defScene("bg",{
       setup(){
@@ -71,7 +175,7 @@
       //486,462
       //780,540
       _S.centerAnchor(a);
-      _S.scaleXY(a,0.2*K,0.2*K);
+      _S.scaleXY(a,0.1*K,0.1*K);
       a.m5.type=E_ASTRO;
       a.m5.circular=true;
       a.m5.cmask=E_SHIP|E_BULLET;
@@ -81,14 +185,14 @@
           a.m5.speed=10*K;
           break;
         case 2:
-          a.scale.x *= 0.45*K;
-          a.scale.y *= 0.45*K;
+          a.scale.x *= 0.25*K;
+          a.scale.y *= 0.25*K;
           a.m5.rank=2;
           a.m5.speed=15*K;
           break;
         case 3:
-          a.scale.x *= 0.25*K;
-          a.scale.y *= 0.25*K;
+          a.scale.x *= 0.1*K;
+          a.scale.y *= 0.1*K;
           a.m5.rank=3;
           a.m5.speed=20*K;
           break;
@@ -117,12 +221,13 @@
         for(let g,x,i=0;i<len;++i){
           x=_mkAstro(scene,t);
           g= 120*i + _.rand() * 120;
-          _S.velXY(x,Math.cos(g)*x.m5.speed,
-                     Math.sin(g)*x.m5.speed);
+          _S.velXY(x,Math.cos(g)*x.m5.speed*_.randSign(),
+                     Math.sin(g)*x.m5.speed*_.randSign());
           _S.setXY(x,X,Y);
           scene.insert(x,true);
         }
         _.disj(_G.astros,a);
+        a.visible=false;
         scene.queueForRemoval(a);
       }
       a.g.onHit=(col)=>{
@@ -132,6 +237,7 @@
       };
       EventBus.sub(["hit",a],"onHit",a.g);
       _G.astros.push(a);
+      a.tint=_S.color("orange");
       return a;
     }
 
@@ -144,6 +250,7 @@
       s.scale.x *= 0.07*K;
       s.scale.y *= 0.07*K;
       s.m5.type=E_SHIP;
+      s.tint=_S.color("red");
       s.angle= 0;
       _G.omega=0;
       _G.maxOmega= 400;
@@ -160,6 +267,7 @@
         b.scale.x *= 0.3*K;
         b.scale.y *= 0.5*K;
         b.m5.type=E_BULLET;
+        b.tint=_S.color("yellow");
         b.angle=s.angle;
         _S.setXY(b,x,y);
         _S.velXY(b,5*C*K,5*S*K);

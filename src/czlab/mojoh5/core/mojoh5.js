@@ -101,6 +101,36 @@
       };
     }
 
+    function _LogoBar(Mojo){
+      const {Sprites}=Mojo;
+      return {
+        init(){
+          let pbar=Sprites.sprite("boot/preloader_bar.png");
+          let logo=Sprites.sprite("boot/ZotohLab_x1240.png");
+          let [w,h]=Mojo.scaleXY([logo.width,logo.height],
+                                 [Mojo.width,Mojo.height]);
+          let K= w>h?h:w;
+          K *= 0.2;
+          pbar.scale.x=K;
+          pbar.scale.y=K;
+          logo.scale.x=K;
+          logo.scale.y=K;
+          Sprites.pinCenter(this,logo);
+          Sprites.pinBottom(logo,pbar,4);
+          pbar.visible=false;
+          this.g.pbar=pbar;
+          this.g.pbar_width=pbar.width;
+          this.insert(logo);
+          this.insert(pbar);
+        },
+        update(file,progress){
+          if(!this.g.pbar.visible){
+            this.g.pbar.visible=true
+          }
+          this.g.pbar.width = this.g.pbar_width*(progress/100);
+        }
+      };
+    }
     function _makeLoadingScene(obj){
       const z= new Mojo.Scenes.Scene("loader",{
         setup(){
@@ -208,7 +238,7 @@
       if(filesWanted.length>0){
         let fs=[],
             pg=[],
-            cbObj=(Mojo.u.load || _PBar)(Mojo);
+            cbObj=(Mojo.u.load || _LogoBar || _PBar)(Mojo);
         let scene=_makeLoadingScene(cbObj);
         PXLoader.add(filesWanted);
         PXLoader.onProgress.add((ld,r)=>{
@@ -232,6 +262,20 @@
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       return Mojo.start(); // starting the game loop
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    }
+
+    function _boot(Mojo){
+      let files=["boot/preloader_bar.png",
+                 "boot/ZotohLab_x1240.png"].map(f=> Mojo.assetPath(f));
+      const {PXLoader}= Mojo;
+      PXLoader.reset();
+      PXLoader.add(files);
+      PXLoader.onProgress.add((ld,r)=>{ });
+      PXLoader.load(()=>{
+        _.delay(0,()=>_loadFiles(Mojo));
+        CON.log("logo files loaded!");
+      });
+      return Mojo;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -306,7 +350,7 @@
         EventBus.sub(["canvas.resize"], old=> S.onResize(Mojo,old))
       }
 
-      return _loadFiles(Mojo) && Mojo;
+      return _boot(Mojo);
     }
 
     /** @ignore */
