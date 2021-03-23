@@ -88,8 +88,9 @@
        * @memberof module:mojoh5/Input
        */
       resize(){
-        this.ptr && this.ptr.dispose();
-        Mojo.mouse= this.pointer(Mojo.canvas, Mojo.scale);
+        if(this.ptr)
+          this.ptr.dispose();
+        Mojo.mouse= this.pointer();
       },
       /**Clear all keyboard states.
        * @memberof module:mojoh5/Input
@@ -360,9 +361,6 @@
         return this.ptr=ptr;
       }
     };
-
-    //handle resize
-    EventBus.sub(["canvas.resize"], "resize",_$);
 
     //keep tracks of keyboard presses
     _.addEvent([["keyup", window, _uh, false],

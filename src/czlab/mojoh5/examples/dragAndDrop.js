@@ -43,7 +43,7 @@
     MojoH5({
       assetFiles: ["images/animals.json"],
       arena: {width:640, height:640},
-      scaleToWindow: "max",
+      scaleToWindow:true,
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

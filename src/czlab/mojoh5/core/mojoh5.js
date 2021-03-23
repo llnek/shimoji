@@ -40,14 +40,15 @@
         super();
         this.m5={ stage:true }
       }
-      onResize(old){
+      onResize(Mojo, old){
         this.children.forEach(s=>{
           if(s instanceof Mojo.Scenes.SceneWrapper){
             //only 1 child - should be the scene
             s=s.children[0]
           }
           s.onCanvasResize(old);
-        })
+        });
+        Mojo.Input.resize();
       }
     }
 
@@ -234,7 +235,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const _CT="* {padding: 0; margin: 0}";
+    const _CT="body, * {padding: 0; margin: 0}";
     const _ScrSize={width:0,height:0};
     const _Size11={width:1,height:1};
 
@@ -258,6 +259,7 @@
       let {EventBus}= Mojo;
       let box= cmdArg.arena;
       let S= Mojo.stage= new PixiStage();
+
       if(cmdArg.scaleToWindow=="max"){
         maxed=true;
         box= {width: _width(),
@@ -269,25 +271,31 @@
           cmdArg.scaleToWindow="win";
         }
       }
+
+      Mojo.touchDevice= !!("ontouchstart" in document);
       Mojo.ctx= PIXI.autoDetectRenderer(box);
       Mojo.ctx.bgColor = 0xFFFFFF;
       Mojo.canvas = Mojo.ctx.view;
       Mojo.canvas.id="mojo";
       Mojo.maxed=maxed;
+      Mojo.scale=1;
+      Mojo.frame=1/cmdArg.fps;
+      Mojo.scaledBgColor= "#323232";
+
       //install modules
       _.seq("Sprites,Input,Touch,Scenes,Sound").forEach(_runM);
-      _.seq("FX,2d,Tiles,GameLoop").forEach(_runM);
-      if(cmdArg.border !== undefined)
-        dom.css(Mojo.canvas, "border", cmdArg.border);
-      if(cmdArg.bgColor !== undefined)
-        Mojo.ctx.bgColor = Mojo["Sprites"].color(cmdArg.bgColor);
+      _.seq("FX,2d,Tiles,Misc,GameLoop").forEach(_runM);
+
+      //css
       dom.conj(document.body, Mojo.canvas);
-      Mojo.scaledBgColor= cmdArg.scaledBgColor || "#323232";
-      Mojo.touchDevice= !!("ontouchstart" in document);
       _configCSS();
-      Mojo.scale= cmdArg.scaleToWindow===true?_scaleCanvas(Mojo.canvas):1;
-      Mojo.mouse= Mojo["Input"].pointer(Mojo.canvas, Mojo.scale);
-      Mojo.frame=1/cmdArg.fps;
+
+      //if(cmdArg.border !== undefined) dom.css(Mojo.canvas, "border", cmdArg.border);
+      //if(cmdArg.bgColor !== undefined) Mojo.ctx.bgColor = Sprites.color(cmdArg.bgColor);
+      if(cmdArg.scaleToWindow===true)
+        Mojo.scale=_scaleCanvas(Mojo.canvas);
+      Mojo.mouse= Mojo.Input.pointer();
+
       if(cmdArg.resize === true){
         _.addEvent("resize", gscope, _.debounce(()=>{
           //save the current size and tell others
@@ -295,8 +303,9 @@
           Mojo.ctx.resize(_width(),_height());
           EventBus.pub(["canvas.resize"],[w,h]);
         },cmdArg.debounceRate||150));
-        EventBus.sub(["canvas.resize"], old=> S.onResize(old))
+        EventBus.sub(["canvas.resize"], old=> S.onResize(Mojo,old))
       }
+
       return _loadFiles(Mojo) && Mojo;
     }
 

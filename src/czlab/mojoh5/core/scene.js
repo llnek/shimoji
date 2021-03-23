@@ -168,6 +168,7 @@
           sid:id,
           index:{},
           queue:[],
+          garbo:[],
           stage:true,
           options,
           sgrid:SpatialGrid(options.sgridX||320,options.sgridY||320)
@@ -313,6 +314,9 @@
       searchSGrid(obj,incObj=false){
         return this.m5.sgrid.search(obj,incObj)
       }
+      queueForRemoval(obj){
+        this.m5.garbo.push(obj)
+      }
       /**
        * @param {number} dt
        */
@@ -331,6 +335,9 @@
         if(this.preUpdate) this.preUpdate(dt);
         this._tick(this.children, dt);
         if(this.postUpdate) this.postUpdate(dt);
+        //clean up
+        this.m5.garbo.forEach(o=>this.remove(o));
+        this.m5.garbo.length=0;
       }
       /**Initial bootstrap of this scene.
       */

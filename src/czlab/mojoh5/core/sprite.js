@@ -1335,6 +1335,36 @@
       color(value){
         return isNaN(value) ? parseInt(this.colorToHex(value)) : value
       },
+      rgba(arg){
+        _.assert(is.vec(arg),"wanted rgba array");
+        return parseInt("0x"+ [0,1,2].map(i=> this.byteToHex(arg[i])).join(""))
+      },
+      //copied from https://github.com/less/less.js
+      hsla(h, s, l, a){
+        function c1(v) { return Math.min(1, Math.max(0, v)) }
+        function hue(h){
+            h = h < 0 ? h + 1 : (h > 1 ? h - 1 : h);
+            if (h * 6 < 1) {
+                return m1_1 + (m2_1 - m1_1) * h * 6;
+            }
+            else if (h * 2 < 1) {
+                return m2_1;
+            }
+            else if (h * 3 < 2) {
+                return m1_1 + (m2_1 - m1_1) * (2 / 3 - h) * 6;
+            }
+            else {
+                return m1_1;
+            }
+        }
+        h = h % 360 / 360;
+        s = c1(s);
+        l = c1(l);
+        a = c1(a);
+        let m2_1 = l <= 0.5 ? l * (s + 1) : l + s - l * s;
+        let m1_1 = l * 2 - m2_1;
+        return this.rgba([ hue(h + 1/3) * 255, hue(h) * 255, hue(h - 1/3) * 255, a ]);
+      },
       /** @ignore */
       resize(s,px,py,pw,ph){
         s && _.doseqEx(s.children,c=>c.m5&&c.m5.resize&&
