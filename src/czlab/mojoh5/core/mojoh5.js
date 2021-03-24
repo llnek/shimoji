@@ -52,9 +52,17 @@
       }
     }
 
+    /*
+    if(cmdArg.logoFiles &&
+       cmdArg.logoFiles.length===0){
+      delete cmdArg["logoFiles"]
+    }
+    */
+
     //////////////////////////////////////////////////////////////////////////
     //add optional defaults
     _.patch(cmdArg,{
+      logoFiles: [],
       fps: 60
     });
 
@@ -179,37 +187,40 @@
     /**Once all the files are loaded, do some post processing,
      * mainly to deal with sound files.
      */
-    function _postAssetLoad(Mojo,ldrObj,scene){
-      const {Sound} = Mojo;
+    function _postAssetLoad(Mojo,ldrObj,scene,loaded){
       //clean up stuff used during load
       function _finz(){
         _spans.forEach(e=> dom.css(e,"display","none"));
         if(ldrObj){
           Mojo.delBgTask(ldrObj);
           _.delay(100,()=>{
-            scene.dispose();
-            scene.parent.removeChild(scene);
-            Mojo.u.start(Mojo)
+            if(scene){
+              scene.dispose();
+              scene.parent.removeChild(scene);
+            }
+            loaded && Mojo.u.start(Mojo);
           });
-        }else{
+        }else if(loaded){
           Mojo.u.start(Mojo)
         }
       }
-      let s, ext, fcnt=0;
+      const {Sound} = Mojo;
+      let ext, fcnt=0;
       function _minus1(){ --fcnt===0 && _finz() }
-      _.doseq(Mojo.assets, (r,k)=>{
-        ext= _.fileExt(k);
-        if(_.has(AUDIO_EXTS,ext)){
-          fcnt +=1;
-          Sound.decodeContent(r.name, r.url, r.xhr.response, _minus1);
-        }
-      });
-      //if nothing to load, just do it
+      if(loaded)
+        _.doseq(Mojo.assets, (r,k)=>{
+          ext= _.fileExt(k);
+          if(_.has(AUDIO_EXTS,ext)){
+            fcnt +=1;
+            Sound.decodeContent(r.name, r.url, r.xhr.response, _minus1);
+          }
+        });
+
       fcnt===0 && _finz();
     }
 
     /** Fetch required files. */
-    function _loadFiles(Mojo){
+    function _loadFiles(Mojo, booted){
       let filesWanted= _.map(Mojo.u.assetFiles || [], f=> Mojo.assetPath(f));
       let ffiles= _.findFiles(filesWanted, FONT_EXTS);
       const {PXLR,PXLoader}= Mojo;
@@ -236,28 +247,45 @@
       });
       PXLoader.reset();
       if(filesWanted.length>0){
-        let fs=[],
-            pg=[],
-            cbObj=(Mojo.u.load || _LogoBar || _PBar)(Mojo);
-        let scene=_makeLoadingScene(cbObj);
-        PXLoader.add(filesWanted);
-        PXLoader.onProgress.add((ld,r)=>{
-          fs.unshift(r.url);
-          pg.unshift(ld.progress);
-        });
-        PXLoader.load(()=> CON.log("files loaded!"));
-        Mojo.addBgTask({
-          update(){
-            let f= fs.pop();
-            let n= pg.pop();
-            if(f && is.num(n))
-              cbObj.update.call(scene,f,n);
-            n===100 && _postAssetLoad(Mojo,this,scene);
-          }
-        });
+        let cbObj=Mojo.u.load;
+        if(booted){
+          if(!cbObj)
+            cbObj= _LogoBar(Mojo);
+        }else if(cbObj){
+          cbObj=null;
+          CON.log("FatalError: can't proceed.");
+        }else{
+          cbObj=_PBar(Mojo);
+        }
+        if(cbObj){
+          let ecnt=0,
+              fs=[],
+              pg=[],
+              scene=_makeLoadingScene(cbObj);
+          PXLoader.add(filesWanted);
+          PXLoader.onError.add((e,ld,r)=>{
+            ++ecnt;
+            CON.log(`${e}`);
+          });
+          PXLoader.onProgress.add((ld,r)=>{
+            fs.unshift(r.url);
+            pg.unshift(ld.progress);
+          });
+          PXLoader.load(()=>{
+            CON.log(`asset files ${ecnt>0?"not ":""}loaded!`);
+          });
+          Mojo.addBgTask({
+            update(){
+              let f= fs.pop();
+              let n= pg.pop();
+              if(f && is.num(n))
+                cbObj.update.call(scene,f,n);
+              n===100 && _postAssetLoad(Mojo,this,scene,ecnt===0);
+            }
+          });
+        }
       }else{
-        //no asset, call user start function right away
-        _postAssetLoad(Mojo);
+        _postAssetLoad(Mojo,null,null,true);
       }
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       return Mojo.start(); // starting the game loop
@@ -265,16 +293,32 @@
     }
 
     function _boot(Mojo){
-      let files=["boot/preloader_bar.png",
-                 "boot/ZotohLab_x1240.png"].map(f=> Mojo.assetPath(f));
       const {PXLoader}= Mojo;
-      PXLoader.reset();
-      PXLoader.add(files);
-      PXLoader.onProgress.add((ld,r)=>{ });
-      PXLoader.load(()=>{
-        _.delay(0,()=>_loadFiles(Mojo));
-        CON.log("logo files loaded!");
-      });
+      let ecnt=0;
+      let files;
+      if(Mojo.u.load){
+        files=Mojo.u.logoFiles||[];
+      }else{
+        //use default boot logos
+        files=Mojo.u.logoFiles=["boot/preloader_bar.png",
+                                "boot/ZotohLab_x1240.png"];
+      }
+      files= files.map(f=> Mojo.assetPath(f));
+      if(files.length===0){
+        _loadFiles(Mojo, true)
+      }else{
+        PXLoader.reset();
+        PXLoader.add(files);
+        //PXLoader.onProgress.add(Mojo.noop);
+        PXLoader.onError.add((e,ld,r)=>{
+          ++ecnt;
+          CON.log(`${e}`);
+        });
+        PXLoader.load(()=>{
+          _.delay(0,()=>_loadFiles(Mojo, ecnt===0));
+          CON.log(`logo files ${ecnt>0?"not ":""}loaded!`);
+        });
+      }
       return Mojo;
     }
 
@@ -349,6 +393,7 @@
         },cmdArg.debounceRate||150));
         EventBus.sub(["canvas.resize"], old=> S.onResize(Mojo,old))
       }
+
 
       return _boot(Mojo);
     }

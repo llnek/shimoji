@@ -1,10 +1,25 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
   window["io/czlab/tictactoe/AI"]=function(Mojo){
     const Nega= window["io/czlab/mcfud/negamax"]();
-    const _ = Mojo.u;
-    const G= Mojo.Game;
+    const {Game:_G,
+           ute:_,is,EventBus}=Mojo;
 
     class C extends Nega.GameBoard{
       constructor(p1v,p2v){
@@ -12,7 +27,7 @@
         this.actors= [0, p1v, p2v];
         this.grid=[];
         this.depth=6;
-        this.goals= G.mapGoalSpace();
+        this.goals= _G.mapGoalSpace();
       }
       isNil(cellv){
         return cellv === 0
@@ -54,9 +69,9 @@
         if(pv === this.actors[2]) return this.actors[1];
         return 0;
       }
-      takeFFrame(){
-        let ff = new Nega.FFrame(G.DIM);
-        ff.state=_.fill(new Array(G.DIM*G.DIM),0);
+      takeGFrame(){
+        let ff = new Nega.GFrame(_G.DIM);
+        ff.state=_.fill(new Array(_G.DIM*_G.DIM),0);
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
         _.copy(ff.state,this.grid);
@@ -81,7 +96,7 @@
         return this.isStalemate(snap);
       }
       isStalemate(snap){
-        return _.notAny(snap.state, 0);
+        return _.notAny(snap.state, 0)
       }
       getWinner(snap, combo){
         let win= -1;
@@ -105,7 +120,7 @@
       }
     }
 
-    G.TTToe=function(p1v,p2v){
+    _G.TTToe=function(p1v,p2v){
       return new C(p1v,p2v)
     }
   }

@@ -1147,12 +1147,14 @@
        * @param {number[][]} grid
        * @param {number} lineWidth
        * @param {number|string} lineColor
+       * @param {PIXI.Graphics} ctx
        * @return {PIXIGraphics}
        */
-      drawGridLines(sx,sy,grid,lineWidth,lineColor){
-        let ctx= new Mojo.PXGraphics(),
-            h= grid.length,
+      drawGridLines(sx,sy,grid,lineWidth,lineColor,ctx=null){
+        let h= grid.length,
             w= grid[0].length;
+        if(!ctx)
+          ctx= new Mojo.PXGraphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
         for(let r,y=1;y<h;++y){
           r=grid[y];

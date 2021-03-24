@@ -207,7 +207,7 @@
         _repos(a);
         a.angle += twist*0.2*K;
       }
-      a.g.explode=()=>{
+      a.g.explode=(B)=>{
         let t= a.m5.rank===1?2:(a.m5.rank===2?3:0);
         let len=0;
         let X=a.x;
@@ -221,6 +221,7 @@
         for(let g,x,i=0;i<len;++i){
           x=_mkAstro(scene,t);
           g= 120*i + _.rand() * 120;
+          g=B.angle + 360/((i+1)*90);
           _S.velXY(x,Math.cos(g)*x.m5.speed*_.randSign(),
                      Math.sin(g)*x.m5.speed*_.randSign());
           _S.setXY(x,X,Y);
@@ -232,7 +233,7 @@
       }
       a.g.onHit=(col)=>{
         if(col.B.m5.type===E_BULLET){
-          a.g.explode();
+          a.g.explode(col.B);
         }
       };
       EventBus.sub(["hit",a],"onHit",a.g);

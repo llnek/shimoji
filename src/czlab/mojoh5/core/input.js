@@ -330,6 +330,8 @@
           },
           reset(){
             _.setVec(ptr.state,false,true,false);
+            Buttons.length=0;
+            DragDrops.length=0;
             //ptr.pressed=false; ptr.tapped=false; ptr.isDown=false; ptr.isUp=true;
           },
           hitTest(s){
@@ -340,6 +342,7 @@
             return Geo.hitTestPointInPolygon(ptr.x,ptr.y,ps);
           },
           dispose(){
+            ptr.reset();
             _.delEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
                         ["mousedown", Mojo.canvas,ptr.mouseDown],
                         ["mouseup", window, ptr.mouseUp],

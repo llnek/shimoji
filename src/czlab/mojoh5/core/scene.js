@@ -472,12 +472,12 @@
       },
       /**Replace the current scene with this one.
        * @memberof module:mojoh5/Scenes
-       * @param {string} cur
+       * @param {string|Scene} cur
        * @param {string} name
        * @param {object} [options]
        */
       replaceScene(cur,name,options){
-        const c= Mojo.stage.getChildByName(_sceneid(cur));
+        const c= Mojo.stage.getChildByName(_sceneid(is.str(cur)?cur:cur.name));
         if(!c)
           throw `Fatal: no such scene: ${cur}`;
         return this.runScene(name, Mojo.stage.getChildIndex(c),options);
@@ -501,6 +501,7 @@
       removeScenes(){
         while(Mojo.stage.children.length>0)
           _killScene(Mojo.stage.children[Mojo.stage.children.length-1])
+        Mojo.mouse.reset();
       },
       /**Find this scene.
        * @memberof module:mojoh5/Scenes
@@ -509,6 +510,17 @@
        */
       findScene(name){
         return Mojo.stage.getChildByName(_sceneid(name))
+      },
+      /**Remove all scenes first then run this scene.
+       * @memberof module:mojoh5/Scenes
+       * @param {string} name
+       * @param {number} num
+       * @param {object} [options]
+       * @return {Scene}
+       */
+      runSceneEx(name,num,options){
+        this.removeScenes();
+        this.runScene(name,num,options);
       },
       /**Run this scene.
        * @memberof module:mojoh5/Scenes
