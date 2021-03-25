@@ -1,44 +1,76 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
   function scenes(Mojo){
-    let _=Mojo.u, is=Mojo.is;
-    let _Z=Mojo.Scenes;
-    let _S=Mojo.Sprites;
-    let _T=Mojo.Effects;
-    let _I=Mojo.Input;
-    let _G=Mojo.Game;
-    let _2d= Mojo["2d"];
+
+    window["io.czlab.tetris.models"](Mojo);
+    window["io.czlab.tetris.logic"](Mojo);
+
+    const MFL=Math.floor;
+    const {Scenes:_Z,
+           Sprites:_S,
+           FX:_T,
+           Input:_I,
+           Game:_G,
+           "2d":_2d,
+           ute:_, is, EventBus}=Mojo;
+
+    _G.score=0;
 
     _Z.defScene("Bg",{
       setup(){
       }
     });
 
-    _Z.defScene("PlayGame", {
-      markGrid(){
+    _Z.defScene("PlayGame",{
+      _initLevel(){
+        let K= Mojo.height/Mojo.designSize.height;
         let b=_S.sprite("0.png");
-        let H=Mojo.cmdArg.rows;
-        let W=Mojo.cmdArg.cols;
+        let H=Mojo.u.rows;
+        let W=Mojo.u.cols;
         let Y=Mojo.height;
-        let w= Mojo.width/W;
         let X=0;
         let grid=[];
+
+        _S.scaleXY(b,K,K);
+        _G.grid=grid;
+        _G.rows=H;
+        _G.cols=W;
+        _G.scaleX=K;
+        _G.scaleY=K;
+        _G.tileW=MFL(b.width);
+        _G.tileH=MFL(b.height);
+
         for(let row,y=0;y<(H+4);++y){
           grid.push(row=[]);
           for(let x=0;x<W;++x)
             row.push(null);
         }
-        _G.grid=grid;
-        _G.tileW=w;
-        _G.tileH=w;
-        let s=Mojo.scaleXY([b.width,b.height],
-                           [_G.tileW,_G.tileH]);
-        _G.rows=H;
-        _G.cols=W;
-        _G.scaleX=s[0];
-        _G.scaleY=s[1];
-        _G.vbox={x1: X, y1: Y - H*w, x2: X+w*W, y2: Y};
+
+        //center the arena
+        H= _G.tileH*_G.rows;
+        W=_G.tileW*_G.cols;
+        let x1=MFL((Mojo.width-W)/2);
+        let y1=MFL((Mojo.height-H)/2);
+        let x2=x1+W;
+        let y2=y1+H;
+
+        _G.vbox={x1,x2,y1,y2};
         return this;
       },
       initBlockMap(){
@@ -56,18 +88,18 @@
         return this;
       },
       setup(){
-        let r= this.rightMotion= _I.keyboard(_I.keyRIGHT);
-        r.press=()=>{ _G.shiftRight(this,_G.curShape) };
-        let f= this.leftMotion= _I.keyboard(_I.keyLEFT);
-        f.press=()=>{ _G.shiftLeft(this,_G.curShape) };
-        let u= this.upMotion= _I.keyboard(_I.keyUP);
-        u.press=()=>{ _G.rotateCCW(this,_G.curShape) };
-        let d= this.downMotion= _I.keyboard(_I.keyDOWN);
-        d.press=()=>{ _G.moveDown(this,_G.curShape) };
-        let s= this.dropMotion= _I.keyboard(_I.keySPACE);
-        s.press=()=>{ _G.dropDown(this,_G.curShape) };
-        this.markGrid();
+        this._initLevel();
         let bg= _S.rectangle(_G.cols*_G.tileW,_G.rows*_G.tileH,0);
+        let r= _G.rightMotion= _I.keybd(_I.keyRIGHT);
+        let f= _G.leftMotion= _I.keybd(_I.keyLEFT);
+        let u= _G.upMotion= _I.keybd(_I.keyUP);
+        let d= _G.downMotion= _I.keybd(_I.keyDOWN);
+        let s= _G.dropMotion= _I.keybd(_I.keySPACE);
+        r.press=()=>{ _G.shiftRight(this,_G.curShape) };
+        f.press=()=>{ _G.shiftLeft(this,_G.curShape) };
+        u.press=()=>{ _G.rotateCCW(this,_G.curShape) };
+        d.press=()=>{ _G.moveDown(this,_G.curShape) };
+        s.press=()=>{ _G.dropDown(this,_G.curShape) };
         bg.x=_G.vbox.x1;
         bg.y=_G.vbox.y1;
         this.insert(bg);
@@ -78,28 +110,22 @@
     });
   }
 
-  function setup(Mojo){
-    window["io.czlab.tetris.models"](Mojo);
-    window["io.czlab.tetris.logic"](Mojo);
-    Mojo.state.set({
-      score:0
-    });
-    scenes(Mojo);
-    Mojo.Scenes.runScene("Bg");
-    Mojo.Scenes.runScene("PlayGame");
-  }
+  const _$={
+    assetFiles: ["1.png","2.png","3.png",
+                 "4.png","5.png","6.png","0.png"],
+    arena: {width: 768, height: 1408},
+    scaleToWindow: true,
+    cols:12,
+    rows:22,
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("Bg");
+      Mojo.Scenes.runScene("PlayGame");
+    }
+  };
 
-  window.addEventListener("load",()=>{
-    MojoH5({
-      assetFiles: ["1.png","2.png","3.png",
-                   "4.png","5.png","6.png","0.png"],
-      arena: {width: 480, height: 960},
-      scaleToWindow: true,
-      start: setup,
-      cols:12,
-      rows:22
-    });
-  });
+  //load and run
+  window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
 

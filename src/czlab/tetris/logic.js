@@ -1,15 +1,33 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
+
   window["io.czlab.tetris.logic"]=function(Mojo){
-    let _S=Mojo.Sprites;
-    let _G=Mojo.Game;
-    let _=Mojo.u;
+
+    const MFL=Math.floor;
+    const {Sprites:_S,
+           Game:_G,
+           ute:_,is,EventBus}=Mojo;
 
     _G.xrefTile=function(x, y){
       let tile = _G.tileW;
       let t2 = tile/2;
-      let r=_.floor(((y+t2) - _G.vbox.y1)/tile);
-      let c=_.floor(((x+t2) - _G.vbox.x1)/tile);
+      let r=MFL(((y+t2) - _G.vbox.y1)/tile);
+      let c=MFL(((x+t2) - _G.vbox.x1)/tile);
       r= _G.rows - 1- r;
       _.assert(r >=0 && r < _G.rows);
       return [r,c];
@@ -22,9 +40,7 @@
           if(r[x]===1){
             py=row-y;
             px=col+x;
-            if(py<0 || px<0 || _G.grid[py][px]){
-              return false;
-            }
+            if(py<0 || px<0 || _G.grid[py][px]) return false;
             if(py<0 || px>=_G.cols || px<0) return false;
           }
         }
@@ -52,7 +68,7 @@
       if(s){
         _G.previewNext(scene);
         s.row=_G.rows+s.tiles.length-1;
-        s.col=_G.cols/2;
+        s.col=MFL(_G.cols/2);
         s.cells.forEach(c=>c.visible=true);
         _G.drawShape(scene,s);
       }
@@ -70,8 +86,7 @@
               row: 0, col: 0};
       for(let p,i=0;i<4;++i){
         p= _S.sprite(png);
-        p.scale.x=_G.scaleX;
-        p.scale.y=_G.scaleY;
+        _S.scaleXY(p,_G.scaleX, _G.scaleY);
         p.visible=false;
         scene.insert(p);
         s.cells.push(p);
