@@ -1167,6 +1167,8 @@
           r=grid[h-1];
           ctx.lineTo(sx+r[x].x1,sy+r[x].y2);
         }
+        if(!ctx.m5)
+          ctx.m5={uuid:`${_.nextId()}`};
         return ctx;
       },
       /**Create a bullet shooting out of a shooter.
@@ -1277,8 +1279,8 @@
               s.parent.removeChild(s);
             }
           }
-          s.m5.dispose &&
-            s.m5.dispose();
+          EventBus.drop(s);
+          if(s.m5.dispose) s.m5.dispose();
           EventBus.pub(["post.remove",s]);
         });
       },

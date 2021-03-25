@@ -285,6 +285,7 @@
             o.m5.drag && i.undoDrag(o);
           }
         }
+        EventBus.drop(this);
         this.m5.dead=true;
         _c(this);
         this.removeChildren();

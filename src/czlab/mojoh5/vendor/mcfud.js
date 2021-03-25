@@ -854,9 +854,13 @@
        * @param {object} handle
        */
       clear(handle){
-        if(handle && handle.id)
+        if(handle && handle.id){
           handle.repeat ? clearInterval(handle.id)
                         : clearTimeout(handle.id)
+        }else{
+          if(handle>0)
+            clearTimeout(handle);
+        }
       },
       /**Iterate a collection(array) in reverse.
        * @memberof module:mcfud/core._
@@ -1552,6 +1556,7 @@
     class CEventBus{
       constructor(){
         this._tree=new Map();
+        this._targets=new Map();
       }
       /**
        * Subscribe to an event.
@@ -1564,6 +1569,10 @@
       sub(subject,cb,ctx,extras){
         let event=subject[0],
             target=subject[1];
+        //remember each target
+        if(target && !this._targets.has(target)){
+          this._targets.set(target,1)
+        }
         //handle multiple events in one string
         _.seq(event).forEach(e=>{
           if(!cb) cb=e;
@@ -1573,7 +1582,7 @@
           let m= this._tree.get(e);
           target=target||NULL;
           !m.has(target) && m.set(target,[]);
-            m.get(target).push([cb,ctx,extras]);
+          m.get(target).push([cb,ctx,extras]);
         });
         return this;
       }
@@ -1587,13 +1596,16 @@
         let m,t,
             event=subject[0],
             target=subject[1] || NULL;
-        _.seq(event).forEach(e=>{
-          t=this._tree.get(e);
-          m= t && t.get(target);
-          m && m.forEach(s=>{
-            s[0].apply(s[1],args.concat(s[2] || ZA));
+        if(target === NULL ||
+           this._targets.has(target)){
+          _.seq(event).forEach(e=>{
+            t=this._tree.get(e);
+            m= t && t.get(target);
+            m && m.forEach(s=>{
+              s[0].apply(s[1],args.concat(s[2] || ZA));
+            });
           });
-        });
+        }
         return this;
       }
       /**
@@ -1601,7 +1613,19 @@
        * @return {CEventBus} self
        */
       reset(){
+        this._targets.clear();
         this._tree.clear();
+        return this;
+      }
+      drop(target){
+        if(this._targets.has(target)){
+          this._targets.delete(target);
+          let it=this._tree.values();
+          for(let r=it.next(); !r.done;){
+            r.value.delete(target);
+            r=it.next();
+          }
+        }
         return this;
       }
       /**
@@ -1612,22 +1636,26 @@
        * @return {CEventBus} self
        */
       unsub(subject,cb,ctx){
-        let event=subject[0],
-            target=subject[1] || NULL;
-        let t,m, es=_.seq(event);
-        es.forEach(e=>{
-          t= this._tree.get(e);
-          m= t && t.get(target);
-          if(m){
-            if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-            if(!cb){
-              //t.delete(target);
-            }
-            else
-              for(let i= m.length-1;i>=0;--i)
-                  if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
+        if(arguments.length===1 && !is.vec(subject)){
+          this.drop(subject);
+        }else{
+          let event=subject[0],
+              target=subject[1] || NULL;
+          if(target === NULL ||
+             this._targets.has(target)){
+            let t,m, es=_.seq(event);
+            es.forEach(e=>{
+              t= this._tree.get(e);
+              m= t && t.get(target);
+              if(m){
+                if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+                if(cb)
+                  for(let i= m.length-1;i>=0;--i)
+                    if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
+              }
+            });
           }
-        });
+        }
         return this;
       }
     }
@@ -4298,15 +4326,19 @@
       /**Get the AABB rectangle.
        * @memberof module:mcfud/geo2d
        * @param {Circle|Polygon} obj
+       * @param {Vec} [pos]
        * @return {Rect}
        */
-      getAABB(obj){
+      getAABB(obj,pos=null){
+        if(!pos){
+          pos=obj.pos;
+        }
         if(_.has(obj,"radius")){
-          return new Rect(obj.pos[0]-obj.radius,
-                          obj.pos[1]-obj.radius,
+          return new Rect(pos[0]-obj.radius,
+                          pos[1]-obj.radius,
                           obj.radius*2, obj.radius*2)
         }else{
-          let cps= _V.translate(obj.pos, obj.calcPoints);
+          let cps= _V.translate(pos, obj.calcPoints);
           let xMin= cps[0][0];
           let yMin= cps[0][1];
           let xMax= xMin;

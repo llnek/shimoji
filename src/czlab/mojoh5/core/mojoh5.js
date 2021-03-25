@@ -378,8 +378,10 @@
       dom.conj(document.body, Mojo.canvas);
       _configCSS();
 
-      //if(cmdArg.border !== undefined) dom.css(Mojo.canvas, "border", cmdArg.border);
-      //if(cmdArg.bgColor !== undefined) Mojo.ctx.bgColor = Sprites.color(cmdArg.bgColor);
+      if(_.has(cmdArg,"border"))
+        dom.css(Mojo.canvas, "border", cmdArg.border);
+      if(_.has(cmdArg,"bgColor"))
+        Mojo.ctx.backgroundColor = Mojo.Sprites.color(cmdArg.bgColor);
       if(cmdArg.scaleToWindow===true)
         Mojo.scale=_scaleCanvas(Mojo.canvas);
       Mojo.mouse= Mojo.Input.pointer();
@@ -393,7 +395,6 @@
         },cmdArg.debounceRate||150));
         EventBus.sub(["canvas.resize"], old=> S.onResize(Mojo,old))
       }
-
 
       return _boot(Mojo);
     }
