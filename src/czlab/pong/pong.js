@@ -1,119 +1,133 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
   function scenes(Mojo){
-    let _=Mojo.u, is=Mojo.is;
-    let _Z=Mojo.Scenes;
-    let _S=Mojo.Sprites;
-    let _T=Mojo.Effects;
-    let _I=Mojo.Input;
-    let _2d= Mojo["2d"];
+    const MFL=Math.floor;
+    const {Scenes:_Z,
+           Sprites:_S,
+           FX:_T,
+           Input:I,
+           Game:_G,
+           "2d":_2d,
+           ute:_,is,EventBus}=Mojo;
     let paddleWobble;
 
-    _Z.defScene("Bg",{
+    _Z.defScene("bg",{
       setup(){
         let s= _S.drawBody((g)=>{
           g.lineStyle(4,0xffffff);
           g.beginFill(0);
-          g.drawRect(0,0,Mojo.canvas.width-4,Mojo.canvas.height-4);
-          g.moveTo(0,Mojo.canvas.height/2);
-          g.lineTo(Mojo.canvas.width,Mojo.canvas.height/2);
+          g.drawRect(0,0,Mojo.width-4,Mojo.height-4);
+          g.moveTo(0,Mojo.height/2);
+          g.lineTo(Mojo.width,Mojo.height/2);
           //g.drawEllipse(Mojo.canvas.width/2,Mojo.canvas.height/2,100,50);
-          g.drawCircle(Mojo.canvas.width/2,Mojo.canvas.height/2,32);
+          g.drawCircle(Mojo.width/2,Mojo.height/2,32);
           g.endFill();
         });
         this.insert(s);
       }
     });
 
-    _Z.defScene("PlayGame", {
+    _Z.defScene("level1", {
       _initPlayer(){
-        let paddle = this.player = _S.sprite("paddle.png");
+        let paddle = _G.player = _S.sprite("paddle.png");
+        let K=Mojo.getScaleFactor();
         //paddle= 96x18
-        paddle.mojoh5.static=true;
-        paddle.mojoh5.step=function(dt){
-          paddle.x = Mojo.pointer.x - _S.halfSize(paddle)[0];
-          _2d.contain(paddle, paddle.parent);
+        paddle.m5.static=true;
+        _S.scaleXY(paddle,K,K);
+        paddle.m5.tick=(dt)=>{
+          paddle.x = Mojo.mouse.x - paddle.width/2;
+          _2d.contain(paddle, paddle.parent,false);
         };
+        _S.pinBottom(this,paddle, -24*K);
         this.insert(paddle);
-        _S.pinBottom(this,paddle, 0, -24);
       },
       _initAI(){
-        let paddle = this.robot = _S.sprite("paddle.png");
+        let paddle = _G.robot = _S.sprite("paddle.png");
+        let K=Mojo.getScaleFactor();
         let self=this;
-        paddle.mojoh5.static=true;
-        paddle.mojoh5.step=function(dt){
-          paddle.x = self.ball.x - _S.halfSize(paddle)[0];
-          _2d.contain(paddle, paddle.parent);
+        paddle.m5.static=true;
+        _S.scaleXY(paddle,K,K);
+        paddle.m5.tick=(dt)=>{
+          paddle.x = _G.ball.x - paddle.width/2;
+          _2d.contain(paddle, paddle.parent,false);
         };
+        _S.setXY(paddle,0,6*K);
         this.insert(paddle);
-        paddle.x=0;
-        paddle.y=6;
       },
       setup(){
-        let ball= this.ball = _S.sprite("ball.png");
-        let bounce=Mojo.state.get("bounce");
-        let self=this;
+        const bounce=_G.bounce= Mojo.sound("bounce.wav");
+        const ball= _G.ball = _S.sprite("ball.png");
+        const K=Mojo.getScaleFactor();
+        const arena=Mojo.mockStage();
+        const self=this;
         this._initPlayer();
         this._initAI();
-        ball.mojoh5.step=function(dt){
+        _S.scaleXY(ball,K,K);
+        ball.m5.tick=function(dt){
           _S.move(ball);
-          _2d.contain(ball, Mojo.mockStage(),
+          _2d.contain(ball, arena,
                       true,
-                      (col) => {
+                      (col)=>{
                         //bounce.play();
-                        if(col.has(Mojo.BOTTOM))
-                          Mojo.state.dec("score");
-          });
+                        if(col.has(Mojo.BOTTOM)) --_G.score; });
           //ballHitsPaddle
-          if(_2d.collide(ball, self.player)){
+          if(_2d.collide(ball, _G.player)){
             bounce.play();
-            if(self.playerWobble){
-              self.player.scale.set(1,1);
-              _T.remove(self.playerWobble);
+            /*
+            if(_G.playerWobble){
+              _G.player.scale.set(1,1);
+              _T.remove(_G.playerWobble);
             };
-            self.playerWobble = _T.wobble(self.player, 1.3, 1.2, 5, 10, 10, -10, -10, 0.96);
-          }
-          else if(_2d.collide(ball, self.robot)){
+            _G.playerWobble = _T.wobble(_G.player, 1.3, 1.2, 5, 10, 10, -10, -10, 0.96);
+            */
+          }else if(_2d.collide(ball, _G.robot)){
             bounce.play();
-            if(self.robotWobble){
-              self.robot.scale.set(1,1);
-              _T.remove(self.robotWobble);
+            /*
+            if(_G.robotWobble){
+              _G.robot.scale.set(1,1);
+              _T.remove(_G.robotWobble);
             };
-            self.robotWobble = _T.wobble(self.robot, 1.3, 1.2, 5, 10, 10, -10, -10, 0.96);
+            _G.robotWobble = _T.wobble(_G.robot, 1.3, 1.2, 5, 10, 10, -10, -10, 0.96);
+            */
           }
-          let score=Mojo.state.get("score");
-          //message.mojoh5.content(`Score: ${score}`);
+          //message.mojoh5.content(`Score: ${_G.score}`);
         };
         this.insert(ball);
-        _S.pinBottom(this,ball, 0, -128);
-        ball.mojoh5.vel[0] = 8;//12;
-        ball.mojoh5.vel[1] = 5;//8;
-        //let music= Mojo.Game.state.get("music");
-        //if(!music.playing) music.play();
+        _S.pinBottom(this,ball, -128*K);
+        _S.velXY(ball, 8*K, 5*K);
       }
     });
   }
 
-  function setup(Mojo){
-    Mojo.state.set({
-      bounce: Mojo.sound("bounce.wav"),
-      //music:Mojo.sound("music.wav"),
-      score:0
-    });
-    scenes(Mojo);
-    Mojo.Scenes.runScene("Bg");
-    Mojo.Scenes.runScene("PlayGame");
-  }
+  const _$={
+    assetFiles: ["ball.png", "puzzler.otf", "paddle.png", "bounce.wav"],
+    arena: {width: 512, height: 512},
+    scaleToWindow: "max",
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("bg");
+      Mojo.Scenes.runScene("level1");
+    }
+  };
 
-  window.addEventListener("load",()=>{
-    MojoH5({
-      assetFiles: ["ball.png", "puzzler.otf", "paddle.png", "bounce.wav"],
-      arena: {width: 512, height: 512},
-      scaleToWindow: true,
-      start: setup
-    });
-  });
+  //load and run
+  window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
 
