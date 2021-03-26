@@ -1,29 +1,39 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
-  window["io.czlab.reversi.Sprites"]= function(Mojo){
-    const _N=window["io.czlab.mcfud.negamax"]();
-    const _E=Mojo.EventBus;
-    const _S=Mojo.Sprites;
-    const _Z=Mojo.Scenes;
-    const _I=Mojo.Input;
-    const _=Mojo.u;
-    const is= Mojo.is;
-    const _G= Mojo.Game;
+  window["io/czlab/reversi/Sprites"]= function(Mojo){
+
+    const _N=window["io/czlab/mcfud/negamax"]();
+    const MFL=Math.floor;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           Game:_G,
+           ute:_,is,EventBus} = Mojo;
 
     _G.Backgd=function(){
       let s= _S.sprite("bggreen.jpg");
       let w=s.width;
       let h=s.height;
-      s.anchor.set(0.5);
-      s.mojoh5.resize=function(){
-        s.scale.x=Mojo.width/w;
-        s.scale.y=Mojo.height/h;
-        s.x=Mojo.width/2;
-        s.y=Mojo.height/2;
-      };
-      s.mojoh5.resize();
-      return s;
+      _S.centerAnchor(s);
+      _S.scaleXY(s,Mojo.width/w,
+                   Mojo.height/h);
+      return _S.setXY(s,MFL(Mojo.width/2),MFL(Mojo.height/2));
     };
 
     _G.AI=function(scene,v){
@@ -31,21 +41,16 @@
         pnum:v,
         board: _G.Reversi(_G.X, _G.O)
       };
-      const signal=[["ai.move",o], "aiMove",o];
-      o.dispose=function(){
-        _E.unsub.apply(_E,signal)
-      };
       o.aiMove=function(){
         _.delay(500,()=> o.makeMove())
       };
       o.makeMove=function(){
-        let cells= _G.state.get("cells");
-        let pos,rc;
+        let pos,rc, {cells}= _G;
         this.board.syncState(cells, this.pnum);
         pos= _N.evalNegaMax(this.board);
         if(pos)
           rc= _G.checkState(pos);
-        if(rc.length>0){
+        if(rc && rc.length>0){
           rc.forEach(c=>{
             _G.flipIcon(scene,c);
             cells[c[0]][c[1]]=v;
@@ -62,89 +67,70 @@
           console.log("DONE!");
         }
       };
-      _E.sub.apply(_E, signal);
+      EventBus.sub(["ai.move",o], "aiMove",o);
       return o;
     };
 
     _G.flipIcon=function(s,pos,V){
       for(let v,p,c,i=0,z=s.children.length;i<z;++i){
         c=s.children[i];
-        if(c && c.mojoh5 && c.mojoh5.gpos){
-          p=c.mojoh5.gpos;
+        if(c && c.g.gpos){
+          p=c.g.gpos;
           if(p[0]===pos[0] && p[1]===pos[1]){
             if(V===undefined){
-              _.assert(c.mojoh5.enabled===false);
-              v= c.mojoh5.gval===_G.X?_G.O:_G.X;
+              _.assert(c.m5.enabled===false);
+              v= c.g.gval===_G.X?_G.O:_G.X;
             }else{
-              _.assert(c.mojoh5.enabled===true);
+              _.assert(c.m5.enabled===true);
               v=V;
             }
-            c.mojoh5.showFrame(v);
-            c.mojoh5.gval=v;
-            c.mojoh5.enabled=false;
-            c.mojoh5.marked=true;
+            c.m5.showFrame(v);
+            c.g.gval=v;
+            c.m5.enabled=false;
+            c.m5.marked=true;
             break;
           }
         }
       }
     };
-    _G.Tile=function(x,y,tileX,tileY,props){
-      let s= _S.sprite(_S.frames("tiles.png",tileX,tileY));
-      let mo=s.mojoh5;
-      const signal= [["ai.moved",s],"aiMoved",mo];
 
-      s.mojoh5.resize=function(){
-        let g= _G.state.get("grid");
-        let pos=s.mojoh5.gpos;
-        let b=_S.bboxCenter(g[pos[0]][pos[1]]);
-        let K= _G.state.get("iconScale");
-        s.scale.x=K[0];
-        s.scale.y=K[1];
-        s.x=b[0];
-        s.y=b[1];
-      };
-
-      s.scale.x=props.scale[0];
-      s.scale.y=props.scale[1];
-      s.x=x;
-      s.y=y;
-      _.inject(mo,props);
+    _G.Tile=function(id,x,y,tileX,tileY,props){
+      let s= _S.sprite(_S.frames("icons.png",tileX,tileY));
+      _S.scaleXY(s,_G.iconScale[0],_G.iconScale[1]);
+      _S.setXY(_S.uuid(s,id),x,y);
+      _.inject(s.g,props);
       _I.makeButton(_S.centerAnchor(s));
-      if(props.gval !== 0) mo.enabled=false;
-      mo.showFrame(_G.getIcon(props.gval));
-      mo.button=false;
-      mo.aiMoved=function(){
-        mo.enabled=false;
-        mo.marked=true;
+      if(props.gval !== 0){s.m5.enabled=false}
+      s.m5.showFrame(_G.getIcon(props.gval));
+      s.g.aiMoved=function(){
+        s.m5.enabled=false;
+        s.m5.marked=true;
         //mo.showFrame(G.getIcon(G.state.get("pcur")));
       };
-      mo.press=function(){
-        let v=_G.state.get("pcur");
-        let ai=_G.state.get("ai");
-        let p1= _G.state.get("pnum");
-        let cells= _G.state.get("cells");
+      s.m5.press=function(){
+        const {pcur,ai,pnum,cells}=_G;
         //if AI is thinking, back off
-        if(ai && v===ai.pnum) { return; }
+        if(ai && pcur===ai.pnum){ return }
         //if cell already marked, go away
-        if(mo.marked) {return;}
+        if(s.m5.marked) {return}
         //_G.playSnd();
-        if(cells[mo.gpos[0]][mo.gpos[1]] !== 0)
+        if(cells[s.g.gpos[0]][s.g.gpos[1]] !== 0)
           throw "Fatal: cell marked already!!!!";
-        let rc= _G.checkState(mo.gpos);
+        let rc= _G.checkState(s.g.gpos);
         if(rc.length>0){
           rc.forEach(c=>{
             _G.flipIcon(s.parent,c);
-            cells[c[0]][c[1]]=v;
+            cells[c[0]][c[1]]=pcur;
           });
-          _G.flipIcon(s.parent,mo.gpos,v);
-          cells[mo.gpos[0]][mo.gpos[1]]= v;
+          _G.flipIcon(s.parent,s.g.gpos,pcur);
+          cells[s.g.gpos[0]][s.g.gpos[1]]= pcur;
           _G.switchPlayer();
         }else{
           //_G.state.set("lastWin", rc===1 ? _G.state.get("pcur") : 0);
           //_Z.runScene("EndGame",5);
         }
       }
-      _E.sub.apply(_E,signal);
+      EventBus.sub(["ai.moved",s],"aiMoved",s.g);
       return s;
     };
   }

@@ -1,15 +1,30 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
   function setup(Mojo){
-    const _S=Mojo.Sprites;
-    const _Z=Mojo.Scenes;
-    const _G= Mojo.Game;
-    const _=Mojo.u;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Game:_G,
+           ute:_,is,EventBus}=Mojo;
 
-    window["io.czlab.reversi.Sprites"](Mojo);
-    window["io.czlab.reversi.AI"](Mojo);
-    window["io.czlab.reversi.Scenes"](Mojo);
+    window["io/czlab/reversi/Sprites"](Mojo);
+    window["io/czlab/reversi/AI"](Mojo);
+    window["io/czlab/reversi/Scenes"](Mojo);
 
     const _Dirs=
     (function(out){
@@ -18,14 +33,18 @@
           if(r !== 0 || c !==0) out.push([r,c]) }) });
       return out;
     })([]);
-    const Ext={
-      gridLineWidth: 4,
+
+    _.inject(_G,{
+      gridLineWidth:4,
       DIM:8,
       X:1,//black
       O:2,//white
-      piecesFlipped(cells, pos, cur,other){
-        let len=cells.length;
-        let total=[];
+      piecesFlipped(cells, pos, cur, other){
+        //search in all directions and count
+        //how many of their pieces can flip
+        //stop when the piece is yours
+        let total=[],
+            len=cells.length;
         for(let added,d,r,c,i=0;i<_Dirs.length;++i){
           d=_Dirs[i];
           added=[];
@@ -33,11 +52,12 @@
           c=pos[1]+d[1];
           while(0<=r && r<len && 0<=c && c<len){
             if(cells[r][c] === other){
-              added.push([r,c]);
-            }else if(cells[r][c] === cur){
-              total=total.concat(added);
-              break;
+              //grab their piece
+              added.push([r,c])
             }else{
+              //ooops, better stop now
+              if(cells[r][c] === cur)
+                total=total.concat(added);
               break;
             }
             r+=d[0];
@@ -60,36 +80,32 @@
         if(v===_G.X) return "X";
       },
       switchPlayer(){
-        let c=_G.state.get("pcur");
-        let ai= _G.state.get("ai");
-        if(c===_G.X)
-          _G.state.set("pcur", _G.O);
-        if(c===_G.O)
-          _G.state.set("pcur", _G.X);
-        if(ai && ai.pnum !== c)
-          Mojo.EventBus.pub(["ai.move",ai]);
+        const {pcur,ai}=_G;
+        if(pcur===_G.X) _G.pcur= _G.O;
+        if(pcur===_G.O) _G.pcur=_G.X;
+        if(ai && ai.pnum !== pcur)
+          EventBus.pub(["ai.move",ai]);
       },
       checkTie(){
       },
       checkState(gpos){
         //0=>ok,1=>win,-1=>draw
-        let cells= _G.state.get("cells");
-        let v= _G.state.get("pcur");
-        return _G.piecesFlipped(cells,gpos,v,v===_G.X?_G.O:_G.X);
+        const {cells,pcur}=_G;
+        return _G.piecesFlipped(cells,gpos,pcur,pcur===_G.X?_G.O:_G.X);
       }
-    };
-    _.inject(_G, Ext);
-    _Z.runScene("PlayGame");
+    });
+    _Z.runScene("level1");
   }
 
-  window.addEventListener("load",()=>{
-    MojoH5({
-      assetFiles:["bggreen.jpg","tiles.png"],
-      arena:{width:1600, height:1200},
-      scaleToWindow:"max",
-      start: setup
-    })
-  });
+  const _$={
+    assetFiles:["bggreen.jpg","icons.png"],
+    arena:{width:960, height:960},
+    scaleToWindow:"max",
+    start(Mojo){ setup(Mojo) }
+  };
+
+  //load and run
+  window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
 

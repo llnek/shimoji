@@ -1133,8 +1133,9 @@
        * @param {number|string} lineColor
        * @return {PIXIGraphics}
        */
-      drawGridBox(bbox,lineWidth=1,lineColor="white"){
-        let ctx= new Mojo.PXGraphics();
+      drawGridBox(bbox,lineWidth=1,lineColor="white",ctx=null){
+        if(!ctx)
+          ctx= new Mojo.PXGraphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
         ctx.drawRect(bbox.x1,bbox.y1,bbox.x2-bbox.x1,bbox.y2-bbox.y1);
         ctx.m5={uuid:`${_.nextId()}`};

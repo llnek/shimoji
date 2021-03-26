@@ -1,10 +1,25 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
-  window["io.czlab.reversi.AI"]=function(Mojo){
-    const Nega= window["io.czlab.mcfud.negamax"]();
-    const _ = Mojo.u;
-    const _G= Mojo.Game;
+  window["io/czlab/reversi/AI"]=function(Mojo){
+    const Nega= window["io/czlab/mcfud/negamax"]();
+    const {Game:_G,
+           ute:_,is,EventBus} = Mojo;
 
     //used by the AI to give more importance to the border
     const BOARD_SCORE = [[9,3,3,3,3,3,3,9],
@@ -17,8 +32,8 @@
                          [9,3,3,3,3,3,3,9]];
 
     function _possibleMoves(cells,cur,other){
-      let pos=[0,0];
-      let moves=[];
+      let moves=[],
+          pos=[0,0];
       for(let f,row,r=0;r<cells.length;++r){
         row=cells[r];
         for(let c=0;c<row.length;++c){
@@ -41,6 +56,9 @@
         this.cells=[];
         this.depth=8;
       }
+      getStateCopier(){
+        return (state)=>{ return _.deepCopyArray(state) }
+      }
       /*
       getFirstMove(snap){
         let moves=_possibleMoves(snap.state,snap.cur,snap.other);
@@ -53,7 +71,7 @@
         seed.forEach(s=> this.cells.push(s.slice()));
       }
       getNextMoves(snap){
-        return _possibleMoves(snap.state,snap.cur,snap.other);
+        return _possibleMoves(snap.state,snap.cur,snap.other)
       }
       makeMove(snap, move){
         _.assert(move[1] >= 0 && move[1] < snap.state[0].length);//col
@@ -73,8 +91,8 @@
         if(pv === this.actors[2]) return this.actors[1];
         return 0;
       }
-      takeFFrame(){
-        let ff = new Nega.FFrame();
+      takeGFrame(){
+        let ff = new Nega.GFrame();
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
         ff.state=_.deepCopyArray(this.cells);
