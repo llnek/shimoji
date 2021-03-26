@@ -1,126 +1,67 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
   function scenes(Mojo){
-    let _Z=Mojo.Scenes;
-    let _S=Mojo.Sprites;
-    let _I=Mojo.Input;
-    let _G=Mojo.Game;
-    let _=Mojo.u;
-    let DIM=4;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           Game:_G,
+           ute:_, is, EventBus}=Mojo;
 
-    _G.TILES=[];
-
-    _Z.defScene("Bg",{
-      setup(){
-      }
-    });
-
-    function _mkTiles(scene,dim){
-      let t=scene.grid[0][0];
-      let w= t.x2-t.x1;
-      let h= t.y2-t.y1;
-      let out=[];
-      let K=Mojo.scaleXY([_G.tileW,_G.tileH],[w,h]);
-      for(let pos,s,r,y=0;y<dim;++y){
-        r=[];
-        for(let x=0;x<dim;++x){
-          r.push(0);
-          s=_S.sprite(scene.tileFrames);
-          s.mojoh5.ROW=y;
-          s.mojoh5.COL=x;
-          pos=scene.grid[y][x];
-          s.x=pos.x1;
-          s.y=pos.y1;
-          s.scale.x=K[0];
-          s.scale.y=K[1];
-          s.mojoh5.showFrame(_numToFrame(0));
-          _G.TILES.push(s);
-          scene.insert(s);
+    _.inject(_G,{
+      loadTiles(){
+        return [0,2,4,8,16,
+                32,64,256,1024].map(n=> Mojo.tcached(`${n}.png`))
+      },
+      numToFrame(num){
+        switch(num){
+          case 0:return 0;
+          case 2:return 1;
+          case 4:return 2;
+          case 8:return 3;
+          case 16:return 4;
+          case 32:return 5;
+          case 64:
+          case 128:return 6;
+          case 256:
+          case 512:return 7;
+          case 1024:
+          case 2048:return 8;
         }
-        out.push(r);
-      }
-      return out;
-    }
-
-    let TMP=[0,0,0,0];
-    function _resetTMP(){
-      TMP[0]=TMP[1]=TMP[2]=TMP[3]=0;
-      return 4;
-    }
-    function compress(arr,mutate){
-      let k=arr.length;
-      let v2=null;
-      let v1=v2;
-      let out=_.fill(new Array(k),0);
-
-      for(let j=arr.length-1;j>=0;--j){
-        if(arr[j]===0){continue;}
-        if(v2===null){
-          v2=arr[j]
-        }else{
-          v1=arr[j]
-          if(v1===v2){
-            out[--k]=v1+v2;
-            v2=v1=null;
-          }else{
-            out[--k]=v2;
-            v2=v1;
-          }
-        }
-      }
-      if(v2 !== null){
-        out[--k]=v2
-      }
-      if(mutate)
-        for(let i=0;i<out.length;++i) arr[i]=out[i];
-      return out;
-    }
-
-    function _loadTiles(){
-      let out= [0,2,4,8,16,32,64,256,1024].map(n=> Mojo.tcached(`${n}.png`));
-      _G.tileW=out[0].width;
-      _G.tileH=out[1].height;
-      return out;
-    }
-
-    function _numToFrame(num){
-      switch(num){
-      case 0:return 0;
-      case 2:return 1;
-      case 4:return 2;
-      case 8:return 3;
-      case 16:return 4;
-      case 32:return 5;
-      case 64:
-      case 128:return 6;
-      case 256:
-      case 512:return 7;
-      case 1024:
-      case 2048:return 8;
-      }
-      _.assert(false,"bad num");
-    }
-
-    _Z.defScene("level1",{
+        _.assert(false,"bad num");
+      },
       setNumber(r,c,num){
-        let s= _G.TILES[r*DIM+c];
-        s.mojoh5.showFrame(_numToFrame(num));
-        this.tiles[r][c]=num;
+        let s= _G.TILES[r*_G.DIM+c];
+        let n= _G.numToFrame(num);
+        s.m5.showFrame(n);
+        _G.tiles[r][c]=num;
         if(num>0){
-          let t= _S.text(`${num}`,{fontSize:200,fontFamily:"Arial",fill:0,align:"center"});
-          t.x=0;
-          t.y=0;
+          let t= _S.text(`${num}`,{fontSize:200,
+                                   fontFamily:"sans-serif",
+                                   fill:0,align:"center"});
           s.addChild(t);
         }
       },
       postSwipe(){
         let p,z,out=[];
-        for(let y=0;y<4;++y)
-          for(let x=0;x<4;++x){
-            if(this.tiles[y][x]===0)
-              out.push([y,x])
-          }
+        for(let y=0;y<_G.DIM;++y)
+          for(let x=0;x<_G.DIM;++x)
+            if(_G.tiles[y][x]===0) out.push([y,x]);
         z=out.length;
         switch(z){
           case 0:
@@ -130,111 +71,170 @@
             p=0;
             break;
           case 2:
-            p=Math.random()>0.5?1:0;
+            p=_.rand()>0.5?1:0;
             break;
           default:
-            p=_.randInt2(0,z-1);
+            p=_.randInt(z);
             break;
         }
         if(p>=0){
           let r=out[p];
-          this.setNumber(r[0],r[1],Math.random()>0.5?4:2);
+          _G.setNumber(r[0],r[1],_.rand()>0.5?4:2);
         }
       },
       refreshTiles(){
         _G.TILES.forEach(t=> t.removeChildren());
-        for(let v,r,y=0;y<4;++y){
+        for(let v,r,y=0;y<_G.DIM;++y){
           r=this.tiles[y];
-          for(let c=0;c<4;++c){
-            this.setNumber(y,c,r[c]);
+          for(let c=0;c<_G.DIM;++c){
+            _G.setNumber(y,c,r[c])
           }
         }
-        this.postSwipe();
+        _G.postSwipe();
       },
       swipeRight(){
-        this.tiles.forEach(r => compress(r,true));
-        this.refreshTiles();
+        _G.tiles.forEach(r => _G.compress(r,true));
+        _G.refreshTiles();
       },
       swipeLeft(){
-        this.tiles.forEach(r => {
-          let out=compress(r.reverse()).reverse();
-          for(let i=0;i<4;++i) r[i]=out[i];
+        _G.tiles.forEach(r => {
+          let out=_G.compress(r.reverse()).reverse();
+          for(let i=0;i<_G.DIM;++i) r[i]=out[i];
         });
-        this.refreshTiles();
+        _G.refreshTiles();
       },
       swipeUp(){
         let out=[];
-        for(let x=0;x<4;++x){
+        for(let x=0;x<_G.DIM;++x){
           out.length=0;
-          for(let y=3;y>=0;--y){
+          for(let y=_G.DIM-1;y>=0;--y){
             out.push(this.tiles[y][x]);
           }
-          compress(out,true);
+          _G.compress(out,true);
           out.reverse();
-          for(let y=0;y<4;++y)
+          for(let y=0;y<_G.DIM;++y)
             this.tiles[y][x]=out[y];
         }
-        this.refreshTiles();
+        _G.refreshTiles();
       },
       swipeDown(){
         let out=[];
-        for(let x=0;x<4;++x){
+        for(let x=0;x<_G.DIM;++x){
           out.length=0;
-          for(let y=0;y<4;++y){
-            out.push(this.tiles[y][x]);
+          for(let y=0;y<_G.DIM;++y){
+            out.push(_G.tiles[y][x]);
           }
-          compress(out,true);
-          for(let y=0;y<4;++y)
-            this.tiles[y][x]=out[y];
+          _G.compress(out,true);
+          for(let y=0;y<_G.DIM;++y)
+            _G.tiles[y][x]=out[y];
         }
-        this.refreshTiles();
+        _G.refreshTiles();
       },
-      initLevel(){
-        let v,r,c,E=DIM-1,i=2;
+      compress(arr,mutate){
+        let k=arr.length;
+        let v2=null;
+        let v1=v2;
+        let out=_.fill(k,0);
+        for(let j=arr.length-1;j>=0;--j){
+          if(arr[j]===0){continue}
+          if(v2===null){
+            v2=arr[j]
+          }else{
+            v1=arr[j]
+            if(v1===v2){
+              out[--k]=v1+v2;
+              v2=v1=null;
+            }else{
+              out[--k]=v2;
+              v2=v1;
+            }
+          }
+        }
+        if(v2 !== null){
+          out[--k]=v2
+        }
+        if(mutate)
+          for(let i=0;i<out.length;++i) arr[i]=out[i];
+        return out;
+      }
+    });
+
+    _Z.defScene("bg",{
+      setup(){
+      }
+    });
+
+    _Z.defScene("level1",{
+      _initLevel(){
+        let v,r,c,i=2;
         while(i>0){
-          r=_.randInt2(0,E);
-          c=_.randInt2(0,E);
-          if(this.tiles[r][c]===0){
-            this.setNumber(r,c, Math.random()>0.5?2:2048);
+          r=_.randInt(_G.DIM);
+          c=_.randInt(_G.DIM);
+          if(_G.tiles[r][c]===0){
+            _G.setNumber(r,c,2);//_.rand()>0.5?2:2048;
             --i;
           }
         }
-        this.dirRight=_I.keyboard(_I.keyRIGHT);
-        this.dirRight.press=()=>{ this.swipeRight() };
-        this.dirLeft=_I.keyboard(_I.keyLEFT);
-        this.dirLeft.press=()=>{ this.swipeLeft() };
-        this.dirUp=_I.keyboard(_I.keyUP);
-        this.dirUp.press=()=>{ this.swipeUp() };
-        this.dirDown=_I.keyboard(_I.keyDOWN);
-        this.dirDown.press=()=>{ this.swipeDown() }
+        _G.dirRight=_I.keybd(_I.keyRIGHT);
+        _G.dirLeft=_I.keybd(_I.keyLEFT);
+        _G.dirUp=_I.keybd(_I.keyUP);
+        _G.dirDown=_I.keybd(_I.keyDOWN);
+        _G.dirRight.press=()=>{ _G.swipeRight() };
+        _G.dirLeft.press=()=>{ _G.swipeLeft() };
+        _G.dirUp.press=()=>{ _G.swipeUp() };
+        _G.dirDown.press=()=>{ _G.swipeDown() }
+      },
+      _mkTiles(){
+        let z=_S.sprite(_G.tileFrames[0]);
+        let t=_G.grid[0][0];
+        let w= t.x2-t.x1;
+        let h= t.y2-t.y1;
+        let K=w/z.width;
+        let out=[];
+        for(let pos,s,r,y=0;y<_G.DIM;++y){
+          r=[];
+          for(let x=0;x<_G.DIM;++x){
+            r.push(0);
+            s=_S.sprite(_G.tileFrames);
+            pos=_G.grid[y][x];
+            s.g.ROW=y;
+            s.g.COL=x;
+            s.x=pos.x1;
+            s.y=pos.y1;
+            _S.scaleXY(s,K,K);
+            s.m5.showFrame(_G.numToFrame(0));
+            _G.TILES.push(s);
+            this.insert(s);
+          }
+          out.push(r);
+        }
+        return out;
       },
       setup(){
-        let g= _S.gridSQ(DIM);
-        //let b= _S.drawGridBox(g,4,"white");
-        //let n= _S.drawGridLines(g,4,"white");
-        this.tileFrames= _loadTiles();
-        this.grid=g;
-        this.tiles=_mkTiles(this,DIM);
-        this.initLevel();
-        //this.insert(b);
-        //this.insert(n);
+        _G.TILES=[];
+        _G.DIM=4;
+        _G.grid= _S.gridSQ(_G.DIM,0.95);
+        _G.tileFrames= _G.loadTiles();
+        _G.tiles=this._mkTiles();
+        this._initLevel();
       }
     });
   }
 
-  function setup(Mojo){
-    scenes(Mojo);
-    Mojo.Scenes.runScene("Bg");
-    Mojo.Scenes.runScene("level1");
-  }
+  const _$={
+    assetFiles: ["0.png","2.png","4.png",
+                 "8.png", "16.png","32.png",
+                 "64.png", "256.png","1024.png"],
+    arena: {width:768,height:768},
+    scaleToWindow: "max",
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("bg");
+      Mojo.Scenes.runScene("level1");
+    }
+  };
 
-  window.addEventListener("load", ()=>{
-    MojoH5({
-      assetFiles: ["tiles.png","images/tiles.json"],
-      arena: {width:768,height:1024},
-      scaleToWindow: "max",
-      backgroundColor: 0,
-      start:setup
-    })
-  });
+  //load and run
+  window.addEventListener("load", ()=>MojoH5(_$));
+
 })(this);

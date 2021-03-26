@@ -165,6 +165,18 @@
        * @return {boolean}
        */
       num(n,...args){ return _everyF(isNum,n,args) },
+      /**Check if input is a positive number.
+       * @memberof module:mcfud/core.is
+       * @param {number} n
+       * @return {boolean}
+       */
+      pos(n){ return isNum(n)&&n>0 },
+      /**Check if input is a negative number.
+       * @memberof module:mcfud/core.is
+       * @param {number} n
+       * @return {boolean}
+       */
+      neg(n){ return isNum(n)&&n<0 },
       /**Check if input(s) are type `array`.
        * @memberof module:mcfud/core.is
        * @param {any} v anything
@@ -857,10 +869,11 @@
         if(handle && handle.id){
           handle.repeat ? clearInterval(handle.id)
                         : clearTimeout(handle.id)
-        }else{
-          if(handle>0)
-            clearTimeout(handle);
+          handle.id=0;
+        }else if(is.pos(handle)){
+          clearTimeout(handle);
         }
+        return 0;
       },
       /**Iterate a collection(array) in reverse.
        * @memberof module:mcfud/core._
