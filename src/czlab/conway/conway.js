@@ -1,13 +1,29 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
-  function _scenes(Mojo){
-    const _S=Mojo.Sprites;
-    const _Z=Mojo.Scenes;
-    const _T=Mojo.Tiles;
-    const _G= Mojo.Game;
-    const _GS=_G.state;
-    const _=Mojo.u;
+  function scenes(Mojo){
+    const MFL=Math.floor;
+    const {Scenes:_Z,
+           Sprites:_S,
+           Tiles:_T,
+           Game:_G,
+           ute:_, is, EventBus}= Mojo;
+
     const SEEDS = {
       diehard: [
         [0, 0, 0, 0, 0, 0, 1, 0],
@@ -110,43 +126,42 @@
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
     };
+
+    //neighbors
     const NBS= [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
     const _DELAY=300;
 
     _Z.defScene("level1",{
       _tile(){
-        return _S.sprite([_S.frame("tiles.png",_G.iconSize[0],_G.iconSize[1],1,1),
-                          _S.frame("tiles.png",_G.iconSize[0],_G.iconSize[1],65,1)]);
+        return _S.sprite(_S.frames("tiles.png",_G.iconSize[0],_G.iconSize[1]))
       },
-      _initLevel(options){
-        _G.gridLineWidth=1;
-        _G.iconSize=[60,60];
-        _G.DIM=40;
-        let grid= _T.mapGridPos(_G.DIM,_G.gridLineWidth,0.9),
-            s,cells,
-            cz= _S.bboxSize(grid.cell(0,0)),
-            K=Mojo.scaleXY(_G.iconSize,cz);
-        cells=grid.data.map(r=> r.map(c=> {
-          let s=this._tile();
-          s.x=c.x1;
-          s.y=c.y1;
-          s.width=cz[0];
-          s.height=cz[1];
-          s.mojoh5.showFrame(0);
-          this.insert(s);
-          //if(s) console.log(`sx=${s.x},sy=${s.y},sw=${s.width},sy=${s.height}`);
-          return {alive: false, nextAlive: false, icon: s};
-        }));
-        _G.state.set({
-                      iconScale: K,
-                      grid: grid, cells: cells});
-      },
-      onCanvasResize(old){
-        let g=_T.mapGridPos(_G.DIM,_G.gridLineWidth,0.9);
-        let cz= _S.bboxSize(g.cell(0,0));
-        _G.state.set("grid", g);
-        _G.state.set("iconScale", Mojo.scaleXY(_G.state.get("iconSize"),cz));
-        _S.resize({x:0,y:0,width:old[0],height:old[1],children:this.children});
+      _initLevel(){
+        let g= _S.gridSQ(Mojo.u.DIM,0.9);
+        let z= _S.sprite("tiles.png");
+        let c=g[0][0];
+        let cells=[];
+        let K=(c.y2-c.y1)/z.height;
+        _G.grid=g;
+        _G.cells=cells;
+        _G.iconScale=[K,K];
+        _G.iconSize=[z.height,z.height];
+        for(let R,r,y=0;y<g.length;++y){
+          r=g[y];
+          cells.push(R=[]);
+          for(let s,c,x=0;x<r.length;++x){
+            s=this._tile();
+            c=r[x];
+            _S.setXY(s,c.x1, c.y1);
+            _S.scaleXY(s,_G.iconScale[0],_G.iconScale[1]);
+            s.m5.showFrame(0);
+            R.push({
+              icon:s,
+              alive: false,
+              nextAlive: false
+            });
+            this.insert(s);
+          }
+        }
       },
       _cntNbrs(row,col,R,C,cs){
         let sum=0;
@@ -161,18 +176,17 @@
         });
         return sum;
       },
-      step(){
-        let cs=_GS.get("cells");
+      onFrame(){
         this._examine();
         this._nextgen();
-        _.delay(_DELAY,()=>this.step());
+        _.delay(_DELAY,()=>this.onFrame());
       },
       _examine(){
-        let cs=_GS.get("cells");
-        for(let row,r=0;r<cs.length;++r){
-          row=cs[r];
+        let {cells}=_G;
+        for(let row,r=0;r<cells.length;++r){
+          row=cells[r];
           for(let rc,n,c=0;c<row.length;++c){
-            n=this._cntNbrs(r,c,cs.length,row.length,cs);
+            n=this._cntNbrs(r,c,cells.length,row.length,cells);
             rc=row[c];
             if(rc.alive){
               //too few, or too many
@@ -190,89 +204,69 @@
         }
       },
       _nextgen(){
-        let cs=_GS.get("cells");
-        for(let row,r=0;r<cs.length;++r){
-          row=cs[r];
+        let {cells}=_G;
+        for(let row,r=0;r<cells.length;++r){
+          row=cells[r];
           for(let rc,n,c=0;c<row.length;++c){
             rc=row[c];
             rc.alive=rc.nextAlive;
             rc.nextAlive=false;
-            rc.icon.mojoh5.showFrame(rc.alive?1:0);
+            rc.icon.m5.showFrame(rc.alive?1:0);
           }
         }
       },
       _seed(which="acorn"){
-        let cs=_GS.get("cells");
         let data=SEEDS[which];
         let h=data.length;
+        let {cells}=_G;
         let w=-Infinity;
         data.forEach(r=> {
           if(r.length>w)w=r.length; });
-        let y=_.max(0,_.floor((cs.length-h)/2));
-        let x=_.max(0,_.floor((cs[0].length-w)/2));
+        let y=_.max(0,_.floor((cells.length-h)/2));
+        let x=_.max(0,_.floor((cells[0].length-w)/2));
         let o;
         data.forEach((r,i)=>{
           r.forEach((c,j)=>{
             if(c!==0){
-              o=cs[y+i][x+j];
+              o=cells[y+i][x+j];
               o.alive=true;
-              o.icon.mojoh5.showFrame(1);
+              o.icon.m5.showFrame(1);
             }
           });
         });
       },
       setup(options){
-        this._initLevel(options);
+        this._initLevel();
         let self=this;
-        let grid=_G.state.get("grid");
-        let c0=grid.cell(0,0);
-        let box=_S.group(grid.draw());
-        box.x=c0.x1;
-        box.y=c0.y1;
-        box.mojoh5.resize=function(){
-          box.removeChildren();
-          let z=_G.state.get("cells");
-          let g=_G.state.get("grid");
-          let c0=g.cell(0,0);
-          let cw=c0.x2-c0.x1;
-          let ch=c0.y2-c0.y1;
-          let b=g.draw();
-          box.addChild(b);
-          box.x=c0.x1;
-          box.y=c0.y1;
-          for(let row,r=0;r<z.length;++r){
-            row=z[r];
-            for(let k,o,c=0;c<row.length;++c){
-              k=g.cell(r,c);
-              o=row[c];
-              o.icon.x=k.x1;
-              o.icon.y=k.y1;
-              o.icon.width=cw;
-              o.icon.height=ch;
-            }
-          }
-        };
-        this.insert(box);
+        let {grid}=_G;
+        let c0=grid[0][0];
+        let bx=_S.gridBBox(0,0,grid);
+        let s=_S.group(_S.drawBody((ctx)=>{
+          _S.drawGridBox(bx,1,"white",ctx);
+          _S.drawGridLines(0,0,grid,1,"white",ctx);
+        }));
+        _S.setXY(s,c0.x1,c0.y1);
+        this.insert(s);
         this._seed("random");
-        _.delay(_DELAY,()=> this.step());
+        _.delay(_DELAY,()=> this.onFrame());
       }
     });
   }
 
-  function setup(Mojo){
-    _scenes(Mojo);
-    Mojo.Scenes.runScene("level1");
-  }
+  const _$={
+    assetFiles:["tiles.png"],
+    arena:{width:1200, height:960},
+    gridLineWidth:1,
+    DIM:40,
+    scaleToWindow:"max",
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("level1");
+    }
+  };
 
-  window.addEventListener("load",()=>{
-    MojoH5({
-      assetFiles:["tiles.png"],
-      arena:{width:1200, height:960},
-      scaleToWindow:"max",
-      backgroundColor: 0,
-      start: setup
-    })
-  });
+  //load and run
+  window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
 
