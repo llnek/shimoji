@@ -791,7 +791,8 @@
           _ScrSize.height=Mojo.height;
           _ScrSize.width=Mojo.width;
           let z=this.scaleSZ(this.designSize,_ScrSize);
-          return Math.min(z.width,z.height);
+          return cmdArg.scaleFit=="x"?z.width
+                                      :cmdArg.scaleFit=="y"?z.height:Math.min(z.width,z.height);
         }
       },
       /**Get the named resource from the asset cache.

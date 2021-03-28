@@ -51,6 +51,10 @@
               ptr.dragOffsetX = ptr.x - g[0];
               ptr.dragOffsetY = ptr.y - g[1];
               ptr.dragged = s;
+              //important,force this flag to off so
+              //if drag dropped onto a button, button
+              //won't get triggered
+              ptr.state[2]=false;
               //pop it up to top
               _.disj(cs,s);
               _.conj(cs,s);
@@ -65,6 +69,10 @@
         }
       }
       if(ptr && ptr.state[1]){
+        //dragged and now dropped
+        if(ptr.dragged &&
+           ptr.dragged.m5.onDragDropped)
+          ptr.dragged.m5.onDragDropped();
         ptr.dragged=null;
       }
     }

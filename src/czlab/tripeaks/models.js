@@ -1,6 +1,20 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(global){
 
-  global["io.czlab.tripeaks.models"]=function(Mojo){
+  global["io/czlab/tripeaks/models"]=function(Mojo){
     const SYMBOLS = "?A23456789TJQK";
     const MAX_VALUE = 13;
     const MIN_VALUE = 1;
@@ -9,9 +23,11 @@
     const HEARTS=3;
     const SPADES=4;
     const JOKER=5;
-    const _G=Mojo.Game;
-    const _S=Mojo.Sprites;
-    const _=Mojo.u;
+    const MFL=Math.floor;
+    const {Sprites:_S,
+           Input:_I,
+           Game:_G,
+           ute:_,is,EventBus}=Mojo;
 
     const CARD_SUITS=(function(obj){
       obj[DIAMONDS]="Diamonds";
@@ -20,63 +36,87 @@
       obj[SPADES]="Spades";
       return obj;
     })({});
-    //const OrigCardSize=[140,190];
-    //const CardSize=[48,64];
-    //const CardScale=[48/140,64/190];
 
-    class Card{
-      static getSingleDeckSize(){ return 4 * MAX_VALUE }
-      constructor(suit, value){
-        _.assert(value >= MIN_VALUE && value <= MAX_VALUE, `Bad Value ${value}`);
-        this._symbol = value===10?"10":SYMBOLS[value];
-        this._value = value;
-        this._suit = suit;
-        this.toIcon();
-      }
-      toIcon(){
-        let cs=CARD_SUITS[this._suit];
-        if(cs){
-          let s= _S.sprite(`card${cs}${this._symbol}.png`);
-          let K=Mojo.contentScaleFactor();
-          s.scale.x= s.scale.y=K.height;
-          this._icon=s;
-          _G.iconSize=[s.width,s.height];
+    function flipExposed(){
+      _G.model.getExposed().forEach(c=>{
+        if(c){
+          c.m5.showFrame(1);
+          _I.makeDrag(c);
+        }
+      });
+    }
+
+    function dropDrawCard(c){
+      EventBus.pub(["flip.draw",c.parent]);
+    }
+
+    function dropCard(c){
+      let {row,col}=c.g;
+      _G.model.delCardAt(row,col);
+      _S.remove(c);
+    }
+
+    function _checkDropped(s){
+      let found,
+          es=_G.model.getExposed(),
+          dc=_G.model.getDrawCard();
+      es.push(dc);
+      for(let c,i=0;i<es.length;++i){
+        c=es[i];
+        if(s !== c &&
+           Mojo.mouse.hitTest(c) &&
+           _G.model.checkRules(s,c)){
+          found=c;
+          break;
         }
       }
-      toString(){
-        let s = "";
-        switch(this._suit){
-          case DIAMONDS:
-          s = "♦";
-          break;
-          case CLUBS:
-          s = "♣";
-          break;
-          case HEARTS:
-          s = "♥";
-          break;
-          case SPADES:
-          s = "♠";
-          break;
-          default:
-          break;
+      if(found){
+        if(s===dc){
+          dropDrawCard(dc);
+          dropCard(found);
+        }else if(found===dc){
+          dropDrawCard(dc);
+          dropCard(s);
+        }else{
+          dropCard(found);
+          dropCard(s);
         }
-        return this._symbol + s;
-      }
-      get symbol(){return this._symbol}
-      get suit(){ return this._suit}
-      get value(){ return this._value }
-      get icon(){return this._icon}
-      hashCode(){
-        return _.hashCode(`${this._suit}${this._symbol}${this._value}`);
-      }
-      equals(obj){
-        return this===obj ||
-               (obj instanceof Card) &&
-               this._suit === obj.suit && this._symbol===obj.symbol && this._value === obj.value;
+        flipExposed();
+      }else{
+        s.x=s.g.x;
+        s.y=s.g.y;
       }
     }
-    Card.Joker=new Card(JOKER,MIN_VALUE);
+
+    /** Create a card */
+    function Card(suit,value){
+      _.assert(value >= MIN_VALUE &&
+               value <= MAX_VALUE, `Bad Value ${value}`);
+      const symbol = value===10?"10":SYMBOLS[value];
+      const cs=CARD_SUITS[suit];
+      const s= _S.sprite(_S.frameImages([`${Mojo.u.stockPile}.png`,
+                                         `card${cs}${symbol}.png`]));
+      //scale the card,make it nice and even
+      if(!_G.iconSize){
+        let w,h,K=Mojo.getScaleFactor();
+        _S.scaleXY(s,K,K);
+        w=MFL(s.width);
+        h=MFL(s.height);
+        if(!_.isEven(w))--w;
+        if(!_.isEven(h))--h;
+        _G.iconSize=[w,h];
+      }
+      s.g.value=value;
+      s.g.suit=suit;
+      s.g.symbol=symbol;
+      s.height=_G.iconSize[1];
+      s.width=_G.iconSize[0];
+      s.m5.onDragDropped=()=>{
+        _checkDropped(s)
+      };
+      return s;
+    }
+    Card.getSingleDeckSize=function(){ return 4 * MAX_VALUE }
 
     const SUITS = [DIAMONDS, CLUBS, HEARTS, SPADES];
     class PyramidSolitaire{
@@ -85,147 +125,117 @@
         this.scene=scene;
         // for draw cards
         this.stockPile=[];
-        this.drawer=[];
+        this.drawer=null;
         // for the game board
         this.boardWidths=[];//ints
         this.board=[];//[][]
-        // useful for debugging
-        this.cardsDisplayed=0;
       }
-      /**
-       * Ensure cards in the deck are kosher.
-       * @param input
-       * @return
-       */
-      checkInputDeckIntegrity(deck){}
       /**
        * Initial internal data structures for the model.
        * @param deck
        * @param numRows
        */
-      initBoard(deck, numRows){
-        this.allocateModel(numRows, numRows* this.numPeaks);
-        const overlap= _.floor(Math.ceil(numRows * 0.5));
+      _initBoard(deck, numRows){
+        this._allocateModel(numRows, numRows*this.numPeaks);
+        const overlap= MFL(Math.ceil(numRows * 0.5));
         const shift= numRows-overlap;
         const lastPeak=this.numPeaks-1;
         let left= 0;
-        //console.log("initBoard, overlap=" + overlap + ", delta="+ delta);
         for(let p=0; p < this.numPeaks; ++p){
           if(p>0){ left += shift }
-          this.initPeak(left,numRows,deck,p===lastPeak);
+          this._initPeak(left,numRows,deck,p===lastPeak);
         }
       }
       getCards(row){
-        return this.validRow(row) ? this.board[row] : null;
+        if(this.validRow(row)) return this.board[row]
       }
-      checkDrawPos(drawIndex){
-        return this.drawer && drawIndex >= 0 && drawIndex < this.drawer.length;
-      }
-      setDrawCard(i, c){ this.drawer[i]= c }
-      getDrawCard(i){ return this.drawer[i] }
-      delDrawAt(i){ this.drawer[i]=null }
-      setRowWidth(row, w){
-        this.boardWidths[row]=w;
-        console.log("row [" + row + "]#width = " + w);
-      }
-      allocateModel(rows, cols){
+      setDrawCard(c=null){ this.drawer= c }
+      getDrawCard(){ return this.drawer }
+      setRowWidth(row, w){ this.boardWidths[row]=w }
+      _allocateModel(rows, cols){
         this.board=[];
+        this.boardWidths= _.fill(rows,0);
         for(let r=0;r<rows;++r)
-          this.board[r]=new Array(cols);
-        this.boardWidths= _.fill(new Array(rows),0);
+          this.board[r]=_.fill(cols,null);
       }
       checkCoordinate(row, card){
-        return this.validRow(row) && this.validCol(card);
+        return this.validRow(row) && this.validCol(card)
       }
       validCol(c){
-        return this.board && this.board[0]  && c >= 0 && c < this.board[0].length;
+        return this.board &&
+               this.board[0] &&
+               c >= 0 && c < this.board[0].length
       }
       validRow(r){
-        return this.board && r >= 0 && r < this.board.length;
+        return this.board && r >= 0 && r < this.board.length
       }
       lastRowIndex(){
-        return this.board ? this.board.length-1 : -1;
+        return this.board ? this.board.length-1 : -1
       }
       getRowWidth(row){
-        return (this.boardWidths && this.validRow(row)) ? this.boardWidths[row] : -1;
+        return (this.boardWidths && this.validRow(row)) ? this.boardWidths[row] : -1
       }
-      assertState(cond, msg){
-        if(!cond)
-          throw new Error(msg);
-      }
-      assertArg(cond, msg){
-        if(!cond)
-          throw new Error(msg);
-      }
-      getCardSet(){
-        return new Set(getSingleDeck());
-      }
+      assertState(cond, msg){ _.assert(cond,msg) }
+      assertArg(cond, msg){ _.assert(cond,msg) }
+      getCardSet(){ return new Set(getSingleDeck()) }
       checkRule2(a, b){
-        return a && b && (a.value + b.value) === MAX_VALUE;
+        return a && b && (a.g.value + b.g.value) === MAX_VALUE
       }
       checkRule1(a){
-        return a && a.value === MAX_VALUE;
+        return a && a.g.value === MAX_VALUE
+      }
+      checkRules(a,b){
+        //2 kings or a+b=13
+        return (a.g.value + b.g.value) === MAX_VALUE ||
+               (a.g.value===b.g.value && a.g.value===MAX_VALUE)
       }
       delCardAt(row, card){
         if(this.board)
-          this.board[row][card] = null;
+          this.board[row][card] = null
       }
       setCardAt(row, card, c){
         if(this.board){
-          this.board[row][card] = c;
+          this.board[row][card] = c
+          c.g.row=row;
+          c.g.col=card;
         }
       }
       getSingleDeck(){
-        let deck = [];
-        for(let k=0; k<SUITS.length; ++k){
-          for(let i=MIN_VALUE; i<=MAX_VALUE; ++i){
-            deck.push(new Card(SUITS[k], i));
-          }
-        }
+        const deck = [];
+        SUITS.forEach(k=>{
+          for(let i=MIN_VALUE;
+              i<=MAX_VALUE; ++i) deck.push(Card(k, i)) });
         return deck;
       }
-      initPeak(left, size, input, calcRowWidth){
+      _initPeak(left, size, input, calcRowWidth){
         for(let rmost,i=0; i<size; ++i){
           rmost=left+i;
           for(let c,j=left; j<=rmost; ++j){
             c=this.getCardAt(i,j);
-            if(c){ continue} // card overlapped
+            if(c){continue} // card overlapped
             c= input.length===0 ? null : input.shift();
-            //TODO: check if we should throw illegalstate or illegalarg,
-            //assignment is very vague on this.
-            this.assertArg(c, "Invalid deck.");
+            this.assertArg(c, "invalid deck");
             this.setCardAt(i,j, c);
           }
           if(calcRowWidth)
             this.setRowWidth(i, rmost+1);
         }
       }
-      startGame(deck1, numRows, numDraw){
-        // pre-conditions
+      startGame(deck1, numRows=7, numDraw=1){
+        //pre-conditions
         this.assertArg(numRows >= 0, "Rows in pyramid < 0.");
         this.assertArg(numDraw >= 0, "Draw cards < 0.");
         this.assertArg(deck1, "Deck is null.");
         let deck=_.shuffle(deck1);
-        // numRows > 0 means we can possibly have a valid game, so
-        // lets check the deck
-        if(numRows>0)
-          this.assertArg(this.checkInputDeckIntegrity(deck), "Incorrect deck");
         let origDeckSize= deck.length;
-        this.initBoard(deck, numRows);
-
-        // what remains goes to the stockPile
-        this.drawer = new Array(numDraw);
+        //what remains goes to the stockPile
+        this._initBoard(deck, numRows);
+        this.drawer = null;
         this.stockPile = deck;
-
-        //keep track of how many cards actually displayed, for debugging
-        this.cardsDisplayed=origDeckSize - deck.length;
-        //console.log("we used " + cardsDisplayed + " for the pyramid(s).");
-
-        // initialize draw cards
-        for(let i=0; i<this.drawer.length; ++i){
-          if(this.stockPile.length>0)
-            this.setDrawCard(i, this.stockPile.shift());
-        }
+        console.log(`using ${origDeckSize-deck.length} cards for the pyramid(s).`);
+        //initialize draw card
+        if(this.stockPile.length>0)
+          this.setDrawCard(this.stockPile.shift());
         //console.log("game started - ok.");
         // force a game over test
         //int sz=deck.size() - 2; for (int i=0; i < sz; ++i) { deck.remove(0); }
@@ -235,7 +245,7 @@
           r=this.getCards(i);
           for(let j=0; j<r.length; ++j){
             if(r[j])
-              return false;
+              return false
           }
         }
         return true;
@@ -245,7 +255,8 @@
         this.assertArg(this.checkCoordinate(row2, card2), "Invalid card position.");
         this.assertArg(!(row1 == row2 && card1 == card2), "Can't choose same card.");
         //check if the cards are exposed
-        if(this.isCardExposed(row1, card1) && this.isCardExposed(row2, card2)){
+        if(this.isCardExposed(row1, card1) &&
+           this.isCardExposed(row2, card2)){
           let c1 = this.getCardAt(row1,card1);
           let c2 = this.getCardAt(row2,card2);
           if(this.checkRule(c1,c2)){
@@ -270,13 +281,16 @@
         this.assertArg(false, "Bad move");
       }
       isCardExposed(row, card){
-        if(this.checkCoordinate(row,card) && this.someCardAt(row,card)){
+        if(this.checkCoordinate(row,card) &&
+           this.someCardAt(row,card)){
           let below = row + 1;
           let left = card;
           let right = card + 1;
           //last row is always exposed, quick exit
           return row === this.lastRowIndex() ||
-                 (this.checkCoordinate(below,right) && this.noCardAt(below,left) && this.noCardAt(below,right));
+                 (this.checkCoordinate(below,right) &&
+                  this.noCardAt(below,left) &&
+                  this.noCardAt(below,right));
         }
         return false;
       }
@@ -296,25 +310,21 @@
         }
         this.assertArg(false, "Bad draw move");
       }
-      discardDraw(drawIndex){
-        this.assertArg(this.checkDrawPos(drawIndex), "Invalid draw position.");
-        this.delDrawAt(drawIndex);
+      discardDraw(){
         if(this.stockPile.length>0)
-          this.setDrawCard(drawIndex, this.stockPile.shift());
+          this.setDrawCard(this.stockPile.shift());
+        return this.getDrawCard();
       }
       getNumRows(){
         // how many rows in the pyramid
-        return !this.board ? -1 : this.board.length;
+        return !this.board ? -1 : this.board.length
       }
-      getNumDraw(){
-        // how many draw cards
-        return !this.drawer ? -1 : this.drawer.length;
-      }
+      getNumDraw(){ return 1 }
       isGameOver(){
         this.assertState(this.board, "Game is not running.");
         // game is over if all cards are gone in the pyramid, or
         // game can't continue - stuck
-        return this.isPyramidEmpty() || this.isGameStuck();
+        return this.isPyramidEmpty() || this.isGameStuck()
       }
       getExposed(){
         let remains = [];
@@ -337,7 +347,7 @@
           // no cards to play with, can't continue
           return true;
         }
-        // look for kings
+        //look for kings
         for(let c,i=0;i<remains.length;++i){
           c=remains[i];
           if(this.checkRule1(c)){
@@ -346,7 +356,8 @@
           }
         }
         // collect all cards and see any valid combos
-        this.getDrawCards().forEach(c=>remains.push(c));
+        let dc= this.getDrawCard();
+        remains.push(dc);
         // scan...
         let cards = remains;
         for(let ci,i=0; i<cards.length; ++i){
@@ -375,50 +386,30 @@
         return score;
       }
       someCardAt(row, card){
-        return !!this.getCardAt(row, card);
+        return !!this.getCardAt(row, card)
       }
       noCardAt(row, card){
-        return !this.someCardAt(row, card);
+        return !this.someCardAt(row, card)
       }
       getCardAt(row, card){
         this.assertState(this.board, "Game is not running.");
         this.assertArg(this.checkCoordinate(row, card), "Invalid card position.");
         return this.board[row][card];
       }
-      getDrawCards(){
-        this.assertState(this.board, "Game is not running.");
-        // the assignment is vague here. E.g.  if we have 3 draw cards defined,
-        // but the
-        // actual draw cards remaining is like =>  K Blank Q,
-        // should we return K,Q or K,null,Q ??????
-        // for now, we return what we see => K,null,Q
-        let result = [];
-        for(let c,i = 0; i < this.drawer.length; ++i){
-          c = this.drawer[i];
-          result.push(c);
-        }
-        return result;
-      }
     }
 
-    class BasicPyramidSolitaire extends PyramidSolitaire{
+    class OnePeak extends PyramidSolitaire{
       constructor(scene) {
         super(scene,1);
-      }
-      checkInputDeckIntegrity(input){
-        return true;
       }
       getDeck(){
         return this.getSingleDeck();
       }
     }
 
-    class TriPeakPyramidSolitaire extends PyramidSolitaire{
+    class TriPeak extends PyramidSolitaire{
       constructor(scene){
         super(scene,3);
-      }
-      checkInputDeckIntegrity(input){
-        return true;
       }
       getDeck(){
         //want 2 decks
@@ -427,9 +418,9 @@
     }
 
     _.inject(_G,{
-      Card:Card,
-      BasicPyramidSolitaire:BasicPyramidSolitaire,
-      TriPeakPyramidSolitaire:TriPeakPyramidSolitaire
+      Card,
+      OnePeak,
+      TriPeak
     });
 
   };

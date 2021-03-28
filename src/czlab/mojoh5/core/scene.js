@@ -237,6 +237,11 @@
           this.removeChild(c);
           if(c.m5._engrid)
             this.m5.sgrid.degrid(c);
+          if(c.m5.drag)
+            Mojo.Input.undoDrag(c);
+          if(c.m5.button)
+            Mojo.Input.undoButton(c);
+          EventBus.drop(c);
           _.dissoc(this.m5.index,c.m5.uuid);
         }
       }
