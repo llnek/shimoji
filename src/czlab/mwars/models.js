@@ -1,50 +1,63 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
 ;(function(window){
+
   "use strict";
 
-  window["io.czlab.mwars.models"]=function(Mojo){
-    const _V=window["io.czlab.mcfud.vec2"]();
-    const _S=Mojo.Sprites;
-    const _G=Mojo.Game;
-    const _D=Mojo["2d"];
-    const _=Mojo.u;
+  window["io/czlab/mwars/models"]=function(Mojo){
+    const {Sprites:_S,Game:_G,"2d":_D,ute:_,is,EventBus}=Mojo;
+    const _V=window["io/czlab/mcfud/vec2"]();
+    const MFL=Math.floor;
 
     _G.seekWithTarget=function(m,target){
-      let dir= _V.vecUnitSelf(_V.vecSub(target, [m.x,m.y]));
-      return _V.vecMulSelf(dir, m.maxAcceleration);
+      return _V.mul$(_V.unit$(_V.sub(target, _V.vec(m.x,m.y))), m.g.maxAcceleration);
     };
 
     let timeToTarget = 0.1;
     _G.arriveWithTarget=function(m,target){
-      let vector = _V.vecSub(target, [m.x,m.y]);
-      let dist= _V.vecLen(vector);
+      let vector = _V.sub(target, [m.x,m.y]);
+      let dist= _V.len(vector);
       let targetRadius = 5;
       let slowRadius = targetRadius + 25;
       if(dist< targetRadius){
-        m.mojoh5.vel[0] = m.mojoh5.vel[1] = 0;
-        m.mojoh5.acc[0] = m.mojoh5.acc[1]=0;
-        return [0,0];
+        _S.velXY(m,0,0);
+        _S.accXY(m,0,0);
+        return _V.vec();
       }
-      let targetSpeed= dist>slowRadius? m.maxVelocity: m.maxVelocity*dist/slowRadius;
-      let targetVel= _V.vecMulSelf(_V.vecUnit(vector), targetSpeed);
-      let acc= _V.vecMulSelf(_V.vecSubSelf(targetVel, m.mojoh5.vel), 1/timeToTarget);
-      if(_V.vecLen(acc) > m.maxAcceleration){
-        acc= _V.vecMulSelf(_V.vecUnit(acc), m.maxAcceleration);
+      let targetSpeed= dist>slowRadius? m.g.maxVelocity: m.g.maxVelocity*dist/slowRadius;
+      let targetVel= _V.mul$(_V.unit(vector), targetSpeed);
+      let acc= _V.mul$(_V.sub$(targetVel, m.m5.vel), 1/timeToTarget);
+      if(_V.len(acc) > m.g.maxAcceleration){
+        acc= _V.mul$(_V.unit$(acc), m.g.maxAcceleration);
       }
       return acc;
     };
 
     let SEPARATE_THRESHHOLD = 20;
     _G.separate=function(m){
-      let steering=[0,0];
+      let steering=_V.vec();
       let dir;
       let dist;
-      m.owner.army.forEach(a=>{
+      m.g.owner.g.army.forEach(a=>{
         if(a !== m){
-          dir= _V.vecSubSelf([m.x,m.y], [a.x,a.y]);
-          dist= _V.vecLen(dir);
+          dir= _V.sub$(_V.vec(m.x,m.y),
+                       _V.vec(a.x,a.y));
+          dist= _V.len(dir);
           if(dist<SEPARATE_THRESHHOLD){
-            dir= _V.vecUnitSelf(dir);
-            steering = _V.vecAddSelf(steering, _V.vecMulSelf(dir, m.maxAcceleration));
+            dir= _V.unit$(dir);
+            steering = _V.add$(steering, _V.mul$(dir, m.g.maxAcceleration));
           }
         }
       });
@@ -53,28 +66,32 @@
 
     let ATTACK_THRESHHOLD = 150;
     _G.updateMove=function(m,dt){
-      if(m.maxAcceleration <= 0 || m.maxVelocity <= 0) return;
+      if(m.g.maxAcceleration <= 0 ||
+         m.g.maxVelocity <= 0) {return}
       let hasTarget = false;
-      let moveTarget=[0,0];
+      let moveTarget=_V.vec();
       let e= _G.closestEnemy(m);
-      let dist= e ? _V.vecDist([m.x,m.y], [e.x,e.y]) : 0;
-      if(m.owner.attacking || (e && dist<ATTACK_THRESHHOLD)){
+      let vm=_V.vec(m.x,m.y);
+      let ve=e?_V.vec(e.x,e.y):null;
+      let dist= e ? _V.dist(vm, ve) : 0;
+      if(m.g.owner.attacking || (e && dist<ATTACK_THRESHHOLD)){
         if(!e){
-          e=_G.getOtherPlayer(m.owner);
-          dist= _V.vecDist([m.x,m.y], [e.x,e.y]);
+          e=_G.getOtherPlayer(m.g.owner);
+          ve=_V.vec(e.x,e.y);
+          dist= _V.dist(vm, ve);
         }
         if(e){
           hasTarget = true;
-          moveTarget = [e.x,e.y];
-          if(m.isRanged){
-            let vector = _V.vecUnitSelf(_V.vecSubSelf([m.x,m.y], [e.x,e.y]));
-            moveTarget = _V.vecAddSelf([e.x,e.y], _V.vecMulSelf(vector, m.rangedRange));
-            dist= _V.vecDist([m.x,m.y], moveTarget);
+          moveTarget = ve;
+          if(m.g.isRanged){
+            let vector = _V.unit$(_V.sub(vm, ve));
+            moveTarget = _V.add$(ve, _V.mul$(vector, m.g.rangedRange));
+            dist= _V.dist(vm, moveTarget);
           }
         }
       }else{
         hasTarget = true;
-        moveTarget = [m.owner.x,m.owner.y];
+        moveTarget = _V.vec(m.g.owner.x,m.g.owner.y);
       }
       if(hasTarget){
         // Calculate amount to accelerate, based on goal of arriving at nearest enemy,
@@ -82,59 +99,59 @@
         //CGPoint seekComponent = [self seekWithTarget:moveTarget];
         let arriveComponent = _G.arriveWithTarget(m,moveTarget);
         let separateComponent = _G.separate(m);
-        let newAcceleration = _V.vecAdd(arriveComponent, separateComponent);
+        let newAcceleration = _V.add(arriveComponent, separateComponent);
         // Update current acceleration based on the above, and clamp
-        m.mojoh5.acc= _V.vecAddSelf(m.mojoh5.acc, newAcceleration);
-        if(_V.vecLen(m.mojoh5.acc) > m.maxAcceleration){
-          m.mojoh5.acc= _V.vecMul(_V.vecUnitSelf(m.mojoh5.acc), m.maxAcceleration);
+        _V.add$(m.m5.acc, newAcceleration);
+        if(_V.len(m.m5.acc) > m.g.maxAcceleration){
+          _V.mul$(_V.unit$(m.m5.acc), m.g.maxAcceleration);
         }
         // Update current velocity based on acceleration and dt, and clamp
-        m.mojoh5.vel= _V.vecAddSelf(m.mojoh5.vel, _V.vecMul(m.mojoh5.acc, dt));
-        if(_V.vecLen(m.mojoh5.vel) > m.maxVelocity){
-          m.mojoh5.vel= _V.vecMulSelf(_V.vecUnitSelf(m.mojoh5.vel), m.maxVelocity);
+        _V.add$(m.m5.vel, _V.mul(m.m5.acc, dt));
+        if(_V.len(m.m5.vel) > m.g.maxVelocity){
+          _V.mul$(_V.unit$(m.m5.vel), m.g.maxVelocity);
         }
         // Update position based on velocity
-        let newPosition = _V.vecAddSelf([m.x,m.y], _V.vecMul(m.mojoh5.vel, dt));
+        let newPosition = _V.add$(vm, _V.mul(m.m5.vel, dt));
         m.x = Math.max(Math.min(newPosition[0], Mojo.width), 0);
         m.y = Math.max(Math.min(newPosition[1], Mojo.height), 0);
       }
     };
 
     _G.checkCollision=function(m,enemy){
-      if(m.alive && enemy.alive && _D.hitTest(m, enemy)){
+      if(!m.m5.dead && !enemy.m5.dead && _D.hitTest(m, enemy)){
         let now=_.now();
-        if(now - m.meleeLastDamageTime > m.meleeDamageRate){
-          Mojo.sound(m.meleeSound).play();
-          if(m.meleeAoe){
-            m._aoeDamageCaused = true;
+        if(now - m.g.meleeLastDamageTime > m.g.meleeDamageRate){
+          Mojo.sound(m.g.meleeSound).play();
+          if(m.g.meleeAoe){
+            m.g._aoeDamageCaused = true;
           }else{
-            m.meleeLastDamageTime = now;
+            m.g.meleeLastDamageTime = now;
           }
-          enemy.curHp -= m.meleeDamage;
-          if(enemy.curHp<0){
-            enemy.curHp = 0;
+          enemy.g.curHp -= m.g.meleeDamage;
+          if(enemy.g.curHp<0){
+            enemy.g.curHp = 0;
           }
-          if(m.meleeDestroySelf && m.owner){
-            _.disj(m.owner.army,m);
+          if(m.g.meleeDestroySelf && m.g.owner){
+            _.disj(m.g.owner.army,m);
+            m.m5.dead=true;
             _S.remove(m);
-            m.alive=false;
           }
         }
       }
     };
 
     _G.updateMelee=function(m,dt){
-      if(!m.isMelee) return;
-      let other= _G.getOtherPlayer(m.owner);
-      m._aoeDamageCaused = false;
-      for(let i=other.army.length-1;i>=0;--i){
-        _G.checkCollision(m,other.army[i]);
+      if(!m.g.isMelee) return;
+      let other= _G.getOtherPlayer(m.g.owner);
+      m.g._aoeDamageCaused = false;
+      for(let i=other.g.army.length-1;i>=0;--i){
+        _G.checkCollision(m,other.g.army[i]);
       }
       _G.checkCollision(m,other);
       // Special case for AOE damage - let it attack multiple things before we
       // reset the last damage time
-      if(m._aoeDamageCaused){
-        m.meleeLastDamageTime = _.now();
+      if(m.g._aoeDamageCaused){
+        m.g.meleeLastDamageTime = _.now();
       }
     };
 
@@ -142,24 +159,25 @@
     let laserDistance = 1000;
     let WIGGLE_ROOM = 5;
     _G.updateRanged=function(m,dt){
-      if(!m.isRanged) return;
+      if(!m.g.isRanged) return;
       let e= _G.closestEnemy(m);
       if(!e){
-        e= _G.getOtherPlayer(m.owner);
+        e= _G.getOtherPlayer(m.g.owner);
       }
       if(!e) return;
-      let dist= _V.vecDist([m.x,m.y], [e.x,e.y]);
+      let vm= _V.vec(m.x,m.y);
+      let ve= _V.vec(e.x,e.y);
+      let dist= _V.dist(vm,ve);
       let now=_.now();
-      if(Math.abs(dist) <= (m.rangedRange + WIGGLE_ROOM) &&
-         now - m.rangedLastDamageTime > m.rangedDamageRate){
-        Mojo.sound(m.rangedSound).play();
-        m.rangedLastDamageTime = now;
-        let laser = _G.createLaser(m.owner);
-        laser.x=m.x;
-        laser.y=m.y;
-        laser.meleeDamage = m.rangedDamage;
-        let dir= _V.vecUnitSelf(_V.vecSubSelf([e.x,e.y], [m.x,m.y]));
-        let target = _V.vecMulSelf(dir, laserDistance);
+      if(Math.abs(dist) <= (m.g.rangedRange + WIGGLE_ROOM) &&
+         now - m.g.rangedLastDamageTime > m.g.rangedDamageRate){
+        Mojo.sound(m.g.rangedSound).play();
+        m.g.rangedLastDamageTime = now;
+        let laser = _G.createLaser(m.g.owner);
+        _S.setXY(laser,m.x, m.y);
+        laser.g.meleeDamage = m.g.rangedDamage;
+        let dir= _V.unit$(_V.sub(ve, vm));
+        let target = _V.mul$(dir, laserDistance);
         let duration = laserDistance / laserPointsPerSecond;
         laser.rotation= -atan2(dir[1]/dir[0]);
         //laser.zOrder = 1;
