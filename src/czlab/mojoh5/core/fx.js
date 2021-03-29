@@ -238,13 +238,13 @@
        * @param {number} x
        * @return {number}
        */
-      SMOOTH_QUAD(x){let n= this.SMOOTH(x); return n*n},
+      SMOOTH_QUAD(x){let n= _$.SMOOTH(x); return n*n},
       /**Easing function: cubic-smooth.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-      SMOOTH_CUBIC(x){let n= this.SMOOTH(x); return n*n*n},
+      SMOOTH_CUBIC(x){let n= _$.SMOOTH(x); return n*n*n},
       /**Easing function: cubic-ease-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -368,7 +368,7 @@
        * @param {number} x
        * @return {number}
        */
-      BOUNCE_IN(x){ return 1 - this.BOUNCE_OUT(1 - x) },
+      BOUNCE_IN(x){ return 1 - _$.BOUNCE_OUT(1 - x) },
       /**Easing function: bounce-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -391,8 +391,8 @@
        * @return {number}
        */
 		  BOUNCE_INOUT(x){
-			  return x < 0.5 ? this.BOUNCE_IN(x*2) * 0.5
-                       : this.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5
+			  return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
+                       : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5
 		  },
       /**Create a tween operating on sprite's alpha value.
        * @memberof module:mojoh5/FX

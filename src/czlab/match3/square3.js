@@ -13,17 +13,19 @@
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
+
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //static data
   const IMAGEFILES= ["1s.png","2s.png","3s.png","4s.png","5s.png"];
   const Match3=window.Match3;
+  const MFL=Math.floor;
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game scenes
   function scenes(Mojo){
-    const {Scenes,Sprites,Input,Game,Effects,u:_} = Mojo;
+    const {Scenes,Sprites,Input,Game,FX,ute:_,is,EventBus} = Mojo;
 
     Game.icons= IMAGEFILES;
     Game.tilesInX=6;
@@ -31,10 +33,11 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //background
-    Scenes.defScene("Bg",{
+    Scenes.defScene("bg",{
       setup(){
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //levels
     Scenes.defScene("level1",{
@@ -75,50 +78,32 @@
             c=Game.match3.valueAt(y,x);
             g=Game.grid[y][x];
             t= this._createTile(c);
-            t.x=(g.x1+g.x2)/2|0;
-            t.y=(g.y1+g.y2)/2|0;
+            Sprites.setXY(t,MFL((g.x1+g.x2)/2),
+                            MFL((g.y1+g.y2)/2));
             Game.match3.setCustomData(y,x,t);
           }
         }
         Game.selecting=true;
         Game.dragging=false;
       },
-      onCanvasResize(old){
-        let g= Game.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
-        let z=g[0][0];
-        Game.tileW=z.x2-z.x1;
-        Game.tileH=z.y2-z.y1;
-        for(let y=0;y<Game.match3.getRows();++y)
-          for(let b,s,i,x=0;x<Game.match3.getColumns();++x){
-            s=Game.match3.customDataOf(y,x);
-            b=g[y][x];
-            s.width=Game.tileW;
-            s.height=Game.tileH;
-            s.x=(b.x2+b.x1)/2 |0;
-            s.y=(b.y2+b.y1)/2 |0;
-          }
-        this._backdrop();
-        this.remove("gbox");
-        this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
-      },
       setup(){
-        let g= Game.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
+        let g= Game.grid= Sprites.gridXY([Game.tilesInX,Game.tilesInY]);
         let z=g[0][0];
         Game.tileW=z.x2-z.x1;
         Game.tileH=z.y2-z.y1;
         this._backdrop();
         this._initLevel();
         this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
-        Mojo.EventBus.sub(["mousedown"],"_onMouseDown",this);
-        Mojo.EventBus.sub(["mousemove"],"_onMouseMove",this);
-        Mojo.EventBus.sub(["mouseup"],"_onMouseUp",this);
+        EventBus.sub(["mousedown"],"_onMouseDown",this);
+        EventBus.sub(["mousemove"],"_onMouseMove",this);
+        EventBus.sub(["mouseup"],"_onMouseUp",this);
       },
       _hitTest(){
         let pos;
         for(let y=0;y<Game.match3.getRows();++y)
           for(let t,x=0;x<Game.match3.getColumns();++x){
             t=Game.match3.customDataOf(y,x);
-            if(Mojo.pointer.hitTestSprite(t)){
+            if(Mojo.mouse.hitTest(t)){
               pos= y*Game.tilesInX+x;
               break;
             }
@@ -132,9 +117,9 @@
         Game.selecting = false;
         shifts.forEach(move=>{
           t= Game.match3.customDataOf(move.row, move.column);
-          e= Effects.slide(t, Effects.SMOOTH_CUBIC,
-                           t.x + Game.tileW  * move.deltaColumn,
-                           t.y + Game.tileH * move.deltaRow, 10);
+          e= FX.slide(t, FX.SMOOTH_CUBIC,
+                         t.x + Game.tileW  * move.deltaColumn,
+                         t.y + Game.tileH * move.deltaRow, 10);
           e.cb=()=>{
             if(--cnt===0){
               if(!Game.match3.matchInBoard()){
@@ -156,7 +141,7 @@
         let t,e;
         matched.forEach(m=>{
           t=Game.match3.customDataOf(m.row, m.column);
-          e=Effects.pulse(t,0,10);
+          e=FX.pulse(t,0,10);
           e.cb=()=>{
             Game.match3.setCustomData(m.row,m.column,null);
             Sprites.remove(t);
@@ -173,9 +158,9 @@
         shifts.forEach(move=>{
           ++moved;
           t= Game.match3.customDataOf(move.row, move.column);
-          e=Effects.slide(t,Effects.BOUNCE_OUT,
-                          t.x,
-                          t.y + move.deltaRow * Game.tileH,10);
+          e=FX.slide(t,FX.BOUNCE_OUT,
+                       t.x,
+                       t.y + move.deltaRow * Game.tileH,10);
           e.cb=()=>{
             if(--moved===0)
               this._endMove();
@@ -187,11 +172,11 @@
           t= this._createTile(Game.match3.valueAt(move.row, move.column));
           Game.match3.setCustomData(move.row,move.column,t);
           g= Game.grid[move.row][move.column];
-          t.x=(g.x1+g.x2)/2|0;
-          t.y = TL.y1+Game.tileH * (move.row - move.deltaRow + 1) - Game.tileH/2|0;
-          e=Effects.slide(t,Effects.BOUNCE_OUT,
-                          t.x,
-                          TL.y1 + Game.tileH * move.row + Game.tileH/2|0, 10*move.deltaRow);
+          t.x=MFL((g.x1+g.x2)/2);
+          t.y= TL.y1+Game.tileH * (move.row - move.deltaRow + 1) - MFL(Game.tileH/2);
+          e=FX.slide(t,FX.BOUNCE_OUT,
+                       t.x,
+                       TL.y1 + Game.tileH * move.row + MFL(Game.tileH/2), 10*move.deltaRow);
           e.cb=()=>{
             if(--moved===0)
               this._endMove();
@@ -211,7 +196,7 @@
           let t= this._hitTest();
           if(t>=0){
             let c,picked= Game.match3.getSelectedItem();
-            let y=t/Game.tilesInX |0;
+            let y=MFL(t/Game.tilesInX);
             let x=t%Game.tilesInX;
             if(!picked){
               picked=Game.match3.customDataOf(y,x);
@@ -237,7 +222,6 @@
                   c=Game.match3.customDataOf(picked.row, picked.column);
                   c.scale.x = c.g.sx;
                   c.scale.y = c.g.sy;
-
                   picked=Game.match3.customDataOf(y,x);
                   picked.g.sx= picked.scale.x;
                   picked.g.sy= picked.scale.y;
@@ -257,21 +241,20 @@
     });
   }
 
+  const _$={
+    arena: {width:480,height:800},
+    assetFiles: IMAGEFILES,
+    scaleToWindow: "max",
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("bg");
+      Mojo.Scenes.runScene("level1");
+    }
+  };
+
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //bootstrap onload
-  window.addEventListener("load", ()=>{
-    MojoH5({
-      arena: {width:480,height:800},
-      assetFiles: IMAGEFILES,
-      scaleToWindow: "max",
-      backgroundColor: 0,
-      start(Mojo){
-        scenes(Mojo);
-        Mojo.Scenes.runScene("Bg");
-        Mojo.Scenes.runScene("level1");
-      }
-    })
-  });
+  //load and run
+  window.addEventListener("load", ()=> MojoH5(_$));
 
 })(this);
 
