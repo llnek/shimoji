@@ -1092,11 +1092,15 @@
       gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
         let szh=MFL(Mojo.height*ratioY),
             szw=MFL(Mojo.width*ratioX),
-            sy= MFL((Mojo.height-szh)/2),
-            sx= MFL((Mojo.width-szw)/2),
             cw=MFL(szw/dimX),
             ch=MFL(szh/dimY),
-            _x=sx,_y=sy;
+            dim=cw>ch?ch:cw,
+            _x,_y,sy,sx;
+        szh=dimY*dim;
+        szw=dimX*dim;
+        sy= MFL((Mojo.height-szh)/2);
+        sx= MFL((Mojo.width-szw)/2);
+        _x=sx,_y=sy;
         if(out){
           out.height=szh;
           out.width=szw;
@@ -1105,7 +1109,7 @@
           out.x=sx;
           out.y=sy;
         }
-        return _mkgrid(_x,_y,dimY,dimX,cw,ch);
+        return _mkgrid(_x,_y,dimY,dimX,dim,dim);
       },
       /**Find the bounding box for this grid.
        * @memberof module:mojoh5/Sprites

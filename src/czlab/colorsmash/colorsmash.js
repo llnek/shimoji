@@ -13,16 +13,17 @@
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
+
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //static data
   const IMAGEFILES= ["1s.png","2s.png","3s.png","4s.png","5s.png"];
-
+  const MFL=Math.floor;
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game scenes
   function scenes(Mojo){
-    const {Scenes,Sprites,Input,Game,FX,u:_} = Mojo;
+    const {Scenes,Sprites,Input,Game,FX,ute:_} = Mojo;
 
     Game.icons= IMAGEFILES;
     Game.tilesInX=6;
@@ -30,10 +31,11 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //background
-    Scenes.defScene("Bg",{
+    Scenes.defScene("bg",{
       setup(){
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //levels
     Scenes.defScene("level1",{
@@ -63,11 +65,10 @@
         let g= Game.grid[y][x];
         let s=Sprites.sprite(Game.icons[c]);
         Sprites.centerAnchor(s);
-        s.width=Game.tileW;
-        s.height=Game.tileH;
+        Sprites.sizeXY(s,Game.tileW, Game.tileH);
         s.iconColor=c;
-        s.x=(g.x2+g.x1)/2 |0;
-        s.y=(g.y2+g.y1)/2 |0;
+        Sprites.setXY(s,MFL((g.x2+g.x1)/2),
+                        MFL((g.y2+g.y1)/2));
         return this.insert(s);
       },
       _initLevel(){
@@ -86,14 +87,14 @@
       },
       _bindPtr(){
         let click=()=>{ this._onClick() };
-        Mojo.pointer.press=click;
-        Mojo.pointer.tap=click;
+        Mojo.mouse.press=click;
+        Mojo.mouse.tap=click;
       },
       _onClick(){
         if(Game.busySignal){return}
         for(let x,y,t,i=0;i<Game.tiles.length;++i){
           t=Game.tiles[i];
-          if(Mojo.pointer.hitTestSprite(t)){
+          if(Mojo.mouse.hitTest(t)){
             [x,y]=Mojo.splitXY(i,Game.tilesInX);
             _.delay(0,()=> this._onSelected(y,x))
             Game.busySignal=true;
@@ -140,7 +141,7 @@
             s= Game.tiles[cur] = Game.tiles[top];
             if(s){
               g=Game.grid[j][x];
-              if(!shifts.some(o=>o.m5.uuid===s.m5.uuid)){
+              if(!shifts.some(o=>o.m5.uuid==s.m5.uuid)){
                 shifts.push(s);
               }
               s.g.slideTo=[j,x];
@@ -157,8 +158,8 @@
         Game.shifts.forEach(s=>{
           let [row,col]=s.g.slideTo;
           let g=Game.grid[row][col];
-          ex=(g.x1+g.x2)/2|0;
-          ey=(g.y1+g.y2)/2|0;
+          ex=MFL((g.x1+g.x2)/2);
+          ey=MFL((g.y1+g.y2)/2);
           e=FX.slide(s, FX.BOUNCE_OUT, ex, ey, 20);
           e.cb=()=>{
             Game.tiles[row*Game.tilesInX+col]=s;
@@ -201,28 +202,8 @@
         });
         this._shiftTiles(garbo);
       },
-      onCanvasResize(old){
-        let g= Game.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
-        let z=g[0][0];
-        Game.tileW=z.x2-z.x1;
-        Game.tileH=z.y2-z.y1;
-        for(let y=0;y<Game.tilesInY;++y)
-          for(let b,s,i,x=0;x<Game.tilesInX;++x){
-            i= y*Game.tilesInX + x;
-            s=Game.tiles[i];
-            b=g[y][x];
-            s.width=Game.tileW;
-            s.height=Game.tileH;
-            s.x=(b.x2+b.x1)/2 |0;
-            s.y=(b.y2+b.y1)/2 |0;
-          }
-        this._bindPtr();
-        this._backdrop();
-        this.remove("gbox");
-        this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
-      },
       setup(){
-        let g= Game.grid= Sprites.gridXY(Game.tilesInX,Game.tilesInY,9/10);
+        let g= Game.grid= Sprites.gridXY([Game.tilesInX,Game.tilesInY]);
         let z=g[0][0];
         Game.tileW=z.x2-z.x1;
         Game.tileH=z.y2-z.y1;
@@ -233,22 +214,19 @@
     });
   }
 
+  const _$={
+    arena: {width:480,height:800},
+    assetFiles: IMAGEFILES,
+    scaleToWindow: "max",
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("bg");
+      Mojo.Scenes.runScene("level1");
+    }
+  };
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //bootstrap onload
-  window.addEventListener("load", ()=>{
-    MojoH5({
-      arena: {width:480,height:800},
-      assetFiles: IMAGEFILES,
-      //assetFiles: ["bounce.wav"].concat(IMAGEFILES),
-      scaleToWindow: "max",
-      backgroundColor: 0,
-      start(Mojo){
-        scenes(Mojo);
-        Mojo.Scenes.runScene("Bg");
-        Mojo.Scenes.runScene("level1");
-      }
-    })
-  });
+  //load and run
+  window.addEventListener("load", ()=> MojoH5(_$));
 
 })(this);
 
