@@ -1058,6 +1058,21 @@
             rows=MFL((ey-sx)/cellH);
         return _mkgrid(sx,sy,rows,cols,cellW,cellH);
       },
+      /**Create a rectangular arena.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} ratioX
+       * @param {number} ratioY
+       * @param {object} [parent]
+       * @return {object}
+       */
+      gridBox(ratioX=0.9,ratioY=0.9,parent=null){
+        let P=_.nor(parent,Mojo);
+        let h=MFL(P.height*ratioY);
+        let w=MFL(P.width*ratioX);
+        let x1=MFL((P.width-w)/2);
+        let y1=MFL((P.height-h)/2);
+        return {x1,y1,x2:x1+w,y2:y1+h};
+      },
       /**Create a square grid.
        * @memberof module:mojoh5/Sprites
        * @param {number} dim
