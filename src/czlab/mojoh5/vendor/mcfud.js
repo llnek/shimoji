@@ -4742,7 +4742,10 @@
                QuadTree(left, midX, top, midY,maxCount,maxDepth,level+1)];
       }
 
+      const bbox={x1:left,x2:right,y1:top,y2:bottom};
       return{
+        boundingBox(){ return bbox },
+        subTrees(){return boxes},
         dbg(f){ return f(objects,boxes,maxCount,maxDepth,level) },
         insert:function(node){
           for(let n=0;n<arguments.length;++n){
@@ -4804,26 +4807,28 @@
           boxes && boxes.forEach(b=> b.reset());
           boxes=null;
         },
-        searchAndExec(node,cb){
+        searchAndExec(node,cb,skipSelf){
           let ret;
           if(boxes){
             let ns=_locate(node);
             for(let i=0;i<ns.length;++i){
-              ret=boxes[ns[i]].searchAndExec(node,cb);
+              ret=boxes[ns[i]].searchAndExec(node,cb,skipSelf);
               if(ret){break;}
             }
           }else{
             for(let o,i=0;i<objects.length;++i){
               o=objects[i];
+              if(skipSelf && o===node){continue}
               if(ret=cb(o,node)){ break }
             }
           }
           return ret;
         },
-        search(node){
+        search(node,skipSelf){
           //handle duplicates
           const bin=new Map();
           const out = [];
+          if(skipSelf){bin.set(node,null)}
           if(boxes){
             _locate(node).forEach(i=>{
               boxes[i].search(node).forEach(o=>{

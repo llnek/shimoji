@@ -948,7 +948,7 @@
       rectangle(width, height,
                 fillStyle = 0xFF3300,
                 strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
-        let s,g=new Mojo.PXGraphics(),
+        let s,g=this.graphics(),
             fill= this.color(fillStyle),
             stroke= this.color(strokeStyle);
         g.beginFill(fill);
@@ -966,7 +966,7 @@
        * @return {Sprite}
        */
       drawBody(cb,...args){
-        let g = new Mojo.PXGraphics();
+        let g = this.graphics();
         cb.apply(this, [g].concat(args));
         return this.extend(new Mojo.PXSprite(this.genTexture(g)));
       },
@@ -983,7 +983,7 @@
       circle(radius,
              fillStyle=0xFF3300,
              strokeStyle=0x0033CC, lineWidth=0, x=0, y=0){
-        let s,g = new Mojo.PXGraphics(),
+        let s,g = this.graphics(),
             fill= this.color(fillStyle),
             stroke= this.color(strokeStyle);
         g.beginFill(fill);
@@ -1005,7 +1005,7 @@
        * @return {Sprite}
        */
       line(strokeStyle, lineWidth, A,B){
-        let s,g = new Mojo.PXGraphics(),
+        let s,g = this.graphics(),
             _a= _V.clone(A),
             _b= _V.clone(B),
             stroke= this.color(strokeStyle) ;
@@ -1127,6 +1127,16 @@
                 y1:sy+f.y1,
                 y2:sy+e.y2};
       },
+      /**Create a PIXI Graphics object.
+       * @memberof module:mojoh5/Sprites
+       * @param {number|string} [id]
+       * @return {PIXI.Graphics}
+       */
+      graphics(id=null){
+        let ctx= new Mojo.PXGraphics();
+        ctx.m5={uuid:`${id?id:_.nextId()}`};
+        return ctx;
+      },
       /**Draw borders around this grid.
        * @memberof module:mojoh5/Sprites
        * @param {number} sx
@@ -1139,10 +1149,9 @@
        */
       drawGridBox(bbox,lineWidth=1,lineColor="white",ctx=null){
         if(!ctx)
-          ctx= new Mojo.PXGraphics();
+          ctx= this.graphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
         ctx.drawRect(bbox.x1,bbox.y1,bbox.x2-bbox.x1,bbox.y2-bbox.y1);
-        ctx.m5={uuid:`${_.nextId()}`};
         return ctx;
       },
       /**Draw grid lines.
@@ -1159,7 +1168,7 @@
         let h= grid.length,
             w= grid[0].length;
         if(!ctx)
-          ctx= new Mojo.PXGraphics();
+          ctx= this.graphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
         for(let r,y=1;y<h;++y){
           r=grid[y];
@@ -1172,8 +1181,6 @@
           r=grid[h-1];
           ctx.lineTo(sx+r[x].x1,sy+r[x].y2);
         }
-        if(!ctx.m5)
-          ctx.m5={uuid:`${_.nextId()}`};
         return ctx;
       },
       /**Create a bullet shooting out of a shooter.

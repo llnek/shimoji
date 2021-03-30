@@ -804,6 +804,14 @@
       resource(x,panic){
         let t= x ? (this.assets[x] || this.assets[this.assetPath(x)]) : null;
         return t || (panic ? _.assert(false, `AssetError: no such resource ${x}.`) : undefined)
+      },
+      /**Get the current frames_per_second.
+       * @memberof module:mojoh5/Mojo
+       * @param {number} dt
+       * @return {number}
+       */
+      calcFPS(dt){
+        return dt>0 ? MFL(1.0/dt) :0;
       }
     };
 
