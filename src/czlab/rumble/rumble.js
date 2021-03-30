@@ -50,7 +50,7 @@
 				let g=this.g.gfx;
 				if(!cs){
           b=node.boundingBox();
-					g.lineStyle(1*K, _S.color("red"),0.3);
+					g.lineStyle(1*K, _S.color("red"),0.2);
 					g.drawRect(b.x1, b.y1, b.x2-b.x1,b.y2-b.y1);
 				}else{
           cs.forEach(c=> this._drawTree(c))
@@ -63,7 +63,7 @@
 					if(o.g.checked) {
 						g.lineStyle(1*K,_S.color("rgb(48,255,48)"),0.5);
 					} else {
-						g.lineStyle(1*K,0xffffff,0.5);
+						g.lineStyle(1*K,_S.color("yellow"),0.5);
 					}
 					g.drawRect(o.x, o.y, o.width, o.height);
         });
