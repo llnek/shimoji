@@ -812,6 +812,12 @@
        */
       calcFPS(dt){
         return dt>0 ? MFL(1.0/dt) :0;
+      },
+      degToRad(){
+
+      },
+      radToDeg(){
+
       }
     };
 
