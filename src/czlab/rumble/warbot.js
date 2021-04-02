@@ -27,7 +27,7 @@
         C_FORWARD="forward",
         C_BACKWARD="backward";
 
-  window["io/czlab/rumble/warbot"]=function(Mojo){
+  window["io/czlab/rumble/warbot"]=function(Mojo, Zone){
     const {Game:_G,
            Sprites:_S,
            ute:_,is,EventBus}=Mojo;
@@ -53,8 +53,8 @@
         let x = t.x + dist*Math.cos(t.rotation);
         let y = t.y + dist*Math.sin(t.rotation);
         let ok=true;
-        if(_G.outOfBound(t)){
-          _G.contain(t,dist>0?-1:1);
+        if(_G.warZone.outOfBound(t)){
+          _G.warZone.contain(t,dist>0?-1:1);
           ok=false
         }else{
           _S.setXY(t,x,y)
@@ -77,15 +77,17 @@
       };
       t.g.recv=(msg)=>{
         let e= JSON.parse(msg);
-        let id=e.id,
+        let b,id=e.id,
             cmd=e.cmd;
         switch(cmd){
           case C_FIRE:
             if(!(t.g.shellTS < _G.SHELL_INTERVAL||
                  t.g.shells.length >= _G.MAX_SHELLS)){
               t.g.shellTS = 0;
-              t.g.shells.push({x: t.x, y: t.y,
-                               dir:t.angle+t.children[0].angle});
+              b=_G.shell(t.g.color);
+              _S.setXY(b,t.x,t.y);
+              b.angle= t.angle+t.children[0].angle;
+              t.g.shells.push(b);
             }
             t.g.resolve(id);
             e=null;
@@ -112,29 +114,30 @@
       };
       t.g.alert=(info)=>{
         t.g.send(_.inject(info,{cmd: C_ALERT,
-                                data: _G.zone.reconn() }))
+                                data: _G.warZone.reconn() }))
       };
       t.g.resolve=(eid)=>{
         t.g.send({
           cmd: C_RESOLVE,
           id: eid,
-          reconn: _G.zone.reconn()
+          reconn: _G.warZone.reconn()
         });
       };
       t.g.updateShells=()=>{
         for(let es,b,i=t.g.shells.length-1; i>=0; --i){
           b = t.g.shells[i];
-          b.x += b.m5.speed * Math.cos(Mojo.degToRad(b.g.dir));
-          b.y += b.m5.speed * Math.sin(Mojo.degToRad(b.g.dir));
-          if(_G.outOfBound(b)){
+          b.x += b.m5.speed * Math.cos(b.rotation);
+          b.y += b.m5.speed * Math.sin(b.rotation);
+          if(_G.warZone.outOfBound(b)){
             _S.remove(b);
             _.disj(t.g.shells,b);
             continue;
           }
-          es=_G.getEnemies(t);
+          es=_G.warZone.getEnemies(t);
           for(let e,j=0;j<es.length;++j){
             e = es[j];
-            if(_G.dist(b, e) < 20){
+            if(_S.distance(b, e) < e.g.radius*2){
+              console.log("fucker!!!!");
               e.g.hp -= 3;
               e.g.isHit = true;
               _G.explosions.push({x: e.x,y: e.y,progress:1});

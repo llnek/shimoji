@@ -16,14 +16,12 @@
 
 importScripts("../user.js");
 
-class BlueBot extends UserBot{
+class RedBot extends UserBot{
   constructor(){
     super();
   }
   tick(){
-    this.moveForward(100,()=>{
-      this.fireCannon()
-    });
+    this.moveForward(100);
   }
   onHit(){
     console.log("shit");
@@ -36,7 +34,7 @@ class BlueBot extends UserBot{
   }
 }
 
-var b=new BlueBot();
+var b=new RedBot();
 
 
 

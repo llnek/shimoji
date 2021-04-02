@@ -813,11 +813,11 @@
       calcFPS(dt){
         return dt>0 ? MFL(1.0/dt) :0;
       },
-      degToRad(){
-
+      degToRad(d){
+        return d * (Math.PI / 180)
       },
-      radToDeg(){
-
+      radToDeg(r){
+        return r * (180 / Math.PI)
       }
     };
 
