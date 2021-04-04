@@ -57,10 +57,10 @@
         play.x = S.rightSide(title)-play.width*1.2;
         I.makeButton(play);
         play.m5.press=()=>{
-          T.fadeOut(this).onComplete(()=>{
+          T.fadeOut(this).onComplete=()=>{
             I.undoButton(play);
             Z.replaceScene(this.name,"level1");
-          })
+          }
         };
         this.insert(play);
         let msg = S.text("start game",
@@ -194,10 +194,6 @@
       assetFiles: ["images/bloxyee/bloxyee.json", "puzzler.otf", "music.wav", "bounce.wav"],
       arena: {width: 512, height: 512},
       scaleToWindow:"max",
-      load(Mojo,f,p){
-        console.log(`breakout- loading: ${f}`);
-        console.log(`breakout- progress: ${p}`);
-      },
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("splash");

@@ -199,8 +199,6 @@
         s.visible=true;
         _S.scaleXY(s,s.g.k,s.g.k);
         s.g.trigger=s.g.k*2;//1.5;
-        //_F.breathe(s,0.35,0.35,60*10,false);
-        //let t=_F.pulse(s,0.1,60,1); t.onComplete(()=>{ });
         return s;
       }
     }

@@ -64,8 +64,8 @@
               this.curf=0;
             }else{
               this.on=false;
-              this.cb &&
-                _.delay(0,()=> this.cb());
+              this.onComplete &&
+                _.delay(0,()=> this.onComplete());
               this.dispose();
             }
           }
@@ -75,10 +75,6 @@
         _.disj(TweensQueue,this);
         EventBus.pub(["tween.disposed"],this);
       }
-      /**Set a function to be called when the tween is done.
-       * @param {function} cb
-       */
-      onComplete(cb){ this.cb=cb }
     }
 
     /**
@@ -184,14 +180,10 @@
           }
         }
         if(this.children.length===0){
-          this.cb && _.delay(0,()=>this.cb())
+          this.onComplete && _.delay(0,()=>this.onComplete())
           this.dispose();
         }
       }
-      /**Set a function to be called when the tween is done.
-       * @param {function} cb
-       */
-      onComplete(cb){ this.cb=cb }
       size(){ return this.children.length }
       dispose(){
         EventBus.unsub(["tween.disposed"],"onTweenEnd",this);
@@ -597,11 +589,11 @@
         let _calcPath=(cur,frames)=>{
           let t= this.tweenXY(s,type,[points[cur][0], points[cur+1][0]],
                                      [points[cur][1], points[cur+1][1]],frames);
-          t.onComplete(()=>{
+          t.onComplete=()=>{
             if(++cur < points.length-1){
               _.delay(0,()=> _calcPath(cur,frames))
             }
-          });
+          };
           return t;
         }
         return _calcPath(0, MFL(frames/points.length));
@@ -617,11 +609,11 @@
       walkCurve(s, type, points, frames=300){
         let _calcPath=(cur,frames)=>{
           let t=this.followCurve(s, type, points[cur], frames);
-          t.onComplete(()=>{
+          t.onComplete=()=>{
             if(++cur < points.length){
               _.delay(0,()=> _calcPath(cur,frames));
             }
-          });
+          };
           return t;
         }
         return _calcPath(0, MFL(frames/points.length));
