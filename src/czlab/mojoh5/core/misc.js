@@ -85,8 +85,37 @@
       }
     },{fps:30, count:100, minVel:15, maxVel:30 });
 
-    const _$={
-    };
+
+    class PeriodicDischarge{
+      constructor(ctor,intervalSecs,size=16,...args){
+        this._interval=intervalSecs;
+        this._ctor=ctor;
+        this._timer=0;
+        this._size=size
+        this._pool=_.fill(size,ctor);
+      }
+      _take(){
+        if(this._pool.length>0)
+          return this._pool.pop();
+      }
+      reclaim(o){
+        if(this._pool.length<this._size){
+          this._pool.push(o);
+        }
+      }
+      lifeCycle(dt){
+        this._timer += dt;
+        if(this._timer > this._interval){
+          this._timer = 0;
+          this.discharge();
+        }
+      }
+      discharge(){
+        throw `PeriodicCharge: please implement action()`
+      }
+    }
+
+    const _$={PeriodicDischarge };
 
     return (Mojo["Misc"]= _$);
   }

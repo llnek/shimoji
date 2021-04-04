@@ -57,6 +57,9 @@
           }else{
             this.onFrame(true);
             if(this.loop){
+              if(is.num(this.loop)){
+                --this.loop
+              }
               this.onLoopReset()
               this.curf=0;
             }else{
@@ -488,7 +491,7 @@
        * @param {boolean} [loop]
        * @return {TweenAlpha}
        */
-      pulse(s, min=0,frames=60,loop=false){
+      pulse(s, min=0,frames=60,loop=true){
         return this.tweenAlpha(s,this.SMOOTH,min,frames,loop)
       },
       /**Slide this sprite into view.

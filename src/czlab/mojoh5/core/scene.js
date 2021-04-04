@@ -298,7 +298,7 @@
       /** @ignore */
       _tick(r,dt){
         r.forEach(c=>{
-          if(c.m5 && c.m5.tick){
+          if(c.visible && c.m5 && c.m5.tick){
             c.m5.tick(dt);
             if(c.m5.flip=="x"){
               c.scale.x *= -1;

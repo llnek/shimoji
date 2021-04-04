@@ -1,0 +1,266 @@
+{"frames": {
+
+"bomb.png":
+{
+	"frame": {"x":1,"y":1189,"w":232,"h":237},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":232,"h":237},
+	"sourceSize": {"w":232,"h":237}
+},
+"boom0.png":
+{
+	"frame": {"x":550,"y":1496,"w":94,"h":82},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":94,"h":82},
+	"sourceSize": {"w":94,"h":82}
+},
+"boom1.png":
+{
+	"frame": {"x":283,"y":1465,"w":104,"h":104},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":0,"w":104,"h":104},
+	"sourceSize": {"w":106,"h":104}
+},
+"boom2.png":
+{
+	"frame": {"x":235,"y":1297,"w":129,"h":129},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":129,"h":129},
+	"sourceSize": {"w":130,"h":130}
+},
+"boom3.png":
+{
+	"frame": {"x":674,"y":411,"w":151,"h":147},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":151,"h":147},
+	"sourceSize": {"w":152,"h":148}
+},
+"boom4.png":
+{
+	"frame": {"x":800,"y":1160,"w":200,"h":200},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":200,"h":200},
+	"sourceSize": {"w":200,"h":200}
+},
+"boom5.png":
+{
+	"frame": {"x":1,"y":1428,"w":150,"h":148},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":150,"h":148},
+	"sourceSize": {"w":150,"h":148}
+},
+"boom6.png":
+{
+	"frame": {"x":151,"y":1428,"w":130,"h":130},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":4,"y":0,"w":130,"h":130},
+	"sourceSize": {"w":136,"h":130}
+},
+"cloud.png":
+{
+	"frame": {"x":544,"y":1,"w":322,"h":167},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":322,"h":167},
+	"sourceSize": {"w":322,"h":168}
+},
+"health_pack1.png":
+{
+	"frame": {"x":827,"y":559,"w":173,"h":172},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":3,"y":3,"w":173,"h":172},
+	"sourceSize": {"w":176,"h":176}
+},
+"health_pack2.png":
+{
+	"frame": {"x":868,"y":1,"w":134,"h":167},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":134,"h":167},
+	"sourceSize": {"w":134,"h":168}
+},
+"meteor.png":
+{
+	"frame": {"x":646,"y":1496,"w":76,"h":73},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":76,"h":73},
+	"sourceSize": {"w":76,"h":74}
+},
+"plume0.png":
+{
+	"frame": {"x":520,"y":411,"w":140,"h":152},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":10,"w":140,"h":152},
+	"sourceSize": {"w":142,"h":164}
+},
+"plume1.png":
+{
+	"frame": {"x":838,"y":170,"w":164,"h":197},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":3,"w":164,"h":197},
+	"sourceSize": {"w":164,"h":200}
+},
+"plume2.png":
+{
+	"frame": {"x":819,"y":733,"w":168,"h":257},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":5,"w":168,"h":257},
+	"sourceSize": {"w":168,"h":262}
+},
+"plume3.png":
+{
+	"frame": {"x":550,"y":802,"w":196,"h":264},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":7,"w":196,"h":264},
+	"sourceSize": {"w":198,"h":272}
+},
+"plume4.png":
+{
+	"frame": {"x":550,"y":560,"w":240,"h":267},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":240,"h":267},
+	"sourceSize": {"w":240,"h":272}
+},
+"plume5.png":
+{
+	"frame": {"x":520,"y":170,"w":239,"h":316},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":239,"h":316},
+	"sourceSize": {"w":239,"h":318}
+},
+"plume6.png":
+{
+	"frame": {"x":816,"y":992,"w":166,"h":166},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":0,"w":166,"h":166},
+	"sourceSize": {"w":168,"h":166}
+},
+"plume7.png":
+{
+	"frame": {"x":550,"y":1365,"w":241,"h":129},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":241,"h":129},
+	"sourceSize": {"w":241,"h":129}
+},
+"plume8.png":
+{
+	"frame": {"x":838,"y":369,"w":188,"h":154},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":188,"h":154},
+	"sourceSize": {"w":188,"h":154}
+},
+"plume9.png":
+{
+	"frame": {"x":550,"y":1230,"w":242,"h":133},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":1,"w":242,"h":133},
+	"sourceSize": {"w":244,"h":134}
+},
+"plume10.png":
+{
+	"frame": {"x":550,"y":1000,"w":248,"h":228},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":248,"h":228},
+	"sourceSize": {"w":248,"h":228}
+},
+"ray.png":
+{
+	"frame": {"x":520,"y":559,"w":28,"h":1020},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":28,"h":1020},
+	"sourceSize": {"w":28,"h":1020}
+},
+"ring.png":
+{
+	"frame": {"x":1,"y":157,"w":517,"h":515},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":517,"h":515},
+	"sourceSize": {"w":518,"h":516}
+},
+"spiky.png":
+{
+	"frame": {"x":1,"y":674,"w":513,"h":513},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":0,"w":513,"h":513},
+	"sourceSize": {"w":514,"h":516}
+},
+"trees.png":
+{
+	"frame": {"x":1,"y":1,"w":541,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":541,"h":154},
+	"sourceSize": {"w":541,"h":154}
+},
+"ufo1.png":
+{
+	"frame": {"x":794,"y":1362,"w":166,"h":106},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":166,"h":106},
+	"sourceSize": {"w":166,"h":106}
+},
+"ufo2.png":
+{
+	"frame": {"x":793,"y":1470,"w":166,"h":106},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":166,"h":106},
+	"sourceSize": {"w":166,"h":106}
+},
+"ufo3.png":
+{
+	"frame": {"x":283,"y":1189,"w":166,"h":106},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":166,"h":106},
+	"sourceSize": {"w":166,"h":106}
+},
+"ufo4.png":
+{
+	"frame": {"x":366,"y":1297,"w":166,"h":106},
+	"rotated": true,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":166,"h":106},
+	"sourceSize": {"w":166,"h":106}
+}},
+"animations": {
+	"boom": ["boom0.png","boom1.png","boom2.png","boom3.png","boom4.png","boom5.png","boom6.png"],
+	"health_pack": ["health_pack1.png","health_pack2.png"],
+	"plume": ["plume0.png","plume1.png","plume2.png","plume3.png","plume4.png","plume5.png","plume6.png","plume7.png","plume8.png","plume9.png","plume10.png"],
+	"ufo": ["ufo1.png","ufo2.png","ufo3.png","ufo4.png"]
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "pics.png",
+	"format": "RGBA8888",
+	"size": {"w":1003,"h":1580},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:a6db74a65da68f768abda51b0bcb757e:2e18c87953bed41bff1ffd1d771ad926:6289590cca2b6f1f7395b78a96bce118$"
+}
+}
