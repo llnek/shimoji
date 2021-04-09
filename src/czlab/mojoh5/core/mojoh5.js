@@ -763,7 +763,7 @@
         //if(ext) ext=ext.substring(1);
         if(_.has(IMAGE_EXTS,ext)){
           pfx="images"
-        }else if(_.has(FONT_EXTS,ext)){
+        }else if(ext=="fnt" || _.has(FONT_EXTS,ext)){
           pfx="fonts"
         }else if(_.has(AUDIO_EXTS,ext)){
           pfx="audio"

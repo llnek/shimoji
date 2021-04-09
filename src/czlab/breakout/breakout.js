@@ -136,6 +136,11 @@
         G.arena.y=0;
         G.arena.x=0;
         this._ctrl();
+
+
+        let tt=S.bitmapText("Pooface_123!",{fontName:"unscii",fontSize:36});
+        this.insert(tt);
+
       },
       _ctrl(){
         const s=G.paddle;
@@ -176,7 +181,7 @@
   }
 
   const _$={
-    assetFiles: ["tiles.png","images/tiles.json"],
+    assetFiles: ["unscii.fnt","tiles.json"],
     arena: {width: 9*32, height: 16*32},
     scaleToWindow:"max",
     scaleFit:"x",
