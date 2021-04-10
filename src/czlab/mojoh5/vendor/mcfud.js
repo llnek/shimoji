@@ -2213,6 +2213,36 @@
         }
         return des;
       },
+      /**Copy value into `v`.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} x
+       * @return {Vec2}
+       */
+      copyX(v,x){
+        _.assert(is.num(x),"wanted number");
+        if(UseOBJ){
+          v.x=x;
+        }else{
+          v[0]=x;
+        }
+        return v;
+      },
+      /**Copy value into `v`.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} y
+       * @return {Vec2}
+       */
+      copyY(v,y){
+        _.assert(is.num(y),"wanted number");
+        if(UseOBJ){
+          v.y=y;
+        }else{
+          v[1]=y;
+        }
+        return v;
+      },
       /**Rotate a vector around a pivot.
        * @memberof module:mcfud/vec2
        * @param {Vec2} a

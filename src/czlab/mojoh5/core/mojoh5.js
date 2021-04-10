@@ -334,6 +334,16 @@
       dom.conj(document.head,style);
     }
 
+    function _configCanvas(arg){
+      let p= { "outline":"none" };
+      if(arg.rendering !== false){
+        p["image-rendering"]= arg.rendering || "pixelated";
+        //p["image-rendering"]="crisp-edges";
+      }
+      dom.css(Mojo.canvas,p);
+      dom.attrs(Mojo.canvas,"tabindex","0");
+    }
+
     /**Install a module. */
     function _runM(m){
       CON.log(`installing module ${m}...`);
@@ -377,6 +387,7 @@
       //css
       dom.conj(document.body, Mojo.canvas);
       _configCSS();
+      _configCanvas(cmdArg);
 
       if(_.has(cmdArg,"border"))
         dom.css(Mojo.canvas, "border", cmdArg.border);
@@ -396,6 +407,7 @@
         EventBus.sub(["canvas.resize"], old=> S.onResize(Mojo,old))
       }
 
+      Mojo.canvas.focus();
       return _boot(Mojo);
     }
 

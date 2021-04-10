@@ -27,40 +27,41 @@
      * @module mojoh5/2d
      */
 
-
-    /**Define a mixin object.
-     */
-    Mojo.defMixin("2dControls", function(e,bRotate){
-      e.m5.direction=Mojo.UP;
-      let _I=Mojo.Input;
+    function MazeRunner(e,bRotate){
+      let {Sprites:_S, Input:_I}=Mojo;
       let self={
         onTick(dt){
           if(bRotate){
             if(e.m5.vel[0] > 0){
-              e.rotation = Mojo.PI_90
+              //e.rotation = Mojo.PI_90
+              e.angle=90
             }else if(e.m5.vel[0] < 0){
-              e.rotation = -Mojo.PI_90
+              //e.rotation = -Mojo.PI_90
+              e.angle=-90
             }else if(e.m5.vel[1] > 0){
-              e.rotation = Mojo.PI_180
+              //e.rotation = Mojo.PI_180
+              e.angle=180
             }else if(e.m5.vel[1] < 0){
-              e.rotation = 0
+              //e.rotation = 0
+              e.angle=0
             }
           }
           //grab a direction from the input
-          e.m5.direction = _I.keyDown(_I.keyLEFT)  ? Mojo.LEFT :
-                           _I.keyDown(_I.keyRIGHT) ? Mojo.RIGHT :
-                           _I.keyDown(_I.keyUP) ? Mojo.UP :
-                           _I.keyDown(_I.keyDOWN) ? Mojo.DOWN : e.m5.direction;
-          switch(e.m5.direction){
-            case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
-            case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
-            case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
-            case Mojo.DOWN: e.m5.vel[1] = e.m5.speed; break;
+          e.m5.heading = _I.keyDown(_I.keyLEFT)  ? Mojo.LEFT :
+                         _I.keyDown(_I.keyRIGHT) ? Mojo.RIGHT :
+                         _I.keyDown(_I.keyUP) ? Mojo.UP :
+                         _I.keyDown(_I.keyDOWN) ? Mojo.DOWN : e.m5.heading;
+          switch(e.m5.heading){
+            case Mojo.LEFT: _S.velXY(e, -e.m5.speed); break;
+            case Mojo.RIGHT: _S.velXY(e, e.m5.speed); break;
+            case Mojo.UP:   _S.velXY(e,null, -e.m5.speed); break;
+            case Mojo.DOWN: _S.velXY(e,null, e.m5.speed); break;
           }
         }
       };
+      e.m5.heading=Mojo.UP;
       return self;
-    });
+    }
 
     /**A internal mixin to handle platform games. */
     function Platformer(e){
@@ -75,7 +76,9 @@
         rightKey: _I.keyRIGHT,
         dispose(){
           signals.forEach(s=> EventBus.unsub(...s)) },
-        onLanded(){ self.landed=0.2 },
+        onLanded(){
+          self.landed=0.2
+        },
         onTick(dt,collisions){
           let col=collisions[0],
               j3= self.jumpSpeed/3,
@@ -89,14 +92,14 @@
               if(col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85){ col= null }//mine
             }
             if(pL){
-              e.m5.direction = Mojo.LEFT;
+              e.m5.heading = Mojo.LEFT;
               if(col && self.landed > 0){
                 e.m5.vel[0] = e.m5.speed * col.overlapN[1];
                 e.m5.vel[1] = -e.m5.speed * col.overlapN[0];
               }else{
                 e.m5.vel[0] = -e.m5.speed }
             }else if(pR){
-              e.m5.direction = Mojo.RIGHT;
+              e.m5.heading = Mojo.RIGHT;
               if(col && self.landed > 0){
                 e.m5.vel[0] = -e.m5.speed * col.overlapN[1];
                 e.m5.vel[1] = e.m5.speed * col.overlapN[0];
@@ -130,13 +133,13 @@
 
     /**Define a mixin object.
      */
-    Mojo.defMixin("2d",function(e,_platformer=false){
+    Mojo.defMixin("2d",function(e,...minors){
       const collisions=[];
       const signals=[];
+      const subs=[];
       const self={
         dispose(){
-          self.platformer &&
-            self.platformer.dispose();
+          subs.forEach(s=> s.dispose());
           signals.forEach(s=> EventBus.unsub(...s)) },
         boom(col){
           _.assert(col.A===e,"got hit by someone else???");
@@ -204,53 +207,60 @@
             e.y += e.m5.vel[1];
             e.parent.collideXY(e);
           }
-          if(self.platformer)
-            self.platformer.onTick(_dt,collisions);
+          subs.forEach(s=> s.onTick(_dt,collisions));
         }
       };
-      signals.push([["hit",e],"boom",self]);
-      signals.push([["post.remove",e],"dispose",self]);
+      signals.push([["hit",e],"boom",self],
+                   [["post.remove",e],"dispose",self]);
       signals.forEach(s=> EventBus.sub(...s));
-      if(_platformer){ self.platformer=Platformer(e) }
+      for(let f,o,m,i=0;i<minors.length;++i){
+        m=minors[i];
+        f=m[0];
+        m[0]=e;
+        o=f(...m);
+        if(o.onTick)
+          subs.push(o);
+        _.assert(is.str(f.name)) && (self[f.name]=o);
+      }
       return self;
     });
 
-    /**Define mixin `aiBounce`.
-     */
-    Mojo.defMixin("aiBounce", function(e,xDir,yDir){
+    function aiBounce(e,xDir,yDir){
       const signals=[];
       const self= {
         dispose(){
           signals.forEach(a=>EventBus.unsub(...a)) },
         goLeft(col){
           e.m5.vel[0] = -col.impact;//-e.m5.speed;
-          e.m5.flip= self.dftDirection === Mojo.RIGHT?"x":false;
+          e.m5.flip= self.heading === Mojo.RIGHT?"x":false;
         },
         goRight(col){
           e.m5.vel[0] = col.impact;//e.m5.speed;
-          e.m5.flip= self.dftDirection === Mojo.LEFT?"x":false;
+          e.m5.flip= self.heading === Mojo.LEFT?"x":false;
         },
         goUp(col){
           e.m5.vel[1] = -col.impact;//-e.m5.speed;
-          e.m5.flip=self.dftDirection === Mojo.DOWN?"y":false;
+          e.m5.flip=self.heading === Mojo.DOWN?"y":false;
         },
         goDown(col){
           e.m5.vel[1] = col.impact;//e.m5.speed;
-          e.m5.flip=self.defDirection === Mojo.UP?"y":false;
+          e.m5.flip=self.heading === Mojo.UP?"y":false;
         }
       };
       signals.push([["post.remove",e],"dispose",self]);
       if(xDir){
+        self.heading=Mojo.RIGHT;
         signals.push([["bump.right",e],"goLeft",self]);
         signals.push([["bump.left",e],"goRight",self]);
       }
       if(yDir){
+        self.heading=Mojo.UP;
         signals.push([["bump.top",e],"goDown",self]);
         signals.push([["bump.bottom",e],"goUp",self]);
       }
       signals.forEach(a=>EventBus.sub(...a));
       return self;
-    });
+    }
 
     /**Define mixin `camera`. */
     Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
@@ -432,6 +442,9 @@
 
     const _PT=_V.vec();
     const _$={
+      aiBounce,
+      Platformer,
+      MazeRunner,
       /**Find out if a point is touching a circlular or rectangular sprite.
        * @memberof module:mojoh5/2d
        * @param {number} px

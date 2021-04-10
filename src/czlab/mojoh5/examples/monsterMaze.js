@@ -30,9 +30,8 @@
 
     function Player(scene,s,ts,ps,os){
       let K=scene.getScaleFactor();
-      Mojo.addMixin(s,"2dControls",false);
-      Mojo.addMixin(s,"2d");
-      s.m5.direction=Mojo.RIGHT;
+      Mojo.addMixin(s,"2d",[_2d.MazeRunner,false]);
+      s.m5.heading=Mojo.RIGHT;
       s.m5.type=E_PLAYER;
       s.m5.cmask=E_ITEM;
       s.m5.speed=4*K;
@@ -42,7 +41,6 @@
       s.m5.uuid="player";
       s.m5.tick=()=>{
         s["2d"].onTick();
-        s["2dControls"].onTick();
       };
       return S.velXY(s,s.m5.speed, s.m5.speed);
     }

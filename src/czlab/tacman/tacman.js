@@ -32,23 +32,23 @@
     const E_TOWER=8;
 
     Mojo.defMixin("enemyAI", function(e){
-      e.m5.direction=Mojo.LEFT;
+      e.m5.heading=Mojo.LEFT;
       //e.m5.speed=100;
       e.m5.switchPercent=2;
       function tryDir(){
         if(e.m5.vel[1] !== 0 && e.m5.vel[0]=== 0){
-          e.m5.direction = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
+          e.m5.heading = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
         }else if(e.m5.vel[0] !== 0 && e.m5.vel[1]=== 0){
-          e.m5.direction = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
+          e.m5.heading = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
         }
       }
       function changeDir(col){
         if(e.m5.vel[0]=== 0 && e.m5.vel[1]=== 0){
           let c=col.overlapN;
           if(c[1] !== 0){
-            e.m5.direction = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
+            e.m5.heading = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
           }else if(c[0] !== 0){
-            e.m5.direction = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
+            e.m5.heading = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
           }
         }
       }
@@ -60,7 +60,7 @@
           if(_.rand() < e.m5.switchPercent/100){
             tryDir()
           }
-          switch(e.m5.direction){
+          switch(e.m5.heading){
             case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
             case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
             case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
@@ -112,11 +112,9 @@
       p.m5.uuid="player";
       p.m5.speed= 150 * scene.getScaleFactor();
       _S.velXY(p,p.m5.speed, p.m5.speed);
-      Mojo.addMixin(p,"2d");
-      Mojo.addMixin(p,"2dControls",true);
+      Mojo.addMixin(p,"2d",[_2d.MazeRunner,true]);
       p.m5.tick=function(dt){
         p["2d"].onTick(dt);
-        p["2dControls"].onTick(dt);
       };
       return p;
     }

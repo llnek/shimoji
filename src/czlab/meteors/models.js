@@ -128,7 +128,7 @@
               this.drop(s);
             }
             if(s.visible){
-              if((s.m5.direction===Mojo.RIGHT &&
+              if((s.m5.heading===Mojo.RIGHT &&
                   s.x>s.g.killPos) || s.x<s.g.killPos){
                 s.children[0].visible=true;
                 EventBus.pub(["ufo.blow",scene],s.x,_G.cityLine);
@@ -158,7 +158,7 @@
         s.children[0].visible=false;
         s.m5.playFrames([0,3]);
         s.m5.vel[0]=s.m5.speed*(x===0?1:-1);
-        s.m5.direction=(x===0?Mojo.RIGHT:Mojo.LEFT);
+        s.m5.heading=(x===0?Mojo.RIGHT:Mojo.LEFT);
         s.g.killPos=_.randInt(Mojo.width);
       }
     }

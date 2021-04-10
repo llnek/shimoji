@@ -103,7 +103,6 @@
         ball.m5.type=E_BALL;
         S.scaleXY(ball,K*0.2,K*0.2);
         S.pinCenter(G.arena,ball);
-        ball.x -= G.arena.x;
         S.velXY(ball, 50*K, 80*K);
         ball.m5.tick=(dt)=>{
           S.move(ball,dt)

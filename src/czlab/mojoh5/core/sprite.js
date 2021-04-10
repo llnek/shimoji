@@ -80,8 +80,7 @@
       s=new PIXI.Sprite(_genTexture(g));
       ["m5","tiled",
        "collideXY",
-       "getGuid","getBBox",
-       "getSpatial","getSpatialGrid"].forEach(n=>{
+       "getGuid","getBBox", "getSpatial"].forEach(n=>{
         [[c,"Container"],[g,"Graphics"],[s,"Sprite"]].forEach(x=>{
           _.assertNot(_.has(x[0],n),`PIXI ${x[1]} has ${n} property!`)
         })
@@ -396,7 +395,6 @@
             _invMass=1,
             _sensor=false,
             _static= false,
-            _stage= false,
             _dead= false,
             _drag= false,
             _circular= false,
@@ -404,7 +402,7 @@
             _acc= _V.vec(),
             _gravity= _V.vec(),
             _friction= _V.vec(1,1);
-        _.inject(s.m5, {sgrid: {}, contacts:[1]},
+        _.inject(s.m5, {stage:false, sgrid: {}},
                        {get uuid() {return _uuid},
                         set uuid(n){_uuid=n},
                         get type() {return _type},
@@ -426,8 +424,6 @@
                         get acc() {return _acc},
                         get angVel() {return _angVel},
                         set angVel(v) {_angVel=v},
-                        get stage(){return _stage},
-                        set stage(b){_stage=b},
                         get dead() {return _dead},
                         set dead(x) {_dead=true},
                         get circular() {return _circular},
@@ -1449,7 +1445,7 @@
         //adjust for anchors [0,0.5,1]
         b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
-        if(b.parent===C){ b.x -= C.x; b.y -= C.y; }
+        if(C.m5.stage || b.parent===C){ b.x -= C.x; b.y -= C.y; }
       },
       /**Place b left of C.
        * @memberof module:mojoh5/Sprites

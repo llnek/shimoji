@@ -87,12 +87,11 @@
       s.anchor.set(0.5);
       s.x += Math.floor(s.width/2);
       s.y += Math.floor(s.height/2);
-      Mojo.addMixin(s,"aiBounce",true,false);
-      Mojo.addMixin(s,"2d");
+      Mojo.addMixin(s,"2d",[_2d.aiBounce,true,false]);
       s.m5.speed= 150;
       s.m5.vel[0]= -150;
       s.m5.deadTimer=0;
-      s.aiBounce.dftDirection=Mojo.LEFT;
+      s["2d"].aiBounce.heading=Mojo.LEFT;
 
 
       s.m5.onKill=(col)=>{
@@ -115,7 +114,7 @@
       s.m5.tick=(dt)=>{
         s["2d"] && s["2d"].onTick(dt);
         if(s.m5.dead){
-          s.aiBounce.dispose();
+          s["2d"] && s["2d"].aiBounce.dispose();
           s["2d"]=null;
           ++s.m5.deadTimer;
           if(s.m5.deadTimer > 24){
@@ -166,10 +165,10 @@
       p.m5.speed= 300;
       p.m5.score= 0;
       _S.centerAnchor(p);
-      Mojo.addMixin(p,"2d",true);
+      Mojo.addMixin(p,"2d",[_2d.Platformer]);
       p.m5.showFrame(1);
-      p["2d"].platformer.jumpSpeed= -500;
-      p.m5.direction= Mojo.RIGHT;
+      p["2d"].Platformer.jumpSpeed= -500;
+      p.m5.heading= Mojo.RIGHT;
 
       let leftArrow = _I.keybd(_I.keyLEFT, ()=>{
         if(p.scale.x>0) p.m5.flip="x";

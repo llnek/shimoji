@@ -30,24 +30,24 @@
 
 
     Mojo.defMixin("enemyAI", function(e){
-      e.m5.direction=Mojo.LEFT;
+      e.m5.heading=Mojo.LEFT;
       e.m5.switchPercent=5/100;
       function tryDir(){
         if(e.m5.vel[1] !== 0 && e.m5.vel[0]=== 0){
-          e.m5.direction = _.rand()<0.5 ? Mojo.LEFT : Mojo.RIGHT;
+          e.m5.heading = _.rand()<0.5 ? Mojo.LEFT : Mojo.RIGHT;
         }
         if(e.m5.vel[0] !== 0 && e.m5.vel[1]=== 0){
-          e.m5.direction = _.rand()<0.5 ? Mojo.UP : Mojo.DOWN;
+          e.m5.heading = _.rand()<0.5 ? Mojo.UP : Mojo.DOWN;
         }
       }
       function changeDir(col){
         if(e.m5.vel[0]=== 0 && e.m5.vel[1]=== 0){
           let c=col.overlapN;
           if(c[1] !== 0){
-            e.m5.direction = _.rand()<0.5 ? Mojo.LEFT : Mojo.RIGHT;
+            e.m5.heading = _.rand()<0.5 ? Mojo.LEFT : Mojo.RIGHT;
           }
           if(c[0] !== 0){
-            e.m5.direction = _.rand()<0.5 ? Mojo.UP : Mojo.DOWN;
+            e.m5.heading = _.rand()<0.5 ? Mojo.UP : Mojo.DOWN;
           }
         }
       }
@@ -60,7 +60,7 @@
           if(_.rand() < e.m5.switchPercent){
             tryDir()
           }
-          switch(e.m5.direction){
+          switch(e.m5.heading){
             case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
             case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
             case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
@@ -74,11 +74,10 @@
 
     function Player(scene,s,ts,ps,os){
       let K=scene.getScaleFactor();
-      Mojo.addMixin(s,"2dControls",false);
-      Mojo.addMixin(s,"2d");
+      Mojo.addMixin(s,"2d",[_2d.MazeRunner,false]);
       s.m5.type=E_PLAYER;
       s.m5.speed=4*K;
-      s.m5.direction=Mojo.RIGHT;
+      s.m5.heading=Mojo.RIGHT;
       _S.centerAnchor(s);
       s.x += Math.floor(s.width/2);
       s.y += Math.floor(s.height/2);
@@ -86,7 +85,6 @@
       _S.velXY(s,s.m5.speed, s.m5.speed);
       s.m5.tick=()=>{
         s["2d"].onTick();
-        s["2dControls"].onTick();
       };
       return G.player=s;
     }
@@ -101,7 +99,7 @@
       _S.scaleXY(s,K,K);
       s.x = m.x+ Math.floor(s.width/2);
       s.y = m.y + Math.floor(s.height/2);
-      s.m5.direction = Mojo.NONE;
+      s.m5.heading = Mojo.NONE;
       s.m5.speed = 1*K;
       _S.centerAnchor(s);
       _S.velXY(s,s.m5.speed, s.m5.speed);

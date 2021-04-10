@@ -109,19 +109,23 @@
        * @param {number} _key
        */
       keybd(_key,press,release){
-        const key={press:press, release:release,
-                   isDown:false, isUp:true, code:_key};
+        const key={press:press,
+                   release:release,
+                   isDown:false, isUp:true};
+        key.code= is.vec(_key)?_key:[_key];
         function _down(e){
           e.preventDefault();
-          if(e.keyCode === key.code){
+          if(key.code.includes(e.keyCode)){
             key.isUp && key.press && key.press();
-            key.isUp=false; key.isDown=true; }
+            key.isUp=false; key.isDown=true;
+          }
         }
         function _up(e){
           e.preventDefault();
-          if(e.keyCode === key.code){
+          if(key.code.includes(e.keyCode)){
             key.isDown && key.release && key.release();
-            key.isUp=true; key.isDown=false; }
+            key.isUp=true; key.isDown=false;
+          }
         }
         _.addEvent([["keyup", window, _up, false],
                     ["keydown", window, _down, false]]);

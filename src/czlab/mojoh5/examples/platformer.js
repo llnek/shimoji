@@ -32,7 +32,7 @@
 
     //0,12
     function Player(scene,p,ts,ps,o){
-      Mojo.addMixin(p,"2d",true);
+      Mojo.addMixin(p,"2d",[_2d.Platformer]);
       p.m5.type=E_PLAYER;
       p.m5.cmask=E_TOWER;
       p.m5.uuid="player";
@@ -64,8 +64,7 @@
     function Enemy(scene,e,ts,ps,o){
       const signals= [[["bump.top",e],"onbtop",e.m5],
                       [["bump.left,bump.right,bump.bottom",e], "onbump",e.m5]];
-      Mojo.addMixin(e,"aiBounce",true,false);
-      Mojo.addMixin(e,"2d");
+      Mojo.addMixin(e,"2d",[_2d.aiBounce,true,false]);
       e.m5.speed=100*scene.getScaleFactor();
       e.m5.uuid=`e#${_.nextId()}`;
       e.m5.cmask=E_PLAYER|E_ENEMY;
