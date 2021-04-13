@@ -87,12 +87,11 @@
       s.anchor.set(0.5);
       s.x += Math.floor(s.width/2);
       s.y += Math.floor(s.height/2);
-      Mojo.addMixin(s,"2d",[_2d.aiBounce,true,false]);
+      Mojo.addMixin(s,"2d",[_2d.Patrol,true,false]);
+      s.m5.heading=Mojo.LEFT;
       s.m5.speed= 150;
       s.m5.vel[0]= -150;
       s.m5.deadTimer=0;
-      s["2d"].aiBounce.heading=Mojo.LEFT;
-
 
       s.m5.onKill=(col)=>{
         if(col.B.m5.uuid=="player"){
@@ -114,7 +113,7 @@
       s.m5.tick=(dt)=>{
         s["2d"] && s["2d"].onTick(dt);
         if(s.m5.dead){
-          s["2d"] && s["2d"].aiBounce.dispose();
+          s["2d"] && s["2d"].Patrol.dispose();
           s["2d"]=null;
           ++s.m5.deadTimer;
           if(s.m5.deadTimer > 24){

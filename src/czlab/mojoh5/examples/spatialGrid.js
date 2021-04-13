@@ -87,7 +87,6 @@
               len=_V.len(mc);
           _S.velXY(_G.capturedMarble, len*u[0]*32*K,
                                       len*u[1]*32*K);
-          _V.reclaim(c,m,mc,u);
           _G.capturedMarble = null;
         }
       }

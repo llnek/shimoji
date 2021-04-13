@@ -492,6 +492,15 @@
       PXLR:PIXI.LoaderResource,
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
+      on(...args){
+        return this.EventBus.sub(...args)
+      },
+      emit(...args){
+        return this.EventBus.pub(...args)
+      },
+      off(...args){
+        return this.EventBus.unsub(...args)
+      },
       /**Check if `d` is on the right hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d

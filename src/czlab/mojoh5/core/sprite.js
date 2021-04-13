@@ -380,65 +380,45 @@
        * @return {Sprite} s
        */
       extend(s){
-        //m5 holds all mojoh5 extensions
-        //g placeholder for user stuff
-        if(!s.m5) s.m5={};
-        if(!s.g) s.g={};
-        let self=this,
-            _uuid= _.nextId(),
-            _angVel= 0,
-            _speed=0,
-            _cmask=0,
-            _type=0,
-            _mass=1,
-            //_wantGrid=false,
-            _invMass=1,
-            _sensor=false,
-            _static= false,
-            _dead= false,
-            _drag= false,
-            _circular= false,
-            _vel= _V.vec(),
-            _acc= _V.vec(),
-            _gravity= _V.vec(),
-            _friction= _V.vec(1,1);
-        _.inject(s.m5, {stage:false, sgrid: {}},
-                       {get uuid() {return _uuid},
-                        set uuid(n){_uuid=n},
-                        get type() {return _type},
-                        set type(x){_type=x},
-                        get cmask(){return _cmask},
-                        set cmask(m){_cmask=m},
-                        get speed() {return _speed},
-                        set speed(s){_speed=s},
-                        get static() {return _static},
-                        set static(b) {_static=b},
-                        get sensor() {return _sensor},
-                        set sensor(b) {_sensor=b},
-                        get invMass() {return _invMass},
-                        get mass() {return _mass},
-                        set mass(m) {_mass=m; _invMass=_.feq0(m)?0:1/m},
-                        get gravity(){return _gravity},
-                        get friction(){return _friction},
-                        get vel() {return _vel},
-                        get acc() {return _acc},
-                        get angVel() {return _angVel},
-                        set angVel(v) {_angVel=v},
-                        get dead() {return _dead},
-                        set dead(x) {_dead=true},
-                        get circular() {return _circular},
-                        set circular(x) {_circular=true},
-                        get drag(){return _drag},
-                        set drag(b){_drag=b},
-                        get dead(){ return _dead },
-                        set dead(x){ _dead=true },
-                        resize(px,py,pw,ph){self.resize(s,px,py,pw,ph)},
-                        getImageOffsets(){ return {x1:0,x2:0,y1:0,y2:0} },
-                        getContactPoints(){ return _corners(s.anchor,s.width,s.height) }});
-        //these special functions are for quadtree
-        s.getBBox=function(){ return self.boundingBox(s) };
-        s.getGuid=function(){ return s.m5.uuid };
-        s.getSpatial=function(){ return s.m5.sgrid; }
+        if(!s.m5){
+          s.m5={};
+          s.g={};
+          _.inject(s.m5, {
+            friction: _V.vec(1,1),
+            gravity: _V.vec(),
+            vel: _V.vec(),
+            acc: _V.vec(),
+            uuid: _.nextId(),
+            static:false,
+            sensor:false,
+            stage:false,
+            sgrid: {},
+            type: 0,
+            cmask:0,
+            speed:0,
+            mass:1,
+            angVel:0,
+            dead:false,
+            drag:false,
+            dead:false,
+            circular:false });
+          let self=this;
+          Object.defineProperty(s.m5, 'invMass',{
+            get() { return _.feq0(s.m5.mass)?0:1/s.m5.mass }});
+          s.m5.resize=function(px,py,pw,ph){
+            self.resize(s,px,py,pw,ph)
+          };
+          s.m5.getImageOffsets=function(){
+            return {x1:0,x2:0,y1:0,y2:0}
+          };
+          s.m5.getContactPoints=function(){
+            return _corners(s.anchor,s.width,s.height)
+          };
+          //these special functions are for quadtree
+          s.getBBox=function(){ return self.boundingBox(s) };
+          s.getGuid=function(){ return s.m5.uuid };
+          s.getSpatial=function(){ return s.m5.sgrid; }
+        }
         return s;
       },
       /**Convert sprite to a polygonal shape.
@@ -498,7 +478,6 @@
         }else{
           let a= this.centerOffsetXY(s);
           r= _V.vec(x+a[0], y+a[1]);
-          _V.reclaim(a);
         }
         return r;
       },
@@ -522,7 +501,6 @@
         let v2=this.centerXY(s2),
             v1=this.centerXY(s1),
             r= _V.angle(v1,v2);
-        _V.reclaim(v2,v1);
         return r;
       },
       /**Move a sprite.
@@ -670,7 +648,6 @@
         x2=MFL(x[3]+c[0]);
         y1=MFL(y[0]+c[1]);
         y2=MFL(y[3]+c[1]);
-        _V.reclaim(c);
         return {x1,x2,y1,y2};
       },
       /**Check if point is inside this sprite.
@@ -705,7 +682,6 @@
           pt[1]= s1c[1] + u[1] * mag;
           bad= obstacles.some(o=> this.hitTestPoint(pt, o));
         }
-        _V.reclaim(u,v,pt,s1c,s2c);
         return !bad;
       },
       /**Find distance between these 2 sprites.
@@ -718,7 +694,6 @@
         let c2=this.centerXY(s2),
             c1=this.centerXY(s1),
             r= _V.dist(c1,c2);
-        _V.reclaim(c1,c2);
         return r;
       },
       /** @ignore */
@@ -832,7 +807,6 @@
           pos.push(_V.vec(x,y));
         }
         let ret= _frames(t, tileW, tileH,pos);
-        _V.reclaim(...pos);
         return this.sprite(ret);
       },
       /**Create a PIXI.Texture from this source.
@@ -1211,7 +1185,6 @@
         b.y= shooter.y+soff[1]+y;
         b.m5.vel[0] = Math.cos(angle) * bulletSpeed;
         b.m5.vel[1] = Math.sin(angle) * bulletSpeed;
-        _V.reclaim(soff);
         return b;
       },
       /**

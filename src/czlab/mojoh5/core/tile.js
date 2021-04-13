@@ -650,7 +650,6 @@
                                              : [Mojo.Sprites.centerXY(s)];
         let op= checkHow===Mojo.EVERY ? "every" : "some";
         col.hit = colPts[op](_checker);
-        _V.reclaim(...colPts);
         return col;
       },
       /**Takes a map array and adds a sprite's grid index number (`gid`) to it.

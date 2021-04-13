@@ -19,7 +19,7 @@
   function _module(Mojo){
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
-    const {EventBus, is, ute:_}=Mojo;
+    const {is, ute:_}=Mojo;
     const ABS=Math.abs,
           MFL=Math.floor;
 
@@ -27,124 +27,140 @@
      * @module mojoh5/2d
      */
 
+    /** walks around a maze like in Pacman. */
     function MazeRunner(e,bRotate){
-      let {Sprites:_S, Input:_I}=Mojo;
-      let self={
+      const {Sprites, Input}=Mojo;
+      const self={
         onTick(dt){
+          const r=Input.keyDown(Input.keyRIGHT);
+          const l=Input.keyDown(Input.keyLEFT);
+          const u=Input.keyDown(Input.keyUP);
+          const d=Input.keyDown(Input.keyDOWN);
+          let h=null,
+              [vx,vy]=e.m5.vel;
+          const x=!_.feq0(vx),
+                vs=e.m5.speed,
+                y=!_.feq0(vy);
           if(bRotate){
-            if(e.m5.vel[0] > 0){
-              //e.rotation = Mojo.PI_90
-              e.angle=90
-            }else if(e.m5.vel[0] < 0){
-              //e.rotation = -Mojo.PI_90
-              e.angle=-90
-            }else if(e.m5.vel[1] > 0){
-              //e.rotation = Mojo.PI_180
-              e.angle=180
-            }else if(e.m5.vel[1] < 0){
-              //e.rotation = 0
-              e.angle=0
+            if(x && y){}else if(x){
+              e.angle = vx>0?90:-90
+            }else if(y){
+              e.angle= vy>0?180:0
             }
           }
-          //grab a direction from the input
-          e.m5.heading = _I.keyDown(_I.keyLEFT)  ? Mojo.LEFT :
-                         _I.keyDown(_I.keyRIGHT) ? Mojo.RIGHT :
-                         _I.keyDown(_I.keyUP) ? Mojo.UP :
-                         _I.keyDown(_I.keyDOWN) ? Mojo.DOWN : e.m5.heading;
-          switch(e.m5.heading){
-            case Mojo.LEFT: _S.velXY(e, -e.m5.speed); break;
-            case Mojo.RIGHT: _S.velXY(e, e.m5.speed); break;
-            case Mojo.UP:   _S.velXY(e,null, -e.m5.speed); break;
-            case Mojo.DOWN: _S.velXY(e,null, e.m5.speed); break;
+          if(l && r){
+            Sprites.velXY(e,0)
+          }else if(l){
+            h=Mojo.LEFT;
+            Sprites.velXY(e, -vs);
+          }else if(r){
+            h=Mojo.RIGHT;
+            Sprites.velXY(e, vs);
           }
+          if(u && d){
+            Sprites.velXY(e,null,0);
+          }else if(d){
+            h=Mojo.DOWN;
+            Sprites.velXY(e,null, vs);
+          }else if(u){
+            h=Mojo.UP;
+            Sprites.velXY(e,null, -vs);
+          }
+          if(h!==null)
+            e.m5.heading=h;
         }
       };
-      e.m5.heading=Mojo.UP;
-      return self;
+      return (e.m5.heading=Mojo.UP) && self;
     }
 
-    /**A internal mixin to handle platform games. */
+    /** platformer like mario. */
     function Platformer(e){
-      const _I=Mojo.Input;
-      const signals=[];
+      const {Input, Sprites}=Mojo;
+      const sigs=[];
       const self={
         jumpSpeed: -300,//y-axis goes down
         jumping:false,
         landed:0,
-        leftKey: _I.keyLEFT,
-        jumpKey: _I.keyUP,
-        rightKey: _I.keyRIGHT,
+        leftKey: Input.keyLEFT,
+        jumpKey: Input.keyUP,
+        rightKey: Input.keyRIGHT,
         dispose(){
-          signals.forEach(s=> EventBus.unsub(...s)) },
-        onLanded(){
-          self.landed=0.2
-        },
-        onTick(dt,collisions){
-          let col=collisions[0],
-              j3= self.jumpSpeed/3,
-              pR= _I.keyDown(self.rightKey),
-              pU= _I.keyDown(self.jumpKey),
-              pL= _I.keyDown(self.leftKey);
-          if(!e.m5.skipCollide){
-            if(col && (pL || pR || self.landed>0)){
-              // don't climb up walls.
-              //if(col && (col.overlapN[1] > -0.3 || col.overlapN[1] < 0.3)) { col= null }//old
-              if(col.overlapN[1] > 0.85 || col.overlapN[1] < -0.85){ col= null }//mine
-            }
-            if(pL){
-              e.m5.heading = Mojo.LEFT;
-              if(col && self.landed > 0){
-                e.m5.vel[0] = e.m5.speed * col.overlapN[1];
-                e.m5.vel[1] = -e.m5.speed * col.overlapN[0];
-              }else{
-                e.m5.vel[0] = -e.m5.speed }
-            }else if(pR){
-              e.m5.heading = Mojo.RIGHT;
-              if(col && self.landed > 0){
-                e.m5.vel[0] = -e.m5.speed * col.overlapN[1];
-                e.m5.vel[1] = e.m5.speed * col.overlapN[0];
-              }else{
-                e.m5.vel[0] = e.m5.speed }
-            }else{
-              e.m5.vel[0] = 0;
-              if(col && self.landed > 0){ e.m5.vel[1] = 0 }
-            }
-            if(self.landed > 0 && pU && !self.jumping){
-              e.m5.vel[1] = self.jumpSpeed;
-              self.landed = -dt;
-              self.jumping = true;
-            }else if(pU){
-              self.jumping = true;
-              EventBus.pub(["jump",e]);
-            }
-            if(self.jumping && !pU){
-              self.jumping = false;
-              EventBus.pub(["jumped",e]);
-              if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
-            }
-          }
+          sigs.forEach(s=> Mojo.off(...s)) },
+        onLanded(){ self.landed=0.2 },
+        onTick(dt,colls){
+          if(!e.m5.skipCollide)
+            this._onTick(dt,colls)
           self.landed -=dt;
+        },
+        _onTick(dt,colls){
+          let col=colls[0],
+              vs= e.m5.speed,
+              j3= self.jumpSpeed/3,
+              pR= Input.keyDown(self.rightKey),
+              pU= Input.keyDown(self.jumpKey),
+              pL= Input.keyDown(self.leftKey);
+          if(col && (pL || pR || self.landed>0)){
+            // don't climb up walls.
+            if(col.overlapN[1] > 0.85 ||
+               col.overlapN[1] < -0.85){ col= null }
+          }
+          if(pL && !pR){
+            e.m5.heading = Mojo.LEFT;
+            if(col && self.landed>0){
+              Sprites.velXY(e, vs * col.overlapN[0], -vs * col.overlapN[1])
+            }else{
+              Sprites.velXY(e, -vs)
+            }
+          }else if(pR && !pL){
+            e.m5.heading = Mojo.RIGHT;
+            if(col && self.landed > 0){
+              Sprites.velXY(e, -vs * col.overlapN[0], vs * col.overlapN[1])
+            }else{
+              Sprites.velXY(e, vs)
+            }
+          }else{
+            //nothing x-axis,but check y-axis if on ground
+            Sprites.velXY(e,0,
+                            (col && self.landed>0)?0:null)
+          }
+          //handle jumpy things
+          if(self.landed>0 && !self.jumping && pU){
+            e.m5.vel[1]=self.jumpSpeed;
+            self.jumping = true;
+            self.landed = -dt;
+          }else if(pU){
+            //held long enough, tell others it's jumping
+            self.jumping = true;
+            Mojo.emit(["jump",e]);
+          }
+
+          if(self.jumping && !pU){
+            self.jumping = false;
+            Mojo.emit(["jumped",e]);
+            if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
+          }
         }
       };
-      signals.push([["bump.bottom",e],"onLanded",self]);
-      signals.forEach(s=> EventBus.sub(...s));
+      sigs.push([["bump.bottom",e],"onLanded",self]);
+      sigs.forEach(s=> Mojo.on(...s));
       return self;
     }
 
     /**Define a mixin object.
      */
     Mojo.defMixin("2d",function(e,...minors){
-      const collisions=[];
-      const signals=[];
+      const {Sprites}= Mojo;
+      const colls=[];
+      const sigs=[];
       const subs=[];
       const self={
         dispose(){
           subs.forEach(s=> s.dispose());
-          signals.forEach(s=> EventBus.unsub(...s)) },
+          sigs.forEach(s=> Mojo.off(...s)) },
         boom(col){
           _.assert(col.A===e,"got hit by someone else???");
           if(col.B && col.B.m5.sensor){
-            EventBus.pub(["2d.sensor", col.B], col.A);
+            Mojo.emit(["2d.sensor", col.B], col.A);
           }else{
             let dx= ABS(e.m5.vel[0]),
                 dy= ABS(e.m5.vel[1]);
@@ -152,67 +168,50 @@
             e.y -= col.overlapV[1];
             col.impact=null;
             if(col.overlapN[1] < -0.3){
-              if(!e.m5.skipCollide && e.m5.vel[1] < 0){
-                e.m5.vel[1] = 0;
-              }
+              if(!e.m5.skipCollide &&
+                 e.m5.vel[1] < 0){ e.m5.vel[1] = 0 }
               col.impact = dy;
-              EventBus.pub(["bump.top", e],col);
+              Mojo.emit(["bump.top", e],col);
             }
             if(col.overlapN[1] > 0.3){
-              if(!e.m5.skipCollide && e.m5.vel[1] > 0){
-                e.m5.vel[1] = 0;
-              }
+              if(!e.m5.skipCollide &&
+                 e.m5.vel[1] > 0){ e.m5.vel[1] = 0 }
               col.impact = dy;
-              EventBus.pub(["bump.bottom",e],col);
+              Mojo.emit(["bump.bottom",e],col);
             }
             if(col.overlapN[0] < -0.3){
-              if(!e.m5.skipCollide && e.m5.vel[0] < 0){
-                e.m5.vel[0] = 0
-              }
+              if(!e.m5.skipCollide &&
+                 e.m5.vel[0] < 0){ e.m5.vel[0] = 0 }
               col.impact = dx;
-              EventBus.pub(["bump.left",e],col);
+              Mojo.emit(["bump.left",e],col);
             }
             if(col.overlapN[0] > 0.3){
-              if(!e.m5.skipCollide && e.m5.vel[0] > 0){
-                e.m5.vel[0] = 0
-              }
+              if(!e.m5.skipCollide &&
+                 e.m5.vel[0] > 0){ e.m5.vel[0] = 0 }
               col.impact = dx;
-              EventBus.pub(["bump.right",e],col);
+              Mojo.emit(["bump.right",e],col);
             }
             if(is.num(col.impact)){
-              EventBus.pub(["bump",e],col);
+              Mojo.emit(["bump",e],col)
             }else{
-              col.impact=0;
+              col.impact=0
             }
           }
-          collisions.shift(col);
+          colls.shift(col);
         },
         onTick(dt){
-          collisions.length=0;
-          let _dt=dt;
+          colls.length=0;
           if(is.num(dt)){
-            for(let delta=dt;delta>0;){
-              dt = _.min(1/30,delta);
-              e.m5.vel[0] += e.m5.acc[0] * dt + e.m5.gravity[0] * dt;
-              e.m5.vel[1] += e.m5.acc[1] * dt + e.m5.gravity[1] * dt;
-              e.m5.vel[0] *= e.m5.friction[0];
-              e.m5.vel[1] *= e.m5.friction[1];
-              e.x += e.m5.vel[0] * dt;
-              e.y += e.m5.vel[1] * dt;
-              delta -= dt;
-              e.parent.collideXY(e);
-            }
-          }else{
-            e.x += e.m5.vel[0];
-            e.y += e.m5.vel[1];
-            e.parent.collideXY(e);
+            e.m5.vel[0]=(e.m5.vel[0] + e.m5.acc[0]*dt + e.m5.gravity[0]*dt)*e.m5.friction[0];
+            e.m5.vel[1]=(e.m5.vel[1] + e.m5.acc[1]*dt + e.m5.gravity[1]*dt)*e.m5.friction[1];
           }
-          subs.forEach(s=> s.onTick(_dt,collisions));
+          e.parent.collideXY(Sprites.move(e,dt));
+          subs.forEach(s=> s.onTick(dt,colls));
         }
       };
-      signals.push([["hit",e],"boom",self],
-                   [["post.remove",e],"dispose",self]);
-      signals.forEach(s=> EventBus.sub(...s));
+      sigs.push([["hit",e],"boom",self],
+                [["post.remove",e],"dispose",self]);
+      sigs.forEach(s=> Mojo.on(...s));
       for(let f,o,m,i=0;i<minors.length;++i){
         m=minors[i];
         f=m[0];
@@ -225,41 +224,40 @@
       return self;
     });
 
-    function aiBounce(e,xDir,yDir){
-      const signals=[];
+    function Patrol(e,xDir,yDir){
+      const sigs=[];
       const self= {
         dispose(){
-          signals.forEach(a=>EventBus.unsub(...a)) },
+          sigs.forEach(a=>Mojo.off(...a)) },
         goLeft(col){
-          e.m5.vel[0] = -col.impact;//-e.m5.speed;
-          e.m5.flip= self.heading === Mojo.RIGHT?"x":false;
+          e.m5.vel[0] = -col.impact;
+          e.m5.flip= e.m5.heading === Mojo.RIGHT?"x":false;
         },
         goRight(col){
-          e.m5.vel[0] = col.impact;//e.m5.speed;
-          e.m5.flip= self.heading === Mojo.LEFT?"x":false;
+          e.m5.vel[0] = col.impact;
+          e.m5.flip= e.m5.heading === Mojo.LEFT?"x":false;
         },
         goUp(col){
-          e.m5.vel[1] = -col.impact;//-e.m5.speed;
-          e.m5.flip=self.heading === Mojo.DOWN?"y":false;
+          e.m5.vel[1] = -col.impact;
+          e.m5.flip=e.m5.heading === Mojo.DOWN?"y":false;
         },
         goDown(col){
-          e.m5.vel[1] = col.impact;//e.m5.speed;
-          e.m5.flip=self.heading === Mojo.UP?"y":false;
+          e.m5.vel[1] = col.impact;
+          e.m5.flip=e.m5.heading === Mojo.UP?"y":false;
         }
       };
-      signals.push([["post.remove",e],"dispose",self]);
+      sigs.push([["post.remove",e],"dispose",self]);
       if(xDir){
-        self.heading=Mojo.RIGHT;
-        signals.push([["bump.right",e],"goLeft",self]);
-        signals.push([["bump.left",e],"goRight",self]);
+        e.m5.heading=Mojo.RIGHT;
+        sigs.push([["bump.right",e],"goLeft",self],
+                  [["bump.left",e],"goRight",self]);
       }
       if(yDir){
-        self.heading=Mojo.UP;
-        signals.push([["bump.top",e],"goDown",self]);
-        signals.push([["bump.bottom",e],"goUp",self]);
+        e.m5.heading=Mojo.UP;
+        sigs.push([["bump.top",e],"goDown",self],
+                  [["bump.bottom",e],"goUp",self]);
       }
-      signals.forEach(a=>EventBus.sub(...a));
-      return self;
+      return sigs.forEach(a=>Mojo.on(...a)), self;
     }
 
     /**Define mixin `camera`. */
@@ -270,66 +268,53 @@
       const width2=MFL(_width/2);
       const height4=MFL(_height/4);
       const width4=MFL(_width/4);
-      const _S=Mojo.Sprites;
-      const signals=[];
+      const {Sprites}=Mojo;
+      const sigs=[];
       const world=e;
       let _x=0;
       let _y=0;
       const self={
-        dispose(){
-          signals.forEach(e=>EventBus.unsub(...e)) },
-        //`x` and `y` getters/setters
-        //When you change the camera's position,
-        //they shift the position of the world in the opposite direction
+        dispose:function(){ sigs.forEach(s=>Mojo.off(...s)) },
+        //when you change the camera's position, they shift the
+        //position of the world in the opposite direction
+        set x(v) { _x = v; e.x = -_x },
+        set y(v) { _y = v; e.y = -_y },
         get x() { return _x },
         get y() { return _y },
-        set x(v) { _x = v; world.x = -_x },
-        set y(v) { _y = v; world.y = -_y },
-        get width() {return _width},
-        get height() {return _height},
-        get worldWidth() { return worldWidth},
-        get worldHeight() { return worldHeight},
-        //Boundary properties that define a rectangular area, half the size
-        //of the game screen. If the sprite that the camera is following
-        //is inide this area, the camera won't scroll. If the sprite
-        //crosses this boundary, the `follow` function ahead will change
-        //the camera's x and y position to scroll the game world
-        get rightInnerBoundary() {
-          return this.x + MFL(width2 + width4)
-        },
-        get leftInnerBoundary() {
-          return this.x + MFL(width2 - width4)
-        },
-        get topInnerBoundary() {
-          return this.y + MFL(height2 - height4)
-        },
-        get bottomInnerBoundary() {
-          return this.y + MFL(height2 + height4)
-        },
-        follow(s){
-          let bx= _.feq0(s.rotation)? _S.getBBox(s) : _S.boundingBox(s);
-          //Check the sprites position in relation to the inner
-          //boundary. Move the camera to follow the sprite if the sprite
-          //strays outside the boundary
-          if(bx.x1 < this.leftInnerBoundary){
-            this.x = bx.x1 - width4
-          }
-          if(bx.y1 < this.topInnerBoundary){
-            this.y = bx.y1 - height4
-          }
-          if(bx.x2 > this.rightInnerBoundary){
-            this.x = bx.x2 - width4*3
-          }
-          if(bx.y2 > this.bottomInnerBoundary){
-            this.y = bx.y2- height4*3
-          }
-          //If the camera reaches the edge of the map, stop it from moving
-          if(this.x < 0) { this.x = 0 }
-          if(this.y < 0) { this.y = 0 }
-          if(this.x + _width > worldWidth){
+        worldWidth: worldWidth,
+        worldHeight: worldHeight,
+        width: _width,
+        height: _height,
+        follow:function(s){
+          //Check the sprites position in relation to the viewport.
+          //Move the camera to follow the sprite if the sprite
+          //strays outside the viewport
+          const bx= _.feq0(s.angle)? Sprites.getBBox(s)
+                                   : Sprites.boundingBox(s);
+          const _right=()=>{
+            if(bx.x2> this.x+MFL(width2+width4)){
+              this.x = bx.x2-width4*3;
+            }},
+            _left=()=>{
+              if(bx.x1< this.x+MFL(width2-width4)){
+              this.x = bx.x1-width4;
+            }},
+            _top=()=>{
+            if(bx.y1< this.y+MFL(height2-height4)){
+              this.y = bx.y1-height4;
+            }},
+            _bottom=()=>{
+            if(bx.y2> this.y+MFL(height2+height4)){
+              this.y = bx.y2- height4*3;
+            }};
+          _left();  _right();  _top();  _bottom();
+          //clamp the camera
+          if(this.x<0){ this.x = 0 }
+          if(this.y<0){ this.y = 0 }
+          if(this.x+_width > worldWidth){
             this.x = worldWidth - _width
           }
-          if(this.y + _height > worldHeight){
+          if(this.y+_height > worldHeight){
             this.y = worldHeight - _height
           }
           //contain the object
@@ -345,38 +330,33 @@
         },
         centerOver:function(s,y){
           if(arguments.length===1 && !is.num(s)){
-            let c=_S.centerXY(s)
+            let c=Sprites.centerXY(s)
             this.x = c[0]- width2;
             this.y = c[1] - height2;
-            _V.reclaim(c);
           }else{
             if(is.num(s)) this.x=s - width2;
             if(is.num(y)) this.y=y - height2;
           }
         }
       };
-      signals.push([["post.remove",e],"dispose",self]);
-      signals.forEach(e=>EventBus.sub(...e));
-      return self;
+      sigs.push([["post.remove",e],"dispose",self]);
+      return (sigs.forEach(e=>Mojo.on(...e)), self);
     });
 
     /** @ignore */
     function _hitAB(a,b){
-      let a_,b_,m,
-          _S=Mojo.Sprites;
+      const {Sprites}=Mojo;
+      let a_,b_,m;
       if(a.m5.circular){
-        a_= _S.toCircle(a);
-        b_= b.m5.circular ? _S.toCircle(b) : _S.toPolygon(b);
-        m= b.m5.circular ? Geo.hitCircleCircle(a_, b_) : Geo.hitCirclePolygon(a_, b_)
+        a_= Sprites.toCircle(a);
+        b_= b.m5.circular ? Sprites.toCircle(b) : Sprites.toPolygon(b);
+        m= b.m5.circular ? Geo.hitCircleCircle(a_, b_) : Geo.hitCirclePolygon(a_, b_);
       }else{
-        a_= _S.toPolygon(a);
-        b_= b.m5.circular ? _S.toCircle(b) : _S.toPolygon(b);
-        m= b.m5.circular ? Geo.hitPolygonCircle(a_, b_) : Geo.hitPolygonPolygon(a_, b_)
+        a_= Sprites.toPolygon(a);
+        b_= b.m5.circular ? Sprites.toCircle(b) : Sprites.toPolygon(b);
+        m= b.m5.circular ? Geo.hitPolygonCircle(a_, b_) : Geo.hitPolygonPolygon(a_, b_);
       }
-      if(m){
-        m.A=a;
-        m.B=b;
-      }
+      if(m){ m.A=a; m.B=b; }
       return m;
     }
 
@@ -442,7 +422,7 @@
 
     const _PT=_V.vec();
     const _$={
-      aiBounce,
+      Patrol,
       Platformer,
       MazeRunner,
       /**Find out if a point is touching a circlular or rectangular sprite.
@@ -492,8 +472,8 @@
       hit(a,b){
         let m= _hitAB(a,b);
         if(m){
-          EventBus.pub(["hit",a],m);
-          EventBus.pub(["hit",b],m.swap()) }
+          Mojo.emit(["hit",a],m);
+          Mojo.emit(["hit",b],m.swap()) }
         return m;
       },
       /**Check if these 2 sprites is colliding.
