@@ -21,15 +21,19 @@
            Sprites:_S,
            Input:_I,
            "2d":_2d,
+           v2:_V,
            Tiles:_T,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
-    function Player(scene,s,ts,ps,os){
-      return G.player=s;
-    }
-
-    function _objF(){ return {Player} }
+    const _objF={
+      Player:{
+        c(scene,s,ts,ps,os){
+          return G.player=s
+        },
+        s(){}
+      }
+    };
 
     _Z.defScene("level1",{
       setup(){
@@ -47,11 +51,11 @@
             Mojo.getIndex(Mojo.mouse.x-offX, Mojo.mouse.y-offY, tw,th,self.tiled.tilesInX),
             self.getTileLayer("Tiles").data,
             self,
-            [2, 3, 5], //Obstacle gid array
+            [2, 3, 5],
             "euclidean",
             //"diagonal",
-            //"manhattan", //Heuristic to use
-            true //Either use all diagonal nodes (true) or orthagonally adjacent nodes (false)
+            //"manhattan",
+            true
           );
           _S.remove(G.pathSprites);
           G.pathSprites.length=0;
@@ -60,12 +64,12 @@
             let x = node.col * tw,
                 y = node.row * th,
                 s= _S.rectangle(tw,th,"yellow");
-            _S.setXY(s,x,y);
+            _V.set(s,x,y);
             self.insert(s);
             G.pathSprites.push(s);
           });
         };
-        EventBus.sub(["mouseup"],_mouseup);
+        Mojo.on(["mouseup"],_mouseup);
       }
     },{centerStage:true,tiled:{name:"astar.json",factory:_objF}});
   }

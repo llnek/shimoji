@@ -21,9 +21,11 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           FX:_F,
            "2d":_2d,
+           v2:_V,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
     _Z.defScene("level1",{
       setup(){
@@ -37,8 +39,8 @@
         _S.centerAnchor(square2);
         this.insert(square2);
         _S.pinTop(square,square2,40*K);
-        //_S.shake(square2,10,true);
-        _S.shake(square2);
+        //_F.shake(square2,10,true);
+        _F.shake(square2);
 
         let square3 = _S.rectangle(20*K, 40*K, "green", "white", 1*K);
         this.insert(square3);

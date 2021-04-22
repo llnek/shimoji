@@ -43,118 +43,50 @@
         name: name,
         loop: false,
         playing: false,
-        panValue: 0, //-1(left speaker) <--> 0 <----> 1(right speaker)
-        volumeValue: 1,
-        startTime: 0,
+        vol: 1,
+        start: 0,
         startOffset: 0,
         playbackRate: 1,
-        echo: false,
-        delayValue: 0.3,
-        feebackValue: 0.3,
-        filterValue: 0,
-        reverb: false,
-        reverbImpulse: null,
         gainNode: _A.ctx.createGain(),
         panNode: _A.ctx.createStereoPanner(),
-        delayNode: _A.ctx.createDelay(),
-        feedbackNode: _A.ctx.createGain(),
-        filterNode: _A.ctx.createBiquadFilter(),
-        convolverNode: _A.ctx.createConvolver(),
         play(){
-          this.startTime = _A.ctx.currentTime;
+          this.start = _A.ctx.currentTime;
           this.soundNode = _A.ctx.createBufferSource();
           this.soundNode.buffer = this.buffer;
           this.soundNode.playbackRate.value = this.playbackRate;
           this.soundNode.connect(this.gainNode);
-          if(!this.reverb){
-            this.gainNode.connect(this.panNode);
-          }else{
-            this.gainNode.connect(this.convolverNode);
-            this.convolverNode.connect(this.panNode);
-            this.convolverNode.buffer = this.reverbImpulse;
-          }
+          this.gainNode.connect(this.panNode);
           this.panNode.connect(_A.ctx.destination);
-          if(this.echo){
-            this.feedbackNode.gain.value = this.feebackValue;
-            this.delayNode.delayTime.value = this.delayValue;
-            this.filterNode.frequency.value = this.filterValue;
-            this.delayNode.connect(this.feedbackNode);
-            if(this.filterValue > 0){
-              this.feedbackNode.connect(this.filterNode);
-              this.filterNode.connect(this.delayNode);
-            }else{
-              this.feedbackNode.connect(this.delayNode);
-            }
-            this.gainNode.connect(this.delayNode);
-            this.delayNode.connect(this.panNode);
-          }
           this.soundNode.loop = this.loop;
           this.soundNode.start(0, this.startOffset % this.buffer.duration);
           this.playing = true;
         },
         _stop(){
           if(this.playing)
-            this.soundNode.stop(0)
-        },
+            this.playing=false;
+            this.soundNode.stop(0) },
         pause(){
-          this._stop();
           if(this.playing){
-            this.playing = false;
-            this.startOffset += _A.ctx.currentTime - this.startTime;
-          }
-        },
+            this._stop();
+            this.startOffset += _A.ctx.currentTime - this.start; } },
         playFrom(value){
-          this._stop();
           this.startOffset = value;
+          this._stop();
           this.play();
         },
         restart(){
-          this.playFrom(0)
-        },
-        setEcho(delayValue, feedbackValue, filterValue){
-          this.feebackValue = _.or(feedbackValue,0.3);
-          this.delayValue = _.or(delayValue,0.3);
-          this.filterValue = _.or(filterValue,0);
-          this.echo = true;
-        },
-        setReverb(duration, decay, reverse){
-          let r= _A.ctx.sampleRate;
-          let len= r * (duration || 2);
-          let b= _A.ctx.createBuffer(2, len, r);
-          this.reverb = true;
-          this.reverbImpulse= b;
-          for(let v,d=decay||2,
-            cl= b.getChannelData(0),//left
-            cr= b.getChannelData(1),//right
-            i= reverse?(len-1):0;;){
-            if(reverse){
-              if(i<0)break;
-            }else{
-              if(i>=len)break;
-            }
-            v=Math.pow(1-i/len,d);
-            cl[i]= v * (2*_.rand()-1);
-            cr[i]= v * (2*_.rand()-1);
-            reverse ? --i : ++i;
-          }
-        },
-        fade(endValue, durationSecs){
-          if(this.playing){
-            this.gainNode.gain.linearRampToValueAtTime(this.gainNode.gain.value, _A.ctx.currentTime);
-            this.gainNode.gain.linearRampToValueAtTime(endValue, _A.ctx.currentTime + durationSecs)
-          }
-        },
-        fadeIn(durationSecs){
-          this.gainNode.gain.value = 0;
-          this.fade(1, durationSecs)
-        },
-        fadeOut(durationSecs){
-          this.fade(0, durationSecs)
-        },
-        get pan() { return this.panNode.pan.value },
-        set pan(v) { this.panNode.pan.value = v },
-        get volume() { return this.volumeValue },
-        set volume(v) { this.gainNode.gain.value = v; this.volumeValue = v }
+          this.playFrom(0) },
+        get pan(){
+          return this.panNode.pan.value },
+        set pan(v){
+          //-1(left speaker)
+          //1(right speaker)
+          this.panNode.pan.value = v },
+        get volume(){
+          return this.vol },
+        set volume(v){
+          this.vol=v;
+          this.gainNode.gain.value = v; }
       };
       return SoundFiles[name]=s;
     };
@@ -170,7 +102,7 @@
        * @param {function} [onFail]
        * @return {object}
        */
-      decodeContent(name, url,blob, onLoad, onFail){
+      decodeData(name, url,blob, onLoad, onFail){
         let snd= _make(this,name, url);
         this.ctx.decodeAudioData(blob, b=>{ onLoad(snd.buffer=b);
                                             CON.log(`decoded sound file:${url}`); },
@@ -191,7 +123,7 @@
         xhr.open("GET", url, true);
         xhr.responseType="arraybuffer";
         xhr.addEventListener("load", ()=>{
-          this.decodeContent(url, xhr.response, onLoad, onFail)
+          this.decodeData(url, xhr.response, onLoad, onFail)
         });
         xhr.send();
         return snd;
@@ -200,7 +132,8 @@
 
     /**Extend Mojo */
     Mojo.sound=function(fname){
-      return SoundFiles[Mojo.assetPath(fname)] || _.assert(false, `${fname} not loaded.`)
+      return SoundFiles[Mojo.assetPath(fname)] ||
+             _.assert(false, `Sound: ${fname} not loaded.`)
     };
 
     return (Mojo.Sound= _$);
@@ -208,7 +141,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Sound"]=function(M){

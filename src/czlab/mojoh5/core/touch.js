@@ -248,7 +248,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Touch"]=function(M){

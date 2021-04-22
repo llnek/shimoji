@@ -21,10 +21,10 @@
            Input:_I,
            "2d":_2d,
            Tiles:_T,
+           v2:_V,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
     const QT= window["io/czlab/mcfud/qtree"]();
-    const _V=window["io/czlab/mcfud/vec2"]();
     const MFL=Math.floor;
 
     function _init(self){
@@ -33,29 +33,28 @@
       let out={x:0,y:0};
       let grid=_S.gridSQ(5,0.8,out);
       let pbox=_S.gridBBox(0,0,grid);
-      _S.setXY(self,out.x,out.y);
+      _V.copy(self,out);
       for(let rr,r,y=0;y<grid.length;++y){
         r=grid[y];
         for(let m,g,x=0;x<r.length;++x){
           g=r[x];
           m= _S.animation("marbles.png", 32, 32);
           m.m5.showFrame(_.randInt2(0,5));
-          m.m5.circular=true;
+          m.m5.circle=true;
           _S.centerAnchor(m);
-          _S.setXY(m,MFL((g.x1+g.x2)/2),
-                     MFL((g.y1+g.y2)/2));
+          _V.set(m,MFL((g.x1+g.x2)/2),
+                   MFL((g.y1+g.y2)/2));
           _S.sizeXY(m, rr=SIZES[_.randInt2(0, 6)],rr);
-          _S.velXY(m, _.randInt2(-400, 400),
-                      _.randInt2(-400, 400));
-          _S.frictionXY(m, 0.99,0.99);
+          _V.set(m.m5.vel, _.randInt2(-400, 400),
+                           _.randInt2(-400, 400));
+          _V.set(m.m5.friction, 0.99,0.99);
           m.m5.mass = 0.75 + m.width/2/32;
           self.insert(m,true);
         }
       }
       _G.capturedMarble = null;
       _G.arena=Mojo.mockStage(out);
-      _G.arena.x=0;
-      _G.arena.y=0;
+      _V.set(_G.arena,0,0);
       //Create the "sling", a line that will connect the mouse to the marbles
       _G.sling= _S.line("Yellow",4*K, [0,0],[32,32]);
       _G.sling.visible = false;
@@ -85,8 +84,8 @@
           let mc=_V.sub(c,m),
               u=_V.unit(mc),
               len=_V.len(mc);
-          _S.velXY(_G.capturedMarble, len*u[0]*32*K,
-                                      len*u[1]*32*K);
+          _V.set(_G.capturedMarble.m5.vel, len*u[0]*32*K,
+                                           len*u[1]*32*K);
           _G.capturedMarble = null;
         }
       }
@@ -95,20 +94,19 @@
     function _moveCircle(self,m,dt){
       if(Mojo.mouse.isDown && !_G.capturedMarble){
         if(Mojo.mouse.hitTest(m)){
-          _S.velXY(m,0,0);
+          _V.set(m.m5.vel,0,0);
           _G.capturedMarble = m;
         }
       }
-      m.m5.vel[0] *= m.m5.friction[0];
-      m.m5.vel[1] *= m.m5.friction[1];
+      _V.mul$(m.m5.vel,m.m5.friction);
       _S.move(m,dt);
-      _2d.contain(m,_G.arena,true);
+      _S.clamp(m,_G.arena,true);
     }
 
     function _hitCircles(s,objs){
       objs.forEach(o=>{
         if(o !== s)
-          _2d.collide(s, o)
+          _S.collide(s, o)
       })
     }
 
@@ -123,13 +121,13 @@
         _onCaptured(this);
         _offCaptured(this);
         this.children.forEach(m=>{
-          if(m.m5 && m.m5.circular){
+          if(m.m5 && m.m5.circle){
             _moveCircle(self,m,dt);
             this.m5.sgrid.engrid(m);
           }
         });
         this.children.forEach(s=>{
-          if(s.m5 && s.m5.circular)
+          if(s.m5 && s.m5.circle)
             _hitCircles(s, this.searchSGrid(s))
         });
       }
@@ -139,7 +137,9 @@
     _Z.defScene("quadtree",{
       setup(){
         _init(this);
-        _G.qtree=QT.quadtree({left:0,top:0,right:_G.arena.width,bottom:_G.arena.height});
+        _G.qtree=QT.quadtree({left:0,top:0,
+                              right:_G.arena.width,
+                              bottom:_G.arena.height});
       },
       postUpdate(dt){
         let K=Mojo.getScaleFactor();
@@ -148,13 +148,13 @@
         _offCaptured(this);
         _G.qtree.reset();
         this.children.forEach(m=>{
-          if(m.m5 && m.m5.circular){
+          if(m.m5 && m.m5.circle){
             _moveCircle(this,m,dt);
             _G.qtree.insert(m)
           }
         });
         this.children.forEach(s=>{
-          if(s.m5 && s.m5.circular)
+          if(s.m5 && s.m5.circle)
             _hitCircles(s, _G.qtree.search(s))
         });
       }
@@ -168,8 +168,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        //Mojo.Scenes.runScene("quadtree");
-        Mojo.Scenes.runScene("spatial");
+        Mojo.Scenes.runScene("quadtree");
+        //Mojo.Scenes.runScene("spatial");
       }
     })
   });

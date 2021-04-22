@@ -40,28 +40,12 @@
     function _getIndex3(x, y, world){
       return Mojo.getIndex(x,y,
                            world.tiled.tileW,
-                           world.tiled.tileH,world.tiled.tilesInX)
-    }
+                           world.tiled.tileH,world.tiled.tilesInX) }
 
     /** @ignore */
     function _getVector(s1,s2){
       return _V.vecAB(Mojo.Sprites.centerXY(s1),
-                      Mojo.Sprites.centerXY(s2))
-    }
-
-    /** @ignore */
-    function _getContactPoints(s){
-      //internal rectangle defining the collision area of this sprite
-      let c,a= Mojo.Sprites.getBBox(s);
-      if(c=s.m5.collisionArea){
-        a={x1: a.x1+c.x1, x2: a.x1+c.x2,
-           y1: a.y1+c.y1, y2: a.y1+c.y2 };
-      }
-      a.x2 -= 1;
-      a.y2 -= 1;
-      return [_V.vec(a.x1,a.y1),_V.vec(a.x2,a.y1),
-              _V.vec(a.x2,a.y2),_V.vec(a.x1,a.y2)]
-    }
+                      Mojo.Sprites.centerXY(s2)) }
 
     /** @ignore */
     function _getImage(obj){
@@ -71,13 +55,7 @@
     }
 
     /** @ignore */
-    function _parsePoint(pt){
-      const pts = pt.split(",");
-      return [parseFloat(pts[0]), parseFloat(pts[1])];
-    }
-
-    /** @ignore */
-    function _lookupGid(gid,gidMap){
+    function _findGid(gid,gidMap){
       let idx = -1;
       if(gid>0){
         idx=0;
@@ -98,28 +76,27 @@
       tilesets.forEach(ts=>{
         lprops={};
         ts.image=_getImage(ts);
-        if(ts.spacing===undefined){ts.spacing=0}
+        if(!is.num(ts.spacing)){
+          ts.spacing=0 }
         gidList.push([ts.firstgid, ts]);
         ts.tiles.forEach(t=>{
-          p=_.inject({},t);
-          delete p.properties;
-          p=_.inject(p,_parseProps(t));
+          p=_.inject(_.selectNotKeys(t,"properties"),
+                     _parseProps(t));
           p.gid=ts.firstgid + t.id;
           lprops[t.id]=p;
-          gprops[p.gid] = p;
-        });
+          gprops[p.gid] = p; });
         tsi[ts.name]=lprops;
       });
       //sort gids ascending
-      return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0));
-    }
+      return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0)); }
 
     /** @ignore */
     function _checkVer(json){
       let tmap = Mojo.resource(json,true).data;
       let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
-      return (tver && _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
-                                                       : _.assert(false,`${json} needs update`)
+      return (tver &&
+              _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
+                                               : _.assert(false,`${json} needs update`)
     }
 
     /** @ignore */
@@ -151,13 +128,14 @@
       if(!_.isEven(NH)) {--NH}
       scene.tiled.new_tileW=NW;
       scene.tiled.new_tileH=NH;
-      function ctor(gid,mapcol,maprow,tw,th){
-        let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
-            ps=gtileProps[gid],
-            cz=ps && ps["Class"],
+      function ctor(gid,mapcol,maprow,tw,th,cz){
+        let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+            cFunc,
             cols=tsi.columns,
-            _id=gid - tsi.firstgid,
-            cFunc=cz && objFactory[cz];
+            ps=gtileProps[gid],
+            _id=gid - tsi.firstgid;
+        cz= _.nor(cz, (ps && ps["Class"]));
+        cFunc=cz && objFactory[cz];
         _.assertNot(_id<0, `Bad tile id: ${_id}`);
         if(!is.num(cols))
           cols=MFL(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
@@ -169,9 +147,9 @@
           tsX += tsi.spacing * tscol;
           tsY += tsi.spacing * tsrow;
         }
-        let s = Mojo.Sprites.frame(tsi.image,
-                                   tw||tsi.tilewidth,
-                                   th||tsi.tileheight,tsX,tsY);
+        let s= cFunc&&cFunc.s() || Mojo.Sprites.frame(tsi.image,
+                                                      tw||tsi.tilewidth,
+                                                      th||tsi.tileheight,tsX,tsY);
         s.tiled={gid: gid, id: _id};
         if(tw===scene.tiled.saved_tileW){
           s.width=NW;
@@ -194,9 +172,9 @@
       const F={
         tilelayer(tl){
           if(is.vec(tl.data[0])){
-            if(tl.width===undefined)
+            if(_.nichts(tl.width))
               tl.width=tl.data[0].length;
-            if(tl.height===undefined)
+            if(_.nichts(tl.height))
               tl.height=tl.data.length;
             tl.data=tl.data.flat();
           }
@@ -215,7 +193,7 @@
                 tw=tlprops.width,
                 th=tlprops.height,
                 s=ctor(gid,mapcol,maprow,tw,th);
-            let tsi=_lookupGid(gid,scene.tiled.tileGidList)[1],
+            let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
                 ps=gtileProps[gid],
                 cz=ps && ps["Class"],
                 cFunc=cz && objFactory[cz];
@@ -223,7 +201,7 @@
             s.m5.static=true;
             //special tile
             if(cFunc)
-              s=cFunc(scene,s,tsi,ps);
+              s=cFunc.c(scene,s,tsi,ps);
             if(s && ps){
               if(ps.sensor) s.m5.sensor=true;
             }
@@ -237,23 +215,23 @@
             let os=_parseProps(o);
             if(gid>0)ps=gtileProps[gid];
             _.inject(o,os);
-            let cz= _.or(ps && ps["Class"],o["Class"]);
+            let cz= _.nor(ps && ps["Class"],o["Class"]);
             let createFunc= cz && objFactory[cz];
             let w=scene.tiled.saved_tileW;
             let h=scene.tiled.saved_tileH;
             let tx=MFL((o.x+w/2)/w);
             let ty=MFL((o.y-h/2)/h);
-            let tsi=_lookupGid(gid,scene.tiled.tileGidList);
+            let tsi=_findGid(gid,scene.tiled.tileGidList);
             if(tsi)tsi=tsi[1];
             o.column=tx;
             o.row=ty;
             if(gid>0){
-              s= ctor(gid,tx,ty,o.width,o.height)
+              s= ctor(gid,tx,ty,o.width,o.height,cz)
             }else{
               s={width:NW,height:NH}
             }
             if(createFunc){
-              s= createFunc(scene,s,tsi,ps,o);
+              s= createFunc.c(scene,s,tsi,ps,o);
             }
             if(s){
               if(ps && ps.sensor) s.m5.sensor=true;
@@ -320,11 +298,11 @@
       reloadMap(options){
         let t= this.m5.options.tiled=options;
         this.tiled={};
-        _loadTMX(this, t.name, t.factory(this));
+        _loadTMX(this, t.name, t.factory);
       }
       runOnce(){
         let t= this.m5.options.tiled;
-        _loadTMX(this, t.name, t.factory(this));
+        _loadTMX(this, t.name, t.factory);
         super.runOnce();
       }
       removeTile(s){
@@ -426,7 +404,7 @@
        * @return {object}
        */
       getTSInfo(gid){
-        return _lookupGid(gid,this.tiled.tileGidList)[1]
+        return _findGid(gid,this.tiled.tileGidList)[1]
       }
       getTileProps(gid){
         return this.tiled.tileProps[gid]
@@ -463,7 +441,7 @@
             if(ps){
               B.m5.sensor= !!ps.sensor;
             }
-            if(Mojo["2d"].hit(obj,B)){
+            if(Mojo["Sprites"].hit(obj,B)){
               let i=0;
             }
           }
@@ -629,28 +607,6 @@
         let b= [index + 1, index + w - 1, index + w, index + w + 1];
         if(!ignoreSelf) a.push(index);
         return a.concat(b);
-      },
-      /**Checks for a collision between a sprite and a tile.
-       * @memberof module:mojoh5/Tiles
-       * @param {Sprite} s
-       * @param {number[]} gidList
-       * @param {number} gidToCheck
-       * @param {object} world
-       * @param {number} checkHow
-       * @return {object} a `collision` object
-       */
-      hitTestTile(s, gidList, gidToCheck, world, checkHow=Mojo.SOME){
-        let col={};
-        function _checker(pt){
-          col.index = _getIndex3(pt[0], pt[1], world);
-          col.gid = gidList[col.index];
-          return col.gid === gidToCheck;
-        }
-        let colPts= checkHow !== Mojo.CENTER ? _getContactPoints(s)
-                                             : [Mojo.Sprites.centerXY(s)];
-        let op= checkHow===Mojo.EVERY ? "every" : "some";
-        col.hit = colPts[op](_checker);
-        return col;
       },
       /**Takes a map array and adds a sprite's grid index number (`gid`) to it.
        * @memberof module:mojoh5/Tiles
@@ -914,7 +870,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Tiles"]=function(M){

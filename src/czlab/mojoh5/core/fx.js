@@ -19,7 +19,8 @@
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
     const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_, is,EventBus}=Mojo;
+    const _V=gscope["io/czlab/mcfud/vec2"]();
+    const {ute:_, is}=Mojo;
     const MFL=Math.floor,
           P5=Math.PI*5,
           PI_2= Math.PI/2,
@@ -29,167 +30,160 @@
      * @module mojoh5/FX
      */
 
-    /**
-     * @memberof module:mojoh5/FX
-     * @class
-     */
-    class Tween{
-      constructor(s,t,frames=60,loop=false){
-        this.sprite=s;
-        this.easing=t;
-        this.on=false;
-        this.curf=0;
-        this.loop=loop;
-        this.frames=frames;
-      }
-      onFrame(end,alpha){}
-      _run(){
-        this.on = true;
-        this.curf = 0;
-        _.conj(TweensQueue,this);
-      }
-      onTick(){
-        if(this.on){
-          if(this.curf<this.frames){
-            this.onFrame(false,
-                         this.easing(this.curf/this.frames));
-            this.curf += 1;
-          }else{
-            this.onFrame(true);
-            if(this.loop){
-              if(is.num(this.loop)){
-                --this.loop
-              }
-              this.onLoopReset()
-              this.curf=0;
+    function Tween(s,t,frames=60,loop=false,ext={}){
+      return _.inject({
+        sprite:s,
+        easing:t,
+        on:false,
+        curf:0,
+        loop:loop,
+        frames:frames,
+        onFrame(end,alpha){},
+        _run(){
+          this.on=true;
+          this.curf=0;
+          TweensQueue.push(this);
+        },
+        onTick(){
+          if(this.on){
+            if(this.curf<this.frames){
+              this.onFrame(false,
+                           this.easing(this.curf/this.frames));
+              this.curf += 1;
             }else{
-              this.on=false;
-              this.onComplete &&
-                _.delay(0,()=> this.onComplete());
-              this.dispose();
+              this.onFrame(true);
+              if(this.loop){
+                if(is.num(this.loop)){
+                  --this.loop
+                }
+                this.onLoopReset()
+                this.curf=0;
+              }else{
+                this.on=false;
+                this.onComplete &&
+                  _.delay(0,()=> this.onComplete());
+                this.dispose();
+              }
             }
           }
+        },
+        dispose(){
+          _.disj(TweensQueue,this);
+          Mojo.emit(["tween.disposed"],this);
         }
-      }
-      dispose(){
-        _.disj(TweensQueue,this);
-        EventBus.pub(["tween.disposed"],this);
-      }
+      },ext)
     }
 
-    /**
-     * @memberof module:mojoh5/FX
-     * @class
-     */
-    class TweenScale extends Tween{
-      constructor(s,type,frames,loop){
-        super(s,type,frames,loop)
-      }
-      start(sx,ex,sy,ey){
-        this._x=is.num(ex)?[sx,ex]:null;
-        this._y=is.num(ey)?[sy,ey]:null;
-        this._run();
-      }
-      onLoopReset(){
-        if(this._x){
-          let [a,b]=this._x;
-          this._x[0]=b;
-          this._x[1]=a;
-        }
-        if(this._y){
-          let [a,b]=this._y;
-          this._y[0]=b;
-          this._y[1]=a;
-        }
-      }
-      onFrame(end,dt){
-        if(this._x)
-          this.sprite.scale.x= end ? this._x[1]
-                                   : _M.lerp(this._x[0], this._x[1], dt);
-        if(this._y)
-          this.sprite.scale.y= end ? this._y[1]
-                                   : _M.lerp(this._y[0], this._y[1], dt);
-      }
-    }
-
-    class TweenAlpha extends Tween{
-      constructor(s,type,frames,loop){
-        super(s,type,frames,loop)
-      }
-      start(sa,ea){
-        this._a= [sa,ea];
-        this._run();
-      }
-      onLoopReset(){
-        let [a,b]=this._a;
-        this._a[0]=b;
-        this._a[1]=a;
-      }
-      onFrame(end,alpha){
-        this.sprite.alpha= end ? this._a[1]
-                               : _M.lerp(this._a[0], this._a[1], alpha)
-      }
-    }
-
-    class TweenXY extends Tween{
-      constructor(s,type,frames,loop){
-        super(s,type,frames,loop)
-      }
-      start(sx,ex,sy,ey){
-        this._x=is.num(ex)?[sx,ex]:null;
-        this._y=is.num(ey)?[sy,ey]:null;
-        this._run();
-      }
-      onLoopReset(){
-        if(this._x){
-          let [a,b]=this._x;
-          this._x[0]=b;
-          this._x[1]=a;
-        }
-        if(this._y){
-          let [a,b]=this._y;
-          this._y[0]=b;
-          this._y[1]=a;
-        }
-      }
-      onFrame(end,dt){
-        if(this._x)
-          this.sprite.x= end ? this._x[1]
-                             : _M.lerp(this._x[0], this._x[1], dt);
-        if(this._y)
-          this.sprite.y= end ? this._y[1]
-                             : _M.lerp(this._y[0], this._y[1], dt);
-      }
-    }
-
-    /**
-     * @memberof module:mojoh5/FX
-     * @class
-     */
-    class BatchTweens{
-      constructor(...ts){
-        this.children=ts.slice();
-        EventBus.sub(["tween.disposed"],"onTweenEnd",this);
-      }
-      onTweenEnd(t){
-        for(let c,i=0;i<this.children.length;++i){
-          c=this.children[i];
-          if(c===t){
-            this.children.splice(i,1);
-            break;
+    /** scale */
+    function TweenScale(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sx,ex,sy,ey){
+          this._x=is.num(ex)?[sx,ex]:null;
+          this._y=is.num(ey)?[sy,ey]:null;
+          this._run();
+        },
+        onLoopReset(){
+          if(this._x){
+            let [a,b]=this._x;
+            this._x[0]=b;
+            this._x[1]=a;
           }
+          if(this._y){
+            let [a,b]=this._y;
+            this._y[0]=b;
+            this._y[1]=a;
+          }
+        },
+        onFrame(end,dt){
+          if(this._x)
+            this.sprite.scale.x= end ? this._x[1]
+                                     : _M.lerp(this._x[0], this._x[1], dt);
+          if(this._y)
+            this.sprite.scale.y= end ? this._y[1]
+                                     : _M.lerp(this._y[0], this._y[1], dt);
         }
-        if(this.children.length===0){
-          this.onComplete && _.delay(0,()=>this.onComplete())
-          this.dispose();
+      })
+    }
+
+    /** alpha */
+    function TweenAlpha(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sa,ea){
+          this._a= [sa,ea];
+          this._run();
+        },
+        onLoopReset(){
+          let [a,b]=this._a;
+          this._a[0]=b;
+          this._a[1]=a;
+        },
+        onFrame(end,alpha){
+          this.sprite.alpha= end ? this._a[1]
+                                 : _M.lerp(this._a[0], this._a[1], alpha)
         }
-      }
-      size(){ return this.children.length }
-      dispose(){
-        EventBus.unsub(["tween.disposed"],"onTweenEnd",this);
-        this.children.forEach(c=>c.dispose());
-        this.children.length=0;
-      }
+      })
+    }
+
+    /** position */
+    function TweenXY(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sx,ex,sy,ey){
+          this._x=is.num(ex)?[sx,ex]:null;
+          this._y=is.num(ey)?[sy,ey]:null;
+          this._run();
+        },
+        onLoopReset(){
+          if(this._x){
+            let [a,b]=this._x;
+            this._x[0]=b;
+            this._x[1]=a;
+          }
+          if(this._y){
+            let [a,b]=this._y;
+            this._y[0]=b;
+            this._y[1]=a;
+          }
+        },
+        onFrame(end,dt){
+          if(this._x)
+            this.sprite.x= end ? this._x[1]
+                               : _M.lerp(this._x[0], this._x[1], dt);
+          if(this._y)
+            this.sprite.y= end ? this._y[1]
+                               : _M.lerp(this._y[0], this._y[1], dt);
+        }
+      })
+    }
+
+    /** sequence */
+    function BatchTweens(...ts){
+      const t= {
+        children:ts.slice(),
+        onTweenEnd(t){
+          for(let c,i=0;i<this.children.length;++i){
+            c=this.children[i];
+            if(c===t){
+              this.children.splice(i,1);
+              break;
+            }
+          }
+          if(this.children.length===0){
+            this.onComplete &&
+              _.delay(0,()=>this.onComplete());
+            this.dispose();
+          }
+        },
+        size(){
+          return this.children.length },
+        dispose(){
+          Mojo.off(["tween.disposed"],"onTweenEnd",this);
+          this.children.forEach(c=>c.dispose());
+          this.children.length=0;
+        }
+      };
+
+      Mojo.on(["tween.disposed"],"onTweenEnd",t);
+      return t;
     }
 
     const _$={
@@ -399,7 +393,7 @@
        * @return {TweenAlpha}
        */
       tweenAlpha(s,type,endA,frames=60,loop=false){
-        const t= new TweenAlpha(s,type,frames,loop);
+        const t= TweenAlpha(s,type,frames,loop);
         let sa=s.alpha;
         let ea=endA;
         if(is.vec(endA)){
@@ -418,7 +412,7 @@
        * @return {TweenScale}
        */
       tweenScale(s,type,endX,endY,frames=60,loop=false){
-        const t= new TweenScale(s,type,frames,loop);
+        const t= TweenScale(s,type,frames,loop);
         let sx=s.scale.x;
         let sy=s.scale.y;
         let ex=endX;
@@ -443,7 +437,7 @@
        * @return {TweenXY}
        */
       tweenXY(s,type,endX,endY,frames=60,loop=false){
-        const t= new TweenXY(s,type,frames,loop);
+        const t= TweenXY(s,type,frames,loop);
         let sx=s.x;
         let sy=s.y;
         let ex=endX;
@@ -464,8 +458,7 @@
        * @return {}
        */
       fadeOut(s, frames=60){
-        return this.tweenAlpha(s,this.EASE_OUT_SINE,0,frames)
-      },
+        return this.tweenAlpha(s,this.EASE_OUT_SINE,0,frames) },
       /**Slowly fade in this object.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -473,8 +466,7 @@
        * @return {}
        */
       fadeIn(s, frames=60){
-        return this.tweenAlpha(s,this.EASE_OUT_SINE,1,frames)
-      },
+        return this.tweenAlpha(s,this.EASE_OUT_SINE,1,frames) },
       /**Fades the sprite in and out at a steady rate.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -484,8 +476,7 @@
        * @return {TweenAlpha}
        */
       pulse(s, min=0,frames=60,loop=true){
-        return this.tweenAlpha(s,this.SMOOTH,min,frames,loop)
-      },
+        return this.tweenAlpha(s,this.SMOOTH,min,frames,loop) },
       /**Slide this sprite into view.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -496,8 +487,7 @@
        * @return {TweenXY}
        */
       slide(s, type, endX, endY, frames=60){
-        return this.tweenXY(s,type,endX,endY,frames)
-      },
+        return this.tweenXY(s,type,endX,endY,frames) },
       /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -508,8 +498,7 @@
        * @return {TweenScale}
        */
       breathe(s, endX=0.8, endY=0.8, frames=60,loop=true){
-        return this.tweenScale(s, this.SMOOTH_QUAD,endX,endY,frames,loop)
-      },
+        return this.tweenScale(s, this.SMOOTH_QUAD,endX,endY,frames,loop) },
       /**Scale this sprite.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -519,8 +508,7 @@
        * @return {TweenScale}
        */
       scale(s, endX=0.5, endY=0.5, frames=60){
-        return this.tweenScale(s,this.SMOOTH,endX,endY,frames)
-      },
+        return this.tweenScale(s,this.SMOOTH,endX,endY,frames) },
       /**Flashes this sprite.
        * @memberof module:mojoh5/affects
        * @param {Sprite} s
@@ -533,8 +521,7 @@
        */
       strobe(s, scale=1.3, start=10, end=20, frames=10,loop=true){
         return this.tweenScale(s,
-                               (v)=> this.SPLINE(v,start,0,1,end), scale,scale,frames,loop)
-      },
+                               (v)=> this.SPLINE(v,start,0,1,end), scale,scale,frames,loop) },
       /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -551,7 +538,7 @@
                                                   _.or(x2,10)), ex, null, frames,loop);
         let ty=this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
                                                   _.or(y2,-10)), null,ey, frames,loop);
-        return new BatchTweens(tx,ty);
+        return BatchTweens(tx,ty);
       },
       /**
        * @memberof module:mojoh5/FX
@@ -562,7 +549,7 @@
        * @return {TweenXY}
        */
       followCurve(s, type, points, frames=60){
-        let t= new TweenXY(s,type,frames);
+        let t= TweenXY(s,type,frames);
         let self=this;
         t.start=function(points){
           this._p = points;
@@ -571,8 +558,8 @@
         t.onFrame=function(end,alpha){
           let p = this._p;
           if(!end)
-            Mojo.Sprites.setXY(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
-                                  self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
+            _V.set(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
+                      self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
         };
         t.start(points);
         return t;
@@ -590,9 +577,8 @@
           let t= this.tweenXY(s,type,[points[cur][0], points[cur+1][0]],
                                      [points[cur][1], points[cur+1][1]],frames);
           t.onComplete=()=>{
-            if(++cur < points.length-1){
+            if(++cur < points.length-1)
               _.delay(0,()=> _calcPath(cur,frames))
-            }
           };
           return t;
         }
@@ -608,11 +594,11 @@
        */
       walkCurve(s, type, points, frames=300){
         let _calcPath=(cur,frames)=>{
-          let t=this.followCurve(s, type, points[cur], frames);
+          let t=this.followCurve(s, type,
+                                 points[cur], frames);
           t.onComplete=()=>{
-            if(++cur < points.length){
-              _.delay(0,()=> _calcPath(cur,frames));
-            }
+            if(++cur < points.length)
+              _.delay(0,()=> _calcPath(cur,frames))
           };
           return t;
         }
@@ -623,8 +609,7 @@
        * @param {Tween} t
        */
       remove(t){
-        t && t.dispose();
-      },
+        t && t.dispose() },
       /** @ignore */
       update(dt){
         _.rseq(TweensQueue, t=> t.onTick(dt));
@@ -640,6 +625,7 @@
         maxs=_.patch(maxs,{angle:6.28, size:16, speed:3,
                            scale:0.05, alpha:0.02, rotate:0.03 });
         _.assert(count>1);
+        gravity[0]=0;
         function _make(angle){
           let size = _.randInt2(mins.size, maxs.size);
           let p= spriteCtor();
@@ -648,19 +634,18 @@
           if(p.totalFrames)
             p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
           Mojo.Sprites.sizeXY(p, size,size);
-          Mojo.Sprites.setXY(p,x,y);
+          _V.set(p,x,y);
           Mojo.Sprites.centerAnchor(p);
           p.m5.scaleSpeed = _.randFloat(mins.scale, maxs.scale);
           p.m5.alphaSpeed = _.randFloat(mins.alpha, maxs.alpha);
           p.m5.angVel = _.randFloat(mins.rotate, maxs.rotate);
           let speed = _.randFloat(mins.speed, maxs.speed);
-          p.m5.vel[0] = speed * Math.cos(angle);
-          p.m5.vel[1] = speed * Math.sin(angle);
+          _V.set(p.m5.vel, speed * Math.cos(angle),
+                           speed * Math.sin(angle));
           //the worker
           p.onTick=function(){
-            p.m5.vel[1] += gravity[1];
-            p.x += p.m5.vel[0];
-            p.y += p.m5.vel[1];
+            _V.add$(p.m5.vel,gravity);
+            _V.add$(p,p.m5.vel);
             if(p.scale.x - p.m5.scaleSpeed > 0){
               p.scale.x -= p.m5.scaleSpeed;
             }
@@ -680,6 +665,63 @@
           _make(random ? _.randFloat(mins.angle, maxs.angle) : a);
           a += gap;
         }
+      },
+      /**Shake this sprite.
+       * @memberof module:mojoh5/FX
+       * @return {}
+       */
+      shake(s, magnitude=16, angular=false,loop=true){
+        let numberOfShakes=10,
+            wrapper={},
+            self = this,
+            counter=1,
+            startX = s.x,
+            startY = s.y,
+            startAngle = s.rotation,
+            startMagnitude= magnitude,
+            //Divide the magnitude into 10 units so that you can
+            //reduce the amount of shake by 10 percent each frame
+            magnitudeUnit = MFL(magnitude / numberOfShakes);
+        function _upAndDownShake(){
+          if(counter<numberOfShakes){
+            s.x = startX;
+            s.y = startY;
+            magnitude -= magnitudeUnit;
+            s.x += _.randInt2(-magnitude, magnitude);
+            s.y += _.randInt2(-magnitude, magnitude);
+            ++counter;
+          }else{
+            if(loop){
+              magnitude=startMagnitude;
+              counter=1;
+            }else{
+              _.disj(DustBin,wrapper);
+            }
+          }
+        }
+        let tiltAngle = 1;
+        function _angularShake(){
+          if(counter<numberOfShakes){
+            s.rotation = startAngle;
+            magnitude -= magnitudeUnit;
+            s.rotation = magnitude * tiltAngle;
+            ++counter;
+            //yoyo it
+            tiltAngle *= -1;
+          }else{
+            if(loop){
+              magnitude=startMagnitude;
+              counter=1;
+            }else{
+              _.disj(DustBin,wrapper);
+            }
+          }
+        }
+        wrapper.onTick=()=>{
+          return angular ? _angularShake(wrapper)
+                         : _upAndDownShake(wrapper)
+        };
+        DustBin.push(wrapper);
       }
     };
 

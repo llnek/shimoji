@@ -23,8 +23,9 @@
            Input:_I,
            Game:G,
            "2d":_2d,
+           v2:_V,
            Tiles:_T,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
     //assumes anchor 0
     function _isAligned(s,world){
@@ -32,10 +33,12 @@
              MFL(s.y) % world.tiled.tileH === 0
     }
 
-    function Player(scene,s,ts,ps,os){
-      return G.player=s;
-    }
-    function _objF(){ return {Player} }
+    const _objF={
+      Player:{
+        c(scene,s,ts,ps,os){ return G.player=s},
+        s(){}
+      }
+    };
 
     _Z.defScene("level1",{
       setup(){
@@ -49,7 +52,7 @@
           G.destinationY = Mojo.mouse.y-offY;
           G.calculateNewPath = true;
         };
-        EventBus.sub(["mouseup"],G.onMouseUp);
+        Mojo.on(["mouseup"],G.onMouseUp);
       },
       postUpdate(dt){
         let K=Mojo.getScaleFactor();
@@ -59,8 +62,11 @@
             let tw=this.tiled.tileW,
                 th=this.tiled.tileH;
             let path = _T.shortestPath(
-              Mojo.getIndex(c[0], c[1], tw,th, this.tiled.tilesInX),
-              Mojo.getIndex(G.destinationX, G.destinationY, tw,th, this.tiled.tilesInX),
+              Mojo.getIndex(c[0], c[1],
+                            tw,th, this.tiled.tilesInX),
+              Mojo.getIndex(G.destinationX,
+                            G.destinationY,
+                            tw,th, this.tiled.tilesInX),
               this.getTileLayer("Tiles").data,
               this,
               [2,3,5],
@@ -69,24 +75,23 @@
             );
             //ignore first node, the start point
             path.shift();
-            if(path.length>0){
+            if(path.length>0)
               G.wayPoints2DArray = path.map(n => [n.col * tw, n.row * th]);
-            }
             G.calculateNewPath = false;
           }
           if(G.wayPoints2DArray.length > 0){
             if(G.wayPoints2DArray[0][0] < G.player.x){//left
-              _S.velXY(G.player, -2,0);
+              _V.set(G.player.m5.vel, -2,0);
             }else if(G.wayPoints2DArray[0][0] > G.player.x){ //right
-              _S.velXY(G.player, 2,0);
+              _V.set(G.player.m5.vel, 2,0);
             }else if(G.wayPoints2DArray[0][1] < G.player.y){//up
-              _S.velXY(G.player, 0,-2);
+              _V.set(G.player.m5.vel, 0,-2);
             }else if(G.wayPoints2DArray[0][1] > G.player.y){//down
-              _S.velXY(G.player, 0,2);
+              _V.set(G.player.m5.vel, 0,2);
             }
             G.wayPoints2DArray.shift();
           }else{
-            _S.velXY(G.player,0,0)
+            _V.set(G.player.m5.vel,0,0)
           }
         }
         G.player.x += G.player.m5.vel[0];

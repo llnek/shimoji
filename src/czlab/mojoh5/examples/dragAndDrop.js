@@ -21,7 +21,8 @@
            Sprites:_S,
            Input:_I,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     _Z.defScene("level1", function(){
       let hedgehog = _S.sprite("hedgehog.png");
@@ -31,8 +32,8 @@
       _I.makeDrag(hedgehog);
       _I.makeDrag(cat);
       _I.makeDrag(tiger);
-      _S.setXY(tiger,64*K, 64*K);
-      _S.setXY(hedgehog,128*K, 128*K);
+      _V.set(tiger,64*K, 64*K);
+      _V.set(hedgehog,128*K, 128*K);
       this.insert(cat);
       this.insert(tiger);
       this.insert(hedgehog);

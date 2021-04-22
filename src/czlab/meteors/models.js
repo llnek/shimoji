@@ -170,7 +170,7 @@
           let s= _S.sprite("ring.png");
           let K=Mojo.getScaleFactor();
           _S.centerAnchor(s);
-          s.m5.circular=true;
+          s.m5.circle=true;
           s.visible=false;
           s.g.k=K*0.2;
           _S.scaleXY(s,s.g.k,s.g.k);

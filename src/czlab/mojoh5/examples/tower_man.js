@@ -23,7 +23,8 @@
            Input:_I,
            "2d":_2d,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
     const MFL=Math.floor;
 
     const E_PLAYER=1;
@@ -34,7 +35,7 @@
     Mojo.defMixin("enemyAI", function(e){
       e.m5.heading=Mojo.LEFT;
       //e.m5.speed=100;
-      e.m5.switchPercent=2;
+      e.m5.reroute=2;
       function tryDir(){
         if(e.m5.vel[1] !== 0 && e.m5.vel[0]=== 0){
           e.m5.heading = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
@@ -54,10 +55,10 @@
       }
       let self={
         dispose(){
-          EventBus.unsub(["hit",e],changeDir)
+          Mojo.off(["hit",e],changeDir)
         },
         onTick(dt){
-          if(_.rand() < e.m5.switchPercent/100){
+          if(_.rand() < e.m5.reroute/100){
             tryDir()
           }
           switch(e.m5.heading){
@@ -68,84 +69,103 @@
           }
         }
       };
-      EventBus.sub(["hit",e],changeDir);
+      Mojo.on(["hit",e],changeDir);
       return self;
     });
 
-    function Tower(scene,t,ts,ps){
-      t.m5.type=E_TOWER;
-      t.m5.sensor=true;
-      t.m5.onSensor=(colObj)=>{
-        scene.removeTile(t)
-      };
-      t.m5.dispose=()=>{
-        EventBus.unsub(["2d.sensor",t],"onSensor",t.m5)
-      };
-      EventBus.sub(["2d.sensor",t],"onSensor",t.m5);
-      return t;
-    }
+    const Tower={
+      s(){},
+      c(scene,t,ts,ps){
+        t.m5.type=E_TOWER;
+        t.m5.sensor=true;
+        t.m5.onSensor=(colObj)=>{
+          scene.removeTile(t)
+        };
+        t.m5.dispose=()=>{
+          Mojo.off(["2d.sensor",t],"onSensor",t.m5)
+        };
+        Mojo.on(["2d.sensor",t],"onSensor",t.m5);
+        return t;
+      }
+    };
 
-    function Dot(scene,s,ts,ps){
-      scene.dotCount = _.or(scene.dotCount,0);
-      scene.dotCount += 1;
-      s.m5.uuid=`dot#${scene.dotCount}`;
-      s.m5.type=E_COIN;
-      s.m5.sensor=true;
-      s.m5.onSensor=(colObj)=>{
-        scene.removeTile(s);
-        scene.dotCount -= 1;
-        if(scene.dotCount===0){}
-      };
-      s.m5.dispose=()=>{
-        EventBus.unsub(["2d.sensor",s],"onSensor",s.m5)
-      };
-      EventBus.sub(["2d.sensor",s],"onSensor",s.m5);
-      return s;
-    }
+    const Dot={
+      s(){},
+      c(scene,s,ts,ps){
+        scene.dotCount = _.or(scene.dotCount,0);
+        scene.dotCount += 1;
+        s.m5.uuid=`dot#${scene.dotCount}`;
+        s.m5.type=E_COIN;
+        s.m5.sensor=true;
+        s.m5.onSensor=(colObj)=>{
+          scene.removeTile(s);
+          scene.dotCount -= 1;
+          if(scene.dotCount===0){}
+        };
+        s.m5.dispose=()=>{
+          Mojo.off(["2d.sensor",s],"onSensor",s.m5)
+        };
+        Mojo.on(["2d.sensor",s],"onSensor",s.m5);
+        return s;
+      }
+    };
 
-    function Player(scene,p,ts,ps,os){
-      p.m5.type=E_PLAYER;
-      p.m5.cmask=E_TOWER | E_COIN;
-      _S.centerAnchor(p);
-      p.x += MFL(p.width/2);
-      p.y += MFL(p.height/2);
-      p.m5.uuid="player";
-      p.m5.speed= 150 * scene.getScaleFactor();
-      _S.velXY(p,p.m5.speed, p.m5.speed);
-      Mojo.addMixin(p,"2d",[_2d.MazeRunner,true]);
-      p.m5.tick=function(dt){
-        p["2d"].onTick(dt);
-      };
-      return p;
-    }
+    const Player={
+      s(){
+        return _S.spriteFrom("man_up.png","man_down.png","man_right.png","man_left.png")
+      },
+      c(scene,p,ts,ps,os){
+        p.m5.type=E_PLAYER;
+        p.m5.cmask=E_TOWER | E_COIN;
+        _S.centerAnchor(p);
+        _V.add$(p,[MFL(p.width/2),
+                   MFL(p.height/2)]);
+        p.m5.uuid="player";
+        p.m5.speed= 150 * scene.getScaleFactor();
+        _V.set(p.m5.vel,p.m5.speed, p.m5.speed);
+        let frames={};
+        frames[Mojo.UP]=0;
+        frames[Mojo.DOWN]=1;
+        frames[Mojo.RIGHT]=2;
+        frames[Mojo.LEFT]=3;
+        Mojo.addMixin(p,"2d",[_2d.MazeRunner,frames]);
+        p.m5.tick=function(dt){
+          p["2d"].onTick(dt);
+        };
+        return p;
+      }
+    };
 
-    function Enemy(scene,s,ts,ps,os){
-      s.m5.uuid=`e#${_.nextId()}`;
-      s.m5.type=E_ENEMY;
-      s.m5.cmask=E_PLAYER;
-      s.x = os.column * s.width+MFL(s.width/2);
-      s.y = os.row * s.height+MFL(s.height/2);
-      _S.centerAnchor(s);
-      s.m5.speed= 150 * scene.getScaleFactor();
-      _S.velXY(s,s.m5.speed, s.m5.speed);
-      Mojo.addMixin(s,"2d");
-      Mojo.addMixin(s,"enemyAI");
-      s.m5.boom=function(col){
-        if(col.B.m5.uuid=="player"){
-          Mojo.pause();
-        }
-      };
-      s.m5.tick=function(dt){
-        s["2d"].onTick(dt);
-        s["enemyAI"].onTick(dt);
-      };
-      EventBus.sub(["bump",s],"boom",s.m5);
-      return s;
-    }
+    const Enemy={
+      s(){},
+      c(scene,s,ts,ps,os){
+        s.m5.uuid=`e#${_.nextId()}`;
+        s.m5.type=E_ENEMY;
+        s.m5.cmask=E_PLAYER;
+        _V.set(s, os.column * s.width+MFL(s.width/2),
+                  os.row * s.height+MFL(s.height/2));
+        _S.centerAnchor(s);
+        s.m5.speed= 150 * scene.getScaleFactor();
+        _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
+        Mojo.addMixin(s,"2d");
+        Mojo.addMixin(s,"enemyAI");
+        s.m5.boom=function(col){
+          if(col.B.m5.uuid=="player"){
+            Mojo.pause();
+          }
+        };
+        s.m5.tick=function(dt){
+          s["2d"].onTick(dt);
+          s["enemyAI"].onTick(dt);
+        };
+        Mojo.on(["bump",s],"boom",s.m5);
+        return s;
+      }
+    };
 
-    function _objFactory(scene){
-      return{ Player, Enemy, Dot, Tower }
-    }
+    const _objFactory={
+      Player, Enemy, Dot, Tower
+    };
 
     _Z.defScene("level1",{
       setup(options){
@@ -156,7 +176,9 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["sprites.png", "tower_man.json","tiles.png"],
+      assetFiles: ["man_up.png","man_down.png",
+                   "man_left.png","man_right.png",
+                   "sprites.png", "tower_man.json","tiles.png"],
       arena: {width:640,height:480},
       scaleToWindow:"max",
       start(Mojo){

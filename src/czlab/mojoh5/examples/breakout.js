@@ -27,8 +27,8 @@
            FX:T,
            Input:I,
            Game:G,
-           "2d":_2d,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     G.bounce=Mojo.sound("bounce.wav");
     //G.music=Mojo.sound("music.wav");
@@ -42,8 +42,7 @@
             K=Mojo.getScaleFactor();
         G.grid= S.gridXY([G.gridCols,G.gridRows],0.4,1,out);//tall but narrow
         G.arena=Mojo.mockStage(out);//playable area
-        this.x=out.x;
-        this.y=out.y;
+        _V.copy(this,out);
         let play=S.sprite("up.png"),
             title=S.sprite("title.png");
 
@@ -51,10 +50,10 @@
         S.sizeXY(title, G.arena.width, G.arena.height);
         this.insert(title);
 
-        S.scaleXY(play,K,K);
+        _V.set(play.scale,K,K);
         S.pinBottom(title,play,-play.height*1.2);
 
-        play.x = S.rightSide(title)-play.width*1.2;
+        _V.setX(play, S.rightSide(title)-play.width*1.2);
         I.makeButton(play);
         play.m5.press=()=>{
           T.fadeOut(this).onComplete=()=>{
@@ -63,8 +62,8 @@
           }
         };
         this.insert(play);
-        let msg = S.text("start game",
-                         {fontFamily:"puzzler", fontSize:20*K,fill:"white"});
+        let msg = S.bitmapText("start game",
+                         {fontName:"unscii", fontSize:20*K,fill:"white"});
         S.pinTop(play,msg,msg.height*1.2,1);
         this.insert(msg);
       }
@@ -84,7 +83,7 @@
         G.blockCount=0;
 
         //make scene as big as the play area
-        S.setXY(this,G.arena.x,G.arena.y);
+        _V.set(this,G.arena.x,G.arena.y);
 
         //make place to show msg
         let msgRow = S.rectangle(G.arena.width, offsetY, "black");
@@ -98,38 +97,39 @@
             s= S.sprite(_.randItem(colors));
             s.m5.type=E_BLOCK;
             s.m5.static=true;
-            s.x=g.x1;
-            s.y=g.y1+offsetY;
-            s.width=MFL(1*(g.x2-g.x1));
-            s.height=MFL(1*(g.y2-g.y1));
+            _V.set(s,g.x1,
+                     g.y1+offsetY);
+            S.sizeXY(s,MFL(1*(g.x2-g.x1)),
+                       MFL(1*(g.y2-g.y1)));
             ++G.blockCount;
             this.insert(s,true);
           }
         }
 
-        let msg =G.msg= S.text("test", {fontFamily: "puzzler",
-                                        fontSize: 20*K, fill: "white"});
-        S.setXY(msg,8*K,8*K);
+        let msg =G.msg= S.bitmapText("test", {fontName: "unscii",
+                                              fontSize: 20*K, fill: "white"});
+        _V.set(msg,8*K,8*K);
         msgRow.addChild(msg);
         let ball = G.ball=S.sprite("ball.png",true);
         ball.m5.cmask=E_BLOCK|E_PADDLE;
         ball.m5.type=E_BALL;
-        S.scaleXY(ball,K,K);
+        _V.set(ball.scale,K,K);
         S.pinCenter(G.arena,ball);
-        S.velXY(ball, 5*K, 8*K);
+        _V.set(ball.m5.vel, 5*K, 8*K);
         ball.m5.tick=()=>{ S.move(ball) };
         this.insert(ball,true);
         let paddle = G.paddle=S.sprite("paddle.png");
         paddle.m5.static=true;
         S.centerAnchor(paddle);
         paddle.m5.type=E_PADDLE;
-        S.scaleXY(paddle,K,K);
-        S.setXY(paddle,MFL(G.arena.width/2), pbox.y2 - 1.5*paddle.height);
+        _V.set(paddle.scale,K,K);
+        _V.set(paddle,MFL(G.arena.width/2),
+                      pbox.y2 - 1.5*paddle.height);
         let pY=paddle.y;
         paddle.m5.tick=()=>{
-          paddle.x = Mojo.mouse.x - this.x;
-          _2d.contain(paddle, G.arena,false);
-          paddle.y = pY;
+          _V.setX(paddle, Mojo.mouse.x - this.x);
+          S.clamp(paddle, G.arena,false);
+          _V.setY(paddle, pY);
         };
         paddle.oldsx=paddle.scale.x;
         paddle.oldsy=paddle.scale.y;
@@ -138,17 +138,16 @@
         pbox.y1 += offsetY;
         this.insert(S.drawGridBox(pbox));
         G.arena.height -= offsetY;
-        G.arena.y=offsetY;
-        G.arena.x=0;
+        _V.set(G.arena,0, offsetY);
       },
       postUpdate(dt){
         let objs,col;
-        if(col=_2d.contain(G.ball, G.arena,true)){
+        if(col=S.clamp(G.ball, G.arena,true)){
           G.bounce.play();
           if(col.has(Mojo.BOTTOM)) --G.score;
         }
         this.searchSGrid(G.ball).forEach(o=>{
-          if(G.ball !== o && _2d.collide(G.ball, o)){
+          if(G.ball !== o && S.collide(G.ball, o)){
             G.bounce.play();
             switch(o.m5.type){
               case E_PADDLE:
@@ -191,7 +190,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["images/bloxyee/bloxyee.json", "puzzler.otf", "music.wav", "bounce.wav"],
+      assetFiles: ["images/bloxyee/bloxyee.json", "unscii.fnt", "music.wav", "bounce.wav"],
       arena: {width: 512, height: 512},
       scaleToWindow:"max",
       start(Mojo){

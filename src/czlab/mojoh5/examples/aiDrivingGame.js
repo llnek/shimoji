@@ -22,31 +22,33 @@
            Input:I,
            Tiles:T,
            Game:G,
+           v2:_V,
            ute:_,is,EventBus}=Mojo;
 
-    function AiCar(scene,s,ts,ps,os){
-      s= G.aiCar = S.frame("tileSet.png",48,48,192,128);
-      let K=scene.getScaleFactor();
-      S.scaleXY(s,K,K);
-      S.setXY(s, os.column*s.width, os.row*s.height);
-      return s;
-    }
-
-    //dummy
-    function Player(scene,s,ts,ps,os){ return s }
-
-    function _objF(){ return {AiCar,Player} }
+    const _objF= {
+      AiCar:{
+        s(){},
+        c(scene,s,ts,ps,os){
+          s=G.aiCar = S.frame("tileSet.png",48,48,192,128);
+          let K=scene.getScaleFactor();
+          _V.set(s,K,K);
+          _V.set(s, os.column*s.width, os.row*s.height);
+          return s;
+        }
+      },
+      Player:{
+        s(){},
+        c(){}
+      }
+    };
 
     function _move(car){
       car.rotation += car.m5.angVel;
-      S.accXY(car,car.m5.speed * Math.cos(car.rotation),
-                  car.m5.speed * Math.sin(car.rotation));
-      S.velXY(car, car.m5.acc[0] * car.m5.friction[0],
-                   car.m5.acc[1] * car.m5.friction[1]);
-      car.x += car.m5.vel[0];
-      car.y += car.m5.vel[1];
+      _V.set(car.m5.acc,car.m5.speed * Math.cos(car.rotation),
+                        car.m5.speed * Math.sin(car.rotation));
+      _V.copy(car.m5.vel,_V.mul(car.m5.acc,car.m5.friction));
+      _V.add$(car,car.m5.vel);
     }
-
 
     Z.defScene("level1",{
       setup(){
@@ -54,21 +56,20 @@
             K=this.getScaleFactor();
         G.targetAngle =0;
         G.prevAngle=0;
-        S.frictionXY(car,0.96*K,0.96*K);
-        G.aiCar.m5.moveForward = true;
-        S.accXY(car,0.2*K, 0.2*K);
-        S.velXY(car,0,0);
+        _V.set(car.m5.friction,0.96*K,0.96*K);
+        G.aiCar.g.moveForward = true;
+        _V.set(car.m5.acc,0.2*K, 0.2*K);
+        _V.set(car.m5.vel,0,0);
         S.centerAnchor(car);
         car.m5.tick=()=>{
-          let curAngle = car.rotation * (180 / Math.PI);
           let pos = Mojo.getIndex(car.x, car.y,
                                   this.tiled.tileW,
                                   this.tiled.tileH, this.tiled.tilesInX);
           let angleMap = this.getTileLayer("Angles").data;
           let mapAngle = angleMap[pos];
-
+          let curAngle = car.angle;
           curAngle += Math.ceil(-curAngle / 360) * 360;
-          if(car.m5.moveForward && car.m5.speed <= 3*K){
+          if(car.g.moveForward && car.m5.speed <= 3*K){
             car.m5.speed += 0.08*K
           }
           if(!_.feq(mapAngle,G.prevAngle)){
@@ -84,10 +85,10 @@
           }
           _move(car);
           if(trackMap[pos] === 8){
-            S.frictionXY(car,0.25*K, 0.25*K);
+            _V.set(car.m5.friction,0.25*K, 0.25*K);
           }else{
             //more friction off track
-            S.frictionXY(car,0.96*K, 0.96*K);
+            _V.set(car.m5.friction,0.96*K, 0.96*K);
           }
         };
       }

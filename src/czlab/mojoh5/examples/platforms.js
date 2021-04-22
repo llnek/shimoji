@@ -22,8 +22,9 @@
            Input:I,
            "2d":_2d,
            Tiles:_T,
+           v2:_V,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
     const MFL=Math.floor;
 
     const E_PLAYER=1;
@@ -104,7 +105,7 @@
           y:ty*th+th,
           gid,
           Class
-        })
+        });
         ++i;
       });
 
@@ -123,8 +124,8 @@
     Z.defScene("hud", {
       setup() {
         let K=Mojo.getScaleFactor();
-        this.output = S.text("score: ",
-          {fontFamily: "puzzler", fontSize: 16*K, fill:"white"}, 32, 8);
+        this.output = S.bitmapText("score: ",
+          {fontName: "unscii", fontSize: 16*K, fill:"white"}, 32, 8);
         this.insert(this.output);
       },
       postUpdate(){
@@ -132,61 +133,82 @@
       }
     });
 
-    function Player(scene,p,ts,ps,os){
-      Mojo.addMixin(p,"2d",[_2d.Platformer]);
-      p.m5.static=false;
-      p.m5.uuid="player";
-      p.m5.type=E_PLAYER;
-      p.m5.cmask=E_ITEM;
-      p.m5.speed=100 * scene.getScaleFactor();
-      S.velXY(p,p.m5.speed);
-      S.gravityXY(p,null,700);
-      p["2d"].Platformer.jumpSpeed=-500;
-      p.m5.tick=(dt)=>{
-        p["2d"].onTick(dt);
+    const Player={
+      s(){},
+      c(scene,p,ts,ps,os){
+        Mojo.addMixin(p,"2d",[_2d.Platformer]);
+        p.m5.static=false;
+        p.m5.uuid="player";
+        p.m5.type=E_PLAYER;
+        p.m5.cmask=E_ITEM;
+        p.m5.speed=100 * scene.getScaleFactor();
+        _V.set(p.m5.vel,p.m5.speed,
+                        p.m5.speed);
+        _V.set(p.m5.gravity,0,700);
+        p.width -=2;
+        p.height -=2;
+        p.x++;
+        p.y++;
+        p["2d"].Platformer.jumpSpeed=-500;
+        p.m5.tick=(dt)=>{
+          p["2d"].onTick(dt);
+        }
+        return p;
       }
-      return p;
-    }
+    };
 
-    function Ground(scene,g){
-      g.m5.uuid="ground";
-      return g;
-    }
-
-    function Sky(scene,s){
-      s.m5.uuid="sky";
-      return s;
-    }
-
-    function Border(scene,c){
-      c.m5.uuid="cloud";
-      return c;
-    }
-
-    function Grass(scene,g){
-      g.m5.uuid="grass";
-      return g;
-    }
-
-    function Treasure(scene,t){
-      const e= [["2d.sensor",t],"onSensor",t.m5];
-      t.m5.uuid="treasure";
-      t.m5.type=E_ITEM;
-      t.m5.sensor=true;
-      t.m5.dispose=()=>{
-        EventBus.unsub.apply(EventBus,e)
+    const Ground={
+      s(){},
+      c(scene,g){
+        g.m5.uuid="ground";
+        return g;
       }
-      t.m5.onSensor=()=>{
-        t.m5.dead=true;
-        S.remove(t);
-        ++G.score;
-      }
-      EventBus.sub.apply(EventBus,e);
-      return t;
-    }
+    };
 
-    function _objFactory(scene){
-      return {Player,Ground,Sky,Border,Grass,Treasure}
+    const Sky={
+      s(){},
+      c(scene,s){
+        s.m5.uuid="sky";
+        return s;
+      }
+    };
+
+    const Border={
+      s(){},
+      c(scene,c){
+        c.m5.uuid="cloud";
+        return c;
+      }
+    };
+
+    const Grass={
+      s(){},
+      c(scene,g){
+        g.m5.uuid="grass";
+        return g;
+      }
+    };
+
+    const Treasure={
+      s(){},
+      c(scene,t){
+        const e=[["2d.sensor",t],"onSensor",t.m5];
+        t.m5.uuid="treasure"+_.nextId();
+        t.m5.type=E_ITEM;
+        t.m5.sensor=true;
+        t.m5.dispose=()=>{ Mojo.off(...e) }
+        t.m5.onSensor=()=>{
+          t.m5.dead=true;
+          S.remove(t);
+          ++G.score;
+        }
+        Mojo.on(...e);
+        return t;
+      }
+    };
+
+    const _objFactory={
+      Player,Ground,Sky,Border,Grass,Treasure
     }
 
     Z.defScene("level1", {
@@ -201,7 +223,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["platforms.png", "platforms.json", "puzzler.otf" ],
+      assetFiles: ["platforms.png", "platforms.json", "unscii.fnt" ],
       arena: { width: 512, height: 512 },
       scaleToWindow:"max",
       start(Mojo){

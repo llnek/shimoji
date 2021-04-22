@@ -27,71 +27,78 @@
            Input:_I,
            "2d":_2d,
            Tiles:_T,
+           v2:_V,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
     //0,12
-    function Player(scene,p,ts,ps,o){
-      Mojo.addMixin(p,"2d",[_2d.Platformer]);
-      p.m5.type=E_PLAYER;
-      p.m5.cmask=E_TOWER;
-      p.m5.uuid="player";
-      p.m5.speed=200;
-      _S.gravityXY(p,null,200);
-      p.m5.tick=(dt)=>{
-        p["2d"].onTick(dt);
-      };
-      return p;
-    }
+    const Player={
+      s(){},
+      c(scene,p,ts,ps,o){
+        Mojo.addMixin(p,"2d",[_2d.Platformer]);
+        _V.set(p.m5.gravity,0,200);
+        p.m5.type=E_PLAYER;
+        p.m5.cmask=E_TOWER;
+        p.m5.uuid="player";
+        p.m5.speed=200;
+        p.m5.tick=(dt)=>{
+          p["2d"].onTick(dt);
+        };
+        return p;
+      }
+    };
 
     //5,1
-    function Tower(scene,s,ts,ps,o){
-      const e=[["2d.sensor",s],"onSensor",s.m5];
-      s.m5.type=E_TOWER;
-      s.m5.uuid="tower";
-      s.m5.sensor=true;
-      s.m5.onSensor=()=>{
-        Mojo.pause()
-      };
-      s.m5.dispose=()=>{
-        EventBus.unsub.apply(EventBus,e)
+    const Tower={
+      s(){},
+      c(scene,s,ts,ps,o){
+        const e=[["2d.sensor",s],"onSensor",s.m5];
+        s.m5.type=E_TOWER;
+        s.m5.uuid="tower";
+        s.m5.sensor=true;
+        s.m5.onSensor=()=>{ Mojo.pause() };
+        s.m5.dispose=()=>{ Mojo.off(...e) }
+        Mojo.on(...e);
+        return s;
       }
-      EventBus.sub.apply(EventBus,e);
-      return s;
-    }
+    };
 
     //32,3,22,3
-    function Enemy(scene,e,ts,ps,o){
-      const signals= [[["bump.top",e],"onbtop",e.m5],
+    const Enemy={
+      s(){},
+      c(scene,e,ts,ps,o){
+        let signals= [[["bump.top",e],"onbtop",e.m5],
                       [["bump.left,bump.right,bump.bottom",e], "onbump",e.m5]];
-      Mojo.addMixin(e,"2d",[_2d.Patrol,true,false]);
-      e.m5.speed=100*scene.getScaleFactor();
-      e.m5.uuid=`e#${_.nextId()}`;
-      e.m5.cmask=E_PLAYER|E_ENEMY;
-      e.m5.type=E_ENEMY;
-      _S.gravityXY(e,null,60);
-      _S.velXY(e, e.m5.speed);
-      e.m5.dispose=()=>{
-        signals.forEach(s=> EventBus.unsub.apply(EventBus,s))
-      };
-      e.m5.tick=(dt)=>{
-        e["2d"].onTick(dt)
-      };
-      e.m5.onbump=(col)=>{
-        if(col.B.m5.uuid=="player"){
-          console.log("die!!!");
-          Mojo.pause();
-        }
-      };
-      e.m5.onbtop=(col)=>{
-        if(col.B.m5.uuid=="player"){
-          _S.remove(e);
-          col.B.m5.vel[1] = -300;
-        }
-      };
-      signals.forEach(s=> EventBus.sub.apply(EventBus,s));
-      return e;
-    }
+        Mojo.addMixin(e,"2d",[_2d.Patrol,true,false]);
+        e.m5.speed=100*scene.getScaleFactor();
+        e.m5.uuid=`e#${_.nextId()}`;
+        e.m5.cmask=E_PLAYER|E_ENEMY;
+        e.m5.type=E_ENEMY;
+        _V.set(e.m5.gravity,0,60);
+        _V.set(e.m5.vel,e.m5.speed,e.m5.speed);
+        e.m5.dispose=()=>{
+          signals.forEach(s=> Mojo.off(...s))
+        };
+        e.m5.tick=(dt)=>{
+          e["2d"].onTick(dt)
+          e.m5.flip="";//no flipping
+        };
+        e.m5.onbump=(col)=>{
+          if(col.B.m5.uuid=="player"){
+            console.log("die!!!");
+            Mojo.pause();
+          }
+        };
+        e.m5.onbtop=(col)=>{
+          if(col.B.m5.uuid=="player"){
+            _S.remove(e);
+            col.B.m5.vel[1] = -300;
+          }
+        };
+        signals.forEach(s=> Mojo.on(...s));
+        return e;
+      }
+    };
 
     _Z.defScene("bg",{
       setup(){
@@ -101,7 +108,9 @@
       }
     });
 
-    function _objFactory(s){ return {Player,Enemy,Tower} }
+    const _objFactory={
+      Player,Enemy,Tower
+    };
 
     _Z.defScene("level1",{
       setup(){
@@ -113,7 +122,8 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["sprites.png", "platformer.json", "tiles.png", "background-wall.png"],
+      assetFiles: ["sprites.png", "platformer.json",
+                   "tiles.png", "background-wall.png"],
       arena: {},
       scaleToWindow: "max",
       start(Mojo){

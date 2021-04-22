@@ -22,6 +22,7 @@
            "2d":_2d,
            Input:_I,
            Game:G,
+           v2:_V,
            ute:_,is,EventBus}=Mojo;
 
     _Z.defScene("level1",{
@@ -44,7 +45,7 @@
         let bw,bh,bw2,bh2;
         for(let s,i=0; i < boxes.length; ++i){
           boxes[i]=(s=_S.sprite("box.png"));
-          _S.scaleXY(s,K,K);
+          _V.set(s.scale,K,K);
           _I.makeDrag(s);
           this.insert(s);
           _S.pinCenter(this,s);

@@ -22,6 +22,7 @@
            Input:_I,
            FX:_W,
            "2d":_2d,
+           v2:_V,
            Tiles:_T,
            Game:G,
            ute:_,is,EventBus}=Mojo;
@@ -31,15 +32,13 @@
       let K=Mojo.getScaleFactor();
 
       function _scale(arr){
-        return arr.map(p=>{
-          p[0]*=K;p[1]*=K;return p;
-        })
+        return arr.map(p=> _V.mul$(p,K))
       }
 
-      _S.scaleXY(cat,K,K);
+      _V.set(cat.scale,K,K);
       this.insert(cat);
 
-      let catPath = _W.walkPath(cat,                   //The sprite
+      let catPath = _W.walkPath(cat,
                                 _W.SMOOTH,
                                 _scale([
                                   [32, 32],
@@ -52,7 +51,7 @@
                                 true
                               );
       let hedgehog = _S.sprite("hedgehog.png",32,256);
-      _S.scaleXY(hedgehog,K,K);
+      _V.set(hedgehog.scale,K,K);
       this.insert(hedgehog);
       let hedgehogPath = _W.walkCurve(hedgehog,
                                       _W.SMOOTH,

@@ -21,8 +21,9 @@
            Sprites:_S,
            Input:_I,
            "2d":_2d,
+           v2:_V,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
     _Z.defScene("level1",{
       setup(){

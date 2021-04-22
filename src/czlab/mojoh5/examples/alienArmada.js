@@ -27,9 +27,8 @@
            Input:I,
            ute:_,
            is,
-           EventBus,
+           v2:_V,
            Sprites:S,"2d":_2d}=Mojo;
-
 
     G.boomSound = Mojo.sound("explosion.wav");
     G.shootSound = Mojo.sound("shoot.wav");
@@ -66,7 +65,7 @@
         cannon.m5.type=E_PLAYER;
         cannon.m5.uuid="player";
         cannon.m5.tick=()=>{
-          _2d.contain(S.move(cannon),this,false)
+          S.clamp(S.move(cannon),this,false)
         };
         S.pinBottom(this,cannon,-cannon.height-10*K);
 
@@ -74,13 +73,13 @@
         this.insert(bg);
         this.insert(cannon,true);
 
-        const goLeft = I.keybd(I.keyLEFT,
-          ()=>{ S.velXY(cannon,-5*K,0) },
-          ()=>{ !goRight.isDown && S.velXY(cannon,0) });
+        const goLeft = I.keybd(I.LEFT,
+          ()=>{ _V.set(cannon.m5.vel,-5*K,0) },
+          ()=>{ !goRight.isDown && _V.setX(cannon.m5.vel,0) });
 
-        const goRight =I.keybd(I.keyRIGHT,
-          ()=>{ S.velXY(cannon,5*K,0) },
-          ()=>{ !goLeft.isDown && S.velXY(cannon,0) });
+        const goRight =I.keybd(I.RIGHT,
+          ()=>{ _V.set(cannon.m5.vel,5*K,0) },
+          ()=>{ !goLeft.isDown && _V.setX(cannon.m5.vel,0) });
 
         function ctor(){
           let b=S.sprite("bullet.png",true);
@@ -106,7 +105,7 @@
           return b;
         }
 
-        const fire = I.keybd(I.keySPACE,
+        const fire = I.keybd(I.SPACE,
           ()=>{
             let b= S.shoot(cannon, -Mojo.PI_90,
                            7*K, ctor, MFL(cannon.width/2), 0);
@@ -134,12 +133,12 @@
         alien.m5.uuid=`alien${_.nextId()}`;
         S.scaleContent(alien);
         S.pinTop(this,alien);
-        alien.x = alien.width*_.randInt2(0, 14);
-        S.velXY(alien,0,1*K);
+        alien.x = _.randInt2(0,Mojo.width-alien.width);
+        _V.set(alien.m5.vel,0,1*K);
         this.insert(alien,true);
         alien.m5.tick=()=>{ !alien.m5.dead && S.move(alien) };
         alien.m5.dispose=()=>{
-          EventBus.unsub(["hit",alien],"onHit",alien.m5)
+          Mojo.off(["hit",alien],"onHit",alien.m5)
         };
         alien.m5.onHit=(col)=>{
           if(!alien.m5.dead){
@@ -149,24 +148,22 @@
               scene.future(()=> S.remove(alien),5);
               alien.m5.showFrame(1);
               alien.m5.dead=true;
-              S.velXY(alien,null,0);
+              _V.setY(alien.m5.vel,0);
               col.B.m5.onHit();
             }
           }
         };
-        _2d.contain(alien,this,false);
+        S.clamp(alien,this,false);
         G.alienTimer = 0;
         G.aliens.push(alien);
-        EventBus.sub(["hit",alien],"onHit",alien.m5);
+        Mojo.on(["hit",alien],"onHit",alien.m5);
       },
       postUpdate(dt){
-
         //maybe make more aliens?
         if(++G.alienTimer === G.spawnInterval){
           this._spawnAlien();
           if(G.spawnInterval>2) --G.spawnInterval;
         }
-
         //check collision
         let killed=0;
         for(let a,i=G.aliens.length-1;i>=0;--i){
@@ -197,7 +194,7 @@
         let K=Mojo.getScaleFactor();
         this.removeChildren();
         this.insert(G.bg);
-        let msg = S.text("", {fontFamily:"emulogic",
+        let msg = S.bitmapText("", {fontName:"unscii",
                               fill: "#00FF00",
                               fontSize: 20 * K}, 90 * K, 120 * K);
         this.insert(msg);
@@ -227,7 +224,7 @@
     Z.defScene("hud", {
       setup(){
         let K=Mojo.getScaleFactor();
-        let score= S.text("0", {fontFamily: "emulogic",
+        let score= S.bitmapText("0", {fontName: "unscii",
                                 fontSize: 20*K, fill: "#00FF00"}, 400*K, 10*K);
         score.m5.tick=()=>{ score.text= `${G.score}` };
         this.insert(score);
@@ -240,10 +237,10 @@
         let j=Mojo.Touch.joystick({
           onChange(dir,angle,power){
             if(Mojo.sideRight(dir)){
-              S.velXY(G.cannon,5*K,0)
+              _V.set(G.cannon.m5.vel,5*K,0)
             }
             if(Mojo.sideLeft(dir)){
-              S.velXY(G.cannon,-5*K,0)
+              _V.set(G.cannon.m5.vel,-5*K,0)
             }
           }
         });
@@ -259,7 +256,7 @@
     MojoH5({
       assetFiles: ["joystick.png","joystick-handle.png",
                    "images/alienArmada.json",
-                   "explosion.wav", "music.wav", "shoot.wav", "emulogic.ttf"],
+                   "explosion.wav", "music.wav", "shoot.wav", "unscii.fnt"],
       arena: { width: 480, height: 320 },
       scaleToWindow:"max",
       start(Mojo){

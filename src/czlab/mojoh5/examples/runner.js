@@ -25,32 +25,34 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           Game:_G,
+           v2:_V,
            "2d":_2d,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
     function Player(scene){
       let s= _S.sprite(_S.frames("player.png",72,97,0,0,0,1));
-      let floor=scene.bgFloor;
+      let floor=_G.bgFloor;
+      _V.set(s.m5.gravity,0,2000);
       _S.centerAnchor(s);
-      _S.gravityXY(s,null,2000);
       s.m5.uuid="player";
       s.m5.type=E_PLAYER;
       s.m5.cmask=E_BOX;
-      _S.setXY(s, 40, floor.y-MFL(s.height/2));
+      _V.set(s, 40, floor.y-MFL(s.height/2));
       s._mode=null;
       scene.insert(s,true);
       let speed= 500;
       let jump= -700;
       let landed=1;
-      let upArrow = _I.keybd(_I.keyUP, ()=>{
-        if(landed>0) { _S.velXY(s,null, jump) }
+      let upArrow = _I.keybd(_I.UP, ()=>{
+        if(landed>0) { _V.setY(s.m5.vel, jump) }
         landed=0;
         s.m5.showFrame(PStates.jump_right);
         s._mode=PStates.jump_right;
       }, ()=>{
         s._mode=null;
       });
-      let downArrow = _I.keybd(_I.keyDOWN, ()=>{
+      let downArrow = _I.keybd(_I.DOWN, ()=>{
         s.m5.showFrame(PStates.duck_right);
         s._mode=PStates.duck_right;
       }, ()=>{
@@ -63,22 +65,26 @@
                                            : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
       };
       s.m5.bumped=(col)=>{
-        _S.setXY(s, s.x - col.overlapV[0], s.y - col.overlapV[1])
+        _V.sub$(s, col.overlapV);
+        _G.bumped=true;
+        scene.future(()=>{
+          _G.bumped=false;
+        },5);
       };
       s.m5.tick=(dt)=>{
         s["2d"].onTick(dt);
         s.m5.vel[0] += (speed - s.m5.vel[0])/4;
         if(s.m5.vel[1]>0 && _S.bottomSide(s) > floor.y){
-          s.y = floor.y - MFL(s.height/2);
+          _V.setY(s, floor.y - MFL(s.height/2));
           landed = 1;
-          s.m5.vel[1] = 0;
+          _V.setY(s.m5.vel,0);
         }
         if(landed && s._mode === null){
           s.m5.playFrames(PStates.walk_right);
           s._mode=PStates.walk_right;
         }
       };
-      EventBus.sub(["bump",s],"bumped",s.m5);
+      Mojo.on(["bump",s],"bumped",s.m5);
       return s;
     }
 
@@ -87,22 +93,21 @@
 
     function Box(scene,player){
       let frames=_S.frames("crates.png",32,32,0,0,0,0);
-      _.assert(frames.length===2);
       let theta= _.randSign()*(300*tRatio*_.rand() + 200*tRatio);
-      let floor=scene.bgFloor;
+      let floor=_G.bgFloor;
       let b=_S.sprite(frames[_.rand() < 0.5 ? 1 : 0]);
-      _S.scaleXY(b,2,2);
+      _V.set(b.scale,2,2);
       _S.centerAnchor(b);
       b.m5.type=E_BOX;
-      b.x= player.x + Mojo.width + 50;
-      b.y= floor.y - levels[MFL(_.rand()*4)] - MFL(b.height/2);
-      _S.velXY(b, -800 + 200*_.rand(),0);
-      _S.accXY(b,null,0);
+      _V.set(b,player.x + Mojo.width + 50,
+               floor.y - levels[MFL(_.rand()*4)] - MFL(b.height/2));
+      _V.set(b.m5.vel, -800 + 200*_.rand(),0);
+      _V.setY(b.m5.acc,0);
       let base=floor.y- MFL(b.height/2);
       b.m5.collide=(col)=>{
         b.alpha = 0.5;
-        _S.velXY(b, 200,-300);
-        _S.accXY(b,null,400);
+        _V.set(b.m5.vel, 200,-300);
+        _V.setY(b.m5.acc,400);
       };
       b.m5.tick=(dt)=>{
         b.x += b.m5.vel[0] * dt;
@@ -117,7 +122,7 @@
           _S.remove(b);
         }
       };
-      EventBus.sub(["hit",b],"collide",b.m5);
+      Mojo.on(["hit",b],"collide",b.m5);
       return b;
     }
 
@@ -137,27 +142,35 @@
       Mojo.addBgTask(b);
     }
 
-    _Z.defScene("level1",{
+    _Z.defScene("bg",{
       setup(){
-        let floor = this.bgFloor = _S.tilingSprite("background-floor.png");
-        let wall = this.bgWall = _S.tilingSprite("background-wall.png");
-        let parent=this.parent;
-        parent.removeChildren();
+        let floor = _G.bgFloor = _S.tilingSprite("background-floor.png");
+        let wall = _G.bgWall = _S.tilingSprite("background-wall.png");
         _S.sizeXY(wall,Mojo.width,Mojo.height);
         floor.width=Mojo.width;
         floor.y=Mojo.height-floor.height;
-        parent.addChild(wall);
-        parent.addChild(floor);
-        parent.addChild(this);
+        this.insert(wall);
+        this.insert(floor);
+      },
+      postUpdate(dt){
+        if(_G.bumped){
+          _G.bgWall.tilePosition.x -= 2;
+          _G.bgFloor.tilePosition.x -= 4;
+        }else{
+          _G.bgWall.tilePosition.x -= 4;
+          _G.bgFloor.tilePosition.x -= 8;
+        }
+      }
+    });
+
+    _Z.defScene("level1",{
+      setup(){
         let p= this.player= Player(this);
         BoxThrower(this,p);
         let stage=Mojo.mockStage();
         Mojo.addMixin(this,"camera2d",stage.width,stage.height);
       },
       postUpdate(dt){
-        this.bgWall.tilePosition.x -= 4;
-        //this.bgWall.tilePosition.y += 1;
-        this.bgFloor.tilePosition.x -= 8;
         this["camera2d"].centerOver(this.player.x+300);
       }
     },{centerStage:true});
@@ -171,6 +184,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
+        Mojo.Scenes.runScene("bg");
         Mojo.Scenes.runScene("level1");
       }
     });

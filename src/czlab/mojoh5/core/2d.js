@@ -17,8 +17,8 @@
 
   /**Create the module. */
   function _module(Mojo){
-    const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
+    const WHITE=Mojo.Sprites.color("white");
     const {is, ute:_}=Mojo;
     const ABS=Math.abs,
           MFL=Math.floor;
@@ -27,47 +27,115 @@
      * @module mojoh5/2d
      */
 
+    //https://github.com/dwmkerr/starfield/blob/master/starfield.js
+    Mojo.Scenes.defScene("StarfieldBg",{
+      setup(options){
+        if(!options.minVel) options.minVel=15;
+        if(!options.maxVel) options.maxVel=30;
+        if(!options.count) options.count=100;
+        if(!options.width) options.width=Mojo.width;
+        if(!options.height) options.height=Mojo.height;
+
+        let gfx= Mojo.Sprites.graphics();
+        let stars=[];
+
+        this.g.fps= 1.0/options.fps;
+        this.g.stars=stars;
+        this.g.gfx=gfx;
+        this.g.lag=0;
+
+        for(let i=0; i<options.count; ++i){
+          stars[i] = {x: _.rand()*options.width,
+                      y: _.rand()*options.height,
+                      size:_.rand()*3+1,
+                      vel:(_.rand()*(options.maxVel- options.minVel))+options.minVel};
+        }
+        this._draw();
+        this.insert(gfx);
+      },
+      _draw(){
+        this.g.gfx.clear();
+        this.g.stars.forEach(s=>{
+          this.g.gfx.beginFill(WHITE);
+          this.g.gfx.drawRect(s.x,s.y,s.size,s.size);
+          this.g.gfx.endFill();
+        });
+      },
+      postUpdate(dt){
+        this.g.lag +=dt;
+        if(this.g.lag<this.g.fps){
+          return;
+        }else{
+          this.g.lag=0;
+        }
+        for(let s,i=0;i<this.g.stars.length;++i){
+          s=this.g.stars[i];
+          s.y += dt * s.vel;
+          if(s.y > this.m5.options.height){
+            _V.set(s, _.rand()*this.m5.options.width,0);
+            s.size=_.rand()*3+1;
+            s.vel=(_.rand()*(this.m5.options.maxVel- this.m5.options.minVel))+this.m5.options.minVel;
+          }
+        }
+        this._draw();
+      }
+    },{fps:30, count:100, minVel:15, maxVel:30 });
+
+    class PeriodicDischarge{
+      constructor(ctor,intervalSecs,size=16,...args){
+        this._interval=intervalSecs;
+        this._ctor=ctor;
+        this._timer=0;
+        this._size=size
+        this._pool=_.fill(size,ctor);
+      }
+      _take(){
+        if(this._pool.length>0) return this._pool.pop() }
+      reclaim(o){
+        if(this._pool.length<this._size) this._pool.push(o); }
+      lifeCycle(dt){
+        this._timer += dt;
+        if(this._timer > this._interval){
+          this._timer = 0;
+          this.discharge();
+        }
+      }
+      discharge(){
+        throw `PeriodicCharge: please implement action()` }
+    }
+
     /** walks around a maze like in Pacman. */
-    function MazeRunner(e,bRotate){
+    function MazeRunner(e,frames){
       const {Sprites, Input}=Mojo;
       const self={
         onTick(dt){
-          const r=Input.keyDown(Input.keyRIGHT);
-          const l=Input.keyDown(Input.keyLEFT);
-          const u=Input.keyDown(Input.keyUP);
-          const d=Input.keyDown(Input.keyDOWN);
-          let h=null,
-              [vx,vy]=e.m5.vel;
-          const x=!_.feq0(vx),
-                vs=e.m5.speed,
-                y=!_.feq0(vy);
-          if(bRotate){
-            if(x && y){}else if(x){
-              e.angle = vx>0?90:-90
-            }else if(y){
-              e.angle= vy>0?180:0
-            }
+          let [vx,vy]=e.m5.vel,
+              vs=e.m5.speed,
+              x = !_.feq0(vx),
+              y = !_.feq0(vy);
+          if(!(x&&y) && frames){
+            if(y)
+              e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP])
+            if(x)
+              e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT])
           }
-          if(l && r){
-            Sprites.velXY(e,0)
-          }else if(l){
-            h=Mojo.LEFT;
-            Sprites.velXY(e, -vs);
-          }else if(r){
-            h=Mojo.RIGHT;
-            Sprites.velXY(e, vs);
+          const r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
+          const d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
+          const l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
+          const u=Input.keyDown(Input.UP) && Mojo.UP;
+          if(l||u){vs *= -1}
+          if(l&&r){
+            _V.setX(e.m5.vel,0);
+          }else if(l||r){
+            _V.setX(e.m5.vel,vs);
+            e.m5.heading= l||r;
           }
-          if(u && d){
-            Sprites.velXY(e,null,0);
-          }else if(d){
-            h=Mojo.DOWN;
-            Sprites.velXY(e,null, vs);
-          }else if(u){
-            h=Mojo.UP;
-            Sprites.velXY(e,null, -vs);
+          if(u&&d){
+            _V.setY(e.m5.vel,0);
+          }else if(u||d){
+            _V.setY(e.m5.vel,vs);
+            e.m5.heading= u||d;
           }
-          if(h!==null)
-            e.m5.heading=h;
         }
       };
       return (e.m5.heading=Mojo.UP) && self;
@@ -78,76 +146,77 @@
       const {Input, Sprites}=Mojo;
       const sigs=[];
       const self={
-        jumpSpeed: -300,//y-axis goes down
-        jumping:false,
-        landed:0,
-        leftKey: Input.keyLEFT,
-        jumpKey: Input.keyUP,
-        rightKey: Input.keyRIGHT,
+        jumpKey: Input.UP,
+        jumpSpeed: -300,
+        _jumping:0,
+        _ground:0,
         dispose(){
           sigs.forEach(s=> Mojo.off(...s)) },
-        onLanded(){ self.landed=0.2 },
+        onGround(){ self._ground=0.2 },
         onTick(dt,colls){
-          if(!e.m5.skipCollide)
+          if(!e.m5.skipHit)
             this._onTick(dt,colls)
-          self.landed -=dt;
+          self._ground -=dt;
         },
         _onTick(dt,colls){
           let col=colls[0],
               vs= e.m5.speed,
               j3= self.jumpSpeed/3,
-              pR= Input.keyDown(self.rightKey),
-              pU= Input.keyDown(self.jumpKey),
-              pL= Input.keyDown(self.leftKey);
-          if(col && (pL || pR || self.landed>0)){
-            // don't climb up walls.
+              pR= Input.keyDown(Input.RIGHT),
+              pL= Input.keyDown(Input.LEFT),
+              pU= Input.keyDown(self.jumpKey);
+          if(col && (pL || pR || self._ground>0)){
+            //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
                col.overlapN[1] < -0.85){ col= null }
           }
           if(pL && !pR){
             e.m5.heading = Mojo.LEFT;
-            if(col && self.landed>0){
-              Sprites.velXY(e, vs * col.overlapN[0], -vs * col.overlapN[1])
+            if(col && self._ground>0){
+              _V.set(e.m5.vel, vs * col.overlapN[0],
+                                -vs * col.overlapN[1])
             }else{
-              Sprites.velXY(e, -vs)
+              _V.setX(e.m5.vel,-vs)
             }
           }else if(pR && !pL){
             e.m5.heading = Mojo.RIGHT;
-            if(col && self.landed > 0){
-              Sprites.velXY(e, -vs * col.overlapN[0], vs * col.overlapN[1])
+            if(col && self._ground>0){
+              _V.set(e.m5.vel, -vs * col.overlapN[0],
+                                vs * col.overlapN[1])
             }else{
-              Sprites.velXY(e, vs)
+              _V.setX(e.m5.vel, vs)
             }
           }else{
-            //nothing x-axis,but check y-axis if on ground
-            Sprites.velXY(e,0,
-                            (col && self.landed>0)?0:null)
+            _V.setX(e.m5.vel,0);
+            if(col && self._ground>0)
+              _V.setY(e.m5.vel,0);
           }
           //handle jumpy things
-          if(self.landed>0 && !self.jumping && pU){
-            e.m5.vel[1]=self.jumpSpeed;
-            self.jumping = true;
-            self.landed = -dt;
+          if(self._ground>0 && !self._jumping && pU){
+            _V.setY(e.m5.vel,self.jumpSpeed);
+            self._jumping +=1;
+            self._ground = -dt;
           }else if(pU){
             //held long enough, tell others it's jumping
-            self.jumping = true;
-            Mojo.emit(["jump",e]);
+            if(self._jumping<2){
+              self._jumping +=1;
+              Mojo.emit(["jump",e]);
+            }
           }
 
-          if(self.jumping && !pU){
-            self.jumping = false;
+          if(self._jumping && !pU){
+            self._jumping = 0;
             Mojo.emit(["jumped",e]);
             if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
           }
         }
       };
-      sigs.push([["bump.bottom",e],"onLanded",self]);
+      sigs.push([["bump.bottom",e],"onGround",self]);
       sigs.forEach(s=> Mojo.on(...s));
       return self;
     }
 
-    /**Define a mixin object.
-     */
+    /**Define a mixin object. */
     Mojo.defMixin("2d",function(e,...minors){
       const {Sprites}= Mojo;
       const colls=[];
@@ -162,37 +231,31 @@
           if(col.B && col.B.m5.sensor){
             Mojo.emit(["2d.sensor", col.B], col.A);
           }else{
-            let dx= ABS(e.m5.vel[0]),
-                dy= ABS(e.m5.vel[1]);
-            e.x -= col.overlapV[0];
-            e.y -= col.overlapV[1];
+            let [dx,dy]= e.m5.vel;
             col.impact=null;
+            _V.sub$(e,col.overlapV);
             if(col.overlapN[1] < -0.3){
-              if(!e.m5.skipCollide &&
-                 e.m5.vel[1] < 0){ e.m5.vel[1] = 0 }
-              col.impact = dy;
+              if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
+              col.impact = ABS(dy);
               Mojo.emit(["bump.top", e],col);
             }
             if(col.overlapN[1] > 0.3){
-              if(!e.m5.skipCollide &&
-                 e.m5.vel[1] > 0){ e.m5.vel[1] = 0 }
-              col.impact = dy;
+              if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
+              col.impact = ABS(dy);
               Mojo.emit(["bump.bottom",e],col);
             }
             if(col.overlapN[0] < -0.3){
-              if(!e.m5.skipCollide &&
-                 e.m5.vel[0] < 0){ e.m5.vel[0] = 0 }
-              col.impact = dx;
+              if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
+              col.impact = ABS(dx);
               Mojo.emit(["bump.left",e],col);
             }
             if(col.overlapN[0] > 0.3){
-              if(!e.m5.skipCollide &&
-                 e.m5.vel[0] > 0){ e.m5.vel[0] = 0 }
-              col.impact = dx;
+              if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
+              col.impact = ABS(dx);
               Mojo.emit(["bump.right",e],col);
             }
             if(is.num(col.impact)){
-              Mojo.emit(["bump",e],col)
+              Mojo.emit(["bump",e],col);
             }else{
               col.impact=0
             }
@@ -202,8 +265,9 @@
         onTick(dt){
           colls.length=0;
           if(is.num(dt)){
-            e.m5.vel[0]=(e.m5.vel[0] + e.m5.acc[0]*dt + e.m5.gravity[0]*dt)*e.m5.friction[0];
-            e.m5.vel[1]=(e.m5.vel[1] + e.m5.acc[1]*dt + e.m5.gravity[1]*dt)*e.m5.friction[1];
+            _V.add$(e.m5.vel,_V.mul(e.m5.gravity,dt));
+            _V.add$(e.m5.vel,_V.mul(e.m5.acc,dt));
+            _V.mul$(e.m5.vel, e.m5.friction);
           }
           e.parent.collideXY(Sprites.move(e,dt));
           subs.forEach(s=> s.onTick(dt,colls));
@@ -230,30 +294,34 @@
         dispose(){
           sigs.forEach(a=>Mojo.off(...a)) },
         goLeft(col){
-          e.m5.vel[0] = -col.impact;
-          e.m5.flip= e.m5.heading === Mojo.RIGHT?"x":false;
+          _V.setX(e.m5.vel, -col.impact);
+          e.m5.heading=Mojo.LEFT;
+          e.m5.flip= "x";
         },
         goRight(col){
-          e.m5.vel[0] = col.impact;
-          e.m5.flip= e.m5.heading === Mojo.LEFT?"x":false;
+          _V.setX(e.m5.vel, col.impact);
+          e.m5.heading=Mojo.RIGHT;
+          e.m5.flip= "x";
         },
         goUp(col){
-          e.m5.vel[1] = -col.impact;
-          e.m5.flip=e.m5.heading === Mojo.DOWN?"y":false;
+          _V.setY(e.m5.vel,-col.impact);
+          e.m5.heading=Mojo.UP;
+          e.m5.flip= "y";
         },
         goDown(col){
-          e.m5.vel[1] = col.impact;
-          e.m5.flip=e.m5.heading === Mojo.UP?"y":false;
+          _V.setY(e.m5.vel, col.impact);
+          e.m5.heading=Mojo.DOWN;
+          e.m5.flip= "y";
         }
       };
       sigs.push([["post.remove",e],"dispose",self]);
       if(xDir){
-        e.m5.heading=Mojo.RIGHT;
+        //e.m5.heading=Mojo.LEFT;
         sigs.push([["bump.right",e],"goLeft",self],
                   [["bump.left",e],"goRight",self]);
       }
       if(yDir){
-        e.m5.heading=Mojo.UP;
+        //e.m5.heading=Mojo.UP;
         sigs.push([["bump.top",e],"goDown",self],
                   [["bump.bottom",e],"goUp",self]);
       }
@@ -274,18 +342,18 @@
       let _x=0;
       let _y=0;
       const self={
-        dispose:function(){ sigs.forEach(s=>Mojo.off(...s)) },
-        //when you change the camera's position, they shift the
-        //position of the world in the opposite direction
-        set x(v) { _x = v; e.x = -_x },
-        set y(v) { _y = v; e.y = -_y },
-        get x() { return _x },
-        get y() { return _y },
+        dispose(){ sigs.forEach(s=>Mojo.off(...s)) },
+        //changing the camera's xy pos shifts
+        //pos of the world in the opposite direction
+        set x(v){ _x=v; e.x= -_x },
+        set y(v){ _y=v; e.y= -_y },
+        get x(){ return _x },
+        get y(){ return _y },
         worldWidth: worldWidth,
         worldHeight: worldHeight,
         width: _width,
         height: _height,
-        follow:function(s){
+        follow(s){
           //Check the sprites position in relation to the viewport.
           //Move the camera to follow the sprite if the sprite
           //strays outside the viewport
@@ -312,10 +380,10 @@
           if(this.x<0){ this.x = 0 }
           if(this.y<0){ this.y = 0 }
           if(this.x+_width > worldWidth){
-            this.x = worldWidth - _width
+            this.x= worldWidth - _width
           }
           if(this.y+_height > worldHeight){
-            this.y = worldHeight - _height
+            this.y= worldHeight - _height
           }
           //contain the object
           let {x1,x2,y1,y2}=s.m5.getImageOffsets();
@@ -343,253 +411,11 @@
       return (sigs.forEach(e=>Mojo.on(...e)), self);
     });
 
-    /** @ignore */
-    function _hitAB(a,b){
-      const {Sprites}=Mojo;
-      let a_,b_,m;
-      if(a.m5.circular){
-        a_= Sprites.toCircle(a);
-        b_= b.m5.circular ? Sprites.toCircle(b) : Sprites.toPolygon(b);
-        m= b.m5.circular ? Geo.hitCircleCircle(a_, b_) : Geo.hitCirclePolygon(a_, b_);
-      }else{
-        a_= Sprites.toPolygon(a);
-        b_= b.m5.circular ? Sprites.toCircle(b) : Sprites.toPolygon(b);
-        m= b.m5.circular ? Geo.hitPolygonCircle(a_, b_) : Geo.hitPolygonPolygon(a_, b_);
-      }
-      if(m){ m.A=a; m.B=b; }
-      return m;
-    }
-
-    /** @ignore */
-    function _collideAB(a,b, bounce=true){
-      let ret,m=_hitAB(a,b);
-      if(m){
-        if(b.m5.static){
-          a.x -= m.overlapV[0];
-          a.y -= m.overlapV[1];
-        }else{
-          let dx2=m.overlapV[0]/2,
-              dy2=m.overlapV[1]/2;
-          a.x -= dx2; a.y -= dy2;
-          b.x += dx2; b.y += dy2;
-        }
-        if(bounce)
-          _bounceOff(a,b,m);
-      }
-      return m;
-    }
-
-    /** @ignore */
-    function _bounceOff(o1,o2,m) {
-      if(o2.m5.static){
-        //full bounce
-        //v=v - (1+c)(v.n_)n_
-        let p= _V.mul(m.overlapN, 2 * _V.dot(o1.m5.vel,m.overlapN));
-        _V.sub$(o1.m5.vel,p);
-      }else{
-        let k = -2 * ((o2.m5.vel[0] - o1.m5.vel[0]) * m.overlapN[0] +
-                      (o2.m5.vel[1] - o1.m5.vel[1]) * m.overlapN[1]) /  (o1.m5.invMass + o2.m5.invMass);
-        o1.m5.vel[0] -= k * m.overlapN[0] / o1.m5.mass;
-        o1.m5.vel[1] -= k * m.overlapN[1] / o1.m5.mass;
-        o2.m5.vel[0] += k * m.overlapN[0] / o2.m5.mass;
-        o2.m5.vel[1] += k * m.overlapN[1] / o2.m5.mass;
-      }
-    }
-
-    /** @ignore */
-    function _collideDir(col){
-      const c=new Set();
-      if(col.overlapN[1] < -0.3){ c.add(Mojo.TOP) }
-      if(col.overlapN[1] > 0.3){ c.add(Mojo.BOTTOM) }
-      if(col.overlapN[0] < -0.3){ c.add(Mojo.LEFT) }
-      if(col.overlapN[0] > 0.3){ c.add(Mojo.RIGHT) }
-      return c;
-    }
-
-    /** @ignore */
-    function _hitTestAB(a,b,react,extra){
-      let c,m=_hitAB(a,b);
-      if(m){
-        if(react){
-          a.x -= m.overlapV[0];
-          a.y -= m.overlapV[1];
-        }
-        c= _collideDir(m);
-        extra && extra(c,b);
-      }
-      return c;
-    }
-
-    const _PT=_V.vec();
     const _$={
       Patrol,
       Platformer,
       MazeRunner,
-      /**Find out if a point is touching a circlular or rectangular sprite.
-       * @memberof module:mojoh5/2d
-       * @param {number} px
-       * @param {number} py
-       * @param {Sprite} s
-       * @return {boolean}
-       */
-      hitTestPointXY(px,py,s){
-        _PT[0]=px;
-        _PT[1]=py;
-        return this.hitTestPoint(_PT,s)
-      },
-      /**Apply bounce to the objects in this manifold.
-       * @memberof module:mojoh5/2d
-       * @param {Manifold} m
-       */
-      bounceOff(m){
-        return _bounceOff(m.A,m.B,m)
-      },
-      /**Find out if a point is touching a circlular or rectangular sprite.
-       * @memberof module:mojoh5/2d
-       * @param {Vec2} point
-       * @param {Sprite} s
-       * @return {boolean}
-       */
-      hitTestPoint(point, s){
-        let hit,
-            _S=Mojo.Sprites;
-        if(s.m5.circular){
-          let c= _S.centerXY(s),
-              r= MFL(s.width/2),
-              d= _V.vecAB(c,point);
-          hit= _V.len2(d) < r*r;
-        }else{
-          hit=Geo.hitTestPointPolygon(point,_S.toPolygon(s));
-        }
-        return hit;
-      },
-      /**Check if these 2 sprites is colliding.
-       * @memberof module:mojoh5/2d
-       * @param {Sprite} a
-       * @param {Sprite} b
-       * @return {Manifold}
-       */
-      hit(a,b){
-        let m= _hitAB(a,b);
-        if(m){
-          Mojo.emit(["hit",a],m);
-          Mojo.emit(["hit",b],m.swap()) }
-        return m;
-      },
-      /**Check if these 2 sprites is colliding.
-       * @memberof module:mojoh5/2d
-       * @param {Sprite} a
-       * @param {Sprite} b
-       * @param {boolean} bounce
-       * @return {boolean}
-       */
-      collide(a,b, bounce=true){
-        let m= _collideAB(a,b,bounce);
-        return m && _collideDir(m);
-      },
-      /**Check if these 2 sprites is colliding.
-       * @memberof module:mojoh5/2d
-       * @param {Sprite} a
-       * @param {Sprite} b
-       * @return {Manifold}
-       */
-      hitTest(a,b){ return _hitAB(a,b) },
-      /**Use to contain a sprite with `x` and
-       * `y` properties inside a rectangular area.
-       * @memberof module:mojoh5/2d
-       * @param {Sprite} s
-       * @param {Container} container
-       * @param {boolean} [bounce]
-       * @param {function} [extra]
-       * @return {number[]} a list of collision points
-       */
-      contain(s, container, bounce=false,extra=null){
-        let c,
-            _S=Mojo.Sprites;
-        if(container instanceof Mojo.Scenes.Scene){
-          c=Mojo.mockStage();
-        }else if(container.m5 && container.m5.stage){
-          c=container;
-        }else{
-          if(container.isSprite)
-            _.assert(s.parent===container);
-          else
-            _.assert(false,"Error: contain() using bad container");
-          _.assert(_.feq0(container.rotation),"Error: contain() container can't rotate");
-          _.assert(_.feq0(container.anchor.x),"Error: contain() container anchor.x !==0");
-          _.assert(_.feq0(container.anchor.y),"Error: contain() container anchor.y !==0");
-          c=container;
-        }
-        let coff= _S.topLeftOffsetXY(c);
-        let collision = new Set();
-        let CX=false,CY=false;
-        let R= Geo.getAABB(s.m5.circular ? _S.toCircle(s)
-                                         : _S.toPolygon(s))
-        let cl= c.x+coff[0],
-            cr= cl+c.width,
-            ct= c.y+coff[1],
-            cb= ct+c.height;
-        let rx=R.pos[0];
-        let ry=R.pos[1];
-        //left
-        if(rx<cl){
-          s.x += cl-rx;
-          CX=true;
-          collision.add(Mojo.LEFT);
-        }
-        //right
-        if(rx+R.width > cr){
-          s.x -= rx+R.width- cr;
-          CX=true;
-          collision.add(Mojo.RIGHT);
-        }
-        //top
-        if(ry < ct){
-          s.y += ct-ry;
-          CY=true;
-          collision.add(Mojo.TOP);
-        }
-        //bottom
-        if(ry+R.height > cb){
-          s.y -= ry+R.height - cb;
-          CY=true;
-          collision.add(Mojo.BOTTOM);
-        }
-        if(collision.size > 0){
-          if(CX){
-            s.m5.vel[0] /= s.m5.mass;
-            if(bounce) s.m5.vel[0] *= -1;
-          }
-          if(CY){
-            s.m5.vel[1] /= s.m5.mass;
-            if(bounce) s.m5.vel[1] *= -1;
-          }
-          extra && extra(collision)
-        }else{
-          collision=null;
-        }
-        return collision;
-      },
-      dbgShowCol(col){
-        let out=[];
-        if(is.set(col))
-          for(let i of col.values())
-            switch(i){
-              case Mojo.TOP:
-                out.push("top");
-                break;
-              case Mojo.LEFT:
-                out.push("left");
-                break;
-              case Mojo.RIGHT:
-                out.push("right");
-                break;
-              case Mojo.BOTTOM:
-                out.push("bottom");
-                break;
-            }
-        return out.join(",");
-      }
+      PeriodicDischarge
     };
 
     return (Mojo["2d"]= _$);

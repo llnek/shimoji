@@ -23,7 +23,7 @@
            Input:_I,
            Game:G,
            "2d":_2d,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
 
     _Z.defScene("level1",{
@@ -44,16 +44,15 @@
         _I.makeDrag(red);
         this.insert(red,true);
 
-
         G.message = _S.text("Drag the boxes...",
                             {fontFamily:"sans-serif",
                              fontSize:16*K,fill:"white"},10,10);
         this.insert(G.message);
       },
       postUpdate(){
-        let s,col= _2d.collide(G.blue, G.red, true);
+        let s,col= _S.collide(G.blue, G.red, true);
         if(col){
-          s=`Collided on: ${_2d.dbgShowCol(col)}`;
+          s=`Collided on: ${_S.dbgShowCol(col)}`;
         }else{
           s= `Drag the squares...`;
         }

@@ -22,21 +22,22 @@
            "2d":_2d,
            Input:_I,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     const E_GEO=1;
 
     _Z.defScene("level1",{
       setup(){
         let out={x:0,y:0};
-        _S.gridXY([1,1],0.5,0.95,out);
-        _S.setXY(this,out.x,out.y);
+        _S.gridXY([2,2],0.5,0.95,out);
+        _V.copy(this,out);
         G.arena=Mojo.mockStage(out);
 
         //make a blue rect
         let blue = G.blue= _S.rectangle(48, 64, "blue");
         _S.centerAnchor(blue);
-        _S.setXY(blue,100,100);
+        _V.set(blue,100,100);
         blue.angle=42;
         blue.m5.tick=(dt)=>{
           _S.move(blue,dt)
@@ -45,7 +46,7 @@
         //make a red square
         let red = G.red= _S.rectangle(64, 64, "red");
         _S.centerAnchor(red);
-        _S.setXY(red,500,500);
+        _V.set(red,500,500);
         red.angle=76;
         red.m5.tick=(dt)=>{
           _S.move(red,dt)
@@ -68,10 +69,10 @@
         this.insert(orange,true);
 
         let K=Mojo.getScaleFactor();
-        _S.velXY(red,150*K,150*K);
-        _S.velXY(blue,-150*K,-150*K);
-        _S.velXY(green,180*K,-180*K);
-        _S.velXY(orange,-180*K, 180*K);
+        _V.set(red.m5.vel,150*K,150*K);
+        _V.set(blue.m5.vel,-150*K,-150*K);
+        _V.set(green.m5.vel,180*K,-180*K);
+        _V.set(orange.m5.vel,-180*K, 180*K);
 
         G.objects=[red,blue,green,orange];
         G.objects.forEach(o=>{
@@ -79,7 +80,7 @@
           o.m5.cmask=E_GEO;
         });
 
-        _S.setXY(G.arena,0,0);
+        _V.set(G.arena,0,0);
 
         let ctx=_S.drawGridBox({x1:G.arena.x,
           y1:G.arena.y,
@@ -94,11 +95,11 @@
         G.objects.forEach(o=>{
           this.searchSGrid(o).forEach(s=>{
             if(s!==o)
-              _2d.collide(o,s)
+              _S.collide(o,s)
           })
         });
 
-        G.objects.forEach(o=>_2d.contain(o,G.arena,true));
+        G.objects.forEach(o=>_S.clamp(o,G.arena,true));
       }
     },{centerStage:true});
   }

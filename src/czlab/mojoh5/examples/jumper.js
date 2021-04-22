@@ -27,7 +27,8 @@
            Input:_I,
            "2d":_2d,
            Game:G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     function Block(x,xoff,y,yoff,width,height,points){
       let K=Mojo.getScaleFactor();
@@ -39,10 +40,7 @@
       x += xoff;
       y += yoff;
       if(points){
-        points.forEach(p=>{
-          p[0] *= K;
-          p[1] *= K;
-        });
+        points.forEach(p=> _V.mul$(p,K));
         inPoints=points;
       }else{
         let h2=MFL(height/2);
@@ -67,13 +65,13 @@
       s.m5.static=true;
       s.alpha=0.5;
       _S.centerAnchor(s);
-      return _S.setXY(s,x,y);
+      return _V.set(s,x,y);
     }
 
     function Player(scene){
       let p=_S.frame("sprites.png",32,32,0,0);
       let K=Mojo.getScaleFactor();
-      _S.scaleXY(p,K,K);
+      _V.set(p.scale,K,K);
       p.m5.uuid="player";
       p.m5.type=E_PLAYER;
       p.m5.cmask=E_BLOCK|E_TOWER;
@@ -82,7 +80,7 @@
       _S.centerAnchor(p);
       scene.insert(p,true);
       Mojo.addMixin(p,"2d",[_2d.Platformer]);
-      _S.gravityXY(p,null,200 * K);
+      _V.set(p.m5.gravity,0,200 * K);
       p.m5.speed=200 * K;
       p["2d"].Platformer.jumpSpeed *= K;
       p.m5.tick=function(dt){
@@ -99,14 +97,14 @@
     function Tower(scene,b5){
       let t= _S.frame("sprites.png",32, 32, 0,64);
       let K=Mojo.getScaleFactor();
-      _S.scaleXY(t,K,K);
+      _V.set(t.scale,K,K);
       t.m5.uuid="tower";
       t.m5.type=E_TOWER;
       t.m5.sensor=true;
       t.m5.onSensor=()=>{ _Z.runScene("endGame",{ msg: "You Won!" }); };
-      EventBus.sub(["2d.sensor",t],"onSensor",t.m5);
-      t.y= b5.y - MFL(b5.height/2) - t.height;
-      t.x= b5.x - MFL(t.width/2);
+      Mojo.on(["2d.sensor",t],"onSensor",t.m5);
+      _V.copy(t,_V.sub(b5, [MFL(t.width/2),
+                            MFL(b5.height/2) + t.height]));
       return scene.insert(t,true);
     }
 
@@ -154,10 +152,7 @@
         bs.push(b4=_S.uuid(Block(X,180,Y,0,100,140,[[0,-50],[25,-40],[50,0],[0,50],[-90,0]]),"b4"));
         b4.m5.getContactPoints=()=>{
           let ps=[[70,0],[20,50],[-70,0],[20,-50],[45,-40]];
-          ps.forEach(p=>{
-            p[0] *= K;
-            p[1] *= K;
-          });
+          ps.forEach(p=> _V.mul$(p,K));
           return ps;
         };
         bs.push(b5=_S.uuid(Block(X,360, Y,40, 50, 50),"b5"));

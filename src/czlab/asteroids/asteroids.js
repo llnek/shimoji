@@ -177,7 +177,7 @@
       _S.centerAnchor(a);
       _S.scaleXY(a,0.1*K,0.1*K);
       a.m5.type=E_ASTRO;
-      a.m5.circular=true;
+      a.m5.circle=true;
       a.m5.cmask=E_SHIP|E_BULLET;
       switch(kind){
         case 1:

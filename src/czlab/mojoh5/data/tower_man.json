@@ -60,7 +60,9 @@
       "tilewidth":32,
       "tiles":[{
             "id":0,
-            "properties":[ { "name":"Class", "type":"string", "value":"Player" }]
+            "properties":[ 
+               { "name":"animation", "type":"boolean", "value":true },
+               { "name":"Class", "type":"string", "value":"Player" }]
          },{
             "id":1,
             "properties":[ { "name":"Class", "type":"string", "value":"Enemy" }]

@@ -16,13 +16,12 @@
 
   "use strict";
 
-  /**Creates the module.
-   */
+  /**Creates the module. */
   function _module(Mojo,ActiveTouches,Buttons,DragDrops){
 
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
-    const {ute:_,is,EventBus}=Mojo;
+    const {ute:_,is}=Mojo;
     const _keyInputs= _.jsMap();
 
     /**
@@ -48,9 +47,9 @@
             if(s.m5.drag && ptr.hitTest(s)){
               let cs= s.parent.children,
                   g=Mojo.Sprites.gposXY(s);
+              ptr.dragged = s;
               ptr.dragOffsetX = ptr.x - g[0];
               ptr.dragOffsetY = ptr.y - g[1];
-              ptr.dragged = s;
               //important,force this flag to off so
               //if drag dropped onto a button, button
               //won't get triggered
@@ -64,8 +63,7 @@
             }
           }
         }else{
-          ptr.dragged.x= ptr.x - ptr.dragOffsetX;
-          ptr.dragged.y= ptr.y - ptr.dragOffsetY;
+          _V.set(ptr.dragged, ptr.x - ptr.dragOffsetX, ptr.y - ptr.dragOffsetY)
         }
       }
       if(ptr && ptr.state[1]){
@@ -78,19 +76,19 @@
     }
 
     const _$={
-      keyLEFT: 37, keyRIGHT: 39, keyUP: 38, keyDOWN: 40,
-      keyZERO: 48, keyONE: 49, keyTWO: 50,
-      keyTHREE: 51, keyFOUR: 52, keyFIVE: 53,
-      keySIX: 54, keySEVEN: 55, keyEIGHT: 56, keyNINE: 57,
-      keyA: 65, keyB: 66, keyC: 67, keyD: 68, keyE: 69, keyF: 70,
-      keyG: 71, keyH: 72, keyI: 73, keyJ: 74, keyK: 75, keyL: 76,
-      keyM: 77, keyN: 78, keyO: 79, keyP: 80, keyQ: 81, keyR: 82,
-      keyS: 83, keyT: 84, keyU: 85, keyV: 86, keyW: 87, keyX: 88,
-      keyY: 89, keyZ: 90,
-      keyENTER: 13, keyESC: 27, keyBACKSPACE: 8, keyTAB: 9,
-      keySHIFT: 16, keyCTRL: 17, keyALT: 18, keySPACE: 32,
-      keyHOME: 36, keyEND: 35,
-      keyPGGUP: 33, keyPGDOWN: 34,
+      LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
+      ZERO: 48, ONE: 49, TWO: 50,
+      THREE: 51, FOUR: 52, FIVE: 53,
+      SIX: 54, SEVEN: 55, EIGHT: 56, NINE: 57,
+      A: 65, B: 66, C: 67, D: 68, E: 69, F: 70,
+      G: 71, H: 72, I: 73, J: 74, K: 75, L: 76,
+      M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82,
+      S: 83, T: 84, U: 85, V: 86, W: 87, X: 88,
+      Y: 89, Z: 90,
+      ENTER: 13, ESC: 27, BACKSPACE: 8, TAB: 9,
+      SHIFT: 16, CTRL: 17, ALT: 18, SPACE: 32,
+      HOME: 36, END: 35,
+      PGGUP: 33, PGDOWN: 34,
       ptr:null,
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
@@ -250,14 +248,14 @@
               //down,up,pressed
               _.setVec(ptr.state,true,false,true);
               e.preventDefault();
-              EventBus.pub(["mousedown"]);
+              Mojo.emit(["mousedown"]);
             }
           },
           mouseMove(e){
             ptr._x = e.pageX - e.target.offsetLeft;
             ptr._y = e.pageY - e.target.offsetTop;
             //e.preventDefault();
-            EventBus.pub(["mousemove"]);
+            Mojo.emit(["mousemove"]);
           },
           mouseUp(e){
             if(e.button===0){
@@ -272,7 +270,7 @@
                 ptr.state[2]=false;
               }
               e.preventDefault();
-              EventBus.pub(["mouseup"]);
+              Mojo.emit(["mouseup"]);
             }
           },
           _copyTouch(t,target){
@@ -296,7 +294,7 @@
             //ptr.isDown = true; ptr.isUp = false; ptr.tapped = true;
             e.preventDefault();
             _.assoc(ActiveTouches,tid,ptr._copyTouch(ct[0],t));
-            EventBus.pub(["touchstart"]);
+            Mojo.emit(["touchstart"]);
           },
           touchMove(e){
             let ct=e.changedTouches;
@@ -307,7 +305,7 @@
             ptr._x = ct[0].pageX - t.offsetLeft;
             ptr._y = ct[0].pageY - t.offsetTop;
             e.preventDefault();
-            EventBus.pub(["touchmove"]);
+            Mojo.emit(["touchmove"]);
           },
           touchEnd(e){
             let ct=e.changedTouches;
@@ -327,7 +325,7 @@
               ptr.state[2]=false;
             }
             e.preventDefault();
-            EventBus.pub(["touchend"]);
+            Mojo.emit(["touchend"]);
           },
           touchCancel(e){
             let ct=e.changedTouches;
@@ -344,7 +342,6 @@
             _.setVec(ptr.state,false,true,false);
             Buttons.length=0;
             DragDrops.length=0;
-            //ptr.pressed=false; ptr.tapped=false; ptr.isDown=false; ptr.isUp=true;
           },
           hitTest(s){
             let _S=Mojo.Sprites,
@@ -386,7 +383,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Input"]=function(M){
