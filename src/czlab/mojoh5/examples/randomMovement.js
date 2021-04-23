@@ -97,7 +97,7 @@
           _V.add$(s,[Math.floor(s.width/2),
                      Math.floor(s.height/2)]);
           s.m5.heading = Mojo.NONE;
-          s.m5.speed = 1*K;
+          s.m5.speed = 4*K;
           _S.centerAnchor(s);
           _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
           Mojo.addMixin(s,"2d");

@@ -29,8 +29,8 @@
          "properties":[
                 {
                  "name":"collision",
-                 "type":"string",
-                 "value":"true"
+                 "type":"boolean",
+                 "value":true
                 }],
          "type":"tilelayer",
          "visible":true,
@@ -514,9 +514,9 @@
                          "value":"Collectable"
                         },
                         {
-                         "name":"amount",
-                         "type":"string",
-                         "value":"10"
+                         "name":"Amount",
+                         "type":"number",
+                         "value":10
                         },
                         {
                          "name":"sprite",

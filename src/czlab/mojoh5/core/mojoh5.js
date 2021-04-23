@@ -272,10 +272,12 @@
             update(){
               let f= fs.pop();
               let n= pg.pop();
-              if(f && is.num(n))
+              if(f && is.num(n)){
                 cbObj.update.call(scene,f,n);
-              if(n===100)
+              }
+              if(_.feq(n,100) || n > 99.95){
                 _postAssetLoad(Mojo,this,scene,ecnt>0);
+              }
             }
           });
         }

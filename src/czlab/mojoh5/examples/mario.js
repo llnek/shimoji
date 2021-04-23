@@ -39,51 +39,41 @@
     const Collectable={
       s(){},
       c(scene,s,ts,ps,os){
+        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        s.m5.uuid= `Coin#${_.nextId()}`;
+        s.m5.type=E_ITEM;
+        s.m5.sensor=true;
+        s.m5.onSensor=(col)=>{
+          Mojo.sound("coin.mp3").play();
+          _S.remove(s);
+          Mojo.off(...sigs);
+          if(ps.Amount)
+            G.score += ps.Amount
+        };
+        Mojo.on(...sigs);
         return s;
-      /*
-      let mo=s.m5;
-      let signal=[["sensor",s],"onSensor",mo];
-      mo.uuid= mo.uuid+"_"+ps["sprite"];
-      s.x=ps.x;
-      s.y=ps.y-72;
-      mo.sensor= true;
-      mo.onSensor=function(col){
-        Mojo.sound("coin.mp3").play();
-        _S.remove(s);
-        _E.unsub.apply(_E,signal);
-        if(ps.amount){
-          _score = _score + (+ps.amount);
-        }
-      };
-      _E.sub.apply(_E,signal);
-      */
-      //world.addChild(s);
       }
     };
 
     const Door={
       s(){},
       c(scene,s,ts,ps,os){
+        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        s.m5.uuid= os.id;
         s.m5.type=E_DOOR;
+        s.m5.sensor=true;
         s.y += scene.tiled.new_tileH;
         s.y -= s.height;
-      /*
-      let mo=s.m5;
-      let signal=[["sensor",s],"onSensor",mo];
-      s.x=ps.x;
-      s.y=ps.y-72;
-      mo.sensor= true;
-      mo.findLinkedDoor=function(){
-        //return this.scene.find(this.p.link);
-      };
-      // When the player is in the door.
-      mo.onSensor=function(col){
-        // Mark the door object on the player.
-        //colObj.p.door = this;
-      };
-      _E.sub.apply(_E,signal);
-      */
-      //world.addChild(s);
+        s.m5.onSensor=(col)=>{
+          if(col.g.hyper && _I.keyDown(_I.DOWN)){
+            //goto the other
+            col.g.hyper=false;
+            let dx=scene.getChildById(os.link);
+            col.x=dx.x;
+            col.y=dx.y;
+          }
+        };
+        Mojo.on(...sigs);
         return s;
       }
     };
@@ -103,6 +93,7 @@
       s.m5.onKill=(col)=>{
         if(col.B.m5.uuid=="player"){
           Mojo.sound("coin.mp3").play();
+          G.score++;
           _V.set(s.m5.vel,0,0);
           s.m5.dead=true;
           col.B.m5.vel[1] = -300;
@@ -170,14 +161,15 @@
     const Player={
       s(){},
       c(scene,s,ts,ps,os){
-        let PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
+        let PStates={ climb: [16,17], walk_right: [0,10], jump_right: 13, duck_right: 15 };
         let p=_S.sprite(_S.frames(ts.image, ts.tilewidth,ts.tileheight));
         let _mode=null;
-        p.m5.cmask=E_ENEMY|E_ITEM;
+        p.m5.cmask=E_ENEMY|E_ITEM|E_DOOR;
         p.m5.uuid="player";
         p.m5.type=E_PLAYER;
         p.height=s.height;
         p.width=s.width;
+        p.g.hyper=true;
         _V.set(p, s.x + Math.floor(p.width/2), scene.tiled.tileH*4);
         _V.set(p.m5.gravity,0,333);
         p.m5.strength= 100;
@@ -208,22 +200,33 @@
         });
 
         let upArrow = _I.keybd(_I.UP, ()=>{
-          p.m5.showFrame(PStates.jump_right);
-          _mode=PStates.jump_right;
+          if(p.g.onLadder){
+            p.m5.playFrames(PStates.climb);
+            _mode=PStates.climb;
+          }else{
+            p.m5.showFrame(PStates.jump_right);
+            _mode=PStates.jump_right;
+          }
         }, ()=>{
           _mode=null;
         });
 
         let downArrow = _I.keybd(_I.DOWN, ()=>{
-          p.m5.showFrame(PStates.duck_right);
-          _mode=PStates.duck_right;
+          if(p.g.onLadder){
+            p.m5.playFrames(PStates.climb);
+            _mode=PStates.climb;
+          }else{
+            p.m5.showFrame(PStates.duck_right);
+            _mode=PStates.duck_right;
+          }
         }, ()=>{
           p.m5.showFrame(1);
+          p.g.hyper=true;
           _mode=null;
         });
 
-        let signals=[//[["bump.top",p],"breakTile"],
-                     //[["sensor.tile",p],"checkLadder"],
+        let signals=[[["bump.top",p],"breakTile"],
+                     [["tile.sensor",p],"checkLadder"],
                      //[["enemy.hit",p],"enemyHit"],
                      [["jump",p]],
                      [["jumped",p]],
@@ -235,19 +238,44 @@
         p.jumped=function(col){ p.m5.playedJump = false; };
         p.checkDoor=function(){ p.m5.checkDoor = true; };
         p.resetLevel=function(){ };
+        p.checkLadder=(col)=>{
+          if(!p.g.onLadder && col.tiled.gid===32){
+            p.g.onLadder=true;
+            p.x=col.x;
+          }
+        }
+
         p.jump=function(col){
           if(!p.m5.playedJump){
             Mojo.sound("jump.mp3").play();
             p.m5.playedJump = true;
           }
         };
+        p.breakTile=(col)=>{
+          let gid=col.B.tiled.gid;
+          if(gid===25||gid===37){
+            let s,[tx,ty]= scene.getTile(col.B);
+            _S.remove(col.B);
+            Mojo.sound("coin.mp3").play();
+            s=scene.setTile("Collision",ty,tx, gid===25?37:25);
+            scene.insert(s);
+          }
+        };
 
         p.m5.tick=function(dt){
           p["2d"].onTick(dt);
           if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
-            //if(_.feq0(p.m5.vel[0]) && _.feq0(p.m5.vel[1]))
-            if(!_I.keyDown(_I.DOWN))
-              p.m5.showFrame(1);
+            if(!p.g.onLadder && !_I.keyDown(_I.DOWN)) p.m5.showFrame(1);
+          }
+          if(p.g.onLadder){
+            _V.set(p.m5.gravity,0,0);
+            if(_I.keyDown(_I.UP)){
+              p.m5.vel[1] = -p.m5.speed;
+            }else if(_I.keyDown(_I.DOWN)){
+              p.m5.vel[1] = p.m5.speed;
+            }else{
+              //p.continueOverSensor();
+            }
           }
         };
 
@@ -291,13 +319,6 @@
         p.continueOverSensor=function(){
           mo.vel[1] = 0;
           //a.enact((this.p.vx !== 0 ? "walk_" : "stand_") + Mojo.dirToStr(this.p.direction));
-        };
-        p.breakTile=function(col){
-          if(_.inst(Mojo.TileLayer,col.obj)) {
-            if(col.tile == 24) { col.obj.setTile(col.tileX,col.tileY, 36); }
-            else if(col.tile == 36) { col.obj.setTile(col.tileX,col.tileY, 24); }
-          }
-          Mojo.sound("coin.mp3").play();
         };
         p.m5.tick=function(dt){
           p["2d"].onTick(dt);
@@ -402,14 +423,12 @@
 
     _Z.defScene("hud",{
       setup(){
-        let container = this.insert(new Mojo.UI.Container({
-          x: 50, y: 0
-        }));
-        let label = container.insert(new Mojo.UI.Text({x:200, y: 20,
-          label: "Score: " + this.o.score, color: "white" }));
-        let strength = container.insert(new Mojo.UI.Text({x:50, y: 20,
-          label: "Health: " + this.o.strength + '%', color: "white" }));
-        container.fit(20);
+        let K=Mojo.getScaleFactor();
+        let t= this.score = _S.bitmapText("",{fontName:"unscii",fontSize:64*K, fill:"white"});
+        this.insert(t);
+      },
+      postUpdate(){
+        this.score.text= `Score: ${G.score}`;
       }
     });
 
@@ -423,7 +442,7 @@
         this["camera2d"].centerOver(this.tiled.tileW*5, this.tiled.tileH*10);
       },
       postUpdate(){
-        if(G.player && G.player.y > 1000){
+        if(false && G.player && G.player.y > 2000){
         }else{
           this["camera2d"].follow(G.player);
         }
@@ -441,7 +460,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["mario.json",
+      assetFiles: ["unscii.fnt","mario.json",
          "fire.mp3", "jump.mp3", "heart.mp3", "hit.mp3", "coin.mp3",
          "bg.png","bg_castle.png","collectables.png","doors.png","enemies.png","blocks.png", "player.png"],
       scaleToWindow:"max",
@@ -450,6 +469,7 @@
         scenes(Mojo);
         Mojo.Scenes.runScene("bg");
         Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.runScene("hud");
       }
     })
   });
