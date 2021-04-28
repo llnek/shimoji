@@ -25,6 +25,8 @@
            ute:_,is}=Mojo;
 
     _Z.defScene("level1", function(){
+      let A=_S.rectangle(Mojo.width/2,Mojo.height/2,0xaa4455);
+      let C=_S.rectangle(Mojo.width/2,Mojo.height/2);
       let hedgehog = _S.sprite("hedgehog.png");
       let tiger = _S.sprite("tiger.png");
       let cat = _S.sprite("cat.png");
@@ -34,9 +36,21 @@
       _I.makeDrag(tiger);
       _V.set(tiger,64*K, 64*K);
       _V.set(hedgehog,128*K, 128*K);
-      this.insert(cat);
-      this.insert(tiger);
-      this.insert(hedgehog);
+      if(false){
+        this.insert(cat);
+        this.insert(tiger);
+        this.insert(hedgehog);
+      }else{
+        C.addChild(cat);
+        C.addChild(tiger);
+        C.addChild(hedgehog);
+        C.x=14;
+        C.y= 32;
+        A.addChild(C);
+        A.x= 30;
+        A.y= 23;
+        this.insert(A);
+      }
     });
   }
 

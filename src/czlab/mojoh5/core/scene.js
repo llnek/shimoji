@@ -279,8 +279,10 @@
           if(o){
             o.children.length>0 && o.children.forEach(c=> _c(c));
             const i=Mojo.Input;
-            o.m5.button && i.undoButton(o);
-            o.m5.drag && i.undoDrag(o);
+            if(o.m5){
+              o.m5.button && i.undoButton(o);
+              o.m5.drag && i.undoDrag(o);
+            }
           }
         }
         Mojo.off(this);

@@ -26,88 +26,77 @@
           CEIL=Math.ceil,
           MFL=Math.floor;
 
-    /** dummy empty array
-     * @private
-     * @var {array}
-     */
-    const _DA=[];
-
     /**
      * @module mojoh5/Tiles
      */
 
-    /** @ignore */
-    function _getIndex3(x, y, world){
-      return Mojo.getIndex(x,y,
+    /** from xy position to array index */
+    function _getIndex3(px, py, world){
+      return Mojo.getIndex(px,py,
                            world.tiled.tileW,
                            world.tiled.tileH,world.tiled.tilesInX) }
 
-    /** @ignore */
+    /** get vector from s1->s2 */
     function _getVector(s1,s2){
       return _V.vecAB(Mojo.Sprites.centerXY(s1),
                       Mojo.Sprites.centerXY(s2)) }
 
-    /** @ignore */
-    function _getImage(obj){
+    /** get image file name */
+    function _image(obj){
       const s= obj.image;
       const p= s && s.split("/");
-      return p && p.length && p[p.length-1];
-    }
+      obj.image= p && p.length && p[p.length-1] }
 
-    /** @ignore */
+    /** get attributes for this gid */
     function _findGid(gid,gidMap){
       let idx = -1;
       if(gid>0){
         idx=0;
         while(gidMap[idx+1] &&
-              gid >= gidMap[idx+1][0]) ++idx;
-      }
+              gid >= gidMap[idx+1][0]) ++idx }
       if(idx>=0)
         return gidMap[idx];
     }
 
     /**Scans all tilesets and record all custom properties into
      * one giant map.
-     * @private
-     * @function
      */
-    function _scanTilesets(tilesets, tsi, gprops){
+    function _tilesets(tilesets, tsi, gprops){
       let p, gid, lprops, gidList = [];
       tilesets.forEach(ts=>{
-        lprops={};
-        ts.image=_getImage(ts);
-        if(!is.num(ts.spacing)){
-          ts.spacing=0 }
+        if(!is.num(ts.spacing)){ts.spacing=0}
         gidList.push([ts.firstgid, ts]);
+        _image(ts);
+        lprops={};
         ts.tiles.forEach(t=>{
-          p=_.inject(_.selectNotKeys(t,"properties"),
-                     _parseProps(t));
+          p=_.selectNotKeys(t,"properties");
+          p=_.inject(p, _parseProps(t));
           p.gid=ts.firstgid + t.id;
           lprops[t.id]=p;
-          gprops[p.gid] = p; });
+          gprops[p.gid]= p;
+        });
         tsi[ts.name]=lprops;
       });
       //sort gids ascending
-      return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0)); }
+      return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0)) }
 
-    /** @ignore */
+    /** make sure we support this map */
     function _checkVer(json){
       let tmap = Mojo.resource(json,true).data;
       let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
       return (tver &&
               _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
-                                               : _.assert(false,`${json} needs update`)
-    }
+                                               : _.assert(false,`${json} needs update`) }
 
-    /** @ignore */
+    /** process properties group */
     function _parseProps(el){
-      return (el.properties||_DA).reduce((acc,p)=> {
+      return (el.properties||[]).reduce((acc,p)=> {
         acc[p.name]=p.value;
         return acc;
       }, {})
     }
 
-    /** @ignore */
+    /** process the tiled map */
     function _loadTMX(scene,arg,objFactory){
       let tmx= is.str(arg)?_checkVer(arg):arg;
       let tsProps={}, gtileProps={};
@@ -128,96 +117,49 @@
       if(!_.isEven(NH)) {--NH}
       scene.tiled.new_tileW=NW;
       scene.tiled.new_tileH=NH;
-      function XXX(gid,mapcol,maprow,tw,th,cz){
-        let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-            cFunc,
-            cols=tsi.columns,
-            ps=gtileProps[gid],
-            _id=gid - tsi.firstgid;
-        cz= _.nor(cz, (ps && ps["Class"]));
-        cFunc=cz && objFactory[cz];
-        _.assertNot(_id<0, `Bad tile id: ${_id}`);
-        if(!is.num(cols))
-          cols=MFL(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
-        let tscol = _id % cols,
-            tsrow = MFL(_id/cols),
-            tsX = tscol * tsi.tilewidth,
-            tsY = tsrow * tsi.tileheight;
-        if(tsi.spacing>0){
-          tsX += tsi.spacing * tscol;
-          tsY += tsi.spacing * tsrow;
-        }
-        let s= cFunc&&cFunc.s() || Mojo.Sprites.frame(tsi.image,
-                                                      tw||tsi.tilewidth,
-                                                      th||tsi.tileheight,tsX,tsY);
-        s.tiled={gid: gid, id: _id};
-        if(tw===scene.tiled.saved_tileW){
-          s.width=NW;
-        }else{
-          s.scale.x=K;
-          s.width = MFL(s.width);
-          if(!_.isEven(s.width))--s.width;
-        }
-        if(th===scene.tiled.saved_tileH){
-          s.height=NH;
-        }else{
-          s.scale.y=K;
-          s.height = MFL(s.height);
-          if(!_.isEven(s.height))--s.height;
-        }
-        s.x=mapcol*NW;
-        s.y=maprow*NH;
-        return s;
-      }
       const F={
         tilelayer(tl){
           if(is.vec(tl.data[0])){
-            if(_.nichts(tl.width))
-              tl.width=tl.data[0].length;
-            if(_.nichts(tl.height))
-              tl.height=tl.data.length;
+            //from hand-made map creation
+            tl.width=tl.data[0].length;
+            tl.height=tl.data.length;
             tl.data=tl.data.flat();
           }
           if(tl.visible === false){ return }
           if(!tl.width) tl.width=scene.tiled.tilesInX;
           if(!tl.height) tl.height=scene.tiled.tilesInY;
-          let tlprops=_parseProps(tl);
+          let tps=_parseProps(tl);
           for(let s,gid,i=0;i<tl.data.length;++i){
             if((gid=tl.data[i])===0){ continue }
             if(tl.collision===false ||
-               tlprops.collision === false){}else{
+               tps.collision === false){
+            }else{
               tl.collision=true;
-              if(gid>0)
-                scene.tiled.collision[i]=gid;
-            }
-            let mapcol = i % tl.width,
-                maprow = MFL(i/tl.width),
-                tw=tlprops.width,
-                th=tlprops.height,
-                s=_ctorTile(scene,gid,mapcol,maprow,tw,th);
-            let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+              if(gid>0) scene.tiled.collision[i]=gid }
+            let mapX = i % tl.width,
+                mapY = MFL(i/tl.width),
                 ps=gtileProps[gid],
                 cz=ps && ps["Class"],
-                cFunc=cz && objFactory[cz];
+                cFunc=cz && objFactory[cz],
+                tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+                s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
+            s.tiled.layer=tl;
             s.tiled.index=i;
             s.m5.static=true;
-            //special tile
-            if(cFunc)
-              s=cFunc.c(scene,s,tsi,ps);
-            if(s && ps){
-              if(ps.sensor) s.m5.sensor=true;
-            }
+            if(cFunc) s=cFunc.c(scene,s,tsi,ps);
+            if(s && ps && ps.sensor){s.m5.sensor=true}
             scene.insert(s,!!cFunc);
           }
-          //_.inject(tl,tlprops);
         },
         objectgroup(tl){
-          tl.objects.forEach(o=> {
+          tl.objects.forEach(o=>{
             _.assert(is.num(o.x),"wanted xy position");
-            let s,ps,gid=_.or(o.gid,-1);
-            let os=_parseProps(o);
-            if(gid>0)ps=gtileProps[gid];
+            let s,ps,
+                os=_parseProps(o),
+                gid=_.nor(o.gid,-1);
             _.inject(o,os);
+            if(gid>0)
+              ps=gtileProps[gid];
             let cz= _.nor(ps && ps["Class"],o["Class"]);
             let createFunc= cz && objFactory[cz];
             let w=scene.tiled.saved_tileW;
@@ -229,28 +171,26 @@
             o.column=tx;
             o.row=ty;
             if(gid>0){
-              s= _ctorTile(scene,gid,tx,ty,o.width,o.height,cz)
+              s=_ctorTile(scene,gid,tx,ty,o.width,o.height,cz)
             }else{
               s={width:NW,height:NH}
             }
-            if(createFunc){
-              s= createFunc.c(scene,s,tsi,ps,o);
-            }
+            if(createFunc)
+              s= createFunc.c(scene,s,tsi,ps,o)
             if(s){
-              if(ps && ps.sensor) s.m5.sensor=true;
               scene.insert(s,true);
-            }
+              if(ps && ps.sensor){s.m5.sensor=true} }
           });
         },
-        imagelayer(tl){ tl.image=_getImage(tl) }
+        imagelayer(tl){ _image(tl) }
       };
-      objFactory=_.or(objFactory,{});
+      objFactory=_.nor(objFactory,{});
       _.inject(scene.tiled, {tileProps: gtileProps,
                              tileSets: tsProps,
                              objFactory,
                              collision: _.fill(tmx.width*tmx.height,0),
                              imagelayer:[],objectgroup:[],tilelayer:[],
-                             tileGidList: _scanTilesets(tmx.tilesets,tsProps,gtileProps)});
+                             tileGidList: _tilesets(tmx.tilesets,tsProps,gtileProps)});
       ["imagelayer","tilelayer","objectgroup"].forEach(s=>{
         tmx.layers.filter(y=>y.type==s).forEach(y=>{
           F[s](y);
@@ -272,13 +212,13 @@
       }
     }
 
-    function _ctorTile(scene,gid,mapcol,maprow,tw,th,cz){
+    function _ctorTile(scene,gid,mapX,mapY,tw,th,cz){
       let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
           K=scene.getScaleFactor(),
           cFunc,
           cols=tsi.columns,
-          ps=scene.tiled.tileProps[gid],
-          _id=gid - tsi.firstgid;
+          _id=gid - tsi.firstgid,
+          ps=scene.tiled.tileProps[gid];
       cz= _.nor(cz, (ps && ps["Class"]));
       cFunc=cz && scene.tiled.objFactory[cz];
       _.assertNot(_id<0, `Bad tile id: ${_id}`);
@@ -290,8 +230,7 @@
           tsY = tsrow * tsi.tileheight;
       if(tsi.spacing>0){
         tsX += tsi.spacing * tscol;
-        tsY += tsi.spacing * tsrow;
-      }
+        tsY += tsi.spacing * tsrow; }
       let s= cFunc&&cFunc.s() || Mojo.Sprites.frame(tsi.image,
                                                     tw||tsi.tilewidth,
                                                     th||tsi.tileheight,tsX,tsY);
@@ -301,32 +240,29 @@
       }else{
         s.scale.x=K;
         s.width = MFL(s.width);
-        if(!_.isEven(s.width))--s.width;
-      }
+        if(!_.isEven(s.width))--s.width; }
       if(th===scene.tiled.saved_tileH){
         s.height= scene.tiled.new_tileH
       }else{
         s.scale.y=K;
         s.height = MFL(s.height);
-        if(!_.isEven(s.height))--s.height;
-      }
-      s.x=mapcol* scene.tiled.new_tileW;
-      s.y=maprow* scene.tiled.new_tileH;
+        if(!_.isEven(s.height))--s.height; }
+      s.x=mapX* scene.tiled.new_tileW;
+      s.y=mapY* scene.tiled.new_tileH;
       return s;
     }
 
-    const _contactObj = {width: 0,
-                         height: 0,
-                         parent:null,
-                         x:0, y:0,
-                         rotation:0,
-                         tiled:{},
-                         anchor: {x:0,y:0},
-                         getGlobalPosition(){
-                           return{
-                             x:this.x+this.parent.x,
-                             y:this.y+this.parent.y}
-                         }};
+    const _contactObj = Mojo.Sprites.extend({width: 0,
+                                             height: 0,
+                                             parent:null,
+                                             x:0, y:0,
+                                             rotation:0,
+                                             tiled:{},
+                                             anchor: {x:0,y:0},
+                                             getGlobalPosition(){
+                                               return{
+                                                 x:this.x+this.parent.x,
+                                                 y:this.y+this.parent.y} }});
     /**
      * @memberof module:mojoh5/Tiles
      * @class
@@ -340,8 +276,6 @@
       constructor(id,func,options){
         super(id,func,options);
         this.tiled={};
-        _contactObj.parent=this;
-        Mojo.Sprites.extend(_contactObj);
       }
       reloadMap(options){
         let t= this.m5.options.tiled=options;
@@ -353,18 +287,18 @@
         _loadTMX(this, t.name, t.factory);
         super.runOnce();
       }
-      removeTile(s){
-        let x= s.x, y=s.y;
+      removeTile(layer,s){
+        let {x,y}= s;
         if(s.anchor.x < 0.3){
           x= s.x+MFL(s.width/2);
-          y= s.y+MFL(s.height/2);
-        }
+          y= s.y+MFL(s.height/2); }
         let tx= MFL(x/this.tiled.tileW);
         let ty= MFL(y/this.tiled.tileH);
-        let pos= ty*this.tiled.tilesInX + tx;
-        let len = this.tiled.collision.length;
-        _.assert(pos>=0&&pos<len,"bad index to remove");
-        this.tiled.collision[pos]=0;
+        let yy= this.getTileLayer(layer);
+        let pos= tx + ty*this.tiled.tilesInX;
+        yy.data[pos]=0;
+        if(yy.collision)
+          this.tiled.collision[pos]=0;
         Mojo.Sprites.remove(s);
       }
       /**Get a tile layer.
@@ -396,26 +330,27 @@
         return found;
       }
       setTile(layer,row,col,gid){
-        let i=this.tiled.tilesInX * row + col;
+        let i=col + this.tiled.tilesInX * row;
         let y=this.getTileLayer(layer);
         let ts=this.getTSInfo(gid);
         let id= gid-ts.firstgid;
         if(y.collision)
           this.tiled.collision[i]=gid;
         let s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
+        s.tiled.layer=y;
+        s.tiled.index=i;
         return s;
       }
       getTile(s){
-        let x=s.x,y=s.y;
+        let {x,y}=s;
         if(s.anchor.x<0.3){
           y += MFL(s.height/2);
-          x += MFL(s.width/2);
-        }
+          x += MFL(s.width/2); }
         return this.getTileXY(x,y);
       }
-      getTileXY(x,y){
-        let tx= MFL(x/this.tiled.tileW);
-        let ty= MFL(y/this.tiled.tileH);
+      getTileXY(px,py){
+        let tx= MFL(px/this.tiled.tileW);
+        let ty= MFL(py/this.tiled.tileH);
         _.assert(tx>=0 && tx<this.tiled.tilesInX, `bad tile col:${tx}`);
         _.assert(ty>=0 && ty<this.tiled.tilesInY, `bad tile row:${ty}`);
         return [tx,ty];
@@ -462,11 +397,14 @@
        * @return {object}
        */
       getTSInfo(gid){
-        return _findGid(gid,this.tiled.tileGidList)[1]
-      }
+        return _findGid(gid,this.tiled.tileGidList)[1] }
+      /**Get tile information.
+       * @param {number} gid
+       * @return {object}
+       */
       getTileProps(gid){
-        return this.tiled.tileProps[gid]
-      }
+        return this.tiled.tileProps[gid] }
+      /** @ignore */
       _getContactObj(gid, tX, tY){
         let c= _contactObj;
         c.height=this.tiled.tileH;
@@ -479,6 +417,10 @@
         c.m5.sensor=false;
         return c;
       }
+      /**Check tile collision.
+       * @param {Sprite} obj
+       * @return {boolean}
+       */
       collideXY(obj){
         let _S=Mojo.Sprites,
             tw=this.tiled.tileW,
@@ -493,89 +435,21 @@
           for(let tX = sX; tX<=eX; ++tX){
             pos=tY*this.tiled.tilesInX+tX;
             gid=tiles[pos];
-            if(!is.num(gid)){
+            if(!is.num(gid))
               _.assert(is.num(gid),"bad gid");
-            }
             if(gid===0){continue}
             B=this._getContactObj(gid,tX, tY);
             ps=this.getTileProps(gid);
-            if(ps){
+            if(ps)
               B.m5.sensor= !!ps.sensor;
-            }
-            if(Mojo["Sprites"].hit(obj,B)){
-              if(B.m5.sensor)
-                Mojo.emit(["tile.sensor",obj],B);
-            }
+            B.parent=this;
+            if(_S.hit(obj,B)){
+              if(B.m5.sensor){
+                Mojo.emit(["tile.sensor",obj],B); } }
           }
         }
         return super.collideXY(obj);
       }
-    }
-
-    class Grid2D{
-      constructor(g){
-        let dimX = g[0].length;
-        let dimY = g.length;
-        let dx1=dimX-1;
-        let dy1=dimY-1;
-        let s=g[0];
-        let s2=g[1];
-        let e=g[dy1];
-        let gapX=s[1].x1-s[0].x2;
-        let gapY=s2[0].y1-s[0].y2;
-        _.assert(gapX===gapY);
-        this._grid=g;
-        this._gap=gapX;
-      }
-      drawBox(color="white"){
-        return Mojo.Sprites.drawBody(ctx => this._draw(ctx,color,true))
-      }
-      draw(color="white"){
-        return Mojo.Sprites.drawBody(ctx => this._draw(ctx,color))
-      }
-      _draw(ctx,color="white",boxOnly=false){
-        let dimX = this._grid[0].length;
-        let dimY = this._grid.length;
-        let dx1=dimX-1;
-        let dy1=dimY-1;
-        let s=this._grid[0];
-        let e=this._grid[dy1];
-        let gf = s[0];
-        let gl = e[dx1];
-        ctx.lineStyle(this.gap,_S.color(color));
-        for(let r,i=0;i<dimY;++i){
-          r=this._grid[i];
-          if(i===0){
-            //draw the top horz line
-            ctx.moveTo(r[i].x1,r[i].y1);
-            ctx.lineTo(s[dx1].x2,s[dx1].y1);
-          }
-          if(i===dy1){
-            ctx.moveTo(r[0].x1,r[0].y2);
-            ctx.lineTo(r[dx1].x2,r[dx1].y2);
-          }else if(!boxOnly){
-            ctx.moveTo(r[0].x1,r[0].y2);
-            ctx.lineTo(r[dx1].x2,r[dx1].y2);
-          }
-        }
-        for(let i=0;i<dimX;++i){
-          if(i===0){
-            //draw the left vert line
-            ctx.moveTo(s[i].x1,s[i].y1);
-            ctx.lineTo(e[i].x1,e[i].y2);
-          }
-          if(i===dx1){
-            ctx.moveTo(s[i].x2,s[i].y1);
-            ctx.lineTo(e[i].x2,e[i].y2);
-          }else if(!boxOnly){
-            ctx.moveTo(s[i].x2,s[i].y1);
-            ctx.lineTo(e[i].x2,e[i].y2);
-          }
-        }
-      }
-      cell(row,col){ return this._grid[row][col] }
-      get gap() { return this._gap}
-      get data() { return this._grid}
     }
 
     class AStarAlgos{

@@ -27,7 +27,7 @@
      * @module mojoh5/2d
      */
 
-    //https://github.com/dwmkerr/starfield/blob/master/starfield.js
+    //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
     Mojo.Scenes.defScene("StarfieldBg",{
       setup(options){
         if(!options.minVel) options.minVel=15;
@@ -48,8 +48,7 @@
           stars[i] = {x: _.rand()*options.width,
                       y: _.rand()*options.height,
                       size:_.rand()*3+1,
-                      vel:(_.rand()*(options.maxVel- options.minVel))+options.minVel};
-        }
+                      vel:(_.rand()*(options.maxVel- options.minVel))+options.minVel} }
         this._draw();
         this.insert(gfx);
       },
@@ -57,30 +56,25 @@
         this.g.gfx.clear();
         this.g.stars.forEach(s=>{
           this.g.gfx.beginFill(WHITE);
-          this.g.gfx.drawRect(s.x,s.y,s.size,s.size);
-          this.g.gfx.endFill();
-        });
+          this.g.gfx.drawRect(s.x,s.y,s.size,s.size); this.g.gfx.endFill(); });
       },
       postUpdate(dt){
         this.g.lag +=dt;
-        if(this.g.lag<this.g.fps){
-          return;
-        }else{
+        if(this.g.lag<this.g.fps){return}else{
           this.g.lag=0;
         }
         for(let s,i=0;i<this.g.stars.length;++i){
           s=this.g.stars[i];
           s.y += dt * s.vel;
           if(s.y > this.m5.options.height){
-            _V.set(s, _.rand()*this.m5.options.width,0);
+            _V.set(s, _.rand()*this.m5.options.width, 0);
             s.size=_.rand()*3+1;
-            s.vel=(_.rand()*(this.m5.options.maxVel- this.m5.options.minVel))+this.m5.options.minVel;
-          }
-        }
+            s.vel=(_.rand()*(this.m5.options.maxVel- this.m5.options.minVel))+this.m5.options.minVel; } }
         this._draw();
       }
     },{fps:30, count:100, minVel:15, maxVel:30 });
 
+    //emit something every so often...
     class PeriodicDischarge{
       constructor(ctor,intervalSecs,size=16,...args){
         this._interval=intervalSecs;
@@ -117,8 +111,7 @@
             if(y)
               e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP])
             if(x)
-              e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT])
-          }
+              e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]) }
           const r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
           const d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
           const l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
@@ -127,15 +120,13 @@
           if(l&&r){
             _V.setX(e.m5.vel,0);
           }else if(l||r){
-            _V.setX(e.m5.vel,vs);
             e.m5.heading= l||r;
-          }
+            _V.setX(e.m5.vel,vs); }
           if(u&&d){
             _V.setY(e.m5.vel,0);
           }else if(u||d){
-            _V.setY(e.m5.vel,vs);
             e.m5.heading= u||d;
-          }
+            _V.setY(e.m5.vel,vs); }
         }
       };
       return (e.m5.heading=Mojo.UP) && self;
@@ -168,13 +159,12 @@
           if(col && (pL || pR || self._ground>0)){
             //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
-               col.overlapN[1] < -0.85){ col= null }
-          }
+               col.overlapN[1] < -0.85){ col= null } }
           if(pL && !pR){
             e.m5.heading = Mojo.LEFT;
             if(col && self._ground>0){
               _V.set(e.m5.vel, vs * col.overlapN[0],
-                                -vs * col.overlapN[1])
+                               -vs * col.overlapN[1])
             }else{
               _V.setX(e.m5.vel,-vs)
             }
@@ -182,7 +172,7 @@
             e.m5.heading = Mojo.RIGHT;
             if(col && self._ground>0){
               _V.set(e.m5.vel, -vs * col.overlapN[0],
-                                vs * col.overlapN[1])
+                               vs * col.overlapN[1])
             }else{
               _V.setX(e.m5.vel, vs)
             }
@@ -229,7 +219,7 @@
         boom(col){
           _.assert(col.A===e,"got hit by someone else???");
           if(col.B && col.B.m5.sensor){
-            Mojo.emit(["2d.sensor", col.B], col.A);
+            Mojo.emit(["2d.sensor", col.B], col.A)
           }else{
             let [dx,dy]= e.m5.vel;
             col.impact=null;
@@ -288,20 +278,21 @@
       return self;
     });
 
+    /** bounce back and forth... */
     function Patrol(e,xDir,yDir){
       const sigs=[];
       const self= {
         dispose(){
           sigs.forEach(a=>Mojo.off(...a)) },
         goLeft(col){
-          _V.setX(e.m5.vel, -col.impact);
           e.m5.heading=Mojo.LEFT;
           e.m5.flip= "x";
+          _V.setX(e.m5.vel, -col.impact);
         },
         goRight(col){
-          _V.setX(e.m5.vel, col.impact);
           e.m5.heading=Mojo.RIGHT;
           e.m5.flip= "x";
+          _V.setX(e.m5.vel, col.impact);
         },
         goUp(col){
           _V.setY(e.m5.vel,-col.impact);

@@ -34,65 +34,81 @@
      * @module mojoh5/Sound
      */
 
+    const _actives=new Map();
+    let _sndCnt=1;
+
+    /** debounce */
+    function _debounce(s,now,interval){
+      let rc;
+      if(_actives.has(s) &&
+         _actives.get(s) > now){
+        rc=true
+      }else{
+        if(!interval)
+          _actives.delete(s)
+        else
+          _actives.set(s, now+interval)
+      }
+      return rc;
+    }
+
     /** @ignore */
     function _make(_A,name, url){
+      let _pan=0;
+      let _vol=1;
       const s={
-        soundNode: null,
-        buffer: null,
+        sids:new Map(),
+        buffer:null,
+        loop:false,
         src: url,
         name: name,
-        loop: false,
-        playing: false,
-        vol: 1,
-        start: 0,
-        startOffset: 0,
-        playbackRate: 1,
-        gainNode: _A.ctx.createGain(),
-        panNode: _A.ctx.createStereoPanner(),
+        //-1(left speaker)
+        //1(right speaker)
+        get pan(){ return _pan },
+        set pan(v){ _pan= v },
+        get volume(){ return _vol },
+        set volume(v){ _vol=v },
         play(){
-          this.start = _A.ctx.currentTime;
-          this.soundNode = _A.ctx.createBufferSource();
-          this.soundNode.buffer = this.buffer;
-          this.soundNode.playbackRate.value = this.playbackRate;
-          this.soundNode.connect(this.gainNode);
-          this.gainNode.connect(this.panNode);
-          this.panNode.connect(_A.ctx.destination);
-          this.soundNode.loop = this.loop;
-          this.soundNode.start(0, this.startOffset % this.buffer.duration);
-          this.playing = true;
+          const now = _.now();
+          const s= this.name;
+          if(!_debounce(s,now)){
+            let sid = _sndCnt++,
+                w=this.buffer.duration*1000,
+                g=_A.ctx.createGain(),
+                p=_A.ctx.createStereoPanner(),
+                src = _A.ctx.createBufferSource();
+            src.buffer = this.buffer;
+            src.connect(g);
+            g.connect(p);
+            p.connect(_A.ctx.destination);
+            if(this.loop){
+              src.loop = true;
+            }else{
+              _.delay(w,()=> this.sids.delete(sid))
+            }
+            p.pan.value = _pan;
+            g.gain.value = _vol;
+            src.start(0);
+            this.sids.set(sid,src);
+          }
         },
-        _stop(){
-          if(this.playing)
-            this.playing=false;
-            this.soundNode.stop(0) },
-        pause(){
-          if(this.playing){
-            this._stop();
-            this.startOffset += _A.ctx.currentTime - this.start; } },
-        playFrom(value){
-          this.startOffset = value;
-          this._stop();
-          this.play();
-        },
-        restart(){
-          this.playFrom(0) },
-        get pan(){
-          return this.panNode.pan.value },
-        set pan(v){
-          //-1(left speaker)
-          //1(right speaker)
-          this.panNode.pan.value = v },
-        get volume(){
-          return this.vol },
-        set volume(v){
-          this.vol=v;
-          this.gainNode.gain.value = v; }
+        stop(){
+          this.sids.forEach(s=> s.stop(0));
+          this.sids.length=0;
+        }
       };
       return SoundFiles[name]=s;
     };
 
     const _$={
       ctx: new gscope.AudioContext(),
+      init(){
+        _.delay(0,()=>{
+          if(this.ctx.state == "suspended"){
+            this.ctx.resume()
+          }
+        })
+      },
       /**Decode these sound bytes.
        * @memberof module:mojoh5/Sound
        * @param {string} name

@@ -40,33 +40,35 @@
 
     /** @ignore */
     function _updateDrags(ptr){
-      if(ptr && ptr.state[0]){
-        if(!ptr.dragged){
-          for(let s,i=DragDrops.length-1; i>=0; --i){
+      if(ptr.state[0]){
+        if(ptr.dragged){
+          _V.set(ptr.dragged, ptr.dragStartX+(ptr.x-ptr.dragPtrX),
+                              ptr.dragStartY+(ptr.y-ptr.dragPtrY))
+        }else{
+          for(let g,cs,s,i=DragDrops.length-1; i>=0; --i){
             s=DragDrops[i];
             if(s.m5.drag && ptr.hitTest(s)){
-              let cs= s.parent.children,
-                  g=Mojo.Sprites.gposXY(s);
+              cs= s.parent.children;
               ptr.dragged = s;
-              ptr.dragOffsetX = ptr.x - g[0];
-              ptr.dragOffsetY = ptr.y - g[1];
+              ptr.dragStartX = s.x;
+              ptr.dragStartY = s.y;
+              ptr.dragPtrX= ptr.x;
+              ptr.dragPtrY= ptr.y;
               //important,force this flag to off so
               //if drag dropped onto a button, button
               //won't get triggered
               ptr.state[2]=false;
               //pop it up to top
-              _.disj(cs,s);
-              _.conj(cs,s);
               _.disj(DragDrops,s);
-              _.conj(DragDrops,s);
+              _.disj(cs,s);
+              DragDrops.push(s);
+              cs.push(s);
               break;
             }
           }
-        }else{
-          _V.set(ptr.dragged, ptr.x - ptr.dragOffsetX, ptr.y - ptr.dragOffsetY)
         }
       }
-      if(ptr && ptr.state[1]){
+      if(ptr.state[1]){
         //dragged and now dropped
         if(ptr.dragged &&
            ptr.dragged.m5.onDragDropped)
@@ -94,8 +96,7 @@
        * @memberof module:mojoh5/Input
        */
       resize(){
-        if(this.ptr)
-          this.ptr.dispose();
+        this.ptr.dispose();
         Mojo.mouse= this.pointer();
       },
       /**Clear all keyboard states.
@@ -248,6 +249,7 @@
               //down,up,pressed
               _.setVec(ptr.state,true,false,true);
               e.preventDefault();
+              Mojo.Sound.init();
               Mojo.emit(["mousedown"]);
             }
           },
@@ -294,6 +296,7 @@
             //ptr.isDown = true; ptr.isUp = false; ptr.tapped = true;
             e.preventDefault();
             _.assoc(ActiveTouches,tid,ptr._copyTouch(ct[0],t));
+            Mojo.Sound.init();
             Mojo.emit(["touchstart"]);
           },
           touchMove(e){
@@ -349,28 +352,27 @@
                 p=_S.toPolygon(s),
                 ps=_V.translate(g,p.calcPoints);
             return Geo.hitTestPointInPolygon(ptr.x,ptr.y,ps);
-          },
-          dispose(){
-            ptr.reset();
-            _.delEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
-                        ["mousedown", Mojo.canvas,ptr.mouseDown],
-                        ["mouseup", window, ptr.mouseUp],
-                        ["touchmove", Mojo.canvas, ptr.touchMove],
-                        ["touchstart", Mojo.canvas, ptr.touchStart],
-                        ["touchend", window, ptr.touchEnd],
-                        ["touchcancel", window, ptr.touchCancel]]);
           }
         };
-        _.addEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
+        const sigs=[["mousemove", Mojo.canvas, ptr.mouseMove],
                     ["mousedown", Mojo.canvas,ptr.mouseDown],
                     ["mouseup", window, ptr.mouseUp],
                     ["touchmove", Mojo.canvas, ptr.touchMove],
                     ["touchstart", Mojo.canvas, ptr.touchStart],
                     ["touchend", window, ptr.touchEnd],
-                    ["touchcancel", window, ptr.touchCancel]]);
+                    ["touchcancel", window, ptr.touchCancel]];
+        _.addEvent(sigs);
+        ptr.dispose=function(){
+          ptr.reset();
+          _.delEvent(sigs);
+        };
         //disable the default actions on the canvas
         Mojo.canvas.style.touchAction = "none";
         return this.ptr=ptr;
+      },
+      dispose(){
+        _.delEvent([["keyup", window, _uh, false],
+                    ["keydown", window, _dh, false]]);
       }
     };
 
@@ -378,6 +380,7 @@
     _.addEvent([["keyup", window, _uh, false],
                 ["keydown", window, _dh, false]]);
 
+    _$.pointer();
     return (Mojo.Input= _$);
   }
 

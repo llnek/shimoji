@@ -41,7 +41,6 @@
       G.spawnInterval= 100;
       G.alienTimer= 0;
       G.winner= "";
-      G.music.volume = 1;
       G.aliens.length=0;
       G.cannon=null;
     }
@@ -62,12 +61,15 @@
         S.scaleContent(cannon);
         S.scaleToCanvas(bg);
 
+        S.pinBottom(this,cannon,-cannon.height-10*K);
         cannon.m5.type=E_PLAYER;
         cannon.m5.uuid="player";
+        let pY=cannon.y;
         cannon.m5.tick=()=>{
-          S.clamp(S.move(cannon),this,false)
+          _V.setX(cannon, Mojo.mouse.x - this.x);
+          S.clamp(cannon,this,false);
+          _V.setY(cannon, pY);
         };
-        S.pinBottom(this,cannon,-cannon.height-10*K);
 
         //add sprites
         this.insert(bg);
@@ -105,14 +107,14 @@
           return b;
         }
 
-        const fire = I.keybd(I.SPACE,
-          ()=>{
-            let b= S.shoot(cannon, -Mojo.PI_90,
-                           7*K, ctor, MFL(cannon.width/2), 0);
-            scene.insert(b,true);
-            G.shootSound.play();
-          });
-
+        const fireFunc=()=>{
+          let b= S.shoot(cannon, -Mojo.PI_90,
+                         7*K, ctor, MFL(cannon.width/2), 0);
+          scene.insert(b,true);
+          G.shootSound.play();
+          scene.future(fireFunc,60);
+        };
+        const fire = I.keybd(I.SPACE, fireFunc);
         G.shootSound.pan = -0.5;
         G.boomSound.pan = 0.5;
         G.music.loop=true;
@@ -121,6 +123,7 @@
         G.score= 0;
         G.winner= null;
         G.alienTimer= 0;
+        scene.future(fireFunc,60);
       },
       _spawnAlien(){
         const alienFrames = ["alien.png",
@@ -199,7 +202,7 @@
                               fontSize: 20 * K}, 90 * K, 120 * K);
         this.insert(msg);
         G.music.loop=false;
-        G.music.pause();
+        G.music.stop();
         if(G.winner == "p1"){
           msg.x = 120 * K;
           msg.text="Earth Saved!";
@@ -254,8 +257,7 @@
 
   window.addEventListener("load", ()=>
     MojoH5({
-      assetFiles: ["joystick.png","joystick-handle.png",
-                   "images/alienArmada.json",
+      assetFiles: ["images/alienArmada.json",
                    "explosion.wav", "music.wav", "shoot.wav", "unscii.fnt"],
       arena: { width: 480, height: 320 },
       scaleToWindow:"max",

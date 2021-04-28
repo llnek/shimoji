@@ -255,7 +255,8 @@
           let gid=col.B.tiled.gid;
           if(gid===25||gid===37){
             let s,[tx,ty]= scene.getTile(col.B);
-            _S.remove(col.B);
+            //_S.remove(col.B);
+            scene.removeTile("Collision",col.B);
             Mojo.sound("coin.mp3").play();
             s=scene.setTile("Collision",ty,tx, gid===25?37:25);
             scene.insert(s);

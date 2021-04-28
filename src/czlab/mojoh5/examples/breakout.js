@@ -30,7 +30,7 @@
            v2:_V,
            ute:_,is}=Mojo;
 
-    G.bounce=Mojo.sound("bounce.wav");
+    G.bounce=Mojo.sound("bounce.mp3");
     //G.music=Mojo.sound("music.wav");
     //G.music.loop = true;
     G.gridCols=8;
@@ -57,9 +57,9 @@
         I.makeButton(play);
         play.m5.press=()=>{
           T.fadeOut(this).onComplete=()=>{
-            I.undoButton(play);
             Z.replaceScene(this.name,"level1");
           }
+          I.undoButton(play);
         };
         this.insert(play);
         let msg = S.bitmapText("start game",
@@ -143,12 +143,12 @@
       postUpdate(dt){
         let objs,col;
         if(col=S.clamp(G.ball, G.arena,true)){
-          G.bounce.play();
+          //G.bounce.play();
           if(col.has(Mojo.BOTTOM)) --G.score;
         }
         this.searchSGrid(G.ball).forEach(o=>{
           if(G.ball !== o && S.collide(G.ball, o)){
-            G.bounce.play();
+            //G.bounce.play();
             switch(o.m5.type){
               case E_PADDLE:
                 if(G.paddleWobble){
@@ -159,6 +159,7 @@
                   G.paddleWobble = T.wobble(o,{x1:10,x2:10,y1:-10,y2:-10},
                                             o.scale.x*1.3,o.scale.y*1.2, 5);
                 }
+                G.bounce.play();
                 break;
               case E_BLOCK:
                 let c=S.centerXY(o);
@@ -190,7 +191,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["images/bloxyee/bloxyee.json", "unscii.fnt", "music.wav", "bounce.wav"],
+      assetFiles: ["images/bloxyee/bloxyee.json", "unscii.fnt", "bounce.mp3"],
       arena: {width: 512, height: 512},
       scaleToWindow:"max",
       start(Mojo){

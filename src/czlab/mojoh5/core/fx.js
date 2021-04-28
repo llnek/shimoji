@@ -36,8 +36,8 @@
         easing:t,
         on:false,
         curf:0,
-        loop:loop,
-        frames:frames,
+        loop,
+        frames,
         onFrame(end,alpha){},
         _run(){
           this.on=true;
@@ -83,6 +83,7 @@
           this._run();
         },
         onLoopReset(){
+          //flip values
           if(this._x){
             let [a,b]=this._x;
             this._x[0]=b;
@@ -113,6 +114,7 @@
           this._run();
         },
         onLoopReset(){
+          //flip values
           let [a,b]=this._a;
           this._a[0]=b;
           this._a[1]=a;
@@ -133,6 +135,7 @@
           this._run();
         },
         onLoopReset(){
+          //flip values
           if(this._x){
             let [a,b]=this._x;
             this._x[0]=b;
@@ -208,8 +211,7 @@
 			  return x===0 ? 0
                      : (x===1) ? 1
                      : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
-                     : (0.5 * (2 -Math.pow(2, -10 * (x-1))))
-      },
+                     : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
       /**Easing function: linear.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -252,10 +254,11 @@
        * @return {number}
        */
       EASE_INOUT_CUBIC(x){
-        if(x < 0.5){ return 4*x*x*x }else{
-          let n= -2*x+2; return 1- n*n*n/2
-        }
-      },
+        if(x < 0.5){
+          return 4*x*x*x
+        }else{
+          let n= -2*x+2;
+          return 1- n*n*n/2 } },
       /**Easing function: quadratic-ease-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -274,10 +277,11 @@
        * @return {number}
        */
       EASE_INOUT_QUAD(x){
-        if(x < 0.5){ return 2*x*x }else{
-          let n= -2*x+2; return 1 - n*n/2
-        }
-      },
+        if(x < 0.5){
+          return 2*x*x
+        }else{
+          let n= -2*x+2;
+          return 1 - n*n/2 } },
       /**Easing function: sinusoidal-ease-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -304,8 +308,7 @@
       SPLINE(t, a, b, c, d){
         return (2*b + (c-a)*t +
                (2*a - 5*b + 4*c - d)*t*t +
-               (-a + 3*b - 3*c + d)*t*t*t) / 2
-      },
+               (-a + 3*b - 3*c + d)*t*t*t) / 2 },
       /**Easing function: cubic-bezier.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -315,8 +318,7 @@
         return a*t*t*t +
                3*b*t*t*(1-t) +
                3*c*t*(1-t)*(1-t) +
-               d*(1-t)*(1-t)*(1-t)
-      },
+               d*(1-t)*(1-t)*(1-t) },
       /**Easing function: elastic-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -325,8 +327,7 @@
 		  ELASTIC_IN(x){
         return x===0 ? 0
                      : x===1 ? 1
-                     : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
-		  },
+                     : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
       /**Easing function: elastic-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -335,8 +336,7 @@
 		  ELASTIC_OUT(x){
         return x===0 ? 0
                      : x===1 ? 1
-                     : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5)
-		  },
+                     : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
       /**Easing function: elastic-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -349,9 +349,7 @@
           default:
             x *= 2;
 			      return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
-                       : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5);
-        }
-      },
+                       : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5); } },
       /**Easing function: bounce-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -371,9 +369,7 @@
         }else if(x < 2.5/2.75){
           return 7.5625 * (x -= 2.25/2.75) * x + 0.9375
         }else{
-          return 7.5625 * (x -= 2.625/2.75) * x + 0.984375
-        }
-		  },
+          return 7.5625 * (x -= 2.625/2.75) * x + 0.984375 } },
       /**Easing function: bounce-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -381,8 +377,7 @@
        */
 		  BOUNCE_INOUT(x){
 			  return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
-                       : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5
-		  },
+                       : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5 },
       /**Create a tween operating on sprite's alpha value.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -397,9 +392,10 @@
         let sa=s.alpha;
         let ea=endA;
         if(is.vec(endA)){
-          sa=endA[0]; ea=endA[1]}
-        t.start(sa,ea);
-        return t;
+          sa=endA[0];
+          ea=endA[1]
+        }
+        return t.start(sa,ea), t;
       },
       /**Create a tween operating on sprite's scale value.
        * @memberof module:mojoh5/FX
@@ -418,13 +414,16 @@
         let ex=endX;
         let ey=endY;
         if(is.vec(endX)){
-          sx=endX[0]; ex=endX[1] }
+          sx=endX[0];
+          ex=endX[1]
+        }
         if(is.vec(endY)){
-          sy=endY[0]; ey=endY[1]}
+          sy=endY[0];
+          ey=endY[1]
+        }
         if(!is.num(ex)){ sx=ex=null }
         if(!is.num(ey)){ sy=ey=null }
-        t.start(sx,ex,sy,ey);
-        return t;
+        return t.start(sx,ex,sy,ey), t;
       },
       /**Create a tween operating on sprite's position.
        * @memberof module:mojoh5/FX
@@ -443,13 +442,16 @@
         let ex=endX;
         let ey=endY;
         if(is.vec(endX)){
-          sx=endX[0]; ex=endX[1]}
+          sx=endX[0];
+          ex=endX[1]
+        }
         if(is.vec(endY)){
-          sy=endY[0]; ey=endY[1]}
+          sy=endY[0];
+          ey=endY[1]
+        }
         if(!is.num(ex)){sx=ex=null}
         if(!is.num(ey)){sy=ey=null}
-        t.start(sx,ex,sy,ey);
-        return t;
+        return t.start(sx,ex,sy,ey), t;
       },
       /**Slowly fade out this object.
        * @memberof module:mojoh5/FX
@@ -534,12 +536,10 @@
        */
       wobble(s, bounds, ex=1.2, ey=1.2, frames=10, loop=true){
         let {x1,x2,y1,y2}= bounds;
-        let tx=this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
-                                                  _.or(x2,10)), ex, null, frames,loop);
-        let ty=this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
-                                                  _.or(y2,-10)), null,ey, frames,loop);
-        return BatchTweens(tx,ty);
-      },
+        return BatchTweens(this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
+                                                              _.or(x2,10)), ex, null, frames,loop),
+                           this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
+                                                              _.or(y2,-10)), null,ey, frames,loop)) },
       /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -551,18 +551,16 @@
       followCurve(s, type, points, frames=60){
         let t= TweenXY(s,type,frames);
         let self=this;
-        t.start=function(points){
-          this._p = points;
+        t.start=function(ps){
+          this._p = ps;
           this._run();
         };
         t.onFrame=function(end,alpha){
           let p = this._p;
           if(!end)
             _V.set(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
-                      self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
-        };
-        t.start(points);
-        return t;
+                      self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1])) };
+        return t.start(points), t;
       },
       /**Make object walk in a path.
        * @memberof module:mojoh5/FX
@@ -578,8 +576,7 @@
                                      [points[cur][1], points[cur+1][1]],frames);
           t.onComplete=()=>{
             if(++cur < points.length-1)
-              _.delay(0,()=> _calcPath(cur,frames))
-          };
+              _.delay(0,()=> _calcPath(cur,frames)) };
           return t;
         }
         return _calcPath(0, MFL(frames/points.length));
@@ -598,8 +595,7 @@
                                  points[cur], frames);
           t.onComplete=()=>{
             if(++cur < points.length)
-              _.delay(0,()=> _calcPath(cur,frames))
-          };
+              _.delay(0,()=> _calcPath(cur,frames)) };
           return t;
         }
         return _calcPath(0, MFL(frames/points.length));

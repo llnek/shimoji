@@ -200,7 +200,8 @@
           Mojo.Scenes.removeScene(scene);
           if(!error) Mojo.u.start(Mojo); });
       }
-      function _m1(){ --fcnt===0 && _finz() }
+      function _m1(b){
+        --fcnt===0 && _finz() }
       if(!error)
         _.doseq(Mojo.assets, (r,k)=>{
           ext= _.fileExt(k);
@@ -339,12 +340,6 @@
       dom.attrs(Mojo.canvas,"tabindex","0");
     }
 
-    /**Install a module. */
-    function _runM(m){
-      CON.log(`installing module ${m}...`);
-      gscope[`io/czlab/mojoh5/${m}`](Mojo)
-    }
-
     /** Main */
     function _prologue(Mojo){
       let S= Mojo.stage= new PixiStage();
@@ -382,8 +377,13 @@
       Mojo.scaledBgColor= "#323232";
 
       //install modules
-      _.seq("Sprites,Input,Scenes").forEach(_runM);
-      _.seq("Sound,FX,2d,Tiles,Touch").forEach(_runM);
+      ["Sprites","Input","Scenes",
+       "Sound","FX","2d","Tiles","Touch"].forEach(s=>{
+         CON.log(`installing module ${s}...`);
+         let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
+         if(m.assets)
+           m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
+      });
 
       //register these background tasks
       _BgTasks.push(Mojo.FX, Mojo.Input);

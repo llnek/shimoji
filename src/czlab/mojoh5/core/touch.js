@@ -67,21 +67,20 @@
         let ct=e.changedTouches;
         let t= e.target;
         if(ct){
-          s.m5.startX= ct[0].pageX - t.offsetLeft;
-          s.m5.startY= ct[0].pageY - t.offsetTop;
+          e=ct[0];
           s.m5.touchId=ct[0].identifier;
         }else{
-          s.m5.startX= e.pageX - t.offsetLeft;
-          s.m5.startY= e.pageY - t.offsetTop;
           s.m5.touchId=0;
         }
+        s.m5.startX= e.pageX - t.offsetLeft;
+        s.m5.startY= e.pageY - t.offsetTop;
         s.m5.drag= true;
         s.m5.inner.alpha = 1;
         s.m5.onStart();
       }
       function onDragEnd(e){
         if(s.m5.drag){
-          s.m5.inner.alpha = s.m5.innerAlphaStandby;
+          s.m5.inner.alpha = s.m5.innerAlphaDft;
           s.m5.inner.position.set(0,0);
           s.m5.drag= false;
           s.m5.onEnd();
@@ -89,112 +88,105 @@
       }
       function onDragMove(e){
         if(!s.m5.drag){return}
-        let ct=e.changedTouches;
-        let t= e.target;
-        let cx=null;
-        let cy=null;
-        if(ct){
-          for(let i=0; i< ct.length; ++i){
+        let c,t= e.target;
+        if(e.changedTouches){
+          for(let i=0,
+                  ct=e.changedTouches; i< ct.length; ++i){
             if(s.m5.touchId === ct[i].identifier){
-              cx= ct[i].pageX-t.offsetLeft;
-              cy= ct[i].pageY-t.offsetTop;
+              c= [ct[i].pageX-t.offsetLeft,
+                  ct[i].pageY-t.offsetTop];
               break;
             }
           }
+          if(!c){return}
         }else{
-          cx= e.pageX - t.offsetLeft;
-          cy= e.pageY - t.offsetTop;
+          c= [e.pageX - t.offsetLeft,
+              e.pageY - t.offsetTop];
         }
-        if(cx===null||cy===null){return}
-        let sideX = cx - s.m5.startX;
-        let sideY = cy - s.m5.startY;
+        let X = c[0] - s.m5.startX;
+        let Y = c[1] - s.m5.startY;
+        let limit=s.m5.outerRadius;
         let calRadius = 0;
         let angle = 0;
-        cx=0;
-        cy=0;
-        if(sideX === 0 && sideY === 0){return}
-        if(sideX * sideX + sideY * sideY >= s.m5.outerRadius * s.m5.outerRadius){
-          calRadius = s.m5.outerRadius
-        }else{
-          calRadius = s.m5.outerRadius - s.m5.innerRadius
-        }
+        c[0]=0;
+        c[1]=0;
+        if(X === 0 && Y === 0){return}
+        calRadius= (X*X + Y*Y >= limit*limit)?limit
+                                             :limit-s.m5.innerRadius;
         /**
          * x:   -1 <-> 1
          * y:   -1 <-> 1
          *          Y
          *          ^
-         *          |
          *     180  |  90
          *    ------------> X
          *     270  |  360
-         *          |
-         *          |
          */
         let direction=Mojo.LEFT;
-        let sx=Math.abs(sideX);
-        let sy=Math.abs(sideY);
+        let sx=Math.abs(X);
+        let sy=Math.abs(Y);
         let power=0;
-        if(sideX === 0){
-          if(sideY>0){
-            cx=0;
-            cy=sideY>s.m5.outerRadius ? s.m5.outerRadius : sideY;
+        if(X === 0){
+          if(Y>0){
+            c[0]=0;
+            c[1]=Y>limit ? limit : Y;
             angle=270;
             direction=Mojo.BOTTOM;
           }else{
-            cx=0;
-            cy= -(sy > s.m5.outerRadius ? s.m5.outerRadius : sy);
+            c[0]=0;
+            c[1]= -(sy > limit ? limit : sy);
             angle = 90;
             direction = Mojo.TOP;
           }
-          s.m5.inner.position.set(cx,cy);
-          power = _calcPower(s,cx,cy);
+          s.m5.inner.position.set(c[0],c[1]);
+          power = _calcPower(s,c[0],c[1]);
           s.m5.onChange(direction,angle,power);
-        } else if(sideY === 0){
-          if(sideX>0){
-            cx=sx > s.m5.outerRadius ? s.m5.outerRadius : sx;
-            cy=0;
+        }else if(Y === 0){
+          if(X>0){
+            c[0]=sx > limit ? limit : sx;
+            c[1]=0;
             angle=0;
             direction = Mojo.LEFT;
           }else{
-            cx=-(sx > s.m5.outerRadius ? s.m5.outerRadius : sx);
-            cy=0;
+            c[0]=-(sx > limit ? limit : sx);
+            c[1]=0;
             angle = 180;
             direction = Mojo.RIGHT;
           }
-          s.m5.inner.position.set(cx,cy);
-          power = _calcPower(s,cx,cy);
+          s.m5.inner.position.set(c[0],c[1]);
+          power = _calcPower(s,c[0],c[1]);
           s.m5.onChange(direction, angle, power);
         }else{
-          let tanVal= Math.abs(sideY/sideX);
-          let radian= Math.atan(tanVal);
-          angle = radian*180/Math.PI;
-          cx=cy=0;
-          if(sideX*sideX + sideY*sideY >= s.m5.outerRadius*s.m5.outerRadius){
-            cx= s.m5.outerRadius * Math.cos(radian);
-            cy= s.m5.outerRadius * Math.sin(radian);
+          let rad= Math.atan(Math.abs(Y/X));
+          angle = rad*180/Math.PI;
+          c[0]=0;
+          c[1]=0;
+          if(X*X + Y*Y >= limit*limit){
+            c[0]= limit * Math.cos(rad);
+            c[1]= limit * Math.sin(rad);
           }else{
-            cx= sx > s.m5.outerRadius ? s.m5.outerRadius : sx;
-            cy= sy > s.m5.outerRadius ? s.m5.outerRadius : sy;
+            c[0]= sx > limit ? limit : sx;
+            c[1]= sy > limit ? limit : sy;
           }
-          if(sideY<0)
-            cy= -Math.abs(cy);
-          if(sideX<0)
-            cx= -Math.abs(cx);
-          if(sideX>0 && sideY<0){
+          if(Y<0)
+            c[1]= -Math.abs(c[1]);
+          if(X<0)
+            c[0]= -Math.abs(c[0]);
+          if(X>0 && Y<0){
             // < 90
-          } else if(sideX<0 && sideY<0){
+          }else if(X<0 && Y<0){
             // 90 ~ 180
             angle= 180 - angle;
-          } else if(sideX<0 && sideY>0){
+          }else if(X<0 && Y>0){
             // 180 ~ 270
-            angle= angle + 180;
-          } else if(sideX>0 && sideY>0){
+            angle += 180;
+          }else if(X>0 && Y>0){
             // 270 ~ 369
             angle= 360 - angle;
           }
-          power= _calcPower(s,cx,cy);
-          direction= _calcDir(cx,cy);
-          s.m5.inner.position.set(cx,cy);
+          power= _calcPower(s,c[0],c[1]);
+          direction= _calcDir(c[0],c[1]);
+          s.m5.inner.position.set(c[0],c[1]);
           s.m5.onChange(direction, angle, power);
         }
       }
@@ -205,41 +197,52 @@
                   ["touchcancel", window, onDragEnd],
                   ["touchmove", Mojo.canvas, onDragMove],
                   ["touchstart", Mojo.canvas, onDragStart]]);
+      s.m5.dispose=()=>{
+        _.delEvent([["mousemove", Mojo.canvas, onDragMove],
+                    ["mousedown", Mojo.canvas, onDragStart],
+                    ["mouseup", window, onDragEnd],
+                    ["touchend", window, onDragEnd],
+                    ["touchcancel", window, onDragEnd],
+                    ["touchmove", Mojo.canvas, onDragMove],
+                    ["touchstart", Mojo.canvas, onDragStart]]);
+      };
+      return s;
     }
 
     const _$={
+      assets:["boot/joystick.png","boot/joystick-handle.png"],
       /**Create the joystick.
        * @memberof module:mojoh5/Touch
        * @param {object} options
        * @return {PIXIContainer} the stick
        */
       joystick(options){
+        let inner= Mojo.Sprites.sprite("boot/joystick-handle.png");
+        let outer= Mojo.Sprites.sprite("boot/joystick.png");
         let mo= _.inject({outerScaleX:1,
                           outerScaleY:1,
                           outerRadius:0,
                           innerRadius:0,
                           innerScaleX:1,
                           innerScaleY:1,
-                          innerAlphaStandby:0.5,
+                          inner,outer,
+                          innerAlphaDft:0.5,
                           onStart(){},
                           onEnd(){},
                           onChange(dir,angle,power){}}, options);
-        let outer= mo.outer= Mojo.Sprites.sprite("joystick.png");
-        let inner= mo.inner= Mojo.Sprites.sprite("joystick-handle.png");
         let stick=new PIXI.Container();
         stick.m5=mo;
         outer.alpha = 0.5;
         outer.anchor.set(0.5);
         inner.anchor.set(0.5);
-        inner.alpha = mo.innerAlphaStandby;
+        inner.alpha = mo.innerAlphaDft;
         outer.scale.set(mo.outerScaleX, mo.outerScaleY);
         inner.scale.set(mo.innerScaleX, mo.innerScaleY);
         stick.addChild(outer);
         stick.addChild(inner);
         mo.outerRadius = stick.width / 2.5;
         mo.innerRadius = inner.width / 2;
-        _bindEvents(stick);
-        return stick;
+        return _bindEvents(stick);
       }
     };
 
