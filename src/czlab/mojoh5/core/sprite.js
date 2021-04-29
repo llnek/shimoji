@@ -285,6 +285,7 @@
 
     const _PT=_V.vec();
     const _$={
+      assets: ["boot/unscii.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -422,7 +423,8 @@
           //these special functions are for quadtree
           s.getGuid=function(){ return s.m5.uuid };
           s.getSpatial=function(){ return s.m5.sgrid; };
-          s.getBBox=function(){ return self.boundingBox(s) };
+          s.getBBox=function(){
+            return _.feq0(s.angle)?self.getBBox(s):self.boundingBox(s) };
         }
         return s;
       },

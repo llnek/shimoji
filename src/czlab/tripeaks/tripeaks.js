@@ -23,19 +23,69 @@
            Sprites:_S,
            Input:_I,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
+    //load in others
     window["io/czlab/tripeaks/models"](Mojo);
 
+    //background
     _Z.defScene("bg",{
       setup(){
-        this.insert(_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height))
+        this.insert(_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height)) } });
+
+    //hud
+    _Z.defScene("hud",{
+      setup(){
+        let K=Mojo.getScaleFactor();
+        let s= this.score= _S.bitmapText("0",{
+          fontName:"unscii",
+          fontSize:96*K,
+          fill:"white"
+        });
+        this.insert(s);
+      },
+      postUpdate(){
+        this.score.text= `Score: ${_G.score}` }
+    });
+
+    //end menu
+    _Z.defScene("end",{
+      dispose(){
+        this.btns.forEach(b => _I.undoButton(b))
+      },
+      setup(options){
+        let s1=_S.bitmapText("Game Over", {
+          fontName:"unscii", fontSize: 32, fill:"white",align:"center"});
+        let s2=_S.bitmapText(options.msg, {
+          fontName:"unscii", fontSize: 32, fill:"white",align:"center"});
+        let s3=_S.bitmapText(" ",{
+          fontName:"unscii", fontSize: 32, fill:"white",align:"center" });
+        let s4=_I.makeButton(_S.bitmapText("Play Again?",{
+          fontName:"unscii", fontSize: 32, fill:"white",align:"center"}));
+        let s5=_S.bitmapText("or ",{
+          fontName:"unscii", fontSize: 32, fill:"white",align:"center"});
+        let s6=_I.makeButton(_S.bitmapText("Quit",{
+          fontName:"unscii", fontSize: 32, fill:"white",align:"center"}));
+        let g=_Z.layoutY([s1,s2,s3,s4,s5,s6],options);
+        this.btns= [s4,s6];
+        this.insert(g);
+        s4.m5.press=function(){
+          _Z.removeScenes();
+          _.delay(0,()=>{
+            _Z.runScene("bg");
+            _Z.runScene("level1");
+            _Z.runScene("hud");
+          })
+        }
       }
     });
 
+    //game scene
     _Z.defScene("level1",{
       _initLevel(peaks=3){
         let m= _G.model= new _G.TriPeak(this);
+        _G.score=0;
         m.startGame(m.getDeck());
       },
       clsBoard(){
@@ -73,7 +123,7 @@
               c.m5.showFrame(e?1:0);
               if(e)
                 _I.makeDrag(c);
-              _S.setXY(c,left+pc,top);
+              _V.set(c,left+pc,top);
               //save the position
               c.g.x=c.x;
               c.g.y=c.y;
@@ -100,13 +150,22 @@
         let [x,y]=_G.drawCardPos;
         _I.makeDrag(c0);
         c0.visible=true;
-        _S.setXY(c0,x,y);
+        _V.set(c0,x,y);
         c0.g.x=x;
         c0.g.y=y;
         c0.width=width;
         c0.height=height;
         c0.m5.showFrame(1);
+        _G.drawCard=c0;
         this.insert(c0);
+      },
+      _jiggleDC(pile){
+        let x= MFL((_G.drawCard.x+_G.drawCard.width - pile.x)/2 - _G.drawCard.width/2);
+        x+=pile.x;
+        _G.drawCardPos[0]=x;
+        _G.drawCard.g.x=x;
+        _V.setX(_G.drawCard,x);
+        this.future(()=> {_G.checkEnd=true},3);
       },
       drawDrawer(){
         let top= _G.pyramidBottom+ _G.iconSize[1];
@@ -116,22 +175,30 @@
         let len=2;
         let width= len * _G.iconSize[0] + (len-1)*gap;
         let left=MFL((Mojo.width-width)/2);
-        let pile=_S.sprite(`${Mojo.u.stockPile}.png`);
-        _S.setXY(pile,left,top);
+        let pile= _S.spriteFrom("cardJoker.png",`${Mojo.u.stockPile}.png`);
+        _V.set(pile,left,top);
         _S.scaleXY(pile,K,K);
         _I.makeButton(pile);
+        pile.m5.showFrame(1);
         pile.m5.press=()=>{
           if(_G.model.getDrawCard())
-            this.flipDrawCard()
+            this.flipDrawCard();
+          if(pile.visible &&
+             _G.model.isPileEmpty()){
+            pile.visible=false;
+            _I.undoButton(pile);
+            this._jiggleDC(pile);
+          }
         };
         this.insert(_G.stockPile=pile);
         left += gap + _G.iconSize[0];
-        _S.setXY(c0,left,top);
+        _V.set(c0,left,top);
         c0.g.x=c0.x;
         c0.g.y=c0.y;
         c0.visible=true;
         c0.m5.showFrame(1);
         _I.makeDrag(c0);
+        _G.drawCard=c0;
         _G.drawCardPos=[left,top];
         this.insert(c0);
       },
@@ -140,12 +207,22 @@
         this.clsBoard();
         this.drawBoard();
         this.drawDrawer();
-        EventBus.sub(["flip.draw",this],"onFlipDraw",this);
+        Mojo.on(["flip.draw",this],"onFlipDraw",this);
       },
       onFlipDraw(){
         this.flipDrawCard();
       },
       postUpdate(){
+        let msg;
+        if(_G.model.isPeakEmpty()){
+          msg="You Win!";
+        }else if(_G.checkEnd){
+          if(_G.model.isGameStuck()){
+            msg="You Lose!";
+          }
+        }
+        if(msg)
+          _.delay(100,()=> _Z.runScene("end",{msg}));
       }
     });
   }
@@ -161,8 +238,8 @@
       scenes(Mojo);
       Mojo.Scenes.runScene("bg");
       Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("hud");
     }
-
   };
 
   //load and run

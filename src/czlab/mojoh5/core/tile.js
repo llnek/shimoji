@@ -90,7 +90,7 @@
 
     /** process properties group */
     function _parseProps(el){
-      return (el.properties||[]).reduce((acc,p)=> {
+      return (el.properties||[]).reduce((acc,p)=>{
         acc[p.name]=p.value;
         return acc;
       }, {})
@@ -118,6 +118,7 @@
       scene.tiled.new_tileW=NW;
       scene.tiled.new_tileH=NH;
       const F={
+        imagelayer(tl){ _image(tl) },
         tilelayer(tl){
           if(is.vec(tl.data[0])){
             //from hand-made map creation
@@ -143,11 +144,15 @@
                 cFunc=cz && objFactory[cz],
                 tsi=_findGid(gid,scene.tiled.tileGidList)[1],
                 s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
+            //assume all these are static tiles
             s.tiled.layer=tl;
             s.tiled.index=i;
             s.m5.static=true;
-            if(cFunc) s=cFunc.c(scene,s,tsi,ps);
-            if(s && ps && ps.sensor){s.m5.sensor=true}
+            if(cFunc)
+              s=cFunc.c(scene,s,tsi,ps);
+            if(s && ps && ps.sensor){
+              s.m5.sensor=true
+            }
             scene.insert(s,!!cFunc);
           }
         },
@@ -170,19 +175,17 @@
             if(tsi)tsi=tsi[1];
             o.column=tx;
             o.row=ty;
-            if(gid>0){
-              s=_ctorTile(scene,gid,tx,ty,o.width,o.height,cz)
-            }else{
+            if(gid<=0){
               s={width:NW,height:NH}
-            }
+            }else{
+              s=_ctorTile(scene,gid,tx,ty,o.width,o.height,cz) }
             if(createFunc)
               s= createFunc.c(scene,s,tsi,ps,o)
             if(s){
               scene.insert(s,true);
               if(ps && ps.sensor){s.m5.sensor=true} }
           });
-        },
-        imagelayer(tl){ _image(tl) }
+        }
       };
       objFactory=_.nor(objFactory,{});
       _.inject(scene.tiled, {tileProps: gtileProps,
@@ -202,16 +205,16 @@
       scene.tiled.tileH=NH;
       scene.tiled.tiledWidth=NW * tmx.width;
       scene.tiled.tiledHeight=NH * tmx.height;
+      //
       if(scene.parent instanceof Mojo.Scenes.SceneWrapper){
         if(scene.tiled.tiledHeight<Mojo.height){
-          scene.parent.y = MFL((Mojo.height-scene.tiled.tiledHeight)/2)
-        }
+          scene.parent.y = MFL((Mojo.height-scene.tiled.tiledHeight)/2) }
         if(scene.tiled.tiledWidth<Mojo.width){
-          scene.parent.x = MFL((Mojo.width-scene.tiled.tiledWidth)/2)
-        }
+          scene.parent.x = MFL((Mojo.width-scene.tiled.tiledWidth)/2) }
       }
     }
 
+    /** create a sprite */
     function _ctorTile(scene,gid,mapX,mapY,tw,th,cz){
       let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
           K=scene.getScaleFactor(),
@@ -252,6 +255,7 @@
       return s;
     }
 
+    /** use it for collision */
     const _contactObj = Mojo.Sprites.extend({width: 0,
                                              height: 0,
                                              parent:null,
@@ -263,6 +267,7 @@
                                                return{
                                                  x:this.x+this.parent.x,
                                                  y:this.y+this.parent.y} }});
+
     /**
      * @memberof module:mojoh5/Tiles
      * @class
@@ -331,13 +336,13 @@
       }
       setTile(layer,row,col,gid){
         let i=col + this.tiled.tilesInX * row;
-        let y=this.getTileLayer(layer);
+        let yy=this.getTileLayer(layer);
         let ts=this.getTSInfo(gid);
         let id= gid-ts.firstgid;
-        if(y.collision)
+        if(yy.collision)
           this.tiled.collision[i]=gid;
         let s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
-        s.tiled.layer=y;
+        s.tiled.layer=yy;
         s.tiled.index=i;
         return s;
       }
@@ -346,8 +351,7 @@
         if(s.anchor.x<0.3){
           y += MFL(s.height/2);
           x += MFL(s.width/2); }
-        return this.getTileXY(x,y);
-      }
+        return this.getTileXY(x,y); }
       getTileXY(px,py){
         let tx= MFL(px/this.tiled.tileW);
         let ty= MFL(py/this.tiled.tileH);
@@ -426,7 +430,7 @@
             tw=this.tiled.tileW,
             th=this.tiled.tileH,
             tiles=this.tiled.collision,
-            box=_.feq0(obj.rotation)?_S.getBBox(obj):_S.boundingBox(obj);
+            box=_.feq0(obj.angle)?_S.getBBox(obj):_S.boundingBox(obj);
         let sX = Math.max(0,MFL(box.x1 / tw));
         let sY = Math.max(0,MFL(box.y1 / th));
         let eX =  Math.min(this.tiled.tilesInX-1,CEIL(box.x2 / tw));
@@ -476,58 +480,6 @@
 
     const _$={
       TiledScene,
-      /**Calculate position of each individual cells in the grid,
-       * so that we can detect when a user clicks on the cell.
-       * @memberof module:mojoh5/Tiles
-       * @param {number|number[]} dim
-       * @param {number} glwidth
-       * @param {number} ratio
-       * @param {string} align
-       * @return {}
-       */
-      mapGridPos(dim,glwidth,ratio=0.8,align="center"){
-        let cx,cy,x0,y0,x1,y1,x2,y2,out=[];
-        let gapX,gapY,dimX,dimY,cz,szX,szY;
-        if(is.vec(dim)){
-          [dimX,dimY]=dim;
-        }else{
-          dimX=dimY=dim;
-        }
-        if(glwidth<0){glwidth=0}
-        gapX=glwidth*(dimX+1);
-        gapY=glwidth*(dimY+1);
-        if(Mojo.portrait()){
-          cz=MFL((ratio*Mojo.width-gapX)/dimX);
-        }else{
-          cz=MFL((ratio*(Mojo.height-gapY))/dimY);
-        }
-        szX=cz*dimX+gapX;
-        szY=cz*dimY+gapY;
-        //top,left
-        y0=MFL((Mojo.height-szY)/2);
-        switch(align){
-          case "right": x0=Mojo.width-szX; break;
-          case "left": x0=0;break;
-          default: x0=MFL((Mojo.width-szX)/2); break;
-        }
-        x0 +=glwidth;
-        x1=x0;
-        y0 += glwidth;
-        y1=y0;
-        for(let arr,r=0; r<dimY; ++r){
-          arr=[];
-          for(let c= 0; c<dimX; ++c){
-            y2 = y1 + cz;
-            x2 = x1 + cz;
-            arr.push({x1,x2,y1,y2});
-            x1 = x2+glwidth;
-          }
-          out.push(arr);
-          y1 = y2+glwidth;
-          x1 = x0;
-        }
-        return new Grid2D(out);
-      },
       /**Get the indices of the neighbor cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -539,8 +491,8 @@
        */
       neighborCells(index, world, ignoreSelf){
         let w=world.tiled.tilesInX;
-        let a= [index - w - 1, index - w, index - w + 1, index - 1];
-        let b= [index + 1, index + w - 1, index + w, index + w + 1];
+        let a= [index-w-1, index-w, index-w+1, index-1];
+        let b= [index+1, index+w-1, index+w, index+w+1];
         if(!ignoreSelf) a.push(index);
         return a.concat(b);
       },
@@ -559,8 +511,7 @@
           s.tiled.index = pos;
           ret[pos] = s.tiled.gid;
         };
-        !is.vec(sprites) ? _mapper(sprites)
-                         : sprites.forEach(_mapper);
+        !is.vec(sprites) ? _mapper(sprites) : sprites.forEach(_mapper);
         return ret;
       },
       /**A-Star search.
@@ -667,9 +618,7 @@
           //until the start node is found
           while(tn !== startNode){
             tn = tn.parent;
-            theShortestPath.unshift(tn);
-          }
-        }
+            theShortestPath.unshift(tn); } }
         return theShortestPath;
       },
       /**Check if sprites are visible to each other.
@@ -709,8 +658,7 @@
         //no walls. If any of them aren't 0, then the function returns
         //`false` which means there's a wall in the way
         return points.every(p=> tiles[p.index] === emptyGid) &&
-               (angles.length === 0 || angles.some(x=> x === angle))
-      },
+               (angles.length === 0 || angles.some(x=> x === angle)) },
       /**Get indices of orthognoal cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -719,8 +667,7 @@
        */
       crossCells(index, world){
         const w= world.tiled.tilesInX;
-        return [index - w, index - 1, index + 1, index + w]
-      },
+        return [index - w, index - 1, index + 1, index + w] },
       /**Get orthognoal cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -729,8 +676,7 @@
        * @return {any[]}
        */
       getCrossTiles(index, tiles, world){
-        return this.crossCells(index,world).map(c => tiles[c])
-      },
+        return this.crossCells(index,world).map(c=> tiles[c]) },
       /**Get the indices of corner cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -739,8 +685,7 @@
        */
       getDiagonalCells(index, world){
         const w= is.num(world)?world:world.tiled.tilesInX;
-        return [index - w - 1, index - w + 1, index + w - 1, index + w + 1]
-      },
+        return [index-w-1, index-w+1, index+w-1, index+w+1] },
       /**Get the corner cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -749,8 +694,7 @@
        * @return {any[]}
        */
       getDiagonalTiles(index, tiles, world){
-        return this.getDiagonalCells(index,world).map(c => tiles[c])
-      },
+        return this.getDiagonalCells(index,world).map(c=> tiles[c]) },
       /**Get all the valid directions to move for this sprite.
        * @memberof module:mojoh5/Tiles
        * @param {Sprite} sprite
@@ -760,7 +704,7 @@
        * @return {any[]}
        */
       validDirections(sprite, tiles, validGid, world){
-        const pos = this.getTileIndex(sprite, world);
+        const pos= this.getTileIndex(sprite, world);
         return this.getCrossTiles(pos, tiles, world).map((gid, i)=>{
           return gid === validGid ? _DIRS[i] : Mojo.NONE
         }).filter(d => d !== Mojo.NONE)
@@ -776,18 +720,16 @@
         let left = dirs.find(x => x === Mojo.LEFT);
         let right = dirs.find(x => x === Mojo.RIGHT);
         return dirs.length===0 ||
-               dirs.length===1 || ((up||down) && (left||right));
-      },
+               dirs.length===1 || ((up||down) && (left||right)); },
       /**Randomly choose the next direction.
        * @memberof module:mojoh5/Tiles
        * @param {number[]} dirs
        * @return {number}
        */
       randomDirection(dirs=[]){
-        return dirs.length===0 ? Mojo.TRAPPED
+        return dirs.length===0 ? Mojo.NONE
                                : (dirs.length===1 ? dirs[0]
-                                                  : dirs[_.randInt2(0, dirs.length-1)])
-      },
+                                                  : dirs[_.randInt2(0, dirs.length-1)]) },
       /**Find the best direction from s1 to s2.
        * @memberof module:mojoh5/Tiles
        * @param {Sprite} s1
@@ -797,8 +739,7 @@
       closestDirection(s1, s2){
         const v= _getVector(s1,s2);
         return ABS(v[0]) < ABS(v[1]) ? ((v[1] <= 0) ? Mojo.UP : Mojo.DOWN)
-                                     : ((v[0] <= 0) ? Mojo.LEFT : Mojo.RIGHT)
-      }
+                                     : ((v[0] <= 0) ? Mojo.LEFT : Mojo.RIGHT) }
     };
 
     return (Mojo.Tiles=_$);

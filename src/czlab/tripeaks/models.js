@@ -27,8 +27,9 @@
     const {Sprites:_S,
            Input:_I,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
+    const SUITS = [DIAMONDS, CLUBS, HEARTS, SPADES];
     const CARD_SUITS=(function(obj){
       obj[DIAMONDS]="Diamonds";
       obj[CLUBS]="Clubs";
@@ -37,6 +38,7 @@
       return obj;
     })({});
 
+    /** @ignore */
     function flipExposed(){
       _G.model.getExposed().forEach(c=>{
         if(c){
@@ -46,16 +48,17 @@
       });
     }
 
+    /** @ignore */
     function dropDrawCard(c){
-      EventBus.pub(["flip.draw",c.parent]);
-    }
+      Mojo.emit(["flip.draw",c.parent]); }
 
+    /** @ignore */
     function dropCard(c){
       let {row,col}=c.g;
-      _G.model.delCardAt(row,col);
       _S.remove(c);
-    }
+      _G.model.delCardAt(row,col); }
 
+    /** @ignore */
     function _checkDropped(s){
       let found,
           es=_G.model.getExposed(),
@@ -71,18 +74,20 @@
         }
       }
       if(found){
-        if(s===dc){
-          dropDrawCard(dc);
-          dropCard(found);
-        }else if(found===dc){
+        _G.score += s.g.value+ found.g.value;
+        if(found===dc){
           dropDrawCard(dc);
           dropCard(s);
+        }else if(s===dc){
+          dropDrawCard(dc);
+          dropCard(found);
         }else{
           dropCard(found);
           dropCard(s);
         }
         flipExposed();
       }else{
+        //move card back
         s.x=s.g.x;
         s.y=s.g.y;
       }
@@ -93,12 +98,12 @@
       _.assert(value >= MIN_VALUE &&
                value <= MAX_VALUE, `Bad Value ${value}`);
       const symbol = value===10?"10":SYMBOLS[value];
+      let K=Mojo.getScaleFactor();
       const cs=CARD_SUITS[suit];
-      const s= _S.sprite(_S.frameImages([`${Mojo.u.stockPile}.png`,
-                                         `card${cs}${symbol}.png`]));
+      const s= _S.spriteFrom(`${Mojo.u.stockPile}.png`,`card${cs}${symbol}.png`);
       //scale the card,make it nice and even
       if(!_G.iconSize){
-        let w,h,K=Mojo.getScaleFactor();
+        let w,h;
         _S.scaleXY(s,K,K);
         w=MFL(s.width);
         h=MFL(s.height);
@@ -116,9 +121,13 @@
       };
       return s;
     }
-    Card.getSingleDeckSize=function(){ return 4 * MAX_VALUE }
 
-    const SUITS = [DIAMONDS, CLUBS, HEARTS, SPADES];
+    /** @ignore */
+    Card.getSingleDeckSize=function(){
+      return 4 * MAX_VALUE
+    }
+
+    /** @class */
     class PyramidSolitaire{
       constructor(scene,numPeaks){
         this.numPeaks=numPeaks;
@@ -127,8 +136,8 @@
         this.stockPile=[];
         this.drawer=null;
         // for the game board
-        this.boardWidths=[];//ints
         this.board=[];//[][]
+        this.boardWidths=[];//ints
       }
       /**
        * Initial internal data structures for the model.
@@ -143,63 +152,69 @@
         let left= 0;
         for(let p=0; p < this.numPeaks; ++p){
           if(p>0){ left += shift }
-          this._initPeak(left,numRows,deck,p===lastPeak);
-        }
-      }
+          this._initPeak(left,numRows,deck,p===lastPeak); } }
+      /** @ignore */
       getCards(row){
-        if(this.validRow(row)) return this.board[row]
-      }
+        if(this.validRow(row)) return this.board[row] }
+      /** @ignore */
       setDrawCard(c=null){ this.drawer= c }
-      getDrawCard(){ return this.drawer }
-      setRowWidth(row, w){ this.boardWidths[row]=w }
+      /** @ignore */
+      getDrawCard(){
+        return this.drawer }
+      /** @ignore */
+      setRowWidth(row, w){
+        this.boardWidths[row]=w }
+      /** @ignore */
       _allocateModel(rows, cols){
         this.board=[];
         this.boardWidths= _.fill(rows,0);
         for(let r=0;r<rows;++r)
-          this.board[r]=_.fill(cols,null);
-      }
-      checkCoordinate(row, card){
-        return this.validRow(row) && this.validCol(card)
-      }
+          this.board[r]=_.fill(cols,null); }
+      /** @ignore */
+      checkCoord(row, card){
+        return this.validRow(row) && this.validCol(card) }
+      /** @ignore */
       validCol(c){
         return this.board &&
                this.board[0] &&
-               c >= 0 && c < this.board[0].length
-      }
+               c >= 0 && c < this.board[0].length }
+      /** @ignore */
       validRow(r){
-        return this.board && r >= 0 && r < this.board.length
-      }
+        return this.board && r >= 0 && r < this.board.length }
+      /** @ignore */
       lastRowIndex(){
-        return this.board ? this.board.length-1 : -1
-      }
+        return this.board ? this.board.length-1 : -1 }
+      /** @ignore */
       getRowWidth(row){
-        return (this.boardWidths && this.validRow(row)) ? this.boardWidths[row] : -1
-      }
+        return (this.boardWidths && this.validRow(row)) ? this.boardWidths[row] : -1 }
+      /** @ignore */
       assertState(cond, msg){ _.assert(cond,msg) }
+      /** @ignore */
       assertArg(cond, msg){ _.assert(cond,msg) }
+      /** @ignore */
       getCardSet(){ return new Set(getSingleDeck()) }
+      /** @ignore */
       checkRule2(a, b){
-        return a && b && (a.g.value + b.g.value) === MAX_VALUE
-      }
+        return a && b && (a.g.value + b.g.value) === MAX_VALUE }
+      /** @ignore */
       checkRule1(a){
-        return a && a.g.value === MAX_VALUE
-      }
+        return a && a.g.value === MAX_VALUE }
+      /** @ignore */
       checkRules(a,b){
         //2 kings or a+b=13
         return (a.g.value + b.g.value) === MAX_VALUE ||
-               (a.g.value===b.g.value && a.g.value===MAX_VALUE)
-      }
+               (a.g.value===b.g.value && a.g.value===MAX_VALUE) }
+      /** @ignore */
       delCardAt(row, card){
         if(this.board)
-          this.board[row][card] = null
-      }
+          this.board[row][card] = null }
+      /** @ignore */
       setCardAt(row, card, c){
         if(this.board){
-          this.board[row][card] = c
           c.g.row=row;
           c.g.col=card;
-        }
-      }
+          this.board[row][card] = c } }
+      /** @ignore */
       getSingleDeck(){
         const deck = [];
         SUITS.forEach(k=>{
@@ -207,164 +222,108 @@
               i<=MAX_VALUE; ++i) deck.push(Card(k, i)) });
         return deck;
       }
+      /** @ignore */
       _initPeak(left, size, input, calcRowWidth){
         for(let rmost,i=0; i<size; ++i){
           rmost=left+i;
           for(let c,j=left; j<=rmost; ++j){
             c=this.getCardAt(i,j);
             if(c){continue} // card overlapped
-            c= input.length===0 ? null : input.shift();
+            if(input.length>0)c=input.shift();
             this.assertArg(c, "invalid deck");
-            this.setCardAt(i,j, c);
-          }
+            this.setCardAt(i,j, c); }
           if(calcRowWidth)
-            this.setRowWidth(i, rmost+1);
-        }
-      }
+            this.setRowWidth(i, rmost+1); } }
+      /** @ignore */
       startGame(deck1, numRows=7, numDraw=1){
-        //pre-conditions
         this.assertArg(numRows >= 0, "Rows in pyramid < 0.");
         this.assertArg(numDraw >= 0, "Draw cards < 0.");
         this.assertArg(deck1, "Deck is null.");
         let deck=_.shuffle(deck1);
-        let origDeckSize= deck.length;
-        //what remains goes to the stockPile
+        let orig= deck.length;
+        //remains goes to the stockPile
         this._initBoard(deck, numRows);
         this.drawer = null;
         this.stockPile = deck;
-        console.log(`using ${origDeckSize-deck.length} cards for the pyramid(s).`);
+        _.log(`using ${orig-deck.length} cards for the peaks`);
         //initialize draw card
         if(this.stockPile.length>0)
-          this.setDrawCard(this.stockPile.shift());
-        //console.log("game started - ok.");
-        // force a game over test
-        //int sz=deck.size() - 2; for (int i=0; i < sz; ++i) { deck.remove(0); }
-      }
-      isPyramidEmpty(){
+          this.setDrawCard(this.stockPile.shift()); }
+      /** @ignore */
+      isPeakEmpty(){
         for(let r,i=0; i<this.getNumRows(); ++i){
           r=this.getCards(i);
-          for(let j=0; j<r.length; ++j){
+          for(let j=0; j<r.length; ++j)
             if(r[j])
               return false
-          }
         }
         return true;
       }
-      remove2(row1, card1, row2, card2){
-        this.assertArg(this.checkCoordinate(row1, card1), "Invalid card position.");
-        this.assertArg(this.checkCoordinate(row2, card2), "Invalid card position.");
-        this.assertArg(!(row1 == row2 && card1 == card2), "Can't choose same card.");
-        //check if the cards are exposed
-        if(this.isCardExposed(row1, card1) &&
-           this.isCardExposed(row2, card2)){
-          let c1 = this.getCardAt(row1,card1);
-          let c2 = this.getCardAt(row2,card2);
-          if(this.checkRule(c1,c2)){
-            //console.log("move ok");
-            this.delCardAt(row1,card1);
-            this.delCardAt(row2,card2);
-            return;
-          }
-        }
-        this.assertArg(false, "Bad move");
-      }
-      remove1(row, card){
-        this.assertArg(checkCoordinate(row, card), "Invalid card position.");
-        if(this.isCardExposed(row, card)){
-          let c = this.getCardAt(row,card);
-          if(this.checkRule(c)){
-            //console.log("move ok");
-            this.delCardAt(row,card);
-            return;
-          }
-        }
-        this.assertArg(false, "Bad move");
-      }
+      /** @ignore */
       isCardExposed(row, card){
-        if(this.checkCoordinate(row,card) &&
+        if(this.checkCoord(row,card) &&
            this.someCardAt(row,card)){
           let below = row + 1;
           let left = card;
           let right = card + 1;
           //last row is always exposed, quick exit
           return row === this.lastRowIndex() ||
-                 (this.checkCoordinate(below,right) &&
-                  this.noCardAt(below,left) &&
-                  this.noCardAt(below,right));
-        }
+                 (this.checkCoord(below,right) &&
+                  this.noCardAt(below,left) && this.noCardAt(below,right)); }
         return false;
       }
-      removeUsingDraw(drawIndex, row, card){
-        this.assertArg(this.checkCoordinate(row, card), "Invalid card position.");
-        this.assertArg(this.checkDrawPos(drawIndex), "Invalid draw position.");
-        let d = this.getDrawCard(drawIndex);
-        this.assertArg(d, "Bad draw index " + drawIndex);
-        if(this.isCardExposed(row, card)){
-          let c = this.getCardAt(row,card);
-          if(this.checkRule(c,d)){
-            //console.log("move ok");
-            this.delCardAt(row,card);
-            this.discardDraw(drawIndex);
-            return;
-          }
-        }
-        this.assertArg(false, "Bad draw move");
-      }
+      /** @ignore */
       discardDraw(){
+        this.drawer=null;
         if(this.stockPile.length>0)
           this.setDrawCard(this.stockPile.shift());
-        return this.getDrawCard();
+        return this.drawer;
       }
+      /** @ignore */
       getNumRows(){
         // how many rows in the pyramid
-        return !this.board ? -1 : this.board.length
-      }
+        return !this.board ? -1 : this.board.length }
+      /** @ignore */
       getNumDraw(){ return 1 }
+      /** @ignore */
       isGameOver(){
         this.assertState(this.board, "Game is not running.");
         // game is over if all cards are gone in the pyramid, or
         // game can't continue - stuck
-        return this.isPyramidEmpty() || this.isGameStuck()
-      }
+        return this.isPeakEmpty() || this.isGameStuck() }
+      /** @ignore */
       getExposed(){
         let remains = [];
         for(let r,i=0; i<this.getNumRows(); ++i){
           r = this.getCards(i);
-          for(let j=0; j<r.length; ++j){
+          for(let j=0; j<r.length; ++j)
             if(this.isCardExposed(i, j))
               remains.push(r[j]);
-          }
         }
         return remains;
       }
+      /** @ignore */
+      isPileEmpty(){
+        return this.stockPile.length===0 }
+      /** @ignore */
       isGameStuck(){
         // if stockPile is not empty, then game can always continue
         if(this.stockPile.length>0){ return false }
         // get all exposed cards and then check them
-        let remains=this.getExposed();
+        let c,remains=this.getExposed();
         if(remains.length===0){
           // note: this should never happen actually
           // no cards to play with, can't continue
           return true;
         }
-        //look for kings
-        for(let c,i=0;i<remains.length;++i){
-          c=remains[i];
-          if(this.checkRule1(c)){
-            // king exposed, so game can continue
-            return false;
-          }
-        }
         // collect all cards and see any valid combos
-        let dc= this.getDrawCard();
-        remains.push(dc);
-        // scan...
-        let cards = remains;
-        for(let ci,i=0; i<cards.length; ++i){
-          ci = cards[i];
-          for(let cj,j = i+1; j<cards.length; ++j){
-            cj = cards[j];
-            if(this.checkRule2(ci, cj)){
+        c=this.getDrawCard();
+        if(c)remains.push(c);
+        for(let ci,i=0; i<remains.length; ++i){
+          ci = remains[i];
+          for(let cj,j = i+1; j<remains.length; ++j){
+            cj = remains[j];
+            if(this.checkRules(ci, cj)){
               // combo found, so not stuck
               return false;
             }
@@ -372,49 +331,37 @@
         }
         return true;
       }
-      getScore(){
-        this.assertState(this.board, "Game is not running.");
-        let score = 0;
-        for(let r, i = 0; i < this.getNumRows(); ++i){
-          r = this.getCards(i);
-          for(let c, j = 0; j < r.length; ++j){
-            c = r[j];
-            if(c)
-              score += c.value;
-          }
-        }
-        return score;
-      }
+      /** @ignore */
       someCardAt(row, card){
-        return !!this.getCardAt(row, card)
-      }
+        return !!this.getCardAt(row, card) }
+      /** @ignore */
       noCardAt(row, card){
-        return !this.someCardAt(row, card)
-      }
+        return !this.someCardAt(row, card) }
+      /** @ignore */
       getCardAt(row, card){
         this.assertState(this.board, "Game is not running.");
-        this.assertArg(this.checkCoordinate(row, card), "Invalid card position.");
+        this.assertArg(this.checkCoord(row, card), "Invalid card position.");
         return this.board[row][card];
       }
     }
 
+    /** @class */
     class OnePeak extends PyramidSolitaire{
       constructor(scene) {
         super(scene,1);
       }
       getDeck(){
-        return this.getSingleDeck();
-      }
+        return this.getSingleDeck(); }
     }
 
+    /** @ignore */
     class TriPeak extends PyramidSolitaire{
       constructor(scene){
         super(scene,3);
       }
       getDeck(){
         //want 2 decks
-        return this.getSingleDeck().concat(this.getSingleDeck());
-      }
+        return this.getSingleDeck().concat(this.getSingleDeck()); }
     }
 
     _.inject(_G,{

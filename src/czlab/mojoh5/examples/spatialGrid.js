@@ -168,8 +168,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("quadtree");
-        //Mojo.Scenes.runScene("spatial");
+        //Mojo.Scenes.runScene("quadtree");
+        Mojo.Scenes.runScene("spatial");
       }
     })
   });

@@ -19,109 +19,13 @@
   /**Create the module. */
   function _module(Mojo, ScenesDict){
 
+    const SG=gscope["io/czlab/mcfud/spatial"]();
     const {ute:_,is}=Mojo;
     const MFL=Math.floor;
 
     /**
      * @module mojoh5/Scenes
      */
-
-    /**Creates a 2d spatial grid. */
-    function SpatialGrid(cellW=320,cellH=320){
-      const _grid= new Map();
-      return{
-        searchAndExec(item,cb){
-          let ret,
-              g= item.m5.sgrid;
-          for(let X,Y,y = g.y1; y <= g.y2; ++y){
-            if(Y=_grid.get(y))
-              for(let vs,r,x= g.x1; x <= g.x2; ++x)
-                if(X=Y.get(x)){
-                  vs=X.values();
-                  r= vs.next();
-                  while(!r.done){
-                    if(item !== r.value){
-                      if(ret=cb(item,r.value)){
-                        x=y=Infinity;
-                        break;
-                      }
-                    }
-                    ret=null;
-                    r= vs.next();
-                  }
-                }
-          }
-          return ret;
-        },
-        search(item,incItem=false){
-          let X,Y,out=[],
-              g= item.m5.sgrid;
-          for(let y = g.y1; y <= g.y2; ++y){
-            if(Y=_grid.get(y))
-              for(let x= g.x1; x <= g.x2; ++x)
-                if(X=Y.get(x))
-                  X.forEach(v=>{
-                    if(v===item && !incItem){}else{
-                      out.push(v)
-                    }
-                  })
-          }
-          return out
-        },
-        engrid(item,skipAdd){
-          if(!item || !item.anchor){return}
-          let r = Mojo.Sprites.boundingBox(item),
-              g = item.m5.sgrid,
-              gridX1 = MFL(r.x1 / cellW),
-              gridY1 = MFL(r.y1 / cellH),
-              gridX2 = MFL(r.x2/cellW),
-              gridY2 = MFL(r.y2/ cellH);
-
-          if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
-             g.y1 !== gridY1 || g.y2 !== gridY2){
-            this.degrid(item);
-            g.x1= gridX1;
-            g.x2= gridX2;
-            g.y1= gridY1;
-            g.y2= gridY2;
-            if(!skipAdd) this._register(item);
-          }
-          return item;
-        },
-        reset(){
-          _grid.clear()
-        },
-        _register(item){
-          let g= item.m5.sgrid;
-          if(is.num(g.x1)){
-            for(let X,Y,y= g.y1; y <= g.y2; ++y){
-              if(!_grid.has(y))
-                _grid.set(y, new Map());
-              Y=_grid.get(y);
-              for(let x= g.x1; x <= g.x2; ++x){
-                if(!Y.has(x))
-                  Y.set(x, new Map());
-                X=Y.get(x);
-                _.assoc(X,item.m5.uuid, item);
-              }
-            }
-          }
-        },
-        degrid(item){
-          if(item && item.anchor){
-            let g= item.m5.sgrid;
-            if(is.num(g.x1)){
-              for(let X,Y,y= g.y1; y <= g.y2; ++y){
-                if(Y=_grid.get(y))
-                  for(let x= g.x1; x<=g.x2; ++x)
-                    if(X=Y.get(x))
-                      _.dissoc(X,item.m5.uuid)
-              }
-            }
-          }
-        }
-      }
-    }
 
     /** @ignore */
     function _sceneid(id){
@@ -133,7 +37,7 @@
         s.dispose && s.dispose();
         s.parent.removeChild(s); } }
 
-    /** internal class */
+    /** internal class, wraps a scene */
     class SceneWrapper extends Mojo.PXContainer{
       constructor(s){
         super();
@@ -170,20 +74,19 @@
           garbo:[],
           options,
           stage:true,
-          sgrid:SpatialGrid(options.sgridX||320,
-                            options.sgridY||320)
-        };
+          sgrid:SG.spatialGrid(options.sgridX||320,
+                               options.sgridY||320) };
         if(is.fun(func)){
           this.m5.setup= func.bind(this)
         }else if(is.obj(func)){
           let s= _.dissoc(func,"setup");
-          if(s) this.m5.setup=s.bind(this);
           _.inject(this, func);
-        }
+          if(s)this.m5.setup=s.bind(this); }
       }
       _hitObjects(grid,obj,found,maxCol=3){
         let curCol=maxCol;
-        for(let m,b,i=0,z=found.length;i<z;++i){
+        for(let m,b,
+            i=0,z=found.length;i<z;++i){
           b=found[i];
           if(obj !== b &&
              !b.m5.dead &&
@@ -191,13 +94,10 @@
             m= Mojo.Sprites.hitTest(obj,b);
             if(m){
               Mojo.emit(["hit",obj],m);
-              if(m.B.m5.static){ m=null }else{
-                Mojo.emit(["hit",m.B],m.swap())
-              }
+              if(!m.B.m5.static)
+                Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--curCol ===0){break}
-            }
-          }
+              if(--curCol===0){break} } }
         }
       }
       collideXY(obj){
@@ -280,11 +180,8 @@
             o.children.length>0 && o.children.forEach(c=> _c(c));
             const i=Mojo.Input;
             if(o.m5){
-              o.m5.button && i.undoButton(o);
               o.m5.drag && i.undoDrag(o);
-            }
-          }
-        }
+              o.m5.button && i.undoButton(o); } } }
         Mojo.off(this);
         this.m5.dead=true;
         _c(this);
@@ -303,8 +200,7 @@
             }
             c.m5.flip=false;
             Mojo.emit(["post.tick",c],dt);
-            if(c.m5._engrid) this.m5.sgrid.engrid(c);
-          }
+            if(c.m5._engrid) this.m5.sgrid.engrid(c); }
           c.children.length>0 && this._tick(c.children, dt) }) }
       /**Find objects that may collide with this object.
        * @param {object} obj
@@ -312,13 +208,16 @@
        */
       searchSGrid(obj,incObj=false){
         return this.m5.sgrid.search(obj,incObj) }
+      /**Stage this object for removal.
+       * @param {object} obj
+       */
       queueForRemoval(obj){
         this.m5.garbo.push(obj) }
       /**
        * @param {number} dt
        */
       update(dt){
-        if(this.m5.dead){return;}
+        if(this.m5.dead){return}
         //handle queued stuff
         let f,futs= this.m5.queue.filter(q=>{
           q[1] -= 1;
@@ -346,6 +245,7 @@
       }
     }
 
+    /** @ignore */
     function _layout(items,options,dir){
       const {Sprites}=Mojo,
             K=Mojo.getScaleFactor();
@@ -431,11 +331,9 @@
        */
       defScene(name, func, options){
         //add a new scene definition
-        if(is.fun(func)){
-          func={setup:func}
-        }
-        ScenesDict[name]=[func, options]
-      },
+        if(is.fun(func))
+          func={setup:func};
+        ScenesDict[name]=[func, options]; },
       /**Replace the current scene with this one.
        * @memberof module:mojoh5/Scenes
        * @param {string|Scene} cur
@@ -447,8 +345,7 @@
         const c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;
-        return this.runScene(name, Mojo.stage.getChildIndex(c),options);
-      },
+        return this.runScene(name, Mojo.stage.getChildIndex(c),options); },
       /**Remove these scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...Scene} args
@@ -501,21 +398,19 @@
           throw `Fatal: unknown scene: ${name}`;
         if(is.obj(num)){
           options = num;
-          num = _.dissoc(options,"slot");
-        }
+          num = _.dissoc(options,"slot"); }
         options = _.inject({},_s[1],options);
         s0=_.inject({},_s[0]);
         if(is.undef(num))
           num= options["slot"] || -1;
         //before we run a new scene
-        Mojo.mouse.reset();
+        //Mojo.mouse.reset();
         //create new
-        if(options.tiled){
-          _.assert(options.tiled.name, "no tmx file!");
-          y = new Mojo.Tiles.TiledScene(name, s0, options);
-        }else{
+        if(!options.tiled){
           y = new Scene(name, s0, options);
-        }
+        }else{
+          _.assert(options.tiled.name, "no tmx file!");
+          y = new Mojo.Tiles.TiledScene(name, s0, options); }
         py=y;
         if(options.centerStage){
           py=new SceneWrapper(y);
