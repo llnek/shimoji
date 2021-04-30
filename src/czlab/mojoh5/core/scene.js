@@ -245,12 +245,38 @@
       }
     }
 
+    function _layItems(C,items,pad,dir,skip){
+      let p,P=0;
+      for(let m=-1,s,i=0;i<items.length;++i){
+        s=items[i];
+        if(dir===Mojo.DOWN){
+          if(s.width>m){ P=i; m=s.width; }
+        }else{
+          if(s.height>m){ P=i; m=s.height; }
+        }
+        if(!skip) C.addChild(s);
+        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor") }
+
+      p=items[P];
+      for(let s,i=P-1;i>=0;--i){
+        s=items[i];
+        Mojo.Sprites[dir===Mojo.DOWN?"pinTop":"pinLeft"](p,s,pad);
+        p=s;
+      }
+      p=items[P];
+      for(let s,i=P+1;i<items.length; ++i){
+        s=items[i];
+        Mojo.Sprites[dir===Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
+        p=s;
+      }
+    }
+
     /** @ignore */
     function _layout(items,options,dir){
       const {Sprites}=Mojo,
             K=Mojo.getScaleFactor();
       if(items.length===0){return}
-      options= _.patch(options,{color:0,
+      options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
                                 borderWidth:4,
@@ -259,31 +285,30 @@
       let C=options.group || Sprites.group();
       let pad=options.padding * K;
       let fit= options.fit * K;
-      let p,fit2= 2*fit;
-      items.forEach((s,i)=>{
-        if(!options.skipAdd) C.addChild(s);
-        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor");
-        if(i>0)
-          Sprites[dir===Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
-        p=s;
-      });
-      let [w,h]= [C.width, C.height];
-      let last=_.tail(items);
+      let last,w,h,p,fit2= 2*fit;
+
+      _layItems(C,items,pad,dir,options.skipAdd);
+      w= C.width;
+      h= C.height;
+      last=_.tail(items);
+
       if(options.bg != "transparent"){
         //create a backdrop
         let r= Sprites.rectangle(w+fit2,h+fit2,
                                  options.bg,
                                  options.border, borderWidth);
-        r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
         C.addChildAt(r,0); //add to front so zindex is lowest
+        r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
       }
       //final width,height,center
       h= C.height;
       w= C.width;
+
       let [w2,h2]=[MFL(w/2), MFL(h/2)];
       if(dir===Mojo.DOWN){
         //realign on x-axis
-        items.forEach(s=> s.x=w2-MFL(s.width/2));
+        items.forEach(s=>
+          s.x=w2-MFL(s.width/2));
         let hd= h-(last.y+last.height);
         hd= MFL(hd/2);
         //realign on y-axis
@@ -296,9 +321,11 @@
         //refit the items on x-axis
         items.forEach(s=> s.x += wd);
       }
+
       //may be center the whole thing
       C.x= _.nor(options.x, MFL((Mojo.width-w)/2));
       C.y= _.nor(options.y, MFL((Mojo.height-h)/2));
+
       return C;
     }
 

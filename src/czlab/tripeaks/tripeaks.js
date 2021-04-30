@@ -55,24 +55,20 @@
         this.btns.forEach(b => _I.undoButton(b))
       },
       setup(options){
-        let s1=_S.bitmapText("Game Over", {
-          fontName:"unscii", fontSize: 32, fill:"white",align:"center"});
-        let s2=_S.bitmapText(options.msg, {
-          fontName:"unscii", fontSize: 32, fill:"white",align:"center"});
-        let s3=_S.bitmapText(" ",{
-          fontName:"unscii", fontSize: 32, fill:"white",align:"center" });
-        let s4=_I.makeButton(_S.bitmapText("Play Again?",{
-          fontName:"unscii", fontSize: 32, fill:"white",align:"center"}));
-        let s5=_S.bitmapText("or ",{
-          fontName:"unscii", fontSize: 32, fill:"white",align:"center"});
-        let s6=_I.makeButton(_S.bitmapText("Quit",{
-          fontName:"unscii", fontSize: 32, fill:"white",align:"center"}));
+        let os={fontName:"unscii", fontSize: 32, fill:"white"};
+        //let os={fontFamily:"sans-serif", fontSize: 32, fill:"white"};
+        let s1=_S.bitmapText("Game Over", os);
+        let s2=_S.bitmapText(options.msg, os);
+        let s3=_S.bitmapText(" ",os);
+        let s4=_I.makeButton(_S.bitmapText("Play Again?",os));
+        let s5=_S.bitmapText("or ",os);
+        let s6=_I.makeButton(_S.bitmapText("Quit",os));
         let g=_Z.layoutY([s1,s2,s3,s4,s5,s6],options);
         this.btns= [s4,s6];
         this.insert(g);
         s4.m5.press=function(){
           _Z.removeScenes();
-          _.delay(0,()=>{
+          _.delay(100,()=>{
             _Z.runScene("bg");
             _Z.runScene("level1");
             _Z.runScene("hud");
@@ -213,6 +209,7 @@
         this.flipDrawCard();
       },
       postUpdate(){
+        let K= Mojo.getScaleFactor();
         let msg;
         if(_G.model.isPeakEmpty()){
           msg="You Win!";
@@ -222,7 +219,7 @@
           }
         }
         if(msg)
-          _.delay(100,()=> _Z.runScene("end",{msg}));
+          _.delay(100,()=> _Z.runScene("end",{msg,padding:40*K,fit:60*K}));
       }
     });
   }
