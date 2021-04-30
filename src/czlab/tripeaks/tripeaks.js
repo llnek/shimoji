@@ -32,7 +32,8 @@
     //background
     _Z.defScene("bg",{
       setup(){
-        this.insert(_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height)) } });
+        this.insert(_S.sizeXY(_S.sprite("bg.jpg"),
+                              Mojo.width,Mojo.height)) } });
 
     //hud
     _Z.defScene("hud",{
@@ -46,34 +47,32 @@
         this.insert(s);
       },
       postUpdate(){
-        this.score.text= `Score: ${_G.score}` }
-    });
+        this.score.text= `Score: ${_G.score}` } });
 
     //end menu
     _Z.defScene("end",{
       dispose(){
-        this.btns.forEach(b => _I.undoButton(b))
-      },
+        this.btns.forEach(b => _I.undoButton(b)) },
       setup(options){
-        let os={fontName:"unscii", fontSize: 32, fill:"white"};
-        //let os={fontFamily:"sans-serif", fontSize: 32, fill:"white"};
+        let K=Mojo.getScaleFactor();
+        let os={fontName:"unscii", fontSize: 32*K, fill:"white"};
         let s1=_S.bitmapText("Game Over", os);
         let s2=_S.bitmapText(options.msg, os);
         let s3=_S.bitmapText(" ",os);
-        let s4=_I.makeButton(_S.bitmapText("Play Again?",os));
-        let s5=_S.bitmapText("or ",os);
+        let s4=_I.makeButton(_S.bitmapText("Replay?",os));
+        let s5=_S.bitmapText(" or ",os);
         let s6=_I.makeButton(_S.bitmapText("Quit",os));
         let g=_Z.layoutY([s1,s2,s3,s4,s5,s6],options);
         this.btns= [s4,s6];
         this.insert(g);
-        s4.m5.press=function(){
+        s4.m5.press=()=>{
           _Z.removeScenes();
           _.delay(100,()=>{
             _Z.runScene("bg");
             _Z.runScene("level1");
             _Z.runScene("hud");
           })
-        }
+        };
       }
     });
 
@@ -85,8 +84,8 @@
         m.startGame(m.getDeck());
       },
       clsBoard(){
-        const numRows= _G.model.getNumRows();
-        for(let w,i=0; i<numRows; ++i){
+        const rows= _G.model.getNumRows();
+        for(let w,i=0; i<rows; ++i){
           w=_G.model.getRowWidth(i);
           for(let c,j=0; j<w; ++j){
             c= _G.model.getCardAt(i,j);
@@ -97,9 +96,9 @@
         Mojo.mouse.reset();
       },
       drawBoard(){
-        let numRows= _G.model.getNumRows();
+        let rows= _G.model.getNumRows();
         let K=Mojo.getScaleFactor();
-        let lastRow=numRows-1;
+        let lastRow=rows-1;
         let bottom= _G.model.getRowWidth(lastRow);
         let sw=_G.iconSize[0];
         let offsetv= _G.iconSize[1]*0.3*K;
@@ -108,12 +107,12 @@
         let left=MFL((Mojo.width-max_width)/2);
         let top= _G.iconSize[1];
         let stackBottom= top;
-        for(let i=0; i<numRows; ++i){
+        for(let i=0; i<rows; ++i){
           let width=_G.model.getRowWidth(i);
           let row_width= width*sw + (width-1)*gap;
           let pc = MFL((max_width-row_width)/2);
           for(let j=0; j<width; ++j){
-            let c= _G.model.getCardAt(i,j);
+            let c=_G.model.getCardAt(i,j);
             let e=_G.model.isCardExposed(i,j);
             if(c){
               c.m5.showFrame(e?1:0);
@@ -128,8 +127,7 @@
             }
             pc += _G.iconSize[0];
           }
-          top += (_G.iconSize[1] - offsetv);
-        }
+          top += (_G.iconSize[1] - offsetv) }
         _G.pyramidBottom= stackBottom;
       },
       flipDrawCard(){
@@ -171,7 +169,8 @@
         let len=2;
         let width= len * _G.iconSize[0] + (len-1)*gap;
         let left=MFL((Mojo.width-width)/2);
-        let pile= _S.spriteFrom("cardJoker.png",`${Mojo.u.stockPile}.png`);
+        let pile= _S.spriteFrom("cardJoker.png",
+                                `${Mojo.u.stockPile}.png`);
         _V.set(pile,left,top);
         _S.scaleXY(pile,K,K);
         _I.makeButton(pile);
@@ -219,8 +218,8 @@
           }
         }
         if(msg)
-          _.delay(100,()=> _Z.runScene("end",{msg,padding:40*K,fit:60*K}));
-      }
+          _.delay(100,()=> _Z.runScene("end",
+                                       {msg,padding:40*K,fit:60*K})); }
     });
   }
 

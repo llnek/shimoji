@@ -14,6 +14,8 @@
 
 ;(function(global){
 
+  "use strict";
+
   global["io/czlab/tripeaks/models"]=function(Mojo){
     const SYMBOLS = "?A23456789TJQK";
     const MAX_VALUE = 13;
@@ -75,7 +77,8 @@
         }
       }
       if(found){
-        _G.score += s.g.value+ found.g.value;
+        _G.score += s.g.value+
+                    found.g.value;
         if(found===dc){
           dropDrawCard(dc);
           dropCard(s);
@@ -180,7 +183,7 @@
           this.board[r]=_.fill(cols,null) }
 
       /** @ignore */
-      checkCoord(row, card){
+      validXY(row, card){
         return this.validRow(row) && this.validCol(card) }
 
       /** @ignore */
@@ -288,14 +291,14 @@
       /** @ignore */
       isCardExposed(row, card){
         let rc;
-        if(this.checkCoord(row,card) &&
+        if(this.validXY(row,card) &&
            this.someCardAt(row,card)){
           let below = row + 1;
           let left = card;
           let right = card + 1;
           //last row is always exposed, quick exit
           rc= row === this.lastRowIndex() ||
-              (this.checkCoord(below,right) &&
+              (this.validXY(below,right) &&
                this.noCardAt(below,left) && this.noCardAt(below,right)) }
         return rc;
       }
@@ -370,7 +373,7 @@
 
       /** @ignore */
       getCardAt(row, card){
-        this.assertArg(this.checkCoord(row, card), "Invalid card position.");
+        this.assertArg(this.validXY(row, card), "Invalid card position.");
         return this.board[row][card];
       }
     }
