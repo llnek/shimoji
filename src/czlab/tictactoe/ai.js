@@ -19,46 +19,44 @@
   window["io/czlab/tictactoe/AI"]=function(Mojo){
     const Nega= window["io/czlab/mcfud/negamax"]();
     const {Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
+    /** @class */
     class C extends Nega.GameBoard{
       constructor(p1v,p2v){
         super();
         this.actors= [0, p1v, p2v];
         this.grid=[];
         this.depth=6;
-        this.goals= _G.mapGoalSpace();
-      }
+        this.goals= _G.mapGoalSpace() }
       isNil(cellv){
-        return cellv === 0
-      }
+        return cellv === 0 }
       getFirstMove(){
         let sz= this.grid.length;
-        return sz>0 && _.every(this.grid, 0) ? _.randInt2(0,sz-1) : -1;
-      }
+        return sz>0 && _.every(this.grid,0) ? _.randInt2(0,sz-1) : -1 }
       syncState(seed, actor){
         this.grid.length=0;
-        _.append(this.grid,seed);
         this.actors[0] = actor;
-      }
+        _.append(this.grid,seed) }
       getNextMoves(snap){
         let rc= [],
             sz= snap.state.length;
         for(let i=0; i<sz; ++i)
-          if(this.isNil(snap.state[i])) _.conj(rc,i);
+          if(this.isNil(snap.state[i])) rc.push(i);
         return rc;
       }
       undoMove(snap, move){
-        _.assert(move >= 0 && move < snap.state.length);
+        _.assert(move>=0 &&
+                 move<snap.state.length);
         snap.state[move] = 0;
       }
       makeMove(snap, move){
-        _.assert(move >= 0 && move < snap.state.length);
+        _.assert(move>=0 &&
+                 move<snap.state.length);
         if(this.isNil(snap.state[move]))
           snap.state[move] = snap.cur;
         else
-          throw `Error: cell [${move}] is not free`;
-      }
+          throw `Error: cell [${move}] is not free` }
       switchPlayer(snap){
         let t = snap.cur;
         snap.cur= snap.other;
@@ -74,12 +72,12 @@
         ff.state=_.fill(new Array(_G.DIM*_G.DIM),0);
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
-        _.copy(ff.state,this.grid);
         ff.lastBestMove= -1;
+        _.copy(ff.state,this.grid);
         return ff;
       }
       evalScore(snap){
-        // if we lose, return a negative value
+        //if we lose, return a negative value
         for(let g, i=0; i<this.goals.length; ++i){
           g= this.goals[i];
           if(this.testWin(snap.state, snap.other, g))
@@ -96,8 +94,7 @@
         return this.isStalemate(snap);
       }
       isStalemate(snap){
-        return _.notAny(snap.state, 0)
-      }
+        return _.notAny(snap.state, 0) }
       getWinner(snap, combo){
         let win= -1;
         for(let g,i=0; i< this.goals.length; ++i){
@@ -113,9 +110,9 @@
       }
       testWin(vs, actor, g){
         let cnt=g.length;
-        for(let n= 0; n<g.length; ++n){
-          if(actor === vs[g[n]]) --cnt;
-        }
+        for(let n= 0; n<g.length; ++n)
+          if(actor === vs[g[n]])
+            --cnt;
         return cnt === 0;
       }
     }

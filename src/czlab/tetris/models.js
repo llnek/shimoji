@@ -23,15 +23,11 @@
 
     /** abstract base class */
     class BModel{
-      constructor(m){ this.model=m }
-      dim(){return this.model.length }
-      clone(){
-        let out=[];
-        for(let i=0;i<this.model.length;++i){
-          out.push(this.model[i].slice())
-        }
-        return out;
+      constructor(m){
+        this.model=m
       }
+      dim(){
+        return this.model.length }
       rand(){
         let n=_.randInt(4);
         let b=this.model;
@@ -39,16 +35,18 @@
           b=this.clone(b);
         }else{
           for(let i=0;i<n;++i)
-          b=_G.transposeCCW(b)
+            b=_G.transposeCCW(b)
         }
         return b
       }
-    }
+      clone(){
+        return _.deepCopyArray(this.model) } }
+
     // piece = []
     class BoxModel extends BModel{
       constructor(){
         super([[1,1],
-               [1,1]]);
+               [1,1]])
       }
     }
     // piece = L
@@ -56,7 +54,7 @@
       constructor(){
         super([[0,1,0],
                [0,1,0],
-               [0,1,1]]);
+               [0,1,1]])
       }
     }
     // piece J
@@ -64,7 +62,7 @@
       constructor(){
         super([[0,1,0],
                [0,1,0],
-               [1,1,0]]);
+               [1,1,0]])
       }
     }
     // piece I
@@ -73,7 +71,7 @@
         super([[0,0,0,0],
                [1,1,1,1],
                [0,0,0,0],
-               [0,0,0,0]]);
+               [0,0,0,0]])
       }
     }
     // piece T
@@ -81,7 +79,7 @@
       constructor(){
         super([[0,0,0],
                [0,1,0],
-               [1,1,1]]);
+               [1,1,1]])
       }
     }
     // piece S
@@ -89,7 +87,7 @@
       constructor(){
         super([[0,1,0],
                [0,1,1],
-               [0,0,1]]);
+               [0,0,1]])
       }
     }
     // piece Z
@@ -97,17 +95,19 @@
       constructor(){
         super([[0,1,0],
                [1,1,0],
-               [1,0,0]]);
+               [1,0,0]])
       }
     }
 
     _G.ModelList=[new BoxModel(), new ElModel(), new ElxModel(),
                   new LineModel(), new NubModel(), new StModel(), new StxModel()];
 
-    //rotate the model counterclockwise
+    //rotate the model counterclockwise,
+    //like flipping a matrix
     _G.transposeCCW=function(block){
       let out=[];
-      for(let i=0;i<block.length;++i) out.push([]);
+      for(let i=0;i<block.length;++i)
+        out.push([]);
       for(let row,i=0;i<block.length;++i){
         row=block[i];
         for(let j=0;j<row.length;++j){
@@ -116,7 +116,6 @@
       }
       return out;
     }
-
   };
 
 })(this);

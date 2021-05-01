@@ -23,7 +23,8 @@
            Sprites:_S,
            Input:_I,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     _G.Backgd=function(){
       let s= _S.sprite("bgblack.jpg");
@@ -32,20 +33,18 @@
       s.scale.x=Mojo.width/w;
       s.scale.y=Mojo.height/h;
       _S.centerAnchor(s);
-      return _S.setXY(s,MFL(Mojo.width/2),
-                        MFL(Mojo.height/2));
-    };
+      return _V.set(s,MFL(Mojo.width/2),
+                      MFL(Mojo.height/2)) };
 
     _G.AI=function(v){
       const o={
         pnum:v,
-        board: _G.TTToe(_G.X, _G.O)
-      };
+        board: _G.TTToe(_G.X, _G.O) };
       const signal=[["ai.move",o], "aiMove",o];
-      o.dispose=function(){
-        EventBus.unsub(...signal)
+      o.dispose=()=>{
+        Mojo.off(...signal)
       };
-      o.aiMove=function(){
+      o.aiMove=()=>{
         _.delay(500,()=> o.makeMove())
       };
       o.makeMove=function(){
@@ -56,7 +55,7 @@
         if(pos<0)
           pos= _N.evalNegaMax(this.board);
         cells[pos] = this.pnum;
-        EventBus.pub(["ai.moved",this.scene],pos);
+        Mojo.emit(["ai.moved",this.scene],pos);
         _G.playSnd();
         rc= _G.checkState();
         if(rc===0)
@@ -66,7 +65,7 @@
           _Z.runScene("EndGame",5);
         }
       };
-      EventBus.sub(...signal);
+      Mojo.on(...signal);
       return o;
     };
 
@@ -76,24 +75,23 @@
       s.scale.x=props.scale[0];
       s.scale.y=props.scale[1];
       _S.centerAnchor(s);
-      _S.setXY(s,x,y);
+      _V.set(s,x,y);
       _.inject(s.m5,props);
       s=_I.makeButton(s);
-      s.m5.showFrame(1);//_G.getIcon(props.gval));
-      s.m5.aiMoved=function(){
+      s.m5.showFrame(1);
+      s.m5.aiMoved=()=>{
         s.m5.enabled=false;
         s.m5.marked=true;
-        s.m5.showFrame(_G.getIcon(_G.pcur));
-      };
+        s.m5.showFrame(_G.getIcon(_G.pcur)) };
       s.m5.press=function(){
         let v=_G.pcur;
         let ai=_G.ai;
         let p1= _G.pnum;
         let cells= _G.cells;
         //if AI is thinking, back off
-        if(ai && v===ai.pnum) { return }
+        if(ai && v===ai.pnum){return}
         //if cell already marked, go away
-        if(s.m5.marked) {return}
+        if(s.m5.marked){return}
         s.m5.enabled=false;
         s.m5.marked=true;
         _G.playSnd();
@@ -109,7 +107,7 @@
           _Z.runScene("EndGame",5);
         }
       }
-      EventBus.sub(...signal);
+      Mojo.on(...signal);
       return s;
     };
   }

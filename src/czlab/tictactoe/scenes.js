@@ -22,20 +22,25 @@
            Sprites:_S,
            Input:_I,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
     const MFL=Math.floor;
 
     _Z.defScene("Splash",function(){
       let verb = Mojo.touchDevice ? "Tap": "Click";
       let K= Mojo.getScaleFactor();
-      let msg=_S.text(`${verb} Play to start`,
-                      {align:"center",fontSize:48*K,fill:"white"},
-                      Mojo.width/2, Mojo.height*0.8);
+      let msg=_S.bitmapText(`${verb} Play to start`,
+                            {fontName:"unscii",
+                             align:"center",
+                             fontSize:48*K,fill:"white"},
+                            Mojo.width/2, Mojo.height*0.8);
       _S.centerAnchor(msg);
       //in pixi, no fontSize, defaults to 26, left-align
-      let b=_I.makeButton(_S.text("Play Game!",{fill:"#cccccc",
-                                                fontSize:24*K,align:"center"}));
-      b.m5.press= () => _Z.replaceScene(this,"MainMenu");
+      let b=_I.makeButton(_S.bitmapText("Play Game!",
+                                        {fill:"#cccccc",
+                                         fontName:"unscii",
+                                         fontSize:24*K,align:"center"}));
+      b.m5.press= ()=> _Z.replaceScene(this,"MainMenu");
       this.insert(_G.Backgd());
       this.insert(msg);
       this.insert(_Z.layoutY([b]));
@@ -53,36 +58,43 @@
         if(w===_G.O)
           msg= mode===1 ? "You lose !" : "O wins !";
 
-        let space=_S.text(" ");
+        let space=_S.bitmapText(" ",{fontName:"unscii"});
         space.alpha=0;
-        let b1=_I.makeButton(_S.text("Play Again?",{fill:"#ccc",
-                                                    align:"center",fontSize:24*K}));
-        let b2=_I.makeButton(_S.text("Quit",{fill:"#ccc",
-                                             align:"center",fontSize:24*K}));
-        let m1=_S.text("Game Over",{fill: "white",align:"center",fontSize:24*K});
-        let m2=_S.text(msg,{fill: "white",align:"center",fontSize:24*K});
-        let gap=_S.text("or",{fill:"white",align:"center",fontSize:24*K});
+        let b1=_I.makeButton(_S.bitmapText("Play Again?",
+                                           {fill:"#ccc",
+                                            fontName:"unscii",
+                                            align:"center",fontSize:24*K}));
+        let b2=_I.makeButton(_S.bitmapText("Quit",
+                                           {fill:"#ccc",
+                                            fontName:"unscii",
+                                            align:"center",fontSize:24*K}));
+        let m1=_S.bitmapText("Game Over",{fill: "white",
+                                          fontName:"unscii",
+                                          align:"center",fontSize:24*K});
+        let m2=_S.bitmapText(msg,{fill: "white",
+                                  fontName:"unscii",
+                                  align:"center",fontSize:24*K});
+        let gap=_S.bitmapText("or",{fill:"white",
+                                    fontName:"unscii",
+                                    align:"center",fontSize:24*K});
         b1.m5.press=()=>{ _Z.runSceneEx("MainMenu") };
         b2.m5.press=()=>{ _Z.runSceneEx("Splash") };
-
         _G.playSnd("end.mp3");
-        this.insert( _Z.layoutY([m1, m2, space, b1, gap, b2]));
-      }
+        this.insert( _Z.layoutY([m1, m2, space, b1, gap, b2])) }
     });
 
     _Z.defScene("StartMenu", function(options){
       let K=Mojo.getScaleFactor();
       let msg1,msg2;
-      let cb= (btn)=>{
+      let cb=(btn)=>{
         let id=btn.m5.uuid;
         let who;
-        if(id==="play#x") who=_G.X;
-        else if(id==="play#o") who=_G.O;
+        if(id=="play#x") who=_G.X;
+        else if(id=="play#o") who=_G.O;
         _Z.replaceScene(this,"PlayGame",
                         {mode:options.mode,
                          startsWith: who,
-                         level: options.level});
-      };
+                         level: options.level}) };
       if(options.mode===1){
         msg1 = "You (X) start?";
         msg2 = "Bot (O) start?";
@@ -90,16 +102,19 @@
         msg1 = "(X) start?";
         msg2 = "(O) start?";
       }
-      let b1=_I.makeButton(_S.text(msg1,{fill:"#cccccc",
-                                         fontSize:24*K,align:"center"}));
+      let b1=_I.makeButton(_S.bitmapText(msg1,{fill:"#cccccc",
+                                               fontName:"unscii",
+                                               fontSize:24*K,align:"center"}));
       b1.m5.uuid= "play#x";
       b1.m5.press=cb;
-      let b2=_I.makeButton(_S.text(msg2,{fill:"#cccccc",
-                                         fontSize:24*K,align:"center"}));
+      let b2=_I.makeButton(_S.bitmapText(msg2,{fill:"#cccccc",
+                                               fontName:"unscii",
+                                               fontSize:24*K,align:"center"}));
       b2.m5.uuid= "play#o";
       b2.m5.press=cb;
-      let gap=_S.text("or",{fill: "#cccccc",fontSize:24*K,align:"center"});
-
+      let gap=_S.bitmapText("or",{fill: "#cccccc",
+                                  fontName:"unscii",
+                                  fontSize:24*K,align:"center"});
       this.insert(_G.Backgd());
       this.insert(_Z.layoutY([b1, gap, b2]));
     });
@@ -108,15 +123,17 @@
       let K=Mojo.getScaleFactor();
       let cb=(btn)=>{
         let mode, id = btn.m5.uuid;
-        if(id === "play#1") mode=1;
-        else if(id === "play#2") mode=2;
-        _Z.replaceScene(this,"StartMenu", {mode:mode, level:1});
-      };
-      let b1=_I.makeButton(_S.text("One Player",{fill:"#cccccc",
-                                                 fontSize:24*K,align:"center"}));
-      let b2=_I.makeButton(_S.text("Two Player",{fill:"#cccccc",
-                                                 fontSize:24*K,align:"center"}));
-      let gap=_S.text("or",{fill:"#cccccc",fontSize:24*K,align:"center"});
+        if(id == "play#1") mode=1;
+        else if(id == "play#2") mode=2;
+        _Z.replaceScene(this,"StartMenu", {mode:mode, level:1}) };
+      let b1=_I.makeButton(_S.bitmapText("One Player",{fill:"#cccccc",
+                                                       fontName:"unscii",
+                                                       fontSize:24*K,align:"center"}));
+      let b2=_I.makeButton(_S.bitmapText("Two Player",{fill:"#cccccc",
+                                                       fontName:"unscii",
+                                                       fontSize:24*K,align:"center"}));
+      let gap=_S.bitmapText("or",{fill:"#cccccc",
+                                  fontName:"unscii",fontSize:24*K,align:"center"});
 
       b1.m5.uuid="play#1";
       b1.m5.press=cb;
@@ -124,13 +141,12 @@
       b2.m5.press=cb;
 
       this.insert(_G.Backgd());
-      this.insert(_Z.layoutY([b1,gap,b2]));
-    });
+      this.insert(_Z.layoutY([b1,gap,b2])) });
 
     function _drawBox(ctx){
       let grid=_G.grid,
           gf= grid[0],
-          gl = grid[grid.length-1];
+          gl= grid[grid.length-1];
       let K=Mojo.getScaleFactor();
 
       ctx.beginFill("#000000");
@@ -138,16 +154,6 @@
       ctx.lineWidth=4*K;
       ctx.drawRect(gf.x1,gf.y1,gl.x2-gf.x1,gl.y2-gf.y1);
       ctx.endFill();
-      /*
-      ctx.beginPath();
-      ctx.moveTo(gf.x1,gf.y1);
-      ctx.lineTo(gl.x2,gf.y1);
-      ctx.lineTo(gl.x2,gl.y2);
-      ctx.lineTo(gf.x1,gl.y2);
-      ctx.lineTo(gf.x1,gf.y1);
-      ctx.closePath();
-      ctx.stroke();
-      */
     }
     /**
      * @private
@@ -157,12 +163,10 @@
       let grid=_G.grid,
           gf= grid[0][0],
           K=Mojo.getScaleFactor();
-      _S.drawGridLines(gf.x1,gf.y1,grid,4*K,"white",ctx);
-    }
+      _S.drawGridLines(gf.x1,gf.y1,grid,4*K,"white",ctx) }
 
     function _seeder(){
-      return _.fill(new Array(_G.DIM*_G.DIM),0)
-    }
+      return _.fill(new Array(_G.DIM*_G.DIM),0) }
 
     /**
      * @public
@@ -172,7 +176,7 @@
         let y=MFL(pos/_G.DIM);
         let x=pos%_G.DIM;
         let t= this.getChildById(`tile,${x},${y}`);
-        EventBus.pub(["ai.moved",t]);
+        Mojo.emit(["ai.moved",t]);
       },
       _initLevel(options){
         let mode=options.mode,
@@ -202,8 +206,8 @@
             dim=grid.length;
         let box=_S.group(_S.drawBody(_drawGrid));
         _S.centerAnchor(box.children[0]);
-        _S.setXY(box,MFL(Mojo.width/2),
-                     MFL(Mojo.height/2));
+        _V.set(box,MFL(Mojo.width/2),
+                   MFL(Mojo.height/2));
         this.insert(_G.Backgd());
         this.insert(box);
         for(let r,y=0; y< grid.length;++y){
@@ -220,18 +224,15 @@
         if(mode===1){
           let a= this.AI=_G.AI(_G.O);
           a.scene=this;
-          EventBus.sub(["ai.moved",this],"onAI");
+          Mojo.on(["ai.moved",this],"onAI");
           _G.ai=a;
           //ai starts?
           if(_G.pcur===_G.O){
-            _.delay(100, () => EventBus.pub(["ai.move", a]))
-          }
-        }
+            _.delay(100, () => Mojo.emit(["ai.move", a])) } }
       }
     });
 
   };
-
 
 })(this);
 
