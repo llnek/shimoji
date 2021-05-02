@@ -415,7 +415,11 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
+      if(Mojo.touchDevice) {
+        Mojo.scroll()
+      }
       Mojo.canvas.focus();
+
       return _boot(Mojo);
     }
 
@@ -660,6 +664,8 @@
           cb(s)
         })
       },
+      scroll(x,y){
+        gscope.scrollTo(x||0, y||1) },
       /**Check if viewport is in portrait mode.
        * @memberof module:mojoh5/Mojo
        * @return {boolean}

@@ -17,17 +17,18 @@
   "use strict";
 
   function scenes(Mojo){
+    const MFL=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           v2:_V,
            Game:_G,
-           ute:_, is, EventBus}=Mojo;
+           ute:_, is}=Mojo;
 
     _.inject(_G,{
       loadTiles(){
         return [0,2,4,8,16,
-                32,64,256,1024].map(n=> Mojo.tcached(`${n}.png`))
-      },
+                32,64,256,1024].map(n=> Mojo.tcached(`${n}.png`)) },
       numToFrame(num){
         switch(num){
           case 0:return 0;
@@ -41,19 +42,17 @@
           case 256:
           case 512:return 7;
           case 1024:
-          case 2048:return 8;
-        }
-        _.assert(false,"bad num");
-      },
+          case 2048:return 8; } },
       setNumber(r,c,num){
         let s= _G.TILES[r*_G.DIM+c];
         let n= _G.numToFrame(num);
         s.m5.showFrame(n);
         _G.tiles[r][c]=num;
         if(num>0){
-          let t= _S.text(`${num}`,{fontSize:200,
-                                   fontFamily:"sans-serif",
-                                   fill:0,align:"center"});
+          let t= _S.bitmapText(`${num}`,{fontSize:64,
+                                             fontName:"unscii",
+                                             tint:"black",align:"center"});
+          _S.centerAnchor(t);
           s.addChild(t);
         }
       },
@@ -79,9 +78,7 @@
         }
         if(p>=0){
           let r=out[p];
-          _G.setNumber(r[0],r[1],_.rand()>0.5?4:2);
-        }
-      },
+          _G.setNumber(r[0],r[1],_.rand()>0.5?4:2) } },
       refreshTiles(){
         _G.TILES.forEach(t=> t.removeChildren());
         for(let v,r,y=0;y<_G.DIM;++y){
@@ -175,10 +172,10 @@
             --i;
           }
         }
-        _G.dirRight=_I.keybd(_I.keyRIGHT);
-        _G.dirLeft=_I.keybd(_I.keyLEFT);
-        _G.dirUp=_I.keybd(_I.keyUP);
-        _G.dirDown=_I.keybd(_I.keyDOWN);
+        _G.dirRight=_I.keybd(_I.RIGHT);
+        _G.dirLeft=_I.keybd(_I.LEFT);
+        _G.dirUp=_I.keybd(_I.UP);
+        _G.dirDown=_I.keybd(_I.DOWN);
         _G.dirRight.press=()=>{ _G.swipeRight() };
         _G.dirLeft.press=()=>{ _G.swipeLeft() };
         _G.dirUp.press=()=>{ _G.swipeUp() };
@@ -199,9 +196,12 @@
             pos=_G.grid[y][x];
             s.g.ROW=y;
             s.g.COL=x;
-            s.x=pos.x1;
-            s.y=pos.y1;
+            //s.x=pos.x1;
+            //s.y=pos.y1;
             _S.scaleXY(s,K,K);
+            _S.centerAnchor(s);
+            s.x= MFL((pos.x1+pos.x2)/2);
+            s.y= MFL((pos.y1+pos.y2)/2);
             s.m5.showFrame(_G.numToFrame(0));
             _G.TILES.push(s);
             this.insert(s);
@@ -210,6 +210,33 @@
         }
         return out;
       },
+      onDown(){
+        _G.startXY= [Mojo.mouse.x, Mojo.mouse.y];
+      },
+      onUp(){
+        let pos= [Mojo.mouse.x,Mojo.mouse.y];
+        let v= _V.vecAB(_G.startXY,pos);
+        let z= _V.len2(v);
+        let n= _V.unit$(_V.normal(v));
+        //up->down n(1,0)
+        //bottom->up n(-1,0)
+        //right->left n(0,1)
+        //left->right n(0,-1)
+        if(z > 40 && Math.abs(n[1]) > 0.8 || Math.abs(n[0]) > 0.8){
+          if(n[0] > 0.8) {
+            _G.swipeDown();
+          }
+          if(n[0] < -0.8) {
+            _G.swipeUp();
+          }
+          if(n[1] > 0.8) {
+            _G.swipeLeft();
+          }
+          if(n[1] < -0.8) {
+            _G.swipeRight();
+          }
+        }
+      },
       setup(){
         _G.TILES=[];
         _G.DIM=4;
@@ -217,6 +244,10 @@
         _G.tileFrames= _G.loadTiles();
         _G.tiles=this._mkTiles();
         this._initLevel();
+        Mojo.on(["mousedown"],"onDown",this);
+        Mojo.on(["mouseup"],"onUp",this);
+        Mojo.on(["touchstart"],"onDown",this);
+        Mojo.on(["touchend"],"onUp",this);
       }
     });
   }
