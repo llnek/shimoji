@@ -211,31 +211,16 @@
         return out;
       },
       onDown(){
-        _G.startXY= [Mojo.mouse.x, Mojo.mouse.y];
+        _G.swipeDown()
       },
       onUp(){
-        let pos= [Mojo.mouse.x,Mojo.mouse.y];
-        let v= _V.vecAB(_G.startXY,pos);
-        let z= _V.len2(v);
-        let n= _V.unit$(_V.normal(v));
-        //up->down n(1,0)
-        //bottom->up n(-1,0)
-        //right->left n(0,1)
-        //left->right n(0,-1)
-        if(z > 40 && Math.abs(n[1]) > 0.8 || Math.abs(n[0]) > 0.8){
-          if(n[0] > 0.8) {
-            _G.swipeDown();
-          }
-          if(n[0] < -0.8) {
-            _G.swipeUp();
-          }
-          if(n[1] > 0.8) {
-            _G.swipeLeft();
-          }
-          if(n[1] < -0.8) {
-            _G.swipeRight();
-          }
-        }
+        _G.swipeUp()
+      },
+      onLeft(){
+        _G.swipeLeft()
+      },
+      onRight(){
+        _G.swipeRight()
       },
       setup(){
         _G.TILES=[];
@@ -244,10 +229,10 @@
         _G.tileFrames= _G.loadTiles();
         _G.tiles=this._mkTiles();
         this._initLevel();
-        Mojo.on(["mousedown"],"onDown",this);
-        Mojo.on(["mouseup"],"onUp",this);
-        Mojo.on(["touchstart"],"onDown",this);
-        Mojo.on(["touchend"],"onUp",this);
+        Mojo.on(["swipe.down"],"onDown",this);
+        Mojo.on(["swipe.up"],"onUp",this);
+        Mojo.on(["swipe.left"],"onLeft",this);
+        Mojo.on(["swipe.right"],"onRight",this);
       }
     });
   }

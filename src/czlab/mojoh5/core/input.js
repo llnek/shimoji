@@ -206,6 +206,7 @@
           width: 1,
           height: 1,
           downTime: 0,
+          downAt:[0,0],
           elapsedTime: 0,
           dragged: null,
           dragOffsetX: 0,
@@ -245,6 +246,8 @@
             if(e.button===0){
               ptr._x = e.pageX - e.target.offsetLeft;
               ptr._y = e.pageY - e.target.offsetTop;
+              ptr.downAt[0]=ptr._x;
+              ptr.downAt[1]=ptr._y;
               ptr.downTime = _.now();
               //down,up,pressed
               _.setVec(ptr.state,true,false,true);
@@ -265,14 +268,38 @@
               ptr._x = e.pageX - e.target.offsetLeft;
               ptr._y = e.pageY - e.target.offsetTop;
               _.setVec(ptr.state,false,true);
-              //ptr.isDown = false;
-              //ptr.isUp = true;
               if(ptr.state[2]){//pressed
                 ptr.press();
                 ptr.state[2]=false;
               }
               e.preventDefault();
               Mojo.emit(["mouseup"]);
+              ptr._swipeMotion(ptr.elapsedTime);
+            }
+          },
+          _swipeMotion(dt){
+            let v= _V.vecAB(ptr.downAt,ptr);
+            let z= _V.len2(v);
+            let n= _V.unit$(_V.normal(v));
+            //up->down n(1,0)
+            //bottom->up n(-1,0)
+            //right->left n(0,1)
+            //left->right n(0,-1)
+            if(z > 400 && dt < 1000 &&
+               (Math.abs(n[0]) > 0.8 ||
+                Math.abs(n[1]) > 0.8)){
+              if(n[0] > 0.8){
+                Mojo.emit(["swipe.down"])
+              }
+              if(n[0] < -0.8){
+                Mojo.emit(["swipe.up"])
+              }
+              if(n[1] > 0.8){
+                Mojo.emit(["swipe.left"])
+              }
+              if(n[1] < -0.8){
+                Mojo.emit(["swipe.right"])
+              }
             }
           },
           _copyTouch(t,target){
@@ -291,6 +318,8 @@
             let tid=ct[0].identifier||0;
             ptr._x = ct[0].pageX - t.offsetLeft;
             ptr._y = ct[0].pageY - t.offsetTop;
+            ptr.downAt[0]=ptr._x;
+            ptr.downAt[1]=ptr._y;
             ptr.downTime = _.now();
             _.setVec(ptr.state,true,false,true);
             //ptr.isDown = true; ptr.isUp = false; ptr.tapped = true;
@@ -329,6 +358,7 @@
             }
             e.preventDefault();
             Mojo.emit(["touchend"]);
+            ptr._swipeMotion(ptr.elapsedTime);
           },
           touchCancel(e){
             let ct=e.changedTouches;
