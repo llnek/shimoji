@@ -288,7 +288,7 @@
             //bottom->up n(-1,0)
             //right->left n(0,1)
             //left->right n(0,-1)
-            if(dd>400 && dt>200 && dt<1000 &&
+            if(dd>400 && dt<1000 &&
                (Math.abs(n[0]) > 0.8 || Math.abs(n[1]) > 0.8)){
               if(n[0] > 0.8){
                 rc="swipe.down";
