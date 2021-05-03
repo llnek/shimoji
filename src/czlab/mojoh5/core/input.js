@@ -42,8 +42,10 @@
     function _updateDrags(ptr){
       if(ptr.state[0]){
         if(ptr.dragged){
+          let px=ptr.dragged.x;
+          let py=ptr.dragged.y;
           _V.set(ptr.dragged, ptr.dragStartX+(ptr.x-ptr.dragPtrX),
-                              ptr.dragStartY+(ptr.y-ptr.dragPtrY))
+                              ptr.dragStartY+(ptr.y-ptr.dragPtrY));
         }else{
           for(let g,cs,s,i=DragDrops.length-1; i>=0; --i){
             s=DragDrops[i];
@@ -54,10 +56,6 @@
               ptr.dragStartY = s.y;
               ptr.dragPtrX= ptr.x;
               ptr.dragPtrY= ptr.y;
-              //important,force this flag to off so
-              //if drag dropped onto a button, button
-              //won't get triggered
-              ptr.state[2]=false;
               //pop it up to top
               _.disj(DragDrops,s);
               _.disj(cs,s);
@@ -198,7 +196,7 @@
        */
       pointer(){
         let ptr={
-          state: [false,true,false],
+          state: [false,true],
           //isDown: false, isUp: true, tapped: false,
           _visible: true,
           _x: 0,
@@ -219,7 +217,6 @@
           get visible() { return this._visible },
           get isUp(){return this.state[1]},
           get isDown(){return this.state[0]},
-          get isClicked(){return this.state[2]},
           set visible(v) {
             this.cursor = v ? "auto" : "none";
             this._visible = v;
@@ -246,13 +243,13 @@
             if(e.button===0){
               ptr._x = e.pageX - e.target.offsetLeft;
               ptr._y = e.pageY - e.target.offsetTop;
+              //down,up,pressed
+              _.setVec(ptr.state,true,false);
               ptr.downAt[0]=ptr._x;
               ptr.downAt[1]=ptr._y;
               ptr.downTime = _.now();
-              //down,up,pressed
-              _.setVec(ptr.state,true,false,true);
-              e.preventDefault();
               Mojo.Sound.init();
+              e.preventDefault();
               Mojo.emit(["mousedown"]);
             }
           },
@@ -264,43 +261,50 @@
           },
           mouseUp(e){
             if(e.button===0){
-              ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
+              ptr.elapsedTime = Math.max(0,_.now()-ptr.downTime);
               ptr._x = e.pageX - e.target.offsetLeft;
               ptr._y = e.pageY - e.target.offsetTop;
               _.setVec(ptr.state,false,true);
-              if(ptr.state[2]){//pressed
-                ptr.press();
-                ptr.state[2]=false;
-              }
               e.preventDefault();
               Mojo.emit(["mouseup"]);
-              ptr._swipeMotion(ptr.elapsedTime);
+              let v= _V.vecAB(ptr.downAt,ptr);
+              let z= _V.len2(v);
+              if(!ptr.dragged){
+                //small distance and fast then a click
+                if(z<400 && ptr.elapsedTime<200){
+                  Mojo.emit(["single.tap"]);
+                  ptr.press();
+                }else{
+                  //maybe a swipe
+                  ptr._swipeMotion(v,z,ptr.elapsedTime);
+                }
+              }
             }
           },
-          _swipeMotion(dt){
-            let v= _V.vecAB(ptr.downAt,ptr);
-            let z= _V.len2(v);
+          _swipeMotion(v,dd,dt){
             let n= _V.unit$(_V.normal(v));
+            let rc;
             //up->down n(1,0)
             //bottom->up n(-1,0)
             //right->left n(0,1)
             //left->right n(0,-1)
-            if(z > 400 && dt < 1000 &&
-               (Math.abs(n[0]) > 0.8 ||
-                Math.abs(n[1]) > 0.8)){
+            if(dd>400 && dt>200 && dt<1000 &&
+               (Math.abs(n[0]) > 0.8 || Math.abs(n[1]) > 0.8)){
               if(n[0] > 0.8){
-                Mojo.emit(["swipe.down"])
+                rc="swipe.down";
               }
               if(n[0] < -0.8){
-                Mojo.emit(["swipe.up"])
+                rc="swipe.up";
               }
               if(n[1] > 0.8){
-                Mojo.emit(["swipe.left"])
+                rc="swipe.left";
               }
               if(n[1] < -0.8){
-                Mojo.emit(["swipe.right"])
+                rc="swipe.right";
               }
             }
+            if(rc)
+              Mojo.emit([rc])
           },
           _copyTouch(t,target){
             return{offsetLeft:target.offsetLeft,
@@ -318,14 +322,13 @@
             let tid=ct[0].identifier||0;
             ptr._x = ct[0].pageX - t.offsetLeft;
             ptr._y = ct[0].pageY - t.offsetTop;
+            _.setVec(ptr.state,true,false);
             ptr.downAt[0]=ptr._x;
             ptr.downAt[1]=ptr._y;
             ptr.downTime = _.now();
-            _.setVec(ptr.state,true,false,true);
-            //ptr.isDown = true; ptr.isUp = false; ptr.tapped = true;
-            e.preventDefault();
             _.assoc(ActiveTouches,tid,ptr._copyTouch(ct[0],t));
             Mojo.Sound.init();
+            e.preventDefault();
             Mojo.emit(["touchstart"]);
           },
           touchMove(e){
@@ -343,22 +346,25 @@
             let ct=e.changedTouches;
             //let tt=e.targetTouches;
             let t = e.target;
+            let nn=_.now();
             let tid= ct[0].identifier||0;
             let active = _.get(ActiveTouches,tid);
+            ptr.elapsedTime = Math.max(0,nn-ptr.downTime);
             ptr._x = ct[0].pageX - t.offsetLeft;
             ptr._y = ct[0].pageY - t.offsetTop;
             _.setVec(ptr.state,false,true);
-            //ptr.isDown = false; ptr.isUp = true;
-            ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
-            if(ptr.state[2]){
-              if(active && ptr.elapsedTime <= 200){
-                ptr.tap();
-              }
-              ptr.state[2]=false;
-            }
             e.preventDefault();
             Mojo.emit(["touchend"]);
-            ptr._swipeMotion(ptr.elapsedTime);
+            if(!ptr.dragged){
+              let v= _V.vecAB(ptr.downAt,ptr);
+              let z= _V.len2(v);
+              if(active && z<400 && ptr.elapsedTime<200){
+                Mojo.emit(["single.tap"]);
+                ptr.press();
+              }else{
+                ptr._swipeMotion(v,z,ptr.elapsedTime);
+              }
+            }
           },
           touchCancel(e){
             let ct=e.changedTouches;
@@ -370,9 +376,10 @@
             e.preventDefault();
             if(active)
               _.dissoc(ActiveTouches,tid);
+            _.setVec(ptr.state,false,true);
           },
           reset(){
-            _.setVec(ptr.state,false,true,false);
+            _.setVec(ptr.state,false,true);
             Buttons.length=0;
             DragDrops.length=0;
           },

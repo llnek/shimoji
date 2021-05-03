@@ -26,10 +26,8 @@
       constructor(m){
         this.model=m
       }
-      dim(){
-        return this.model.length }
       rand(){
-        let n=_.randInt(4);
+        let n=_.randInt(_G.CELLS);
         let b=this.model;
         if(n===0){
           b=this.clone(b);
@@ -39,6 +37,8 @@
         }
         return b
       }
+      dim(){
+        return this.model.length }
       clone(){
         return _.deepCopyArray(this.model) } }
 
@@ -46,24 +46,27 @@
     class BoxModel extends BModel{
       constructor(){
         super([[1,1],
-               [1,1]])
-      }
+               [1,1]]) }
+      lines(){
+        return [0,1,2] }
     }
     // piece = L
     class ElModel extends BModel{
       constructor(){
-        super([[0,1,0],
-               [0,1,0],
-               [0,1,1]])
-      }
+        super([[0,0,1],
+               [1,1,1],
+               [0,0,0]]) }
+      lines(){
+        return [0,1,2] }
     }
     // piece J
     class ElxModel extends BModel{
       constructor(){
-        super([[0,1,0],
-               [0,1,0],
-               [1,1,0]])
-      }
+        super([[0,0,0],
+               [1,1,1],
+               [0,0,1]]) }
+      lines(){
+        return [1,2,2] }
     }
     // piece I
     class LineModel extends BModel{
@@ -71,34 +74,39 @@
         super([[0,0,0,0],
                [1,1,1,1],
                [0,0,0,0],
-               [0,0,0,0]])
-      }
+               [0,0,0,0]]) }
+      lines(){
+        return [1,1,1] }
     }
     // piece T
     class NubModel extends BModel{
       constructor(){
         super([[0,0,0],
                [0,1,0],
-               [1,1,1]])
-      }
+               [1,1,1]]) }
+      lines(){
+        return [1,2,2] }
     }
     // piece S
     class StModel extends BModel{
       constructor(){
-        super([[0,1,0],
-               [0,1,1],
-               [0,0,1]])
-      }
+        super([[0,1,1],
+               [1,1,0],
+               [0,0,0]]) }
+      lines(){
+        return [0,1,2] }
     }
     // piece Z
     class StxModel extends BModel{
       constructor(){
-        super([[0,1,0],
+        super([[0,0,0],
                [1,1,0],
-               [1,0,0]])
-      }
+               [0,1,1]]) }
+      lines(){
+        return [1,2,2] }
     }
 
+    //list of models
     _G.ModelList=[new BoxModel(), new ElModel(), new ElxModel(),
                   new LineModel(), new NubModel(), new StModel(), new StxModel()];
 

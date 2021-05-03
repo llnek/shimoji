@@ -32,6 +32,8 @@
            "2d":_2d,
            ute:_, is}=Mojo;
 
+    _G.CELLS=4;
+
     _Z.defScene("level1",{
       _initLevel(){
         let K=Mojo.getScaleFactor();
@@ -83,22 +85,43 @@
         }
         return this;
       },
-      _ctrl(){
-        let K=Mojo.getScaleFactor();
-        let j=Mojo.Touch.joystick({
-          onChange(dir,angle,power){
-            if(Mojo.sideRight(dir)){
-              _G.rightMotion.press()
-            }
-            if(Mojo.sideLeft(dir)){
-              _G.leftMotion.press()
-            }
-          }
-        });
-        j.x=MFL((Mojo.width-_G.vbox.x2)/2+_G.vbox.x2);
-        j.y=MFL(Mojo.height/2);
-        this.insert(j);
+      previewNext(){
+        _G.previewNext(this) },
+      onPtrDown(){
+        if(_G.curShape){
+          _G.curShape.sx=Mojo.mouse.x;
+          _G.curShape.sy=Mojo.mouse.y;
+          _G.dragMode=true;
+        }
       },
+      onPtrUp(){
+        _G.dragMode=false;
+      },
+      onPtrMove(){
+        if(_G.dragMode && _G.curShape){
+          let dx=Mojo.mouse.x - _G.curShape.sx;
+          let dy=Mojo.mouse.y - _G.curShape.sy;
+          let reset;
+          if(Math.abs(dx)>=_G.tileW){
+            if(dx>0){
+              _G.shiftRight(this,_G.curShape);
+            }else{
+              _G.shiftLeft(this,_G.curShape);
+            }
+            reset=1;
+          }
+          if(dy>=_G.tileH){
+            _G.shiftDown(this,_G.curShape);
+            reset=1;
+          }
+          if(reset){
+            _G.curShape.sx=Mojo.mouse.x;
+            _G.curShape.sy=Mojo.mouse.y;
+          }
+        }
+      },
+      onSwipeDown(){
+        _G.dropDown(this,_G.curShape) },
       setup(){
         this._initLevel();
         let bg= _S.rectangle(_G.cols*_G.tileW,10+_G.rows*_G.tileH,0,"white",1);
@@ -110,23 +133,29 @@
         r.press=()=>{ _G.shiftRight(this,_G.curShape) };
         f.press=()=>{ _G.shiftLeft(this,_G.curShape) };
         u.press=()=>{ _G.rotateCCW(this,_G.curShape) };
-        d.press=()=>{ _G.moveDown(this,_G.curShape) };
+        d.press=()=>{ _G.shiftDown(this,_G.curShape) };
         s.press=()=>{ _G.dropDown(this,_G.curShape) };
         bg.x=_G.vbox.x1;
         bg.y=_G.vbox.y1-10;
         this.insert(bg);
 
-        this._ctrl();
-
         _G.gameScene=this;
         _G.previewNext(this);
         _G.slowDown(this,_G.reifyNextShape(this));
-      },
-      previewNext(){
-        _G.previewNext(this) },
-      postUpdate(){
-        //if(_G.gameOver) _.log("Over!");
-      }
+
+        Mojo.on(["single.tap"],_.debounce(()=>{
+          if(_G.curShape)
+            _G.rotateCCW(this,_G.curShape)
+        },150));
+
+        Mojo.on(["mouseup"],"onPtrUp",this);
+        Mojo.on(["touchend"],"onPtrUp",this);
+        Mojo.on(["mousedown"],"onPtrDown",this);
+        Mojo.on(["touchstart"],"onPtrDown",this);
+        Mojo.on(["mousemove"],"onPtrMove",this);
+        Mojo.on(["touchmove"],"onPtrMove",this);
+
+        Mojo.on(["swipe.down"],"onSwipeDown",this); }
     });
 
     _Z.defScene("hud",{
@@ -134,7 +163,7 @@
         let s= this.score= _S.bitmapText("0",{
           fontName:"unscii",fontSize:32,fill:"white"
         });
-        Mojo.on(["preview.shape",this],"onPreview");
+        Mojo.on(["preview.shape"],"onPreview",this);
         this.insert(s);
 
         let r= _S.rectangle(_G.tileW*6,_G.tileH*6,0,"white",1);
@@ -151,22 +180,26 @@
         _G.gameScene.previewNext();
       },
       onPreview(s){
-        let X = _G.previewBox.x;
-        let Y = _G.previewBox.y;
-        X += _G.tileW;
-        Y += 2*_G.tileH;
+        let X = _G.previewBox.x+_G.previewBox.width/2;
+        let Y = _G.previewBox.y+_G.previewBox.height/2;
+        let wx= s.tiles.length*_G.tileW;
+        let wy= _G.tileH* s.lines[2];
+        X = MFL(X-wx/2);
+        Y= MFL(Y-wy/2);
         s.col=0;
         s.row=0;
-        for(let k=0,r,y=0;y<s.tiles.length;++y){
+        for(let w=0,k=0,r,y=0;y<s.tiles.length;++y){
           r=s.tiles[y];
+          if(_.every(r,0)){continue}
           for(let p,x=0;x<r.length;++x){
             if(r[x]===1){
               _V.set(s.cells[k],X+(s.col+x)*_G.tileW,
-                                Y-((s.row-y)+1)*_G.tileH);
+                                Y+((s.row-w)+1)*_G.tileH);
               s.cells[k].visible=true;
               ++k;
             }
           }
+          ++w;
         }
       },
       postUpdate(){

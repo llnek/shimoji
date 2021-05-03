@@ -52,11 +52,10 @@
     _G.drawShape=function(scene,s){
       for(let k=0,r,y=0;y<s.tiles.length;++y){
         r=s.tiles[y];
-        for(let p,x=0;x<r.length;++x){
+        for(let x=0;x<r.length;++x){
           if(r[x]===1){
             _V.set(s.cells[k++],_G.vbox.x1+(s.col+x)*_G.tileW,
-                                _G.vbox.y2-((s.row-y)+1)*_G.tileH) } } }
-    };
+                                _G.vbox.y2-((s.row-y)+1)*_G.tileH) } } } };
 
     /** create the next shape */
     _G.reifyNextShape=function(scene){
@@ -64,9 +63,11 @@
       _G.nextShape=null;
       if(_G.curShape=s){
         _G.previewNext(scene);
-        s.row=_G.rows+s.tiles.length-1;
+        s.row=_G.rows+s.lines[2];
         s.col=MFL(_G.cols/2);
-        s.cells.forEach(c=>c.visible=true);
+        s.cells.forEach(c=>{
+          c.visible=true;
+        });
         _G.drawShape(scene,s);
       }
       return s;
@@ -78,33 +79,44 @@
       let n= _.randInt(ln);
       let m= _G.ModelList[n];
       let png= `${_.randInt(ln)}.png`;
-      let s={tiles: m.rand(),
+      let s={tiles: m.clone(),
+             lines: m.lines(),
              cells: [], row:0, col:0};
       _G.nextShape=s;
-      for(let p,i=0;i<4;++i){
+      for(let p,i=0;i<_G.CELLS;++i){
         p= _S.sprite(png);
         p.visible=false;
         scene.insert(p);
         s.cells.push(p);
-        _S.scaleXY(p,_G.scaleX, _G.scaleY) }
-      Mojo.emit(["preview.shape",_G.hud],s);
+        _S.sizeXY(p,_G.tileW,_G.tileH);
+      }
+      Mojo.emit(["preview.shape"],s);
     };
 
+    /** @ignore */
     _G.shiftRight=function(scene,s){
-      if(!_testTiles(s.tiles,s.row,s.col+1)){ return false; }
-      ++s.col;
-      _G.drawShape(scene,s);
-      return true;
+      if(!_testTiles(s.tiles,s.row,s.col+1)){
+        s=null;
+      }else{
+        ++s.col;
+        _G.drawShape(scene,s);
+      }
+      return !!s;
     };
 
+    /** @ignore */
     _G.shiftLeft=function(scene,s){
-      if(!_testTiles(s.tiles,s.row,s.col-1)){ return false; }
-      --s.col;
-      _G.drawShape(scene,s);
-      return true;
+      if(!_testTiles(s.tiles,s.row,s.col-1)){
+        s=null;
+      }else{
+        --s.col;
+        _G.drawShape(scene,s);
+      }
+      return !!s;
     };
 
-    _G.lockShape=function(s){
+    /** @ignore */
+    _G.lockShape=(s)=>{
       for(let rc,p,i=0;
           i<s.cells.length;++i){
         p=s.cells[i];
@@ -115,11 +127,22 @@
       }
       return (s.cells.length=0, true) };
 
-    _G.checkGrid=function(){
-      while(_G.checkLines());
+
+    /** @ignore */
+    _G.checkGrid=()=>{
+      let cnt=0;
+      while(_G.checkLines()){
+        ++cnt;
+      }
+      if(cnt>4){
+        _G.score += 800;
+      }else{
+        _G.score += cnt*100;
+      }
     };
 
-    _G.checkLines=function(){
+    /** @ignore */
+    _G.checkLines=(out)=>{
       for(let r,y=0;y<_G.rows;++y){
         r=_G.grid[y];
         if(r.every(c => !!c)){
@@ -131,18 +154,19 @@
       return false;
     };
 
+    /** @ignore */
     _G.sink=function(line){
       for(let s,y=line+1;y<=_G.rows;++y){
         for(let x=0;x<_G.cols;++x){
           s=_G.grid[y][x];
           _G.grid[y-1][x]=s;
-          if(s){
+          if(s)
             s.y += _G.tileH;
-          }
         }
       }
     };
 
+    /** get rid of a full line */
     _G.clearLine=function(line){
       let row=_G.grid[line];
       for(let i=0;i<row.length;++i){
@@ -152,7 +176,15 @@
       }
     };
 
-    _G.moveDown=function(scene,s){
+    /** @ignore */
+    _G.shiftDown=(scene,s)=>{
+      if(!_G.gameOver){
+        _G.slowDown(scene,s);
+      }
+    };
+
+    /** @ignore */
+    _G.moveDown=(scene,s)=>{
       if(!_testTiles(s.tiles,s.row-1,s.col)){
         if(!_G.lockShape(s)){
           _G.gameOver=true
@@ -162,14 +194,20 @@
         return false;
       }
       --s.row;
-      return (_G.drawShape(scene,s), true) };
+      _G.drawShape(scene,s);
+      return true
+    };
 
+    /** @ignore */
     _G.slowDown=function(scene,s){
+      if(_G.timer !== undefined) clearTimeout(_G.timer);
+      _G.timer=undefined;
       if(_G.moveDown(scene,s)){
-        _G.timer= _.delay(80+700/1,()=>{ _G.slowDown(scene,s) });
+        _G.timer= _.delay(80+700,()=>{ _G.slowDown(scene,s) });
       }
     };
 
+    /** @ignore */
     _G.dropDown=function(scene,s){
       if(_G.timer !== undefined) clearTimeout(_G.timer);
       _G.timer=undefined;
@@ -179,15 +217,16 @@
       }
     };
 
+    /** @ignore */
     _G.rotateCCW=function(scene,s){
       if(s.tiles.length>2){
         let ts=_G.transposeCCW(s.tiles);
-        if(!_testTiles(ts,s.row,s.col)){ return; }
-        s.tiles=ts;
-        _G.drawShape(scene,s);
+        if(_testTiles(ts,s.row,s.col)){
+          s.tiles=ts;
+          _G.drawShape(scene,s);
+        }
       }
     };
-
 
   };
 
