@@ -28,7 +28,8 @@
            Input:I,
            Game:G,
            "2d":_2d,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     const COLORS = [ "blue.png", "green.png", "orange.png", "red.png", "violet.png" ];
     const x=null,g="green",o="orange",b="blue",r="red",v="violet";
@@ -39,21 +40,24 @@
               ]
     };
 
-    //G.bounce=Mojo.sound("bounce.wav");
+    G.bounce=Mojo.sound("coin.mp3");
     //G.music=Mojo.sound("music.wav");
     //G.music.loop = true;
     G.gridCols=9;
     G.gridRows=20;//16;
 
+    //splash screen
     Z.defScene("splash",{
       setup(){
         let out={x:0,y:0},
             K=Mojo.getScaleFactor();
-        G.grid= S.gridXY([G.gridCols,G.gridRows],0.4,1,out);//tall but narrow
+        //tall but narrow
+        G.grid= S.gridXY([G.gridCols,G.gridRows],0.4,1,out);
         G.arena=Mojo.mockStage(out);//playable area
       }
     },{centerStage:true});
 
+    //level
     Z.defScene("level1",{
       setup(){
         let K=Mojo.getScaleFactor();
@@ -67,7 +71,7 @@
         G.blockCount=0;
 
         //make scene as big as the play area
-        S.setXY(this,G.arena.x,G.arena.y);
+        _V.set(this,G.arena.x,G.arena.y);
 
         //make place to show msg
         //let msgRow = S.rectangle(G.arena.width, offsetY, "black");
@@ -103,7 +107,7 @@
         ball.m5.type=E_BALL;
         S.scaleXY(ball,K*0.2,K*0.2);
         S.pinCenter(G.arena,ball);
-        S.velXY(ball, 50*K, 80*K);
+        _V.set(ball.m5.vel, 50*K, 80*K);
         ball.m5.tick=(dt)=>{
           S.move(ball,dt)
         };
@@ -115,13 +119,13 @@
         paddle.m5.type=E_PADDLE;
         S.scaleXY(paddle,K*0.2,K*0.2);
         paddle.width=4*bw;
-        S.setXY(paddle,MFL(G.arena.width/2), pbox.y2 - 1.5*paddle.height);
+        _V.set(paddle,MFL(G.arena.width/2), pbox.y2 - 1.5*paddle.height);
         let pY=paddle.y;
         paddle.m5.speed=5;
         paddle.m5.tick=()=>{
           S.move(paddle);
-          //paddle.x = Mojo.mouse.x - this.x;
-          _2d.contain(paddle, G.arena,false);
+          paddle.x = Mojo.mouse.x - this.x;
+          S.clamp(paddle, G.arena,false);
           paddle.y = pY;
         };
         //paddle.oldsx=paddle.scale.x;
@@ -136,29 +140,27 @@
         G.arena.x=0;
         this._ctrl();
 
-
-        let tt=S.bitmapText("Pooface_123!",{fontName:"unscii",fontSize:36});
+        let tt= this.msg= S.bitmapText("",{fontName:"unscii",fontSize:36});
         this.insert(tt);
-
       },
       _ctrl(){
         const s=G.paddle;
-        const goLeft = I.keybd(I.keyLEFT,
-        ()=>{ S.velXY(s,-s.m5.speed,0) },
-        ()=>{ !goRight.isDown && S.velXY(s,0) });
-        const goRight =I.keybd(I.keyRIGHT,
-        ()=>{ S.velXY(s,s.m5.speed,0) },
-        ()=>{ !goLeft.isDown && S.velXY(s,0) });
+        const goLeft = I.keybd(I.LEFT,
+        ()=>{ _V.set(s.m5.vel,-s.m5.speed,0) },
+        ()=>{ !goRight.isDown && _V.setX(s.m5.vel,0) });
+
+        const goRight =I.keybd(I.RIGHT,
+        ()=>{ _V.set(s.m5.vel,s.m5.speed,0) },
+        ()=>{ !goLeft.isDown && _V.setX(s.m5.vel,0) });
       },
       postUpdate(dt){
         let objs,col;
-        if(col=_2d.contain(G.ball, G.arena,true)){
-          //G.bounce.play();
+        if(col=S.clamp(G.ball, G.arena,true)){
           if(col.has(Mojo.BOTTOM)) --G.score;
         }
         this.searchSGrid(G.ball).forEach(o=>{
-          if(G.ball !== o && _2d.collide(G.ball, o)){
-            //G.bounce.play();
+          if(G.ball !== o && S.collide(G.ball, o)){
+            G.bounce.play();
             switch(o.m5.type){
               case E_PADDLE:
                 break;
@@ -167,11 +169,18 @@
                 --G.blockCount;
                 ++G.score;
                 S.remove(o);
+                T.createParticles(
+                  c[0],c[1],
+                  ()=>S.sprite("star.png"),
+                  this,
+                  [0.3,0.3],
+                  {rotate:0.05,alpha:0.005,scale:0.005,angle:0,size:12,speed:5},
+                  {rotate:0.1,alpha:0.01,scale:0.01,angle:6.28,size:24,speed:10});
                 break;
             }
           }
         });
-        //G.msg.text=`Score: ${G.score}`;
+        this.msg.text=`Score: ${G.score}`;
         if(G.blockCount===0){
           Mojo.pause();
         }
@@ -180,7 +189,7 @@
   }
 
   const _$={
-    assetFiles: ["unscii.fnt","tiles.json"],
+    assetFiles: ["star.png","tiles.json","coin.mp3"],
     arena: {width: 9*32, height: 16*32},
     scaleToWindow:"max",
     scaleFit:"x",

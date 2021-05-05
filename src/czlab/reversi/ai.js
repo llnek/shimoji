@@ -19,7 +19,7 @@
   window["io/czlab/reversi/AI"]=function(Mojo){
     const Nega= window["io/czlab/mcfud/negamax"]();
     const {Game:_G,
-           ute:_,is,EventBus} = Mojo;
+           ute:_,is} = Mojo;
 
     //used by the AI to give more importance to the border
     const BOARD_SCORE = [[9,3,3,3,3,3,3,9],
@@ -31,6 +31,7 @@
                          [3,1,1,1,1,1,1,3],
                          [9,3,3,3,3,3,3,9]];
 
+    /** @ignore */
     function _possibleMoves(cells,cur,other){
       let moves=[],
           pos=[0,0];
@@ -57,8 +58,7 @@
         this.depth=8;
       }
       getStateCopier(){
-        return (state)=>{ return _.deepCopyArray(state) }
-      }
+        return (state)=>{ return _.deepCopyArray(state) } }
       /*
       getFirstMove(snap){
         let moves=_possibleMoves(snap.state,snap.cur,snap.other);
@@ -68,11 +68,9 @@
       syncState(seed, actor){
         this.cells.length=0;
         this.actors[0] = actor;
-        seed.forEach(s=> this.cells.push(s.slice()));
-      }
+        seed.forEach(s=> this.cells.push(s.slice())) }
       getNextMoves(snap){
-        return _possibleMoves(snap.state,snap.cur,snap.other)
-      }
+        return _possibleMoves(snap.state,snap.cur,snap.other) }
       makeMove(snap, move){
         _.assert(move[1] >= 0 && move[1] < snap.state[0].length);//col
         _.assert(move[0] >= 0 && move[0] < snap.state.length);//row

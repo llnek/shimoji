@@ -23,15 +23,15 @@
            Input:_I,
            Tiles:_T,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
-    _G.playSnd=function(snd){
+    _G.playSnd=(snd)=>{
       let s, {pcur}=_G;
       if(pcur===_G.X) s="x.mp3";
       if(pcur===_G.O) s="o.mp3";
       if(snd){s=snd}
-      if(s) Mojo.sound(s).play();
-    };
+      if(s) Mojo.sound(s).play() };
 
     _Z.defScene("Splash",function(){
     });
@@ -45,35 +45,36 @@
     _Z.defScene("MainMenu", function(){
     });
 
+    _Z.defScene("hud", {
+      setup(){
+      },
+      postUpdate(){
+      }
+    });
+
+    /** @ignore */
     function _drawBox(ctx){
       let {grid}=_G,
-          gf=grid[0], gl = grid[grid.length-1];
+          gf=grid[0],
+          gl = grid[grid.length-1];
       ctx.strokeStyle= "white";
       ctx.lineWidth=4;
-      ctx.drawRect(gf.x1,gf.y1,gl.x2-gf.x1,gl.y2-gf.y1);
-    }
+      ctx.drawRect(gf.x1,gf.y1,gl.x2-gf.x1,gl.y2-gf.y1) }
 
-    /**
-     * @private
-     * @function
-     */
+    /** @ignore */
     function _drawGrid(ctx){
       let bx=_S.gridBBox(0,0,_G.grid);
       _S.drawGridBox(bx,4,"white",ctx);
-      _S.drawGridLines(0,0,_G.grid,4,"white",ctx);
-    }
+      _S.drawGridLines(0,0,_G.grid,4,"white",ctx) }
 
+    /** @ignore */
     function _seeder(){
-      let out=[];
-      for(let i=0;i<_G.DIM;++i)
-        out[i]= _.fill(_G.DIM,0);
-      return out;
-    }
+      return _.fill(_G.DIM).map(x=> _.fill(_G.DIM,0)) }
 
     _Z.defScene("level1",{
       onAI(pos){
         //let t= this.getChildById(`tile${pos}`);
-        //Mojo.EventBus.pub(["ai.moved",t]);
+        //Mojo.emit(["ai.moved",t]);
       },
       _initLevel(options){
         let z=_S.sprite("icons.png");
@@ -104,9 +105,10 @@
         //let self=this,grid=_G.state.get("grid");
         this.insert(_G.Backgd());
         let box=_S.group(_S.drawBody(_drawGrid));
-        _S.setXY(box,grid[0][0].x1,grid[0][0].y1);
+        _V.set(box,grid[0][0].x1,grid[0][0].y1);
         this.insert(box);
 
+        let LT,RT;
         for(let a,r=0;r<grid.length;++r){
           a=grid[r];
           for(let v,s,id,b,c=0;c<a.length;++c){
@@ -124,21 +126,52 @@
             s=_G.Tile(id, b[0],b[1],
                       iconSize[0],iconSize[1], {gpos: [r,c], gval: v});
             this.insert(s);
+            if(r===0){
+              if(c===0) LT=s;
+              if(c===a.length-1) RT=s;
+            }
           }
         }
         cells[3][3]=1;//black
         cells[3][4]=2;
         cells[4][3]=2;
         cells[4][4]=1;
+
+        //ui
+        let s,g,t= _S.bitmapText("SCORE",{fontName:"unscii",
+                                          fontSize:36,
+                                          tint:_S.color("white")});
+        this.insert(t);
+        _S.pinLeft(LT,t,32,0);
+        g=_S.sprite(_S.frames("icons.png",iconSize[0],iconSize[1]));
+        _S.scaleXY(g,_G.iconScale[0],_G.iconScale[1]);
+        g.m5.showFrame(_G.X);
+        this.insert(g);
+        _S.pinBottom(t,g);
+        s= _S.bitmapText("00",{fontName:"unscii",fontSize:36,tint:_S.color("white")});
+        this.insert(s);
+        _S.pinBottom(g,s);
+        _G.scores[_G.X]=s;
+        t=s;
+        g=_S.sprite(_S.frames("icons.png",iconSize[0],iconSize[1]));
+        _S.scaleXY(g,_G.iconScale[0],_G.iconScale[1]);
+        g.m5.showFrame(_G.O);
+        this.insert(g);
+        _S.pinBottom(t,g);
+        s= _S.bitmapText("00",{fontName:"unscii",fontSize:36,tint:_S.color("white")});
+        this.insert(s);
+        _S.pinBottom(g,s);
+        _G.scores[_G.O]=s;
+
         //decide who plays X and who starts
         if(mode===1){
           let a= this.AI=_G.AI(this,_G.O);
           a.scene=this;
-          //Mojo.EventBus.sub(["ai.moved",this],"onAI");
+          //Mojo.on(["ai.moved",this],"onAI");
           _G.ai=a;
           //ai starts?
           if(_G.pcur===_G.O){
-            _.delay(100, () => EventBus.pub(["ai.move", a]))
+            _.delay(100, () => Mojo.emit(["ai.move", a]))
           }
         }
       }

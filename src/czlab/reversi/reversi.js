@@ -20,12 +20,14 @@
     const {Scenes:_Z,
            Sprites:_S,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
+    //load in game modules
     window["io/czlab/reversi/Sprites"](Mojo);
     window["io/czlab/reversi/AI"](Mojo);
     window["io/czlab/reversi/Scenes"](Mojo);
 
+    //identify all relative cells to check
     const _Dirs=
     (function(out){
       [-1,0,1].forEach(r=>{
@@ -35,6 +37,7 @@
     })([]);
 
     _.inject(_G,{
+      scores:[null,null,null],
       gridLineWidth:4,
       DIM:8,
       X:1,//black
@@ -66,6 +69,24 @@
         }
         return total;
       },
+      isGameOver(pv){
+        const {cells}=_G;
+        const pos=[0,0];
+        const other= pv===_G.X?_G.O:_G.X;
+        for(let t,r,y=0;y<cells.length;++y){
+          r=cells[y];
+          for(let x=0;x<r.length;++x){
+            if(r[x]===0){
+              pos[0]=y;
+              pos[1]=x;
+              t=this.piecesFlipped(cells,pos,pv,other);
+              if(t.length>0)
+                return false;
+            }
+          }
+        }
+        return true;
+      },
       getIcon(v){
         if(v===_G.O || v==="O") return 2;//"o.png";
         if(v===_G.X || v==="X") return 1;//"x.png";
@@ -80,20 +101,38 @@
         if(v===_G.X) return "X";
       },
       switchPlayer(){
-        const {pcur,ai}=_G;
+        const {cells,pcur,ai}=_G;
+        let px=0,po=0;
+        for(let a,r=0;r<cells.length;++r){
+          a=cells[r];
+          for(let c=0;c<a.length;++c){
+            if(a[c]===_G.X)++px;
+            else if(a[c]===_G.O)++po;
+          }
+        }
+        _G.scores[_G.X].text=`${px}`;
+        _G.scores[_G.O].text=`${po}`;
+
         if(pcur===_G.X) _G.pcur= _G.O;
         if(pcur===_G.O) _G.pcur=_G.X;
-        if(ai && ai.pnum !== pcur)
-          EventBus.pub(["ai.move",ai]);
+
+        if(this.isGameOver(_G.pcur)){
+          _G.gameOver=true;
+          alert("poo");
+          Mojo.pause();
+        }else{
+          if(ai && ai.pnum !== pcur)
+            Mojo.emit(["ai.move",ai]);
+        }
       },
       checkTie(){
       },
       checkState(gpos){
         //0=>ok,1=>win,-1=>draw
         const {cells,pcur}=_G;
-        return _G.piecesFlipped(cells,gpos,pcur,pcur===_G.X?_G.O:_G.X);
-      }
+        return _G.piecesFlipped(cells,gpos,pcur,pcur===_G.X?_G.O:_G.X) }
     });
+
     _Z.runScene("level1");
   }
 

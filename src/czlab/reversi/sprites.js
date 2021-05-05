@@ -24,53 +24,55 @@
            Sprites:_S,
            Input:_I,
            Game:_G,
-           ute:_,is,EventBus} = Mojo;
+           v2:_V,
+           ute:_,is} = Mojo;
 
-    _G.Backgd=function(){
+    /** @ignore */
+    _G.Backgd=()=>{
       let s= _S.sprite("bggreen.jpg");
       let w=s.width;
       let h=s.height;
       _S.centerAnchor(s);
       _S.scaleXY(s,Mojo.width/w,
                    Mojo.height/h);
-      return _S.setXY(s,MFL(Mojo.width/2),MFL(Mojo.height/2));
-    };
+      return _V.set(s,MFL(Mojo.width/2),MFL(Mojo.height/2)) };
 
+    /** @ignore */
     _G.AI=function(scene,v){
       const o={
         pnum:v,
-        board: _G.Reversi(_G.X, _G.O)
-      };
-      o.aiMove=function(){
-        _.delay(500,()=> o.makeMove())
-      };
-      o.makeMove=function(){
-        let pos,rc, {cells}= _G;
-        this.board.syncState(cells, this.pnum);
-        pos= _N.evalNegaMax(this.board);
-        if(pos)
-          rc= _G.checkState(pos);
-        if(rc && rc.length>0){
-          rc.forEach(c=>{
-            _G.flipIcon(scene,c);
-            cells[c[0]][c[1]]=v;
-          });
-          _G.flipIcon(scene,pos,v);
-          cells[pos[0]][pos[1]]=v;
-          //G.playSnd();
-          //_E.pub(["ai.moved",this.scene],pos);
-          //cells[pos[0]][pos[1]] = this.pnum;
-          _G.switchPlayer();
-        }else{
-          //_G.state.set("lastWin", rc===1 ? _G.state.get("pcur") : 0);
-          //_Z.runScene("EndGame",5);
-          console.log("DONE!");
+        board: _G.Reversi(_G.X, _G.O),
+        aiMove(){
+          _.delay(500,()=> o.makeMove()) },
+        makeMove(){
+          let pos,rc, {cells}= _G;
+          this.board.syncState(cells, this.pnum);
+          pos= _N.evalNegaMax(this.board);
+          if(pos)
+            rc= _G.checkState(pos);
+          if(rc && rc.length>0){
+            rc.forEach(c=>{
+              _G.flipIcon(scene,c);
+              cells[c[0]][c[1]]=v;
+            });
+            _G.flipIcon(scene,pos,v);
+            cells[pos[0]][pos[1]]=v;
+            //G.playSnd();
+            //_E.pub(["ai.moved",this.scene],pos);
+            //cells[pos[0]][pos[1]] = this.pnum;
+            _G.switchPlayer();
+          }else{
+            //_G.state.set("lastWin", rc===1 ? _G.state.get("pcur") : 0);
+            //_Z.runScene("EndGame",5);
+            console.log("DONE!");
+          }
         }
       };
-      EventBus.sub(["ai.move",o], "aiMove",o);
+      Mojo.on(["ai.move",o], "aiMove",o);
       return o;
     };
 
+    /** @ignore */
     _G.flipIcon=function(s,pos,V){
       for(let v,p,c,i=0,z=s.children.length;i<z;++i){
         c=s.children[i];
@@ -94,13 +96,16 @@
       }
     };
 
-    _G.Tile=function(id,x,y,tileX,tileY,props){
+    /** @ignore */
+    _G.Tile=(id,x,y,tileX,tileY,props)=>{
       let s= _S.sprite(_S.frames("icons.png",tileX,tileY));
       _S.scaleXY(s,_G.iconScale[0],_G.iconScale[1]);
-      _S.setXY(_S.uuid(s,id),x,y);
+      _V.set(_S.uuid(s,id),x,y);
       _.inject(s.g,props);
       _I.makeButton(_S.centerAnchor(s));
-      if(props.gval !== 0){s.m5.enabled=false}
+      if(props.gval !== 0){
+        s.m5.enabled=false
+      }
       s.m5.showFrame(_G.getIcon(props.gval));
       s.g.aiMoved=function(){
         s.m5.enabled=false;
@@ -109,12 +114,14 @@
       };
       s.m5.press=function(){
         const {pcur,ai,pnum,cells}=_G;
+        if(_G.gameOver){return}
         //if AI is thinking, back off
         if(ai && pcur===ai.pnum){ return }
         //if cell already marked, go away
         if(s.m5.marked) {return}
         //_G.playSnd();
-        if(cells[s.g.gpos[0]][s.g.gpos[1]] !== 0)
+        if(cells[s.g.gpos[0]]
+                [s.g.gpos[1]] !== 0)
           throw "Fatal: cell marked already!!!!";
         let rc= _G.checkState(s.g.gpos);
         if(rc.length>0){
@@ -130,7 +137,7 @@
           //_Z.runScene("EndGame",5);
         }
       }
-      EventBus.sub(["ai.moved",s],"aiMoved",s.g);
+      Mojo.on(["ai.moved",s],"aiMoved",s.g);
       return s;
     };
   }
