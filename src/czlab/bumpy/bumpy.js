@@ -17,10 +17,14 @@
   "use strict";
 
   function scenes(Mojo){
-    const {Scenes:_Z,Sprites:_S,Game:_G,ute:_,is,EventBus}=Mojo;
-    const MFL=Math.floor;
     const Q=window["io/czlab/mcfud/qtree"]();
+    const MFL=Math.floor;
+    const {Scenes:_Z,
+			     Sprites:_S,
+			     v2:_V,
+			     Game:_G,ute:_,is}=Mojo;
 
+		//level1
     _Z.defScene("level1",{
       _initLevel(left,right,top,bottom){
 				_G.qt= Q.quadtree({left,right,top,bottom});
@@ -37,10 +41,10 @@
 					s=_S.extend(s);
 					s.g.checked=false;
 					s.getBBox=()=>{
-						return {x1:s.x,y1:s.y,x2:s.x+s.width,y2:s.y+s.height}
-					};
-					_S.velXY(s,_.randFloat(-0.5*K,0.5*K),
-						         _.randFloat(-0.5*K,0.5*K));
+						return {x1:s.x,y1:s.y,
+							      x2:s.x+s.width,y2:s.y+s.height} };
+					_V.set(s.m5.vel,_.randFloat(-0.5*K,0.5*K),
+						              _.randFloat(-0.5*K,0.5*K));
 					_G.items.push(s);
         }
       },
@@ -88,8 +92,9 @@
 				this.g.gfx.clear();
 				_G.qt.reset();
 				_G.items.forEach(o=>{
-					o.x += o.m5.vel[0];
-					o.y += o.m5.vel[1];
+					_V.add$(o,o.m5.vel);
+					//o.x += o.m5.vel[0];
+					//o.y += o.m5.vel[1];
 					//contain it
 					if(o.x<_G.arena.x1){ o.x=_G.arena.x1; o.m5.vel[0] *= -1; }
 					if(o.x+o.width > _G.arena.x2){ o.x=_G.arena.x2-o.width; o.m5.vel[0] *= -1; }
