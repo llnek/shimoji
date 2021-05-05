@@ -73,17 +73,25 @@
       },
       _initBlockMap(){
         let b=_S.sprite("0.png");
-        for(let s,y=_G.rows-1;y>=0;--y){
+        let sx=_G.vbox.x1;
+        let sy=_G.vbox.y1;
+        let cells=[];
+        for(let r,s,y=_G.rows-1;y>=0;--y){
+          r=[];
+          cells.push(r);
           for(let p,x=0;x<_G.cols;++x){
             s=_S.sprite("3.png");
-            s.scale.x=_G.scaleX;
-            s.scale.y=_G.scaleY;
-            s.x=_G.tileW*x;
-            s.y=_G.vbox.y2-_G.tileH*(y+1);
-            this.insert(s);
+            s.width=_G.tileW;
+            s.height=_G.tileH;
+            //s.scale.x=_G.scaleX;
+            //s.scale.y=_G.scaleY;
+            s.x= _G.tileW*x;
+            s.y= _G.vbox.y2-_G.tileH*(y+1);
+            //this.insert(s);
+            r.push({x1:s.x,y1:s.y,x2:s.x+s.width,y2:s.y+s.height});
           }
         }
-        return this;
+        _G.cells=cells;
       },
       previewNext(){
         _G.previewNext(this) },
@@ -122,6 +130,23 @@
       },
       onSwipeDown(){
         _G.dropDown(this,_G.curShape) },
+      postUpdate(){
+        let sx=_G.vbox.x1;
+        let sy=_G.vbox.y1;
+        let ex=_G.vbox.x2;
+        let ey=_G.vbox.y2;
+        _G.gfx.clear();
+        _G.gfx.lineStyle(1,_S.color("#cccccc"));
+        _G.gfx.alpha=0.2;
+        for(let i=1;i<_G.rows;++i){
+          _G.gfx.moveTo(sx,sy+i*_G.tileH);
+          _G.gfx.lineTo(ex,sy+i*_G.tileH);
+        }
+        for(let i=1;i<_G.cols;++i){
+          _G.gfx.moveTo(sx+i*_G.tileW,sy);
+          _G.gfx.lineTo(sx+i*_G.tileW,ey);
+        }
+      },
       setup(){
         this._initLevel();
         let bg= _S.rectangle(_G.cols*_G.tileW,10+_G.rows*_G.tileH,0,"white",1);
@@ -139,6 +164,13 @@
         bg.y=_G.vbox.y1-10;
         this.insert(bg);
 
+        _G.gfx= _S.graphics();
+        this.insert(_G.gfx);
+
+        this.future(()=>{
+          _.shuffle(_G.ModelList)
+        },500);
+
         _G.gameScene=this;
         _G.previewNext(this);
         _G.slowDown(this,_G.reifyNextShape(this));
@@ -154,7 +186,6 @@
         Mojo.on(["touchstart"],"onPtrDown",this);
         Mojo.on(["mousemove"],"onPtrMove",this);
         Mojo.on(["touchmove"],"onPtrMove",this);
-
         Mojo.on(["swipe.down"],"onSwipeDown",this); }
     });
 
