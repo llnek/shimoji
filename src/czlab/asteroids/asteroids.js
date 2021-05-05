@@ -27,10 +27,13 @@
            Input:_I,
            Game:_G,
            "2d":_2d,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     const COLORS= [0,60,240];
 
+    _G.explode=Mojo.sound("explosion.mp3");
+    _G.shoot=Mojo.sound("shoot.mp3");
     _G.bullets=[];
     _G.astros=[];
     _G.RANK1=3;
@@ -38,6 +41,7 @@
     _G.RANK3=6;
     _G.STARS=500;
 
+    /** @ignore */
     function outline(radius,verts=64){
       let out=[];
       for(let noise,i=0; i<verts; ++i){
@@ -222,13 +226,14 @@
           x=_mkAstro(scene,t);
           g= 120*i + _.rand() * 120;
           g=B.angle + 360/((i+1)*90);
-          _S.velXY(x,Math.cos(g)*x.m5.speed*_.randSign(),
-                     Math.sin(g)*x.m5.speed*_.randSign());
-          _S.setXY(x,X,Y);
+          _V.set(x.m5.vel,Math.cos(g)*x.m5.speed*_.randSign(),
+                          Math.sin(g)*x.m5.speed*_.randSign());
+          _V.set(x,X,Y);
           scene.insert(x,true);
         }
         _.disj(_G.astros,a);
         a.visible=false;
+        _G.explode.play();
         scene.queueForRemoval(a);
       }
       a.g.onHit=(col)=>{
@@ -236,7 +241,7 @@
           a.g.explode(col.B);
         }
       };
-      EventBus.sub(["hit",a],"onHit",a.g);
+      Mojo.on(["hit",a],"onHit",a.g);
       _G.astros.push(a);
       a.tint=_S.color("orange");
       return a;
@@ -247,7 +252,7 @@
       const K= Mojo.getScaleFactor();
       _S.centerAnchor(s);
       s.m5.showFrame(0);
-      _S.accXY(s,8*K,8*K);
+      _V.set(s.m5.acc,8*K,8*K);
       s.scale.x *= 0.07*K;
       s.scale.y *= 0.07*K;
       s.m5.type=E_SHIP;
@@ -257,7 +262,7 @@
       _G.maxOmega= 400;
       _G.omegaDelta= 700;
       s.g.diameter=Math.sqrt(s.height*s.height+s.width*s.width);
-      const fire=_I.keybd(_I.keySPACE);
+      const fire=_I.keybd(_I.SPACE);
       fire.press = ()=>{
         let S=Math.sin(s.rotation);
         let C=Math.cos(s.rotation);
@@ -270,24 +275,25 @@
         b.m5.type=E_BULLET;
         b.tint=_S.color("yellow");
         b.angle=s.angle;
-        _S.setXY(b,x,y);
-        _S.velXY(b,5*C*K,5*S*K);
+        _V.set(b,x,y);
+        _V.set(b.m5.vel,5*C*K,5*S*K);
         b.m5.tick=()=>{
           if(!b.m5.dead) _S.move(b);
         };
         b.g.onHit=()=>{
-          EventBus.unsub(["hit",b],"onHit",b.g);
+          Mojo.off(["hit",b],"onHit",b.g);
           _.disj(_G.bullets,b);
           scene.queueForRemoval(b);
         };
         _G.bullets.push(b);
         scene.insert(b,true);
-        EventBus.sub(["hit",b],"onHit",b.g);
+        _G.shoot.play();
+        Mojo.on(["hit",b],"onHit",b.g);
       };
       s.m5.tick=(dt)=>{
-        let u= _I.keyDown(_I.keyUP);
-        let r= _I.keyDown(_I.keyRIGHT);
-        let l=_I.keyDown(_I.keyLEFT);
+        let u= _I.keyDown(_I.UP);
+        let r= _I.keyDown(_I.RIGHT);
+        let l=_I.keyDown(_I.LEFT);
         s.m5.showFrame(u?1:0);
         s.angle += _G.omega * dt;
         _G.omega *=  1 - dt;
@@ -314,11 +320,11 @@
       };
 
       s.g.onHit=()=>{
-        EventBus.unsub(["hit",s],"onHit",s.g);
+        Mojo.off(["hit",s],"onHit",s.g);
         scene.queueForRemoval(s);
         Mojo.pause();
       };
-      EventBus.sub(["hit",s],"onHit",s.g);
+      Mojo.on(["hit",s],"onHit",s.g);
       return s;
     }
 
@@ -340,10 +346,10 @@
         px=r * w + w2;
         py=_.rand()*H * h + h2;
         a=_mkAstro(scene,1);
-        _S.setXY(a,px,py);
+        _V.set(a,px,py);
         vx=px>cx? -speed:speed;
         vy=py>cy? -speed:speed;
-        _S.velXY(a,vx,vy);
+        _V.set(a.m5.vel,vx,vy);
         scene.insert(a,true);
       }
     }
@@ -351,7 +357,7 @@
     _Z.defScene("level1", {
       setup(){
         let s= this.ship= _mkShip(this);
-        _S.setXY(s,Mojo.width/2, Mojo.height/2);
+        _V.set(s,Mojo.width/2, Mojo.height/2);
         this.insert(s,true);
         _initAstros(this);
       },
@@ -359,7 +365,7 @@
         for(let a,i=_G.astros.length-1;i>=0;--i){
           a=_G.astros[i];
           this.searchSGrid(a).forEach(o=>{
-            _2d.hit(a,o);
+            _S.hit(a,o);
           });
         }
       }
@@ -368,13 +374,13 @@
 
   //config object
   const _$={
-    assetFiles: ["astro.png","rocket.png","laser.png"],
+    assetFiles: ["shoot.mp3","explosion.mp3",
+                 "astro.png","rocket.png","laser.png"],
     arena: {width:780, height:540},
     scaleToWindow: "max",
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.runScene("StarfieldBg");
-      //Mojo.Scenes.runScene("bg");
       Mojo.Scenes.runScene("level1");
     }
   };
