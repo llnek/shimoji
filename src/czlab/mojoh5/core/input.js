@@ -241,6 +241,7 @@
           mouseDown(e){
             //left click only
             if(e.button===0){
+              e.preventDefault();
               ptr._x = e.pageX - e.target.offsetLeft;
               ptr._y = e.pageY - e.target.offsetTop;
               //down,up,pressed
@@ -249,7 +250,6 @@
               ptr.downAt[1]=ptr._y;
               ptr.downTime = _.now();
               Mojo.Sound.init();
-              e.preventDefault();
               Mojo.emit(["mousedown"]);
             }
           },
@@ -261,11 +261,11 @@
           },
           mouseUp(e){
             if(e.button===0){
+              e.preventDefault();
               ptr.elapsedTime = Math.max(0,_.now()-ptr.downTime);
               ptr._x = e.pageX - e.target.offsetLeft;
               ptr._y = e.pageY - e.target.offsetTop;
               _.setVec(ptr.state,false,true);
-              e.preventDefault();
               Mojo.emit(["mouseup"]);
               let v= _V.vecAB(ptr.downAt,ptr);
               let z= _V.len2(v);
@@ -391,6 +391,7 @@
             return Geo.hitTestPointInPolygon(ptr.x,ptr.y,ps);
           }
         };
+
         const sigs=[["mousemove", Mojo.canvas, ptr.mouseMove],
                     ["mousedown", Mojo.canvas,ptr.mouseDown],
                     ["mouseup", window, ptr.mouseUp],
@@ -417,7 +418,6 @@
     _.addEvent([["keyup", window, _uh, false],
                 ["keydown", window, _dh, false]]);
 
-    _$.pointer();
     return (Mojo.Input= _$);
   }
 

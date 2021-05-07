@@ -25,7 +25,13 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game scenes
   function scenes(Mojo){
-    const {Scenes,Sprites,Input,Game,FX,ute:_,is,EventBus} = Mojo;
+    const {Scenes,
+           Sprites,
+           Input,
+           Game,
+           FX,
+           v2:_V,
+           ute:_,is} = Mojo;
 
     Game.icons= IMAGEFILES;
     Game.tilesInX=6;
@@ -35,6 +41,34 @@
     //background
     Scenes.defScene("bg",{
       setup(){
+      }
+    });
+
+    //hud
+    Scenes.defScene("hud",{
+      setup(){
+        let K= Mojo.getScaleFactor();
+        let sx=Game.arena.x1;
+        let sy=Game.arena.y1;
+        let w= Game.arena.x2-sx;
+        let h= Game.arena.y2-sy;
+        let b=16*K;
+        let b2=b/2;
+        let r,o={x1:sx-b,y1:sy-b};
+        o.x2=o.x1+w+b;
+        o.y2=o.y1+h+b;
+        let g=Sprites.drawGridBoxEx(o,b,"#cbcbcb",b/2);
+        let s=Sprites.sprite(g);
+        s.x=o.x1;
+        s.y=o.y1;
+        this.insert(s);
+
+        this.msg=Sprites.bitmapText("0",{fontName:"unscii",fontSize:36,tint:0xffffff});
+        //this.insert(this.msg);
+        //Sprites.pinTop(this,this.msg,-60);
+      },
+      postUpdate(){
+
       }
     });
 
@@ -78,8 +112,8 @@
             c=Game.match3.valueAt(y,x);
             g=Game.grid[y][x];
             t= this._createTile(c);
-            Sprites.setXY(t,MFL((g.x1+g.x2)/2),
-                            MFL((g.y1+g.y2)/2));
+            _V.set(t,MFL((g.x1+g.x2)/2),
+                     MFL((g.y1+g.y2)/2));
             Game.match3.setCustomData(y,x,t);
           }
         }
@@ -91,12 +125,13 @@
         let z=g[0][0];
         Game.tileW=z.x2-z.x1;
         Game.tileH=z.y2-z.y1;
+        Game.arena=Sprites.gridBBox(0,0,g);
         this._backdrop();
         this._initLevel();
-        this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
-        EventBus.sub(["mousedown"],"_onMouseDown",this);
-        EventBus.sub(["mousemove"],"_onMouseMove",this);
-        EventBus.sub(["mouseup"],"_onMouseUp",this);
+        //Mojo.on(["mousedown"],"_onMouseDown",this);
+        //Mojo.on(["mousemove"],"_onMouseMove",this);
+        Mojo.on(["single.tap"],"_onClick",this);
+        //this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
       },
       _hitTest(){
         let pos;
@@ -120,7 +155,7 @@
           e= FX.slide(t, FX.SMOOTH_CUBIC,
                          t.x + Game.tileW  * move.deltaColumn,
                          t.y + Game.tileH * move.deltaRow, 10);
-          e.cb=()=>{
+          e.onComplete=()=>{
             if(--cnt===0){
               if(!Game.match3.matchInBoard()){
                 if(swapBack){
@@ -141,8 +176,8 @@
         let t,e;
         matched.forEach(m=>{
           t=Game.match3.customDataOf(m.row, m.column);
-          e=FX.pulse(t,0,10);
-          e.cb=()=>{
+          e=FX.pulse(t,0,10,false);
+          e.onComplete=()=>{
             Game.match3.setCustomData(m.row,m.column,null);
             Sprites.remove(t);
             if(--cnt===0)
@@ -161,7 +196,7 @@
           e=FX.slide(t,FX.BOUNCE_OUT,
                        t.x,
                        t.y + move.deltaRow * Game.tileH,10);
-          e.cb=()=>{
+          e.onComplete=()=>{
             if(--moved===0)
               this._endMove();
           };
@@ -177,7 +212,7 @@
           e=FX.slide(t,FX.BOUNCE_OUT,
                        t.x,
                        TL.y1 + Game.tileH * move.row + MFL(Game.tileH/2), 10*move.deltaRow);
-          e.cb=()=>{
+          e.onComplete=()=>{
             if(--moved===0)
               this._endMove();
           };
@@ -190,7 +225,7 @@
           Game.selecting = true;
         }
       },
-      _onMouseUp(){
+      _onClick(){
         if(Game.selecting){
           Game.dragging = true;
           let t= this._hitTest();
@@ -242,13 +277,14 @@
   }
 
   const _$={
+    assetFiles: IMAGEFILES.slice(0),
     arena: {width:480,height:800},
-    assetFiles: IMAGEFILES,
     scaleToWindow: "max",
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.runScene("bg");
       Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("hud");
     }
   };
 

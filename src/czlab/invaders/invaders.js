@@ -31,7 +31,7 @@
            Sprites:_S,"2d":_2d}=Mojo;
 
     const ALIENS=["purple","blue","blue","green","green"];
-    const WALK_FRAME=800;
+    const WALK_FRAME=400;
     const UFO_INTV=10;
     const DIMX=11;
     const DIMY=5;
@@ -140,7 +140,7 @@
         r=_G.aliens[y];
         for(let a,x=0;x<r.length;++x){
           if(a=r[x]){
-            ex= a.x-MFL(a.width/2);
+            ex= a.x- a.width;//MFL(a.width/2);
             if(ex<=_G.arena.x1){
               flip=true;
               break;
@@ -271,7 +271,8 @@
         let w= _G.arena.x2-sx;
         let h= _G.arena.y2-sy;
         let b=16*K;
-        let r,o={x1:sx-b,y1:sy-b};
+        let b2=b/2;
+        let r,o={x1:sx-b2,y1:sy-b2};
         o.x2=o.x1+w+b;
         o.y2=o.y1+h+b;
         let g=_S.drawGridBoxEx(o,b,"#cbcbcb",b/2);
