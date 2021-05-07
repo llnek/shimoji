@@ -19,8 +19,10 @@
   window["io.czlab.snake.models"]=function(Mojo){
     const {Sprites:_S,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
+    /** @ignore */
     _G.snakeEatItem=function(){
       let s= _G.item;
       let head=_G.snake[0];
@@ -32,6 +34,7 @@
       return false;
     }
 
+    /** @ignore */
     _G.snakeEatSelf=function(){
       let s= _G.snake;
       let head=s[0];
@@ -45,6 +48,7 @@
       return false;
     }
 
+    /** @ignore */
     _G.snakeMoveRight=function(scene){
       let s= _G.snake;
       let head=s[0];
@@ -63,9 +67,11 @@
       }
       head.g.col += 1;
       head.x += _G.tileW;
+      head.angle=0;
       return _G.snakeDir=Mojo.RIGHT;
     };
 
+    /** @ignore */
     _G.snakeMoveLeft=function(scene){
       let s= _G.snake;
       let head=s[0];
@@ -84,9 +90,11 @@
       }
       head.g.col -= 1;
       head.x -= _G.tileW;
+      head.angle= 180;
       return _G.snakeDir=Mojo.LEFT;
     };
 
+    /** @ignore */
     _G.snakeMoveUp=function(scene){
       let s= _G.snake;
       let head=s[0];
@@ -105,9 +113,11 @@
       }
       head.g.row -= 1;
       head.y -= _G.tileH;
+      head.angle=-90;
       return _G.snakeDir=Mojo.UP;
     };
 
+    /** @ignore */
     _G.snakeMoveDown=function(scene){
       let s= _G.snake;
       let head=s[0];
@@ -126,14 +136,17 @@
       }
       head.g.row += 1;
       head.y += _G.tileH;
+      head.angle=90;
       return _G.snakeDir=Mojo.DOWN;
     };
 
+    /** @ignore */
     _G.growSnake=function(scene){
       let n=_G.snake.length;
       let last=_G.snake[n-1];
       let last2=_G.snake[n-2];
       let t= _S.sprite("snake.png");
+      _S.centerAnchor(t);
       _S.scaleXY(t,_G.scaleX, _G.scaleY);
       if(last.g.col===last2.g.col){
         t.g.col=last.g.col;
@@ -165,13 +178,14 @@
         _G.timerid=-1;
         ok=false;
       }else{
-        _S.setXY(t,g.x1,g.y1);
+        _V.copy(t,_S.bboxCenter(g));
         scene.insert(t);
         _G.snake.push(t);
       }
       return ok;
     };
 
+    /** @ignore */
     _G.Item=function(scene){
       let x=0,y=0,ok;
       while(true){
@@ -187,17 +201,18 @@
         }
         if(ok){break}
       }
-      let m=_S.sprite("apple.png");
+      let m=_S.sprite("apple_00.png");
       let K=Mojo.scaleXY([m.width,m.height],
                          [_G.tileW, _G.tileH]);
       let g= _G.grid[y][x];
       _S.scaleXY(m,K[0],K[1]);
-      _S.setXY(m,g.x1,g.y1);
+      _V.set(m,g.x1,g.y1);
       m.g.row=y;
       m.g.col=x;
       scene.insert(_G.item=m);
     };
 
+    /** @ignore */
     _G.Snake=function(scene,col,row,dir=Mojo.RIGHT){
       let o= _G.snake=[null,null];
       let h= _S.sprite("head.png");
@@ -206,13 +221,16 @@
                          [_G.tileW, _G.tileH]);
       let g= _G.grid[row][col];
 
+      _S.centerAnchor(h);
+      _S.centerAnchor(s);
+
       _G.snakeDir=dir;
       _G.scaleX=K[0];
       _G.scaleY=K[1];
 
       o[0]=h;
       _S.scaleXY(h,K[0],K[1]);
-      _S.setXY(h,g.x1,g.y1);
+      _V.copy(h,_S.bboxCenter(g));
       h.g.row=row;
       h.g.col=col;
       scene.insert(h);
@@ -236,7 +254,7 @@
       s.g.row=row;
       s.g.col=col;
       _S.scaleXY(s,K[0],K[1]);
-      _S.setXY(s,g.x1,g.y1);
+      _V.copy(s,_S.bboxCenter(g));
       scene.insert(s);
 
       //grow the rest of the snake

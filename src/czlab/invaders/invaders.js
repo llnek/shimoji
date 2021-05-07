@@ -27,7 +27,7 @@
            Input:_I,
            ute:_,
            is,
-           EventBus,
+           v2:_V,
            Sprites:_S,"2d":_2d}=Mojo;
 
     const ALIENS=["purple","blue","blue","green","green"];
@@ -38,13 +38,16 @@
 
     const UFOSPEED=8;
 
+    _G.score=0;
+
+    /** @ignore */
     function _showUfo(){
       let s= _G.ufo;
-      s.x=_G.arena.x1-s.width;
-      s.y=0;
       s.visible=true;
-    }
+      s.y=s.height;
+      s.x=_G.arena.x1-s.width }
 
+    /** @ignore */
     function _ufo(scene){
       let s= _G.ufo= _S.sprite("ufo.png");
       let K=Mojo.getScaleFactor();
@@ -63,6 +66,7 @@
       scene.insert(s);
     }
 
+    /** @ignore */
     function _aliens(scene){
       let K=Mojo.getScaleFactor();
       let out={},
@@ -98,6 +102,7 @@
       _G.arena={x1:sx-margin,x2:ex+margin,y1:10,y2:Mojo.height-10};
     }
 
+    /** @ignore */
     function _dropDown(){
       for(let r,y=0;y<_G.aliens.length;++y){
         r=_G.aliens[y];
@@ -107,6 +112,7 @@
       }
     }
 
+    /** @ignore */
     function _checkRight(){
       let sx,ex,flip;
       for(let r,y=0;y<_G.aliens.length;++y){
@@ -127,6 +133,7 @@
       }
     }
 
+    /** @ignore */
     function _checkLeft(){
       let sx,ex,flip;
       for(let r,y=0;y<_G.aliens.length;++y){
@@ -147,6 +154,7 @@
       }
     }
 
+    /** @ignore */
     function _walkAliens(){
       if(_G.marchDir===Mojo.RIGHT){
         _checkRight();
@@ -171,6 +179,7 @@
       _.delay(WALK_FRAME,_walkAliens);
     }
 
+    /** @ignore */
     function _player(scene){
       let s= _G.player= _S.sprite("Laser_Cannon.png");
       let K=Mojo.getScaleFactor();
@@ -181,22 +190,23 @@
       s.m5.uuid="player";
       s.g.frame=0;
       s.m5.tick=()=>{
-        _2d.contain(_S.move(s),scene,false);
+        _S.clamp(_S.move(s),scene,false);
       };
-      _S.pinBottom(scene,s,-s.height*1.2*K);
+      _S.pinBottom(scene,s,-s.height*2*K);
       scene.insert(s);
     }
 
+    /** @ignore */
     function _controls(scene){
       const K=Mojo.getScaleFactor();
       const s= _G.player;
-      const goLeft = _I.keybd(_I.keyLEFT,
-        ()=>{ _S.velXY(s,-s.m5.speed,0) },
-        ()=>{ !goRight.isDown && _S.velXY(s,0) });
+      const goLeft = _I.keybd(_I.LEFT,
+        ()=>{ _V.set(s.m5.vel,-s.m5.speed,0) },
+        ()=>{ !goRight.isDown && _V.setX(s.m5.vel,0) });
 
-      const goRight =_I.keybd(_I.keyRIGHT,
-        ()=>{ _S.velXY(s,s.m5.speed,0) },
-        ()=>{ !goLeft.isDown && _S.velXY(s,0) });
+      const goRight =_I.keybd(_I.RIGHT,
+        ()=>{ _V.set(s.m5.vel,s.m5.speed,0) },
+        ()=>{ !goLeft.isDown && _V.setX(s.m5.vel,0) });
 
       function ctor(){
         let b=_S.sprite("bullet.png",true);
@@ -224,7 +234,7 @@
         };
         return b;
       }
-      const fire = _I.keybd(_I.keySPACE,
+      const fire = _I.keybd(_I.SPACE,
           ()=>{
             let b= _S.shoot(_G.player, -Mojo.PI_90,
                             7*K, ctor, MFL(_G.player.width/2), 0);
@@ -233,6 +243,7 @@
           });
     }
 
+    /** @ignore */
     _Z.defScene("level1",{
       _initLevel(){
         _aliens(this);
@@ -248,10 +259,42 @@
         _.delay(UFO_INTV*1000,_showUfo);
       },
       postUpdate(dt){
-        //_S.drawGridBox(_G.arena,1,"white",this.g.gfx);
       }
     });
 
+    _Z.defScene("hud",{
+      setup(){
+        //need to grow the arena
+        let K= Mojo.getScaleFactor();
+        let sx=_G.arena.x1;
+        let sy=_G.arena.y1;
+        let w= _G.arena.x2-sx;
+        let h= _G.arena.y2-sy;
+        let b=16*K;
+        let r,o={x1:sx-b,y1:sy-b};
+        o.x2=o.x1+w+b;
+        o.y2=o.y1+h+b;
+        let g=_S.drawGridBoxEx(o,b,"#cbcbcb",b/2);
+        let s=_S.sprite(g);
+        s.x=o.x1;
+        s.y=o.y1;
+        r= _S.rectangle(o.x1+1,Mojo.height,0,0);
+        this.insert(r);
+        r= _S.rectangle(o.x2+1,Mojo.height,0,0);
+        r.x=o.x2+b;
+        this.insert(r);
+        //add last
+        this.insert(s);
+
+        this.msg=_S.bitmapText("0",{fontName:"unscii",fontSize:36,tint:0xffffff});
+        this.msg.x= (o.x1+o.x2)/2;
+        this.msg.y= 10*K;
+        this.insert(this.msg);
+      },
+      postUpdate(){
+        this.msg.text= `${_G.score}`;
+      }
+    })
   }
 
   window.addEventListener("load", ()=>
@@ -263,6 +306,7 @@
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.runScene("hud");
       }
     })
   );

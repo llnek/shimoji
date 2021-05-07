@@ -174,6 +174,9 @@
     /**Low level sprite creation. */
     function _sprite(src,ctor){
       let s,obj;
+      if(_.inst(Mojo.PXGraphics,src)){
+        src=_genTexture(src);
+      }
       if(_.inst(Mojo.PXTexture,src)){
         obj=src
       }else if(is.vec(src)){
@@ -1126,6 +1129,14 @@
         ctx.lineStyle(lineWidth,this.color(lineColor));
         ctx.drawRect(bbox.x1,bbox.y1,
                      bbox.x2-bbox.x1,bbox.y2-bbox.y1);
+        return ctx;
+      },
+      drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=null){
+        if(!ctx)
+          ctx= this.graphics();
+        ctx.lineStyle(lineWidth,this.color(lineColor));
+        ctx.drawRoundedRect(bbox.x1,bbox.y1,
+                            bbox.x2-bbox.x1,bbox.y2-bbox.y1,radius);
         return ctx;
       },
       /**Draw grid lines.

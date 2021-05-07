@@ -22,7 +22,8 @@
            Sprites:_S,
            Input:_I,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     window["io.czlab.snake.models"](Mojo);
 
@@ -33,7 +34,7 @@
 
     _Z.defScene("level1",{
       _initGrid(){
-        let g= _G.grid = _S.gridSQ(30,0.95);
+        let g= _G.grid = _S.gridSQ(18,0.95);
         let t=g[0][0];
         _G.tileW=t.x2-t.x1;
         _G.tileH=t.y2-t.y1;
@@ -41,10 +42,12 @@
         _G.COLS=g[0].length;
         return g;
       },
-      _drawGrid(){
-        let b= _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2,"#fff");
-        let n= _S.drawGridLines(0,0,_G.grid,2,"#fff");
-        this.insert(n);
+      _drawGrid(){//bgColor:0xAAD751,
+        let b= _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2,"#aad751");
+        //let n= _S.drawGridLines(0,0,_G.grid,2,"#aad751");
+        //n.alpha=0.7;
+        //b.alpha=0.7;
+        //this.insert(n);
         this.insert(b);
       },
       setup(){
@@ -56,7 +59,7 @@
         this._makeSnake();
         this.grow();
         this._makeItem();
-        EventBus.sub(["recalc",this],"recalc");
+        Mojo.on(["recalc",this],"recalc");
         _.delay(Mojo.u.frameDelay,()=>this.recalc());
       },
       grow(){
@@ -73,16 +76,16 @@
       },
       recalc(){
         let c=_G.snakeDir;
-        if(_I.keyDown(_I.keyRIGHT)){
+        if(_I.keyDown(_I.RIGHT)){
           if(c !== Mojo.LEFT)
             _G.snakeMoveRight(this);
-        } else if(_I.keyDown(_I.keyLEFT)){
+        } else if(_I.keyDown(_I.LEFT)){
           if(c !== Mojo.RIGHT)
             _G.snakeMoveLeft(this);
-        } else if(_I.keyDown(_I.keyUP)){
+        } else if(_I.keyDown(_I.UP)){
           if(c !== Mojo.DOWN)
             _G.snakeMoveUp(this);
-        } else if(_I.keyDown(_I.keyDOWN)){
+        } else if(_I.keyDown(_I.DOWN)){
           if(c !== Mojo.UP)
             _G.snakeMoveDown(this);
         } else if(c===Mojo.RIGHT){
@@ -118,11 +121,13 @@
   }
 
   const _$={
-    assetFiles:["head.png","snake.png","apple.png"],
+    assetFiles:["head.png","snake.png","tail.png","apple_00.png"],
     arena: {width:640,height:480},
     scaleToWindow: "max",
     //bgColor: 0x51b2ee,
-    bgColor:0x239920,
+    //bgColor:0x239920,
+    bgColor:0x99CC46,
+    //bgColor:0xAAD751,
     frameDelay:500,
     itemInterval:6000,
     growthInterval:3000,

@@ -30,14 +30,14 @@
     function _calcPower(s,cx,cy){
       const a= +cx;
       const b= +cy;
-      return Math.min(1, Math.sqrt(a*a + b*b)/s.m5.outerRadius)
-    }
+      return Math.min(1, Math.sqrt(a*a + b*b)/s.m5.outerRadius) }
 
     /** @ignore */
     function _calcDir(cx,cy){
       const rad= Math.atan2(+cy, +cx);
       let ret= Mojo.TOP_RIGHT;
-      if((rad >= -P8 && rad<0) || (rad >= 0 && rad<P8)){
+      if((rad >= -P8 && rad<0) ||
+         (rad >= 0 && rad<P8)){
         ret= Mojo.RIGHT
       }
       else if(rad >= P8 && rad < 3*P8){
@@ -49,7 +49,8 @@
       else if(rad >= 5*P8 && rad < 7*P8){
         ret= Mojo.BOTTOM_LEFT
       }
-      else if((rad >= 7*P8 && rad<Math.PI) || (rad >= -Math.PI && rad < -7*P8)){
+      else if((rad >= 7*P8 && rad<Math.PI) ||
+              (rad >= -Math.PI && rad < -7*P8)){
         ret= Mojo.LEFT
       }
       else if(rad >= -7*P8 && rad < -5*P8){
@@ -219,13 +220,12 @@
       joystick(options){
         let inner= Mojo.Sprites.sprite("boot/joystick-handle.png");
         let outer= Mojo.Sprites.sprite("boot/joystick.png");
-        let mo= _.inject({outerScaleX:1,
-                          outerScaleY:1,
+        let mo= _.inject({outerScale:1,
+                          innerScale:1,
+                          inner,
+                          outer,
                           outerRadius:0,
                           innerRadius:0,
-                          innerScaleX:1,
-                          innerScaleY:1,
-                          inner,outer,
                           innerAlphaDft:0.5,
                           onStart(){},
                           onEnd(){},
@@ -236,8 +236,8 @@
         outer.anchor.set(0.5);
         inner.anchor.set(0.5);
         inner.alpha = mo.innerAlphaDft;
-        outer.scale.set(mo.outerScaleX, mo.outerScaleY);
-        inner.scale.set(mo.innerScaleX, mo.innerScaleY);
+        outer.scale.set(mo.outerScale, mo.outerScale);
+        inner.scale.set(mo.innerScale, mo.innerScale);
         stick.addChild(outer);
         stick.addChild(inner);
         mo.outerRadius = stick.width / 2.5;
