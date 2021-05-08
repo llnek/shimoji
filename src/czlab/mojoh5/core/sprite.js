@@ -590,6 +590,24 @@
         if(is.num(b4.x1))
           return _V.vec(MFL((b4.x1+b4.x2)/2),
                         MFL((b4.y1+b4.y2)/2)) },
+      /**Frame this box.
+       * @memberof module:mojoh5/Sprites
+       * @param {object} b4
+       * @return {Sprite}
+       */
+      bboxFrame(b,width=16,color="#dedede"){
+        let {x1,x2,y1,y2}=b;
+        let w=x2-x1;
+        let h=y2-y1;
+        let b2=width/2;
+        let bx={x1:x1-b2,y1:y1-b2};
+        bx.x2=x1+w+b2;
+        bx.y2=y1+h+b2;
+        let s=this.sprite(this.drawGridBoxEx(bx,width,color,b2));
+        s.x=x1-width;
+        s.y=y1-width;
+        return s;
+      },
       /**Find the size of the bounding box.
        * @memberof module:mojoh5/Sprites
        * @param {object} b4

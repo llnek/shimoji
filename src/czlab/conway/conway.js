@@ -22,7 +22,8 @@
            Sprites:_S,
            Tiles:_T,
            Game:_G,
-           ute:_, is, EventBus}= Mojo;
+           v2:_V,
+           ute:_, is}= Mojo;
 
     const SEEDS = {
       diehard: [
@@ -131,10 +132,18 @@
     const NBS= [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
     const _DELAY=300;
 
+    _Z.defScene("hud",{
+      setup(){
+        let K=Mojo.getScaleFactor();
+        let s= _S.bboxFrame(_G.arena,32*K);
+        this.insert(s);
+      }
+    });
+
     _Z.defScene("level1",{
       _tile(){
-        return _S.sprite(_S.frames("tiles.png",_G.iconSize[0],_G.iconSize[1]))
-      },
+        return _S.sprite(_S.frames("tiles.png",
+                                   _G.iconSize[0],_G.iconSize[1])) },
       _initLevel(){
         let g= _S.gridSQ(Mojo.u.DIM,0.9);
         let z= _S.sprite("tiles.png");
@@ -151,7 +160,7 @@
           for(let s,c,x=0;x<r.length;++x){
             s=this._tile();
             c=r[x];
-            _S.setXY(s,c.x1, c.y1);
+            _V.set(s,c.x1, c.y1);
             _S.scaleXY(s,_G.iconScale[0],_G.iconScale[1]);
             s.m5.showFrame(0);
             R.push({
@@ -241,12 +250,13 @@
         let {grid}=_G;
         let c0=grid[0][0];
         let bx=_S.gridBBox(0,0,grid);
-        let s=_S.group(_S.drawBody((ctx)=>{
-          _S.drawGridBox(bx,1,"white",ctx);
-          _S.drawGridLines(0,0,grid,1,"white",ctx);
-        }));
-        _S.setXY(s,c0.x1,c0.y1);
-        this.insert(s);
+        //let s=_S.group(_S.drawBody((ctx)=>{
+          //_S.drawGridBox(bx,1,"white",ctx);
+          //_S.drawGridLines(0,0,grid,1,"white",ctx);
+        //}));
+        _G.arena=bx;
+        //_V.set(s,c0.x1,c0.y1);
+        //this.insert(s);
         this._seed("random");
         _.delay(_DELAY,()=> this.onFrame());
       }
@@ -262,6 +272,7 @@
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("hud");
     }
   };
 

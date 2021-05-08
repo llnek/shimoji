@@ -162,7 +162,7 @@
         s.press=()=>{ _G.dropDown(this,_G.curShape) };
         bg.x=_G.vbox.x1;
         bg.y=_G.vbox.y1-10;
-        this.insert(bg);
+        //this.insert(bg);
 
         _G.gfx= _S.graphics();
         this.insert(_G.gfx);
@@ -191,13 +191,17 @@
 
     _Z.defScene("hud",{
       setup(){
-        let s= this.score= _S.bitmapText("0",{
+        let K=Mojo.getScaleFactor();
+        let LW=32*K;
+        let s= _S.bboxFrame(_G.vbox,LW);
+        this.insert(s);
+        s= this.score= _S.bitmapText("0",{
           fontName:"unscii",fontSize:32,fill:"white"
         });
         Mojo.on(["preview.shape"],"onPreview",this);
         this.insert(s);
 
-        let r= _S.rectangle(_G.tileW*6,_G.tileH*6,0,"white",1);
+        let r= _S.rectangle(_G.tileW*6,_G.tileH*6,0);
         let Y = MFL(Mojo.height/2);
         let X = MFL(_G.vbox.x1/2);
         Y -= MFL(r.height/2);
@@ -205,6 +209,8 @@
         r.x = X;
         r.y = Y;
         _G.previewBox=r;
+
+        r=_S.bboxFrame({x1:r.x, y1:r.y,x2:r.x+r.width,y2:r.y+r.height},LW);
         _G.gameScene.insert(r);
 
         _G.hud=this;
