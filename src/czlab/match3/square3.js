@@ -47,6 +47,10 @@
     //hud
     Scenes.defScene("hud",{
       setup(){
+        let K=Mojo.getScaleFactor();
+        let s=Sprites.bboxFrame(Game.arena,MFL(24*K));
+        this.insert(s);
+        /*
         let K= Mojo.getScaleFactor();
         let sx=Game.arena.x1;
         let sy=Game.arena.y1;
@@ -62,7 +66,7 @@
         s.x=o.x1;
         s.y=o.y1;
         this.insert(s);
-
+        */
         this.msg=Sprites.bitmapText("0",{fontName:"unscii",fontSize:36,tint:0xffffff});
         //this.insert(this.msg);
         //Sprites.pinTop(this,this.msg,-60);

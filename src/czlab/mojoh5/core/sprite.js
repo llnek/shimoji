@@ -595,7 +595,19 @@
        * @param {object} b4
        * @return {Sprite}
        */
-      bboxFrame(b,width=16,color="#dedede"){
+      bboxFrame(g,width=16,color="#dedede"){
+        let ctx= this.graphics();
+        let {x1,x2,y1,y2}=g;
+        let w=x2-x1;
+        let h=y2-y1;
+        ctx.lineStyle(width,this.color(color));
+        ctx.drawRoundedRect(0,0,w+width,h+width,MFL(width/4));
+        let s=this.sprite(ctx);
+        s.x=x1-width;
+        s.y=y1-width;
+        return s;
+      },
+      XXbboxFrame(b,width=16,color="#dedede"){
         let {x1,x2,y1,y2}=b;
         let w=x2-x1;
         let h=y2-y1;

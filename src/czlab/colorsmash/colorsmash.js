@@ -20,11 +20,17 @@
   //static data
   const IMAGEFILES= ["1s.png","2s.png","3s.png","4s.png","5s.png"];
   const MFL=Math.floor;
+
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game scenes
   function scenes(Mojo){
-    const {Scenes,Sprites,Input,Game,FX,ute:_} = Mojo;
+    const {Scenes,
+           Sprites,
+           Input,
+           v2:_V,
+           Game,FX,ute:_} = Mojo;
 
+    //
     Game.icons= IMAGEFILES;
     Game.tilesInX=6;
     Game.tilesInY=8;
@@ -33,6 +39,16 @@
     //background
     Scenes.defScene("bg",{
       setup(){
+      }
+    });
+
+    //hud
+    Scenes.defScene("hud",{
+      setup(){
+        let b=Sprites.gridBBox(0,0,Game.grid);
+        let K=Mojo.getScaleFactor();
+        let s=Sprites.bboxFrame(b,MFL(24*K));
+        this.insert(s);
       }
     });
 
@@ -67,8 +83,8 @@
         Sprites.centerAnchor(s);
         Sprites.sizeXY(s,Game.tileW, Game.tileH);
         s.iconColor=c;
-        Sprites.setXY(s,MFL((g.x2+g.x1)/2),
-                        MFL((g.y2+g.y1)/2));
+        _V.set(s,MFL((g.x1+g.x2)/2),
+                 MFL((g.y1+g.y2)/2));
         return this.insert(s);
       },
       _initLevel(){
@@ -161,7 +177,7 @@
           ex=MFL((g.x1+g.x2)/2);
           ey=MFL((g.y1+g.y2)/2);
           e=FX.slide(s, FX.BOUNCE_OUT, ex, ey, 20);
-          e.cb=()=>{
+          e.onComplete=()=>{
             Game.tiles[row*Game.tilesInX+col]=s;
             if(--cnt===0)
               this._addNewTiles();
@@ -181,7 +197,7 @@
           let s= this._createTile(pos);
           Game.tiles[pos]=s;
           let e= FX.fadeIn(s,30);
-          e.cb=()=>{
+          e.onComplete=()=>{
             if(--cnt===0)
               Game.busySignal=false;
           };
@@ -194,7 +210,7 @@
           s=Game.tiles[pos];
           Game.tiles[pos]=null;
           e=FX.scale(s,0,0,15);
-          e.cb=()=> {
+          e.onComplete=()=> {
             Sprites.remove(s);
             if(--cnt===0)
               this._dropTiles();
@@ -209,21 +225,23 @@
         Game.tileH=z.y2-z.y1;
         this._backdrop();
         this._initLevel();
-        this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
+        //this.insert(Sprites.uuid(Sprites.drawGridBox(g,4,"white"),"gbox"));
       }
     });
   }
 
   const _$={
+    assetFiles: IMAGEFILES.slice(0),
     arena: {width:480,height:800},
-    assetFiles: IMAGEFILES,
     scaleToWindow: "max",
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.runScene("bg");
       Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("hud");
     }
   };
+
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load", ()=> MojoH5(_$));

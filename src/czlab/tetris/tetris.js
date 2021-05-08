@@ -192,7 +192,7 @@
     _Z.defScene("hud",{
       setup(){
         let K=Mojo.getScaleFactor();
-        let LW=32*K;
+        let LW=36*K;
         let s= _S.bboxFrame(_G.vbox,LW);
         this.insert(s);
         s= this.score= _S.bitmapText("0",{
