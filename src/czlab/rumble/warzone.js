@@ -20,7 +20,7 @@
     const MFL=Math.floor;
     const {Sprites:_S,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           ute:_,is}=Mojo;
 
     const C_RUN="run",
         C_INIT="init",
@@ -47,11 +47,8 @@
         this.bots.push(_G.WarBot(t,color));
       },
       init:function(){
-        let a=_S.gridBox(0.95,0.95);
-        let g= _S.makeCells(a.x1,a.y1,
-                            a.x2,a.y2,
-                            _G.tileW,_G.tileH);
         let clen=TANKS.length;
+        let g= _G.grid;
         let x,X=g[0].length-1;
         let y,Y=g.length-1;
         let s,m=new Map();
@@ -65,8 +62,6 @@
             this._load(TANKS[clen], g[y][x]);
           }
         }
-        this.arena=a;
-        _G.arena=a;
       },
       sendAll:function(msg){
         this.bots.forEach(b=> b.g.send(msg));
@@ -166,6 +161,10 @@
           }
         }
         trash.forEach(e=>_.disj(t.g.events,e));
+        if(!halt && t.g.events.length===0){
+          let r= this.reconn();
+          t.g.send({cmd: C_RUN, data:r });
+        }
       },
       getEnemies:function(t){
         return this.bots.filter(b=> b !== t)

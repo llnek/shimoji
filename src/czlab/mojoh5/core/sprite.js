@@ -1066,8 +1066,11 @@
       gridSQ(dim,ratio=0.6,out=null){
         let sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
             w=MFL(sz/dim),
-            h=w,
-            sy=MFL((Mojo.height-sz)/2),
+            h=w;
+        if(!_.isEven(w)){--w}
+        h=w;
+        sz=dim*w;
+        let sy=MFL((Mojo.height-sz)/2),
             sx=MFL((Mojo.width-sz)/2),
             _x=sx,_y=sy;
         if(out){
@@ -1094,6 +1097,7 @@
             ch=MFL(szh/dimY),
             dim=cw>ch?ch:cw,
             _x,_y,sy,sx;
+        if(!_.isEven(dim)){dim--}
         szh=dimY*dim;
         szw=dimX*dim;
         sy= MFL((Mojo.height-szh)/2);

@@ -30,7 +30,8 @@
   window["io/czlab/rumble/warbot"]=function(Mojo, Zone){
     const {Game:_G,
            Sprites:_S,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     function WarBot(t, color){
       let h2=t.height/2;
@@ -57,7 +58,7 @@
           _G.warZone.contain(t,dist>0?-1:1);
           ok=false
         }else{
-          _S.setXY(t,x,y)
+          _V.set(t,x,y)
         }
         return ok;
       };
@@ -85,7 +86,7 @@
                  t.g.shells.length >= _G.MAX_SHELLS)){
               t.g.shellTS = 0;
               b=_G.shell(t.g.color);
-              _S.setXY(b,t.x,t.y);
+              _V.set(b,t.x,t.y);
               b.angle= t.angle+t.children[0].angle;
               t.g.shells.push(b);
             }

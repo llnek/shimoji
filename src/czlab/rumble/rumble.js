@@ -24,7 +24,8 @@
            Input:_I,
            "2d":_2d,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           v2:_V,
+           ute:_,is}=Mojo;
 
     window["io/czlab/rumble/warzone"](Mojo);
 
@@ -50,6 +51,7 @@
     _G.explosions=[];
     _G.bots=[];
 
+    /** @ignore */
     function makeShell(scene,color){
       let K=Math.max(0.7,Mojo.getScaleFactor());
       let s= _S.sprite("bullet.png");
@@ -64,36 +66,35 @@
       return scene.insert(s);
     };
 
+    /** @ignore */
     function makeBot(scene,color){
       let s= _S.sprite(`tank_${color}.png`);
       let b= _S.sprite(`turret_${color}.png`);
-      let K=Mojo.getScaleFactor();
       _S.centerAnchor(b);
       _S.centerAnchor(s);
       s.addChild(b);
-      _S.scaleXY(s,K,K);
-      s.height=MFL(s.height);
-      s.width=MFL(s.width);
+      _S.sizeXY(s,_G.tileW,_G.tileH);
       s.g.color=color;
-      if(!_.isEven(s.width))--s.width;
-      if(!_.isEven(s.height))--s.height;
       if(scene){
         scene.insert(s);
       }else{
-        _G.tileH=s.height;
-        _G.tileW=s.width;
         s=null;
       }
       return s;
     }
 
+    /** @ignore */
     _Z.defScene("level1",{
       setup(){
+        let g= _G.grid= _S.gridSQ(16,0.8);
+        let g0=g[0][0];
+        _G.arena= _S.gridBBox(0,0,g);
+        _G.tileW=g0.x2-g0.x1;
+        _G.tileH=g0.y2-g0.y1;
         _G.shell= color=> makeShell(this,color);
         _G.bot= color=> makeBot(this,color);
         makeBot(null,"red");
         _G.warZone.init();
-        this.insert(_S.drawGridBox(_G.warZone.arena));
       },
       postUpdate(){
         if(!_G.go){
@@ -102,17 +103,27 @@
         }
       }
     });
+
+    /** @ignore */
+    _Z.defScene("hud",{
+      setup(){
+        let K=Mojo.getScaleFactor();
+        let s= _S.bboxFrame(_G.arena,K*32);
+        this.insert(s);
+      }
+    });
   }
 
   const _$={
     assetFiles: ["tank_blue.png","tank_green.png","tank_red.png",
                  "bullet.png","turret_blue.png","turret_green.png","turret_red.png"],
-    arena: {width:8000,height:5600},
+    arena: {width:4000,height:2800},
     zoneMillis:10,
     scaleToWindow:"max",
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("hud");
     }
   };
 

@@ -31,6 +31,7 @@ class GreenBot extends UserBot{
       this.moveBack(this.radius);
     else
       this.moveForward(this.radius);
+    this.turnLeft(90);
   }
 }
 

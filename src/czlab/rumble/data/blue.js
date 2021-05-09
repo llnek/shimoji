@@ -33,6 +33,7 @@ class BlueBot extends UserBot{
       this.moveBack(this.radius);
     else
       this.moveForward(this.radius);
+    this.turnRight(90);
   }
 }
 
