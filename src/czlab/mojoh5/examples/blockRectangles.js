@@ -29,8 +29,8 @@
     _Z.defScene("level1",{
       setup(){
         let K=Mojo.getScaleFactor();
-        let red = G.red= _S.rectangle(32*K, 32*K, "red");
-        let blue = G.blue= _S.rectangle(64*K, 64*K, "blue");
+        let red = G.red= _S.rect(32*K, 32*K, "red");
+        let blue = G.blue= _S.rect(64*K, 64*K, "blue");
 
         blue.angle=60;
         _S.centerAnchor(blue);

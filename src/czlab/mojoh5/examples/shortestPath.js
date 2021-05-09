@@ -63,7 +63,7 @@
           path.forEach(node=>{
             let x = node.col * tw,
                 y = node.row * th,
-                s= _S.rectangle(tw,th,"yellow");
+                s= _S.rect(tw,th,"yellow");
             _V.set(s,x,y);
             self.insert(s);
             G.pathSprites.push(s);

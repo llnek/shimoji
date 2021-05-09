@@ -25,8 +25,8 @@
            ute:_,is}=Mojo;
 
     _Z.defScene("level1", function(){
-      let A=_S.rectangle(Mojo.width/2,Mojo.height/2,0xaa4455);
-      let C=_S.rectangle(Mojo.width/2,Mojo.height/2);
+      let A=_S.rect(Mojo.width/2,Mojo.height/2,0xaa4455);
+      let C=_S.rect(Mojo.width/2,Mojo.height/2);
       let hedgehog = _S.sprite("hedgehog.png");
       let tiger = _S.sprite("tiger.png");
       let cat = _S.sprite("cat.png");

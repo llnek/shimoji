@@ -279,9 +279,9 @@
         let s=_S.sprite(g);
         s.x=o.x1;
         s.y=o.y1;
-        r= _S.rectangle(o.x1+1,Mojo.height,0,0);
+        r= _S.rect(o.x1+1,Mojo.height,0,0);
         this.insert(r);
-        r= _S.rectangle(o.x2+1,Mojo.height,0,0);
+        r= _S.rect(o.x2+1,Mojo.height,0,0);
         r.x=o.x2+b;
         this.insert(r);
         //add last

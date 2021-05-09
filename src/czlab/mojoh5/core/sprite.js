@@ -607,19 +607,6 @@
         s.y=y1-width;
         return s;
       },
-      XXbboxFrame(b,width=16,color="#dedede"){
-        let {x1,x2,y1,y2}=b;
-        let w=x2-x1;
-        let h=y2-y1;
-        let b2=width/2;
-        let bx={x1:x1-b2,y1:y1-b2};
-        bx.x2=x1+w+b2;
-        bx.y2=y1+h+b2;
-        let s=this.sprite(this.drawGridBoxEx(bx,width,color,b2));
-        s.x=x1-width;
-        s.y=y1-width;
-        return s;
-      },
       /**Find the size of the bounding box.
        * @memberof module:mojoh5/Sprites
        * @param {object} b4
@@ -942,9 +929,9 @@
        * @param {number} y
        * @return {Sprite}
        */
-      rectangle(width, height,
-                fillStyle = 0xFF3300,
-                strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
+      rect(width, height,
+           fillStyle = 0xFF3300,
+           strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
         let g=this.graphics(),
             stroke=this.color(strokeStyle);
         if(fillStyle !== false)

@@ -87,8 +87,8 @@
       const Y=cy-RH/2;
       return {
         init(){
-          this.fg=Sprites.rectangle(cx, RH, fgColor);
-          this.bg=Sprites.rectangle(cx, RH, bgColor);
+          this.fg=Sprites.rect(cx, RH, fgColor);
+          this.bg=Sprites.rect(cx, RH, bgColor);
           this.perc=Sprites.text("0%", {fontSize:MFL(RH/2),
                                         fill:"black",
                                         fontFamily:"sans-serif"});

@@ -30,7 +30,7 @@
         let K=Mojo.getScaleFactor();
         let _64=64*K;
         let _10=10*K;
-        let box = G.box= _S.rectangle(_64, _64, "green", "red", 4*K);
+        let box = G.box= _S.rect(_64, _64, "green", "red", 4*K);
         this.insert(box);
         _S.pinCenter(this,box);
 
@@ -55,19 +55,19 @@
         this.insert(star);
         _S.pinCenter(box,star);
 
-        let b1 = _S.rectangle(_10, _10, "white");
+        let b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
         _S.pinRight(box,b1,-b1.width);
-        b1 = _S.rectangle(_10, _10, "white");
+        b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
         _S.pinLeft(box,b1,-b1.width);
-        b1 = _S.rectangle(_10, _10, "white");
+        b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
         _S.pinTop(box,b1,-b1.height);
-        b1 = _S.rectangle(_10, _10, "white");
+        b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
         _S.pinBottom(box,b1,-b1.height);
-        b1 = _S.rectangle(_10, _10, "white");
+        b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
         _S.pinCenter(box,b1);
 

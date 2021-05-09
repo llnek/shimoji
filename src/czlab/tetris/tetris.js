@@ -43,18 +43,21 @@
         let Y=Mojo.height;
         let X=0;
         let grid=[];
-
-        _S.scaleXY(b,K,K);
+        let a= _S.gridXY([W,H],0.8,0.8);
+        let a0=a[0][0];
+        _G.tileW=MFL(a0.x2-a0.x1);
         _G.score=0;
         _G.grid=grid;
         _G.rows=H;
         _G.cols=W;
-        _G.scaleX=K;
-        _G.scaleY=K;
-        _G.tileW=MFL(b.width);
-        _G.tileH=MFL(b.height);
+        //_G.tileH=MFL(b.height);
+        if(!_.isEven(_G.tileW)){
+          --_G.tileW
+        }
+        _G.tileH=_G.tileW;
 
-        for(let row,y=0;y<(H+4);++y){
+        //make it taller but hide the top 4
+        for(let row,y=0;y<(4+H);++y){
           grid.push(row=[]);
           for(let x=0;x<W;++x)
             row.push(null);
@@ -72,23 +75,16 @@
         return this;
       },
       _initBlockMap(){
-        let b=_S.sprite("0.png");
         let sx=_G.vbox.x1;
         let sy=_G.vbox.y1;
         let cells=[];
         for(let r,s,y=_G.rows-1;y>=0;--y){
           r=[];
           cells.push(r);
-          for(let p,x=0;x<_G.cols;++x){
-            s=_S.sprite("3.png");
-            s.width=_G.tileW;
-            s.height=_G.tileH;
-            //s.scale.x=_G.scaleX;
-            //s.scale.y=_G.scaleY;
-            s.x= _G.tileW*x;
-            s.y= _G.vbox.y2-_G.tileH*(y+1);
-            //this.insert(s);
-            r.push({x1:s.x,y1:s.y,x2:s.x+s.width,y2:s.y+s.height});
+          for(let px,py,x=0;x<_G.cols;++x){
+            px= _G.tileW*x;
+            py= _G.vbox.y2-_G.tileH*(y+1);
+            r.push({x1:px,y1:py,x2:px+_G.tileW,y2:py+_G.tileH});
           }
         }
         _G.cells=cells;
@@ -149,7 +145,6 @@
       },
       setup(){
         this._initLevel();
-        let bg= _S.rectangle(_G.cols*_G.tileW,10+_G.rows*_G.tileH,0,"white",1);
         let r= _G.rightMotion= _I.keybd(_I.RIGHT);
         let f= _G.leftMotion= _I.keybd(_I.LEFT);
         let u= _G.upMotion= _I.keybd(_I.UP);
@@ -160,9 +155,6 @@
         u.press=()=>{ _G.rotateCCW(this,_G.curShape) };
         d.press=()=>{ _G.shiftDown(this,_G.curShape) };
         s.press=()=>{ _G.dropDown(this,_G.curShape) };
-        bg.x=_G.vbox.x1;
-        bg.y=_G.vbox.y1-10;
-        //this.insert(bg);
 
         _G.gfx= _S.graphics();
         this.insert(_G.gfx);
@@ -192,8 +184,10 @@
     _Z.defScene("hud",{
       setup(){
         let K=Mojo.getScaleFactor();
-        let LW=36*K;
-        let s= _S.bboxFrame(_G.vbox,LW);
+        let LW=30*K;
+        let s= _S.rect(Mojo.width,_G.vbox.y1,0);
+        this.insert(s);
+        s= _S.bboxFrame(_G.vbox,LW);
         this.insert(s);
         s= this.score= _S.bitmapText("0",{
           fontName:"unscii",fontSize:32,fill:"white"
@@ -201,7 +195,7 @@
         Mojo.on(["preview.shape"],"onPreview",this);
         this.insert(s);
 
-        let r= _S.rectangle(_G.tileW*6,_G.tileH*6,0);
+        let r= _S.rect(_G.tileW*6,_G.tileH*6,0);
         let Y = MFL(Mojo.height/2);
         let X = MFL(_G.vbox.x1/2);
         Y -= MFL(r.height/2);

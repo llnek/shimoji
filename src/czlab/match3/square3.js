@@ -86,9 +86,9 @@
         let f=r1[0];
         let e=rE[n-1];
         let bg=this.getChildById("bg");
-        let s=Sprites.rectangle(e.x2-f.x1,
-                                e.y2-f.y1,
-                                0xc9d08e,0xc9d08e,0,f.x1,f.y1);
+        let s=Sprites.rect(e.x2-f.x1,
+                           e.y2-f.y1,
+                           0xc9d08e,0xc9d08e,0,f.x1,f.y1);
         if(!bg){
           bg=Sprites.container();
           this.insert(Sprites.uuid(bg,"bg"));

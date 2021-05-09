@@ -58,7 +58,7 @@
         _G.msgs[_G.O]=o;
 
         let h2=MFL(Mojo.height/2);
-        let d=_S.rectangle(100,4,0,0,0,0,h2-2);
+        let d=_S.rect(100,4,0,0,0,0,h2-2);
 
         _S.pinTop(d,o);
         _S.pinBottom(d,x);

@@ -25,7 +25,7 @@
         let f=r1[0];
         let rE=this.grid[this.grid.length-1];
         let e=rE[n-1];
-        let s=_S.rectangle(e.x2-f.x1,e.y2-f.y1,0xc9d08e,0xc9d08e);
+        let s=_S.rect(e.x2-f.x1,e.y2-f.y1,0xc9d08e,0xc9d08e);
         s.x=f.x1;
         s.y=f.y1;
         this.insert(s);

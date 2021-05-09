@@ -294,9 +294,9 @@
 
       if(options.bg != "transparent"){
         //create a backdrop
-        let r= Sprites.rectangle(w+fit2,h+fit2,
-                                 options.bg,
-                                 options.border, borderWidth);
+        let r= Sprites.rect(w+fit2,h+fit2,
+                            options.bg,
+                            options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
         r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
       }

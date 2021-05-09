@@ -86,7 +86,7 @@
         _V.set(this,G.arena.x,G.arena.y);
 
         //make place to show msg
-        let msgRow = S.rectangle(G.arena.width, offsetY, "black");
+        let msgRow = S.rect(G.arena.width, offsetY, "black");
         this.insert(msgRow);
 
         //fill blocks via grid

@@ -35,7 +35,7 @@
         G.arena=Mojo.mockStage(out);
 
         //make a blue rect
-        let blue = G.blue= _S.rectangle(48, 64, "blue");
+        let blue = G.blue= _S.rect(48, 64, "blue");
         _S.centerAnchor(blue);
         _V.set(blue,100,100);
         blue.angle=42;
@@ -44,7 +44,7 @@
         }
         this.insert(blue,true);
         //make a red square
-        let red = G.red= _S.rectangle(64, 64, "red");
+        let red = G.red= _S.rect(64, 64, "red");
         _S.centerAnchor(red);
         _V.set(red,500,500);
         red.angle=76;
