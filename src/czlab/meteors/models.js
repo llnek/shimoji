@@ -22,10 +22,12 @@
            Sprites:_S,
            Input:_I,
            FX:_F,
-           Misc:_M,
+           "2d":_M,
+           v2:_V,
            Game:_G,
-           ute:_, is, EventBus}=Mojo;
+           ute:_, is}=Mojo;
 
+    /** @ignore */
     class MeteorSM extends _M.PeriodicDischarge{
       constructor(scene){
         super(()=>{
@@ -37,7 +39,7 @@
             s.rotation += 0.01;
             _S.move(s,dt);
             if(s.y >= _G.cityLine){
-              EventBus.pub(["meteor.blow",scene],s.x,s.y);
+              Mojo.emit(["meteor.blow",scene],s.x,s.y);
               this.drop(s);
             }
           };
@@ -63,10 +65,11 @@
         m.m5.vel[0]=(ex-sx)/dt;
         m.m5.vel[1]=(ey-sy)/dt;
         m.visible=true;
-        _S.setXY(m,sx,sy);
+        _V.set(m,sx,sy);
       };
     }
 
+    /** @ignore */
     class HealthPackSM extends _M.PeriodicDischarge{
       constructor(scene){
         super(()=>{
@@ -102,11 +105,11 @@
         m.m5.vel[0]=(ex-sx)/dt;
         m.m5.vel[1]=(ey-sy)/dt;
         m.visible=true;
-        _S.setXY(m,sx,sy);
+        _V.set(m,sx,sy);
       };
     }
 
-
+    /** @ignore */
     class UfoSM extends _M.PeriodicDischarge{
       constructor(scene){
         super(()=>{
@@ -131,7 +134,7 @@
               if((s.m5.heading===Mojo.RIGHT &&
                   s.x>s.g.killPos) || s.x<s.g.killPos){
                 s.children[0].visible=true;
-                EventBus.pub(["ufo.blow",scene],s.x,_G.cityLine);
+                Mojo.emit(["ufo.blow",scene],s.x,_G.cityLine);
               }
             }
           };
@@ -152,7 +155,7 @@
         let x= _.rand()>0.5?0:Mojo.width;
         let dx=Mojo.width/8;
         let s= this._take();
-        _S.setXY(s,x,y);
+        _V.set(s,x,y);
         s.m5.speed=dx;
         s.visible=true;
         s.children[0].visible=false;
@@ -163,7 +166,7 @@
       }
     }
 
-
+    /** @ignore */
     class BombSM extends _M.PeriodicDischarge{
       constructor(scene){
         super(()=>{
@@ -179,7 +182,7 @@
             s.scale.y += 0.002;
             if(s.scale.x>s.g.trigger){
               this.drop(s);
-              EventBus.pub(["bomb.blow"],s);
+              Mojo.emit(["bomb.blow"],s);
             }
           };
           return scene.insert(s);
@@ -195,7 +198,7 @@
       }
       discharge(x,y){
         let s= this._take();
-        _S.setXY(s,x,y);
+        _V.set(s,x,y);
         s.visible=true;
         _S.scaleXY(s,s.g.k,s.g.k);
         s.g.trigger=s.g.k*2;//1.5;

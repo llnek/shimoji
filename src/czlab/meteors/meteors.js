@@ -16,15 +16,18 @@
 
   "use strict";
 
+  /** all the scenes */
   function scenes(Mojo){
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
            Game:_G,
-           ute:_, is, EventBus}=Mojo;
+           v2:_V,
+           ute:_, is}=Mojo;
 
     window["io/czlab/meteors/models"](Mojo);
 
+    /** background */
     _Z.defScene("bg",{
       setup(){
         let s,K= Mojo.getScaleFactor();
@@ -36,28 +39,28 @@
         //cityscape back
         s=_S.sprite("city1.png");
         s=_S.scaleXY(s,K,K);
-        _S.setXY(s,0,Mojo.height-s.height*1.2);
+        _V.set(s,0,Mojo.height-s.height*1.2);
         this.insert(s);
         s=_S.sprite("city1.png");
         s=_S.scaleXY(s,K,K);
-        _S.setXY(s,s.width,Mojo.height-s.height*1.2);
+        _V.set(s,s.width,Mojo.height-s.height*1.2);
         this.insert(s);
 
         //cityscape front
         s=_S.sprite("city2.png");
         s=_S.scaleXY(s,K,K);
-        _S.setXY(s,0,Mojo.height-s.height);
+        _V.set(s,0,Mojo.height-s.height);
         this.insert(s);
         s=_S.sprite("city2.png");
         s=_S.scaleXY(s,K,K);
-        _S.setXY(s,s.width,Mojo.height-s.height);
+        _V.set(s,s.width,Mojo.height-s.height);
         this.insert(s);
 
         //plant some trees
         for(let i=0;i<4;++i){
           s=_S.sprite("trees.png");
           s=_S.scaleXY(s,K,K);
-          _S.setXY(s,i*s.width,Mojo.height-s.height);
+          _V.set(s,i*s.width,Mojo.height-s.height);
           this.insert(s);
         }
         _G.cityLine=Mojo.height - s.height;
@@ -70,7 +73,7 @@
           y = Mojo.height*(i%2? 0.06 : 0.02);
           x=Mojo.width * 0.1 + i* Mojo.width * 0.3;
           _S.scaleXY(s,K,K);
-          _S.setXY(s,x,y);
+          _V.set(s,x,y);
           this.insert(s);
           this.g.clouds.push(s);
         }
@@ -85,7 +88,8 @@
       }
     });
 
-    _Z.defScene("level1",{
+    /** game */
+    _Z.defScene("game",{
       _initLevel(){
         _G.ufo= new _G.UfoSM(this);
         _G.meteors=new _G.MeteorSM(this);
@@ -97,7 +101,7 @@
       },
       setup(){
         this._initLevel();
-        EventBus.sub(["mouseup"],"onClick",this);
+        Mojo.on(["single.tap"],"onClick",this);
       },
       postUpdate(dt){
         _G.meteors.lifeCycle(dt);
@@ -125,7 +129,7 @@
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.runScene("bg");
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("game");
     }
   };
 
