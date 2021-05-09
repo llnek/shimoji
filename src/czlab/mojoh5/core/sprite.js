@@ -901,10 +901,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        let s=new Mojo.PXText(msg,fspec);
-        s=this.extend(s);
-        return _V.set(s,x,y);
-      },
+        return _V.set(this.extend(new Mojo.PXText(msg,fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -913,11 +910,12 @@
        * @param {number} y
        * @return {BitmapText}
        */
-      bitmapText(msg, fstyle, x=0, y=0){
-        let s= new Mojo.PXBText(msg,fstyle);
-        s=this.extend(s);
-        return _V.set(s,x,y);
-      },
+      bitmapText(msg,fstyle,x=0,y=0){
+        if(!fstyle.fontName)
+          fstyle.fontName="unscii";
+        if(fstyle.fill)
+          fstyle.tint=this.color(fstyle.fill);
+        return _V.set(this.extend(new Mojo.PXBText(msg,fstyle))) },
       /**Create a rectangular sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width

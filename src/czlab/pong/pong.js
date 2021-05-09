@@ -16,6 +16,7 @@
 
   "use strict";
 
+  /** @ignore */
   function scenes(Mojo){
     const MFL=Math.floor;
     const {Scenes:_Z,
@@ -32,36 +33,39 @@
     _G.X=1;
     _G.O=2;
 
+    /** @ignore */
     _Z.defScene("bg",{
       setup(){
-        let s= _S.drawBody((g)=>{
+        this.insert(_S.drawBody((g)=>{
           g.lineStyle(4,0xffffff);
           g.beginFill(0);
           g.drawRect(0,0,Mojo.width-4,Mojo.height-4);
-          g.moveTo(0,Mojo.height/2);
-          g.lineTo(Mojo.width,Mojo.height/2);
-          //g.drawEllipse(Mojo.canvas.width/2,Mojo.canvas.height/2,100,50);
+          g.moveTo(Mojo.width/2,0);
+          g.lineTo(Mojo.width/2,Mojo.height);
           g.drawCircle(Mojo.width/2,Mojo.height/2,32);
           g.endFill();
-        });
-        this.insert(s);
+        }));
       }
     });
 
     _Z.defScene("hud",{
       setup(){
-        let args={fontName:"unscii",fontSize:72,tint:_S.color("white")};
+        let args={fontSize:64,fill:"white"};
         let x=_S.bitmapText("0",args);
         let o=_S.bitmapText("0",args);
+        let K=Mojo.getScaleFactor();
         _G.scores=[0,0,0];
         _G.msgs[_G.X]=x;
         _G.msgs[_G.O]=o;
 
-        let h2=MFL(Mojo.height/2);
-        let d=_S.rect(100,4,0,0,0,0,h2-2);
+        let w2=MFL(Mojo.width/2);
+        let d=_S.rect(2,2,0,0,0,w2-1,0);
 
-        _S.pinTop(d,o);
-        _S.pinBottom(d,x);
+        _S.pinLeft(d,x,16)
+        _S.pinRight(d,o,20);
+
+        x.y=10*K;
+        o.y=10*K;
 
         this.insert(x);
         this.insert(o);
@@ -77,14 +81,14 @@
       _initPlayer(){
         let paddle = _G.player = _S.sprite("paddle.png");
         let K=Mojo.getScaleFactor();
-        //paddle= 96x18
+        //paddle= 18x96
         paddle.m5.static=true;
         _S.scaleXY(paddle,K,K);
         paddle.m5.tick=(dt)=>{
-          paddle.x = Mojo.mouse.x - paddle.width/2;
+          paddle.y = Mojo.mouse.y - paddle.height/2;
           _S.clamp(paddle, paddle.parent,false);
         };
-        _S.pinBottom(this,paddle, -24*K);
+        _S.pinLeft(this,paddle, -24*K);
         this.insert(paddle);
       },
       _initAI(){
@@ -94,15 +98,15 @@
         paddle.m5.static=true;
         _S.scaleXY(paddle,K,K);
         paddle.m5.tick=(dt)=>{
-          paddle.x = _G.ball.x - paddle.width/2;
+          paddle.y = _G.ball.y - paddle.height/2;
           _S.clamp(paddle, paddle.parent,false);
         };
-        _V.setX(paddle,0,6*K);
+        _V.set(paddle,Mojo.width- 24*K,0);
         this.insert(paddle);
       },
       setup(){
-        const bounce=_G.bounce= Mojo.sound("pop.mp3");
         const ball= _G.ball = _S.sprite("ball.png");
+        const bounce=_G.bounce= Mojo.sound("pop.mp3");
         const K=Mojo.getScaleFactor();
         const arena=Mojo.mockStage();
         const self=this;
@@ -114,8 +118,8 @@
           _S.clamp(ball, arena,
                       true,
                       (col)=>{
-                        if(col.has(Mojo.TOP)) ++_G.scores[_G.X];
-                        if(col.has(Mojo.BOTTOM)) ++_G.scores[_G.O];
+                        if(col.has(Mojo.RIGHT)) ++_G.scores[_G.X];
+                        if(col.has(Mojo.LEFT)) ++_G.scores[_G.O];
                       });
           //ballHitsPaddle
           if(_S.collide(ball, _G.player)){
@@ -123,10 +127,9 @@
           }else if(_S.collide(ball, _G.robot)){
             bounce.play();
           }
-          //message.mojoh5.content(`Score: ${_G.score}`);
         };
         this.insert(ball);
-        _S.pinBottom(this,ball, -128*K);
+        _S.pinCenter(this,ball);
         _V.set(ball.m5.vel, 8*K, 5*K);
       }
     });
@@ -134,7 +137,7 @@
 
   const _$={
     assetFiles: ["ball.png", "paddle.png", "pop.mp3"],
-    arena: {width: 512, height: 512},
+    arena: {width: 640, height: 480},
     scaleToWindow: "max",
     start(Mojo){
       scenes(Mojo);

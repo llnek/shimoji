@@ -198,8 +198,10 @@
           Mojo.delBgTask(ldrObj);
         _.delay(0,()=>{
           Mojo.Scenes.removeScene(scene);
-          if(!error) Mojo.u.start(Mojo); });
-      }
+          if(!error)
+            Mojo.u.start(Mojo);
+          else
+            _.error("Cannot load game!"); }); }
       function _m1(b){
         --fcnt===0 && _finz() }
       if(!error)

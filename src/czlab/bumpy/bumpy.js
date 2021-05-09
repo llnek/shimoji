@@ -24,8 +24,8 @@
 			     v2:_V,
 			     Game:_G,ute:_,is}=Mojo;
 
-		//level1
-    _Z.defScene("level1",{
+		/** @ignore */
+    _Z.defScene("game",{
       _initLevel(left,right,top,bottom){
 				_G.qt= Q.quadtree({left,right,top,bottom});
         _G.items=[];
@@ -74,8 +74,8 @@
 			},
       setup(){
 				let K=Mojo.getScaleFactor();
-        let h=MFL(Mojo.height*0.9);
-        let w=MFL(Mojo.width*0.9);
+        let h=MFL(Mojo.height*0.8);
+        let w=MFL(Mojo.width*0.8);
         let y1=MFL((Mojo.height-h)/2);
         let x1=MFL((Mojo.width-w)/2);
         let x2=x1+w;
@@ -85,9 +85,6 @@
         this.insert(this.g.gfx);
         this._initLevel(x1,x2,y1,y2);
       },
-			preUpdate(dt){
-				//console.log(`FPS=${Mojo.calcFPS(dt)}`)
-			},
       postUpdate(dt){
 				this.g.gfx.clear();
 				_G.qt.reset();
@@ -147,8 +144,28 @@
 					}
 				}
       }
-
     });
+
+		/** @ignore */
+		_Z.defScene("hud",{
+			setup(){
+				let K=Mojo.getScaleFactor(),
+				    s= _S.bboxFrame(_G.arena,12*K);
+				this.insert(s);
+				s=_S.bitmapText("",{fontSize:24,
+					                  fill:"#d4e64a"});
+				this.g.count=0;
+				this.msg=s;
+				this.insert(s);
+			},
+			postUpdate(dt){
+				if(++this.g.count >6){
+					this.g.count=0;
+					this.msg.text=`Items: ${Mojo.u.items}`+
+						            `, FPS: ${Math.floor(1/dt)}`;
+					this.msg.x=(Mojo.width-this.msg.width)/2;
+					this.msg.y=_G.arena.y1 - 2 * this.msg.height; } }
+		});
 
   }
 
@@ -158,7 +175,8 @@
     items:800,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("game");
+			Mojo.Scenes.runScene("hud");
     }
   };
 
