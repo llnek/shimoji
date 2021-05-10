@@ -152,8 +152,8 @@
           Mojo.off(["bump",s],"boom",s.m5)
         }
         s.m5.tick=function(dt){
-          s["2d"].onTick(dt);
-          s["enemyAI"].onTick(dt);
+          //s["2d"].onTick(dt);
+          //s["enemyAI"].onTick(dt);
         };
         Mojo.on(["bump",s],"boom",s.m5);
       return s;
@@ -194,7 +194,7 @@
       assetFiles: ["sprites.png", "map.json","tiles.png"],
       arena: {width:640,height:480},
       scaleToWindow:"max",
-      //touchOnly:true,
+      touchOnly:true,
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

@@ -235,13 +235,14 @@
                           outer,
                           outerRadius:0,
                           innerRadius:0,
-                          innerAlphaDft:0.5,
+                          innerAlphaDft:1,//0.5,
                           onStart(){},
                           onEnd(){},
                           onChange(dir,angle,power){}}, options);
         let stick=new PIXI.Container();
         stick.m5=mo;
-        outer.alpha = 0.5;
+        outer.tint=Mojo.Sprites.color("white");
+        outer.alpha = 1;//0.5;
         outer.anchor.set(0.5);
         inner.anchor.set(0.5);
         inner.alpha = mo.innerAlphaDft;
