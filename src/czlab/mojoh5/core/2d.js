@@ -18,8 +18,9 @@
   /**Create the module. */
   function _module(Mojo){
     const _V=gscope["io/czlab/mcfud/vec2"]();
-    const WHITE=Mojo.Sprites.color("white");
-    const {is, ute:_}=Mojo;
+    const {Scenes:_Z,
+           Sprites:_S,
+           is, ute:_}=Mojo;
     const ABS=Math.abs,
           MFL=Math.floor;
 
@@ -28,53 +29,61 @@
      */
 
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
-    Mojo.Scenes.defScene("StarfieldBg",{
-      setup(options){
-        if(!options.minVel) options.minVel=15;
-        if(!options.maxVel) options.maxVel=30;
-        if(!options.count) options.count=100;
-        if(!options.width) options.width=Mojo.width;
-        if(!options.height) options.height=Mojo.height;
+    _Z.defScene("StarfieldBg",{
+      setup(o){
+        if(!o.minVel) o.minVel=15;
+        if(!o.maxVel) o.maxVel=30;
+        if(!o.count) o.count=100;
+        if(!o.width) o.width=Mojo.width;
+        if(!o.height) o.height=Mojo.height;
 
-        let gfx= Mojo.Sprites.graphics();
+        let gfx= _S.graphics();
         let stars=[];
 
-        this.g.fps= 1.0/options.fps;
+        this.g.fps= 1.0/o.fps;
         this.g.stars=stars;
         this.g.gfx=gfx;
         this.g.lag=0;
 
-        for(let i=0; i<options.count; ++i){
-          stars[i] = {x: _.rand()*options.width,
-                      y: _.rand()*options.height,
+        for(let i=0; i<o.count; ++i)
+          stars[i] = {x: _.rand()*o.width,
+                      y: _.rand()*o.height,
                       size:_.rand()*3+1,
-                      vel:(_.rand()*(options.maxVel- options.minVel))+options.minVel} }
+                      vel:(_.rand()*(o.maxVel- o.minVel))+o.minVel};
         this._draw();
         this.insert(gfx);
       },
       _draw(){
+        const w=0xffffff;
         this.g.gfx.clear();
         this.g.stars.forEach(s=>{
-          this.g.gfx.beginFill(WHITE);
-          this.g.gfx.drawRect(s.x,s.y,s.size,s.size); this.g.gfx.endFill(); });
+          this.g.gfx.beginFill(w);
+          this.g.gfx.drawRect(s.x,
+                              s.y,
+                              s.size,
+                              s.size);
+          this.g.gfx.endFill();
+        });
       },
       postUpdate(dt){
         this.g.lag +=dt;
-        if(this.g.lag<this.g.fps){return}else{
+        if(this.g.lag<this.g.fps){}else{
           this.g.lag=0;
+          for(let s,i=0,
+                  o=this.m5.options;
+                  i<this.g.stars.length;++i){
+            s=this.g.stars[i];
+            s.y += dt * s.vel;
+            if(s.y > o.height){
+              _V.set(s, _.randInt(o.width), 0);
+            s.size=_.randInt(4);
+            s.vel=(_.rand()*(o.maxVel- o.minVel))+o.minVel; } }
+          this._draw();
         }
-        for(let s,i=0;i<this.g.stars.length;++i){
-          s=this.g.stars[i];
-          s.y += dt * s.vel;
-          if(s.y > this.m5.options.height){
-            _V.set(s, _.rand()*this.m5.options.width, 0);
-            s.size=_.rand()*3+1;
-            s.vel=(_.rand()*(this.m5.options.maxVel- this.m5.options.minVel))+this.m5.options.minVel; } }
-        this._draw();
       }
-    },{fps:30, count:100, minVel:15, maxVel:30 });
+    },{fps:90, count:100, minVel:15, maxVel:30 });
 
-    //emit something every so often...
+    /** emit something every so often... */
     class PeriodicDischarge{
       constructor(ctor,intervalSecs,size=16,...args){
         this._interval=intervalSecs;
@@ -83,10 +92,6 @@
         this._size=size
         this._pool=_.fill(size,ctor);
       }
-      _take(){
-        if(this._pool.length>0) return this._pool.pop() }
-      reclaim(o){
-        if(this._pool.length<this._size) this._pool.push(o); }
       lifeCycle(dt){
         this._timer += dt;
         if(this._timer > this._interval){
@@ -96,26 +101,51 @@
       }
       discharge(){
         throw `PeriodicCharge: please implement action()` }
-    }
+      _take(){
+        if(this._pool.length>0) return this._pool.pop() }
+      reclaim(o){
+        if(this._pool.length<this._size) this._pool.push(o); } }
 
     /** walks around a maze like in Pacman. */
     function MazeRunner(e,frames){
       const {Sprites, Input}=Mojo;
       const self={
+        dispose(){
+          Mojo.off(self)
+        },
         onTick(dt){
           let [vx,vy]=e.m5.vel,
               vs=e.m5.speed,
               x = !_.feq0(vx),
               y = !_.feq0(vy);
           if(!(x&&y) && frames){
-            if(y)
-              e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP])
-            if(x)
-              e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]) }
-          const r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
-          const d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
-          const l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
-          const u=Input.keyDown(Input.UP) && Mojo.UP;
+            if(y){
+              if(is.vec(frames))
+                e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
+              else if (frames){
+                e.angle=vy>0?180:0;
+              }
+            }
+            if(x){
+              if(is.vec(frames))
+                e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
+              else if(frames){
+                e.angle=vx>0?90:-90;
+              }
+            }
+          }
+          let r,d,l,u;
+          if(Mojo.u.touchOnly){
+            r=e.m5.heading===Mojo.RIGHT;
+            l=e.m5.heading===Mojo.LEFT;
+            u=e.m5.heading===Mojo.UP;
+            d=e.m5.heading===Mojo.DOWN;
+          }else{
+            r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
+            d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
+            l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
+            u=Input.keyDown(Input.UP) && Mojo.UP;
+          }
           if(l||u){vs *= -1}
           if(l&&r){
             _V.setX(e.m5.vel,0);
@@ -126,9 +156,7 @@
             _V.setY(e.m5.vel,0);
           }else if(u||d){
             e.m5.heading= u||d;
-            _V.setY(e.m5.vel,vs); }
-        }
-      };
+            _V.setY(e.m5.vel,vs); } } };
       return (e.m5.heading=Mojo.UP) && self;
     }
 
@@ -414,13 +442,11 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
-    gscope["io/czlab/mojoh5/2d"]=function(M){
-      return M["2d"] ? M["2d"] : _module(M)
-    }
-  }
+    gscope["io/czlab/mojoh5/2d"]=(M)=>{
+      return M["2d"] ? M["2d"] : _module(M) } }
 
 })(this);
 

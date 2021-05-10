@@ -1541,24 +1541,41 @@
         }
         return collision;
       },
+      dbgShowDir(dir){
+        let s="?";
+        switch(dir){
+          case Mojo.TOP_RIGHT:
+            s="top-right";
+            break;
+          case Mojo.TOP_LEFT:
+            s="top-left";
+            break;
+          case Mojo.TOP:
+            s="top";
+            break;
+          case Mojo.LEFT:
+            s="left";
+            break;
+          case Mojo.RIGHT:
+            s="right";
+            break;
+          case Mojo.BOTTOM:
+            s="bottom";
+            break;
+          case Mojo.BOTTOM_RIGHT:
+            s="bottom-right";
+            break;
+          case Mojo.BOTTOM_LEFT:
+            s="bottom-left";
+            break;
+        }
+        return s;
+      },
       dbgShowCol(col){
         let out=[];
         if(is.set(col))
           for(let i of col.values())
-            switch(i){
-              case Mojo.TOP:
-                out.push("top");
-                break;
-              case Mojo.LEFT:
-                out.push("left");
-                break;
-              case Mojo.RIGHT:
-                out.push("right");
-                break;
-              case Mojo.BOTTOM:
-                out.push("bottom");
-                break;
-            }
+            out.push(this.dbgShowDir(i));
         return out.join(",");
       }
     };

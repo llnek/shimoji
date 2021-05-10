@@ -77,6 +77,11 @@
         s.m5.startY= e.pageY - t.offsetTop;
         s.m5.drag= true;
         s.m5.inner.alpha = 1;
+        if(!s.m5.static){
+          s.visible=true;
+          s.x=s.m5.startX;
+          s.y=s.m5.startY;
+        }
         s.m5.onStart();
       }
       function onDragEnd(e){
@@ -84,11 +89,14 @@
           s.m5.inner.alpha = s.m5.innerAlphaDft;
           s.m5.inner.position.set(0,0);
           s.m5.drag= false;
+          if(!s.m5.static){
+            s.visible=false;
+          }
           s.m5.onEnd();
         }
       }
       function onDragMove(e){
-        if(!s.m5.drag){return}
+        if(!s.visible || !s.m5.drag){return}
         let c,t= e.target;
         if(e.changedTouches){
           for(let i=0,
@@ -111,7 +119,7 @@
         let angle = 0;
         c[0]=0;
         c[1]=0;
-        if(X === 0 && Y === 0){return}
+        if(_.feq0(X) && _.feq0(Y)){return}
         calRadius= (X*X + Y*Y >= limit*limit)?limit
                                              :limit-s.m5.innerRadius;
         /**
@@ -127,7 +135,7 @@
         let sx=Math.abs(X);
         let sy=Math.abs(Y);
         let power=0;
-        if(X === 0){
+        if(_.feq0(X)){
           if(Y>0){
             c[0]=0;
             c[1]=Y>limit ? limit : Y;
@@ -137,22 +145,22 @@
             c[0]=0;
             c[1]= -(sy > limit ? limit : sy);
             angle = 90;
-            direction = Mojo.TOP;
+            direction = Mojo.UP;
           }
           s.m5.inner.position.set(c[0],c[1]);
           power = _calcPower(s,c[0],c[1]);
           s.m5.onChange(direction,angle,power);
-        }else if(Y === 0){
+        }else if(_.feq0(Y)){
           if(X>0){
             c[0]=sx > limit ? limit : sx;
             c[1]=0;
             angle=0;
-            direction = Mojo.LEFT;
+            direction = Mojo.RIGHT;
           }else{
             c[0]=-(sx > limit ? limit : sx);
             c[1]=0;
             angle = 180;
-            direction = Mojo.RIGHT;
+            direction = Mojo.LEFT;
           }
           s.m5.inner.position.set(c[0],c[1]);
           power = _calcPower(s,c[0],c[1]);
@@ -222,6 +230,7 @@
         let outer= Mojo.Sprites.sprite("boot/joystick.png");
         let mo= _.inject({outerScale:1,
                           innerScale:1,
+                          static:false,
                           inner,
                           outer,
                           outerRadius:0,
@@ -242,6 +251,8 @@
         stick.addChild(inner);
         mo.outerRadius = stick.width / 2.5;
         mo.innerRadius = inner.width / 2;
+        if(!mo.static)
+          stick.visible=false;
         return _bindEvents(stick);
       }
     };
