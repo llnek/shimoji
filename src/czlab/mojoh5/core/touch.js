@@ -19,8 +19,11 @@
   /**Create the module. */
   function _module(Mojo){
 
-    const {is,ute:_}=Mojo,
-          P8=Math.PI/8;
+    const P8=Math.PI/8,
+          P8_3=P8*3,
+          P8_5=P8*5,
+          P8_7= P8*7,
+          {Sprites:_S, is,ute:_}=Mojo;
 
     /**
      * @module mojoh5/Touch
@@ -30,36 +33,25 @@
     function _calcPower(s,cx,cy){
       const a= +cx;
       const b= +cy;
-      return Math.min(1, Math.sqrt(a*a + b*b)/s.m5.outerRadius) }
+      return Math.min(1, Math.sqrt(a*a + b*b)/s.m5.range) }
 
     /** @ignore */
     function _calcDir(cx,cy){
       const rad= Math.atan2(+cy, +cx);
-      let ret= Mojo.TOP_RIGHT;
-      if((rad >= -P8 && rad<0) ||
-         (rad >= 0 && rad<P8)){
-        ret= Mojo.RIGHT
-      }
-      else if(rad >= P8 && rad < 3*P8){
-        ret= Mojo.BOTTOM_RIGHT
-      }
-      else if(rad >= 3*P8 && rad < 5*P8){
-        ret= Mojo.BOTTOM
-      }
-      else if(rad >= 5*P8 && rad < 7*P8){
-        ret= Mojo.BOTTOM_LEFT
-      }
-      else if((rad >= 7*P8 && rad<Math.PI) ||
-              (rad >= -Math.PI && rad < -7*P8)){
-        ret= Mojo.LEFT
-      }
-      else if(rad >= -7*P8 && rad < -5*P8){
-        ret= Mojo.TOP_LEFT
-      }
-      else if(rad >= -5*P8 && rad < -3*P8){
-        ret= Mojo.TOP
-      }
-      return ret
+
+      if(rad > -P8_5 && rad < -P8_3){ return Mojo.UP }
+      if(rad > P8_3 && rad < P8_5){ return Mojo.DOWN }
+      if((rad > -P8 && rad<0) ||
+         (rad > 0 && rad<P8)){ return Mojo.RIGHT }
+      if((rad > P8_7 && rad<Math.PI) ||
+         (rad > -Math.PI && rad < -P8_7)){ return Mojo.LEFT }
+
+      if(rad > P8 && rad < P8_3){ return Mojo.SE }
+      if(rad > P8_5 && rad < P8_7){ return Mojo.SW }
+      if(rad> -P8_3 && rad < -P8){ return Mojo.NE }
+      if(rad > -P8_7 && rad < -P8_5){ return Mojo.NW }
+
+      _.assert(false,"Failed Joystick calcDir");
     }
 
     /** @ignore */
@@ -76,7 +68,6 @@
         s.m5.startX= e.pageX - t.offsetLeft;
         s.m5.startY= e.pageY - t.offsetTop;
         s.m5.drag= true;
-        s.m5.inner.alpha = 1;
         if(!s.m5.static){
           s.visible=true;
           s.x=s.m5.startX;
@@ -86,7 +77,6 @@
       }
       function onDragEnd(e){
         if(s.m5.drag){
-          s.m5.inner.alpha = s.m5.innerAlphaDft;
           s.m5.inner.position.set(0,0);
           s.m5.drag= false;
           if(!s.m5.static){
@@ -107,21 +97,15 @@
               break;
             }
           }
-          if(!c){return}
         }else{
-          c= [e.pageX - t.offsetLeft,
-              e.pageY - t.offsetTop];
-        }
-        let X = c[0] - s.m5.startX;
-        let Y = c[1] - s.m5.startY;
-        let limit=s.m5.outerRadius;
-        let calRadius = 0;
+          c= [e.pageX - t.offsetLeft, e.pageY - t.offsetTop] }
+        let X = c? (c[0] - s.m5.startX) :0;
+        let Y = c? (c[1] - s.m5.startY) :0;
+        let limit=s.m5.range;
         let angle = 0;
         c[0]=0;
         c[1]=0;
         if(_.feq0(X) && _.feq0(Y)){return}
-        calRadius= (X*X + Y*Y >= limit*limit)?limit
-                                             :limit-s.m5.innerRadius;
         /**
          * x:   -1 <-> 1
          * y:   -1 <-> 1
@@ -131,25 +115,21 @@
          *    ------------> X
          *     270  |  360
          */
-        let direction=Mojo.LEFT;
+        let direction,power=0;
         let sx=Math.abs(X);
         let sy=Math.abs(Y);
-        let power=0;
         if(_.feq0(X)){
           if(Y>0){
             c[0]=0;
             c[1]=Y>limit ? limit : Y;
             angle=270;
-            direction=Mojo.BOTTOM;
+            direction=Mojo.DOWN;
           }else{
             c[0]=0;
             c[1]= -(sy > limit ? limit : sy);
             angle = 90;
             direction = Mojo.UP;
           }
-          s.m5.inner.position.set(c[0],c[1]);
-          power = _calcPower(s,c[0],c[1]);
-          s.m5.onChange(direction,angle,power);
         }else if(_.feq0(Y)){
           if(X>0){
             c[0]=sx > limit ? limit : sx;
@@ -162,9 +142,6 @@
             angle = 180;
             direction = Mojo.LEFT;
           }
-          s.m5.inner.position.set(c[0],c[1]);
-          power = _calcPower(s,c[0],c[1]);
-          s.m5.onChange(direction, angle, power);
         }else{
           let rad= Math.atan(Math.abs(Y/X));
           angle = rad*180/Math.PI;
@@ -193,28 +170,20 @@
             // 270 ~ 369
             angle= 360 - angle;
           }
-          power= _calcPower(s,c[0],c[1]);
           direction= _calcDir(c[0],c[1]);
-          s.m5.inner.position.set(c[0],c[1]);
-          s.m5.onChange(direction, angle, power);
         }
+        s.m5.inner.position.set(c[0],c[1]);
+        s.m5.onChange(direction,angle, _calcPower(s,c[0],c[1]));
       }
-      _.addEvent([["mousemove", Mojo.canvas, onDragMove],
-                  ["mousedown", Mojo.canvas, onDragStart],
-                  ["mouseup", window, onDragEnd],
-                  ["touchend", window, onDragEnd],
-                  ["touchcancel", window, onDragEnd],
-                  ["touchmove", Mojo.canvas, onDragMove],
-                  ["touchstart", Mojo.canvas, onDragStart]]);
-      s.m5.dispose=()=>{
-        _.delEvent([["mousemove", Mojo.canvas, onDragMove],
-                    ["mousedown", Mojo.canvas, onDragStart],
-                    ["mouseup", window, onDragEnd],
-                    ["touchend", window, onDragEnd],
-                    ["touchcancel", window, onDragEnd],
-                    ["touchmove", Mojo.canvas, onDragMove],
-                    ["touchstart", Mojo.canvas, onDragStart]]);
-      };
+      const sigs= [["mousemove", Mojo.canvas, onDragMove],
+                   ["mousedown", Mojo.canvas, onDragStart],
+                   ["mouseup", window, onDragEnd],
+                   ["touchend", window, onDragEnd],
+                   ["touchcancel", window, onDragEnd],
+                   ["touchmove", Mojo.canvas, onDragMove],
+                   ["touchstart", Mojo.canvas, onDragStart]];
+      _.addEvent(sigs);
+      s.m5.dispose=()=>{ _.delEvent(sigs) };
       return s;
     }
 
@@ -226,34 +195,27 @@
        * @return {PIXIContainer} the stick
        */
       joystick(options){
-        let inner= Mojo.Sprites.sprite("boot/joystick-handle.png");
-        let outer= Mojo.Sprites.sprite("boot/joystick.png");
-        let mo= _.inject({outerScale:1,
-                          innerScale:1,
+        let inner= _S.sprite("boot/joystick-handle.png");
+        let outer= _S.sprite("boot/joystick.png");
+        let stick=new PIXI.Container();
+        let mo= _.inject({oscale:0.7,
+                          iscale:1,
                           static:false,
                           inner,
                           outer,
-                          outerRadius:0,
-                          innerRadius:0,
-                          innerAlphaDft:1,//0.5,
                           onStart(){},
                           onEnd(){},
                           onChange(dir,angle,power){}}, options);
-        let stick=new PIXI.Container();
-        stick.m5=mo;
-        outer.tint=Mojo.Sprites.color("white");
-        outer.alpha = 1;//0.5;
+        _S.scaleXY(outer,mo.oscale, mo.oscale);
+        _S.scaleXY(inner,mo.iscale, mo.iscale);
         outer.anchor.set(0.5);
         inner.anchor.set(0.5);
-        inner.alpha = mo.innerAlphaDft;
-        outer.scale.set(mo.outerScale, mo.outerScale);
-        inner.scale.set(mo.innerScale, mo.innerScale);
         stick.addChild(outer);
         stick.addChild(inner);
-        mo.outerRadius = stick.width / 2.5;
-        mo.innerRadius = inner.width / 2;
+        mo.range = stick.width/2.5;
         if(!mo.static)
           stick.visible=false;
+        stick.m5=mo;
         return _bindEvents(stick);
       }
     };

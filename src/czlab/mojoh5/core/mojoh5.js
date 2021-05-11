@@ -486,16 +486,16 @@
       DOWN: 9,
       /**Enum (10)
        * @memberof module:mojoh5/Mojo */
-      TOP_LEFT: 10,
+      NW: 10,
       /**Enum (11)
        * @memberof module:mojoh5/Mojo */
-      TOP_RIGHT: 11,
+      NE: 11,
       /**Enum (12)
        * @memberof module:mojoh5/Mojo */
-      BOTTOM_LEFT: 12,
+      SW: 12,
       /**Enum (13)
        * @memberof module:mojoh5/Mojo */
-      BOTTOM_RIGHT: 13,
+      SE: 13,
       /**Enum (100)
        * @memberof module:mojoh5/Mojo */
       NONE: 100,
@@ -537,28 +537,28 @@
        * @return {boolean}
        */
       sideRight(d){
-        return d===Mojo.RIGHT || d===Mojo.TOP_RIGHT || d===Mojo.BOTTOM_RIGHT },
+        return d===Mojo.RIGHT || d===Mojo.NE || d===Mojo.SE },
       /**Check if `d` is on the left hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideLeft(d){
-        return d===Mojo.LEFT || d===Mojo.TOP_LEFT || d===Mojo.BOTTOM_LEFT },
+        return d===Mojo.LEFT || d===Mojo.NW || d===Mojo.SW },
       /**Check if `d` is on the top hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideTop(d){
-        return d===Mojo.TOP || d===Mojo.TOP_LEFT || d===Mojo.TOP_RIGHT },
+        return d===Mojo.UP || d===Mojo.TOP || d===Mojo.NW || d===Mojo.NE },
       /**Check if `d` is on the bottom hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideBottom(d){
-        return d===Mojo.BOTTOM || d===Mojo.BOTTOM_LEFT || d===Mojo.BOTTOM_RIGHT },
+        return d=== Mojo.DOWN || d===Mojo.BOTTOM || d===Mojo.SW || d===Mojo.SE },
       /**Check if 2 bboxes overlap.
        * @memberof module:mojoh5/Mojo
        * @param {object} a

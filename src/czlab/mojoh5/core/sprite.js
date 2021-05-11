@@ -1544,13 +1544,14 @@
       dbgShowDir(dir){
         let s="?";
         switch(dir){
-          case Mojo.TOP_RIGHT:
+          case Mojo.NE:
             s="top-right";
             break;
-          case Mojo.TOP_LEFT:
+          case Mojo.NW:
             s="top-left";
             break;
           case Mojo.TOP:
+          case Mojo.UP:
             s="top";
             break;
           case Mojo.LEFT:
@@ -1560,12 +1561,13 @@
             s="right";
             break;
           case Mojo.BOTTOM:
+          case Mojo.DOWN:
             s="bottom";
             break;
-          case Mojo.BOTTOM_RIGHT:
+          case Mojo.SE:
             s="bottom-right";
             break;
-          case Mojo.BOTTOM_LEFT:
+          case Mojo.SW:
             s="bottom-left";
             break;
         }
