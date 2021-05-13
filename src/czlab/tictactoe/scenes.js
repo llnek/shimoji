@@ -27,23 +27,24 @@
     const MFL=Math.floor;
 
     _Z.defScene("Splash",function(){
-      let verb = Mojo.touchDevice ? "Tap": "Click";
+      let verb = "Play!";//Mojo.touchDevice ? "Tap": "Click";
       let K= Mojo.getScaleFactor();
-      let msg=_S.bitmapText(`${verb} Play to start`,
+      let msg=_S.bitmapText(`${verb}`,
                             {fontName:"unscii",
                              align:"center",
-                             fontSize:48*K,fill:"white"},
-                            Mojo.width/2, Mojo.height*0.8);
+                             fontSize:48*K,fill:"orange"},
+                            Mojo.width/2, Mojo.height/2);
       _S.centerAnchor(msg);
       //in pixi, no fontSize, defaults to 26, left-align
-      let b=_I.makeButton(_S.bitmapText("Play Game!",
-                                        {fill:"#cccccc",
-                                         fontName:"unscii",
-                                         fontSize:24*K,align:"center"}));
+      let b= _S.sprite("boot/icon-tap-touch.png");
+      b=_I.makeButton(b);
+      b.tint=_S.color("orange");
+      _S.scaleXY(b,K*0.5,K*0.5);
+      _S.pinBottom(msg,b,K*36);
       b.m5.press= ()=> _Z.replaceScene(this,"MainMenu");
       this.insert(_G.Backgd());
       this.insert(msg);
-      this.insert(_Z.layoutY([b]));
+      this.insert(b);
     });
 
     _Z.defScene("EndGame",{

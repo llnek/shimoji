@@ -288,7 +288,7 @@
 
     const _PT=_V.vec();
     const _$={
-      assets: ["boot/unscii.fnt"],
+      assets: ["boot/mouse.png","boot/unscii.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -915,7 +915,7 @@
           fstyle.fontName="unscii";
         if(fstyle.fill)
           fstyle.tint=this.color(fstyle.fill);
-        return _V.set(this.extend(new Mojo.PXBText(msg,fstyle))) },
+        return _V.set(this.extend(new Mojo.PXBText(msg,fstyle)),x,y) },
       /**Create a rectangular sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
