@@ -75,6 +75,7 @@
       }
     }
 
+    let _pauseInput=false;
     const _$={
       LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
       ZERO: 48, ONE: 49, TWO: 50,
@@ -90,6 +91,9 @@
       HOME: 36, END: 35,
       PGGUP: 33, PGDOWN: 34,
       ptr:null,
+      resume(){ _pauseInput=false },
+      pause(){ _pauseInput=true },
+      isPaused(){ return _pauseInput },
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
        */
@@ -113,14 +117,14 @@
         function _down(e){
           e.preventDefault();
           if(key.code.includes(e.keyCode)){
-            key.isUp && key.press && key.press();
+            !_pauseInput && key.isUp && key.press && key.press();
             key.isUp=false; key.isDown=true;
           }
         }
         function _up(e){
           e.preventDefault();
           if(key.code.includes(e.keyCode)){
-            key.isDown && key.release && key.release();
+            !_pauseInput && key.isDown && key.release && key.release();
             key.isUp=true; key.isDown=false;
           }
         }
@@ -156,7 +160,7 @@
       },
       /** @ignore */
       update(dt){
-        DragDrops.length>0 && _updateDrags(this.ptr)
+        !_pauseInput && DragDrops.length>0 && _updateDrags(this.ptr)
       },
       /**This sprite is now draggable.
        * @memberof module:mojoh5/Input
@@ -225,15 +229,16 @@
             return {x: this.x, y: this.y}
           },
           press(){
-            for(let s,i=0,z=Buttons.length;i<z;++i){
-              s=Buttons[i];
-              if(s.m5.enabled &&
-                 s.m5.press &&
-                 ptr.hitTest(s)){
-                s.m5.press(s);
-                break;
+            if(!_pauseInput)
+              for(let s,i=0,z=Buttons.length;i<z;++i){
+                s=Buttons[i];
+                if(s.m5.enabled &&
+                   s.m5.press &&
+                   ptr.hitTest(s)){
+                  s.m5.press(s);
+                  break;
+                }
               }
-            }
           },
           tap(){
             ptr.press();
@@ -250,14 +255,14 @@
               ptr.downAt[1]=ptr._y;
               ptr.downTime = _.now();
               Mojo.Sound.init();
-              Mojo.emit(["mousedown"]);
+              !_pauseInput && Mojo.emit(["mousedown"]);
             }
           },
           mouseMove(e){
             ptr._x = e.pageX - e.target.offsetLeft;
             ptr._y = e.pageY - e.target.offsetTop;
             //e.preventDefault();
-            Mojo.emit(["mousemove"]);
+            !_pauseInput && Mojo.emit(["mousemove"]);
           },
           mouseUp(e){
             if(e.button===0){
@@ -266,13 +271,13 @@
               ptr._x = e.pageX - e.target.offsetLeft;
               ptr._y = e.pageY - e.target.offsetTop;
               _.setVec(ptr.state,false,true);
-              Mojo.emit(["mouseup"]);
+              !_pauseInput && Mojo.emit(["mouseup"]);
               let v= _V.vecAB(ptr.downAt,ptr);
               let z= _V.len2(v);
               if(!ptr.dragged){
                 //small distance and fast then a click
                 if(z<400 && ptr.elapsedTime<200){
-                  Mojo.emit(["single.tap"]);
+                  !_pauseInput && Mojo.emit(["single.tap"]);
                   ptr.press();
                 }else{
                   //maybe a swipe
@@ -303,8 +308,9 @@
                 rc="swipe.right";
               }
             }
-            if(rc)
-              Mojo.emit([rc])
+            if(!_pauseInput)
+              if(rc)
+                Mojo.emit([rc])
           },
           _copyTouch(t,target){
             return{offsetLeft:target.offsetLeft,
@@ -329,7 +335,7 @@
             _.assoc(ActiveTouches,tid,ptr._copyTouch(ct[0],t));
             Mojo.Sound.init();
             e.preventDefault();
-            Mojo.emit(["touchstart"]);
+            !_pauseInput && Mojo.emit(["touchstart"]);
           },
           touchMove(e){
             let ct=e.changedTouches;
@@ -340,7 +346,7 @@
             ptr._x = ct[0].pageX - t.offsetLeft;
             ptr._y = ct[0].pageY - t.offsetTop;
             e.preventDefault();
-            Mojo.emit(["touchmove"]);
+            !_pauseInput && Mojo.emit(["touchmove"]);
           },
           touchEnd(e){
             let ct=e.changedTouches;
@@ -354,12 +360,12 @@
             ptr._y = ct[0].pageY - t.offsetTop;
             _.setVec(ptr.state,false,true);
             e.preventDefault();
-            Mojo.emit(["touchend"]);
+            !_pauseInput && Mojo.emit(["touchend"]);
             if(!ptr.dragged){
               let v= _V.vecAB(ptr.downAt,ptr);
               let z= _V.len2(v);
               if(active && z<400 && ptr.elapsedTime<200){
-                Mojo.emit(["single.tap"]);
+                !_pauseInput && Mojo.emit(["single.tap"]);
                 ptr.press();
               }else{
                 ptr._swipeMotion(v,z,ptr.elapsedTime);

@@ -26,15 +26,20 @@
         this.cur=cur;
       }
       start(){
-        _.delay(0, ()=> this.players[this.cur].poke())
+      }
+      updateMove(from,move){
       }
     }
 
     class Player(){
       constructor(){}
-      poke(){
+      pokeMove(){
         console.log(`player ${this.uid}: poked`);
         this.onPoke();
+      }
+      pokeWait(){
+        console.log(`player ${this.uid}: wait`);
+        this.onWait();
       }
     }
 
@@ -45,12 +50,22 @@
       onPoke(){
         //wait for user click
       }
+      onWait(){
+        //stop all ui actions
+        Input.pause();
+      }
     }
 
     /** @abstract */
     class Bot() extends Player{
       constructor(uid="p2"){
         super(uid)
+      }
+      onPoke(){
+        //run ai code
+      }
+      onWait(){
+        //do nothing
       }
     }
 
@@ -59,8 +74,39 @@
       constructor(uid="p2"){
         super(uid)
       }
+      onPoke(){
+      }
+      onWait(){
+      }
     }
 
+    class C4Bot extends Bot{
+      constructor(){
+        super("c4bot")
+        this.ai= _G.AI(_G.O)
+      }
+      onPoke(){
+        let cells= _G.cells;
+        let pos,rc;
+        this.ai.syncState(cells, this.pnum);
+        pos= this.ai.getFirstMove();
+        if(pos<0)
+          pos= this.ai.run();//_N.evalNegaMax(this.ai);
+        cells[pos] = this.pnum;
+        _G.mediator.updateMove(this.pnum, pos);
+        //Mojo.emit(["ai.moved",this.scene],pos);
+        _G.playSnd();
+        /*
+        rc= _G.checkState();
+        if(rc===0)
+          _G.switchPlayer();
+        else{
+          _G.lastWin= rc===1 ? _G.pcur : 0;
+          _Z.runScene("EndGame",5);
+        }
+        */
+      }
+    }
     const MFL=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,

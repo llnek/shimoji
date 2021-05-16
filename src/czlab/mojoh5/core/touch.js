@@ -23,7 +23,7 @@
           P8_3=P8*3,
           P8_5=P8*5,
           P8_7= P8*7,
-          {Sprites:_S, is,ute:_}=Mojo;
+          {Sprites:_S, Input:_I, is,ute:_}=Mojo;
 
     /**
      * @module mojoh5/Touch
@@ -73,7 +73,7 @@
           s.x=s.m5.startX;
           s.y=s.m5.startY;
         }
-        s.m5.onStart();
+        if(!_I.isPaused()) s.m5.onStart();
       }
       function onDragEnd(e){
         if(s.m5.drag){
@@ -82,11 +82,11 @@
           if(!s.m5.static){
             s.visible=false;
           }
-          s.m5.onEnd();
+          if(!_I.isPaused()) s.m5.onEnd();
         }
       }
       function onDragMove(e){
-        if(!s.visible || !s.m5.drag){return}
+        if(_I.isPaused() || !s.visible || !s.m5.drag){return}
         let c,t= e.target;
         if(e.changedTouches){
           for(let i=0,
