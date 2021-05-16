@@ -50,10 +50,7 @@
       o.makeMove=function(){
         let cells= _G.cells;
         let pos,rc;
-        this.board.syncState(cells, this.pnum);
-        pos= this.board.getFirstMove();
-        if(pos<0)
-          pos= _N.evalNegaMax(this.board);
+        pos= this.board.run(cells, this.pnum);
         cells[pos] = this.pnum;
         Mojo.emit(["ai.moved",this.scene],pos);
         _G.playSnd();

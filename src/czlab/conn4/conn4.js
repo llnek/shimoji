@@ -20,93 +20,6 @@
 
     window["io/czlab/conn4/AI"](Mojo);
 
-    class Mediator{
-      constructor(players,cur){
-        this.players=players.slice();
-        this.cur=cur;
-      }
-      start(){
-      }
-      updateMove(from,move){
-      }
-    }
-
-    class Player(){
-      constructor(){}
-      pokeMove(){
-        console.log(`player ${this.uid}: poked`);
-        this.onPoke();
-      }
-      pokeWait(){
-        console.log(`player ${this.uid}: wait`);
-        this.onWait();
-      }
-    }
-
-    class Local() extends Player{
-      constructor(uid="p1"){
-        super(uid)
-      }
-      onPoke(){
-        //wait for user click
-      }
-      onWait(){
-        //stop all ui actions
-        Input.pause();
-      }
-    }
-
-    /** @abstract */
-    class Bot() extends Player{
-      constructor(uid="p2"){
-        super(uid)
-      }
-      onPoke(){
-        //run ai code
-      }
-      onWait(){
-        //do nothing
-      }
-    }
-
-    /** @abstract */
-    class Remote() extends Player{
-      constructor(uid="p2"){
-        super(uid)
-      }
-      onPoke(){
-      }
-      onWait(){
-      }
-    }
-
-    class C4Bot extends Bot{
-      constructor(){
-        super("c4bot")
-        this.ai= _G.AI(_G.O)
-      }
-      onPoke(){
-        let cells= _G.cells;
-        let pos,rc;
-        this.ai.syncState(cells, this.pnum);
-        pos= this.ai.getFirstMove();
-        if(pos<0)
-          pos= this.ai.run();//_N.evalNegaMax(this.ai);
-        cells[pos] = this.pnum;
-        _G.mediator.updateMove(this.pnum, pos);
-        //Mojo.emit(["ai.moved",this.scene],pos);
-        _G.playSnd();
-        /*
-        rc= _G.checkState();
-        if(rc===0)
-          _G.switchPlayer();
-        else{
-          _G.lastWin= rc===1 ? _G.pcur : 0;
-          _Z.runScene("EndGame",5);
-        }
-        */
-      }
-    }
     const MFL=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
@@ -115,6 +28,68 @@
            FX:_F,
            v2:_V,
            ute:_, is}= Mojo;
+
+    const {Bot,
+           Local,Mediator}=Mojo;
+
+    /** @class */
+    class C4Bot extends Bot{
+      constructor(pnum){
+        super("c4bot")
+        this.pnum=pnum;
+        this.ai= _G.AI();
+      }
+      stateValue(){
+        return this.pnum;
+      }
+      onPoke(){
+        let move=this.ai.run(_G.mediator.gameState(), this.pnum);
+        _G.mediator.updateMove(this.pnum,move);
+      }
+    }
+
+    /** @class */
+    class C4Human extends Local{
+      constructor(pnum){
+        super("P1");
+        this.pnum=1;
+      }
+      stateValue(){
+        return this.pnum;
+      }
+    }
+
+    /** @class */
+    class C4Mediator extends Mediator{
+      constructor(cur){
+        super();
+        this.state=[];
+        this.pcur=cur;
+        for(let y=0;y<_G.ROWS;++y)
+          this.state.push(_.fill(_G.COLS,0));
+      }
+      updateState(from,move){
+        let [row,col]=move,
+            s= _G.tiles[row][col],
+            p= this.players[from],
+            v=p.stateValue();
+        this.state[row][col]=v;
+        s.alpha=1;
+        s.m5.showFrame(v);
+      }
+      postMove(from,move){
+        let d,w=_G.check4(this.state,
+                          move[0],move[1],
+                          this.players[from].stateValue());
+        if(w){
+          this.gameOver(from);
+        }else if(_G.checkDraw(this.state)){
+          this.gameOver();
+        }else{
+          this.takeTurn();
+        }
+      }
+    }
 
     _G.postClick=function(row,col){
       let w=_G.check4(_G.cells,row,col,_G.players[0]);
@@ -278,7 +253,7 @@
       }
     });
 
-    function _initArena(scene){
+    function _initArena(scene,M){
       let g= _S.gridXY([_G.COLS,_G.ROWS],0.8,0.8);
       _G.tiles=[];
       _G.grid=g;
@@ -301,15 +276,13 @@
           s.y= MFL((c.y1+c.y2)/2);
           _I.makeButton(s);
           s.m5.press=()=>{
-            if(_G.gameOver ||
-               _G.maxY(_G.cells,s.g.col)!==s.g.row){
-              return;
+            if(!M.isGameOver() &&
+               _G.maxY(M.gameState(),s.g.col)===s.g.row){
+              _I.undoButton(s);
+              //s.alpha=1;
+              //s.m5.showFrame(M.cur());
+              M.updateMove(M.cur(),[s.g.row,s.g.col]);
             }
-            _G.cells[s.g.row][s.g.col]=_G.players[0];
-            _I.undoButton(s);
-            s.alpha=1;
-            s.m5.showFrame(_G.players[0]);
-            _.delay(0,()=> _G.postClick(s.g.row,s.g.col));
           };
           s.alpha=0.1;
           t.push(s);
@@ -320,41 +293,29 @@
       scene.insert(_S.bboxFrame(_G.arena));
     }
 
-    function _initLevel(){
-      _G.players=[null,null,null];
-      _G.cells=[];
-
-      for(let y=0;y<_G.ROWS;++y)
-        _G.cells.push(_.fill(_G.COLS,0));
-
-      _G.players[1]=new Local();
-      _G.players[2]=new Bot();
-
-      _G.pcur=1;
+    function _initLevel(mode,level){
+      let m= _G.mediator= new C4Mediator(1);
+      if(mode===1){
+        m.add(new C4Human(1));
+        m.add(new C4Bot(2));
+      }
+      return m;
     }
 
     _Z.defScene("game",{
-      onAI(){
-
-      }
       setup(){
-        _initArena(this);
-        _initLevel();
-        if(_G.mode===1){
-          let a= _G.ai= _G.AI(_G.X,_G.O);
-          a.scene=this;
-          Mojo.on(["ai.moved",this],"onAI");
-          //ai starts?
-          if(_G.pcur===_G.O){
-            _.delay(100, () => Mojo.emit(["ai.move", a])) } }
+        let m=_initLevel(1,1);
+        _initArena(this,m);
+        m.start();
       },
       postUpdate(){
-        if(_G.gameOver){return}
-        for(let r,x=0;x<_G.COLS;++x){
-          r=_G.maxY(_G.cells,x);
-          if(r>=0){
+        let m=_G.mediator;
+        if(m.isGameOver())
+        {return}
+        for(let r,x=0,cs=m.gameState();x<_G.COLS;++x){
+          r=_G.maxY(cs,x);
+          if(r>=0)
             _G.tiles[r][x].alpha=0.3;
-          }
         }
       }
     });

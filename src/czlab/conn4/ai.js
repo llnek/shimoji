@@ -90,9 +90,8 @@
         return _G.check4(snap.state, move[0], move[1],snap.other)?-100:0 }
     }
 
-    _G.AI=function(p1v,p2v){
-      return new C(p1v,p2v)
-    }
+    _G.AI=function(){ return new C(_G.X,_G.O) };
+
   }
 
 })(this);

@@ -456,7 +456,104 @@
     function _raf(cb){
       return gscope.requestAnimationFrame(cb) }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** @abstract */
+    class Mediator{
+      constructor(){
+        this.players=[null];
+        this.state=null;
+        this.pcur=0;
+        this.end;
+        this.pwin;
+      }
+      cur() {return this.pcur}
+      add(p){ this.players.push(p) }
+      winner(){ return this.pwin }
+      isGameOver(){ return this.end }
+      gameState(){ return this.state }
+      gameOver(win){
+        this.pwin=win;
+        this.end=true;
+      }
+      start(){
+        _.assert(this.pcur>0,"bad current pnum");
+        this.end=false;
+        this._turn();
+      }
+      _turn(){
+        for(let i=1;i<this.players.length;++i){
+          if(i !== this.pcur)
+            this.players[i].pokeWait();
+        }
+        this.players[this.pcur].pokeMove();
+      }
+      postMove(from,move){
+        _.assert(false,"implement postMove!") }
+      updateState(from,move){
+        _.assert(false,"implement updateState!") }
+      updateMove(from,move){
+        if(this.end){return}
+        this.updateState(from,move);
+        this.players[from].playSound();
+        _.delay(0,()=>this.postMove(from,move));
+      }
+      takeTurn(){
+        if(this.end){return}
+        if(this.pcur===1) this.pcur=2;
+        else if(this.pcur===2) this.pcur=1;
+        this._turn();
+      }
+    }
+
+    /** @abstract */
+    class Player{
+      constructor(){ this.uid; }
+      playSound(){}
+      pokeMove(){
+        console.log(`player ${this.uid}: poked`);
+        this.onPoke();
+      }
+      pokeWait(){
+        console.log(`player ${this.uid}: wait`);
+        this.onWait();
+      }
+      stateValue(){
+        _.assert(false,"implement stateValue!") }
+    }
+
+    /** @abstract */
+    class Local extends Player{
+      constructor(uid="p1"){
+        super(uid)
+      }
+      onPoke(){
+        //wait for user click
+        Mojo.Input.resume();
+      }
+      onWait(){
+        //stop all ui actions
+        Mojo.Input.pause();
+      }
+    }
+
+    /** @abstract */
+    class Bot extends Player{
+      constructor(uid="p2"){
+        super(uid)
+      }
+      onPoke(){
+        //run ai code
+      }
+      onWait(){
+        //do nothing
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Mojo={
+      Bot,
+      Local,
+      Mediator,
       /**Enum (1)
       * @memberof module:mojoh5/Mojo */
       EVERY:1,

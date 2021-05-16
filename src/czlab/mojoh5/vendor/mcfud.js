@@ -5238,6 +5238,13 @@
        * @return {GFrame}
        */
       takeGFrame(){}
+      run(seed,actor){
+        this.syncState(seed,actor);
+        let pos= this.getFirstMove();
+        if(_.nichts(pos))
+          pos= _$.evalNegaMax(this);
+        return pos;
+      }
     }
 
     /** @ignore */
@@ -5262,7 +5269,8 @@
     function _negaMax(board, game, maxDepth,depth,prevMove, alpha, beta){
 
       if(depth===0 ||
-         board.isOver(game,prevMove)){
+         (!_.nichts(prevMove)&&
+          board.isOver(game,prevMove))){
         return _calcScore(board,game,prevMove,depth) }
 
       let openMoves = board.getNextMoves(game),
