@@ -512,7 +512,10 @@
       u:cmdArg,
       /**Storage for all game data.
        * @memberof module:mojoh5/Mojo */
-      Game:{},
+      Game:{mode:1},
+      MODE_ONE:1,
+      MODE_TWO:2,
+      MODE_NET:3,
       CON:console,
       noop: ()=>{},
       PXContainer:PIXI.Container,

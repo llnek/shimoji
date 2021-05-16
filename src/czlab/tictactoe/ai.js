@@ -76,7 +76,7 @@
         _.copy(ff.state,this.grid);
         return ff;
       }
-      evalScore(snap){
+      evalScore(snap,move){
         //if we lose, return a negative value
         for(let g, i=0; i<this.goals.length; ++i){
           g= this.goals[i];
@@ -85,28 +85,18 @@
         }
         return 0;
       }
-      isOver(snap){
+      isOver(snap,move){
         for(let g, i=0; i < this.goals.length; ++i){
           g= this.goals[i];
+          if(this.testWin(snap.state, snap.other, g)) {
+            return true;
+          }
+          /*
           if (this.testWin(snap.state, snap.cur, g) ||
               this.testWin(snap.state, snap.other, g)) return true;
+          */
         }
         return this.isStalemate(snap);
-      }
-      isStalemate(snap){
-        return _.notAny(snap.state, 0) }
-      getWinner(snap, combo){
-        let win= -1;
-        for(let g,i=0; i< this.goals.length; ++i){
-          g= this.goals[i];
-          if(this.testWin(snap.state, snap.other, g))
-            win=snap.other;
-          else if(this.testWin(snap.state, snap.cur, g))
-            win=snap.cur;
-          ;
-          if(win>0){ _.append(combo,g); break; }
-        }
-        return win;
       }
       testWin(vs, actor, g){
         let cnt=g.length;
@@ -115,6 +105,8 @@
             --cnt;
         return cnt === 0;
       }
+      isStalemate(snap){
+        return _.notAny(snap.state, 0) }
     }
 
     _G.TTToe=function(p1v,p2v){
