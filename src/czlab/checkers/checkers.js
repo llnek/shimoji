@@ -48,23 +48,45 @@
     function _showTargets(M){
       let {row,col,dirY,dirX}= _G.curPicked.g;
       let state=M.gameState();
+      _resetBoard();
       for(let r,y=0;y<_G.ROWS;++y){
         r=state[y];
         for(let s,c,x=0;x<_G.COLS;++x){
-          s=_G.board[y][x];
-          if(s.m5.showFrame)
-            s.m5.showFrame(0);
           c=r[x];
           s=_G.tiles[y][x];
           if(c!==0 &&s){
-            let r1,r2,c1,c2;
+            let e,r1,r2,c1,c2,k1,k2;
             if(y===row&&x===col){
               dirY.forEach(dy=>{
                 r1=row+dy;
                 c1=col+dirX[0];
                 c2=col+dirX[1];
-                if(state[r1][c1]=="t") _G.board[r1][c1].m5.showFrame(1);
-                if(state[r1][c2]=="t") _G.board[r1][c2].m5.showFrame(1);
+                if(state[r1][c1]=="S") {
+                  _G.board[r1][c1].m5.showFrame(1);
+                  _I.makeButton(_G.board[r1][c1]);
+                }
+                if(state[r1][c2]=="S"){
+                  _G.board[r1][c2].m5.showFrame(1);
+                  _I.makeButton(_G.board[r1][c2]);
+                }
+                e=_G.tiles[r1][c1];//left
+                if(e && e.g.team!=s.g.team){
+                  r2=r1+dy;
+                  k1=c1+dirX[0];
+                  if(_coord(r2,k1) && state[r2][k1]=="J"){
+                    _G.board[r2][k1].m5.showFrame(1);
+                    _I.makeButton(_G.board[r2][k1]);
+                  }
+                }
+                e=_G.tiles[r1][c2];//right
+                if(e && e.g.team!=s.g.team){
+                  r2=r1+dy;
+                  k1=c2+dirX[1];
+                  if(_coord(r2,k1) && state[r2][k1]=="J"){
+                    _G.board[r2][k1].m5.showFrame(1);
+                    _I.makeButton(_G.board[r2][k1]);
+                  }
+                }
               });
             }else{
               s.m5.showFrame(0);
@@ -74,7 +96,7 @@
       }
     }
 
-    function _calcSlides(ps,tiles){
+    function _calcSteps(ps,tiles){
       let {row,col,dirX,dirY}=ps.g;
       let r,c,out=[];
       dirY.forEach(dy=>{
@@ -82,7 +104,7 @@
         dirX.forEach(dx=>{
           c=col+dx;
           if(_coord(r,c) && !tiles[r][c]){
-            out.push([r,c,"t"]);
+            out.push([r,c,"S"]);
             out.push([row,col,"s"]);
           }
         });
@@ -103,7 +125,7 @@
             r2=r+dy;
             c2=c+dx;
             if(_coord(r2,c2)&& !tiles[r2][c2]){
-              out.push([r2,c2,"t"]);
+              out.push([r2,c2,"J"]);
               out.push([row,col,"j"]);
             }
           }
@@ -115,6 +137,8 @@
 
     function _calcNextMoves(team,tiles){
       let mask=_newState();
+      let jumps=[];
+      let steps=[];
       for(let r,y=0;y<_G.ROWS;++y){
         r=tiles[y];
         for(let s,out,x=0;x<_G.COLS;++x){
@@ -122,17 +146,41 @@
           out=null;
           if(s && s.g.team==team){
             out=_calcJumps(s,tiles);
-            if(!out)
-              out= _calcSlides(s,tiles);
+            if(out){
+              out.forEach(o=>jumps.push(o));
+            }
+            out= _calcSteps(s,tiles);
+            if(out){
+              out.forEach(o=>steps.push(o));
+            }
           }
-          if(out){
-            out.forEach(p=>{
-              mask[p[0]][p[1]]=p[2]
-            });
-          }
+        }
+        if(jumps.length>0){
+          jumps.forEach(p=>{ mask[p[0]][p[1]]=p[2] });
+        }else if(steps.length>0){
+          steps.forEach(p=>{ mask[p[0]][p[1]]=p[2] });
         }
       }
       return mask;
+    }
+
+    function _resetBoard(){
+      for(let y=0;y<_G.ROWS;++y){
+        for(let s,x=0;x<_G.COLS;++x){
+          s=_G.board[y][x];
+          if(s.g.dark){
+            _I.undoButton(s);
+            s.m5.showFrame(0);
+          }
+        }
+      }
+    }
+
+    function _resetState(s){
+      s.forEach(a=>{
+        for(let i=0;i<a.length;++i)a[i]=0;
+      });
+      return s;
     }
 
     /** @class */
@@ -167,9 +215,8 @@
         mask.forEach(m=>state.push(m));
         for(let y=0;y<_G.ROWS;++y){
           for(let s,x=0;x<_G.COLS;++x){
-            s=_G.board[y][x];
-            if(s.m5.showFrame)
-              s.m5.showFrame(0);
+            //s=_G.board[y][x];
+            //if(s.g.dark) s.m5.showFrame(0);
             s=_G.tiles[y][x];
             if(mask[y][x]=="s"){
               s.m5.showFrame(1);
@@ -221,6 +268,83 @@
       }
     });
 
+    function _onClick(s,M){
+      let state=M.gameState();
+      let {row,col}=s.g;
+      let c=state[row][col];
+      switch(c){
+        case "S":{
+
+          let r=_G.curPicked.g.row;
+          let c=_G.curPicked.g.col;
+          _G.tiles[row][col]=_G.curPicked;
+          _V.copy(_G.curPicked,_G.board[row][col]);
+          _G.tiles[r][c]=null;
+          _G.curPicked.g.row=row;
+          _G.curPicked.g.col=col;
+          _G.curPicked.m5.showFrame(0);
+          _G.curPicked=null;
+          _resetState(state);
+          _resetBoard();
+          _.delay(0,()=>M.takeTurn());
+        }
+          break;
+        case "J":{
+          let r=_G.curPicked.g.row;
+          let c=_G.curPicked.g.col;
+          let e,er,ec;
+          if(row>r){
+            er=row-1;
+          }else{
+            er=row+1;
+          }
+          if(col>c){
+            ec=col-1;
+          }else{
+            ec=col+1;
+          }
+          e=_G.tiles[er][ec];
+          _G.tiles[er][ec]=null;
+          _I.undoButton(e);
+          e.visible=false;
+          if(e.g.team=="red")_G.blackScore++;
+          else _G.redScore++;
+          _G.tiles[row][col]=_G.curPicked;
+          _V.copy(_G.curPicked,_G.board[row][col]);
+          _G.tiles[r][c]=null;
+          _G.curPicked.g.row=row;
+          _G.curPicked.g.col=col;
+          _G.curPicked.m5.showFrame(0);
+          _G.curPicked=null;
+          _resetState(state);
+          _resetBoard();
+          _.delay(0,()=>M.takeTurn());
+        }
+          break;
+        default:{
+
+          if(!_G.tiles[row][col]){return}
+          if(_G.curPicked){
+            if(_G.curPicked===s){
+              _G.curPicked=null;
+              s.m5.showFrame(1);
+              M.redoTurn();
+            }else{
+              _G.curPicked.m5.showFrame(1);
+              _G.curPicked=s;
+              s.m5.showFrame(2);
+              _showTargets(M);
+            }
+          }else{
+            _G.curPicked=s;
+            s.m5.showFrame(2);
+            _showTargets(M);
+          }
+        }
+          break;
+      }
+    }
+
     function _initArena(scene,M){
       let g= _G.grid;
       _G.tiles=[];
@@ -260,28 +384,9 @@
             s.x= MFL((c.x1+c.x2)/2);
             s.y= MFL((c.y1+c.y2)/2);
             _I.makeButton(s);
-            s.m5.press=()=>{
-              if(M.isGameOver()){return}
-              if(M.gameState()[y][x]===0){return}
-              if(_G.curPicked){
-                if(_G.curPicked===s){
-                  _G.curPicked=null;
-                  s.m5.showFrame(1);
-                  M.redoTurn();
-                }else{
-                  _G.curPicked.m5.showFrame(1);
-                  _G.curPicked=s;
-                  s.m5.showFrame(2);
-                  _showTargets(M);
-                }
-              }else{
-                _G.curPicked=s;
-                s.m5.showFrame(2);
-                _showTargets(M);
-              }
-            };
             s.m5.showFrame(0);
             scene.insert(s);
+            s.m5.press=()=>{ if(!M.isGameOver()) _onClick(s,M) };
           }
         }
         _G.tiles.push(t);
@@ -289,7 +394,7 @@
       scene.insert(_S.bboxFrame(_G.arena,16,"#7f98a6"));
     }
 
-    function _initBoard(scene){
+    function _initBoard(scene,M){
       let g= _S.gridXY([_G.COLS,_G.ROWS]);
       _G.board=[];
       _G.grid=g;
@@ -304,6 +409,10 @@
             s=_S.sprite("light.png");
           }else{
             s=_S.spriteFrom("dark.png","dark1.png");
+            s.g.dark=true;
+            s.m5.press=()=>{
+              if(!M.isGameOver()) _onClick(s,M);
+            }
           }
           _S.centerAnchor(s);
           z=c.x2-c.x1;
@@ -332,8 +441,10 @@
     _Z.defScene("game",{
       setup(){
         let m=_initLevel(2,1);
-        _initBoard(this);
+        _initBoard(this,m);
         _initArena(this,m);
+        _G.redScore=0;
+        _G.blackScore=0;
         m.start();
       },
       postUpdate(){
@@ -349,6 +460,20 @@
         */
       }
     });
+
+    _Z.defScene("hud",{
+      setup(){
+        let r= this.red=_S.bitmapText("",{fontSize:36,fill:"white"});
+        let b=this.black=_S.bitmapText("",{fontSize:36,fill:"white"});
+        this.insert(r);
+        this.insert(b);
+        _S.pinBottom(r,b,100);
+      },
+      postUpdate(){
+        this.red.text=`Red Score: ${_G.redScore}`;
+        this.black.text=`Black Score: ${_G.blackScore}`;
+      }
+    })
   }
 
   const _$={
@@ -363,7 +488,7 @@
       scenes(Mojo);
       //Mojo.Scenes.runScene("splash");
       Mojo.Scenes.runScene("game");
-      //Mojo.Scenes.runScene("hud");
+      Mojo.Scenes.runScene("hud");
     }
   };
 
