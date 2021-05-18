@@ -89,7 +89,7 @@
                 }
               });
             }else{
-              s.m5.showFrame(0);
+              s.m5.showFrame(s.g.king?3:0);
             }
           }
         }
@@ -155,11 +155,11 @@
             }
           }
         }
-        if(jumps.length>0){
-          jumps.forEach(p=>{ mask[p[0]][p[1]]=p[2] });
-        }else if(steps.length>0){
-          steps.forEach(p=>{ mask[p[0]][p[1]]=p[2] });
-        }
+      }
+      if(jumps.length>0){
+        jumps.forEach(p=>{ mask[p[0]][p[1]]=p[2] });
+      }else if(steps.length>0){
+        steps.forEach(p=>{ mask[p[0]][p[1]]=p[2] });
       }
       return mask;
     }
@@ -215,15 +215,13 @@
         mask.forEach(m=>state.push(m));
         for(let y=0;y<_G.ROWS;++y){
           for(let s,x=0;x<_G.COLS;++x){
-            //s=_G.board[y][x];
-            //if(s.g.dark) s.m5.showFrame(0);
             s=_G.tiles[y][x];
             if(mask[y][x]=="s"){
               s.m5.showFrame(1);
             }else if(mask[y][x]=="j"){
               s.m5.showFrame(1);
             }else if(s){
-              s.m5.showFrame(0);
+              s.m5.showFrame(s.g.king?3:0);
             }
           }
         }
@@ -278,11 +276,25 @@
           let r=_G.curPicked.g.row;
           let c=_G.curPicked.g.col;
           _G.tiles[row][col]=_G.curPicked;
+          if(_G.curPicked.g.team=="red"){
+            if(row===_G.ROWS-1) {
+              _G.curPicked.g.dirY=[1,-1];
+              _G.curPicked.g.king=true;
+            }
+          }else{
+            if(row===0){
+              _G.curPicked.g.dirY=[-1,1];
+              _G.curPicked.g.king=true;
+            }
+          }
           _V.copy(_G.curPicked,_G.board[row][col]);
           _G.tiles[r][c]=null;
           _G.curPicked.g.row=row;
           _G.curPicked.g.col=col;
           _G.curPicked.m5.showFrame(0);
+          if(_G.curPicked.g.king){
+            _G.curPicked.m5.showFrame(3);
+          }
           _G.curPicked=null;
           _resetState(state);
           _resetBoard();
@@ -310,11 +322,19 @@
           if(e.g.team=="red")_G.blackScore++;
           else _G.redScore++;
           _G.tiles[row][col]=_G.curPicked;
+          if(_G.curPicked.g.team=="red"){
+            if(row===_G.ROWS-1) _G.curPicked.g.king=true;
+          }else{
+            if(row===0) _G.curPicked.g.king=true;
+          }
           _V.copy(_G.curPicked,_G.board[row][col]);
           _G.tiles[r][c]=null;
           _G.curPicked.g.row=row;
           _G.curPicked.g.col=col;
           _G.curPicked.m5.showFrame(0);
+          if(_G.curPicked.g.king){
+            _G.curPicked.m5.showFrame(3);
+          }
           _G.curPicked=null;
           _resetState(state);
           _resetBoard();
