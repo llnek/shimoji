@@ -1,0 +1,47 @@
+{"frames": {
+
+"black.png":
+{
+	"frame": {"x":1,"y":1,"w":658,"h":659},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":31,"y":31,"w":658,"h":659},
+	"sourceSize": {"w":720,"h":720}
+},
+"black1.png":
+{
+	"frame": {"x":1,"y":662,"w":658,"h":659},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":31,"y":31,"w":658,"h":659},
+	"sourceSize": {"w":720,"h":720}
+},
+"black2.png":
+{
+	"frame": {"x":661,"y":1,"w":658,"h":659},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":31,"y":31,"w":658,"h":659},
+	"sourceSize": {"w":720,"h":720}
+},
+"black3.png":
+{
+	"frame": {"x":662,"y":661,"w":658,"h":659},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":31,"y":31,"w":658,"h":659},
+	"sourceSize": {"w":720,"h":720}
+}},
+"animations": {
+	"black": ["black1.png","black2.png","black3.png"]
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "blacks.png",
+	"format": "RGBA8888",
+	"size": {"w":1321,"h":1321},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:c742a0cc8db52881d024ef654e1087d2:1191ea4ba39418a145a08bb7b9e091da:b03989246d2b504dd3311ef67b70f724$"
+}
+}

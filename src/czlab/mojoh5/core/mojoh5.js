@@ -465,9 +465,13 @@
         this.pcur=0;
         this.end;
         this.pwin;
+        this._pcnt=0;
       }
       cur() {return this.pcur}
-      add(p){ this.players.push(p) }
+      add(p){
+        p.pnum=++this._pcnt;
+        p.owner=this;
+        this.players.push(p) }
       winner(){ return this.pwin }
       isGameOver(){ return this.end }
       gameState(){ return this.state }
@@ -485,6 +489,9 @@
           if(i !== this.pcur)
             this.players[i].pokeWait();
         }
+        this.players[this.pcur].pokeMove();
+      }
+      redoTurn(){
         this.players[this.pcur].pokeMove();
       }
       postMove(from,move){
