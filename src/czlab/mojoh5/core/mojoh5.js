@@ -514,7 +514,7 @@
 
     /** @abstract */
     class Player{
-      constructor(){ this.uid; }
+      constructor(uid){ this.uid=uid; }
       playSound(){}
       pokeMove(){
         console.log(`player ${this.uid}: poked`);

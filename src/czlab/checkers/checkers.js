@@ -34,76 +34,67 @@
 
     /** @ignore */
     function _newState(){
-      let out=[];
-      for(let y=0;y<_G.ROWS;++y)
-        out.push(_.fill(_G.COLS,0));
-      return out;
-    }
+      return _.fill(_G.ROWS,()=> _.fill(_G.COLS,0)) }
 
     /** @ignore */
     function _coord(row,col){
       return row>=0&&row<_G.ROWS&&col>=0&&col<_G.COLS }
 
+    function _boardStepOn(row,col,M){
+      if(M.gameState()[row][col]=="S"){
+        _G.board[row][col].m5.showFrame(1);
+        _I.makeButton(_G.board[row][col]);
+      }
+    }
+
+    function _boardJumpOn(s,row,col,dy,dx,M){
+      let r2,k1,e=_G.tiles[row][col];
+      if(e && e.g.team!=s.g.team){
+        r2=row+dy;
+        k1=col+dx;
+        if(_coord(r2,k1) && M.gameState()[r2][k1]=="J"){
+          _G.board[r2][k1].m5.showFrame(1);
+          _I.makeButton(_G.board[r2][k1]);
+        }
+      }
+    }
+
     /** @ignore */
     function _showTargets(M){
-      let {row,col,dirY,dirX}= _G.curPicked.g;
+      let {row,col,dirY,dirX}= _G.curSel.g;
+      let e,r1,r2,c1,c2;
       let state=M.gameState();
       _resetBoard();
       for(let r,y=0;y<_G.ROWS;++y){
         r=state[y];
         for(let s,c,x=0;x<_G.COLS;++x){
-          c=r[x];
           s=_G.tiles[y][x];
-          if(c!==0 &&s){
-            let e,r1,r2,c1,c2,k1,k2;
-            if(y===row&&x===col){
-              dirY.forEach(dy=>{
-                r1=row+dy;
-                c1=col+dirX[0];
-                c2=col+dirX[1];
-                if(state[r1][c1]=="S") {
-                  _G.board[r1][c1].m5.showFrame(1);
-                  _I.makeButton(_G.board[r1][c1]);
-                }
-                if(state[r1][c2]=="S"){
-                  _G.board[r1][c2].m5.showFrame(1);
-                  _I.makeButton(_G.board[r1][c2]);
-                }
-                e=_G.tiles[r1][c1];//left
-                if(e && e.g.team!=s.g.team){
-                  r2=r1+dy;
-                  k1=c1+dirX[0];
-                  if(_coord(r2,k1) && state[r2][k1]=="J"){
-                    _G.board[r2][k1].m5.showFrame(1);
-                    _I.makeButton(_G.board[r2][k1]);
-                  }
-                }
-                e=_G.tiles[r1][c2];//right
-                if(e && e.g.team!=s.g.team){
-                  r2=r1+dy;
-                  k1=c2+dirX[1];
-                  if(_coord(r2,k1) && state[r2][k1]=="J"){
-                    _G.board[r2][k1].m5.showFrame(1);
-                    _I.makeButton(_G.board[r2][k1]);
-                  }
-                }
-              });
-            }else{
-              s.m5.showFrame(s.g.king?3:0);
-            }
+          c=r[x];
+          if(!s || c===0 || !(y===row&&x===col)){
+            if(s) s.m5.showFrame(s.g.king?3:0);
+            continue;
           }
+          dirY.forEach(dy=>{
+            c1=col+dirX[0];
+            c2=col+dirX[1];
+            r1=row+dy;
+            _boardStepOn(r1,c1,M);
+            _boardStepOn(r1,c2,M);
+            _boardJumpOn(s,r1,c1,dy,dirX[0],M);
+            _boardJumpOn(s,r1,c2,dy,dirX[1],M);
+          });
         }
       }
     }
 
-    function _calcSteps(ps,tiles){
+    function _calcSteps(ps){
       let {row,col,dirX,dirY}=ps.g;
       let r,c,out=[];
       dirY.forEach(dy=>{
         r=row+dy;
         dirX.forEach(dx=>{
           c=col+dx;
-          if(_coord(r,c) && !tiles[r][c]){
+          if(_coord(r,c) && !_G.tiles[r][c]){
             out.push([r,c,"S"]);
             out.push([row,col,"s"]);
           }
@@ -112,7 +103,7 @@
       if(out.length>0) return out;
     }
 
-    function _calcJumps(ps,tiles){
+    function _calcJumps(ps){
       let {row,col,team,dirX,dirY}=ps.g;
       let r2,c2,r,c,s,out=[];
 
@@ -120,11 +111,11 @@
         r= row+dy;
         dirX.forEach(dx=>{
           c=col+dx;
-          s=_coord(r,c)?tiles[r][c]:null;
+          s=_coord(r,c)?_G.tiles[r][c]:null;
           if(s && s.g.team!=team){
             r2=r+dy;
             c2=c+dx;
-            if(_coord(r2,c2)&& !tiles[r2][c2]){
+            if(_coord(r2,c2)&& !_G.tiles[r2][c2]){
               out.push([r2,c2,"J"]);
               out.push([row,col,"j"]);
             }
@@ -135,21 +126,21 @@
       if(out.length>0) return out;
     }
 
-    function _calcNextMoves(team,tiles){
+    function _calcNextMoves(team){
       let mask=_newState();
       let jumps=[];
       let steps=[];
       for(let r,y=0;y<_G.ROWS;++y){
-        r=tiles[y];
+        r=_G.tiles[y];
         for(let s,out,x=0;x<_G.COLS;++x){
           s=r[x];
           out=null;
           if(s && s.g.team==team){
-            out=_calcJumps(s,tiles);
+            out=_calcJumps(s);
             if(out){
               out.forEach(o=>jumps.push(o));
             }
-            out= _calcSteps(s,tiles);
+            out= _calcSteps(s);
             if(out){
               out.forEach(o=>steps.push(o));
             }
@@ -183,6 +174,23 @@
       return s;
     }
 
+    function _diag2(row,col){ return _diagXY(row,col,2) }
+    function _diag1(row,col){ return _diagXY(row,col,1) }
+    function _diagXY(row,col,n){
+      let r=row-n,
+          c=col-n,
+          out=[null,null,null,null];
+      out[0]=_coord(r,c)?[r,c]:null;
+      c=col+n;
+      out[1]=_coord(r,c)?[r,c]:null;
+      r=row+n;
+      c=col-n;
+      out[2]=_coord(r,c)?[r,c]:null;
+      c=col+n;
+      out[3]=_coord(r,c)?[r,c]:null;
+      return out;
+    }
+
     /** @class */
     class CKBot extends Bot{
       constructor(pnum){
@@ -209,7 +217,7 @@
         return this.pnum;
       }
       onPoke(){
-        let mask=_calcNextMoves(this.team,_G.tiles);
+        let mask=_calcNextMoves(this.team);
         let state=this.owner.gameState();
         state.length=0;
         mask.forEach(m=>state.push(m));
@@ -266,101 +274,117 @@
       }
     });
 
+    function _postMove(){
+      let p=_G.curSel;
+      if(p.g.team=="red"){
+        if(p.g.row===_G.ROWS-1){
+          p.g.dirY=[1,-1];
+          p.g.king=true;
+        }
+      }else{
+        if(p.g.row===0){
+          p.g.dirY=[-1,1];
+          p.g.king=true;
+        }
+      }
+    }
+
+    /** @ignore */
+    function _chgScore(s){
+      if(s.g.team=="red")
+        _G.blackScore++;
+      else
+        _G.redScore++;
+    }
+
+    /** @ignore */
+    function _moveTo(row,col){
+      let {row:r,col:c}=_G.curSel.g;
+      //move to new cell
+      _G.tiles[row][col]=_G.curSel;
+      _G.tiles[r][c]=null;
+      _V.copy(_G.curSel,_G.board[row][col]);
+      _G.curSel.g.row=row;
+      _G.curSel.g.col=col;
+      _postMove();
+      _G.curSel.m5.showFrame(_G.curSel.g.king?3:0);
+      _G.curSel=null;
+    }
+
+    function _eatPiece(row,col){
+      let {row:r,col:c}=_G.curSel.g;
+      let er=row>r? row-1 : row+1;
+      let ec=col>c? col-1 : col+1;
+      let e=_G.tiles[er][ec];
+      _G.tiles[er][ec]=null;
+      _I.undoButton(e);
+      _chgScore(e);
+      _S.remove(e);
+    }
+
+    /** @ignore */
+    function _nextJump(row,col,out,M){
+      let b,r,c,v,state=M.gameState();
+      _G.curSel= _G.tiles[row][col];
+      _G.curSel.m5.showFrame(2);
+      out.forEach(o=>{
+        r=o[0];
+        c=o[1];
+        v=o[2];
+        state[r][c]=v;
+        if(v=="J"){
+          b=_G.board[r][c];
+          b.m5.showFrame(1);
+          _I.makeButton(b);
+        }
+      });
+    }
+
+    /** @ignore */
     function _onClick(s,M){
       let state=M.gameState();
       let {row,col}=s.g;
-      let c=state[row][col];
+      let out,c=state[row][col];
       switch(c){
-        case "S":{
-
-          let r=_G.curPicked.g.row;
-          let c=_G.curPicked.g.col;
-          _G.tiles[row][col]=_G.curPicked;
-          if(_G.curPicked.g.team=="red"){
-            if(row===_G.ROWS-1) {
-              _G.curPicked.g.dirY=[1,-1];
-              _G.curPicked.g.king=true;
-            }
-          }else{
-            if(row===0){
-              _G.curPicked.g.dirY=[-1,1];
-              _G.curPicked.g.king=true;
-            }
-          }
-          _V.copy(_G.curPicked,_G.board[row][col]);
-          _G.tiles[r][c]=null;
-          _G.curPicked.g.row=row;
-          _G.curPicked.g.col=col;
-          _G.curPicked.m5.showFrame(0);
-          if(_G.curPicked.g.king){
-            _G.curPicked.m5.showFrame(3);
-          }
-          _G.curPicked=null;
+        case "S":
+          _moveTo(row,col);
           _resetState(state);
           _resetBoard();
           _.delay(0,()=>M.takeTurn());
-        }
           break;
-        case "J":{
-          let r=_G.curPicked.g.row;
-          let c=_G.curPicked.g.col;
-          let e,er,ec;
-          if(row>r){
-            er=row-1;
-          }else{
-            er=row+1;
-          }
-          if(col>c){
-            ec=col-1;
-          }else{
-            ec=col+1;
-          }
-          e=_G.tiles[er][ec];
-          _G.tiles[er][ec]=null;
-          _I.undoButton(e);
-          e.visible=false;
-          if(e.g.team=="red")_G.blackScore++;
-          else _G.redScore++;
-          _G.tiles[row][col]=_G.curPicked;
-          if(_G.curPicked.g.team=="red"){
-            if(row===_G.ROWS-1) _G.curPicked.g.king=true;
-          }else{
-            if(row===0) _G.curPicked.g.king=true;
-          }
-          _V.copy(_G.curPicked,_G.board[row][col]);
-          _G.tiles[r][c]=null;
-          _G.curPicked.g.row=row;
-          _G.curPicked.g.col=col;
-          _G.curPicked.m5.showFrame(0);
-          if(_G.curPicked.g.king){
-            _G.curPicked.m5.showFrame(3);
-          }
-          _G.curPicked=null;
+        case "J":
+          _eatPiece(row,col);
+          _moveTo(row,col);
           _resetState(state);
           _resetBoard();
-          _.delay(0,()=>M.takeTurn());
-        }
-          break;
-        default:{
-
-          if(!_G.tiles[row][col]){return}
-          if(_G.curPicked){
-            if(_G.curPicked===s){
-              _G.curPicked=null;
-              s.m5.showFrame(1);
-              M.redoTurn();
-            }else{
-              _G.curPicked.m5.showFrame(1);
-              _G.curPicked=s;
-              s.m5.showFrame(2);
-              _showTargets(M);
-            }
+          if(out=_calcJumps(_G.tiles[row][col])){
+            _nextJump(row,col,out,M)
           }else{
-            _G.curPicked=s;
-            s.m5.showFrame(2);
-            _showTargets(M);
+            _.delay(0,()=>M.takeTurn())
           }
-        }
+          break;
+        default:
+          if(_G.tiles[row][col]){
+            //clicked on a piece
+            let undo=false;
+            if(_G.curSel){
+              if(_G.curSel===s){
+                _G.curSel=null;
+                undo=true;
+              }
+              if(_G.curSel)
+                _G.curSel.m5.showFrame(1);
+            }
+            if(!_G.curSel){
+              if(undo){
+                M.redoTurn();
+              }else{
+                _G.curSel=s;
+                s.m5.showFrame(2);
+                _showTargets(M);
+              }
+            }
+          }
           break;
       }
     }
@@ -382,6 +406,7 @@
               s.g.team="red";
               s.g.dirY=[1];
               s.g.dirX=[-1,1];
+              if(y===0)s=null;
             }else if(y>4){
               //black
               s=_S.spriteFrom("black.png","black1.png","black2.png","black3.png");
