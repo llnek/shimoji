@@ -1,0 +1,118 @@
+{"frames": {
+
+"bishop.png":
+{
+	"frame": {"x":656,"y":1574,"w":271,"h":290},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":45,"y":35,"w":271,"h":290},
+	"sourceSize": {"w":360,"h":360}
+},
+"dark.png":
+{
+	"frame": {"x":1596,"y":1,"w":360,"h":360},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":360},
+	"sourceSize": {"w":360,"h":360}
+},
+"dark1.png":
+{
+	"frame": {"x":1596,"y":363,"w":360,"h":360},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":360},
+	"sourceSize": {"w":360,"h":360}
+},
+"king.png":
+{
+	"frame": {"x":948,"y":1574,"w":255,"h":276},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":53,"y":42,"w":255,"h":276},
+	"sourceSize": {"w":360,"h":360}
+},
+"knight.png":
+{
+	"frame": {"x":1226,"y":1574,"w":250,"h":248},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":55,"y":56,"w":250,"h":248},
+	"sourceSize": {"w":360,"h":360}
+},
+"light.png":
+{
+	"frame": {"x":1596,"y":725,"w":360,"h":360},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":360},
+	"sourceSize": {"w":360,"h":360}
+},
+"light1.png":
+{
+	"frame": {"x":1596,"y":1087,"w":360,"h":360},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":360},
+	"sourceSize": {"w":360,"h":360}
+},
+"pawn.png":
+{
+	"frame": {"x":948,"y":1831,"w":181,"h":247},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":90,"y":56,"w":181,"h":247},
+	"sourceSize": {"w":360,"h":360}
+},
+"queen.png":
+{
+	"frame": {"x":363,"y":1574,"w":291,"h":271},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":35,"y":44,"w":291,"h":271},
+	"sourceSize": {"w":360,"h":360}
+},
+"rook.png":
+{
+	"frame": {"x":1478,"y":1811,"w":211,"h":246},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":75,"y":57,"w":211,"h":246},
+	"sourceSize": {"w":360,"h":360}
+},
+"select.png":
+{
+	"frame": {"x":1596,"y":1449,"w":360,"h":360},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":360},
+	"sourceSize": {"w":360,"h":360}
+},
+"target.png":
+{
+	"frame": {"x":1,"y":1574,"w":360,"h":360},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":360},
+	"sourceSize": {"w":360,"h":360}
+},
+"tiles.png":
+{
+	"frame": {"x":1,"y":1,"w":1593,"h":1571},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":1593,"h":1571},
+	"sourceSize": {"w":1594,"h":1572}
+}},
+"animations": {
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "tiles.png",
+	"format": "RGBA8888",
+	"size": {"w":1957,"h":2023},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:e71192feb66924f25257baaf34c760e4:dd4164778967275f3bf117ad2dc0a840:accbe1e7e294ded8391337fc1c446319$"
+}
+}
