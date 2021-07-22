@@ -23,6 +23,7 @@
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_,is}=Mojo;
     const _keyInputs= _.jsMap();
+    let _ctrlKey=false, _altKey=false, _shiftKey=false;
 
     /**
      * @module mojoh5/Input
@@ -31,12 +32,16 @@
     /** @ignore */
     function _uh(e){
       e.preventDefault();
+      _ctrlKey=e.ctrlKey;
+      _altKey=e.altKey;
+      _shiftKey=e.shiftKey;
       _keyInputs.set(e.keyCode,false); }
 
     /** @ignore */
     function _dh(e){
       e.preventDefault();
-      _keyInputs.set(e.keyCode,true); }
+      _keyInputs.set(e.keyCode,true);
+      _ctrlKey= _altKey= _shiftKey=false; }
 
     /** @ignore */
     function _updateDrags(ptr){
@@ -112,12 +117,16 @@
       keybd(_key,press,release){
         const key={press:press,
                    release:release,
-                   isDown:false, isUp:true};
+                   isDown:false, isUp:true,
+                   ctrl:false, alt:false, shift:false};
         key.code= is.vec(_key)?_key:[_key];
         function _down(e){
           e.preventDefault();
           if(key.code.includes(e.keyCode)){
-            !_pauseInput && key.isUp && key.press && key.press();
+            key.ctrl=e.ctrlKey;
+            key.alt=e.altKey;
+            key.shift=e.shiftKey;
+            !_pauseInput && key.isUp && key.press && key.press(key.alt,key.ctrl,key.shift);
             key.isUp=false; key.isDown=true;
           }
         }
@@ -126,6 +135,7 @@
           if(key.code.includes(e.keyCode)){
             !_pauseInput && key.isDown && key.release && key.release();
             key.isUp=true; key.isDown=false;
+            key.ctrl=false; key.alt=false; key.shift=false;
           }
         }
         _.addEvent([["keyup", window, _up, false],
@@ -194,6 +204,9 @@
        * @return {boolean}
        */
       keyDown(code){ return _keyInputs.get(code)===true },
+      keyShift(){ return _shiftKey },
+      keyAlt(){ return _altKey },
+      keyCtrl(){ return _ctrlKey },
       /**Create the default mouse pointer.
        * @memberof module:mojoh5/Input
        * @return {object}
