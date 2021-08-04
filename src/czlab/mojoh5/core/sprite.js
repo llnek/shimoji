@@ -791,11 +791,64 @@
        * @return {Sprite}
        */
       tilingSprite(src, center=false,x=0,y=0){
-        let s= _sprite(src,o=> new Mojo.PXTSprite(o));
+        let s= _sprite(src,o=> new Mojo.PXTSprite(o,o.width,o.height));
         s=this.extend(s);
         if(center)
           this.centerAnchor(s);
         return _V.set(s,x,y);
+      },
+      /**Tile sprite repeatingly in x and/or y axis.
+       * @memberof module:mojoh5/Sprites
+       * @param {any} src
+       * @param {boolean} rx
+       * @param {boolean} ry
+       * @param {number} width
+       * @param {number} height
+       * @return {Sprite}
+       */
+      repeatSprite(src,rx=true,ry=true,width,height){
+        let xx= ()=>{
+          let s= this.extend(_sprite(src, o=> new Mojo.PXSprite(o)));
+          let K=Mojo.getScaleFactor();K=1;
+          s.width *= K;
+          s.height *= K;
+          return s;
+        };
+        let x=0,y=0,w=0,h=0;
+        let s,out=[];
+        if(rx){
+          while(w<width){
+            out.push(s=xx());
+            s.x=x;
+            s.y=y;
+            w += s.width;
+            x += s.width;
+            if(w>=width && h<height && ry){
+              h += s.height;
+              y += s.height;
+              x=0;
+              w=0;
+            }
+          }
+          ry=false;
+        }
+        if(ry){
+          while(h<height){
+            out.push(s=xx());
+            s.x=x;
+            s.y=y;
+            h += s.height;
+            y += s.height;
+            if(h>=height&& w< width && rx){
+              w += s.width;
+              x += s.width;
+              x=y;
+              w=h;
+            }
+          }
+          rx=false;
+        }
+        return out;
       },
       /**Create a sequence of frames from this texture.
        * @memberof module:mojoh5/Sprites
@@ -1290,6 +1343,8 @@
         // colorToHex('rgb(255, 0, 0)') # '#ff0000'
         const rgba = this.colorToRgbA(color);
         return "0x"+ [0,1,2].map(i=> this.byteToHex(rgba[i])).join("") },
+      color3(r,g,b){
+        return parseInt(["0x",this.byteToHex(r),this.byteToHex(g),this.byteToHex(b)].join("")) },
       /**Get the integer value of this color.
        * @memberof module:mojoh5/Sprites
        * @param {number|string} value
