@@ -19,72 +19,93 @@
     const GREEN=_S.color("green");
     const GREY=_S.color("grey");
     const RED=_S.color("red");
+    const SEGN= 1;//200;
 
     _Z.defScene("level1",{
       setup(){
         _G.arena={x:0,y:0,width:Mojo.width,height:Mojo.height};
         _G.H2=Mojo.height/2;
         _G.W2=Mojo.width/2;
+        _G.H=Mojo.height;
+        _G.W=Mojo.width;
         _G.road=[
-         {ct:10,tu:0},
-         {ct:6,tu:-1},
-         {ct:8,tu:0},
-         {ct:4,tu:1.5},
-         {ct:10,tu:0.2},
-         {ct:4,tu:0},
-         {ct:5,tu:-1},
+          {ct:10,tu:0,co:_S.color("red")},
+          {ct:6,tu:-1,co:_S.color("white")},
+          {ct:8,tu:0,co:_S.color("blue")},
+          {ct:4,tu:1.5,co:_S.color("yellow")},
+          {ct:10,tu:0.2,co:_S.color("orange")},
+          {ct:4,tu:0,co:_S.color("magenta")},
+          {ct:5,tu:-1,co:_S.color("green")}
         ];
-        _G.camx=0;
-        _G.camy=0;
-        _G.camz=0;
-        _G.camcnr=0;
-        _G.camseg=0;
+        let e=0,b=0;
+        _G.roadDist= _G.road.reduce((acc,r)=>{
+          acc += r.ct*SEGN;
+          r.nn= acc;
+          r.s=b;
+          r.e= b + r.ct - 1;
+          b += r.ct;
+          e=r.e;
+          return acc;
+        },0);
+        _G.segN=e+1;
+        _G.dist=0;
+        _G.pos=0;
+        _G.camD=0.84;
+        _G.playerX=0;
         this.insert(this.gfx=_S.graphics());
-        this.__draw();
+        //this.__draw();
+      },
+      __findSegCt(n){
+        for(let c,i=0;i<_G.road.length;++i){
+          c=_G.road[i];
+          if(n>=c.s && n<= c.e){ return i }
+        }
+        throw "Fatal!";
       },
       __draw(){
-        let camang=_G.camz*_G.road[_G.camcnr].tu;
-        let x=0-_G.camx,y=-_G.camy+1,z=-_G.camz+1;
-        let xd=0-camang,yd=0,zd=1;
-        let cnr=_G.camcnr,seg=_G.camseg;
-        let px,py,scale;
-        for(let i=0;i<30;++i){
-          [px,py,scale]=this.project(x,y,z);
-          let width=3*scale;
+        let curSeg= int(_G.pos/SEGN);
+        let xd=0;
+        let cx=0;
+        let cy= 1;//1500;
+        let rw=3;//2000;
+        let cz;
+        let px,py,scale,width;
 
-          this.gfx.lineStyle(1,_S.color("white"));
+        for(let ps,ct,s, end= curSeg+30, i=curSeg;i< end;++i){
+          if(i>=_G.segN){
+            cz = _G.pos - _G.roadDist;
+          }else{
+            cz=_G.pos;
+          }
+
+          ps=i%_G.segN;
+          ct= this.__findSegCt(ps);
+          [px,py,scale]=this.project(ps, _G.playerX-cx,cy,cz);
+          width = scale * rw  * _G.W2;
+
+          //console.log(`ct====${ct}`);
+          cx+=xd;
+          xd+=_G.road[ct].tu;
+
+          this.gfx.lineStyle(1,_G.road[ct].co);
           this.gfx.moveTo(px-width,py);
           this.gfx.lineTo(px+width,py);
-          console.log(`x1=${px-width},x2=${px+width},y=${py}`);
 
-          x+=xd;
-          y+=yd;
-          z+=zd;
-
-          xd+=_G.road[cnr].tu;
-
-          [cnr,seg]=this.advance(cnr,seg);
         }
       },
-      project(x,y,z){
-        let scale=_G.H2/z;
-        return [x*scale+_G.W2, y*scale+_G.H2, scale];
-      },
-      advance(cnr,seg){
-        seg+=1;
-        if(seg>=_G.road[cnr].ct){
-          seg=0;
-          cnr+=1;
-          if(cnr>=_G.road.length)cnr=0;
-        }
-        return [cnr,seg];
+      project(s,cx,cy,cz){
+        let z= SEGN*s;
+        let scale = _G.camD/(z-cz);
+        let x = (1 + scale*(0 - cx)) * _G.W2;
+        let y = (1 - scale*(0 - cy)) * _G.H2;
+        return [x,y,scale];
       },
       __update(){
-        _G.camz+=0.1;
-        if(_G.camz>1){
-          _G.camz-=1;
-          [_G.camcnr,_G.camseg]=this.advance(_G.camcnr,_G.camseg);
-        }
+        if(_I.keyDown(_I.UP)) _G.pos += 1;//200;
+        if(_I.keyDown(_I.DOWN)) _G.pos -= 200;
+
+        while(_G.pos>= _G.roadDist) _G.pos-=_G.roadDist;
+        while(_G.pos<0) _G.pos+= _G.roadDist;
       },
       postUpdate(dt){
         this.__update();
@@ -95,8 +116,8 @@
 
   const _$={
     //assetFiles: [],
-    arena: {width: 640, height: 320},
-    scaleToWindow:"max",
+    arena: {width: 128, height: 128},
+    //scaleToWindow:"max",
     scaleFit:"x",
     //fps:30,
     start(Mojo){

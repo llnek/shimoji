@@ -215,7 +215,7 @@
         if(_G.speed > 1)	_G.speed = 1;
 
         // Move car along track according to car speed
-        _G.distance += (70 * _G.speed) * dt;
+        _G.distance += (100 * _G.speed) * dt;
 
         // Lap Timing and counting
         _G.curLapTime += dt;
