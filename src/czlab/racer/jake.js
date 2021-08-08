@@ -17,6 +17,8 @@
     const int=Math.floor, ceil=Math.ceil;
     const sin=Math.sin, cos=Math.cos;
 
+    const SEGLEN=Mojo.u.SEGLEN;
+
     const CARS = ["car01.png","car02.png","car03.png","car04.png","semi.png","truck.png"];
     const PLANTS = ["tree1.png", "tree2.png",
                             "dead_tree1.png", "dead_tree2.png",
@@ -27,17 +29,11 @@
     const HILL= { NONE:0, EASY:20, NORMAL:40, HARD:60 };
     const CURVE= { NONE:0, EASY:2, NORMAL:4, HARD:6 };
 
-    const COLORS = {
-      SKY:  _S.color("#72D7EE"),
-      TREE: _S.color("#005108"),
-      FOG:  _S.color("#005108"),
-      LIGHT:  { road: _S.color("#6B6B6B"), grass: _S.color("#10AA10"), rumble: _S.color("#555555"), lane: _S.color("#CCCCCC")  },
-      DARK:   { road: _S.color("#696969"), grass: _S.color("#009A00"), rumble: _S.color("#BBBBBB") },
-      START:  { road: _S.color("white"),   grass: _S.color("white"),   rumble: _S.color("white") },
-      FINISH: { road: _S.color("black"),   grass: _S.color("black"),   rumble: _S.color("black") }
-    };
-
-    const SEGLEN=Mojo.u.SEGLEN;
+    const COLORS_LIGHT={ road: _S.color("#6B6B6B"), grass: _S.color("#10AA10"),
+                         rumble: _S.color("#555555"), lane: _S.color("#CCCCCC")  };
+    const COLORS_DARK={ road: _S.color("#696969"), grass: _S.color("#009A00"), rumble: _S.color("#BBBBBB") };
+    const COLORS_START= { road: _S.color("white"),   grass: _S.color("white"),   rumble: _S.color("white") };
+    const COLORS_FINISH= { road: _S.color("black"),   grass: _S.color("black"),   rumble: _S.color("black") };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //utils
@@ -51,7 +47,6 @@
     function easeOut(a,b,percent){ return a + (b-a)*(1-Math.pow(1-percent,2)) }
     function easeInOut(a,b,percent){ return a + (b-a)*((-Math.cos(percent*Math.PI)/2) + 0.5) }
     function lastY(){ return _G.lines.length == 0 ? 0 : _G.lines[_G.lines.length-1].p2.world.y }
-
     function overlap(x1, w1, x2, w2, percent){
       let half = (percent || 1)/2;
       let min1 = x1 - (w1*half);
@@ -59,6 +54,61 @@
       let min2 = x2 - (w2*half);
       let max2 = x2 + (w2*half);
       return ! ((max1 < min2) || (min1 > max2));
+    }
+    function updateCars(playerSegment,dt){
+      let s1, s2;
+      _G.cars.forEach((car,i)=>{
+        s1= getLine(car.z);
+        car.offset  += updateCarOffset(car, s1, playerSegment);
+        car.z= increase(car.z, dt * car.speed, _G.trackLength);
+        car.percent = _.percentRemain(car.z, SEGLEN); //for interpolation
+        s2 = getLine(car.z);
+        if(s1 != s2){
+          i= s1.cars.indexOf(car);
+          s1.cars.splice(i, 1);
+          s2.cars.push(car);
+        }
+      });
+    }
+    function updateCarOffset(car, carSegment, playerSegment){
+      let dir, otherCar, otherCarW;
+      let lookahead = 20, carW = car.w * _G.spritesScale;
+      if((carSegment.index - playerSegment.index) > _G.drawRange){
+        //ignore cars when 'out of sight' of the player
+        return 0
+      }
+      for(let seg, j, i = 1 ; i < lookahead ; ++i){
+        seg = _G.lines[(carSegment.index+i)%_G.lines.length];
+        if(seg == playerSegment &&
+           car.speed > _G.speed &&
+           overlap(_G.player.x, _G.player.w, car.offset, carW, 1.2)){
+          if(_G.player.x > 0.5)
+            dir = -1;
+          else if(_G.player.x < -0.5)
+            dir = 1;
+          else
+            dir = (car.offset > _G.player.x) ? 1 : -1;
+          return dir * 1/i * (car.speed- _G.speed)/_G.maxSpeed; // the closer the cars (smaller i) and the greated the speed ratio, the larger the offset
+        }
+        for(j = 0 ; j < seg.cars.length ; ++j){
+          otherCar  = seg.cars[j];
+          otherCarW = otherCar.w * _G.spritesScale;
+          if(car.speed > otherCar.speed &&
+             overlap(car.offset, carW, otherCar.offset, otherCarW, 1.2)){
+            if(otherCar.offset > 0.5)
+              dir = -1;
+            else if(otherCar.offset < -0.5)
+              dir = 1;
+            else
+              dir = (car.offset > otherCar.offset) ? 1 : -1;
+            return dir * 1/i * (car.speed-otherCar.speed)/_G.maxSpeed;
+          }
+        }
+      }
+      // if no cars ahead, but I have somehow ended up off road, then steer back on
+      if(car.offset < -0.9) return 0.1;
+      if(car.offset > 0.9) return -0.1;
+      return 0;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -118,7 +168,7 @@
     }
 
     function addSprite(n, sprite, offset){
-      _G.lines[n].sprites.push({source: ""+sprite, offset: offset});
+      _G.lines[n].sprites.push({source: sprite, offset, w: Mojo.tcached(sprite).width });
     }
 
     function resetTrees(){
@@ -144,22 +194,19 @@
         }
       }
     }
-
     function resetCars(){
+      let t,n, car, segment, offset, z, sprite, speed;
       _G.cars.length=0;
-      let n, car, segment, offset, z, sprite, speed;
-      for(n = 0 ; n < totalCars ; ++n){
+      for(n = 0; n < _G.totalCars; ++n){
         offset = Math.random() * _.randSign()*0.8;
         z = int(Math.random() * _G.lines.length) * SEGLEN;
         sprite = _.randItem(CARS);
         speed  = _G.maxSpeed/4 + Math.random() * _G.maxSpeed/(sprite == "semi.png" ? 4 : 2);
-        car = { offset, z, sprite, speed };
-        segment = getLine(car.z);
-        segment.cars.push(car);
+        car = { offset, z, sprite, speed, w: Mojo.tcached(sprite).width};
+        getLine(car.z).cars.push(car);
         _G.cars.push(car);
       }
     }
-
     function resetRoad(){
       _G.lines.length=0;
       addStraight(ROAD.EASY);
@@ -182,25 +229,22 @@
       addDownhillToEnd();
 
       resetTrees();
-      //resetCars();
+      resetCars();
 
-      _G.lines[getLine(_G.player.z).index + 2].color = COLORS.START;
-      _G.lines[getLine(_G.player.z).index + 3].color = COLORS.START;
+      _G.lines[getLine(_G.player.z).index + 2].color = COLORS_START;
+      _G.lines[getLine(_G.player.z).index + 3].color = COLORS_START;
       for(let n = 0 ; n < _G.rumbles ; ++n)
-        _G.lines[_G.lines.length-1-n].color = COLORS.FINISH;
+        _G.lines[_G.lines.length-1-n].color = COLORS_FINISH;
 
       _G.trackLength = _G.lines.length * SEGLEN;
     }
-
     function drawPolygon(g, x1, y1, x2, y2, x3, y3, x4, y4, color){
       g.beginFill(color);
       g.drawPolygon({x:x1,y:y1},{x:x2,y:y2},{x:x3,y:y3},{x:x4,y:y4});
       g.endFill();
     }
-
     function laneMarkerWidth(road, lanes){ return road/Math.max(32, 8*lanes) }
     function rumbleWidth(road, lanes){ return road/Math.max(6,  2*lanes) }
-
     function drawSegment(gfx, lanes, p1, p2, color){
       let r1 = rumbleWidth(p1.w, lanes),
           r2 = rumbleWidth(p2.w, lanes),
@@ -252,7 +296,6 @@
         scene.insert(s);
       }
     }
-
     function drawPlayer(scene, resolution, roadWidth, speedPercent, scale, destX, destY, steer, updown){
       let sprite,bounce = (1.5 * Math.random() * speedPercent * resolution) * _.randSign();
       if(steer<0)
@@ -263,7 +306,6 @@
         sprite = (updown > 0) ? "player_uphill_straight.png" : "player_straight.png";
       drawSprite(scene, resolution, roadWidth, sprite, scale, destX, destY + bounce, -0.5, -1);
     }
-
     function addSegment(curve,y){
       let n = _G.lines.length;
       _G.lines.push({
@@ -273,12 +315,10 @@
         curve,
         sprites: [],
         cars: [],
-        color: int(n/_G.rumbles)%2 ? COLORS.DARK : COLORS.LIGHT
+        color: int(n/_G.rumbles)%2 ? COLORS_DARK : COLORS_LIGHT
       });
     }
-
     function getLine(z){ return _G.lines[int(z/SEGLEN) % _G.lines.length] }
-
     function project(p, camX, camY, camZ, camDepth, roadWidth){
       p.camera.x     = (p.world.x || 0) - camX;
       p.camera.y     = (p.world.y || 0) - camY;
@@ -289,6 +329,7 @@
       p.screen.y     = Math.round(_G.H2 - p.screen.scale * p.camera.y  * _G.H2);
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("level1",{
       __init(){
         let step=1/Mojo.u.fps, mspeed=SEGLEN/step;
@@ -297,6 +338,7 @@
           lines: [],
           cars:[],
           centrifugal: 0.3,
+          totalCars: 200,
           skySpeed: 0.001,  // background sky layer scroll speed when going around curve (or up hill)
           hillSpeed: 0.002,  // background hill layer scroll speed when going around curve (or up hill)
           treeSpeed: 0.003,  // background tree layer scroll speed when going around curve (or up hill)
@@ -314,7 +356,7 @@
           drawRange: 300,  // number of segments to draw
           // player x offset from center of road (-1 to 1 to stay independent of roadWidth)
           // player relative z distance from camera (computed)
-          player: {x:0, y:0, z:0},
+          player: {w:0, x:0, y:0, z:0},
           pos:  0,  // current camera Z position (add playerZ to get player's absolute Z position)
           speed:  0,  // current speed
           maxSpeed: mspeed, // top speed (ensure we can't move more than 1 segment in a single frame to make collision detection easier)
@@ -334,7 +376,7 @@
         _G.player.z = _G.camH * _G.camD;
         _G.resolution= _G.H/480;
 
-        let w= _S.sprite("player_straight.png").width;
+        let w= Mojo.tcached("player_straight.png").width;
         _G.spritesScale = 0.3 * (1/w); // the reference sprite width should be 1/3rd the (half-)roadWidth
         _G.player.w= w * _G.spriteScale;
 
@@ -381,10 +423,17 @@
             drawSegment(this.g.gfx, _G.lanes, seg.p1.screen, seg.p2.screen, seg.color);
             maxY = seg.p2.screen.y;
           }
-          for(let d,s,i,seg,n = (_G.drawRange-1); n > 0 ; --n){
+          for(let ss,d,s,i,c,seg,n = (_G.drawRange-1); n > 0 ; --n){
             seg= _G.lines[(baseLine.index + n) % _G.lines.length];
-            for(i = 0 ; i < seg.cars.length ; ++i){
-            }
+            seg.cars.forEach((car,i)=>{
+              s= car.sprite;
+              ss=_M.lerp(seg.p1.screen.scale, seg.p2.screen.scale, car.percent);
+              drawSprite(this, _G.resolution, _G.roadWidth, s,
+                         ss,
+                         _M.lerp(seg.p1.screen.x, seg.p2.screen.x,car.percent) +
+                         (ss * car.offset * _G.roadWidth * _G.W2),
+                         _M.lerp(seg.p1.screen.y, seg.p2.screen.y,car.percent), -0.5, -1, seg.clip);
+            });
             for(i = 0 ; i < seg.sprites.length ; ++i){
               s= seg.sprites[i];
               drawSprite(this, _G.resolution,_G.roadWidth, s.source,
@@ -410,7 +459,7 @@
           let speedPercent = _G.speed/_G.maxSpeed;
           let dx = dt * 2 * speedPercent; // at top speed, should be able to cross from left to right (-1 to 1) in 1 second
 
-          //updateCars(dt,playerSegment);
+          updateCars(playerSegment,dt);
 
           _G.pos = increase(_G.pos, dt * _G.speed, _G.trackLength);
           n= playerSegment.curve * speedPercent;
@@ -428,14 +477,28 @@
           else _G.speed = Mojo.accel(_G.speed, _G.decel, dt);
 
           if((_G.player.x < -1) || (_G.player.x > 1)){
-            let s,sw;
             if(_G.speed > _G.offRoadLimit)
               _G.speed = Mojo.accel(_G.speed, _G.offRoadDecel, dt);
             for(n=0; n < playerSegment.sprites.length ; ++n){
+              sprite  = playerSegment.sprites[n];
+              spriteW = sprite.w * _G.spritesScale;
+              if(overlap(_G.player.x, _G.player.w, sprite.offset + spriteW/2 * (sprite.offset > 0 ? 1 : -1), spriteW)){
+                _G.speed = _G.maxSpeed/5;
+                _G.pos= increase(playerSegment.p1.world.z, -_G.player.z, _G.trackLength); // stop in front of sprite (at front of segment)
+                break;
+              }
             }
           }
           for(n=0; n < playerSegment.cars.length; ++n){
-
+            car  = playerSegment.cars[n];
+            carW = car.w * _G.spritesScale;
+            if(_G.speed > car.speed){
+              if(overlap(_G.player.x, _G.player.w, car.offset, carW, 0.8)){
+                _G.speed= car.speed * (car.speed/_G.speed);
+                _G.pos= increase(car.z, -_G.player.z, _G.trackLength);
+                break;
+              }
+            }
           }
           _G.player.x = _M.clamp(-2,2,_G.player.x);// dont ever let it go too far out of bounds
           _G.speed   = _M.clamp(0, _G.maxSpeed,_G.speed); // or exceed maxSpeed
