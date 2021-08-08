@@ -890,7 +890,9 @@
        */
       frame(src, width, height,x,y){
         const t= Mojo.tcached(src);
-        return this.sprite(new Mojo.PXTexture(t.baseTexture,new Mojo.PXRect(x, y, width,height))) },
+        return this.sprite(new Mojo.PXTexture(t.baseTexture,new Mojo.PXRect(x, y, width,height)))
+        //return this.sprite(new Mojo.PXTexture(t,new Mojo.PXRect(x, y, width,height)))
+      },
       /**Select a bunch of frames from image.
        * @memberof module:mojoh5/Sprites
        * @param {any} src

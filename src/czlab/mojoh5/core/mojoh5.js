@@ -29,6 +29,7 @@
     //import mcfud's core module
     const {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"]();
     const _V = gscope["io/czlab/mcfud/vec2"]();
+    const _M = gscope["io/czlab/mcfud/math"]();
     const EBus= EventBus();
     const MFL=Math.floor;
     const CON=console;
@@ -608,6 +609,7 @@
       PI_270:Math.PI*1.5,
       PI_360:Math.PI*2,
       v2:_V,
+      _M:_M,
       ute:_,
       is:is,
       dom:dom,
@@ -629,6 +631,7 @@
       PXLR:PIXI.LoaderResource,
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
+      accel(v,a,dt){ return v+a*dt },
       on(...args){
         return EBus.sub(...args)
       },

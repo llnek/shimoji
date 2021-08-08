@@ -344,6 +344,13 @@
         const n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
       },
+      /**How mych left as a ratio.
+       * @memberof module:mcfud/core._
+       * @param {number} amt
+       * @param {number} total
+       * @return {number}
+       */
+      percentRemain(amt, total){ return (amt%total)/total },
       /**Break version string into `Major.Minor.Patch`.
        * @memberof module:mcfud/core._
        * @param {string} s
