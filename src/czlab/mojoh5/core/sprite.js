@@ -946,7 +946,7 @@
        * @return {AnimatedSprite}
        */
       spriteFrom(...pics){
-        return this.sprite(this.frameImages(pics)) },
+        return this.sprite(this.frameImages(...pics)) },
       /**Create a PIXI.Text object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
