@@ -13,6 +13,7 @@
            v2:_V,
            ute:_,is}=Mojo;
 
+    const TEXT_COLOR=_S.color("#f2f429");
     const ORANGE=_S.color("#f2ce33");
     const BLUE=_S.color("#17ccff");
     const BGCOLOR=BLUE;
@@ -29,7 +30,9 @@
       //s.scale.x *=0.5;
       //s.scale.y *=0.5;
       c.sprite.visible=false;
+      _G.gameOver=true;
       scene.insert(s);
+      _.delay(100,()=>alert("You lose!"));
     }
 
     function onDropped(scene,B){
@@ -47,7 +50,7 @@
                 }else{
                   let m,n;
                   [m,n]= _S.centerXY(c.sprite);
-                  s=_S.sprite("B.png");
+                  s=_S.sprite("wflag.png");
                   _S.centerAnchor(s);
                   s.width=c.sprite.width;
                   s.height=c.sprite.height;
@@ -67,7 +70,7 @@
       B.y=B.g.oldy;
     }
 
-    function initLevel(scene,rows,cols,target){
+    function initLevel(scene,cols,rows,target){
       let sx=_G.arena.x,
           sy=_G.arena.y;
       placeBombs(rows,cols,target);
@@ -86,6 +89,7 @@
           c.row=y;
           c.col=x;
           s.m5.press=()=>{
+            if(!_G.timerStarted) _.delay(0,()=>updateTimer());
             if(c.marker){return}
             _I.undoButton(s);
             if(c.value===9){
@@ -96,6 +100,27 @@
             }
           };
           scene.insert(_I.makeButton(s));
+        }
+      }
+    }
+
+    function showAllMines(scene){
+      for(let r,y=0;y<_G.grid.length;++y){
+        r=_G.grid[y];
+        for(let m,n,s,c,x=0;x<_G.grid[0].length;++x){
+          c=r[x];
+          if(c.value===9 && !c.opened){
+            [m,n]=_S.centerXY(c.sprite);
+            s=_S.sprite("boom.png");
+            _S.centerAnchor(s);
+            s.width=c.sprite.width;
+            s.height=c.sprite.height;
+            s.x=m;
+            s.y=n;
+            if(c.marker)_S.remove(c.marker);
+            c.marker=null;
+            scene.insert(s);
+          }
         }
       }
     }
@@ -112,13 +137,11 @@
           else pending.push(c);
         }
       }
-      if(found===Mojo.u.dimXY[2]){
-        _.delay(0,()=>alert("You win!"));
-        return;
-      }
-      if(pending.filter(c=> c.value===9).length===pending.length){
-        _.delay(0,()=>alert("You win!"));
-        return;
+      if(found===Mojo.u.dimXY[2] ||
+         pending.filter(c=> c.value===9).length===pending.length){
+        _.delay(100,()=>alert("You win!"));
+        _G.gameOver=true;
+        return showAllMines(scene);
       }
     }
 
@@ -195,6 +218,46 @@
       }
     }
 
+    function initHud(scene){
+      let K=Mojo.getScaleFactor(),
+          c,s= _G.flag=_S.sprite("box.png");
+      s.addChild(c=_S.sprite("wflag.png"));
+      //c.tint=TEXT_COLOR;
+      s.tint=BLUE;
+      s.width=_G.CELLW;
+      s.height=_G.CELLH;
+      _I.makeDrag(s);
+      s.m5.onDragDropped=()=>{
+        onDropped(scene, _G.flag)
+        if(!_G.timerStarted) _.delay(1000,()=>updateTimer());
+      };
+      _S.pinTop(_G.bg,s);
+      s.g.oldx=s.x;
+      s.g.oldy=s.y;
+      s.g.value=99;
+      scene.insert(_G.flag);
+      //
+      s=_S.bitmapText(`Mines: ${Mojo.u.dimXY[2]}`,{fontSize:36*K});
+      //s.tint=TEXT_COLOR;
+      _S.pinTop(_G.bg,s,10,0);
+      scene.insert(s);
+      //
+      s=_S.bitmapText(`Time: 000`,{fontSize:36*K});
+      //s.tint=TEXT_COLOR;
+      _S.pinTop(_G.bg,s,10,1);
+      scene.insert(s);
+      _G.timerText=s;
+      _G.timerSecs=0;
+    }
+
+    function updateTimer(){
+      let msg= _.prettyNumber(++_G.timerSecs,3);
+      _G.timerText.text=`Time: ${msg}`;
+      _G.timerStarted=true;
+      if(!_G.gameOver)
+        _.delay(1000, updateTimer);
+    }
+
     _Z.defScene("level1",{
       setup(){
         let s,w,h,bb,dim=Mojo.u.dimXY;
@@ -212,47 +275,12 @@
         this.insert(_G.bg);
         initLevel(this,dim[0],dim[1],dim[2]);
         this.insert(_G.gfx);
-
-        //buttons
-        w=_G.CELLW;
-        h=_G.CELLH;
-
-        s=_S.sprite("box.png");
-        s.tint=BLUE;
-        s.addChild(_S.sprite("B.png"));
-        _G.flag=s;
-        _G.flag.width=w;
-        _G.flag.height=h;
-        _I.makeDrag(_G.flag);
-        s.m5.onDragDropped=()=>{
-          onDropped(this, _G.flag)
-        };
-        _S.pinLeft(_G.bg,_G.flag,w/2);
-        s.g.oldx=s.x;
-        s.g.oldy=s.y;
-        s.g.value=99;
-        this.insert(_G.flag);
-
-        /*
-        s=_S.sprite("box.png");
-        s.tint=BLUE;
-        s.addChild(_S.sprite("ptr.png"));
-        _G.picker=s;
-        _G.picker.width=w;
-        _G.picker.height=h;
-        _I.makeDrag(_G.picker);
-        s.m5.onDragDropped=()=>{
-          onDropped(_G.picker)
-        };
-        _S.pinRight(_G.bg,_G.picker,w/2);
-        s.g.oldx=s.x;
-        s.g.oldy=s.y;
-        this.insert(_G.picker);
-        */
+        initHud(this);
       },
       postUpdate(dt){
       }
     });
+
   }
 
   //9x9, 16x16,30x16
@@ -262,8 +290,8 @@
     scaleToWindow:"max",
     scaleFit:"y",
     dimXY: [9,9,10],
-    //dim: [16,16,40],
-    //dim: [30,16,99],
+    //dimXY: [16,16,40],
+    //dimXY: [30,16,99],
     //fps:30,
     start(Mojo){
       scenes(Mojo);
