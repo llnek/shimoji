@@ -32,6 +32,41 @@
       scene.insert(s);
     }
 
+    function onDropped(scene,B){
+      let found;
+      for(let r,y=0;y<_G.grid.length;++y){
+        r=_G.grid[y];
+        for(let s,c,x=0;x<_G.grid[0].length;++x){
+          c=r[x];
+          if(Mojo.mouse.hitTest(c.sprite)){
+            if(!c.opened){
+              if(B.g.value===99){
+                if(c.marker){
+                  _S.remove(c.marker);
+                  c.marker=null;
+                }else{
+                  let m,n;
+                  [m,n]= _S.centerXY(c.sprite);
+                  s=_S.sprite("B.png");
+                  _S.centerAnchor(s);
+                  s.width=c.sprite.width;
+                  s.height=c.sprite.height;
+                  s.x=m;
+                  s.y=n;
+                  c.marker=s;
+                  scene.insert(s);
+                }
+                found=true;
+              }
+            }
+            break;
+          }
+        }
+      }
+      B.x=B.g.oldx;
+      B.y=B.g.oldy;
+    }
+
     function initLevel(scene,rows,cols,target){
       let sx=_G.arena.x,
           sy=_G.arena.y;
@@ -51,15 +86,39 @@
           c.row=y;
           c.col=x;
           s.m5.press=()=>{
+            if(c.marker){return}
             _I.undoButton(s);
             if(c.value===9){
               boom(scene,c);
             }else{
               expand(scene,c.row,c.col);
+              checkEnd(scene);
             }
           };
           scene.insert(_I.makeButton(s));
         }
+      }
+    }
+
+    function checkEnd(scene){
+      let opened=0,found=0;
+      let pending=[];
+      for(let r,y=0;y<_G.grid.length;++y){
+        r=_G.grid[y];
+        for(let c,x=0;x<_G.grid[0].length;++x){
+          c=r[x];
+          if(c.opened) ++opened;
+          else if(c.marker && c.value===9) ++found;
+          else pending.push(c);
+        }
+      }
+      if(found===Mojo.u.dimXY[2]){
+        _.delay(0,()=>alert("You win!"));
+        return;
+      }
+      if(pending.filter(c=> c.value===9).length===pending.length){
+        _.delay(0,()=>alert("You win!"));
+        return;
       }
     }
 
@@ -119,6 +178,7 @@
           s.height=c.sprite.height;
           s.scale.x *=0.5;
           s.scale.y *=0.5;
+          s.alpha=0.5;
           scene.insert(s);
         }
         c.opened=true;
@@ -154,8 +214,8 @@
         this.insert(_G.gfx);
 
         //buttons
-        w=_G.CELLW*3;
-        h=_G.CELLH*3;
+        w=_G.CELLW;
+        h=_G.CELLH;
 
         s=_S.sprite("box.png");
         s.tint=BLUE;
@@ -163,19 +223,32 @@
         _G.flag=s;
         _G.flag.width=w;
         _G.flag.height=h;
-        _I.makeButton(_G.flag);
+        _I.makeDrag(_G.flag);
+        s.m5.onDragDropped=()=>{
+          onDropped(this, _G.flag)
+        };
         _S.pinLeft(_G.bg,_G.flag,w/2);
+        s.g.oldx=s.x;
+        s.g.oldy=s.y;
+        s.g.value=99;
         this.insert(_G.flag);
 
+        /*
         s=_S.sprite("box.png");
         s.tint=BLUE;
         s.addChild(_S.sprite("ptr.png"));
-        _G.smiley=s;
-        _G.smiley.width=w;
-        _G.smiley.height=h;
-        _I.makeButton(_G.smiley);
-        _S.pinRight(_G.bg,_G.smiley,w/2);
-        this.insert(_G.smiley);
+        _G.picker=s;
+        _G.picker.width=w;
+        _G.picker.height=h;
+        _I.makeDrag(_G.picker);
+        s.m5.onDragDropped=()=>{
+          onDropped(_G.picker)
+        };
+        _S.pinRight(_G.bg,_G.picker,w/2);
+        s.g.oldx=s.x;
+        s.g.oldy=s.y;
+        this.insert(_G.picker);
+        */
       },
       postUpdate(dt){
       }
