@@ -13,14 +13,16 @@
            v2:_V,
            ute:_,is}=Mojo;
 
-    const TEXT_COLOR=_S.color("#f2f429");
-    const ORANGE=_S.color("#f2ce33");
-    const BLUE=_S.color("#17ccff");
-    const BGCOLOR=BLUE;
+    const C_GROUND=_S.color("#c1a24d");
+    const LINE_COLOR=_S.color("#2abb67");
+    const TEXT_COLOR=_S.color("#2abb67");
+    const C_NUM=_S.color("#24a159");
+    //const C_BOX=_S.color("#f8fc7e");
+    const C_BOX=_S.color("#e1fc7e"); //"#fcf97e"
     const int=Math.floor;
 
     function boom(scene,c){
-      let x,y,s= _S.sprite("boom.png");
+      let x,y,s= _S.sprite("mine.png");
       [x,y]=_S.centerXY(c.sprite);
       _S.centerAnchor(s);
       s.x=x;
@@ -81,7 +83,7 @@
           c=r[x];
           c.sprite=
           s=_S.spriteFrom("box.png","round.png");
-          s.tint=BLUE;
+          s.tint=C_BOX;
           s.x=sx+c.x1;
           s.y=sy+c.y1;
           s.width=c.x2-c.x1;
@@ -196,12 +198,12 @@
           _S.centerAnchor(s);
           s.x=x;
           s.y=y;
-          //s.tint=ORANGE;
+          s.tint=C_NUM;
           s.width=c.sprite.width;
           s.height=c.sprite.height;
           s.scale.x *=0.5;
           s.scale.y *=0.5;
-          s.alpha=0.5;
+          //s.alpha=0.5;
           scene.insert(s);
         }
         c.opened=true;
@@ -218,12 +220,33 @@
       }
     }
 
+    function initBg(scene){
+      let K=Mojo.getScaleFactor(),
+          N=int(72 * K),
+          N2=int(N/3);
+      _S.repeatSprite("cactus_top.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s));
+      /*
+      for(let s,i=0;i<N;++i){
+        s=_S.sprite("bush1.png");
+        s.x=_.randInt2(0,Mojo.width);
+        s.y=_.randInt2(0,Mojo.height);
+        scene.insert(s);
+        if(i<N2){
+          s=_S.sprite("bush2.png");
+          s.x=_.randInt2(0,Mojo.width);
+          s.y=_.randInt2(0,Mojo.height);
+          scene.insert(s);
+        }
+      }
+      */
+    }
+
     function initHud(scene){
       let K=Mojo.getScaleFactor(),
           c,s= _G.flag=_S.sprite("box.png");
       s.addChild(c=_S.sprite("wflag.png"));
-      //c.tint=TEXT_COLOR;
-      s.tint=BLUE;
+      //c.tint=_S.color("#d63d3d");
+      s.tint=C_BOX;
       s.width=_G.CELLW;
       s.height=_G.CELLH;
       _I.makeDrag(s);
@@ -261,15 +284,16 @@
     _Z.defScene("level1",{
       setup(){
         let s,w,h,bb,dim=Mojo.u.dimXY;
+        initBg(this);
         _G.grid= _S.gridXY([dim[0],dim[1]],0.9,0.8,_G.arena={x:0,y:0});
         _G.gfx=_S.graphics();
         s=_G.grid[0][0];
         _G.CELLW=s.x2-s.x1;
         _G.CELLH=s.y2-s.y1;
         bb=_S.gridBBox(_G.arena.x,_G.arena.y,_G.grid);
-        _S.drawGridLines(_G.arena.x, _G.arena.y,_G.grid,1,"white",_G.gfx);
-        _S.drawGridBox(bb,1,"black",_G.gfx);
-        _G.bg=_S.rect(_G.arena.width,_G.arena.height,BGCOLOR,BGCOLOR);
+        _S.drawGridLines(_G.arena.x, _G.arena.y,_G.grid,1,LINE_COLOR,_G.gfx);
+        _S.drawGridBox(bb,1,C_NUM,_G.gfx);
+        _G.bg=_S.rect(_G.arena.width,_G.arena.height,false,C_NUM,1);
         _G.bg.x=_G.arena.x;
         _G.bg.y=_G.arena.y;
         this.insert(_G.bg);
@@ -285,7 +309,7 @@
 
   //9x9, 16x16,30x16
   const _$={
-    assetFiles: ["tiles.png","images/tiles.json"],
+    assetFiles: ["bush1.png","bush2.png","box.png","round.png","mine.png","tiles.png","images/tiles.json"],
     arena: {width: 920, height: 920},
     scaleToWindow:"max",
     scaleFit:"y",
