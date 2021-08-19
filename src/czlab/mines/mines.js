@@ -13,8 +13,7 @@
            v2:_V,
            ute:_,is}=Mojo;
 
-    const C_GROUND=_S.color("#c1a24d");
-    const LINE_COLOR=_S.color("#2abb67");
+    const LINE_COLOR=_S.color("#2abb67");//("#bb8044");
     const TEXT_COLOR=_S.color("#2abb67");
     const C_NUM=_S.color("#24a159");
     //const C_BOX=_S.color("#f8fc7e");
@@ -56,6 +55,9 @@
                   _S.centerAnchor(s);
                   s.width=c.sprite.width;
                   s.height=c.sprite.height;
+                  s.scale.x *= 0.5;
+                  s.scale.y *= 0.5;
+                  s.alpha=0.7;
                   s.x=m;
                   s.y=n;
                   c.marker=s;
@@ -82,8 +84,7 @@
         for(let s,c,x=0;x<r.length;++x){
           c=r[x];
           c.sprite=
-          s=_S.spriteFrom("box.png","round.png");
-          s.tint=C_BOX;
+          s=_S.sprite("ground1.png");
           s.x=sx+c.x1;
           s.y=sy+c.y1;
           s.width=c.x2-c.x1;
@@ -113,7 +114,7 @@
           c=r[x];
           if(c.value===9 && !c.opened){
             [m,n]=_S.centerXY(c.sprite);
-            s=_S.sprite("boom.png");
+            s=_S.sprite("mine.png");
             _S.centerAnchor(s);
             s.width=c.sprite.width;
             s.height=c.sprite.height;
@@ -189,16 +190,16 @@
       if(row>=0&&row<_G.grid.length && col>=0 && col < _G.grid[0].length){}else{return}
       let x,y,s,c= _G.grid[row][col];
       if(!c.opened && c.value!==9 && c.value !== 99){
-        c.sprite.m5.showFrame(1);
+        c.sprite.visible=false;
         if(c.value===0){
-          c.sprite.visible=false;
         }else{
           [x,y]=_S.centerXY(c.sprite);
           s=_S.sprite(`${c.value}.png`);
           _S.centerAnchor(s);
           s.x=x;
           s.y=y;
-          s.tint=C_NUM;
+          s.tint=_S.color("#e2e55c");
+          //s.tint=C_NUM;
           s.width=c.sprite.width;
           s.height=c.sprite.height;
           s.scale.x *=0.5;
@@ -224,7 +225,7 @@
       let K=Mojo.getScaleFactor(),
           N=int(72 * K),
           N2=int(N/3);
-      _S.repeatSprite("cactus_top.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s));
+      _S.repeatSprite("grass.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s));
       /*
       for(let s,i=0;i<N;++i){
         s=_S.sprite("bush1.png");
@@ -243,12 +244,17 @@
 
     function initHud(scene){
       let K=Mojo.getScaleFactor(),
-          c,s= _G.flag=_S.sprite("box.png");
+          m,n,c,s= _G.flag=_S.sprite("box.png");
       s.addChild(c=_S.sprite("wflag.png"));
-      //c.tint=_S.color("#d63d3d");
-      s.tint=C_BOX;
+      _S.centerAnchor(c);
+      [m,n]=_S.centerXY(s);
       s.width=_G.CELLW;
       s.height=_G.CELLH;
+      c.scale.x *= 0.5;
+      c.scale.y *= 0.5;
+      c.x=m;
+      c.y=n;
+      c.alpha=0.7;
       _I.makeDrag(s);
       s.m5.onDragDropped=()=>{
         onDropped(scene, _G.flag)
@@ -291,7 +297,7 @@
         _G.CELLW=s.x2-s.x1;
         _G.CELLH=s.y2-s.y1;
         bb=_S.gridBBox(_G.arena.x,_G.arena.y,_G.grid);
-        _S.drawGridLines(_G.arena.x, _G.arena.y,_G.grid,1,LINE_COLOR,_G.gfx);
+        _S.drawGridLines(_G.arena.x, _G.arena.y,_G.grid,1,C_NUM,_G.gfx);
         _S.drawGridBox(bb,1,C_NUM,_G.gfx);
         _G.bg=_S.rect(_G.arena.width,_G.arena.height,false,C_NUM,1);
         _G.bg.x=_G.arena.x;
@@ -302,6 +308,8 @@
         initHud(this);
       },
       postUpdate(dt){
+        let i=dt;
+        dt=dt;
       }
     });
 
@@ -309,7 +317,7 @@
 
   //9x9, 16x16,30x16
   const _$={
-    assetFiles: ["bush1.png","bush2.png","box.png","round.png","mine.png","tiles.png","images/tiles.json"],
+    assetFiles: ["ground1.png","ground2.png","box.png","mine.png","grass.png","tiles.png","images/tiles.json"],
     arena: {width: 920, height: 920},
     scaleToWindow:"max",
     scaleFit:"y",
