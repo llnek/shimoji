@@ -130,6 +130,9 @@
         }else if(s.loop){
           s.gotoAndStop(_state[0]);
           _state[2]=1;
+        }else{
+          _reset();
+          s.onComplete && s.onComplete();
         }
       }
       _.inject(s.m5,{

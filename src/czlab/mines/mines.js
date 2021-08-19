@@ -28,12 +28,25 @@
       s.y=y;
       s.width=c.sprite.width;
       s.height=c.sprite.height;
-      //s.scale.x *=0.5;
-      //s.scale.y *=0.5;
+      s.scale.x *=0.8;
+      s.scale.y *=0.8;
       c.sprite.visible=false;
-      _G.gameOver=true;
       scene.insert(s);
-      _.delay(100,()=>alert("You lose!"));
+      s= _S.spriteFrom("boom0.png","boom1.png","boom2.png","boom3.png","boom4.png","boom5.png","boom6.png");
+      _S.centerAnchor(s);
+      s.x=x;
+      s.y=y;
+      s.loop=false;
+      scene.insert(s);
+      s.onComplete=()=>{
+        _.delay(100,()=>{
+          _S.remove(s);
+          _.delay(100,()=> alert("You lose!"));
+        });
+      };
+      s.m5.playFrames();
+      _G.gameOver=true;
+      Mojo.sound("boom.ogg").play();
     }
 
     function onDropped(scene,B){
@@ -51,13 +64,13 @@
                 }else{
                   let m,n;
                   [m,n]= _S.centerXY(c.sprite);
-                  s=_S.sprite("wflag.png");
+                  s=_S.sprite("rflag.png");
                   _S.centerAnchor(s);
                   s.width=c.sprite.width;
                   s.height=c.sprite.height;
                   s.scale.x *= 0.5;
                   s.scale.y *= 0.5;
-                  s.alpha=0.7;
+                  //s.alpha=0.7;
                   s.x=m;
                   s.y=n;
                   c.marker=s;
@@ -81,10 +94,10 @@
       calcBombs();
       for(let r,y=0; y<_G.grid.length; ++y){
         r=_G.grid[y];
-        for(let s,c,x=0;x<r.length;++x){
+        for(let g,s,c,x=0;x<r.length;++x){
+          g=_.randInt2(1,4);
           c=r[x];
-          c.sprite=
-          s=_S.sprite("ground1.png");
+          c.sprite= s=_S.sprite(`ground${g}.png`);
           s.x=sx+c.x1;
           s.y=sy+c.y1;
           s.width=c.x2-c.x1;
@@ -120,6 +133,8 @@
             s.height=c.sprite.height;
             s.x=m;
             s.y=n;
+            s.scale.x *= 0.8;
+            s.scale.y *= 0.8;
             if(c.marker)_S.remove(c.marker);
             c.marker=null;
             scene.insert(s);
@@ -245,7 +260,7 @@
     function initHud(scene){
       let K=Mojo.getScaleFactor(),
           m,n,c,s= _G.flag=_S.sprite("box.png");
-      s.addChild(c=_S.sprite("wflag.png"));
+      s.addChild(c=_S.sprite("rflag.png"));
       _S.centerAnchor(c);
       [m,n]=_S.centerXY(s);
       s.width=_G.CELLW;
@@ -254,7 +269,7 @@
       c.scale.y *= 0.5;
       c.x=m;
       c.y=n;
-      c.alpha=0.7;
+      //c.alpha=0.7;
       _I.makeDrag(s);
       s.m5.onDragDropped=()=>{
         onDropped(scene, _G.flag)
@@ -291,7 +306,7 @@
       setup(){
         let s,w,h,bb,dim=Mojo.u.dimXY;
         initBg(this);
-        _G.grid= _S.gridXY([dim[0],dim[1]],0.9,0.8,_G.arena={x:0,y:0});
+        _G.grid= _S.gridXY([dim[0],dim[1]],0.9,0.7,_G.arena={x:0,y:0});
         _G.gfx=_S.graphics();
         s=_G.grid[0][0];
         _G.CELLW=s.x2-s.x1;
@@ -317,7 +332,8 @@
 
   //9x9, 16x16,30x16
   const _$={
-    assetFiles: ["ground1.png","ground2.png","box.png","mine.png","grass.png","tiles.png","images/tiles.json"],
+    assetFiles: ["boom.ogg","tiles.png","images/tiles.json"],
+    XXassetFiles:["1.png","2.png","3.png","4.png","5.png","6.png","7.png","8.png","boom.ogg", "boom0.png","boom1.png","boom2.png","boom3.png","boom4.png","boom5.png","boom6.png", "grass.png","ground1.png","ground2.png","ground3.png","ground4.png","mine.png","rflag.png","box.png"],
     arena: {width: 920, height: 920},
     scaleToWindow:"max",
     scaleFit:"y",
