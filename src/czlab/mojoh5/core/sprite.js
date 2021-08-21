@@ -292,6 +292,7 @@
     const _PT=_V.vec();
     const _$={
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
+               "boot/kenney_high.fnt",
                "boot/NineteenOhFive.fnt","boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites

@@ -300,7 +300,7 @@
         C.addChildAt(r,0); //add to front so zindex is lowest
         r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
       }
-      //final width,height,center
+
       h= C.height;
       w= C.width;
 
@@ -321,6 +321,9 @@
         //refit the items on x-axis
         items.forEach(s=> s.x += wd);
       }
+
+      h= C.height;
+      w= C.width;
 
       //may be center the whole thing
       C.x= _.nor(options.x, MFL((Mojo.width-w)/2));
