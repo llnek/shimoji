@@ -332,6 +332,18 @@
         if(is.num(sy)) s.scale.y=sy;
         return s;
       },
+      /**Change scale factor of sprite by a factor.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} sx
+       * @param {number} sy
+       * @return {Sprite} s
+       */
+      scaleBy(s, sx, sy){
+        if(is.num(sx)) s.scale.x *= sx;
+        if(is.num(sy)) s.scale.y *= sy;
+        return s;
+      },
       /**Check if object is moving in x dir.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
