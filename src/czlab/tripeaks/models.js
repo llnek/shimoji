@@ -25,7 +25,7 @@
     const HEARTS=3;
     const SPADES=4;
     const JOKER=5;
-    const MFL=Math.floor;
+    const int=Math.floor;
     const {Sprites:_S,
            Input:_I,
            Game:_G,
@@ -40,7 +40,7 @@
       return obj;
     })({});
 
-    /** @ignore */
+    /**/
     function flipExposed(){
       _G.model.getExposed().forEach(c=>{
         if(c){
@@ -50,17 +50,19 @@
       })
     }
 
-    /** @ignore */
+    /**/
     function dropDrawCard(c){
-      Mojo.emit(["flip.draw",c.parent]) }
+      Mojo.emit(["flip.draw",c.parent])
+    }
 
-    /** @ignore */
+    /**/
     function dropCard(c){
       let {row,col}=c.g;
       _S.remove(c);
-      _G.model.delCardAt(row,col) }
+      _G.model.delCardAt(row,col)
+    }
 
-    /** @ignore */
+    /**/
     function _checkDropped(s){
       let found,
           es=_G.model.getExposed(),
@@ -77,8 +79,15 @@
         }
       }
       if(found){
-        _G.score += s.g.value+
-                    found.g.value;
+        let x=1,n= 20;
+        if(s.g.value===13 && found.g.value===13){
+          n=100;
+          x *= 5;
+        }
+        if(found.g.suit===s.g.suit){
+          x *=3;
+        }
+        _G.score += n*x;
         if(found===dc){
           dropDrawCard(dc);
           dropCard(s);
@@ -90,14 +99,16 @@
           dropCard(s);
         }
         flipExposed();
+        Mojo.sound("slide.ogg").play();
       }else{
         //move card back
         s.x=s.g.x;
         s.y=s.g.y;
+        Mojo.sound("error.ogg").play();
       }
     }
 
-    /** Create a card */
+    /**/
     function Card(suit,value){
       _.assert(value >= MIN_VALUE &&
                value <= MAX_VALUE, `Bad Value ${value}`);
@@ -110,8 +121,8 @@
       if(!_G.iconSize){
         let w,h;
         _S.scaleXY(s,K,K);
-        w=MFL(s.width);
-        h=MFL(s.height);
+        w=int(s.width);
+        h=int(s.height);
         if(!_.isEven(w))--w;
         if(!_.isEven(h))--h;
         _G.iconSize=[w,h];
@@ -127,7 +138,7 @@
       return s;
     }
 
-    /** @ignore */
+    /**/
     Card.getSingleDeckSize=function(){
       return 4 * MAX_VALUE
     }
@@ -152,57 +163,64 @@
        */
       _initBoard(deck, numRows){
         this._allocateModel(numRows, numRows*this.numPeaks);
-        const overlap= MFL(Math.ceil(numRows * 0.5));
+        const overlap= int(Math.ceil(numRows * 0.5));
         const shift= numRows-overlap;
         const lastPeak=this.numPeaks-1;
         let left= 0;
         for(let p=0; p < this.numPeaks; ++p){
           if(p>0){ left += shift }
-          this._initPeak(left,numRows,deck,p===lastPeak) } }
+          this._initPeak(left,numRows,deck,p===lastPeak)
+        }
+      }
 
       /** @ignore */
       getCards(row){
-        if(this.validRow(row)) return this.board[row] }
+        if(this.validRow(row)) return this.board[row]
+      }
 
       /** @ignore */
       setDrawCard(c){ this.drawer= c }
 
       /** @ignore */
-      getDrawCard(){
-        return this.drawer }
+      getDrawCard(){ return this.drawer }
 
       /** @ignore */
-      setRowWidth(row, w){
-        this.boardWidths[row]=w }
+      setRowWidth(row, w){ this.boardWidths[row]=w }
 
       /** @ignore */
       _allocateModel(rows, cols){
         this.board=[];
         this.boardWidths= _.fill(rows,0);
         for(let r=0;r<rows;++r)
-          this.board[r]=_.fill(cols,null) }
+          this.board[r]=_.fill(cols,null)
+      }
 
       /** @ignore */
       validXY(row, card){
-        return this.validRow(row) && this.validCol(card) }
+        return this.validRow(row) && this.validCol(card)
+      }
 
       /** @ignore */
       validCol(c){
         return this.board &&
                this.board[0] &&
-               c >= 0 && c < this.board[0].length }
+               c >= 0 && c < this.board[0].length
+      }
 
       /** @ignore */
       validRow(r){
-        return this.board && r >= 0 && r < this.board.length }
+        return this.board && r >= 0 && r < this.board.length
+      }
 
       /** @ignore */
       lastRowIndex(){
-        return this.board ? this.board.length-1 : -1 }
+        return this.board ? this.board.length-1 : -1
+      }
 
       /** @ignore */
       getRowWidth(row){
-        return (this.boardWidths && this.validRow(row)) ? this.boardWidths[row] : -1 }
+        return (this.boardWidths && this.validRow(row)) ? this.boardWidths[row] : -1
+      }
 
       /** @ignore */
       assertState(cond, msg){ _.assert(cond,msg) }
@@ -214,29 +232,35 @@
 
       /** @ignore */
       checkRule2(a, b){
-        return a && b && (a.g.value + b.g.value) === MAX_VALUE }
+        return a && b && (a.g.value + b.g.value) === MAX_VALUE
+      }
 
       /** @ignore */
       checkRule1(a){
-        return a && a.g.value === MAX_VALUE }
+        return a && a.g.value === MAX_VALUE
+      }
 
       /** @ignore */
       checkRules(a,b){
         //2 kings or a+b=13
         return (a.g.value + b.g.value) === MAX_VALUE ||
-               (a.g.value===b.g.value && a.g.value===MAX_VALUE) }
+               (a.g.value===b.g.value && a.g.value===MAX_VALUE)
+      }
 
       /** @ignore */
       delCardAt(row, card){
         if(this.board)
-          this.board[row][card] = null }
+          this.board[row][card] = null
+      }
 
       /** @ignore */
       setCardAt(row, card, c){
         if(this.board){
           c.g.row=row;
           c.g.col=card;
-          this.board[row][card] = c } }
+          this.board[row][card] = c
+        }
+      }
 
       /** @ignore */
       getSingleDeck(){
@@ -256,9 +280,11 @@
             if(c){continue} // card overlapped
             if(input.length>0)c=input.shift();
             this.assertArg(c, "invalid deck");
-            this.setCardAt(i,j, c) }
+            this.setCardAt(i,j, c)
+          }
           if(calcRowWidth)
-            this.setRowWidth(i, rmost+1) }
+            this.setRowWidth(i, rmost+1)
+        }
       }
 
       /** @ignore */
@@ -275,7 +301,8 @@
         _.log(`using ${orig-deck.length} cards for the peaks`);
         //initialize draw card
         if(this.stockPile.length>0)
-          this.setDrawCard(this.stockPile.shift()) }
+          this.setDrawCard(this.stockPile.shift())
+      }
 
       /** @ignore */
       isPeakEmpty(){
@@ -299,7 +326,8 @@
           //last row is always exposed, quick exit
           rc= row === this.lastRowIndex() ||
               (this.validXY(below,right) &&
-               this.noCardAt(below,left) && this.noCardAt(below,right)) }
+               this.noCardAt(below,left) && this.noCardAt(below,right))
+        }
         return rc;
       }
 
@@ -315,7 +343,8 @@
       /** @ignore */
       getNumRows(){
         // how many rows in the pyramid
-        return !this.board ? -1 : this.board.length }
+        return !this.board ? -1 : this.board.length
+      }
 
       /** @ignore */
       getExposed(){
@@ -331,7 +360,8 @@
 
       /** @ignore */
       isPileEmpty(){
-        return this.stockPile.length===0 }
+        return this.stockPile.length===0
+      }
 
       /** @ignore */
       isGameStuck(){
@@ -365,11 +395,13 @@
 
       /** @ignore */
       someCardAt(row, card){
-        return !!this.getCardAt(row, card) }
+        return !!this.getCardAt(row, card)
+      }
 
       /** @ignore */
       noCardAt(row, card){
-        return !this.someCardAt(row, card) }
+        return !this.someCardAt(row, card)
+      }
 
       /** @ignore */
       getCardAt(row, card){
@@ -384,7 +416,8 @@
         super(scene,1)
       }
       getDeck(){
-        return this.getSingleDeck() }
+        return this.getSingleDeck()
+      }
     }
 
     /** @class */
@@ -393,7 +426,8 @@
         super(scene,3)
       }
       getDeck(){
-        return this.getSingleDeck().concat(this.getSingleDeck()) }
+        return this.getSingleDeck().concat(this.getSingleDeck())
+      }
     }
 
     _.inject(_G,{

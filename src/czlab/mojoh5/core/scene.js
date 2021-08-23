@@ -397,6 +397,7 @@
         while(Mojo.stage.children.length>0)
           _killScene(Mojo.stage.children[Mojo.stage.children.length-1])
         Mojo.mouse.reset();
+        Mojo["Input"].reset();
       },
       /**Find this scene.
        * @memberof module:mojoh5/Scenes
