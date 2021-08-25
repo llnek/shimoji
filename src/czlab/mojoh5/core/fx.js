@@ -499,7 +499,7 @@
        * @param {boolean} [loop]
        * @return {TweenScale}
        */
-      breathe(s, endX=0.8, endY=0.8, frames=60,loop=true){
+      throb(s, endX=0.9, endY=0.9, frames=60,loop=true){
         return this.tweenScale(s, this.SMOOTH_QUAD,endX,endY,frames,loop) },
       /**Scale this sprite.
        * @memberof module:mojoh5/FX

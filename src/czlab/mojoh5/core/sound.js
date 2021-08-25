@@ -69,6 +69,7 @@
         get volume(){ return _vol },
         set volume(v){ _vol=v },
         play(){
+          if(!Mojo.Sound.sfx()){return}
           const now = _.now();
           const s= this.name;
           if(!_debounce(s,now)){
@@ -102,12 +103,36 @@
 
     const _$={
       ctx: new gscope.AudioContext(),
+      _mute:0,
       init(){
         _.delay(0,()=>{
           if(this.ctx.state == "suspended"){
             this.ctx.resume()
           }
         })
+      },
+      /**Check if sound is on or off.
+       * @memberof module:mojoh5/Sound
+       * @return {boolean}
+       */
+      sfx(){
+        return this._mute===0
+      },
+      /**Turn sound off.
+       * @memberof module:mojoh5/Sound
+       * @return {object}
+       */
+      mute(){
+        this._mute=1;
+        return this;
+      },
+      /**Turn sound on.
+       * @memberof module:mojoh5/Sound
+       * @return {object}
+       */
+      unmute(){
+        this._mute=0;
+        return this;
       },
       /**Decode these sound bytes.
        * @memberof module:mojoh5/Sound

@@ -16,8 +16,10 @@
 
   "use strict";
 
+  /**/
   global["io/czlab/tripeaks/models"]=function(Mojo){
     const SYMBOLS = "?A23456789TJQK";
+    //Ace = 1, K = 13
     const MAX_VALUE = 13;
     const MIN_VALUE = 1;
     const DIAMONDS=1;
@@ -30,7 +32,7 @@
            Input:_I,
            Game:_G,
            ute:_,is}=Mojo;
-
+    /**/
     const SUITS = [DIAMONDS, CLUBS, HEARTS, SPADES];
     const CARD_SUITS=(function(obj){
       obj[DIAMONDS]="Diamonds";
@@ -40,26 +42,39 @@
       return obj;
     })({});
 
-    /**/
+    /**Reveal the card and make it draggable */
     function flipExposed(){
       _G.model.getExposed().forEach(c=>{
         if(c){
-          c.m5.showFrame(1);
           _I.makeDrag(c);
+          c.m5.showFrame(1);
         }
       })
     }
 
-    /**/
+    /**A card has been dropped */
     function dropDrawCard(c){
       Mojo.emit(["flip.draw",c.parent])
     }
 
-    /**/
-    function dropCard(c){
-      let {row,col}=c.g;
+    /**Get rid of this card */
+    function snuffOut(c){
+      const {row,col}=c.g;
       _S.remove(c);
       _G.model.delCardAt(row,col)
+    }
+
+    /**Rules to decide how many points to be added */
+    function _calcScore(a,b){
+      let n=10,x=1;
+      if(a.g.value===13 && b.g.value===13){
+          n=100;
+          x *= 5;
+        }
+        if(b.g.suit===a.g.suit){
+          x *=3;
+        }
+        _G.score += n*x;
     }
 
     /**/
@@ -79,24 +94,16 @@
         }
       }
       if(found){
-        let x=1,n= 20;
-        if(s.g.value===13 && found.g.value===13){
-          n=100;
-          x *= 5;
-        }
-        if(found.g.suit===s.g.suit){
-          x *=3;
-        }
-        _G.score += n*x;
+        _calcScore(s,found);
         if(found===dc){
           dropDrawCard(dc);
-          dropCard(s);
+          snuffOut(s);
         }else if(s===dc){
           dropDrawCard(dc);
-          dropCard(found);
+          snuffOut(found);
         }else{
-          dropCard(found);
-          dropCard(s);
+          snuffOut(found);
+          snuffOut(s);
         }
         flipExposed();
         Mojo.sound("slide.ogg").play();
@@ -108,15 +115,15 @@
       }
     }
 
-    /**/
+    /**Create a Card object */
     function Card(suit,value){
       _.assert(value >= MIN_VALUE &&
                value <= MAX_VALUE, `Bad Value ${value}`);
       const symbol = value===10?"10":SYMBOLS[value];
-      let K=Mojo.getScaleFactor();
+      const K=Mojo.getScaleFactor();
       const cs=CARD_SUITS[suit];
       const s= _S.spriteFrom(`${Mojo.u.stockPile}.png`,
-                             `card${cs}${symbol}.png`);
+                             `card${cs}${symbol}.png`); //front and back
       //scale the card,make it nice and even
       if(!_G.iconSize){
         let w,h;
@@ -130,12 +137,8 @@
       s.g.value=value;
       s.g.suit=suit;
       s.g.symbol=symbol;
-      s.height=_G.iconSize[1];
-      s.width=_G.iconSize[0];
-      s.m5.onDragDropped=()=>{
-        _checkDropped(s)
-      };
-      return s;
+      s.m5.onDragDropped=()=>{ _checkDropped(s) };
+      return _S.sizeXY(s, _G.iconSize[0], _G.iconSize[1]);
     }
 
     /**/
@@ -153,11 +156,11 @@
         this.drawer=null;
         // for the game board
         this.board=[];//[][]
-        this.boardWidths=[];//ints
+        //each row has a different column count (int)
+        this.boardWidths=[];
       }
 
-      /**
-       * Initial internal data structures for the model.
+      /**Initial internal data structures for the model.
        * @param deck
        * @param numRows
        */
@@ -166,28 +169,27 @@
         const overlap= int(Math.ceil(numRows * 0.5));
         const shift= numRows-overlap;
         const lastPeak=this.numPeaks-1;
-        let left= 0;
-        for(let p=0; p < this.numPeaks; ++p){
+        for(let left=0, p=0; p < this.numPeaks; ++p){
           if(p>0){ left += shift }
           this._initPeak(left,numRows,deck,p===lastPeak)
         }
       }
 
-      /** @ignore */
+      /**/
       getCards(row){
         if(this.validRow(row)) return this.board[row]
       }
 
-      /** @ignore */
+      /**/
       setDrawCard(c){ this.drawer= c }
 
-      /** @ignore */
+      /**/
       getDrawCard(){ return this.drawer }
 
-      /** @ignore */
+      /**/
       setRowWidth(row, w){ this.boardWidths[row]=w }
 
-      /** @ignore */
+      /**/
       _allocateModel(rows, cols){
         this.board=[];
         this.boardWidths= _.fill(rows,0);
@@ -195,65 +197,65 @@
           this.board[r]=_.fill(cols,null)
       }
 
-      /** @ignore */
+      /**/
       validXY(row, card){
         return this.validRow(row) && this.validCol(card)
       }
 
-      /** @ignore */
+      /**/
       validCol(c){
         return this.board &&
                this.board[0] &&
                c >= 0 && c < this.board[0].length
       }
 
-      /** @ignore */
+      /**/
       validRow(r){
         return this.board && r >= 0 && r < this.board.length
       }
 
-      /** @ignore */
+      /**/
       lastRowIndex(){
         return this.board ? this.board.length-1 : -1
       }
 
-      /** @ignore */
+      /**/
       getRowWidth(row){
         return (this.boardWidths && this.validRow(row)) ? this.boardWidths[row] : -1
       }
 
-      /** @ignore */
+      /**/
       assertState(cond, msg){ _.assert(cond,msg) }
-      /** @ignore */
+      /**/
       assertArg(cond, msg){ _.assert(cond,msg) }
 
-      /** @ignore */
+      /**/
       getCardSet(){ return new Set(getSingleDeck()) }
 
-      /** @ignore */
+      /**Adding the 2 cards equals 13 */
       checkRule2(a, b){
         return a && b && (a.g.value + b.g.value) === MAX_VALUE
       }
 
-      /** @ignore */
+      /**The card is a King */
       checkRule1(a){
         return a && a.g.value === MAX_VALUE
       }
 
-      /** @ignore */
+      /**/
       checkRules(a,b){
         //2 kings or a+b=13
         return (a.g.value + b.g.value) === MAX_VALUE ||
                (a.g.value===b.g.value && a.g.value===MAX_VALUE)
       }
 
-      /** @ignore */
+      /**/
       delCardAt(row, card){
         if(this.board)
           this.board[row][card] = null
       }
 
-      /** @ignore */
+      /**/
       setCardAt(row, card, c){
         if(this.board){
           c.g.row=row;
@@ -262,7 +264,7 @@
         }
       }
 
-      /** @ignore */
+      /**/
       getSingleDeck(){
         const deck = [];
         SUITS.forEach(k=>{
@@ -271,7 +273,7 @@
         return deck;
       }
 
-      /** @ignore */
+      /**Create a peak */
       _initPeak(left, size, input, calcRowWidth){
         for(let rmost,i=0; i<size; ++i){
           rmost=left+i;
@@ -287,11 +289,11 @@
         }
       }
 
-      /** @ignore */
+      /**/
       startGame(deck1, numRows=7, numDraw=1){
-        this.assertArg(numRows >= 0, "Rows in pyramid < 0.");
-        this.assertArg(numDraw >= 0, "Draw cards < 0.");
-        this.assertArg(deck1, "Deck is null.");
+        this.assertArg(numRows >= 0, "Rows in pyramid < 0");
+        this.assertArg(numDraw >= 0, "Draw cards < 0");
+        this.assertArg(deck1, "Deck is null");
         let deck=_.shuffle(deck1);
         let orig= deck.length;
         //remains goes to the stockPile
@@ -304,7 +306,7 @@
           this.setDrawCard(this.stockPile.shift())
       }
 
-      /** @ignore */
+      /**Are we all done? */
       isPeakEmpty(){
         for(let r,i=0; i<this.getNumRows(); ++i){
           r=this.getCards(i);
@@ -315,7 +317,7 @@
         return true;
       }
 
-      /** @ignore */
+      /**/
       isCardExposed(row, card){
         let rc;
         if(this.validXY(row,card) &&
@@ -331,7 +333,7 @@
         return rc;
       }
 
-      /** @ignore */
+      /**Maybe get a new draw card */
       discardDraw(){
         let c;
         if(this.stockPile.length>0)
@@ -340,13 +342,13 @@
         return this.getDrawCard();
       }
 
-      /** @ignore */
+      /**/
       getNumRows(){
         // how many rows in the pyramid
-        return !this.board ? -1 : this.board.length
+        return this.board ? this.board.length : -1
       }
 
-      /** @ignore */
+      /**/
       getExposed(){
         const remains = [];
         for(let r,i=0; i<this.getNumRows(); ++i){
@@ -358,12 +360,12 @@
         return remains;
       }
 
-      /** @ignore */
+      /**/
       isPileEmpty(){
         return this.stockPile.length===0
       }
 
-      /** @ignore */
+      /**/
       isGameStuck(){
         //if stockPile is not empty, then game can always continue
         if(this.stockPile.length>0){
@@ -393,17 +395,17 @@
         return true;
       }
 
-      /** @ignore */
+      /**/
       someCardAt(row, card){
         return !!this.getCardAt(row, card)
       }
 
-      /** @ignore */
+      /**/
       noCardAt(row, card){
         return !this.someCardAt(row, card)
       }
 
-      /** @ignore */
+      /**/
       getCardAt(row, card){
         this.assertArg(this.validXY(row, card), "Invalid card position.");
         return this.board[row][card];

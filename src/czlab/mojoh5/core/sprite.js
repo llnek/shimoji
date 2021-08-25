@@ -982,6 +982,7 @@
        * @return {BitmapText}
        */
       bitmapText(msg,fstyle,x=0,y=0){
+        //in pixi, no fontSize, defaults to 26, left-align
         if(!fstyle.fontName)
           fstyle.fontName="unscii";
         if(fstyle.fill)
@@ -1654,6 +1655,10 @@
         return out.join(",");
       }
     };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //aliases
+    _$.bmpText=_$.bitmapText;
 
     return (Mojo.Sprites= _$);
   }

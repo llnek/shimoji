@@ -16,22 +16,33 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //A bit about the game...
+  //The origin of this game came from a college school assignment.
+  //The aim is to match 2 cards with values added up to 13, upon which
+  //the cards will disappear.  You are also allowed to draw a card
+  //from a pile, until it runs out.
+  //For the special case of a King(K), matching 2 Kings will
+  //earn you more points.
+  //The game is won when you clear all the cards.
+
   /**/
   function scenes(Mojo){
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           FX: _T,
            Game:_G,
            v2:_V,
            ute:_,is}=Mojo;
 
-    const int=Math.floor;
     const C_TITLE=_S.color("#fff20f");
     const C_BG=_S.color("#169706");
     const C_TEXT=_S.color("#fff20f");
+    const int=Math.floor;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //load in others
+    //load in dependencies
     window["io/czlab/tripeaks/models"](Mojo);
 
     /**/
@@ -39,25 +50,29 @@
       setup(){
         let fn="Big Shout Bob",
             K=Mojo.getScaleFactor(),
-            c1,c2, b, s, msg, fz= K * 120,
+            t,c1,c2, b, s, msg, fz= K * 120,
             verb = Mojo.touchDevice ? "Tap": "Click";
-        ////////////
+        //background
         this.insert(_S.sizeXY(_S.sprite("bg.jpg"),
                               Mojo.width,Mojo.height));
+        //title text
         s=_S.bitmapText("TriPeaks 13",
                         {fontName:fn, fontSize:fz, align:"center"});
         s.tint=C_TITLE;
         s.x=Mojo.width/2;
         s.y=Mojo.height*0.3;
         this.insert( _S.centerAnchor(s));
-        ///////////
+        //play button
         msg=_S.bitmapText(`${verb} to play!`,
                           {fontName:"NineteenOhFive",
-                           align:"center", fontSize:64*K});
+                           align:"center", fontSize:72*K});
         msg.tint=_S.color("#ffffff");
-        //in pixi, no fontSize, defaults to 26, left-align
         b=_I.makeButton(msg);
-        b.m5.press= ()=> _Z.replaceScene(this,"PlayGame");
+        t=_T.throb(b);
+        b.m5.press= ()=>{
+          _T.remove(t);
+          _Z.replaceScene(this,"PlayGame");
+        }
         b.x=Mojo.width/2;
         b.y=Mojo.height * 0.7;
         this.insert( _S.centerAnchor(b));
@@ -86,34 +101,35 @@
       }
     });
 
-    //end menu
+    /**End menu */
     _Z.defScene("EndGame",{
       setup(options){
-        let K=Mojo.getScaleFactor();
-        let os={fontName:"NineteenOhFive", fontSize: 72*K};
-        let s1=_S.bitmapText("Game Over", os);
-        let s2=_S.bitmapText(options.msg||"poo", os);
-        let space=()=>{ let s=_S.bitmapText("I",os); s.alpha=0; return s; };
-        let s4=_I.makeButton(_S.bitmapText("Play Again?",os));
-        let s5=_S.bitmapText(" or ",os);
-        let s6=_I.makeButton(_S.bitmapText("Quit",os));
-        let m=_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options);
-        this.insert(m);
+        let s1,s2,
+            s4,s5,s6,os={fontName:"NineteenOhFive",
+                         fontSize: 72*Mojo.getScaleFactor()};
+        let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
+        s1=_S.bmpText("Game Over", os);
+        s2=_S.bmpText(options.msg, os);
+        s4=_I.makeButton(_S.bmpText("Play Again?",os));
+        s5=_S.bmpText(" or ",os);
+        s6=_I.makeButton(_S.bmpText("Quit",os));
         s4.m5.press=()=>{ _Z.runSceneEx("PlayGame") };
         s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
 
     /**/
     function initLevel(scene,peaks=3){
       const m= _G.model= new _G.TriPeak(scene);
+      _G.muteSound=0;
       _G.score=0;
       _G.gameOver=false;
       m.startGame(m.getDeck());
     }
 
     /**/
-    function clrArena(scene){
+    function clrModel(scene){
       const rows= _G.model.getNumRows();
       for(let w,i=0; i<rows; ++i){
         w=_G.model.getRowWidth(i);
@@ -127,22 +143,25 @@
     }
 
     /**/
-    function drawBoard(scene){
+    function drawArena(scene){
       let rows= _G.model.getNumRows();
       let K=Mojo.getScaleFactor();
       let lastRow=rows-1;
       let bottom= _G.model.getRowWidth(lastRow);
       let sw=_G.iconSize[0];
       let offsetv= _G.iconSize[1]*0.3*K;
+      let tweens=[];
       let gap=0;
       let max_width= bottom*sw + (bottom-1)*gap ;
       let left=int((Mojo.width-max_width)/2);
       let top= _G.iconSize[1];
       let stackBottom= top;
+      let offsetX=left+max_width;
       for(let i=0; i<rows; ++i){
         let width=_G.model.getRowWidth(i);
         let row_width= width*sw + (width-1)*gap;
         let pc = int((max_width-row_width)/2);
+        let rc=[];
         for(let j=0; j<width; ++j){
           let c=_G.model.getCardAt(i,j);
           let e=_G.model.isCardExposed(i,j);
@@ -154,14 +173,19 @@
             //save the position
             c.g.x=c.x;
             c.g.y=c.y;
+            c.x -= offsetX;
+            rc.push(c);
             scene.insert(c);
             stackBottom = c.y+c.height;
           }
           pc += _G.iconSize[0];
         }
+        tweens.push(rc);
         top += (_G.iconSize[1] - offsetv)
       }
       _G.pyramidBottom= stackBottom;
+      drawDrawer(scene);
+      tweenAndShow(scene, tweens);
     }
 
     /**/
@@ -219,6 +243,40 @@
       });
       s.tint=C_TEXT;
       scene.insert(s);
+      ///////////////
+      s=_S.spriteFrom("audioOn.png","audioOff.png");
+      _S.scaleXY(s,K*2,K*2);
+      s.x=Mojo.width-s.width-10*K;
+      s.y=0;
+      s.m5.showFrame(Mojo.Sound.sfx()?0:1);
+      _I.makeButton(s);
+      s.m5.press=()=>{
+        if(Mojo.Sound.sfx()){
+          Mojo.Sound.mute();
+          s.m5.showFrame(1);
+        }else{
+          Mojo.Sound.unmute();
+          s.m5.showFrame(0);
+        }
+      };
+      scene.insert(s);
+    }
+
+    /**/
+    function tweenAndShow(scene,cards){
+      function slide(i){
+        let cs=cards[i];
+        cs.forEach(c=>{
+          let x=c.g.x;
+          let y=c.g.y;
+          let t=_T.slide(c, _T.BOUNCE_OUT, x, y);
+          t.onComplete=()=>{ c.x=x; c.y=y; }
+        });
+        Mojo.sound("open.ogg").play();
+        if(i+1<cards.length)
+          _.delay(100, ()=> { slide(i+1) });
+      }
+      slide(0);
     }
 
     /**/
@@ -246,14 +304,13 @@
         Mojo.sound("pick.ogg").play();
       },
       setup(){
+        let out;
         this.insert(_S.sizeXY(_S.sprite("bg.jpg"),
                               Mojo.width,Mojo.height));
         initLevel(this);
-        clrArena(this);
-        drawBoard(this);
-        drawDrawer(this);
+        clrModel(this);
         initHud(this);
-        Mojo.sound("open.ogg").play();
+        drawArena(this);
         Mojo.on(["flip.draw",this],"onFlipDraw",this);
       },
       onFlipDraw(){
@@ -286,7 +343,10 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles:["open.ogg","error.ogg","slide.ogg","pick.ogg","bg.jpg","tiles.png","images/tiles.json"],
+    assetFiles:["audioOn.png","audioOff.png",
+                "open.ogg","error.ogg",
+                "slide.ogg","pick.ogg",
+                "bg.jpg","tiles.png","images/tiles.json"],
     //24x140, 10x190
     arena:{width:3360, height:1900},
     stockPile:"cardBack_red5",
