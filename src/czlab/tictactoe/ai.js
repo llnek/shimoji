@@ -21,6 +21,7 @@
     const {Game:_G,
            ute:_,is}=Mojo;
 
+
     /** @class */
     class C extends Nega.GameBoard{
       constructor(p1v,p2v){
@@ -33,7 +34,7 @@
         return cellv === 0 }
       getFirstMove(){
         let sz= this.grid.length;
-        return sz>0 && _.every(this.grid,0) ? _.randInt2(0,sz-1) : -1 }
+        return sz>0 && _.every(this.grid,0) ? _.randInt2(0,sz-1) : undefined }
       syncState(seed, actor){
         this.grid.length=0;
         this.actors[0] = actor;

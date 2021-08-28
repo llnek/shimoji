@@ -246,17 +246,17 @@
     }
 
     function _layItems(C,items,pad,dir,skip){
-      let p,P=0;
-      for(let m=-1,s,i=0;i<items.length;++i){
-        s=items[i];
+      let p,P=0,m=-1;
+      items.forEach((s,i)=>{
         if(dir===Mojo.DOWN){
           if(s.width>m){ P=i; m=s.width; }
         }else{
           if(s.height>m){ P=i; m=s.height; }
         }
         if(!skip) C.addChild(s);
-        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor") }
-
+        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor");
+      });
+      //P is the fatest or tallest
       p=items[P];
       for(let s,i=P-1;i>=0;--i){
         s=items[i];
@@ -292,13 +292,14 @@
       h= C.height;
       last=_.tail(items);
 
-      if(options.bg != "transparent"){
+      if(true){
         //create a backdrop
         let r= Sprites.rect(w+fit2,h+fit2,
                             options.bg,
                             options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
         r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
+        if(options.bg == "transparent")r.alpha=0;
       }
 
       h= C.height;
@@ -307,8 +308,7 @@
       let [w2,h2]=[MFL(w/2), MFL(h/2)];
       if(dir===Mojo.DOWN){
         //realign on x-axis
-        items.forEach(s=>
-          s.x=w2-MFL(s.width/2));
+        items.forEach(s=> s.x=w2-MFL(s.width/2));
         let hd= h-(last.y+last.height);
         hd= MFL(hd/2);
         //realign on y-axis
@@ -332,6 +332,39 @@
       return C;
     }
 
+    /** @ignore */
+    function _choiceBox(items,options,dir){
+      const selectedColor=Mojo.Sprites.color(options.selectedColor);
+      const disabledColor=Mojo.Sprites.color(options.disabledColor);
+      let cur;
+      items.forEach(o=>{
+        if(o.m5.uuid==options.defaultChoice){
+          cur=o;
+          o.tint=selectedColor;
+        }else{
+          o.tint=disabledColor;
+        }
+        if(!cur){
+          cur=items[0];
+          cur.tint= selectedColor;
+        }
+        Mojo.Input.mkBtn(o);
+        o.m5.press=(b)=>{
+          if(b!==cur){
+            cur.tint=disabledColor;
+            b.tint=selectedColor;
+            cur=b;
+            options.onClick && options.onClick();
+          }
+        };
+      });
+      let c= _layout(items,options,dir);
+      c.getSelectedChoice=function(){
+        return cur.m5.uuid
+      };
+      return c;
+    }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //the module
     const _$={
@@ -353,6 +386,22 @@
        */
       layoutY(items,options){
         return _layout(items, options, Mojo.DOWN) },
+      /**Lay selectable items out horizontally.
+       * @memberof module:mojoh5/Scenes
+       * @param {Sprite[]} items
+       * @param {object} [options]
+       * @return {Container}
+       */
+      choiceMenuX(items,options){
+        return _choiceBox(items, options, Mojo.RIGHT) },
+      /**Lay selectable items out vertically.
+       * @memberof module:mojoh5/Scenes
+       * @param {Sprite[]} items
+       * @param {object} [options]
+       * @return {Container}
+       */
+      choiceMenuY(items,options){
+        return _choiceBox(items, options, Mojo.DOWN) },
       /**Define a scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name

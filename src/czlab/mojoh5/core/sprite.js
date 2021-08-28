@@ -292,7 +292,7 @@
     const _PT=_V.vec();
     const _$={
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
-               "boot/kenney_high.fnt",
+               "boot/doki.fnt", "boot/fresh_coconut.fnt",
                "boot/NineteenOhFive.fnt","boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
@@ -755,6 +755,13 @@
         s.m5.uuid=id;
         return s;
       },
+      /**Set the transparency of this sprite.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} v
+       * @return {Sprite} s
+       */
+      opacity(s,v){ s.alpha=v; return s },
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -983,10 +990,9 @@
        */
       bitmapText(msg,fstyle,x=0,y=0){
         //in pixi, no fontSize, defaults to 26, left-align
-        if(!fstyle.fontName)
-          fstyle.fontName="unscii";
-        if(fstyle.fill)
-          fstyle.tint=this.color(fstyle.fill);
+        if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
+        if(!fstyle.fontName) fstyle.fontName="unscii";
+        if(!fstyle.align) fstyle.align="center";
         return _V.set(this.extend(new Mojo.PXBText(msg,fstyle)),x,y) },
       /**Create a rectangular sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites

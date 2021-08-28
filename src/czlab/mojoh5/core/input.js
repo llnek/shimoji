@@ -437,6 +437,11 @@
     _.addEvent([["keyup", window, _uh, false],
                 ["keydown", window, _dh, false]]);
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //aliases
+    _$.mkBtn=_$.makeButton;
+    _$.mkDrag=_$.makeDrag;
+
     return (Mojo.Input= _$);
   }
 

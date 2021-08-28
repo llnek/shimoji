@@ -245,6 +245,7 @@
       scene.insert(s);
       ///////////////
       s=_S.spriteFrom("audioOn.png","audioOff.png");
+      s.alpha=0.5;
       _S.scaleXY(s,K*2,K*2);
       s.x=Mojo.width-s.width-10*K;
       s.y=0;

@@ -21,133 +21,223 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           FX:_T,
            Game:_G,
            v2:_V,
            ute:_,is}=Mojo;
-    const MFL=Math.floor;
+    const int=Math.floor;
+    const C_TITLE=_S.color("#fff20f");
+    const C_BG=_S.color("#169706");
+    const C_TEXT=_S.color("#fff20f");
+    const C_GREEN=_S.color("#7da633");
+    const C_ORANGE=_S.color("#f4d52b");
+    const CLICK_DELAY=343;
 
-    _Z.defScene("Splash",function(){
-      let verb = Mojo.touchDevice ? "Tap": "Click";
-      let K= Mojo.getScaleFactor();
-      let msg=_S.bitmapText(`${verb} Play to start`,
-                            {fontName:"unscii",
-                             align:"center",
-                             fontSize:48*K,fill:"white"},
-                            Mojo.width/2, Mojo.height*0.8);
-      _S.centerAnchor(msg);
-      //in pixi, no fontSize, defaults to 26, left-align
-      let b=_I.makeButton(_S.bitmapText("Play Game!",
-                                        {fill:"#cccccc",
-                                         fontName:"unscii",
-                                         fontSize:24*K,align:"center"}));
-      b.m5.press= ()=> _Z.replaceScene(this,"MainMenu");
-      this.insert(_G.Backgd());
-      this.insert(msg);
-      this.insert(_Z.layoutY([b]));
+    /**/
+    function doBackDrop(scene){
+      if(!_G.backDropSprite)
+        _G.backDropSprite=_S.sizeXY(_S.sprite("bgblack.jpg"),Mojo.width,Mojo.height);
+      scene.insert(_G.backDropSprite);
+    }
+
+    /**/
+    function doSoundIcon(scene){
+      const K=Mojo.getScaleFactor(),
+            X=Mojo.Sound,
+            s= _S.spriteFrom("audioOn.png","audioOff.png");
+      _I.mkBtn(s, _S.scaleBy(s,K,K));
+      s.x=Mojo.width-s.width - 10;
+      s.y=0;
+      s.alpha=0.343;
+      s.m5.showFrame(X.sfx()?0:1);
+      s.m5.press=()=>{
+        X.sfx()?X.mute():X.unmute();
+        s.m5.showFrame(X.sfx()?0:1);
+      }
+      scene.insert(s);
+    }
+
+    /**/
+    _Z.defScene("Splash",{
+      setup(){
+        const verb = Mojo.touchDevice ? "Tap": "Click";
+        const K= Mojo.getScaleFactor();
+        const self=this;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle=function(s){
+          s=_S.bmpText("Tic Tac Toe",{fontName:_G.TITLE_FONT, fontSize: 120*K});
+          _S.centerAnchor(s).tint=C_TITLE;
+          self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doPlayBtn=function(s,b,t){
+          s=_S.bmpText(`${verb} to PLAY!`, {fontName:_G.UI_FONT,fontSize:72*K});
+          _S.centerAnchor(s).tint=_S.color("white");
+          b=_I.makeButton(s);
+          t=_T.throb(b,0.99);
+          b.m5.press=function(){
+            _T.remove(t);
+            b.tint=C_ORANGE;
+            _G.playClick();
+            _.delay(CLICK_DELAY, ()=>_Z.replaceScene(self, "MainMenu"));
+          };
+          self.insert(_V.set(b,Mojo.width/2, Mojo.height * 0.7));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        this.g.doTitle();
+        this.g.doPlayBtn();
+      }
     });
 
+    /**/
     _Z.defScene("EndGame",{
       setup(){
-        let K=Mojo.getScaleFactor();
-        let mode = _G.mode;
-        let w= _G.lastWin;
-        let msg="No Winner!";
+        const K=Mojo.getScaleFactor();
+        const mode = _G.mode;
+        const w= _G.lastWin;
+        let msg="No Winner!",
+            cfg={fontName:_G.UI_FONT, fontSize:72*K};
 
         if(w===_G.X)
           msg= mode===1 ? "You win !" : "X wins !";
         if(w===_G.O)
           msg= mode===1 ? "You lose !" : "O wins !";
 
-        let space=_S.bitmapText(" ",{fontName:"unscii"});
-        space.alpha=0;
-        let b1=_I.makeButton(_S.bitmapText("Play Again?",
-                                           {fill:"#ccc",
-                                            fontName:"unscii",
-                                            align:"center",fontSize:24*K}));
-        let b2=_I.makeButton(_S.bitmapText("Quit",
-                                           {fill:"#ccc",
-                                            fontName:"unscii",
-                                            align:"center",fontSize:24*K}));
-        let m1=_S.bitmapText("Game Over",{fill: "white",
-                                          fontName:"unscii",
-                                          align:"center",fontSize:24*K});
-        let m2=_S.bitmapText(msg,{fill: "white",
-                                  fontName:"unscii",
-                                  align:"center",fontSize:24*K});
-        let gap=_S.bitmapText("or",{fill:"white",
-                                    fontName:"unscii",
-                                    align:"center",fontSize:24*K});
-        b1.m5.press=()=>{ _Z.runSceneEx("MainMenu") };
-        b2.m5.press=()=>{ _Z.runSceneEx("Splash") };
-        _G.playSnd("end.mp3");
-        this.insert( _Z.layoutY([m1, m2, space, b1, gap, b2])) }
+        function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
+        let b1=_I.mkBtn(_S.bmpText("Play Again?", cfg));
+        let b2=_I.mkBtn(_S.bmpText("Quit", cfg));
+        let m1=_S.bmpText("Game Over", cfg);
+        let m2=_S.bmpText(msg, cfg);
+        let gap=_S.bmpText("or", cfg);
+        b1.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("MainMenu") };
+        b2.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("Splash") };
+        _G.playSnd("game_over.wav");
+        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2])) }
     });
 
-    _Z.defScene("StartMenu", function(options){
-      let K=Mojo.getScaleFactor();
-      let msg1,msg2;
-      let cb=(btn)=>{
-        let id=btn.m5.uuid;
-        let who;
-        if(id=="play#x") who=_G.X;
-        else if(id=="play#o") who=_G.O;
-        _Z.replaceScene(this,"PlayGame",
-                        {mode:options.mode,
-                         startsWith: who,
-                         level: options.level}) };
-      if(options.mode===1){
-        msg1 = "You (X) start?";
-        msg2 = "Bot (O) start?";
-      }else if(options.mode===2){
-        msg1 = "(X) start?";
-        msg2 = "(O) start?";
+    /**/
+    _Z.defScene("Start1",{
+      setup(){
+        const K=Mojo.getScaleFactor();
+        const self=this;
+        let m1,m2;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doChoices=function(){
+          const cfg={fontSize:64*K,fontName:_G.UI_FONT};
+          function space(){
+            return _S.opacity(_S.bmpText("I", cfg),0)}
+          m1=_Z.choiceMenuY([
+            _I.mkBtn(_S.uuid(_S.bmpText("Easy",cfg),"#easy")),
+            space(),
+            _I.mkBtn(_S.uuid(_S.bmpText("Normal",cfg),"#normal")),
+            space(),
+            _I.mkBtn(_S.uuid(_S.bmpText("Hard",cfg),"#hard"))],
+            {bg:"#cccccc",opacity:0.3, onClick: ()=>{_G.playClick()},
+             defaultChoice:"#easy", selectedColor:C_ORANGE, disabledColor:"#dddddd"});
+          self.insert(_V.set(m1,(Mojo.width-m1.width)/2, Mojo.height * 0.1));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doNext=function(){
+          const cfg={fontSize:72*K,fontName:_G.UI_FONT};
+          function space(){
+            return _S.opacity(_S.bmpText("I", cfg),0)}
+          const c1=_S.uuid(_I.mkBtn(_S.bmpText("Yes",cfg)),"play#x");
+          const c2=_S.uuid(_I.mkBtn(_S.bmpText("No", cfg)),"play#o");
+          m2= _Z.layoutX([_S.bmpText("Player (X) starts?",cfg),
+                          space(),
+                          c1, _S.bmpText(" /  ",cfg), c2], {bg:"transparent"});
+          _V.set(m2,(Mojo.width-m2.width)/2, Mojo.height*0.6);
+          function cbFunc(b){
+            let who,id=b.m5.uuid;
+            if(id=="play#x") who=_G.X;
+            if(id=="play#o") who=_G.O;
+            _Z.replaceScene(self,"PlayGame",
+                            {mode:1, startsWith: who, level: m1.getSelectedChoice()})
+          }
+          c1.m5.press=
+          c2.m5.press=function(b){
+            b.tint=C_ORANGE;
+            _G.playClick();
+            _.delay(CLICK_DELAY,()=>cbFunc(b))
+          };
+          self.insert(m2);
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        this.g.doChoices();
+        this.g.doNext();
       }
-      let b1=_I.makeButton(_S.bitmapText(msg1,{fill:"#cccccc",
-                                               fontName:"unscii",
-                                               fontSize:24*K,align:"center"}));
-      b1.m5.uuid= "play#x";
-      b1.m5.press=cb;
-      let b2=_I.makeButton(_S.bitmapText(msg2,{fill:"#cccccc",
-                                               fontName:"unscii",
-                                               fontSize:24*K,align:"center"}));
-      b2.m5.uuid= "play#o";
-      b2.m5.press=cb;
-      let gap=_S.bitmapText("or",{fill: "#cccccc",
-                                  fontName:"unscii",
-                                  fontSize:24*K,align:"center"});
-      this.insert(_G.Backgd());
-      this.insert(_Z.layoutY([b1, gap, b2]));
     });
 
-    _Z.defScene("MainMenu", function(){
-      let K=Mojo.getScaleFactor();
-      let cb=(btn)=>{
-        let mode, id = btn.m5.uuid;
-        if(id == "play#1") mode=1;
-        else if(id == "play#2") mode=2;
-        _Z.replaceScene(this,"StartMenu", {mode:mode, level:1}) };
-      let b1=_I.makeButton(_S.bitmapText("One Player",{fill:"#cccccc",
-                                                       fontName:"unscii",
-                                                       fontSize:24*K,align:"center"}));
-      let b2=_I.makeButton(_S.bitmapText("Two Player",{fill:"#cccccc",
-                                                       fontName:"unscii",
-                                                       fontSize:24*K,align:"center"}));
-      let gap=_S.bitmapText("or",{fill:"#cccccc",
-                                  fontName:"unscii",fontSize:24*K,align:"center"});
+    /**/
+    _Z.defScene("Start2",{
+      setup(options){
+        const K=Mojo.getScaleFactor();
+        const self=this;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doMenu=function(){
+          function cbFunc(btn){
+            let who,id=btn.m5.uuid;
+            if(id=="play#x") who=_G.X;
+            if(id=="play#o") who=_G.O;
+            _Z.replaceScene(self,"PlayGame", {mode:2, startsWith: who}) }
+          const cfg={fontSize:72*K, fontName:_G.UI_FONT};
+          const c1=_S.uuid(_I.mkBtn(_S.bmpText("Yes",cfg)),"play#x");
+          const c2=_S.uuid(_I.mkBtn(_S.bmpText("No", cfg)),"play#o");
+          function space(){ return _S.opacity(_S.bmpText("I", cfg),0) }
+          const m2= _Z.layoutX([_S.bmpText("Player (X) starts?",cfg),
+                                space(), c1, _S.bmpText(" /  ",cfg), c2], {bg:"transparent"});
+          _V.set(m2,(Mojo.width-m2.width)/2, Mojo.height*0.6);
+          c1.m5.press=
+          c2.m5.press=function(b){
+            b.tint=C_ORANGE;
+            _G.playClick();
+            _.delay(CLICK_DELAY,()=>cbFunc(b));
+          };
+          self.insert(m2);
+        };
 
-      b1.m5.uuid="play#1";
-      b1.m5.press=cb;
-      b2.m5.uuid="play#2";
-      b2.m5.press=cb;
+        doBackDrop(this);
+        this.g.doMenu();
+      }
+    });
 
-      this.insert(_G.Backgd());
-      this.insert(_Z.layoutY([b1,gap,b2])) });
+    /**/
+    _Z.defScene("MainMenu",{
+      setup(){
+        const K=Mojo.getScaleFactor();
+        const self=this;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doMenu=function(){
+          const cfg={fontSize: 64*K, fontName:_G.UI_FONT};
+          const b1=_S.uuid(_I.mkBtn(_S.bmpText("One Player", cfg)),"play#1");
+          const b2=_S.uuid(_I.mkBtn(_S.bmpText("Two Player", cfg)),"play#2");
+          const gap=_S.bmpText("or", cfg);
+          function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
+          function cbFunc(btn){
+            _Z.replaceScene(self, btn.m5.uuid == "play#1"?"Start1":"Start2")
+          }
+          b1.m5.press=
+          b2.m5.press=function(b){
+            b.tint=C_ORANGE;
+            _G.playClick();
+            _.delay(CLICK_DELAY,()=>cbFunc(b));
+          };
+          self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"transparent"}))
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        this.g.doMenu();
+      }
+    });
 
+    /**/
     function _drawBox(ctx){
+      const K=Mojo.getScaleFactor();
       let grid=_G.grid,
           gf= grid[0],
           gl= grid[grid.length-1];
-      let K=Mojo.getScaleFactor();
 
       ctx.beginFill("#000000");
       ctx.strokeStyle= "white";
@@ -155,27 +245,27 @@
       ctx.drawRect(gf.x1,gf.y1,gl.x2-gf.x1,gl.y2-gf.y1);
       ctx.endFill();
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /**/
     function _drawGrid(ctx){
+      const K=Mojo.getScaleFactor();
       let grid=_G.grid,
-          gf= grid[0][0],
-          K=Mojo.getScaleFactor();
-      _S.drawGridLines(gf.x1,gf.y1,grid,4*K,"white",ctx) }
+          gf= grid[0][0];
+      _S.drawGridLines(gf.x1,gf.y1,grid,4*K,"white",ctx)
+    }
 
+    /**/
     function _seeder(){
-      return _.fill(new Array(_G.DIM*_G.DIM),0) }
+      return _.fill(new Array(_G.DIM*_G.DIM),0)
+    }
 
-    /**
-     * @public
-     */
+    /**/
     _Z.defScene("PlayGame",{
       onAI(pos){
-        let y=MFL(pos/_G.DIM);
-        let x=pos%_G.DIM;
-        let t= this.getChildById(`tile,${x},${y}`);
+        const y=int(pos/_G.DIM);
+        const x=pos%_G.DIM;
+        const t= this.getChildById(`tile,${x},${y}`);
+        //tell the selected tile to do work
         Mojo.emit(["ai.moved",t]);
       },
       _initLevel(options){
@@ -183,56 +273,71 @@
             grid= _S.gridSQ(3,0.8),
             s=_S.sprite("icons.png"),
             cz= _S.bboxSize(grid[0][0]);
-        _G.iconSize=[MFL(s.width/3), s.height];
-        // o == 79, x= 88
-        _.inject(_G,{level: options.level,
-                     lastWin: 0,
+        _G.iconSize=[int(s.width/3), s.height];
+        //o == 79, x= 88
+        _.inject(_G,{lastWin: 0,
                      ai: null,
                      mode: mode,
                      pnum: _G.X,
                      grid: grid,
                      cells: _seeder(),
                      goals: _G.mapGoalSpace(),
+                     level: options.level,
                      pcur: options.startsWith,
                      players: _.jsVec(null,null,null),
                      iconScale: Mojo.scaleXY(_G.iconSize,cz) });
         return mode;
       },
       setup(options){
-        let mode=this._initLevel(options);
-        let scale= _G.iconScale;
-        let self=this,
-            grid=_G.grid,
-            dim=grid.length;
-        let box=_S.group(_S.drawBody(_drawGrid));
-        _S.centerAnchor(box.children[0]);
-        _V.set(box,MFL(Mojo.width/2),
-                   MFL(Mojo.height/2));
-        this.insert(_G.Backgd());
-        this.insert(box);
-        for(let r,y=0; y< grid.length;++y){
-          r=grid[y];
-          for(let s,id,b,x=0; x<r.length;++x){
-            b=_S.bboxCenter(r[x]);
-            id= `tile,${x},${y}`;
-            s=_G.Tile(b[0],b[1],_G.iconSize[0],_G.iconSize[1],
-                      {uuid: id, scale: scale, gpos: y*dim+x, gval: 0});
-            this.insert(s);
-          }
-        }
+        const mode=this._initLevel(options);
+        const scale= _G.iconScale;
+        const self=this;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doArena=function(){
+          let grid=_G.grid,
+              dim=grid.length;
+          let box=_S.group(_S.drawBody(_drawGrid));
+          _S.centerAnchor(box.children[0]);
+          _V.set(box,int(Mojo.width/2),
+                     int(Mojo.height/2));
+          self.insert(box);
+          grid.forEach((r,y)=>{
+            r.forEach((o,x)=>{
+              const b=_S.bboxCenter(o);
+              const id= `tile,${x},${y}`;
+              const s=_G.Tile(b[0],b[1],_G.iconSize[0],_G.iconSize[1],
+                              {uuid: id, scale: scale, gpos: y*dim+x, gval: 0});
+              self.insert(s);
+            });
+          });
+        };
+
+        doBackDrop(this);
+        doSoundIcon(this);
+        this.g.doArena();
         //decide who plays X and who starts
         if(mode===1){
-          let a= this.AI=_G.AI(_G.O);
+          let a= _G.ai=_G.AI(_G.O);
           a.scene=this;
           Mojo.on(["ai.moved",this],"onAI");
-          _G.ai=a;
           //ai starts?
-          if(_G.pcur===_G.O){
-            _.delay(100, () => Mojo.emit(["ai.move", a])) } }
+          if(_G.pcur===_G.O)
+            _.delay(100, ()=> Mojo.emit(["ai.move", a]))
+        }
       }
     });
 
   };
 
 })(this);
+
+
+
+
+
+
+
+
+
+
 
