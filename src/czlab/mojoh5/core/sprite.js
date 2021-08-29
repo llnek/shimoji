@@ -762,6 +762,13 @@
        * @return {Sprite} s
        */
       opacity(s,v){ s.alpha=v; return s },
+      /**Set a sprite's color(tint).
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number|string} color
+       * @return {Sprite} s
+       */
+      tint(s,color){ s.tint=color; return s },
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s

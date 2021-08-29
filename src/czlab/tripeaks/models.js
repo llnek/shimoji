@@ -66,15 +66,19 @@
 
     /**Rules to decide how many points to be added */
     function _calcScore(a,b){
-      let n=10,x=1;
+      let bonus=0,n=10,x=1;
       if(a.g.value===13 && b.g.value===13){
-          n=100;
-          x *= 5;
-        }
-        if(b.g.suit===a.g.suit){
-          x *=3;
-        }
-        _G.score += n*x;
+        n=100;
+        x *= 5;
+      }
+      if(b.g.suit===a.g.suit){
+        x *=3;
+      }
+      if(a.g.row===0){
+        bonus=5000;
+        _G.peaks +=1;
+      }
+      _G.score += n*x + bonus;
     }
 
     /**/
@@ -106,12 +110,12 @@
           snuffOut(s);
         }
         flipExposed();
-        Mojo.sound("slide.ogg").play();
+        Mojo.sound("slide.mp3").play();
       }else{
         //move card back
         s.x=s.g.x;
         s.y=s.g.y;
-        Mojo.sound("error.ogg").play();
+        Mojo.sound("error.mp3").play();
       }
     }
 

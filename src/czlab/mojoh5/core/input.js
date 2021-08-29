@@ -110,6 +110,13 @@
        * @memberof module:mojoh5/Input
        */
       reset(){ _keyInputs.clear() },
+      /**Clear all keyboard and mouse events.
+       * @memberof module:mojoh5/Input
+       */
+      resetAll(){
+        this.reset();
+        this.ptr && this.ptr.reset();
+      },
       /**
        * @memberof module:mojoh5/Input
        * @param {number} _key
@@ -439,6 +446,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //aliases
+    _$.undoBtn=_$.undoButton;
     _$.mkBtn=_$.makeButton;
     _$.mkDrag=_$.makeDrag;
 
