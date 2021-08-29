@@ -21,6 +21,8 @@
            Scenes:_Z,
            Input:_I,
            Game:_G,
+           FX:_X,
+           v2:_V,
            ute:_,is}=Mojo;
     const C_WHITE=_S.color("#ffffff");
     const C_BG= _S.color("#25A65B");
@@ -32,10 +34,21 @@
     const TEXT_COLOR=_S.color("#2abb67");
     const C_NUM=_S.color("#24a159");
     const C_BOX=_S.color("#e1fc7e"); //"#fcf97e"
+
+    const C_GREEN=_S.color("#7da633");
+    const C_ORANGE=_S.color("#f4d52b");
+    const CLICK_DELAY=343;
     const int=Math.floor;
 
+    const TITLE_FONT="Big Shout Bob";
+    const UI_FONT="Doki Lowercase";
     const V_MINE=9;
     const V_MARKER=99;
+
+    /**/
+    function playClick(){
+      Mojo.sound("click.mp3").play()
+    }
 
     /**/
     function isValid(row,col){
@@ -43,8 +56,7 @@
 
     /**/
     function gameOver(){
-      _I.reset();
-      Mojo.mouse.reset();
+      _I.resetAll();
       _Z.runScene("EndGame");
     }
 
@@ -77,7 +89,7 @@
       s.m5.playFrames();
       _G.gameOver=true;
       //boom!
-      Mojo.sound("boom.ogg").play();
+      Mojo.sound("boom.mp3").play();
     }
 
     /**when the flag is dropped onto a cell */
@@ -105,7 +117,7 @@
                 scene.insert(s);
               }
               found=true;
-              Mojo.sound("drop.ogg").play();
+              Mojo.sound("drop.mp3").play();
               _G.minesText.text =_.prettyNumber(_G.minesCount,2);
             }
             break;
@@ -149,7 +161,7 @@
               boom(scene,cell)
             }else{
               if(expand(scene,cell.row,cell.col)>3){
-                Mojo.sound("expand.ogg").play()
+                Mojo.sound("expand.mp3").play()
               }
               checkEnd(scene)
             }
@@ -349,53 +361,62 @@
     }
 
     /**/
-    function addBg(scene){
-      _S.repeatSprite("grass.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s));
+    function doBackDrop(scene){
+      _S.repeatSprite("grass.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s))
     }
 
     /**/
     _Z.defScene("Splash",{
       setup(){
-        let verb = Mojo.touchDevice ? "Tap": "Click";
-        let b,msg,K= Mojo.getScaleFactor();
-        addBg(this);
-        msg=_S.bitmapText(`Minesweeper`,
-                          {fontName:"Big Shout Bob",
-                           align:"center", fontSize:120*K});
-        msg.tint=C_TITLE;
-        msg.x=Mojo.width/2;
-        msg.y=Mojo.height*0.3;
-        this.insert( _S.centerAnchor(msg));
-        //
-        msg=_S.bitmapText(`${verb} to play!`,
-                          {fontName:"NineteenOhFive",
-                           align:"center", fontSize:48*K});
-        msg.tint=_S.color("#ffffff");
-        //in pixi, no fontSize, defaults to 26, left-align
-        b=_I.makeButton(msg);
-        b.m5.press= ()=> _Z.replaceScene(this,"MainMenu");
-        b.x=Mojo.width/2;
-        b.y=Mojo.height * 0.7;
-        this.insert( _S.centerAnchor(b));
+        const self=this,
+              K=Mojo.getScaleFactor(),
+              verb = Mojo.touchDevice ? "Tap": "Click";
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText(`Minesweeper`, {fontName:TITLE_FONT, fontSize:120*K});
+          _S.tint(s,C_TITLE);
+          _V.set(s,Mojo.width/2, Mojo.height*0.3);
+          self.insert( _S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doNext=(s,b,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`, {fontName:UI_FONT, fontSize:72*K});
+          b=_I.mkBtn( _S.tint(s,_S.color("#ffffff")));
+          t=_X.throb(b);
+          b.m5.press= ()=> {
+            _X.remove(t);
+            _S.tint(b, C_ORANGE);
+            playClick();
+            _.delay(CLICK_DELAY, ()=> _Z.replaceScene(self,"MainMenu"));
+          }
+          _V.set(b,Mojo.width/2, Mojo.height * 0.7);
+          self.insert( _S.centerAnchor(b));
+        };
+
+        doBackDrop(this);
+        this.g.doTitle();
+        this.g.doNext();
       }
     });
 
     /**/
     _Z.defScene("MainMenu",{
       setup(){
-        let fn="NineteenOhFive";
-        let s,b1,b2,b3,gap,fz=Mojo.getScaleFactor()*64;
-        s=_S.bitmapText("Easy",{fill:"#ffffff",
-                                fontName:fn,fontSize:fz,align:"center"});
-        b1=_I.makeButton(_S.uuid(s,"#easy"));
-        s=_S.bitmapText("Medium",{fill:"#ffffff",
-                                  fontName:fn, fontSize:fz,align:"center"});
-        b2=_I.makeButton(_S.uuid(s,"#medium"));
-        s=_S.bitmapText("Hard",{fill:"#ffffff",
-                                fontName:fn, fontSize:fz,align:"center"});
-        b3=_I.makeButton(_S.uuid(s,"#hard"));
+        const self=this,
+              K=Mojo.getScaleFactor();
+        let s,b1,b2,b3,gap,fz=K*64;
 
-        let pad,cb=(btn)=>{
+        s=_S.bmpText("Easy",{fontName:UI_FONT,fontSize:fz});
+        b1=_I.mkBtn(_S.uuid(s,"#easy"));
+        s=_S.bmpText("Medium",{fontName:UI_FONT, fontSize:fz});
+        b2=_I.mkBtn(_S.uuid(s,"#medium"));
+        s=_S.bmpText("Hard",{fontName:UI_FONT, fontSize:fz});
+        b3=_I.mkBtn(_S.uuid(s,"#hard"));
+
+        let pad=int(b3.height);
+        b1.m5.press=
+        b2.m5.press=
+        b3.m5.press=(btn)=>{
           let i;
           switch(btn.m5.uuid){
             case "#easy": i=1; break;
@@ -403,15 +424,12 @@
             case "#hard": i=3; break;
           }
           Mojo.u.dimXY= Mojo.u.levels[i];
-          _Z.replaceScene(this,"GamePlay");
+          _S.tint(btn,C_ORANGE);
+          playClick();
+          _.delay(CLICK_DELAY, ()=>_Z.replaceScene(self,"GamePlay"));
         };
 
-        pad=int(b3.height);
-        b1.m5.press=cb;
-        b2.m5.press=cb;
-        b3.m5.press=cb;
-
-        addBg(this);
+        doBackDrop(self);
         this.insert(_Z.layoutY([b1,b2,b3],{bg:"#cccccc", opacity:0.3, padding:pad}));
       }
     });
@@ -419,29 +437,28 @@
     /**/
     _Z.defScene("EndGame",{
       setup(){
-        let fn="NineteenOhFive",
-            fz=Mojo.getScaleFactor() * 36;
+        const self=this,
+              K=Mojo.getScaleFactor(), fz=K * 36;
+
         let msg= `You ${_G.lastWin>0 ? "win":"lose"}!`;
-        let space=()=>{
-          let s=_S.bitmapText("I", {fontName:fn,fontSize:fz});
-          s.alpha=0;
-          return s;
+        let space=()=>{ return _S.opacity(_S.bmpText("I", {fontName:UI_FONT,fontSize:fz}),0) };
+
+        let b1=_I.mkBtn(_S.bmpText("Play Again?", {fontName:UI_FONT, fontSize:fz}));
+        let b2=_I.mkBtn(_S.bmpText("Quit", {fontName:UI_FONT, fontSize:fz}));
+        let m1=_S.bmpText("Game Over",{fontName:UI_FONT, fontSize:fz});
+        let m2=_S.bmpText(msg,{fontName:UI_FONT, fontSize:fz});
+        let gap=_S.bmpText("or",{fontName:UI_FONT, fontSize:fz});
+
+        b1.m5.press=(btn)=>{
+          _S.tint(btn,C_ORANGE);
+          _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("MainMenu"));
         };
-        let b1=_I.makeButton(_S.bitmapText("Play Again?",
-                                           {fontName:fn,
-                                            align:"center",fontSize:fz}));
-        let b2=_I.makeButton(_S.bitmapText("Quit",
-                                           {fontName:fn,
-                                            align:"center",fontSize:fz}));
-        let m1=_S.bitmapText("Game Over",{fontName:fn,
-                                          align:"center",fontSize:fz});
-        let m2=_S.bitmapText(msg,{fontName:fn,
-                                  align:"center",fontSize:fz});
-        let gap=_S.bitmapText("or",{fontName:fn,
-                                    align:"center",fontSize:fz});
-        b1.m5.press=()=>{ _Z.runSceneEx("MainMenu") };
-        b2.m5.press=()=>{ _Z.runSceneEx("Splash") };
-        Mojo.sound(_G.lastWin>0?"game_win.wav":"game_over.wav").play();
+        b2.m5.press=(btn)=>{
+          _S.tint(btn,C_ORANGE);
+          _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("Splash"));
+        };
+
+        Mojo.sound(_G.lastWin>0?"game_win.mp3":"game_over.mp3").play();
         this.insert(_Z.layoutY([m1, m2, space(), space(), space(),b1, gap, b2],{bg:C_BG,opacity:1}));
       }
     });
@@ -449,27 +466,36 @@
     /**/
     _Z.defScene("GamePlay",{
       setup(options){
+        const self=this,
+              K=Mojo.getScaleFactor();
         let s,w,h,bb,dim=Mojo.u.dimXY;
-        addBg(this);
+
+        doBackDrop(self);
+
         //arena is the area containing the cells
         _G.grid= _S.gridXY([dim[0],dim[1]],0.9,0.7,_G.arena={x:0,y:0});
         _G.gfx=_S.graphics();
+
         //figure out size of a cell
         s=_G.grid[0][0];
         _G.CELLW=s.x2-s.x1;
         _G.CELLH=s.y2-s.y1;
+
         //draw the grid
         bb=_S.gridBBox(_G.arena.x,_G.arena.y,_G.grid);
         _S.drawGridLines(_G.arena.x, _G.arena.y,_G.grid,1,C_NUM,_G.gfx);
         _S.drawGridBox(bb,1,C_NUM,_G.gfx);
+
         //use this to easily pin other widgets
         _G.bg=_S.rect(_G.arena.width,_G.arena.height,false,C_NUM,1);
         _G.bg.x=_G.arena.x;
         _G.bg.y=_G.arena.y;
         this.insert(_G.bg);
+
         //level initialization
         initLevel(this,dim[0],dim[1],dim[2]);
         this.insert(_G.gfx);
+
         //show other UI stuff
         initHud(this);
       }
@@ -479,8 +505,10 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["clock.png","boom.ogg","expand.ogg","drop.ogg","game_over.wav","game_win.wav","tiles.png","images/tiles.json"],
-    XXassetFiles:["1.png","2.png","3.png","4.png","5.png","6.png","7.png","8.png","boom.ogg", "boom0.png","boom1.png","boom2.png","boom3.png","boom4.png","boom5.png","boom6.png", "grass.png","ground1.png","ground2.png","ground3.png","ground4.png","mine.png","rflag.png","box.png"],
+    assetFiles: ["clock.png", "audioOn.png","audioOff.png",
+                 "click.mp3", "boom.mp3","expand.mp3",
+                 "drop.mp3","game_over.mp3","game_win.mp3","tiles.png","images/tiles.json"],
+    XXassetFiles:["1.png","2.png","3.png","4.png","5.png","6.png","7.png","8.png","boom.mp3", "boom0.png","boom1.png","boom2.png","boom3.png","boom4.png","boom5.png","boom6.png", "grass.png","ground1.png","ground2.png","ground3.png","ground4.png","mine.png","rflag.png","box.png"],
     arena: {width: 920, height: 920},
     scaleToWindow:"max",
     scaleFit:"y",
