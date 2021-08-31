@@ -47,6 +47,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //set up some globals
     _.inject(_G,{
+
       CELLS:4,
       cur:null,
       next:null,
@@ -97,22 +98,26 @@
       }
     });
     /**/
+    _Z.defScene("EndGame",{
+      setup(options){
+        let s1,s2,
+            s4,s5,s6,os={fontName:UI_FONT,
+                         fontSize: 72*Mojo.getScaleFactor()};
+        let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
+        s1=_S.bmpText("Game Over", os);
+        s4=_I.makeButton(_S.bmpText("Play Again?",os));
+        s5=_S.bmpText(" or ",os);
+        s6=_I.makeButton(_S.bmpText("Quit",os));
+        s4.m5.press=()=>{
+          _Z.runSceneEx("PlayGame");
+          _Z.runScene("HUD");
+        };
+        s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
+        this.insert(_Z.layoutY([s1,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
+    /**/
     _Z.defScene("PlayGame",{
-      _XXinitBlockMap(){
-        let sx=_G.vbox.x1;
-        let sy=_G.vbox.y1;
-        let cells=[];
-        for(let r,s,y=_G.rows-1;y>=0;--y){
-          r=[];
-          cells.push(r);
-          for(let px,py,x=0;x<_G.cols;++x){
-            px= _G.tileW*x;
-            py= _G.vbox.y2-_G.tileH*(y+1);
-            r.push({x1:px,y1:py,x2:px+_G.tileW,y2:py+_G.tileH});
-          }
-        }
-        _G.cells=cells;
-      },
       onPtrDown(){
         if(_G.cur){
           _G.dragMode=true;
@@ -142,21 +147,30 @@
       },
       onSwipeDown(){ _G.dropDown() },
       postUpdate(){
-        let sx=_G.vbox.x1,
-            sy=_G.vbox.y1,
-            ex=_G.vbox.x2,
-            ey=_G.vbox.y2;
-        //show the grid
-        _G.gfx.clear();
-        _G.gfx.lineStyle(1,_S.color("#cccccc"));
-        _G.gfx.alpha=0.2;
-        for(let i=1;i<_G.rows;++i){
-          _G.gfx.moveTo(sx,sy+i*_G.tileH);
-          _G.gfx.lineTo(ex,sy+i*_G.tileH);
-        }
-        for(let i=1;i<_G.cols;++i){
-          _G.gfx.moveTo(sx+i*_G.tileW,sy);
-          _G.gfx.lineTo(sx+i*_G.tileW,ey);
+        if(_G.gameOver){
+          this.m5.dead=true;
+          _.delay(100, ()=> {
+            Mojo.sound("game_over.mp3").play();
+            _I.resetAll();
+            _Z.runScene("EndGame");
+          });
+        }else{
+          let sx=_G.vbox.x1,
+              sy=_G.vbox.y1,
+              ex=_G.vbox.x2,
+              ey=_G.vbox.y2;
+          //show the grid
+          _G.gfx.clear();
+          _G.gfx.lineStyle(1,_S.color("#cccccc"));
+          _G.gfx.alpha=0.2;
+          for(let i=1;i<_G.rows;++i){
+            _G.gfx.moveTo(sx,sy+i*_G.tileH);
+            _G.gfx.lineTo(ex,sy+i*_G.tileH);
+          }
+          for(let i=1;i<_G.cols;++i){
+            _G.gfx.moveTo(sx+i*_G.tileW,sy);
+            _G.gfx.lineTo(sx+i*_G.tileW,ey);
+          }
         }
       },
       setup(){
@@ -172,10 +186,13 @@
           let a0=a[0][0];
           _G.tileW=_.intEven(a0.x2-a0.x1);
           _G.tileH=_G.tileW;
+          _G.gameOver=false;
           _G.grid=grid;
           _G.score=0;
           _G.rows=H;
           _G.cols=W;
+          _G.cur=
+          _G.next=null;
           //make it taller but hide the top 4
           for(let row,y=0;y<(4+H);++y){
             grid.push(row=[]);
@@ -214,9 +231,6 @@
         this.g.initInput();
         this.insert(_G.gfx= _S.graphics());
         this.future(()=>{ _.shuffle(_G.ModelList) },500);
-        _G.previewNext();
-        _G.reifyNextShape();
-        _G.slowDown();
         Mojo.on(["single.tap"],_.debounce(()=>{ if(_G.cur) _G.rotateCCW() },150));
       }
     });
@@ -224,33 +238,28 @@
     _Z.defScene("HUD",{
       setup(){
         let K=Mojo.getScaleFactor(),
-            LW=30*K,
-            s= _S.rect(Mojo.width,_G.vbox.y1,0);
-        this.insert(s);
-        s= _S.bboxFrame(_G.vbox,LW);
-        this.insert(s);
-        s= this.g.score= _S.bmpText("Score: 0",{fontName:UI_FONT,fontSize:32*K});
-        Mojo.on(["preview.shape"],"onPreview",this);
-        this.insert(s);
-        let r= _S.rect(_G.tileW*6,_G.tileH*6,0);
-        let Y = int(Mojo.height/2);
-        let X = int(_G.vbox.x1/2);
-        Y -= int(r.height/2);
-        X -= int(r.width/2);
-        r.x = X;
-        r.y = Y;
+            LW=30*K;
+        Mojo.on(["preview.shape"],"onPreview", this);
+        this.insert(_S.rect(Mojo.width,_G.vbox.y1, 0));
+        this.insert(_S.bboxFrame(_G.vbox,LW));
+        this.insert(this.g.score= _S.bmpText("Score: 0",
+                                             {fontName:UI_FONT,fontSize:84*K}));
+        let Y = int(Mojo.height/2),
+            X = int(_G.vbox.x1/2),
+            r= _S.rect(_G.tileW*6,_G.tileH*6,0);
+        _V.set(r, X - int(r.width/2), Y - int(r.height/2));
         _G.previewBox=r;
         ////////
-        r=_S.bboxFrame({x1:r.x, y1:r.y,x2:r.x+r.width,y2:r.y+r.height},LW);
-        _G.gameScene.insert(r);
-        //_G.hud=this;
+        _G.gameScene.insert(_S.bboxFrame({x1:r.x, y1:r.y,
+                                          x2:r.x+r.width,y2:r.y+r.height},LW));
         _G.previewNext();
+        _.delay(343, ()=> _G.reifyNext() && _G.slowDown());
       },
       onPreview(s){
-        let X = _G.previewBox.x+_G.previewBox.width/2;
-        let Y = _G.previewBox.y+_G.previewBox.height/2;
-        let wx= s.tiles.length*_G.tileW;
-        let wy= _G.tileH* s.lines[2];
+        let X = _G.previewBox.x + _G.previewBox.width/2,
+            Y = _G.previewBox.y + _G.previewBox.height/2,
+            wy= _G.tileH* s.lines[2],
+            wx= s.tiles.length*_G.tileW;
         X = int(X-wx/2);
         Y= int(Y-wy/2);
         s.col=0;
@@ -278,8 +287,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["1.png","2.png","3.png", "click.mp3",
-                 "4.png","5.png","6.png","0.png", "bg.jpg"],
+    assetFiles: ["click.mp3","line.mp3", "tile.png", "bg.jpg", "game_over.mp3"],
     arena: {width: 768, height: 1408},
     scaleToWindow:"max",
     scaleFit:"y",

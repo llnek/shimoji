@@ -25,6 +25,32 @@
            v2:_V,
            ute:_,is}=Mojo;
 
+    const D_GREEN= "#1B8463";
+    const L_GREEN= "#26AE88";
+    const D_RED= "#B02722";
+    const L_RED="#DC352E";
+    const D_YELLOW= "#C1971F";
+    const L_YELLOW= "#EBBA16";
+    const D_PURPLE= "#75348B";
+    const L_PURPLE= "#7F4491";
+    const D_BLUE= "#1F436D";
+    const L_BLUE= "#366BB3";
+    const D_ORANGE= "#D8681C";
+    const L_ORANGE= "#EC8918";
+
+    const COLORS=[
+      [L_GREEN, D_GREEN],
+      [L_RED, D_RED],
+      [L_YELLOW, D_YELLOW],
+      [L_PURPLE, D_PURPLE],
+      [L_BLUE, D_BLUE],
+      [L_ORANGE, D_ORANGE]
+    ].map(c=>{
+      c[0]=_S.color(c[0]);
+      c[1]=_S.color(c[1]);
+      return c;
+    });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** check if the shape at this position is ok */
     function _test(tiles,row,col){
@@ -47,7 +73,7 @@
       return y < 911
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _drawShape(){
+    function _draw(){
       let k=0;
       _G.cur.tiles.forEach((r,y)=> r.forEach((c,x)=>{
         if(c)
@@ -100,22 +126,24 @@
       while(_check()){ ++cnt }
       if(cnt>4){
         _G.score += 800;
-      }else{
+      }else if (cnt>0) {
         _G.score += cnt*100;
       }
+      if(cnt>0)
+        Mojo.sound("line.mp3").play();
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _moveDown(){
       let rc;
       if(rc=_test(_G.cur.tiles,_G.cur.row-1,_G.cur.col)){
         _G.cur.row -= 1;
-        _drawShape();
+        _draw();
       }else{
         if(!_lockShape()){
           _G.gameOver=true
         }else{
           _checkGrid();
-          _G.reifyNextShape();
+          _G.reifyNext();
           _G.slowDown();
         }
       }
@@ -123,65 +151,92 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
-      /** create the next shape */
-      reifyNextShape(){
-        let s=this.next;
-        this.next=null;
-        if(this.cur=s){
-          this.previewNext();
-          s.cells.forEach(c=> c.visible=true);
-          //we hide the new piece above the top row
-          //add the thickness of the piece
-          s.row=this.rows + s.lines[2];
-          s.col=int(this.cols/2);
-          _drawShape();
-        }
+      /** create the next piece */
+      reifyNext(){
+        this.cur=this.next;
+        this.previewNext();
+        //we hide the new piece above the top row
+        //add the thickness of the piece
+        this.cur.cells.forEach(c=> c.visible=true);
+        this.cur.row= this.rows + this.cur.lines[2];
+        this.cur.col= int(this.cols/2);
+        _draw();
+        return this.cur;
       },
-      shiftDown(){ if(!this.gameOver) this.slowDown() },
-      /** show what the next shape looks like */
+      /** show what the next piece looks like */
       previewNext(){
         let ln= this.ModelList.length,
             n= _.randInt(ln),
             m= this.ModelList[n],
-            png= `${_.randInt(ln)}.png`;
-        let s= {tiles: m.clone(),
-                lines: m.lines(), cells: [], row:0, col:0};
+            png= _.randItem(COLORS);
+        let s= this.next = {tiles: m.clone(),
+                            lines: m.lines(), cells: [], row:0, col:0};
         for(let p,i=0;i< this.CELLS;++i){
-          s.cells.push(p= _S.sprite(png));
+          s.cells.push(p= _S.sprite("tile.png"));
+          _S.tint(p,png[i%2]);
           p.visible=false;
-          _S.sizeXY(p,_G.tileW,_G.tileH);
-          this.gameScene.insert(p);
+          this.gameScene.insert(_S.sizeXY(p,_G.tileW,_G.tileH));
         }
-        Mojo.emit(["preview.shape"], this.next=s)
+        Mojo.emit(["preview.shape"], s);
+        return s;
       },
       /**Lateral movements */
       shiftHZ(dx){
         if(_test(this.cur.tiles,this.cur.row, this.cur.col+dx)){
           this.cur.col += dx;
-          _drawShape();
+          _draw();
         }
       },
-      slowDown(){
+      clrTO(){
         if(this.timer !== undefined) clearTimeout(this.timer);
         this.timer=undefined;
-        if(_moveDown())
+      },
+      slowDown(){
+        this.clrTO();
+        if(!this.gameOver && _moveDown())
           this.timer= _.delay(80+700,()=> this.slowDown());
       },
       dropDown(){
-        if(this.timer !== undefined) clearTimeout(this.timer);
-        this.timer=undefined;
+        this.clrTO();
         if(!this.gameOver && _moveDown())
           this.timer= _.delay(30,()=> this.dropDown());
       },
+      shiftDown(){
+        if(!this.gameOver) this.slowDown() },
       rotateCCW(){
         //no need to rotate a square
         if(this.cur.tiles.length>2){
           let ts=this.transposeCCW(this.cur.tiles);
           if(_test(ts,this.cur.row,this.cur.col)){
             this.cur.tiles=ts;
-            _drawShape();
+            _draw();
           }
         }
+        //if we pick a cell as rotation pivot, then we can
+        //simply do this for rotation
+        /*
+        let p=cells[1];
+        for(let x,y,i=0;i<4;++i){
+          x = cells[i].y-p.y;
+          y = cells[i].x-p.x;
+          cells[i].x = p.x - x;
+          cells[i].y = p.y + y;
+        }
+        */
+      },
+      //rotate the model counterclockwise,
+      //like flipping a matrix
+      transposeCCW(block){
+        let out=[];
+        for(let i=0;i<block.length;++i)
+          out.push([]);
+        for(let row,i=0;i<block.length;++i){
+          row=block[i];
+          for(let j=0;j<row.length;++j){
+            out[j][i]= row[row.length-1-j]
+          }
+        }
+        return out;
       }
 
     });

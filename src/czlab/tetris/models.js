@@ -110,20 +110,7 @@
     _G.ModelList=[new BoxModel(), new ElModel(), new ElxModel(),
                   new LineModel(), new NubModel(), new StModel(), new StxModel()];
 
-    //rotate the model counterclockwise,
-    //like flipping a matrix
-    _G.transposeCCW=function(block){
-      let out=[];
-      for(let i=0;i<block.length;++i)
-        out.push([]);
-      for(let row,i=0;i<block.length;++i){
-        row=block[i];
-        for(let j=0;j<row.length;++j){
-          out[j][i]= row[row.length-1-j]
-        }
-      }
-      return out;
-    }
+
   };
 
 })(this);
