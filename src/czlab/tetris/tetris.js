@@ -16,65 +16,89 @@
 
   "use strict";
 
+  /**/
   function scenes(Mojo){
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //load in game modules
     window["io.czlab.tetris.models"](Mojo);
     window["io.czlab.tetris.logic"](Mojo);
 
-    const MFL=Math.floor;
+    const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            FX:_T,
            Input:_I,
            Game:_G,
            v2:_V,
-           "2d":_2d,
            ute:_, is}=Mojo;
 
-    _G.CELLS=4;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const C_TITLE=_S.color("#fff20f");
+    const C_GREEN=_S.color("#7da633");
+    const C_ORANGE=_S.color("#f4d52b");
+    const TITLE_FONT="Big Shout Bob";
+    const UI_FONT="Doki Lowercase";
+    const CLICK_DELAY=343;
+    function playClick(){
+      Mojo.sound("click.mp3").play()
+    }
 
-    _Z.defScene("level1",{
-      _initLevel(){
-        let K=Mojo.getScaleFactor();
-        let b=_S.sprite("0.png");
-        let H=Mojo.u.rows;
-        let W=Mojo.u.cols;
-        let Y=Mojo.height;
-        let X=0;
-        let grid=[];
-        let a= _S.gridXY([W,H],0.8,0.8);
-        let a0=a[0][0];
-        _G.tileW=MFL(a0.x2-a0.x1);
-        _G.score=0;
-        _G.grid=grid;
-        _G.rows=H;
-        _G.cols=W;
-        //_G.tileH=MFL(b.height);
-        if(!_.isEven(_G.tileW)){
-          --_G.tileW
-        }
-        _G.tileH=_G.tileW;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //set up some globals
+    _.inject(_G,{
+      CELLS:4,
+      cur:null,
+      next:null,
+      backDropSprite:null
+    });
 
-        //make it taller but hide the top 4
-        for(let row,y=0;y<(4+H);++y){
-          grid.push(row=[]);
-          for(let x=0;x<W;++x)
-            row.push(null);
-        }
+    /**/
+    function doBackDrop(scene){
+      if(!_G.backDropSprite)
+        _G.backDropSprite=_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height);
+      scene.insert(_G.backDropSprite);
+    }
 
-        //center the arena
-        H= _G.tileH*_G.rows;
-        W=_G.tileW*_G.cols;
-        let x1=MFL((Mojo.width-W)/2);
-        let y1=MFL((Mojo.height-H)/2);
-        let x2=x1+W;
-        let y2=y1+H;
-
-        _G.vbox={x1,x2,y1,y2};
-        return this;
-      },
-      _initBlockMap(){
+    /**/
+    _Z.defScene("Splash",{
+      setup(){
+        const self=this,
+              K=Mojo.getScaleFactor(),
+              verb= Mojo.touchDevice ? "Tap" : "Click";
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText("Tetris",{fontName:TITLE_FONT, fontSize:120*K});
+          _S.tint(s,C_TITLE);
+          _V.set(s,Mojo.width/2,Mojo.height *0.3);
+          self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doNext=(s,b,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize:72*K});
+          b=_I.mkBtn(s);
+          t=_T.throb(b);
+          b.m5.press=(btn)=>{
+            _S.tint(btn, C_ORANGE);
+            _T.remove(t);
+            playClick();
+            _.delay(CLICK_DELAY, ()=> {
+              _Z.runSceneEx("PlayGame");
+              _Z.runScene("HUD");
+            });
+          };
+          _V.set(s,Mojo.width/2,Mojo.height * 0.7);
+          self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        this.g.doTitle();
+        this.g.doNext();
+      }
+    });
+    /**/
+    _Z.defScene("PlayGame",{
+      _XXinitBlockMap(){
         let sx=_G.vbox.x1;
         let sy=_G.vbox.y1;
         let cells=[];
@@ -89,48 +113,40 @@
         }
         _G.cells=cells;
       },
-      previewNext(){
-        _G.previewNext(this) },
       onPtrDown(){
-        if(_G.curShape){
-          _G.curShape.sx=Mojo.mouse.x;
-          _G.curShape.sy=Mojo.mouse.y;
+        if(_G.cur){
           _G.dragMode=true;
+          _G.cur.sx=Mojo.mouse.x;
+          _G.cur.sy=Mojo.mouse.y;
         }
       },
-      onPtrUp(){
-        _G.dragMode=false;
-      },
+      onPtrUp(){ _G.dragMode=false },
       onPtrMove(){
-        if(_G.dragMode && _G.curShape){
-          let dx=Mojo.mouse.x - _G.curShape.sx;
-          let dy=Mojo.mouse.y - _G.curShape.sy;
-          let reset;
+        if(_G.cur && _G.dragMode){
+          let reset,
+              dx=Mojo.mouse.x - _G.cur.sx,
+              dy=Mojo.mouse.y - _G.cur.sy;
           if(Math.abs(dx)>=_G.tileW){
-            if(dx>0){
-              _G.shiftRight(this,_G.curShape);
-            }else{
-              _G.shiftLeft(this,_G.curShape);
-            }
-            reset=1;
+            _G.shiftHZ(dx>0?1:-1);
+            reset=true;
           }
           if(dy>=_G.tileH){
-            _G.shiftDown(this,_G.curShape);
-            reset=1;
+            _G.shiftDown();
+            reset=true;
           }
           if(reset){
-            _G.curShape.sx=Mojo.mouse.x;
-            _G.curShape.sy=Mojo.mouse.y;
+            _G.cur.sx=Mojo.mouse.x;
+            _G.cur.sy=Mojo.mouse.y;
           }
         }
       },
-      onSwipeDown(){
-        _G.dropDown(this,_G.curShape) },
+      onSwipeDown(){ _G.dropDown() },
       postUpdate(){
-        let sx=_G.vbox.x1;
-        let sy=_G.vbox.y1;
-        let ex=_G.vbox.x2;
-        let ey=_G.vbox.y2;
+        let sx=_G.vbox.x1,
+            sy=_G.vbox.y1,
+            ex=_G.vbox.x2,
+            ey=_G.vbox.y2;
+        //show the grid
         _G.gfx.clear();
         _G.gfx.lineStyle(1,_S.color("#cccccc"));
         _G.gfx.alpha=0.2;
@@ -144,86 +160,106 @@
         }
       },
       setup(){
-        this._initLevel();
-        let r= _G.rightMotion= _I.keybd(_I.RIGHT);
-        let f= _G.leftMotion= _I.keybd(_I.LEFT);
-        let u= _G.upMotion= _I.keybd(_I.UP);
-        let d= _G.downMotion= _I.keybd(_I.DOWN);
-        let s= _G.dropMotion= _I.keybd(_I.SPACE);
-        r.press=()=>{ _G.shiftRight(this,_G.curShape) };
-        f.press=()=>{ _G.shiftLeft(this,_G.curShape) };
-        u.press=()=>{ _G.rotateCCW(this,_G.curShape) };
-        d.press=()=>{ _G.shiftDown(this,_G.curShape) };
-        s.press=()=>{ _G.dropDown(this,_G.curShape) };
-
-        _G.gfx= _S.graphics();
-        this.insert(_G.gfx);
-
-        this.future(()=>{
-          _.shuffle(_G.ModelList)
-        },500);
-
+        const self=this,
+              K=Mojo.getScaleFactor();
+        let H=Mojo.u.rows,
+            W=Mojo.u.cols;
+        this.g.initLevel=()=>{
+          let Y=Mojo.height;
+          let X=0;
+          let grid=[];
+          let a= _S.gridXY([W,H],0.8,0.8);
+          let a0=a[0][0];
+          _G.tileW=_.intEven(a0.x2-a0.x1);
+          _G.tileH=_G.tileW;
+          _G.grid=grid;
+          _G.score=0;
+          _G.rows=H;
+          _G.cols=W;
+          //make it taller but hide the top 4
+          for(let row,y=0;y<(4+H);++y){
+            grid.push(row=[]);
+            for(let x=0;x<W;++x) row.push(null);
+          }
+          //center the arena
+          H= _G.tileH*_G.rows;
+          W=_G.tileW*_G.cols;
+          let x1=int((Mojo.width-W)/2);
+          let y1=int((Mojo.height-H)/2);
+          _G.vbox={x1,x2:x1+W,y1,y2:y1+H};
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initInput=()=>{
+          _G.rightMotion= _I.keybd(_I.RIGHT);
+          _G.leftMotion= _I.keybd(_I.LEFT);
+          _G.upMotion= _I.keybd(_I.UP);
+          _G.downMotion= _I.keybd(_I.DOWN);
+          _G.dropMotion= _I.keybd(_I.SPACE);
+          _G.rightMotion.press=()=>{ _G.shiftHZ(1) };
+          _G.leftMotion.press=()=>{ _G.shiftHZ(-1) };
+          _G.upMotion.press=()=>{ _G.rotateCCW() };
+          _G.downMotion.press=()=>{ _G.shiftDown() };
+          _G.dropMotion.press=()=>{ _G.dropDown() };
+          Mojo.on(["mouseup"],"onPtrUp",this);
+          Mojo.on(["touchend"],"onPtrUp",this);
+          Mojo.on(["mousedown"],"onPtrDown",this);
+          Mojo.on(["touchstart"],"onPtrDown",this);
+          Mojo.on(["mousemove"],"onPtrMove",this);
+          Mojo.on(["touchmove"],"onPtrMove",this);
+          Mojo.on(["swipe.down"],"onSwipeDown",this);
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _G.gameScene=this;
-        _G.previewNext(this);
-        _G.slowDown(this,_G.reifyNextShape(this));
-
-        Mojo.on(["single.tap"],_.debounce(()=>{
-          if(_G.curShape)
-            _G.rotateCCW(this,_G.curShape)
-        },150));
-
-        Mojo.on(["mouseup"],"onPtrUp",this);
-        Mojo.on(["touchend"],"onPtrUp",this);
-        Mojo.on(["mousedown"],"onPtrDown",this);
-        Mojo.on(["touchstart"],"onPtrDown",this);
-        Mojo.on(["mousemove"],"onPtrMove",this);
-        Mojo.on(["touchmove"],"onPtrMove",this);
-        Mojo.on(["swipe.down"],"onSwipeDown",this); }
+        this.g.initLevel();
+        this.g.initInput();
+        this.insert(_G.gfx= _S.graphics());
+        this.future(()=>{ _.shuffle(_G.ModelList) },500);
+        _G.previewNext();
+        _G.reifyNextShape();
+        _G.slowDown();
+        Mojo.on(["single.tap"],_.debounce(()=>{ if(_G.cur) _G.rotateCCW() },150));
+      }
     });
-
-    _Z.defScene("hud",{
+    /**/
+    _Z.defScene("HUD",{
       setup(){
-        let K=Mojo.getScaleFactor();
-        let LW=30*K;
-        let s= _S.rect(Mojo.width,_G.vbox.y1,0);
+        let K=Mojo.getScaleFactor(),
+            LW=30*K,
+            s= _S.rect(Mojo.width,_G.vbox.y1,0);
         this.insert(s);
         s= _S.bboxFrame(_G.vbox,LW);
         this.insert(s);
-        s= this.score= _S.bitmapText("0",{
-          fontName:"unscii",fontSize:32,fill:"white"
-        });
+        s= this.g.score= _S.bmpText("Score: 0",{fontName:UI_FONT,fontSize:32*K});
         Mojo.on(["preview.shape"],"onPreview",this);
         this.insert(s);
-
         let r= _S.rect(_G.tileW*6,_G.tileH*6,0);
-        let Y = MFL(Mojo.height/2);
-        let X = MFL(_G.vbox.x1/2);
-        Y -= MFL(r.height/2);
-        X -= MFL(r.width/2);
+        let Y = int(Mojo.height/2);
+        let X = int(_G.vbox.x1/2);
+        Y -= int(r.height/2);
+        X -= int(r.width/2);
         r.x = X;
         r.y = Y;
         _G.previewBox=r;
-
+        ////////
         r=_S.bboxFrame({x1:r.x, y1:r.y,x2:r.x+r.width,y2:r.y+r.height},LW);
         _G.gameScene.insert(r);
-
-        _G.hud=this;
-        _G.gameScene.previewNext();
+        //_G.hud=this;
+        _G.previewNext();
       },
       onPreview(s){
         let X = _G.previewBox.x+_G.previewBox.width/2;
         let Y = _G.previewBox.y+_G.previewBox.height/2;
         let wx= s.tiles.length*_G.tileW;
         let wy= _G.tileH* s.lines[2];
-        X = MFL(X-wx/2);
-        Y= MFL(Y-wy/2);
+        X = int(X-wx/2);
+        Y= int(Y-wy/2);
         s.col=0;
         s.row=0;
         for(let w=0,k=0,r,y=0;y<s.tiles.length;++y){
           r=s.tiles[y];
           if(_.every(r,0)){continue}
           for(let p,x=0;x<r.length;++x){
-            if(r[x]===1){
+            if(r[x]){
               _V.set(s.cells[k],X+(s.col+x)*_G.tileW,
                                 Y+((s.row-w)+1)*_G.tileH);
               s.cells[k].visible=true;
@@ -234,14 +270,16 @@
         }
       },
       postUpdate(){
-        this.score.text=`Score: ${_G.score}`;
+        this.g.score.text=`Score: ${_G.score}`;
       }
     });
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
   const _$={
-    assetFiles: ["1.png","2.png","3.png",
-                 "4.png","5.png","6.png","0.png"],
+    assetFiles: ["1.png","2.png","3.png", "click.mp3",
+                 "4.png","5.png","6.png","0.png", "bg.jpg"],
     arena: {width: 768, height: 1408},
     scaleToWindow:"max",
     scaleFit:"y",
@@ -249,11 +287,11 @@
     rows:22,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
-      Mojo.Scenes.runScene("hud");
+      Mojo.Scenes.runScene("Splash");
     }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5(_$));
 

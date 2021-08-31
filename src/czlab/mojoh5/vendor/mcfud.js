@@ -551,6 +551,16 @@
           return arr.length===1 ? arr[0]
                                 : arr[MFL(PRNG()*arr.length)]
       },
+      /**Turn this value into an even number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @param {boolean} ceil bump value up
+       * @return {boolean}
+       */
+      intEven(v,ceil){
+        v=Math.floor(v);
+        return (v%2 === 0) ? v : (ceil ? v+1 : v-1)
+      },
       /**Check if string represents a percentage value.
        * @memberof module:mcfud/core._
        * @param {string} s
