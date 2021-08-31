@@ -105,7 +105,7 @@
     _Z.defScene("EndGame",{
       setup(options){
         let s1,s2,
-            s4,s5,s6,os={fontName:"NineteenOhFive",
+            s4,s5,s6,os={fontName:UI_FONT,
                          fontSize: 72*Mojo.getScaleFactor()};
         let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
         s1=_S.bmpText("Game Over", os);
