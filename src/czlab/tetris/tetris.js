@@ -259,23 +259,23 @@
         let X = _G.previewBox.x + _G.previewBox.width/2,
             Y = _G.previewBox.y + _G.previewBox.height/2,
             wy= _G.tileH* s.lines[2],
-            wx= s.tiles.length*_G.tileW;
+            wx= s.cells[0].length*_G.tileW;
         X = int(X-wx/2);
         Y= int(Y-wy/2);
         s.col=0;
         s.row=0;
-        for(let w=0,k=0,r,y=0;y<s.tiles.length;++y){
-          r=s.tiles[y];
-          if(_.every(r,0)){continue}
+        for(let r,k,w=0,y=0;y<s.cells.length;++y){
+          r=s.cells[y];
+          k=0;
           for(let p,x=0;x<r.length;++x){
             if(r[x]){
-              _V.set(s.cells[k],X+(s.col+x)*_G.tileW,
-                                Y+((s.row-w)+1)*_G.tileH);
-              s.cells[k].visible=true;
+              _V.set(r[x],X+(s.col+x)*_G.tileW,
+                          Y-((s.row-w)+1)*_G.tileH);
+              r[x].visible=true;
               ++k;
             }
           }
-          ++w;
+          if(k) ++w;
         }
       },
       postUpdate(){

@@ -18,99 +18,196 @@
 
   window["io.czlab.tetris.models"]=function(Mojo){
 
-    const {Game:_G,
+    const {Sprites:_S,
+           Game:_G,
            ute:_, is}=Mojo;
+
+    const D_GREEN= "#1B8463";
+    const L_GREEN= "#26AE88";
+    const D_RED= "#B02722";
+    const L_RED="#DC352E";
+    const D_YELLOW= "#C1971F";
+    const L_YELLOW= "#EBBA16";
+    const D_PURPLE= "#75348B";
+    const L_PURPLE= "#7F4491";
+    const D_BLUE= "#1F436D";
+    const L_BLUE= "#366BB3";
+    const D_ORANGE= "#D8681C";
+    const L_ORANGE= "#EC8918";
+
+    const COLORS=[
+      [L_GREEN, D_GREEN],
+      [L_RED, D_RED],
+      [L_YELLOW, D_YELLOW],
+      [L_PURPLE, D_PURPLE],
+      [L_BLUE, D_BLUE],
+      [L_ORANGE, D_ORANGE]
+    ].map(c=>{
+      c[0]=_S.color(c[0]);
+      c[1]=_S.color(c[1]);
+      return c;
+    });
+
+    /**/
+    function _sp(c){
+      return _S.tint(_S.sprite("tile.png"),c)
+    }
 
     /** abstract base class */
     class BModel{
-      constructor(m){
-        this.model=m
+      constructor(ln){
+        this._lines=ln
       }
-      rand(){
-        let n=_.randInt(_G.CELLS);
-        let b=this.model;
-        if(n===0){
-          b=this.clone(b);
-        }else{
-          for(let i=0;i<n;++i)
-            b=_G.transposeCCW(b)
-        }
-        return b
+      lines(){
+        return this._lines
       }
-      dim(){
-        return this.model.length }
-      clone(){
-        return _.deepCopyArray(this.model) } }
+    }
 
-    // piece = []
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //piece = []
     class BoxModel extends BModel{
       constructor(){
-        super([[1,1],
-               [1,1]]) }
-      lines(){
-        return [0,1,2] }
+        super([0,1,2]);
+        /*
+        [[1,1],
+         [1,1]]
+        */
+      }
+      clone(){
+        let n,c=_.randItem(COLORS);
+        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        n=null;
+        return [[_sp(c[0]),_sp(c[1])],
+                [_sp(c[1]),_sp(c[0])]]
+      }
     }
-    // piece = L
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //piece = L
     class ElModel extends BModel{
       constructor(){
-        super([[0,0,1],
-               [1,1,1],
-               [0,0,0]]) }
-      lines(){
-        return [0,1,2] }
+        super([0,1,2]);
+        /*
+        [[0,0,1],
+         [1,1,1],
+         [0,0,0]]
+        */
+      }
+      clone(){
+        let n,c=_.randItem(COLORS);
+        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        n=null;
+        return [[n,      n,      _sp(c[1])],
+                [_sp(c[0]),_sp(c[1]),_sp(c[0])],
+                [n,n,n]]
+      }
     }
-    // piece J
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //piece J
     class ElxModel extends BModel{
       constructor(){
-        super([[0,0,0],
-               [1,1,1],
-               [0,0,1]]) }
-      lines(){
-        return [1,2,2] }
+        super([1,2,2]);
+        /*
+        [[0,0,0],
+         [1,1,1],
+         [0,0,1]]
+        */
+      }
+      clone(){
+        let n,c=_.randItem(COLORS);
+        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        n=null;
+        return [[n,n,n],
+                [_sp(c[0]),_sp(c[1]),_sp(c[0])],
+                [n,      n,      _sp(c[1])]]
+      }
     }
-    // piece I
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //piece I
     class LineModel extends BModel{
       constructor(){
-        super([[0,0,0,0],
-               [1,1,1,1],
-               [0,0,0,0],
-               [0,0,0,0]]) }
-      lines(){
-        return [1,1,1] }
+        super([1,1,1]);
+        /*
+        [[0,0,0,0],
+         [1,1,1,1],
+         [0,0,0,0],
+         [0,0,0,0]]
+        */
+      }
+      clone(){
+        let n,c=_.randItem(COLORS);
+        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        n=null;
+        return [[n,n,n,n],
+                [_sp(c[0]),_sp(c[1]),_sp(c[0]),_sp(c[1])],
+                [n,n,n,n],
+                [n,n,n,n]]
+      }
     }
-    // piece T
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //piece T
     class NubModel extends BModel{
       constructor(){
-        super([[0,0,0],
-               [0,1,0],
-               [1,1,1]]) }
-      lines(){
-        return [1,2,2] }
+        super([1,2,2]);
+        /*
+        [[0,0,0],
+         [0,1,0],
+         [1,1,1]]
+        */
+      }
+      clone(){
+        let n,c=_.randItem(COLORS);
+        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        n=null;
+        return [[n,n,n],
+                [n,      _sp(c[0]),n],
+                [_sp(c[0]),_sp(c[1]),_sp(c[0])]]
+      }
     }
-    // piece S
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //piece S
     class StModel extends BModel{
       constructor(){
-        super([[0,1,1],
-               [1,1,0],
-               [0,0,0]]) }
-      lines(){
-        return [0,1,2] }
+        super([0,1,2]);
+        /*
+        [[0,1,1],
+         [1,1,0],
+         [0,0,0]]
+        */
+      }
+      clone(){
+        let n,c=_.randItem(COLORS);
+        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        n=null;
+        return [[n,      _sp(c[0]),_sp(c[1])],
+                [_sp(c[0]),_sp(c[1]),n],
+                [n,n,n]]
+      }
     }
-    // piece Z
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //piece Z
     class StxModel extends BModel{
       constructor(){
-        super([[0,0,0],
-               [1,1,0],
-               [0,1,1]]) }
-      lines(){
-        return [1,2,2] }
+        super([1,2,2]);
+        /*
+        [[0,0,0],
+         [1,1,0],
+         [0,1,1]]
+        */
+      }
+      clone(){
+        let n,c=_.randItem(COLORS);
+        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        n=null;
+        return [[n,n,n],
+                [_sp(c[0]),_sp(c[1]),n],
+                [n,      _sp(c[0]),_sp(c[1])]]
+      }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //list of models
     _G.ModelList=[new BoxModel(), new ElModel(), new ElxModel(),
-                  new LineModel(), new NubModel(), new StModel(), new StxModel()];
-
-
+                  new LineModel(), new NubModel(), new StModel(), new StxModel()]
   };
 
 })(this);

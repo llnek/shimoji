@@ -25,38 +25,12 @@
            v2:_V,
            ute:_,is}=Mojo;
 
-    const D_GREEN= "#1B8463";
-    const L_GREEN= "#26AE88";
-    const D_RED= "#B02722";
-    const L_RED="#DC352E";
-    const D_YELLOW= "#C1971F";
-    const L_YELLOW= "#EBBA16";
-    const D_PURPLE= "#75348B";
-    const L_PURPLE= "#7F4491";
-    const D_BLUE= "#1F436D";
-    const L_BLUE= "#366BB3";
-    const D_ORANGE= "#D8681C";
-    const L_ORANGE= "#EC8918";
-
-    const COLORS=[
-      [L_GREEN, D_GREEN],
-      [L_RED, D_RED],
-      [L_YELLOW, D_YELLOW],
-      [L_PURPLE, D_PURPLE],
-      [L_BLUE, D_BLUE],
-      [L_ORANGE, D_ORANGE]
-    ].map(c=>{
-      c[0]=_S.color(c[0]);
-      c[1]=_S.color(c[1]);
-      return c;
-    });
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /** check if the shape at this position is ok */
-    function _test(tiles,row,col){
+    /** check if the piece at this position is ok */
+    function _test(cells,row,col){
       let y=0;
-      for(let px,py,r;y<tiles.length;++y){
-        r=tiles[y];
+      for(let px,py,r;y<cells.length;++y){
+        r=cells[y];
         py=row-y;
         for(let x=0;x<r.length;++x){
           //check non-empty cells only
@@ -75,10 +49,10 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _draw(){
       let k=0;
-      _G.cur.tiles.forEach((r,y)=> r.forEach((c,x)=>{
+      _G.cur.cells.forEach((r,y)=> r.forEach((c,x)=>{
         if(c)
-          _V.set(_G.cur.cells[k++],_G.vbox.x1+(_G.cur.col+x)*_G.tileW,
-                                   _G.vbox.y2-((_G.cur.row-y)+1)*_G.tileH)
+          _V.set(c,_G.vbox.x1+(_G.cur.col+x)*_G.tileW,
+                   _G.vbox.y2-((_G.cur.row-y)+1)*_G.tileH)
       }));
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,17 +67,22 @@
         r= _G.rows - 1 - r;//doing the flip here
         if(r >=0 && r < _G.rows) return [r,c]
       }
-      let i=0;
-      for(let rc,p; i< _G.cur.cells.length; ++i){
-        p=_G.cur.cells[i];
-        rc=_xref(p.x,p.y);
-        if(!rc){
-          i=911;
-        }else{
-          _G.grid[rc[0]][rc[1]]=p;
+      let y=0;
+      for(let r,rc,p; y< _G.cur.cells.length; ++y){
+        r=_G.cur.cells[y];
+        for(let x=0;x<r.length;++x){
+          if(p=r[x]){
+            rc=_xref(p.x,p.y);
+            if(!rc){
+              y=911;
+              break;
+            }else{
+              _G.grid[rc[0]][rc[1]]=p;
+            }
+          }
         }
       }
-      return i<911 ? (_G.cur.cells.length=0, true) : false
+      return y<911 ? (_G.cur.cells.length=0, true) : false
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _checkGrid(){
@@ -135,7 +114,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _moveDown(){
       let rc;
-      if(rc=_test(_G.cur.tiles,_G.cur.row-1,_G.cur.col)){
+      if(rc=_test(_G.cur.cells,_G.cur.row-1,_G.cur.col)){
         _G.cur.row -= 1;
         _draw();
       }else{
@@ -157,7 +136,7 @@
         this.previewNext();
         //we hide the new piece above the top row
         //add the thickness of the piece
-        this.cur.cells.forEach(c=> c.visible=true);
+        this.cur.cells.forEach(c=> { if(c) c.visible=true });
         this.cur.row= this.rows + this.cur.lines[2];
         this.cur.col= int(this.cols/2);
         _draw();
@@ -165,24 +144,18 @@
       },
       /** show what the next piece looks like */
       previewNext(){
-        let ln= this.ModelList.length,
-            n= _.randInt(ln),
-            m= this.ModelList[n],
-            png= _.randItem(COLORS);
-        let s= this.next = {tiles: m.clone(),
-                            lines: m.lines(), cells: [], row:0, col:0};
-        for(let p,i=0;i< this.CELLS;++i){
-          s.cells.push(p= _S.sprite("tile.png"));
-          _S.tint(p,png[i%2]);
-          p.visible=false;
-          this.gameScene.insert(_S.sizeXY(p,_G.tileW,_G.tileH));
-        }
-        Mojo.emit(["preview.shape"], s);
-        return s;
+        let m= _.randItem(this.ModelList),
+            s= this.next = {lines: m.lines(), cells: m.clone(), row:0, col:0};
+        s.cells.forEach(r=> r.forEach(c=>{
+          if(c){
+            c.visible=false;
+            this.gameScene.insert(_S.sizeXY(c,_G.tileW,_G.tileH)) }
+        }));
+        return (Mojo.emit(["preview.shape"], s), s)
       },
       /**Lateral movements */
       shiftHZ(dx){
-        if(_test(this.cur.tiles,this.cur.row, this.cur.col+dx)){
+        if(_test(this.cur.cells,this.cur.row, this.cur.col+dx)){
           this.cur.col += dx;
           _draw();
         }
@@ -205,12 +178,10 @@
         if(!this.gameOver) this.slowDown() },
       rotateCCW(){
         //no need to rotate a square
-        if(this.cur.tiles.length>2){
-          let ts=this.transposeCCW(this.cur.tiles);
-          if(_test(ts,this.cur.row,this.cur.col)){
-            this.cur.tiles=ts;
-            _draw();
-          }
+        let ts=this.transposeCCW(this.cur.cells);
+        if(_test(ts,this.cur.row,this.cur.col)){
+          this.cur.cells=ts;
+          _draw();
         }
         //if we pick a cell as rotation pivot, then we can
         //simply do this for rotation
