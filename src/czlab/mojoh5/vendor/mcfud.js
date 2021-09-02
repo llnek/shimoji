@@ -313,6 +313,7 @@
        * @return {number}
        */
       evenN(n,dir){
+        n=Math.floor(n);
         return isEven(n)?n:(dir?n+1:n-1) },
       /**Check if a is null or undefined - `not real`.
        * @memberof module:mcfud/core._
@@ -550,16 +551,6 @@
         if(arr && arr.length>0)
           return arr.length===1 ? arr[0]
                                 : arr[MFL(PRNG()*arr.length)]
-      },
-      /**Turn this value into an even number.
-       * @memberof module:mcfud/core._
-       * @param {number} v
-       * @param {boolean} ceil bump value up
-       * @return {boolean}
-       */
-      intEven(v,ceil){
-        v=Math.floor(v);
-        return (v%2 === 0) ? v : (ceil ? v+1 : v-1)
       },
       /**Check if string represents a percentage value.
        * @memberof module:mcfud/core._

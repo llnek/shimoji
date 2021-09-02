@@ -42,8 +42,10 @@
       for(let t,i=1;i<z;++i){
         t=s[i];
         if(head.g.row===t.g.row &&
-           head.g.col===t.g.col)
-          return true;
+          head.g.col===t.g.col){
+          t.visible=false;
+          return _G.snakeBite=true;
+        }
       }
       return false;
     }

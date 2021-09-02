@@ -184,7 +184,7 @@
           let grid=[];
           let a= _S.gridXY([W,H],0.8,0.8);
           let a0=a[0][0];
-          _G.tileW=_.intEven(a0.x2-a0.x1);
+          _G.tileW=_.evenN(a0.x2-a0.x1);
           _G.tileH=_G.tileW;
           _G.gameOver=false;
           _G.grid=grid;
