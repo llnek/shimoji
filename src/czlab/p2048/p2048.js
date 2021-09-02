@@ -74,7 +74,7 @@
       return out;
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){return;
+    function doBackDrop(scene){
       if(!_G.backDropSprite)
         _G.backDropSprite=_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height);
       scene.insert(_G.backDropSprite);
@@ -291,6 +291,8 @@
           dirDown: _I.keybd(_I.DOWN)
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _G.tileFrames= _loadTiles(),
         _G.tiles= _mkTiles(this);
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -325,7 +327,7 @@
   const _$={
     assetFiles: ["0.png","2.png","4.png",
                  "8.png", "16.png","32.png",
-                 "64.png", "256.png","1024.png",
+                 "64.png", "256.png","1024.png","bg.jpg",
                  "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:768,height:768},
     scaleToWindow: "max",
