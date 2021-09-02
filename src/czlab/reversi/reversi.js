@@ -16,12 +16,16 @@
 
   "use strict";
 
-  function setup(Mojo){
+  /**/
+  function scenes(Mojo){
     const {Scenes:_Z,
            Sprites:_S,
+           Input:_I,
            Game:_G,
+           v2:_V,
            ute:_,is}=Mojo;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //load in game modules
     window["io/czlab/reversi/Sprites"](Mojo);
     window["io/czlab/reversi/AI"](Mojo);
@@ -36,31 +40,49 @@
       return out;
     })([]);
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
       scores:[null,null,null],
+      points:[0,0,0],
       gridLineWidth:4,
+      cells:null,
+      aiTime:500,
       DIM:8,
       X:1,//black
       O:2,//white
-      piecesFlipped(cells, pos, cur, other){
+      reset(){
+        this.points=[0,0,0];
+        this.cells=null;
+      },
+      playSnd(snd){
+        let s;
+        if(this.pcur===this.X) s="x.mp3";
+        if(this.pcur===this.O) s="o.mp3";
+        if(snd){s=snd}
+        if(s) Mojo.sound(s).play()
+      },
+      playClick(){
+        Mojo.sound("click.mp3").play()
+      },
+      search(cells, pos, cur, other){
         //search in all directions and count
         //how many of their pieces can flip
         //stop when the piece is yours
         let total=[],
             len=cells.length;
-        for(let added,d,r,c,i=0;i<_Dirs.length;++i){
+        for(let tmp,d,r,c,i=0;i<_Dirs.length;++i){
           d=_Dirs[i];
-          added=[];
+          tmp=[];
           r=pos[0]+d[0];
           c=pos[1]+d[1];
-          while(0<=r && r<len && 0<=c && c<len){
+          while(r>=0 && r<len && c>=0 && c<len){
             if(cells[r][c] === other){
-              //grab their piece
-              added.push([r,c])
+              //grab opponent piece
+              tmp.push([r,c])
             }else{
               //ooops, better stop now
               if(cells[r][c] === cur)
-                total=total.concat(added);
+                total=total.concat(tmp);
               break;
             }
             r+=d[0];
@@ -70,79 +92,88 @@
         return total;
       },
       isGameOver(pv){
-        const {cells}=_G;
+        const other= pv=== this.X ? this.O : this.X;
         const pos=[0,0];
-        const other= pv===_G.X?_G.O:_G.X;
-        for(let t,r,y=0;y<cells.length;++y){
-          r=cells[y];
+        let y=0;
+        for(let t,r; y< this.cells.length; ++y){
+          r=this.cells[y];
           for(let x=0;x<r.length;++x){
             if(r[x]===0){
               pos[0]=y;
               pos[1]=x;
-              t=this.piecesFlipped(cells,pos,pv,other);
-              if(t.length>0)
-                return false;
+              t=this.search(this.cells,pos,pv,other);
+              if(t.length>0){
+                y=911;
+                break;
+              }
             }
           }
         }
-        return true;
+        return y<911;
       },
       getIcon(v){
-        if(v===_G.O || v==="O") return 2;//"o.png";
-        if(v===_G.X || v==="X") return 1;//"x.png";
+        if(v===this.O || v==="O") return 2;//"o.png";
+        if(v===this.X || v==="X") return 1;//"x.png";
         return 0;//"z.png";
       },
       getIconValue(v){
-        if(v===_G.O) return _G.O;
-        if(v===_G.X) return _G.X;
+        if(v===this.O) return this.O;
+        if(v===this.X) return this.X;
       },
       getIconImage(v){
-        if(v===_G.O) return "O";
-        if(v===_G.X) return "X";
+        if(v===this.O) return "O";
+        if(v===this.X) return "X";
       },
       switchPlayer(){
-        const {cells,pcur,ai}=_G;
+        const {cells,pcur,ai}= this;
         let px=0,po=0;
-        for(let a,r=0;r<cells.length;++r){
-          a=cells[r];
-          for(let c=0;c<a.length;++c){
-            if(a[c]===_G.X)++px;
-            else if(a[c]===_G.O)++po;
-          }
-        }
-        _G.scores[_G.X].text=`${px}`;
-        _G.scores[_G.O].text=`${po}`;
 
-        if(pcur===_G.X) _G.pcur= _G.O;
-        if(pcur===_G.O) _G.pcur=_G.X;
+        this.cells.forEach(r=> r.forEach(a=>{
+          if(a=== this.X) ++px;
+          if(a=== this.O) ++po;
+        }));
+        this.scores[this.X].text=_.prettyNumber(px,2);
+        this.scores[this.O].text=_.prettyNumber(po,2);
+        this.points[this.X]=px;
+        this.points[this.O]=po;
 
-        if(this.isGameOver(_G.pcur)){
-          _G.gameOver=true;
-          alert("poo");
-          Mojo.pause();
-        }else{
-          if(ai && ai.pnum !== pcur)
-            Mojo.emit(["ai.move",ai]);
+        if(pcur===this.X) this.pcur= this.O;
+        if(pcur===this.O) this.pcur= this.X;
+
+        if(this.isGameOver(this.pcur)){
+          this.gameOver=true;
+          _.delay(343,()=>{
+            _I.resetAll();
+            _Z.runScene("EndGame");
+          });
+        }else if(ai && ai.pnum !== pcur){
+          Mojo.emit(["ai.move",ai]);
         }
-      },
-      checkTie(){
       },
       checkState(gpos){
         //0=>ok,1=>win,-1=>draw
-        const {cells,pcur}=_G;
-        return _G.piecesFlipped(cells,gpos,pcur,pcur===_G.X?_G.O:_G.X) }
+        return this.search(this.cells,
+                            gpos,
+                            this.pcur,
+                            this.pcur=== this.X? this.O: this.X)
+      }
     });
-
-    _Z.runScene("level1");
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
   const _$={
-    assetFiles:["bggreen.jpg","icons.png"],
+    assetFiles:["bggreen.jpg","icons.png","x.mp3","o.mp3","click.mp3","game_over.mp3","game_win.mp3"],
     arena:{width:960, height:960},
     scaleToWindow:"max",
-    start(Mojo){ setup(Mojo) }
+    scaleFit:"y",
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("Splash");
+    }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5(_$));
 

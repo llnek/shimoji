@@ -16,41 +16,41 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window["io/czlab/reversi/AI"]=function(Mojo){
     const Nega= window["io/czlab/mcfud/negamax"]();
     const {Game:_G,
            ute:_,is} = Mojo;
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //used by the AI to give more importance to the border
-    const BOARD_SCORE = [[9,3,3,3,3,3,3,9],
-                         [3,1,1,1,1,1,1,3],
-                         [3,1,1,1,1,1,1,3],
-                         [3,1,1,1,1,1,1,3],
-                         [3,1,1,1,1,1,1,3],
-                         [3,1,1,1,1,1,1,3],
-                         [3,1,1,1,1,1,1,3],
-                         [9,3,3,3,3,3,3,9]];
+    const BOARD_SCORE = [[9,4,4,4,4,4,4,9],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [9,4,4,4,4,4,4,9]];
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**/
     function _possibleMoves(cells,cur,other){
-      let moves=[],
-          pos=[0,0];
+      const moves=[],
+            pos=[0,0];
       for(let f,row,r=0;r<cells.length;++r){
         row=cells[r];
         for(let c=0;c<row.length;++c){
           if(row[c]===0){
             pos[0]=r;
             pos[1]=c;
-            f=_G.piecesFlipped(cells, pos,cur,other);
-            if(f.length>0)
-              moves.push([r,c]);
+            if(_G.search(cells,pos,cur,other).length>0) moves.push([r,c])
           }
         }
       }
       return moves;
     }
-
-    class C extends Nega.GameBoard{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class CZ extends Nega.GameBoard{
       constructor(p1v,p2v){
         super();
         this.actors= [0, p1v, p2v];
@@ -58,25 +58,28 @@
         this.depth=8;
       }
       getStateCopier(){
-        return (state)=>{ return _.deepCopyArray(state) } }
+        return (state)=>{ return _.deepCopyArray(state) }
+      }
       /*
       getFirstMove(snap){
         let moves=_possibleMoves(snap.state,snap.cur,snap.other);
         return moves.length>0?moves[0]:null;
       }
       */
-      syncState(seed, actor){
+      syncState(seed, p){
         this.cells.length=0;
-        this.actors[0] = actor;
-        seed.forEach(s=> this.cells.push(s.slice())) }
+        this.actors[0] =p;
+        seed.forEach(s=> this.cells.push(s.slice()))
+      }
       getNextMoves(snap){
-        return _possibleMoves(snap.state,snap.cur,snap.other) }
+        return _possibleMoves(snap.state,snap.cur,snap.other)
+      }
       makeMove(snap, move){
         _.assert(move[1] >= 0 && move[1] < snap.state[0].length);//col
         _.assert(move[0] >= 0 && move[0] < snap.state.length);//row
-        let f= _G.piecesFlipped(snap.state,move, snap.cur,snap.other);
+        let f= _G.search(snap.state,move, snap.cur,snap.other);
         _.assert(f.length>0,"nothing flipped!!!!");
-        f.forEach(p=>{ snap.state[p[0]][p[1]]=snap.cur; });
+        f.forEach(p=>{ snap.state[p[0]][p[1]]=snap.cur });
         snap.state[move[0]][move[1]]=snap.cur;
       }
       switchPlayer(snap){
@@ -90,19 +93,15 @@
         return 0;
       }
       takeGFrame(){
-        let ff = new Nega.GFrame();
+        const ff = new Nega.GFrame();
         ff.other= this.getOtherPlayer(this.actors[0]);
-        ff.cur= this.actors[0];
         ff.state=_.deepCopyArray(this.cells);
+        ff.cur= this.actors[0];
         ff.lastBestMove= null;
         return ff;
       }
       evalScore(snap){
-        let c_cnt=0;
-        let c_sum=0;
-        let o_cnt=0;
-        let o_sum=0;
-        let e_cnt=0;
+        let c_cnt=0, c_sum=0, o_cnt=0, o_sum=0, e_cnt=0;
         snap.state.forEach((row,r) => row.forEach((v,c) => {
           if(v===snap.cur){
             ++c_cnt;
@@ -135,11 +134,13 @@
                _possibleMoves(snap.state,snap.other,snap.cur).length===0;
       }
     }
-
-    _G.Reversi=function(p1v,p2v){
-      return new C(p1v,p2v)
-    }
-  }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _.inject(_G,{
+      Reversi(p1v,p2v){
+        return new CZ(p1v,p2v)
+      }
+    });
+  };
 
 })(this);
 

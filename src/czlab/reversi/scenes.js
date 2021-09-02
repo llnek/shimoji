@@ -16,105 +16,187 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window["io/czlab/reversi/Scenes"]=function(Mojo){
 
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           Tiles:_T,
+           FX:_X,
            Game:_G,
            v2:_V,
            ute:_,is}=Mojo;
 
-    _G.playSnd=(snd)=>{
-      let s, {pcur}=_G;
-      if(pcur===_G.X) s="x.mp3";
-      if(pcur===_G.O) s="o.mp3";
-      if(snd){s=snd}
-      if(s) Mojo.sound(s).play() };
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT= "Big Shout Bob";
+    const UI_FONT="Doki Lowercase";
 
-    _Z.defScene("Splash",function(){
-    });
+    const C_ORANGE=_S.color("#f4d52b");
+    const C_GREEN=_S.color("#7da633");
+    const C_TITLE=_S.color("#fff20f");
+    const C_BG=_S.color("#169706");
+    const C_TEXT=_S.color("#fff20f");
+    const CLICK_DELAY=343;
 
-    _Z.defScene("EndGame",{
-    });
-
-    _Z.defScene("StartMenu", function(options){
-    });
-
-    _Z.defScene("MainMenu", function(){
-    });
-
-    _Z.defScene("hud", {
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doBackDrop(scene){
+      if(!_G.backDropSprite)
+        _G.backDropSprite=_S.sizeXY(_S.sprite("bggreen.jpg"),Mojo.width,Mojo.height);
+      scene.insert(_G.backDropSprite);
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("Splash",{
       setup(){
-      },
-      postUpdate(){
+        const self=this,
+              K=Mojo.getScaleFactor(),
+              verb=Mojo.touchDevice?"Tap":"Click";
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText("Reversi",{fontName:TITLE_FONT,fontSize:120*K});
+          _S.tint(s,C_TITLE);
+          _V.set(s,Mojo.width/2,Mojo.height*0.3);
+          self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doNext=(s,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`, {fontName:UI_FONT,fontSize:64*K});
+          _V.set(s,Mojo.width/2,Mojo.height*0.7);
+          t=_X.throb(s);
+          _I.mkBtn(s).m5.press=(btn)=>{
+            _S.tint(btn,C_ORANGE);
+            _X.remove(t);
+            _G.playClick();
+            _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("MainMenu"));
+          };
+          self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        this.g.doTitle();
+        this.g.doNext();
       }
     });
-
-    /** @ignore */
-    function _drawBox(ctx){
-      let {grid}=_G,
-          gf=grid[0],
-          gl = grid[grid.length-1];
-      ctx.strokeStyle= "white";
-      ctx.lineWidth=4;
-      ctx.drawRect(gf.x1,gf.y1,gl.x2-gf.x1,gl.y2-gf.y1) }
-
-    /** @ignore */
-    function _drawGrid(ctx){
-      let bx=_S.gridBBox(0,0,_G.grid);
-      _S.drawGridBox(bx,4,"white",ctx);
-      _S.drawGridLines(0,0,_G.grid,4,"white",ctx) }
-
-    /** @ignore */
-    function _seeder(){
-      return _.fill(_G.DIM).map(x=> _.fill(_G.DIM,0)) }
-
-    _Z.defScene("level1",{
-      onAI(pos){
-        //let t= this.getChildById(`tile${pos}`);
-        //Mojo.emit(["ai.moved",t]);
-      },
-      _initLevel(options){
-        let z=_S.sprite("icons.png");
-        let g=_S.gridSQ(_G.DIM,0.9);
-        let c=g[0][0];
-        let K=(c.y2-c.y1)/z.height;
-        _G.iconSize=[z.height,z.height];
-        _G.iconScale=[K,K];
-        _.inject(_G,{lastWin: 0,
-                     ai: null,
-                     grid: g,
-                     pnum: _G.X,
-                     cells: _seeder(),
-                     mode: options.mode,
-                     level: options.level,
-                     pcur: options.startsWith||_G.X,
-                     players: _.jsVec(null,null,null)});
-        return 1;
-      },
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("MainMenu",{
+      setup(){
+        const self=this,
+              K=Mojo.getScaleFactor();
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doMenu=function(){
+          const cfg={fontSize: 64*K, fontName:UI_FONT};
+          const b1=_S.uuid(_I.mkBtn(_S.bmpText("One Player", cfg)),"play#1");
+          const b2=_S.uuid(_I.mkBtn(_S.bmpText("Two Player", cfg)),"play#2");
+          const gap=_S.bmpText("or", cfg);
+          function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
+          b1.m5.press=
+          b2.m5.press=function(b){
+            b.tint=C_ORANGE;
+            _G.playClick();
+            _.delay(CLICK_DELAY,()=>{
+              _Z.runSceneEx("StartMenu", {mode: b.m5.uuid == "play#1"?1:2}) }) };
+          self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"transparent"}));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        this.g.doMenu();
+      }
+    });
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("StartMenu",{
       setup(options){
-        let mode=this._initLevel(options);
-        let self=this;
-        let {cells,grid,
-             iconSize,iconScale}=_G;
-        //let sz=_G.state.get("iconSize");
-        //let scale= _G.state.get("iconScale");
-        //let cells=_G.state.get("cells");
-        //let self=this,grid=_G.state.get("grid");
-        this.insert(_G.Backgd());
-        let box=_S.group(_S.drawBody(_drawGrid));
-        _V.set(box,grid[0][0].x1,grid[0][0].y1);
-        this.insert(box);
+        const self=this,
+              K=Mojo.getScaleFactor(),
+              cfg={fontName: UI_FONT, fontSize: 64*K};
 
+        let s= _S.bmpText("Player 1 (Black) Starts? ", cfg);
+        let b1=_I.mkBtn(_S.bmpText("Yes", cfg));
+        let gap=_S.bmpText(" / ", cfg);
+        let b2=_I.mkBtn(_S.bmpText("No", cfg));
+
+        b1.m5.press=
+        b2.m5.press=(b)=>{
+          options.startsWith= b===b1?1:2;
+          _S.tint(b,C_ORANGE);
+          _G.playClick();
+          _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("PlayGame", options));
+        };
+
+        doBackDrop(this);
+        self.insert(_Z.layoutX([s, b1, gap, b2],{bg:"transparent"}))
+      }
+    });
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("EndGame",{
+      setup(){
+        const K=Mojo.getScaleFactor();
+        const mode = _G.mode;
+        const w= _G.lastWin;
+        let msg="No Winner!",
+            snd="game_over.mp3",
+            cfg={fontName:UI_FONT, fontSize:64*K};
+
+        if(_G.points[_G.X]>_G.points[_G.O]){
+          msg= mode===1 ? "You win !" : "Player 1 (Black) wins !";
+          snd="game_win.mp3";
+        }else if(_G.points[_G.X]<_G.points[_G.O]){
+          msg= mode===1 ? "You lose !" : "Player 2 (White) wins !";
+        }
+
+        function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
+        let b1=_I.mkBtn(_S.bmpText("Play Again?", cfg));
+        let b2=_I.mkBtn(_S.bmpText("Quit", cfg));
+        let m1=_S.bmpText("Game Over", cfg);
+        let m2=_S.bmpText(msg, cfg);
+        let gap=_S.bmpText("or", cfg);
+        b1.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("MainMenu") };
+        b2.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("Splash") };
+        _G.playSnd(snd);
+        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2])) }
+    });
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PlayGame",{
+      setup(options){
+        const self=this,
+              mode=options.mode,
+              K=Mojo.getScaleFactor(),
+              startsWith=options.startsWith;
         let LT,RT;
-        for(let a,r=0;r<grid.length;++r){
-          a=grid[r];
-          for(let v,s,id,b,c=0;c<a.length;++c){
-            b=_S.bboxCenter(a[c]);
-            id= `${r}:${c}`;
-            v=0;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        function _drawGrid(ctx){
+          const bx=_S.gridBBox(0,0,_G.grid);
+          _S.drawGridBox(bx,4*K,"white",ctx);
+          _S.drawGridLines(0,0,_G.grid,4*K,"white",ctx);
+        }
+        function _seeder(){
+          return _.fill(_G.DIM).map(x=> _.fill(_G.DIM,0)) }
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initLevel=()=>{
+          let z=_S.sprite("icons.png");
+          let g=_S.gridSQ(_G.DIM,0.9);
+          let c=g[0][0];
+          let k=(c.y2-c.y1)/z.height;
+          _.inject(_G,{lastWin: 0,
+                       mode,
+                       ai: null,
+                       grid: g,
+                       pnum: _G.X,
+                       gameOver:false,
+                       cells: _seeder(),
+                       iconScale:[k,k],
+                       iconSize:[z.height, z.height],
+                       pcur: startsWith===1?_G.X:_G.O,
+                       players: _.jsVec(null,null,null)});
+          const box=_S.group(_S.drawBody(_drawGrid));
+          _V.set(box,_G.grid[0][0].x1,_G.grid[0][0].y1);
+          self.insert(box);
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initArena=()=>{
+          _G.grid.forEach((g,r)=> g.forEach((a,c)=>{
+            let b=_S.bboxCenter(a);
+            let id= `${r}:${c}`;
+            let v=0;
+            //starting 4 pieces
             if(r===3){
               if(c===3)v=1;
               if(c===4)v=2;
@@ -123,62 +205,66 @@
               if(c===3)v=2;
               if(c===4)v=1;
             }
-            s=_G.Tile(id, b[0],b[1],
-                      iconSize[0],iconSize[1], {gpos: [r,c], gval: v});
-            this.insert(s);
+            let s=_G.Tile(id, b[0],b[1],
+                          _G.iconSize[0],_G.iconSize[1], {gpos: [r,c], gval: v});
+            self.insert(s);
             if(r===0){
               if(c===0) LT=s;
               if(c===a.length-1) RT=s;
             }
-          }
-        }
-        cells[3][3]=1;//black
-        cells[3][4]=2;
-        cells[4][3]=2;
-        cells[4][4]=1;
-
-        //ui
-        let s,g,t= _S.bitmapText("SCORE",{fontName:"unscii",
-                                          fontSize:36,
-                                          tint:_S.color("white")});
-        this.insert(t);
-        _S.pinLeft(LT,t,32,0);
-        g=_S.sprite(_S.frames("icons.png",iconSize[0],iconSize[1]));
-        _S.scaleXY(g,_G.iconScale[0],_G.iconScale[1]);
-        g.m5.showFrame(_G.X);
-        this.insert(g);
-        _S.pinBottom(t,g);
-        s= _S.bitmapText("00",{fontName:"unscii",fontSize:36,tint:_S.color("white")});
-        this.insert(s);
-        _S.pinBottom(g,s);
-        _G.scores[_G.X]=s;
-        t=s;
-        g=_S.sprite(_S.frames("icons.png",iconSize[0],iconSize[1]));
-        _S.scaleXY(g,_G.iconScale[0],_G.iconScale[1]);
-        g.m5.showFrame(_G.O);
-        this.insert(g);
-        _S.pinBottom(t,g);
-        s= _S.bitmapText("00",{fontName:"unscii",fontSize:36,tint:_S.color("white")});
-        this.insert(s);
-        _S.pinBottom(g,s);
-        _G.scores[_G.O]=s;
-
+          }));
+          _G.cells[3][3]=1;//black
+          _G.cells[3][4]=2;
+          _G.cells[4][3]=2;
+          _G.cells[4][4]=1;
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initUI=()=>{
+          let s,g,t= _S.bmpText("SCORE",{fontName:UI_FONT, fontSize:36*K});
+          self.insert(t);
+          _S.pinLeft(LT,t,32,0);
+          g=_S.sprite(_S.frames("icons.png",_G.iconSize[0],_G.iconSize[1]));
+          _S.scaleXY(g, _G.iconScale[0],_G.iconScale[1]);
+          g.m5.showFrame(_G.X);
+          self.insert(g);
+          _S.pinBottom(t,g);
+          s= _S.bmpText("00",{fontName:UI_FONT,fontSize:36*K});
+          self.insert(s);
+          _S.pinBottom(g,s);
+          _G.scores[_G.X]=s;
+          t=s;
+          g=_S.sprite(_S.frames("icons.png",_G.iconSize[0],_G.iconSize[1]));
+          _S.scaleXY(g,_G.iconScale[0],_G.iconScale[1]);
+          g.m5.showFrame(_G.O);
+          self.insert(g);
+          _S.pinBottom(t,g);
+          s= _S.bmpText("00",{fontName:UI_FONT,fontSize:36*K});
+          self.insert(s);
+          _S.pinBottom(g,s);
+          _G.scores[_G.O]=s;
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this);
+        this.g.initLevel();
+        this.g.initArena();
+        this.g.initUI();
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         //decide who plays X and who starts
         if(mode===1){
-          let a= this.AI=_G.AI(this,_G.O);
+          let a= _G.ai= _G.AI(this,_G.O);
           a.scene=this;
-          //Mojo.on(["ai.moved",this],"onAI");
-          _G.ai=a;
           //ai starts?
-          if(_G.pcur===_G.O){
-            _.delay(100, () => Mojo.emit(["ai.move", a]))
-          }
+          if(_G.pcur===_G.O)
+            _.delay(100, () => Mojo.emit(["ai.move", a]));
         }
+      },
+      postUpdate(){
+        if(_G.gameOver) this.m5.dead=true;
       }
     });
 
   };
 
-
 })(this);
+
 
