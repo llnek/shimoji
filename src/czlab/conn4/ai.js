@@ -16,14 +16,15 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window["io/czlab/conn4/AI"]=function(Mojo){
+
     const Nega= window["io/czlab/mcfud/negamax"]();
     const {Game:_G,
            ute:_,is}=Mojo;
 
-
-    /** @class */
-    class C extends Nega.GameBoard{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class CZ extends Nega.GameBoard{
       constructor(p1v,p2v){
         super();
         this.actors= [0, p1v, p2v];
@@ -90,7 +91,7 @@
         return _G.check4(snap.state, move[0], move[1],snap.other)?-100:0 }
     }
 
-    _G.AI=function(){ return new C(_G.X,_G.O) };
+    _G.AI=function(){ return new CZ(_G.X,_G.O) };
 
   }
 
