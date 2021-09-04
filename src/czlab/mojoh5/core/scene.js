@@ -344,20 +344,20 @@
         }else{
           o.tint=disabledColor;
         }
-        if(!cur){
-          cur=items[0];
-          cur.tint= selectedColor;
-        }
         Mojo.Input.mkBtn(o);
         o.m5.press=(b)=>{
           if(b!==cur){
             cur.tint=disabledColor;
             b.tint=selectedColor;
             cur=b;
-            options.onClick && options.onClick();
+            options.onClick && options.onClick(b);
           }
         };
       });
+      if(!cur){
+        cur=items[0];
+        cur.tint= selectedColor;
+      }
       let c= _layout(items,options,dir);
       c.getSelectedChoice=function(){
         return cur.m5.uuid

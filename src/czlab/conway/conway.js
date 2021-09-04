@@ -16,79 +16,81 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
-    const MFL=Math.floor;
+
     const {Scenes:_Z,
            Sprites:_S,
-           Tiles:_T,
+           Input: _I,
+           FX:_X,
            Game:_G,
            v2:_V,
            ute:_, is}= Mojo;
 
     const SEEDS = {
-      diehard: [
+      DieHard: [
         [0, 0, 0, 0, 0, 0, 1, 0],
         [1, 1, 0, 0, 0, 0, 0, 0],
         [0, 1, 0, 0, 0, 1, 1, 1]
       ],
-      glider: [
+      Glider: [
         [1, 0, 1],
         [0, 1, 1],
         [0, 1, 0]],
-      blinker:[
+      Blinker:[
         [0, 1, 0],
         [0, 1, 0],
         [0, 1, 0]],
-      boat: [
+      Boat: [
         [1, 1, 0],
         [1, 0, 1],
         [0, 1, 0]],
-      r_pentomino: [
+      "R-Pentomino": [
         [0, 1, 1],
         [1, 1, 0],
         [0, 1, 0]],
-      pentadecathlon: [
+      Pentadecathlon: [
         [1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 1, 1, 1, 1, 0, 1],
         [1, 1, 1, 1, 1, 1, 1, 1]
       ],
-      beacon: [
+      Beacon: [
         [1, 1, 0, 0],
         [1, 1, 0, 0],
         [0, 0, 1, 1],
         [0, 0, 1, 1]],
-      acorn: [
+      Acorn: [
         [0, 1, 0, 0, 0, 0, 0],
         [0, 0, 0, 1, 0, 0, 0],
         [1, 1, 0, 0, 1, 1, 1]],
-      spaceship: [
+      Spaceship: [
         [0, 0, 1, 1, 0],
         [1, 1, 0, 1, 1],
         [1, 1, 1, 1, 0],
         [0, 1, 1, 0, 0]],
-      block_switch_engine: [
+      "Block-Switch-Engine": [
         [0, 0, 0, 0, 0, 0, 1, 0],
         [0, 0, 0, 0, 1, 0, 1, 1],
         [0, 0, 0, 0, 1, 0, 1, 0],
         [0, 0, 0, 0, 1, 0, 0, 0],
         [0, 0, 1, 0, 0, 0, 0, 0],
         [1, 0, 1, 0, 0, 0, 0, 0] ],
-      infinite: [
+      Infinite: [
         [1, 1, 1, 0, 1],
         [1, 0, 0, 0, 0],
         [0, 0, 0, 1, 1],
         [0, 1, 1, 0, 1],
         [1, 0, 1, 0, 1]
       ],
-      toad: [
+      Toad: [
         [0, 1, 1, 1],
         [1, 1, 1, 0]],
-      lwws: [
+      LWWS: [
         [1, 0, 0, 1, 0],
         [0, 0, 0, 0, 1],
         [1, 0, 0, 0, 1],
         [0, 1, 1, 1, 1]],
-      pulsar: [
+      Pulsar: [
         [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
         [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
         [0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0],
@@ -104,7 +106,7 @@
         [0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0],
         [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
         [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]],
-      random: [
+      Random: [
         [0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0],
         [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0],
         [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
@@ -116,7 +118,7 @@
         [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
         [0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1],
         [1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1]],
-      gosper_glider: [
+      "Gosper-Glider": [
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
@@ -128,22 +130,112 @@
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
     };
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //neighbors
     const NBS= [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
     const _DELAY=300;
 
-    _Z.defScene("hud",{
+    const TITLE_FONT="Big Shout Bob";
+    const UI_FONT="Doki Lowercase";
+    const C_TITLE=_S.color("#fff20f");
+    const C_BLACK=_S.color("#000000");
+    const C_WHITE=_S.color("#ffffff");
+    const C_GREEN=_S.color("#7da633");
+    const C_ORANGE=_S.color("#f4d52b");
+    const C_TILE=_S.color("#b7d150");
+    //const C_TILE=_S.color("#59bdda");//blue
+    //const C_TILE=_S.color("#db605a");//red
+    const CLICK_DELAY=343;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function playClick(){
+      Mojo.sound("click.mp3").play()
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doBackDrop(scene){
+      if(!_G.backDropSprite)
+        _G.backDropSprite=_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height);
+      return scene.insert(_G.backDropSprite);
+    }
+
+    _Z.defScene("Splash",{
       setup(){
-        let K=Mojo.getScaleFactor();
-        let s= _S.bboxFrame(_G.arena,32*K);
+        const self=this,
+              K=Mojo.getScaleFactor(),
+              verb=Mojo.touchDevice?"Tap":"Click";
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText("Conway's Game Of Life",{fontName:TITLE_FONT,fontSize:84*K});
+          _V.set(_S.tint(s,C_TITLE),Mojo.width/2,Mojo.height*0.3);
+          return self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doNext=(s,b,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize:48*K});
+          _V.set(s,Mojo.width/2,Mojo.height*0.7);
+          b=_I.mkBtn(s);
+          t=_X.throb(b,0.99);
+          b.m5.press=(btn)=>{
+            _X.remove(t);
+            _S.tint(btn,C_ORANGE);
+            playClick();
+            _.delay(CLICK_DELAY,()=>_Z.runSceneEx("MainMenu"));
+          };
+          return self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("MainMenu",{
+      setup(){
+        const self=this,
+              btns=[],
+              K=Mojo.getScaleFactor();
+        if(!_G.curPattern)
+          _G.curPattern=Mojo.u.defPattern;
+        doBackDrop(this);
+        let s,m,cfg= {fontName:UI_FONT,fontSize:32*K};
+        function doClicked(btn){
+          _G.curPattern=btn.m5.uuid;
+          playClick();
+        }
+        _.keys(SEEDS).forEach(k=> {
+          btns.push(s=_S.bmpText(k,cfg));
+          _S.uuid(s,k);
+        });
+        m=_Z.choiceMenuY(btns, {bg:"#cccccc",
+          defaultChoice: _G.curPattern,
+          disabledColor:_S.color("#cccccc"),
+          selectedColor:C_ORANGE,
+          padding:18,
+          onClick: doClicked});
+        this.insert(m);
+        //////
+        s=_S.bmpText("Run simulation with this pattern", {fontName:UI_FONT,fontSize:36*K});
+        _I.mkBtn(s).m5.press=(btn)=>{
+          playClick();
+          btn.tint=C_ORANGE;
+          _I.resetAll();
+          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame"));
+        };
+        _S.centerAnchor(s);
+        _S.pinBottom(m,s,20);
         this.insert(s);
       }
     });
 
-    _Z.defScene("level1",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PlayGame",{
       _tile(){
-        return _S.sprite(_S.frames("tiles.png",
-                                   _G.iconSize[0],_G.iconSize[1])) },
+        let s= _S.sprite(_S.frames("tiles.png",
+                                   _G.iconSize[0],_G.iconSize[1]));
+        _G.tint=s.tint;
+        return s;
+      },
       _initLevel(){
         let g= _S.gridSQ(Mojo.u.DIM,0.9);
         let z= _S.sprite("tiles.png");
@@ -221,10 +313,14 @@
             rc.alive=rc.nextAlive;
             rc.nextAlive=false;
             rc.icon.m5.showFrame(rc.alive?1:0);
+            if(rc.alive)
+              rc.icon.tint=C_TILE;
+            else
+              rc.icon.tint=_G.tint;
           }
         }
       },
-      _seed(which="acorn"){
+      _seed(which){
         let data=SEEDS[which];
         let h=data.length;
         let {cells}=_G;
@@ -240,13 +336,16 @@
               o=cells[y+i][x+j];
               o.alive=true;
               o.icon.m5.showFrame(1);
+              o.icon.tint=C_TILE;
             }
           });
         });
       },
       setup(options){
+        const self=this,
+              K=Mojo.getScaleFactor();
+        doBackDrop(this);
         this._initLevel();
-        let self=this;
         let {grid}=_G;
         let c0=grid[0][0];
         let bx=_S.gridBBox(0,0,grid);
@@ -255,33 +354,49 @@
           //_S.drawGridLines(0,0,grid,1,"white",ctx);
         //}));
         _G.arena=bx;
-        //_V.set(s,c0.x1,c0.y1);
-        //this.insert(s);
-        this._seed("random");
+
+        let s= _S.bboxFrame(_G.arena,32*K);
+        this.insert(s);
+        //
+        s=_I.mkBtn(_S.sprite("menu.png"));
+        _V.set(s,Mojo.width-s.width-10,0);
+        s.alpha=0.5;
+        s.m5.press=(btn)=>{
+          btn.tint=C_ORANGE;
+          _.delay(343,()=>{
+            _I.resetAll();
+            _Z.runSceneEx("MainMenu");
+          });
+        };
+        this.insert(s);
+
+        this._seed(_G.curPattern);
         _.delay(_DELAY,()=> this.onFrame());
       }
     });
+
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
   const _$={
-    assetFiles:["tiles.png"],
+    assetFiles:["tiles.png","click.mp3","bg.jpg","menu.png"],
     arena:{width:1200, height:960},
     gridLineWidth:1,
+    defPattern:"Acorn",
     DIM:40,
     scaleToWindow:"max",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
-      Mojo.Scenes.runScene("hud");
+      Mojo.Scenes.runScene("Splash");
     }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
-
-
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 

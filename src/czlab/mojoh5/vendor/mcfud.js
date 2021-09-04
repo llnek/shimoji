@@ -3351,7 +3351,7 @@
               fromStateObj.run && fromStateObj.run();
           },
           /** apply an event */
-          trigger(event="change"){
+          trigger(event="change",options){
             const fromStateObj= defn[_state];
             const tx= fromStateObj &&
                       fromStateObj.transitions[event];
@@ -3362,7 +3362,11 @@
               if(nextStateObj){
                 fromStateObj.exit && fromStateObj.exit();
                 nextStateObj.enter && nextStateObj.enter();
-                tx.action && tx.action();
+                if(options && options.action){
+                  options.action();
+                }else if(tx.action){
+                  options ? tx.action(options) : tx.action();
+                }
                 return (_state = nextState);
               }
             }

@@ -108,6 +108,8 @@
     /** default contact points, counter clockwise */
     function _corners(a,w,h){
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
+      //fake anchor if none provided
+      if(!a)a={x:0,y:0};
       //adjust for anchor
       out.forEach(r=>{ r[0] -= MFL(w * a.x); r[1] -= MFL(h * a.y); });
       return out;
@@ -299,8 +301,8 @@
        * @param {Sprite} s
        */
       assertCenter(s){
-        return _.assert(s.anchor.x>0.3 && s.anchor.x<0.7 &&
-                        s.anchor.y>0.3 && s.anchor.y<0.7, "not center'ed") },
+        return _.assert(s.anchor && s.anchor.x>0.3 && s.anchor.x<0.7 &&
+                                    s.anchor.y>0.3 && s.anchor.y<0.7, "not center'ed") },
       /**Check if sprite has children.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -371,7 +373,7 @@
        * @return {Sprite} s
        */
       centerAnchor(s){
-        s.anchor.set(0.5,0.5);
+        if(s.anchor) s.anchor.set(0.5,0.5);
         return s;
       },
       /**Set sprite's anchor to be at it's top left.
@@ -380,7 +382,7 @@
        * @return {Sprite} s
        */
       topLeftAnchor(s){
-        s.anchor.set(0,0);
+        if(s.anchor) s.anchor.set(0,0);
         return s;
       },
       /**Get sprite's anchor offset from top-left corner.
@@ -390,8 +392,8 @@
        */
       topLeftOffsetXY(s){
         return this.isTopLeft(s)?_V.vec()
-                                :_V.vec(-MFL(s.width*s.anchor.x),
-                                        -MFL(s.height*s.anchor.y)) },
+                                :_V.vec(-MFL(s.width* (s.anchor?s.anchor.x:0)),
+                                        -MFL(s.height*(s.anchor?s.anchor.y:0))) },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -399,8 +401,8 @@
        */
       centerOffsetXY(s){
         return this.isCenter(s)?_V.vec()
-                               :_V.vec(MFL(s.width/2) - MFL(s.anchor.x*s.width),
-                                       MFL(s.height/2) - MFL(s.anchor.y*s.height)) },
+                               :_V.vec(MFL(s.width/2) - MFL((s.anchor?s.anchor.x:0)*s.width),
+                                       MFL(s.height/2) - MFL((s.anchor?s.anchor.y:0)*s.height)) },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -485,15 +487,16 @@
        * @return {boolean}
        */
       isTopLeft(s){
-        return s.anchor.x < 0.3 && s.anchor.y < 0.3 },
+        return s.anchor ? (s.anchor.x < 0.3 && s.anchor.y < 0.3): true;
+      },
       /**Check if sprite has anchor at it's center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {boolean}
        */
       isCenter(s){
-        return s.anchor.x > 0.3 && s.anchor.x < 0.7 &&
-               s.anchor.y > 0.3 && s.anchor.y < 0.7; },
+        return s.anchor? (s.anchor.x > 0.3 && s.anchor.x < 0.7 &&
+                          s.anchor.y > 0.3 && s.anchor.y < 0.7) : false; },
       /**Get the center position.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -544,7 +547,7 @@
       leftSide(s){
         let x=s.x,
             w= s.width,
-            ax= s.anchor.x;
+            ax= s.anchor?s.anchor.x:0;
         if(ax>0.7) x -= w;
         else if(ax>0) x -= MFL(w/2);
         return x;
@@ -564,7 +567,7 @@
       topSide(s){
         let y= s.y,
             h= s.height,
-            ay= s.anchor.y;
+            ay= s.anchor?s.anchor.y:0;
         if(ay>0.7) y -= h;
         else if(ay>0) y -= MFL(h/2);
         return y;
@@ -1430,8 +1433,8 @@
         let x= (alignX<0.3) ? boxA.x1
                             : (alignX<0.7 ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : (b.anchor.y<0.7 ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : (b.anchor.x<0.7 ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : (b.anchor.y<0.7 ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : (b.anchor.x<0.7 ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C)}
       },
       /**Place `b` below `C`.
@@ -1447,8 +1450,8 @@
         let y=boxA.y2+padY;
         let x=(alignX<0.3) ? boxA.x1 : ((alignX<0.7) ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C) }
       },
       /**Place b at center of C.
@@ -1462,8 +1465,8 @@
         let x=cxA-w2B;
         let y=cyA-h2B;
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(C.m5.stage || b.parent===C){ _V.sub$(b,C) }
       },
       /**Place b left of C.
@@ -1479,8 +1482,8 @@
         let x= boxA.x1 - padX - (boxB.x2-boxB.x1);
         let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C) }
       },
       /**Place b right of C.
@@ -1496,8 +1499,8 @@
         let x= boxA.x2 + padX;
         let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C) }
       },
       /**Assign some mass to this sprite.
