@@ -16,21 +16,29 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
     //window["io/czlab/conn4/AI"](Mojo);
 
-    const MFL=Math.floor;
+    const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
            Game:_G,
-           FX:_F,
+           FX:_X,
            v2:_V,
            ute:_, is}= Mojo;
 
     const {Bot,
            Local,Mediator}=Mojo;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doBackDrop(scene){
+      if(!_G.backDropSprite)
+        _G.backDropSprite=_S.sizeXY(_S.sprite("bggreen.jpg"),Mojo.width,Mojo.height);
+      return scene.insert(_G.backDropSprite);
+    }
 
     /** @ignore */
     function _newState(){
@@ -258,20 +266,55 @@
       return false;
     };
 
-    /** test for win */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT="Big Shout Bob";
+    const UI_FONT="Doki Lowercase";
+    const C_TITLE=_S.color("#fff20f");
+    const C_BG=_S.color("#169706");
+    const C_TEXT=_S.color("#fff20f");
+    const C_GREEN=_S.color("#7da633");
+    const C_ORANGE=_S.color("#f4d52b");
+    const CLICK_DELAY=343;
+    function playClick(){
+      Mojo.sound("click.mp3").play()
+    }
 
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.COLS=8;
     _G.ROWS=8;
     _G.X=1;
     _G.O=2;
 
-    _Z.defScene("splash",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("Splash",{
       setup(){
+        const self=this,
+              K=Mojo.getScaleFactor(),
+              verb=Mojo.touchDevice?"Tap":"Click";
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText("Checkers",{fontName:TITLE_FONT, fontSize: 100*K});
+          _S.tint(s,C_TITLE);
+          _V.set(s,Mojo.width/2,Mojo.height*0.3);
+          return self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doNext=(s,b,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize: 48*K});
+          _V.set(s,Mojo.width/2,Mojo.height*0.7);
+          b=_I.mkBtn(s);
+          t=_X.throb(b,0.99);
+          b.m5.press=(btn)=>{
+            _X.remove(t);
+            btn.tint=C_ORANGE;
+            playClick();
+            _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("MainMenu"));
+          };
+          return self.insert(_S.centerAnchor(s));
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       },
-      dispose(){
-        super.dispose();
-      }
     });
 
     function _postMove(){
@@ -406,7 +449,6 @@
               s.g.team="red";
               s.g.dirY=[1];
               s.g.dirX=[-1,1];
-              if(y===0)s=null;
             }else if(y>4){
               //black
               s=_S.spriteFrom("black.png","black1.png","black2.png","black3.png");
@@ -418,7 +460,7 @@
           t.push(s);
           if(s){
             c=r[x];
-            z=MFL(0.85*(c.x2-c.x1));
+            z=int(0.85*(c.x2-c.x1));
             z=_.evenN(z,1);
             _S.centerAnchor(s);
             s.g.row=y;
@@ -426,8 +468,8 @@
             s.width=z;
             s.height=z;
             s.alpha=0.9;
-            s.x= MFL((c.x1+c.x2)/2);
-            s.y= MFL((c.y1+c.y2)/2);
+            s.x= int((c.x1+c.x2)/2);
+            s.y= int((c.y1+c.y2)/2);
             _I.makeButton(s);
             s.m5.showFrame(0);
             scene.insert(s);
@@ -465,8 +507,8 @@
           s.g.col=x;
           s.width=z;
           s.height=z;
-          s.x= MFL((c.x1+c.x2)/2);
-          s.y= MFL((c.y1+c.y2)/2);
+          s.x= int((c.x1+c.x2)/2);
+          s.y= int((c.y1+c.y2)/2);
           t.push(s);
           scene.insert(s);
         }
@@ -483,8 +525,9 @@
       return m;
     }
 
-    _Z.defScene("game",{
+    _Z.defScene("MainMenu",{
       setup(){
+        doBackDrop(this);
         let m=_initLevel(2,1);
         _initBoard(this,m);
         _initArena(this,m);
@@ -521,9 +564,11 @@
     })
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
   const _$={
-    assetFiles: ["images/base.json",
-                 "images/reds.json","images/blacks.json"],
+    assetFiles: ["bg.jpg","bggreen.jpg","images/base.json",
+                 "images/reds.json","images/blacks.json", "click.mp3","game_win.mp3","game_over.mp3"],
     arena:{width:1024, height:768},
     iconSize: 96,
     rendering:false,//"crisp-edges",
@@ -531,12 +576,11 @@
     scaleToWindow:"max",
     start(Mojo){
       scenes(Mojo);
-      //Mojo.Scenes.runScene("splash");
-      Mojo.Scenes.runScene("game");
-      Mojo.Scenes.runScene("hud");
+      Mojo.Scenes.runScene("Splash");
     }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5(_$));
 

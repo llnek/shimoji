@@ -16,14 +16,14 @@
 
   "use strict";
 
-  window["io/czlab/conn4/AI"]=function(Mojo){
+  window["io/czlab/checkers/AI"]=function(Mojo){
     const Nega= window["io/czlab/mcfud/negamax"]();
     const {Game:_G,
            ute:_,is}=Mojo;
 
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** @class */
-    class C extends Nega.GameBoard{
+    class CZ extends Nega.GameBoard{
       constructor(p1v,p2v){
         super();
         this.actors= [0, p1v, p2v];
@@ -32,35 +32,20 @@
       }
       isNil(cellv){
         return cellv === 0 }
-      getFirstMove(){
-        let y= this.grid.length-1;
-        let r=this.grid[y];
-        let out;
-        if(_.every(r,0))
-          out= [y, _.randInt2(0,r.length-1)];
-        return out;
+      getStateCopier(){
+        return (state)=>{ return _.deepCopyArray(state) }
       }
+      //getFirstMove(){ }
       syncState(seed, actor){
         this.actors[0] = actor;
         this.grid= _.deepCopyArray(seed);
       }
       getNextMoves(snap){
-        let width=snap.state[0].length;
-        let out=[];
-        for(let y,x=0;x<width;++x){
-          y=_G.maxY(snap.state,x);
-          if(y>=0)
-            out.push([y,x])
-        }
-        return out;
+
       }
-      undoMove(snap, move){
-        snap.state[move[0]][move[1]]=0 }
       makeMove(snap, move){
-        if(snap.state[move[0]][move[1]]===0)
-          snap.state[move[0]][move[1]] = snap.cur;
-        else
-          throw `Error: cell [${move[0]},${move[1]}] is not free` }
+
+      }
       switchPlayer(snap){
         let t = snap.cur;
         snap.cur= snap.other;
@@ -80,17 +65,19 @@
         return ff;
       }
       isStalemate(snap){
-        return _G.checkDraw(snap.state)}
+
+      }
       isOver(snap,move){
-        return _G.check4(snap.state,
-                         move[0],
-                         move[1],snap.other) || this.isStalemate(snap) }
+
+      }
       evalScore(snap,move){
+
         //if we lose, return a negative value
-        return _G.check4(snap.state, move[0], move[1],snap.other)?-100:0 }
+      }
     }
 
-    _G.AI=function(){ return new C(_G.X,_G.O) };
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.AI=function(){ return new CZ(_G.X,_G.O) };
 
   }
 
