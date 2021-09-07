@@ -95,10 +95,13 @@
       evalScore(snap,move){
         let [r,c,target]=move;
         let [row,col,act]=target;
-        let score=10;
+        let score=100;
         if(row===0 || row===(_G.ROWS-1)){
           //becomes king
-          score=100;
+          if(snap.cur===this.actors[1]){
+            console.log("good to be king");
+            score=0;
+          }
         }
         return score;
       }

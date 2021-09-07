@@ -5316,7 +5316,7 @@
           alpha = rc;
           //bestMove = move;
           if(depth === maxDepth)
-            game.lastBestMove = move;
+            state.lastBestMove = move;
           if(alpha >= beta) break;
         }
       }
