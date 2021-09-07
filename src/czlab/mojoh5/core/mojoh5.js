@@ -475,7 +475,11 @@
         this.players.push(p) }
       winner(){ return this.pwin }
       isGameOver(){ return this.end }
-      gameState(){ return this.state }
+      gameState(x){
+        if(x)
+          this.state=x;
+        return this.state;
+      }
       gameOver(win){
         this.pwin=win;
         this.end=true;
@@ -502,8 +506,11 @@
       updateMove(from,move){
         if(this.end){return}
         this.updateState(from,move);
-        this.players[from].playSound();
+        this.updateSound(from);
         _.delay(0,()=>this.postMove(from,move));
+      }
+      updateSound(actor){
+        //this.players[from].playSound();
       }
       takeTurn(){
         if(this.end){return}

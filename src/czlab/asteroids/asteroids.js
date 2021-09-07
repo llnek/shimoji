@@ -16,10 +16,11 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
     const E_SHIP=1, E_ASTRO=2, E_BULLET=4;
-    const MFL=Math.floor;
+    const int=Math.floor;
 
     const {Scenes:_Z,
            Sprites:_S,
@@ -333,10 +334,10 @@
       let a= _mkAstro(scene,1);
       let h= a.height;
       let w= a.width;
-      let h2=MFL(h/2);
-      let w2=MFL(w/2);
-      let W= MFL(Mojo.width /w);
-      let W3=MFL(W/3);
+      let h2=int(h/2);
+      let w2=int(w/2);
+      let W= int(Mojo.width /w);
+      let W3=int(W/3);
       let H= Mojo.height/h;
       let cx=Mojo.width/2;
       let cy=Mojo.height/2;
@@ -372,6 +373,7 @@
     });
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //config object
   const _$={
     assetFiles: ["shoot.mp3","explosion.mp3",
@@ -385,8 +387,10 @@
     }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //bootstrap
   window.addEventListener("load",()=> MojoH5(_$));
+
 })(this);
 
 

@@ -33,42 +33,17 @@
       isNil(cellv){
         return cellv === 0 }
       getStateCopier(){
-        return (s)=> JSON.parse(JSON.stringify(s))
+        return (state)=>{ return _.deepCopyArray(state) }
       }
       //getFirstMove(){ }
       syncState(seed, actor){
         this.actors[0] = actor;
-        this.grid= JSON.parse(JSON.stringify(seed));
+        this.grid= _.deepCopyArray(seed);
       }
       getNextMoves(snap){
-        let out=[],
-            moves = _G.calcNextMoves(snap.cur[1], this.grid)[1];
-        _.doseq(moves, (v)=>{
-          out.push(v);
-        });
-        return out;
+        let [state,moves] = _G.calcNextMoves(snap.cur[1]);
       }
       makeMove(snap, move){
-        let [r,c, target] =move;
-        let [row,col,act]=target;
-        let S=snap.state;
-        let cur=S[r][c];
-        let des=S[row][col];
-        switch(act){
-          case "J":
-            S[row>r? row-1 : row+1][col>c? col-1 : col+1]=null;
-            S[row][col]=cur;
-            S[r][c]=null;
-            cur.row=row;
-            cur.col=col;
-            break;
-          case "S":
-            S[row][col]=cur;
-            S[r][c]=null;
-            cur.row=row;
-            cur.col=col;
-            break;
-        }
       }
       switchPlayer(snap){
         let t = snap.cur;
@@ -82,25 +57,22 @@
       }
       takeGFrame(){
         let ff = new Nega.GFrame();
-        ff.state=JSON.parse(JSON.stringify(this.grid));
+        ff.state=_.deepCopyArray(this.grid);
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
         ff.lastBestMove=null;
         return ff;
       }
-      isOver(snap,move){
-        return move?true:false
+      isStalemate(snap){
+
       }
-      //if we lose, return a negative value
+      isOver(snap,move){
+
+      }
       evalScore(snap,move){
-        let [r,c,target]=move;
-        let [row,col,act]=target;
-        let score=10;
-        if(row===0 || row===(_G.ROWS-1)){
-          //becomes king
-          score=100;
-        }
-        return score;
+
+        return 100;
+        //if we lose, return a negative value
       }
     }
 
