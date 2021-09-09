@@ -17,13 +17,14 @@
   "use strict";
 
   window["io/czlab/tictactoe/AI"]=function(Mojo){
-    const Nega= window["io/czlab/mcfud/negamax"]();
+    //const Algo= window["io/czlab/mcfud/negamax"]();
+    const Algo= window["io/czlab/mcfud/minimax"]();
     const {Game:_G,
            ute:_,is}=Mojo;
 
 
     /** @class */
-    class C extends Nega.GameBoard{
+    class CZ extends Algo.GameBoard{
       constructor(p1v,p2v){
         super();
         this.actors= [0, p1v, p2v];
@@ -46,7 +47,10 @@
           if(this.isNil(snap.state[i])) rc.push(i);
         return rc;
       }
-      undoMove(snap, move){
+      getStateCopier(){
+        return function(s){ return _.deepCopyArray(s) }
+      }
+      XXundoMove(snap, move){
         _.assert(move>=0 &&
                  move<snap.state.length);
         snap.state[move] = 0;
@@ -58,44 +62,34 @@
           snap.state[move] = snap.cur;
         else
           throw `Error: cell [${move}] is not free` }
-      switchPlayer(snap){
-        let t = snap.cur;
-        snap.cur= snap.other;
-        snap.other= t;
-      }
-      getOtherPlayer(pv){
-        if(pv === this.actors[1]) return this.actors[2];
-        if(pv === this.actors[2]) return this.actors[1];
-        return 0;
-      }
       takeGFrame(){
-        let ff = new Nega.GFrame(_G.DIM);
+        let ff = new Algo.GFrame(_G.DIM);
         ff.state=_.fill(new Array(_G.DIM*_G.DIM),0);
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
-        ff.lastBestMove= -1;
         _.copy(ff.state,this.grid);
         return ff;
       }
-      evalScore(snap,move){
+      evalScore(snap){
+        let p2= this.getAlgoActor();
+        let p1= this.getOtherPlayer(p2);
         //if we lose, return a negative value
         for(let g, i=0; i<this.goals.length; ++i){
           g= this.goals[i];
-          if(this.testWin(snap.state, snap.other, g))
+          if(this.testWin(snap.state, p1, g))
             return -100;
+          if(this.testWin(snap.state, p2, g))
+            return 100;
         }
         return 0;
       }
       isOver(snap,move){
         for(let g, i=0; i < this.goals.length; ++i){
           g= this.goals[i];
-          if(this.testWin(snap.state, snap.other, g)) {
+          if(this.testWin(snap.state, snap.other, g) ||
+             this.testWin(snap.state, snap.cur, g)) {
             return true;
           }
-          /*
-          if (this.testWin(snap.state, snap.cur, g) ||
-              this.testWin(snap.state, snap.other, g)) return true;
-          */
         }
         return this.isStalemate(snap);
       }
@@ -111,7 +105,18 @@
     }
 
     _G.TTToe=function(p1v,p2v){
-      return new C(p1v,p2v)
+      let c= new CZ(p1v,p2v);
+      if(Algo.algo=="negamax"){
+        c.evalScore=function(snap,move){
+          for(let g, i=0; i<c.goals.length; ++i){
+            g= c.goals[i];
+            if(c.testWin(snap.state, snap.other, g)) return -100;
+            if(c.testWin(snap.state, snap.cur, g)) return 100;
+          }
+          return 0;
+        }
+      }
+      return c;
     }
   }
 

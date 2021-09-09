@@ -112,7 +112,7 @@
         let gap=_S.bmpText("or", cfg);
         b1.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("MainMenu") };
         b2.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("Splash") };
-        _G.playSnd("game_over.wav");
+        _G.playSnd("game_over.mp3");
         this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2])) }
     });
 

@@ -548,9 +548,21 @@
        * @return {any}
        */
       randItem(arr){
-        if(arr && arr.length>0)
-          return arr.length===1 ? arr[0]
-                                : arr[MFL(PRNG()*arr.length)]
+        let rc;
+        if(arr){
+          switch(arr.length){
+            case 0:
+            case 1:
+              rc=arr[0];
+              break;
+            case 2:
+              rc= this.randSign()>0? arr[1]:arr[0];
+              break;
+            default:
+              rc= arr[MFL(PRNG()*arr.length)];
+          }
+        }
+        return rc;
       },
       /**Check if string represents a percentage value.
        * @memberof module:mcfud/core._
@@ -809,11 +821,24 @@
       shuffle(obj,inplace=true){
         _pre(isVec,obj,"array");
         const res=Slicer.call(obj,0);
-        for(let x,j,i= res.length-1; i>0; --i){
-          j= MFL(PRNG() * (i+1));
-          x= res[i];
-          res[i] = res[j];
-          res[j] = x;
+        switch(res.length){
+          case 0:
+          case 1:
+            break;
+          case 2:
+            if(this.randSign()>0){
+              let a=res[0];
+              res[0]=res[1];
+              res[1]=a;
+            }
+            break;
+          default:
+            for(let x,j,i= res.length-1; i>0; --i){
+              j= MFL(PRNG() * (i+1));
+              x= res[i];
+              res[i] = res[j];
+              res[j] = x;
+            }
         }
         return inplace?this.copy(obj,res):res;
       },
@@ -5225,7 +5250,7 @@
        * @param {GFrame} frame
        * @return {number}
        */
-      evalScore(frame,move){}
+      evalScore(frame){}
       /**Check if game is a draw.
        * @param {GFrame} frame
        * @return {boolean}
@@ -5245,12 +5270,31 @@
       /**Switch to the other player.
        * @param {GFrame} frame
        */
-      switchPlayer(frame){}
+      switchPlayer(snap){
+        let t = snap.cur;
+        snap.cur= snap.other;
+        snap.other= t;
+      }
+      /**Get the other player.
+       * @param {any} pv player
+       * @return {any}
+       */
+      getOtherPlayer(pv){
+        if(pv === this.actors[1]) return this.actors[2];
+        if(pv === this.actors[2]) return this.actors[1];
+      }
+      /**Get the current player.
+       * @return {any}
+       */
+      getPlayer(){
+        return this.actors[0]
+      }
       /**Take a snapshot of current game state.
        * @return {GFrame}
        */
       takeGFrame(){}
       run(seed,actor){
+        this.getAlgoActor=()=>{ return actor }
         this.syncState(seed,actor);
         let pos= this.getFirstMove();
         if(_.nichts(pos))
@@ -5260,8 +5304,10 @@
     }
 
     /** @ignore */
-    function _calcScore(board,game,move,depth){
-      let score=board.evalScore(game,move);
+    function _calcScore(board,game,depth,maxDepth){
+      //if the other player wins, then return a -ve else +ve
+      //maxer == 1 , minus == -1
+      let score=board.evalScore(game,depth,maxDepth);
       if(!_.feq0(score))
         score -= 0.01*depth*Math.abs(score)/score;
       return score;
@@ -5271,27 +5317,25 @@
      * @see {@link https://github.com/Zulko/easyAI}
      * @param {GameBoard} board
      * @param {GFrame} game
-     * @param {number} maxDepth
      * @param {number} depth
-     * @param {any} prevMove
+     * @param {number} maxDepth
      * @param {number} alpha
      * @param {number} beta
      * @return {number}
      */
-    function _negaMax(board, game, maxDepth,depth,prevMove, alpha, beta){
+    function _negaMax(board, game, depth,maxDepth,alpha, beta){
 
-      if(depth===0 ||
-         (!_.nichts(prevMove)&&
-          board.isOver(game,prevMove))){
-        return _calcScore(board,game,prevMove,depth) }
+      if(depth===0 || board.isOver(game)){
+        return [_calcScore(board,game,depth,maxDepth),null]
+      }
 
-      let openMoves = board.getNextMoves(game),
+      let openMoves = _.shuffle(board.getNextMoves(game)),
           state=game,
           bestValue = -Infinity,
           bestMove = openMoves[0];
 
-      if(depth === maxDepth)
-        game.lastBestMove = openMoves[0];
+      if(depth===maxDepth)
+        state.lastBestMove=bestMove;
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
         if(!board.undoMove)
@@ -5300,30 +5344,27 @@
         //try a move
         board.makeMove(game, move);
         board.switchPlayer(game);
-        rc= - _negaMax(board, game, maxDepth, depth-1, move, -beta, -alpha)
+        rc= - _negaMax(board, game, depth-1, maxDepth, -beta, -alpha)[0];
         //now, roll it back
         if(board.undoMove){
           board.switchPlayer(game);
           board.undoMove(game, move);
         }
         //how did we do ?
-        //bestValue = _.max(bestValue, rc);
         if(bestValue < rc){
           bestValue = rc;
           bestMove = move
         }
-        if(alpha < rc){
-          alpha = rc;
-          //bestMove = move;
-          if(depth === maxDepth)
-            state.lastBestMove = move;
-          if(alpha >= beta) break;
-        }
+        if(alpha < rc){ alpha=rc }
+        if(depth === maxDepth)
+          state.lastBestMove = move;
+        if(alpha >= beta) break;
       }
-      return bestValue;
+      return [bestValue, state.lastBestMove];
     }
 
     const _$={
+      algo:"negamax",
       GFrame,
       GameBoard,
       /**Make a move on the game-board using negamax algo.
@@ -5334,7 +5375,10 @@
       evalNegaMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
-        _negaMax(board, f, d,d,null, -Infinity, Infinity);
+        let score,move;
+        [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
+        if(_.nichts(move)) move=-1;
+        console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${f.lastBestMove}`);
         return f.lastBestMove;
       }
     };
@@ -5347,6 +5391,243 @@
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/negamax"]=_module
+  }
+
+})(this);
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+
+;(function(gscope){
+
+  "use strict";
+
+  /**Creates the module.
+   */
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    const {u:_}=Core;
+
+    /**
+      * @module mcfud/minimax
+      */
+
+    /**
+     * @memberof module:mcfud/minimax
+     * @class
+     * @property {any} state
+     * @property {any} other
+     * @property {any} cur
+     */
+    class GFrame{
+      /**
+       * @param {any} cur
+       * @param {any} other
+       */
+      constructor(cur,other){
+        this.cur=cur;
+        this.state= null;
+        this.other=other;
+      }
+      /**Make a copy of this.
+       * @param {function} cp  able to make a copy of state
+       * @return {GFrame}
+       */
+      clone(cp){
+        const f= new GFrame();
+        f.state=cp(this.state);
+        f.other=this.other;
+        f.cur=this.cur;
+        return f;
+      }
+    }
+
+    /**Represents a game board.
+     * @memberof module:mcfud/minimax
+     * @class
+     */
+    class GameBoard{
+      constructor(){
+        this.aiActor=null;
+      }
+      /**Get the function that copies a game state.
+       * @return {function}
+       */
+      getStateCopier(){}
+      /**Get the first move.
+       * @param {GFrame} frame
+       * @return {any}
+       */
+      getFirstMove(frame){}
+      /**Get the list of next possible moves.
+       * @param {GFrame} frame
+       * @return {any[]}
+       */
+      getNextMoves(frame){}
+      /**Calculate the score.
+       * @param {GFrame} frame
+       * @param {number} depth
+       * @param {number} maxDepth
+       * @return {number}
+       */
+      evalScore(frame,depth,maxDepth){}
+      /**Check if game is a draw.
+       * @param {GFrame} frame
+       * @return {boolean}
+       */
+      isStalemate(frame){}
+      /**Check if game is over.
+       * @param {GFrame} frame
+       * @return {boolean}
+       */
+      isOver(frame,move){}
+      //undoMove(frame, move){}
+      /**Make a move.
+       * @param {GFrame} frame
+       * @param {any} move
+       */
+      makeMove(frame, move){}
+      /**Take a snapshot of current game state.
+       * @return {GFrame}
+       */
+      takeGFrame(){}
+      /**Switch to the other player.
+       * @param {GFrame} snap
+       */
+      switchPlayer(snap){
+        let t = snap.cur;
+        snap.cur= snap.other;
+        snap.other= t;
+      }
+      /**Get the other player.
+       * @param {any} pv player
+       * @return {any}
+       */
+      getOtherPlayer(pv){
+        if(pv === this.actors[1]) return this.actors[2];
+        if(pv === this.actors[2]) return this.actors[1];
+      }
+      /**Get the current player.
+       * @return {any}
+       */
+      getPlayer(){
+        return this.actors[0]
+      }
+      /**Run the algo and get a move.
+       * @param {any} seed
+       * @param {any} actor
+       * @return {any}  the next move
+       */
+      run(seed,actor){
+        this.getAlgoActor=()=>{ return actor }
+        this.syncState(seed,actor);
+        let pos= this.getFirstMove();
+        if(_.nichts(pos))
+          pos= _$.evalMiniMax(this);
+        return pos;
+      }
+    }
+
+    /** @ignore */
+    function _calcScore(board,game,depth,maxDepth){
+      //+ve if AI wins
+      return board.evalScore(game,depth,maxDepth)
+    }
+
+    /**Implements the Min-Max (alpha-beta) algo.
+     * @param {GameBoard} board
+     * @param {GFrame} game
+     * @param {number} depth
+     * @param {number} maxDepth
+     * @param {number} alpha
+     * @param {number} beta
+     * @return {number}
+     */
+    function _miniMax(board, game, depth,maxDepth, alpha, beta, maxing){
+      if(depth===0 || board.isOver(game)){
+        return [_calcScore(board,game,depth,maxDepth),null]
+      }
+      ///////////
+      let state=game,
+          openMoves= _.shuffle(board.getNextMoves(game));
+      if(maxing){
+        let rc,pos,move,
+            bestMove=null, maxValue = -Infinity;
+        for(let i=0; i<openMoves.length; ++i){
+          game=state.clone(board.getStateCopier());
+          move=openMoves[i];
+          board.makeMove(game, move);
+          board.switchPlayer(game);
+					rc= _miniMax(board, game, depth-1, maxDepth, alpha, beta, !maxing)[0];
+					alpha = Math.max(rc,alpha);
+          if(rc > maxValue){
+						maxValue = rc;
+						bestMove = move;
+          }
+					if(beta <= alpha){break}
+        }
+        return [maxValue,bestMove];
+      }else{
+			  let rc,pos,move,
+            bestMove=null, minValue = Infinity;
+        for(let i=0; i<openMoves.length; ++i){
+          game=state.clone(board.getStateCopier());
+          move=openMoves[i];
+          board.makeMove(game, move);
+          board.switchPlayer(game);
+					rc = _miniMax(board, game, depth-1, maxDepth, alpha, beta, !maxing)[0];
+					beta = Math.min(rc,beta);
+          if(rc < minValue){
+						minValue = rc;
+						bestMove = move;
+          }
+					if(beta <= alpha){break}
+        }
+        return [minValue,bestMove];
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _$={
+      algo: "minimax",
+      GFrame,
+      GameBoard,
+      /**Make a move on the game-board using minimax algo.
+       * @memberof module:mcfud/minimax
+       * @param {GameBoard} board
+       * @return {any} next best move
+       */
+      evalMiniMax(board){
+        const f= board.takeGFrame();
+        const d= board.depth;
+        let score,move;
+        [score, move]= _miniMax(board, f, d,d, -Infinity, Infinity, true);
+        if(_.nichts(move)) move=-1;
+        console.log(`evalMiniMax: score=${score}, pos= ${move}`);
+        return move;
+      }
+    };
+
+    return _$;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    gscope["io/czlab/mcfud/minimax"]=_module
   }
 
 })(this);

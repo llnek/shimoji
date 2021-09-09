@@ -17,7 +17,6 @@
   "use strict";
 
   window["io/czlab/tictactoe/Sprites"]= function(Mojo){
-    const _N=window["io/czlab/mcfud/negamax"]();
     const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
