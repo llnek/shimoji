@@ -483,6 +483,7 @@
       gameOver(win){
         this.pwin=win;
         this.end=true;
+        Mojo.Input.resume();
       }
       start(){
         _.assert(this.pcur>0,"bad current pnum");

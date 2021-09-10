@@ -5260,7 +5260,7 @@
        * @param {GFrame} frame
        * @return {boolean}
        */
-      isOver(frame,move){}
+      isOver(frame){}
       //undoMove(frame, move){}
       /**Make a move.
        * @param {GFrame} frame
@@ -5308,9 +5308,12 @@
       //if the other player wins, then return a -ve else +ve
       //maxer == 1 , minus == -1
       let score=board.evalScore(game,depth,maxDepth);
+      /*
       if(!_.feq0(score))
         score -= 0.01*depth*Math.abs(score)/score;
       return score;
+      */
+      return score * (1 + 0.001 * depth);
     }
 
     /**Implements the NegaMax Min-Max algo.
@@ -5355,10 +5358,12 @@
           bestValue = rc;
           bestMove = move
         }
-        if(alpha < rc){ alpha=rc }
-        if(depth === maxDepth)
-          state.lastBestMove = move;
-        if(alpha >= beta) break;
+        if(alpha < rc){
+          alpha=rc;
+          if(depth === maxDepth)
+            state.lastBestMove = move;
+          if(alpha >= beta) break;
+        }
       }
       return [bestValue, state.lastBestMove];
     }
@@ -5377,7 +5382,7 @@
         const d= board.depth;
         let score,move;
         [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
-        if(_.nichts(move)) move=-1;
+        if(_.nichts(move)) move="???";
         console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${f.lastBestMove}`);
         return f.lastBestMove;
       }

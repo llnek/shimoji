@@ -55,22 +55,16 @@
         }
         return out;
       }
-      undoMove(snap, move){
+      getStateCopier(){
+        return function(s){ return _.deepCopyArray(s) }
+      }
+      XXundoMove(snap, move){
         snap.state[move[0]][move[1]]=0 }
       makeMove(snap, move){
         if(snap.state[move[0]][move[1]]===0)
           snap.state[move[0]][move[1]] = snap.cur;
         else
-          throw `Error: cell [${move[0]},${move[1]}] is not free` }
-      switchPlayer(snap){
-        let t = snap.cur;
-        snap.cur= snap.other;
-        snap.other= t;
-      }
-      getOtherPlayer(pv){
-        if(pv === this.actors[1]) return this.actors[2];
-        if(pv === this.actors[2]) return this.actors[1];
-        return 0;
+          throw `Error: cell [${move[0]},${move[1]}] is not free`
       }
       takeGFrame(){
         let ff = new Nega.GFrame();
@@ -81,14 +75,32 @@
         return ff;
       }
       isStalemate(snap){
-        return _G.checkDraw(snap.state)}
-      isOver(snap,move){
-        return _G.check4(snap.state,
-                         move[0],
-                         move[1],snap.other) || this.isStalemate(snap) }
-      evalScore(snap,move){
-        //if we lose, return a negative value
-        return _G.check4(snap.state, move[0], move[1],snap.other)?-100:0 }
+        return _G.checkDraw(snap.state)
+      }
+      isOver(snap){
+        let rc= _G.checkAnyWin(snap.state, snap.other);
+        if(rc){
+          console.log(`isOver: winner ${snap.other}`);
+          return rc;
+        }
+        rc= _G.checkAnyWin(snap.state, snap.cur);
+        if(rc){
+          console.log(`isOver: winner ${snap.cur}`);
+          return rc;
+        }
+        return this.isStalemate(snap);
+      }
+      evalScore(snap){
+        if(_G.checkAnyWin(snap.state, snap.other)){
+          console.log(`score: winner ${snap.other}`);
+          return -100;
+        }
+        if(_G.checkAnyWin(snap.state, snap.cur)){
+          console.log(`score: winner ${snap.cur}`);
+          return 100;
+        }
+        return 0;
+      }
     }
 
     _G.AI=function(){ return new CZ(_G.X,_G.O) };

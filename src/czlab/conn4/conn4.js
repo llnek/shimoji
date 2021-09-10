@@ -64,9 +64,6 @@
       stateValue(){
         return this.pnum;
       }
-      playSound(){
-        Mojo.sound("o.mp3").play();
-      }
       onPoke(){
         _.delay(848,()=>{
           const move=this.ai.run(_G.mediator.gameState(), this.pnum);
@@ -83,12 +80,6 @@
       stateValue(){
         return this.pnum;
       }
-      playSound(){
-        if(this.pnum===_G.X)
-          Mojo.sound("x.mp3").play();
-        else
-          Mojo.sound("o.mp3").play();
-      }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class C4Mediator extends Mediator{
@@ -98,6 +89,12 @@
         this.pcur=cur;
         for(let y=0;y<_G.ROWS;++y)
           this.state.push(_.fill(_G.COLS,0));
+      }
+      updateSound(player){
+        if(player===_G.X)
+          Mojo.sound("x.mp3").play();
+        else
+          Mojo.sound("o.mp3").play();
       }
       updateState(from,move){
         let [row,col]=move,
@@ -158,30 +155,41 @@
       checkDraw(cells){
         return _.every(_.map(cells,r=> _.every(r,v=>v!==0)), v=>!!v)
       },
+      checkAnyWin(cells,turn){
+        for(let r,y=0; y<cells.length; ++y){
+          r=cells[y];
+          for(let x=0; x<r.length; ++x){
+            if(this.check4(cells,y,x,turn)) return turn;
+          }
+        }
+      },
       /** test for win */
       check4(cells,row,col,turn){
         let width=cells[0].length;
         let height=cells.length;
-        let out=[];
-        let i,j;
+        let i,j,out=[];
         //test the row
+        //left
         for(j=col;j>=0;--j){
           if(cells[row][j]!==turn){ break }
           out.push([row,j]);
         }
         if(out.length>=4){ return out }
+        //right
         for(j=col;j<width;++j){
           if(cells[row][j]!==turn){ break }
           if(j!==col) out.push([row,j]);
         }
         if(out.length>=4){ return out }
         //test the column
+        //up
         out.length=0;
         for(i=row;i>=0;--i){
           if(cells[i][col]!==turn){ break }
           out.push([i,col]);
         }
         if(out.length>=4){ return out }
+        //down
         for(i=row;i<height;++i){
           if(cells[i][col]!==turn){ break }
           if(i!==row) out.push([i,col]);
@@ -191,7 +199,8 @@
         out.length=0;
         i=row;
         j=col;
-        while(i>=0 && i<height && j>=0 && j<width){
+        //upward
+        while(i>=0 && j>=0 && j<width){
           if(cells[i][j]!==turn){ break }
           out.push([i,j]);
           ++j;
@@ -200,7 +209,8 @@
         if(out.length>=4){ return out }
         i=row;
         j=col;
-        while(i>=0 && i<height && j>=0 && j<width){
+        //downward
+        while(i<height && j>=0){
           if(cells[i][j]!==turn){ break }
           if(!(i===row && j===col)) out.push([i,j]);
           --j;
@@ -211,7 +221,8 @@
         out.length=0;
         i=row;
         j=col;
-        while(i>=0 && i<height && j>=0 && j<width){
+        //upward
+        while(i>=0 && j>=0){
           if(cells[i][j]!==turn){ break }
           out.push([i,j]);
           --j;
@@ -220,11 +231,12 @@
         if(out.length>=4){ return out }
         i=row;
         j=col;
-        while(i>=0 && i<height && j>=0 && j<width){
+        //downward
+        while(i<height && j<width){
           if(cells[i][j]!==turn){ break }
           if(!(i===row && j===col)) out.push([i,j]);
           ++j;
-          --i;
+          ++i;
         }
         if(out.length>=4){ return out }
       }
@@ -319,8 +331,15 @@
         this.g.doNext();
       }
     });
+    let XXX=0;
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("EndGame",{
+      postUpdate(){
+        if(XXX<3){
+          _I.dbg();
+          ++XXX;
+        }
+      },
       setup(options){
         const K=Mojo.getScaleFactor();
         const mode = _G.mode;
@@ -342,10 +361,13 @@
         let m1=_S.bmpText("Game Over", cfg);
         let m2=_S.bmpText(msg, cfg);
         let gap=_S.bmpText("or", cfg);
-        b1.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("MainMenu") };
-        b2.m5.press=()=>{ _G.playClick(); _Z.runSceneEx("Splash") };
         Mojo.sound(snd).play();
-        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2])) }
+        b1.m5.press=()=>{
+          _G.playClick(); _Z.runSceneEx("MainMenu") };
+        b2.m5.press=()=>{
+          _G.playClick(); _Z.runSceneEx("Splash") };
+        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2],{bg:"#cccccc"}))
+      }
     });
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PlayGame",{
@@ -409,8 +431,8 @@
         let m=_G.mediator;
         if(m.isGameOver()){
           this.m5.dead=true;
+          _I.resetAll();
           _.delay(343,()=>{
-            _I.resetAll();
             _Z.runScene("EndGame",{win: m.winner()});
           });
         }else{

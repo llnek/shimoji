@@ -96,6 +96,12 @@
       HOME: 36, END: 35,
       PGGUP: 33, PGDOWN: 34,
       ptr:null,
+      dbg(){
+        console.log(`N# of touches= ${ActiveTouches.size}`);
+        console.log(`N# of buttons= ${Buttons.length}`);
+        console.log(`N# of drags= ${DragDrops.length}`);
+        console.log(`Mouse pointer = ${this.ptr}`);
+      },
       resume(){ _pauseInput=false },
       pause(){ _pauseInput=true },
       isPaused(){ return _pauseInput },
@@ -406,6 +412,7 @@
           },
           reset(){
             _.setVec(ptr.state,false,true);
+            ActiveTouches.clear();
             Buttons.length=0;
             DragDrops.length=0;
           },
