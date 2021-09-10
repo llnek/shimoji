@@ -5334,8 +5334,6 @@
 
     //option2
     //
-    //var alpha = {value: -1000, move: 0};
-    //var beta = {value: 1000, move: 0};
     function _negaAlphaBeta(board, game, depth, maxDepth, alpha, beta){
 
       if(depth===0 || board.isOver(game)){
@@ -5355,6 +5353,9 @@
                                          maxDepth,
                                          {value: -beta.value, move: beta.move},
                                          {value: -alpha.value, move: alpha.move});
+        //now, roll it back
+        if(!copier)
+          board.unmakeMove(game, move);
         rc.value = -rc.value;
         rc.move = move;
         if(rc.value>alpha.value){
@@ -5441,8 +5442,8 @@
       evalNegaMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
-        let {value, move} = _negaAlphaBeta(board, f, d, d, {value: -Infinity, move: null },
-                                                           {value: Infinity, move: null });
+        let {value, move} = _negaAlphaBeta(board, f, d, d, {value: -Infinity },
+                                                           {value: Infinity  });
         if(_.nichts(move)) move="???";
         console.log(`evalNegaMax: score= ${value}, pos= ${move}`);
         return move;

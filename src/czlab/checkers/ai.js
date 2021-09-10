@@ -35,20 +35,19 @@
       getStateCopier(){
         return (s)=> JSON.parse(JSON.stringify(s))
       }
-      //getFirstMove(){ }
       syncState(seed, actor){
         this.actors[0] = actor;
         this.grid= JSON.parse(JSON.stringify(seed));
       }
       getNextMoves(snap){
         let out=[],
-            moves = _G.calcNextMoves(snap.cur[1], this.grid)[1];
+            moves = _G.calcNextMoves(snap.cur[1], snap.state)[1];
         _.doseq(moves, (v)=>{
           out.push(v);
         });
         return out;
       }
-      makeMove(snap, move){
+      doMove(snap, move){
         let [r,c, target] =move;
         let [row,col,act]=target;
         let S=snap.state;
@@ -70,16 +69,6 @@
             break;
         }
       }
-      switchPlayer(snap){
-        let t = snap.cur;
-        snap.cur= snap.other;
-        snap.other= t;
-      }
-      getOtherPlayer(pv){
-        if(pv === this.actors[1]) return this.actors[2];
-        if(pv === this.actors[2]) return this.actors[1];
-        return 0;
-      }
       takeGFrame(){
         let ff = new Nega.GFrame();
         ff.state=JSON.parse(JSON.stringify(this.grid));
@@ -88,11 +77,25 @@
         ff.lastBestMove=null;
         return ff;
       }
-      isOver(snap,move){
-        return move?true:false
+      isOver(snap){
+        let s= snap.state;
+        let R=0;
+        let B=0;
+        for(let r,y=0; y< s.length; ++y){
+          r=s[y];
+          for(let x=0; x < r.length; ++x){
+            if(r[x]){
+              if(r[x].team===_G.TEAM_BLACK) ++B;
+              if(r[x].team===_G.TEAM_RED) ++R;
+            }
+          }
+        }
+
+        return R===0 || B===0;
       }
       //if we lose, return a negative value
       evalScore(snap,move){
+        return 100;
         let [r,c,target]=move;
         let [row,col,act]=target;
         let score=100;
@@ -114,4 +117,5 @@
 
 })(this);
 
+//king cant jump back, handle draw and win
 
