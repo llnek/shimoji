@@ -5261,12 +5261,28 @@
        * @return {boolean}
        */
       isOver(frame){}
+      /**Reverse previous move.
+       * @param {GFrame} frame
+       * @param {any} move
+       */
+      unmakeMove(frame, move){
+        if(!this.undoMove)
+          throw Error("Need Implementation");
+        this.switchPlayer(frame);
+        this.undoMove(frame, move);
+      }
       //undoMove(frame, move){}
+      //doMove(frame, move){ }
       /**Make a move.
        * @param {GFrame} frame
        * @param {any} move
        */
-      makeMove(frame, move){}
+      makeMove(frame, move){
+        if(!this.doMove)
+          throw Error("Need Implementation!");
+        this.doMove(frame, move);
+        this.switchPlayer(frame);
+      }
       /**Switch to the other player.
        * @param {GFrame} frame
        */
@@ -5316,6 +5332,44 @@
       return score * (1 + 0.001 * depth);
     }
 
+    //option2
+    //
+    //var alpha = {value: -1000, move: 0};
+    //var beta = {value: 1000, move: 0};
+    function _negaAlphaBeta(board, game, depth, maxDepth, alpha, beta){
+
+      if(depth===0 || board.isOver(game)){
+        return { depth, value: _calcScore(board,game,depth,maxDepth) }
+      }
+
+      let state=game,
+          copier= board.getStateCopier(),
+          openMoves= _.shuffle(board.getNextMoves(game));
+
+      for(let rc, move, i=0; i< openMoves.length; ++i){
+        move= openMoves[i];
+        if(copier)
+          game= state.clone(copier);
+        board.makeMove(game, move);
+        rc = _negaAlphaBeta(board, game, depth-1,
+                                         maxDepth,
+                                         {value: -beta.value, move: beta.move},
+                                         {value: -alpha.value, move: alpha.move});
+        rc.value = -rc.value;
+        rc.move = move;
+        if(rc.value>alpha.value){
+          alpha = {value: rc.value, move: move, depth: rc.depth};
+        }
+        if(alpha.value >= beta.value){
+          return beta;
+        }
+      }
+
+      return JSON.parse(JSON.stringify(alpha));
+    }
+    //
+    //
+
     /**Implements the NegaMax Min-Max algo.
      * @see {@link https://github.com/Zulko/easyAI}
      * @param {GameBoard} board
@@ -5333,6 +5387,7 @@
       }
 
       let openMoves = _.shuffle(board.getNextMoves(game)),
+          copier= board.getStateCopier(),
           state=game,
           bestValue = -Infinity,
           bestMove = openMoves[0];
@@ -5341,18 +5396,15 @@
         state.lastBestMove=bestMove;
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
-        if(!board.undoMove)
-          game=state.clone(board.getStateCopier());
+        if(copier)
+          game=state.clone(copier);
         move = openMoves[i];
         //try a move
         board.makeMove(game, move);
-        board.switchPlayer(game);
         rc= - _negaMax(board, game, depth-1, maxDepth, -beta, -alpha)[0];
         //now, roll it back
-        if(board.undoMove){
-          board.switchPlayer(game);
-          board.undoMove(game, move);
-        }
+        if(!copier)
+          board.unmakeMove(game, move);
         //how did we do ?
         if(bestValue < rc){
           bestValue = rc;
@@ -5377,7 +5429,7 @@
        * @param {GameBoard} board
        * @return {any} next best move
        */
-      evalNegaMax(board){
+      XXevalNegaMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
         let score,move;
@@ -5385,6 +5437,15 @@
         if(_.nichts(move)) move="???";
         console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${f.lastBestMove}`);
         return f.lastBestMove;
+      },
+      evalNegaMax(board){
+        const f= board.takeGFrame();
+        const d= board.depth;
+        let {value, move} = _negaAlphaBeta(board, f, d, d, {value: -Infinity, move: null },
+                                                           {value: Infinity, move: null });
+        if(_.nichts(move)) move="???";
+        console.log(`evalNegaMax: score= ${value}, pos= ${move}`);
+        return move;
       }
     };
 

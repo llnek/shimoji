@@ -74,7 +74,7 @@
       getNextMoves(snap){
         return _possibleMoves(snap.state,snap.cur,snap.other)
       }
-      makeMove(snap, move){
+      doMove(snap, move){
         _.assert(move[1] >= 0 && move[1] < snap.state[0].length);//col
         _.assert(move[0] >= 0 && move[0] < snap.state.length);//row
         let f= _G.search(snap.state,move, snap.cur,snap.other);
@@ -82,15 +82,9 @@
         f.forEach(p=>{ snap.state[p[0]][p[1]]=snap.cur });
         snap.state[move[0]][move[1]]=snap.cur;
       }
-      switchPlayer(snap){
-        let t = snap.cur;
-        snap.cur= snap.other;
-        snap.other= t;
-      }
       getOtherPlayer(pv){
         if(pv === this.actors[1]) return this.actors[2];
         if(pv === this.actors[2]) return this.actors[1];
-        return 0;
       }
       takeGFrame(){
         const ff = new Nega.GFrame();

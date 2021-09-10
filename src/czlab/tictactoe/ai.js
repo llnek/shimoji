@@ -17,8 +17,8 @@
   "use strict";
 
   window["io/czlab/tictactoe/AI"]=function(Mojo){
-    //const Algo= window["io/czlab/mcfud/negamax"]();
-    const Algo= window["io/czlab/mcfud/minimax"]();
+    const Algo= window["io/czlab/mcfud/negamax"]();
+    //const Algo= window["io/czlab/mcfud/minimax"]();
     const {Game:_G,
            ute:_,is}=Mojo;
 
@@ -50,12 +50,12 @@
       getStateCopier(){
         return function(s){ return _.deepCopyArray(s) }
       }
-      XXundoMove(snap, move){
+      undoMove(snap, move){
         _.assert(move>=0 &&
                  move<snap.state.length);
         snap.state[move] = 0;
       }
-      makeMove(snap, move){
+      doMove(snap, move){
         _.assert(move>=0 &&
                  move<snap.state.length);
         if(this.isNil(snap.state[move]))

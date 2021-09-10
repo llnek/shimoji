@@ -58,9 +58,9 @@
       getStateCopier(){
         return function(s){ return _.deepCopyArray(s) }
       }
-      XXundoMove(snap, move){
+      undoMove(snap, move){
         snap.state[move[0]][move[1]]=0 }
-      makeMove(snap, move){
+      doMove(snap, move){
         if(snap.state[move[0]][move[1]]===0)
           snap.state[move[0]][move[1]] = snap.cur;
         else
