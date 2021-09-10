@@ -78,35 +78,25 @@
         return ff;
       }
       isOver(snap){
-        let s= snap.state;
-        let R=0;
-        let B=0;
-        for(let r,y=0; y< s.length; ++y){
-          r=s[y];
-          for(let x=0; x < r.length; ++x){
-            if(r[x]){
-              if(r[x].team===_G.TEAM_BLACK) ++B;
-              if(r[x].team===_G.TEAM_RED) ++R;
-            }
-          }
-        }
-
-        return R===0 || B===0;
+        return _G.isWon(snap.state) || _G.isTie(snap.state)
       }
       //if we lose, return a negative value
-      evalScore(snap,move){
-        return 100;
-        let [r,c,target]=move;
-        let [row,col,act]=target;
-        let score=100;
-        if(row===0 || row===(_G.ROWS-1)){
-          //becomes king
-          if(snap.cur===this.actors[1]){
-            console.log("good to be king");
-            score=0;
-          }
+      evalScore(snap){
+        let s= _G.checkStatus(snap.state);
+        let b=s[_G.TEAM_BLACK];
+        let r=s[_G.TEAM_RED];
+        let bt= b[0]+b[1];
+        let rt= r[0]+r[1];
+        if(snap.other[1]===_G.TEAM_BLACK){
+          if(rt===0 && bt>0) return -1000; // black won!
+          if(b[1]>r[1]) return -500; // more black kings
+          if(b[0]>r[0]) return -100; // more black pawns
+        }else{
+          if(bt===0 && rt>0) return 1000; // red won!
+          if(r[1]>b[1]) return 500; // more red kings
+          if(r[0]>b[0]) return 100; // more black pawns
         }
-        return score;
+        return 0;
       }
     }
 

@@ -5435,17 +5435,17 @@
         const d= board.depth;
         let score,move;
         [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
-        if(_.nichts(move)) move="???";
-        console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${f.lastBestMove}`);
-        return f.lastBestMove;
+        if(_.nichts(move))
+          console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${move}`);
+        return move;
       },
       evalNegaMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
         let {value, move} = _negaAlphaBeta(board, f, d, d, {value: -Infinity },
                                                            {value: Infinity  });
-        if(_.nichts(move)) move="???";
-        console.log(`evalNegaMax: score= ${value}, pos= ${move}`);
+        if(_.nichts(move))
+          console.log(`evalNegaMax: score= ${value}, pos= ${move}`);
         return move;
       }
     };
@@ -5681,8 +5681,8 @@
         const d= board.depth;
         let score,move;
         [score, move]= _miniMax(board, f, d,d, -Infinity, Infinity, true);
-        if(_.nichts(move)) move=-1;
-        console.log(`evalMiniMax: score=${score}, pos= ${move}`);
+        if(_.nichts(move))
+          console.log(`evalMiniMax: score=${score}, pos= ${move}`);
         return move;
       }
     };

@@ -115,7 +115,10 @@
       /**Clear all keyboard states.
        * @memberof module:mojoh5/Input
        */
-      reset(){ _keyInputs.clear() },
+      reset(){
+        _pauseInput=false;
+        _keyInputs.clear();
+      },
       /**Clear all keyboard and mouse events.
        * @memberof module:mojoh5/Input
        */

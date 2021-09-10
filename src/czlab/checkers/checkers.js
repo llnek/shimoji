@@ -58,7 +58,43 @@
       COLS:8,
       ROWS:8,
       X:1,
-      O:2
+      O:2,
+      checkStatus(s){
+        let out={}, R=0, B=0, RK=0, BK=0;
+        for(let r,y=0; y< s.length; ++y){
+          r=s[y];
+          for(let c,x=0; x < r.length; ++x){
+            if(c=r[x]){
+              if(c.team===TEAM_BLACK){
+                if(c.king) ++BK; else ++B;
+              }
+              if(c.team===TEAM_RED){
+                if(c.king) ++RK; else ++R;
+              }
+            }
+          }
+        }
+        out[TEAM_BLACK]=[B,BK];
+        out[TEAM_RED]=[R,RK];
+        return out;
+      },
+      isWon(s){
+        let R=0, B=0;
+        for(let r,y=0; y< s.length; ++y){
+          r=s[y];
+          for(let x=0; x < r.length; ++x){
+            if(r[x]){
+              if(r[x].team===TEAM_BLACK) ++B;
+              if(r[x].team===TEAM_RED) ++R;
+            }
+          }
+        }
+        return R===0&&B>0 ? TEAM_BLACK : (B===0&&R>0? TEAM_RED : "")
+      },
+      isTie(s){
+        return _calcNextMoves(TEAM_RED,s)[2]===0 &&
+               _calcNextMoves(TEAM_BLACK,s)[2]===0
+      }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -165,6 +201,7 @@
           steps=[],
           dict={},
           tmp,
+          total=0,
           mask=_new8x8();
       S.forEach((r,y)=>{
         r.forEach((s,x)=>{
@@ -189,12 +226,14 @@
       if(tmp){
         for(let p,i=0;i<tmp.length;++i){
           p=tmp[i];
-          if(i%2===1)
+          if(i%2===1){
+            ++total;
             dict[`${p[0]},${p[1]}`]=[p[0],p[1], tmp[i-1]];
+          }
           mask[p[0]][p[1]]=p[2];
         }
       }
-      return [mask,dict];
+      return [mask,dict,total];
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _resetMask(m){
@@ -230,7 +269,8 @@
       }
       onPoke(){
         let move=this.ai.run(_G.mediator.gameState(), this.pobj);
-        _G.mediator.updateMove(this.pobj,move);
+        if(move)
+          _G.mediator.updateMove(this.pobj,move);
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -595,7 +635,7 @@
       },
       postUpdate(){
         let msg;
-        this.g.red.text=`   Red Score: ${_.prettyNumber(_G.redScore,2)}`;
+        this.g.red.text=  `  Red Score: ${_.prettyNumber(_G.redScore,2)}`;
         this.g.black.text=`Black Score: ${_.prettyNumber(_G.blackScore,2)}`;
         if(_G.redScore>11){
           msg=_G.mode===1?"You Lose!": "Player 2 (red) Wins";
@@ -603,6 +643,7 @@
           msg=_G.mode===1?"You Win!":"Player 1 (black) Wins";
         }
         if(msg){
+          _G.mediator.gameOver();
           this.m5.dead=true;
           _I.resetAll();
           _.delay(100,()=> _Z.runScene("EndGame",{msg}));
