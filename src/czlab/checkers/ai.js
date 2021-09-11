@@ -107,5 +107,4 @@
 
 })(this);
 
-//king cant jump back, handle draw and win
 

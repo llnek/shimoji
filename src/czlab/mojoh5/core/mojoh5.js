@@ -490,6 +490,7 @@
         this.end=false;
         this._turn();
       }
+      player(){ return this.players[this.pcur] }
       _turn(){
         for(let i=1;i<this.players.length;++i){
           if(i !== this.pcur)

@@ -98,6 +98,23 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function checkEnd(){
+      let S= _G.mediator.gameState();
+      let msg,w= _G.isWon(S);
+      if(w || _G.isTie(S)){
+        msg="No Winner!";
+        if(_G.redScore>11){
+          msg=_G.mode===1?"You Lose!": "Player 2 (red) Wins";
+        }else if(_G.blackScore>11){
+          msg=_G.mode===1?"You Win!":"Player 1 (black) Wins";
+        }
+        _G.mediator.gameOver(w);
+        _I.resetAll();
+        _.delay(100,()=> _Z.runScene("EndGame",{msg}));
+      }
+      return msg;
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function doBackDrop(scene){
       if(!_G.backDropSprite)
         _G.backDropSprite=_S.sizeXY(_S.sprite("bggreen.jpg"),Mojo.width,Mojo.height);
@@ -258,19 +275,37 @@
         this.team=team;
         let p,t2=team==TEAM_RED? TEAM_BLACK : TEAM_RED;
         if(pnum===2){
-          this.ai= _G.AI([_G.X,t2],p=[_G.O,team]);
+          this.ai= _G.AI([_G.X,t2],p=[_G.O,team, this]);
         }else{
-          this.ai= _G.AI([_G.O,team],p=[_G.X,t2]);
+          this.ai= _G.AI([_G.O,team],p=[_G.X,t2,this]);
         }
         this.pobj=p;
+      }
+      checkMoreJumps(from, move,S){
+        let ok,t,f,out,
+            [row,col,act]=move[2];
+        if(act=="J")
+          out= _calcJumps(row,col,S);
+        if(out && out.length>0){
+          t=out[0];//[r2,c2,"J"]
+          f=out[1];//[row,col,"j"]
+          //fake the next move
+          move=[f[0],f[1], t];
+          _.delay(584, ()=>{
+            this.owner.updateMove(from, move)
+          });
+          ok=true;
+        }
+        return ok;
       }
       stateValue(){
         return this.pnum;
       }
       onPoke(){
-        let move=this.ai.run(_G.mediator.gameState(), this.pobj);
-        if(move)
-          _G.mediator.updateMove(this.pobj,move);
+        _.delay(888,()=>{
+          let move=this.ai.run(_G.mediator.gameState(), this.pobj);
+          if(move) _G.mediator.updateMove(this.pobj,move);
+        })
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -341,6 +376,10 @@
         _moveTo(r,c, row,col,null,S);
       }
       postMove(from,move){
+        let S= this.gameState();
+        if(from[2] instanceof CKBot){
+          if(from[2].checkMoreJumps(from, move,S)){return}
+        }
         _nextToPlay();
       }
     }
@@ -416,15 +455,20 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function makeMove(r,c,row,col,M,S){
+      let p= _G.mediator.player();
       _moveTo(r,c,row,col,M,S);
       _resetMask();
       _resetBoard();
       _G.curSel=S[row][col];
+      Mojo.sound(p.team==TEAM_BLACK?"x.mp3":"o.mp3").play();
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _nextToPlay(){
-      _G.curSel=null;
-      _.delay(100,()=>_G.mediator.takeTurn())
+      if(checkEnd()){
+      }else{
+        _G.curSel=null;
+        _.delay(100,()=>_G.mediator.takeTurn());
+      }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _onClick(t){
@@ -499,13 +543,58 @@
             _X.remove(t);
             btn.tint=C_ORANGE;
             playClick();
-            _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("PlayGame",{mode:1,startsWith:1}));
+            _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("MainMenu"));
           };
           return self.insert(_S.centerAnchor(s));
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       },
+    });
+    _Z.defScene("MainMenu",{
+      setup(){
+        let self=this,
+            mode=1,
+            K=Mojo.getScaleFactor(),
+            cfg={fontName:UI_FONT, fontSize: 72*K};
+        function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
+        let b1=_I.mkBtn(_S.uuid(_S.bmpText("One Player",cfg),"#p1"));
+        let gap=_S.bmpText("or",cfg);
+        let b2=_I.mkBtn(_S.uuid(_S.bmpText("Two Player",cfg),"#p2"));
+        b1.m5.press=
+        b2.m5.press=(btn)=>{
+          if(btn.m5.uuid=="#p2") mode=2;
+          _S.tint(btn,C_ORANGE);
+          playClick();
+          _.delay(CLICK_DELAY,()=> _Z.runSceneEx("StartMenu",{mode}));
+        };
+        doBackDrop(this);
+        this.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"transparent"}));
+      }
+    });
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("StartMenu",{
+      setup(options){
+        let self=this,
+            startsWith=1,
+            K=Mojo.getScaleFactor(),
+            cfg={fontName: UI_FONT, fontSize: 72*K};
+        function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
+        let msg= _S.bmpText("Player 1 (Black) starts? ",cfg);
+        let b1=_I.mkBtn(_S.uuid(_S.bmpText("Yes",cfg),"#yes"));
+        let gap=_S.bmpText(" / ",cfg);
+        let b2= _I.mkBtn(_S.uuid(_S.bmpText("No",cfg),"#no"));
+        b1.m5.press=
+        b2.m5.press=(btn)=>{
+          _S.tint(btn,C_ORANGE);
+          playClick();
+          if(btn.m5.uuid=="#no") startsWith=2;
+          options.startsWith=startsWith;
+          _.delay(CLICK_DELAY,()=> _Z.runSceneEx("PlayGame",options));
+        };
+        doBackDrop(this);
+        this.insert(_Z.layoutX([msg,space(),b1, gap, b2],{bg:"transparent"}));
+      }
     });
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("EndGame",{
@@ -520,7 +609,7 @@
         s4=_I.makeButton(_S.bmpText("Play Again?",os));
         s5=_S.bmpText(" or ",os);
         s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>{ _Z.runSceneEx("PlayGame") };
+        s4.m5.press=()=>{ _Z.runSceneEx("MainMenu") };
         s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
         if(options.msg) snd="game_win.mp3";
         Mojo.sound(snd).play();
@@ -634,20 +723,8 @@
         M.start();
       },
       postUpdate(){
-        let msg;
         this.g.red.text=  `  Red Score: ${_.prettyNumber(_G.redScore,2)}`;
         this.g.black.text=`Black Score: ${_.prettyNumber(_G.blackScore,2)}`;
-        if(_G.redScore>11){
-          msg=_G.mode===1?"You Lose!": "Player 2 (red) Wins";
-        }else if(_G.blackScore>11){
-          msg=_G.mode===1?"You Win!":"Player 1 (black) Wins";
-        }
-        if(msg){
-          _G.mediator.gameOver();
-          this.m5.dead=true;
-          _I.resetAll();
-          _.delay(100,()=> _Z.runScene("EndGame",{msg}));
-        }
       }
     });
 
