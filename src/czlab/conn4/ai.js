@@ -31,8 +31,6 @@
         this.grid=[];
         this.depth=5;
       }
-      isNil(cellv){
-        return cellv === 0 }
       getFirstMove(){
         let y= this.grid.length-1;
         let r=this.grid[y];
@@ -62,7 +60,7 @@
         snap.state[move[0]][move[1]]=0 }
       doMove(snap, move){
         if(snap.state[move[0]][move[1]]===0)
-          snap.state[move[0]][move[1]] = snap.cur;
+          snap.state[move[0]][move[1]] = snap.cur.stateValue();
         else
           throw `Error: cell [${move[0]},${move[1]}] is not free`
       }
@@ -80,30 +78,30 @@
       isOver(snap){
         let rc= _G.checkAnyWin(snap.state, snap.other);
         if(rc){
-          console.log(`isOver: winner ${snap.other}`);
+          console.log(`isOver: winner ${rc.uuid()}`);
           return rc;
         }
         rc= _G.checkAnyWin(snap.state, snap.cur);
         if(rc){
-          console.log(`isOver: winner ${snap.cur}`);
+          console.log(`isOver: winner ${rc.uuid()}`);
           return rc;
         }
         return this.isStalemate(snap);
       }
       evalScore(snap){
         if(_G.checkAnyWin(snap.state, snap.other)){
-          console.log(`score: winner ${snap.other}`);
+          console.log(`score: winner ${snap.other.uuid()}`);
           return -100;
         }
         if(_G.checkAnyWin(snap.state, snap.cur)){
-          console.log(`score: winner ${snap.cur}`);
+          console.log(`score: winner ${snap.other.uuid()}`);
           return 100;
         }
         return 0;
       }
     }
 
-    _G.AI=function(){ return new CZ(_G.X,_G.O) };
+    _G.AI=function(p1,p2){ return new CZ(p1,p2) };
 
   }
 

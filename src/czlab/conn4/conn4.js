@@ -47,8 +47,8 @@
     _.inject(_G,{
       COLS:7,
       ROWS:6,
-      X:1,
-      O:2,
+      X:88,
+      O:79,
       playClick(){
         Mojo.sound("click.mp3").play()
       }
@@ -56,42 +56,40 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class C4Bot extends Bot{
-      constructor(pnum){
-        super("c4bot")
-        this.pnum=pnum;
-        this.ai= _G.AI();
+      constructor(uid,v){
+        super(uid);
+        this.pvalue=v;
       }
       stateValue(){
-        return this.pnum;
+        return this.pvalue;
       }
       onPoke(){
         _.delay(848,()=>{
-          const move=this.ai.run(_G.mediator.gameState(), this.pnum);
-          _G.mediator.updateMove(this.pnum, move);
+          const move=this.ai.run(_G.mediator.gameState(), this);
+          _G.mediator.updateMove(this, move);
         });
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class C4Human extends Local{
-      constructor(pnum){
-        super(`P${pnum}`);
-        this.pnum=pnum;
+      constructor(uid,v){
+        super(uid);
+        this.pvalue=v;
       }
       stateValue(){
-        return this.pnum;
+        return this.pvalue;
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class C4Mediator extends Mediator{
-      constructor(cur){
+      constructor(){
         super();
         this.state=[];
-        this.pcur=cur;
         for(let y=0;y<_G.ROWS;++y)
           this.state.push(_.fill(_G.COLS,0));
       }
       updateSound(player){
-        if(player===_G.X)
+        if(player.stateValue()===_G.X)
           Mojo.sound("x.mp3").play();
         else
           Mojo.sound("o.mp3").play();
@@ -99,16 +97,15 @@
       updateState(from,move){
         let [row,col]=move,
             s= _G.tiles[row][col],
-            p= this.players[from],
-            v=p.stateValue();
+            v=from.stateValue();
         this.state[row][col]=v;
         s.alpha=1;
-        s.m5.showFrame(v);
+        s.m5.showFrame(v===_G.X?1:2);
       }
       postMove(from,move){
         let d,w=_G.check4(this.state,
                           move[0],move[1],
-                          this.players[from].stateValue());
+                          from.stateValue());
         if(w){
           this.gameOver(from);
         }else if(_G.checkDraw(this.state)){
@@ -120,25 +117,6 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
-      postClick(row,col){
-        const w=this.check4(this.cells,row,col,this.players[0]);
-        if(w){
-          this.gameOver=this.players[0];
-        }else if(this.checkDraw(this.cells)){
-          this.gameOver=911;
-        }else{
-          this.switchPlayer();
-        }
-        //console.log("gameOver="+this.gameOver);
-      },
-      switchPlayer(){
-        const cur=this.players[0];
-        if(cur===this.players[1]){
-          this.players[0]=this.players[2];
-        }else if(cur===this.players[2]){
-          this.players[0]=this.players[1];
-        }
-      },
       dropCol(cells,col,turn){
         const row= this.maxY(cells,col);
         if(row>=0)
@@ -155,11 +133,11 @@
       checkDraw(cells){
         return _.every(_.map(cells,r=> _.every(r,v=>v!==0)), v=>!!v)
       },
-      checkAnyWin(cells,turn){
+      checkAnyWin(cells,who){
         for(let r,y=0; y<cells.length; ++y){
           r=cells[y];
           for(let x=0; x<r.length; ++x){
-            if(this.check4(cells,y,x,turn)) return turn;
+            if(this.check4(cells,y,x,who.stateValue())) return who;
           }
         }
       },
@@ -331,15 +309,9 @@
         this.g.doNext();
       }
     });
-    let XXX=0;
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("EndGame",{
-      postUpdate(){
-        if(XXX<3){
-          _I.dbg();
-          ++XXX;
-        }
-      },
       setup(options){
         const K=Mojo.getScaleFactor();
         const mode = _G.mode;
@@ -348,11 +320,13 @@
             snd="game_over.mp3",
             cfg={fontName:UI_FONT, fontSize:64*K};
 
-        if(w===_G.X){
-          msg= mode===1 ? "You win !" : "Player 1 (Blue) wins !";
-          snd="game_win.mp3";
-        }else if(w===_G.O){
-          msg= mode===1 ? "You lose !" : "Player 2 (Red) wins !";
+        if(w){
+          if(w.stateValue()===_G.X){
+            msg= mode===1 ? "You win !" : "Player 1 (Blue) wins !";
+            snd="game_win.mp3";
+          }else if(w.stateValue()===_G.O){
+            msg= mode===1 ? "You lose !" : "Player 2 (Red) wins !";
+          }
         }
 
         function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
@@ -372,15 +346,16 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PlayGame",{
       setup(options){
+        let m,p1,p2;
         _G.mode=options.mode;
         this.g.initLevel=()=>{
-          let m= _G.mediator= new C4Mediator(options.startsWith);
+          m= _G.mediator= new C4Mediator();
+          m.add(p1=new C4Human("blue",_G.X));
           if(options.mode===1){
-            m.add(new C4Human(1));
-            m.add(new C4Bot(2));
+            m.add(p2=new C4Bot("red",_G.O));
+            p2.ai=_G.AI(p1,p2);
           }else{
-            m.add(new C4Human(1));
-            m.add(new C4Human(2));
+            m.add(p2=new C4Human("red",_G.O));
           }
           return m;
         };
@@ -425,7 +400,7 @@
         };
 
         doBackDrop(this);
-        this.g.initArena(this, this.g.initLevel()).start();
+        this.g.initArena(this, this.g.initLevel()).start(options.startsWith===1?p1:p2);
       },
       postUpdate(){
         let m=_G.mediator;

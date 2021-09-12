@@ -461,20 +461,24 @@
     /** @abstract */
     class Mediator{
       constructor(){
-        this.players=[null];
+        this.players=[];
         this.state=null;
-        this.pcur=0;
+        this.pcur;
         this.end;
         this.pwin;
         this._pcnt=0;
       }
-      cur() {return this.pcur}
+      cur(){
+        return this.pcur }
       add(p){
         p.pnum=++this._pcnt;
         p.owner=this;
-        this.players.push(p) }
-      winner(){ return this.pwin }
-      isGameOver(){ return this.end }
+        this.players.push(p)
+      }
+      winner(){
+        return this.pwin }
+      isGameOver(){
+        return this.end }
       gameState(x){
         if(x)
           this.state=x;
@@ -485,47 +489,50 @@
         this.end=true;
         Mojo.Input.resume();
       }
-      start(){
-        _.assert(this.pcur>0,"bad current pnum");
+      start(who){
+        _.assert(who,"bad player to start with");
         this.end=false;
+        this.pcur=who;
         this._turn();
       }
-      player(){ return this.players[this.pcur] }
+      player(){
+        return this.players[this.pcur] }
       _turn(){
-        for(let i=1;i<this.players.length;++i){
-          if(i !== this.pcur)
-            this.players[i].pokeWait();
-        }
-        this.players[this.pcur].pokeMove();
+        this.players.forEach(p=>{
+          if(p !== this.pcur) p.pokeWait()
+        });
+        this.pcur.pokeMove();
       }
       redoTurn(){
-        this.players[this.pcur].pokeMove();
-      }
+        this.pcur.pokeMove() }
       postMove(from,move){
         _.assert(false,"implement postMove!") }
       updateState(from,move){
         _.assert(false,"implement updateState!") }
+      updateSound(actor){ }
       updateMove(from,move){
-        if(this.end){return}
-        this.updateState(from,move);
-        this.updateSound(from);
-        _.delay(0,()=>this.postMove(from,move));
-      }
-      updateSound(actor){
-        //this.players[from].playSound();
+        if(!this.end){
+          this.updateState(from,move);
+          this.updateSound(from);
+          _.delay(0,()=>this.postMove(from,move));
+        }
       }
       takeTurn(){
-        if(this.end){return}
-        if(this.pcur===1) this.pcur=2;
-        else if(this.pcur===2) this.pcur=1;
-        this._turn();
+        if(!this.end){
+          if(this.pcur===this.players[0]) this.pcur=this.players[1];
+          else if(this.pcur===this.players[1]) this.pcur=this.players[0];
+          this._turn();
+        }
       }
     }
 
     /** @abstract */
     class Player{
-      constructor(uid){ this.uid=uid; }
+      constructor(uid){
+        this.uid=uid;
+      }
       playSound(){}
+      uuid(){ return this.uid }
       pokeMove(){
         console.log(`player ${this.uid}: poked`);
         this.onPoke();
