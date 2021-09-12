@@ -57,8 +57,8 @@
       TEAM_RED: TEAM_RED,
       COLS:8,
       ROWS:8,
-      X:1,
-      O:2,
+      X:88,
+      O:79,
       checkStatus(s){
         let out={}, R=0, B=0, RK=0, BK=0;
         for(let r,y=0; y< s.length; ++y){
@@ -100,14 +100,16 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkEnd(){
       let S= _G.mediator.gameState();
-      let msg,w= _G.isWon(S);
+      let msg,c,o,w= _G.isWon(S);
       if(w || _G.isTie(S)){
+        o=_G.mediator.other();
+        c=_G.mediator.cur();
         msg="No Winner!";
-        if(_G.redScore>11){
+        if(w==TEAM_RED)
           msg=_G.mode===1?"You Lose!": "Player 2 (red) Wins";
-        }else if(_G.blackScore>11){
+        if(w==TEAM_BLACK)
           msg=_G.mode===1?"You Win!":"Player 1 (black) Wins";
-        }
+        w= c.uuid()==w ? c : ( o.uuid()==w ? o : null);
         _G.mediator.gameOver(w);
         _I.resetAll();
         _.delay(100,()=> _Z.runScene("EndGame",{msg}));
@@ -269,19 +271,12 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class CKBot extends Bot{
-      constructor(pnum,team){
-        super("ckbot")
-        this.pnum=pnum;
+      constructor(team,v){
+        super(team);
         this.team=team;
-        let p,t2=team==TEAM_RED? TEAM_BLACK : TEAM_RED;
-        if(pnum===2){
-          this.ai= _G.AI([_G.X,t2],p=[_G.O,team, this]);
-        }else{
-          this.ai= _G.AI([_G.O,team],p=[_G.X,t2,this]);
-        }
-        this.pobj=p;
+        this.pvalue=v;
       }
-      checkMoreJumps(from, move,S){
+      checkMoreJumps(move,S){
         let ok,t,f,out,
             [row,col,act]=move[2];
         if(act=="J")
@@ -292,31 +287,31 @@
           //fake the next move
           move=[f[0],f[1], t];
           _.delay(584, ()=>{
-            this.owner.updateMove(from, move)
+            this.owner.updateMove(this, move)
           });
           ok=true;
         }
         return ok;
       }
       stateValue(){
-        return this.pnum;
+        return this.pvalue;
       }
       onPoke(){
         _.delay(888,()=>{
-          let move=this.ai.run(_G.mediator.gameState(), this.pobj);
-          if(move) _G.mediator.updateMove(this.pobj,move);
+          let move=this.ai.run(_G.mediator.gameState(), this);
+          if(move) _G.mediator.updateMove(this,move);
         })
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class CKHuman extends Local{
-      constructor(pnum,team){
-        super(`P${pnum}`);
-        this.pnum=pnum;
+      constructor(team,v){
+        super(team);
         this.team=team;
+        this.pvalue=v;
       }
       stateValue(){
-        return this.pnum;
+        return this.pvalue;
       }
       onPoke(){
         const S= _G.mediator.gameState(),
@@ -342,15 +337,14 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class CKMediator extends Mediator{
-      constructor(cur){
+      constructor(){
         super();
-        this.pcur=cur;
         this.state=_new8x8();
       }
       updateSound(actor){
-        if(actor[0]===1)
+        if(actor.team==TEAM_BLACK)
           Mojo.sound("x.mp3").play();
-        if(actor[0]===2)
+        else
           Mojo.sound("o.mp3").play();
       }
       updateState(from,move){
@@ -368,7 +362,7 @@
             _S.remove(_I.undoBtn(t));
             S[er][ec]=null;
             _G.tiles[er][ec]=null;
-            _chgScore(from[1]==TEAM_RED?TEAM_BLACK:TEAM_RED);
+            _chgScore(from.team==TEAM_RED?TEAM_BLACK:TEAM_RED);
             break;
           case "S":
             break;
@@ -377,8 +371,8 @@
       }
       postMove(from,move){
         let S= this.gameState();
-        if(from[2] instanceof CKBot){
-          if(from[2].checkMoreJumps(from, move,S)){return}
+        if(from instanceof CKBot){
+          if(from.checkMoreJumps(move,S)){return}
         }
         _nextToPlay();
       }
@@ -455,12 +449,11 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function makeMove(r,c,row,col,M,S){
-      let p= _G.mediator.player();
       _moveTo(r,c,row,col,M,S);
       _resetMask();
       _resetBoard();
       _G.curSel=S[row][col];
-      Mojo.sound(p.team==TEAM_BLACK?"x.mp3":"o.mp3").play();
+      _G.mediator.updateSound( _G.mediator.cur());
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _nextToPlay(){
@@ -504,7 +497,6 @@
                 _G.curSel=null;
                 undo=true;
               }
-              //if(_G.curSel){ _G.tiles[_G.curSel.row][_G.curSel.col].m5.showFrame(1); }
             }
             if(!_G.curSel){
               if(undo){
@@ -606,7 +598,7 @@
         let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
         s1=_S.bmpText("Game Over", os);
         s2=_S.bmpText(options.msg||"No Winner!", os);
-        s4=_I.makeButton(_S.bmpText("Play Again?",os));
+        s4=_I.mkBtn(_S.bmpText("Play Again?",os));
         s5=_S.bmpText(" or ",os);
         s6=_I.mkBtn(_S.bmpText("Quit",os));
         s4.m5.press=()=>{ _Z.runSceneEx("MainMenu") };
@@ -621,7 +613,7 @@
       setup(options){
         const self=this,
               K=Mojo.getScaleFactor();
-        let M;
+        let p1,p2,M;
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _G.calcNextMoves=_calcNextMoves;
         _G.mode=options.mode;
@@ -629,13 +621,13 @@
         _G.redScore=0;
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel=()=>{
-          M= _G.mediator= new CKMediator(options.startsWith);
+          M= _G.mediator= new CKMediator();
+          M.add(p1= new CKHuman(TEAM_BLACK, _G.X));
           if(options.mode===1){
-            M.add(new CKHuman(1,TEAM_BLACK));
-            M.add(new CKBot(2,TEAM_RED));
+            M.add(p2= new CKBot(TEAM_RED, _G.O));
+            p2.ai= _G.AI(p1,p2);
           }else{
-            M.add(new CKHuman(1,TEAM_BLACK));
-            M.add(new CKHuman(2,TEAM_RED));
+            M.add(p2= new CKHuman(TEAM_RED, _G.O));
           }
           return M;
         };
@@ -720,7 +712,8 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() &&
           this.g.initBoard() && this.g.initArena() && this.g.initHud();
-        M.start();
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        M.start(options.startsWith===1?p1:p2);
       },
       postUpdate(){
         this.g.red.text=  `  Red Score: ${_.prettyNumber(_G.redScore,2)}`;

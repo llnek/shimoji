@@ -30,8 +30,6 @@
         this.grid=[];
         this.depth=5;
       }
-      isNil(cellv){
-        return cellv === 0 }
       getStateCopier(){
         return (s)=> JSON.parse(JSON.stringify(s))
       }
@@ -41,7 +39,7 @@
       }
       getNextMoves(snap){
         let out=[],
-            moves = _G.calcNextMoves(snap.cur[1], snap.state)[1];
+            moves = _G.calcNextMoves(snap.cur.team, snap.state)[1];
         _.doseq(moves, (v)=>{
           out.push(v);
         });
@@ -78,8 +76,7 @@
         return ff;
       }
       isOver(snap){
-        return _G.isWon(snap.state) || _G.isTie(snap.state)
-      }
+        return _G.isWon(snap.state) || _G.isTie(snap.state) }
       //if we lose, return a negative value
       evalScore(snap){
         let s= _G.checkStatus(snap.state);
@@ -87,7 +84,7 @@
         let r=s[_G.TEAM_RED];
         let bt= b[0]+b[1];
         let rt= r[0]+r[1];
-        if(snap.other[1]===_G.TEAM_BLACK){
+        if(snap.other.team==_G.TEAM_BLACK){
           if(rt===0 && bt>0) return -1000; // black won!
           if(b[1]>r[1]) return -500; // more black kings
           if(b[0]>r[0]) return -100; // more black pawns

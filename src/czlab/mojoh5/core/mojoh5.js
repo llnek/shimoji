@@ -495,8 +495,10 @@
         this.pcur=who;
         this._turn();
       }
-      player(){
-        return this.players[this.pcur] }
+      other(){
+        if(this.pcur===this.players[0]) return this.players[1];
+        if(this.pcur===this.players[1]) return this.players[0];
+      }
       _turn(){
         this.players.forEach(p=>{
           if(p !== this.pcur) p.pokeWait()
