@@ -5346,15 +5346,17 @@
 
       for(let rc, move, i=0; i< openMoves.length; ++i){
         move= openMoves[i];
-        if(copier)
+        if(!board.undoMove){
+          _.assert(copier, "Missing state copier!");
           game= state.clone(copier);
+        }
         board.makeMove(game, move);
         rc = _negaAlphaBeta(board, game, depth-1,
                                          maxDepth,
                                          {value: -beta.value, move: beta.move},
                                          {value: -alpha.value, move: alpha.move});
         //now, roll it back
-        if(!copier)
+        if(board.undoMove)
           board.unmakeMove(game, move);
         rc.value = -rc.value;
         rc.move = move;
@@ -5397,14 +5399,16 @@
         state.lastBestMove=bestMove;
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
-        if(copier)
+        if(!board.undoMove){
+          _.assert(copier, "Missing state copier!");
           game=state.clone(copier);
+        }
         move = openMoves[i];
         //try a move
         board.makeMove(game, move);
         rc= - _negaMax(board, game, depth-1, maxDepth, -beta, -alpha)[0];
         //now, roll it back
-        if(!copier)
+        if(board.undoMove)
           board.unmakeMove(game, move);
         //how did we do ?
         if(bestValue < rc){
@@ -5560,12 +5564,28 @@
        * @return {boolean}
        */
       isOver(frame,move){}
+      /**Reverse previous move.
+       * @param {GFrame} frame
+       * @param {any} move
+       */
+      unmakeMove(frame, move){
+        if(!this.undoMove)
+          throw Error("Need Implementation");
+        this.switchPlayer(frame);
+        this.undoMove(frame, move);
+      }
       //undoMove(frame, move){}
+      //doMove(frame, move){ }
       /**Make a move.
        * @param {GFrame} frame
        * @param {any} move
        */
-      makeMove(frame, move){}
+      makeMove(frame, move){
+        if(!this.doMove)
+          throw Error("Need Implementation!");
+        this.doMove(frame, move);
+        this.switchPlayer(frame);
+      }
       /**Take a snapshot of current game state.
        * @return {GFrame}
        */
@@ -5628,16 +5648,21 @@
       }
       ///////////
       let state=game,
+          copier= board.getStateCopier(),
           openMoves= _.shuffle(board.getNextMoves(game));
       if(maxing){
         let rc,pos,move,
             bestMove=null, maxValue = -Infinity;
         for(let i=0; i<openMoves.length; ++i){
-          game=state.clone(board.getStateCopier());
+          if(!board.undoMove){
+            _.assert(copier,"Missing state copier!");
+            game=state.clone(copier);
+          }
           move=openMoves[i];
           board.makeMove(game, move);
-          board.switchPlayer(game);
 					rc= _miniMax(board, game, depth-1, maxDepth, alpha, beta, !maxing)[0];
+          if(board.undoMove)
+            board.unmakeMove(game,move);
 					alpha = Math.max(rc,alpha);
           if(rc > maxValue){
 						maxValue = rc;
@@ -5650,11 +5675,15 @@
 			  let rc,pos,move,
             bestMove=null, minValue = Infinity;
         for(let i=0; i<openMoves.length; ++i){
-          game=state.clone(board.getStateCopier());
+          if(!board.undoMove){
+            _.assert(copier, "Missing state copier!");
+            game=state.clone(copier);
+          }
           move=openMoves[i];
           board.makeMove(game, move);
-          board.switchPlayer(game);
 					rc = _miniMax(board, game, depth-1, maxDepth, alpha, beta, !maxing)[0];
+          if(board.undoMove)
+            board.unmakeMove(game, move);
 					beta = Math.min(rc,beta);
           if(rc < minValue){
 						minValue = rc;

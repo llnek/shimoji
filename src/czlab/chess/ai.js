@@ -16,81 +16,58 @@
 
   "use strict";
 
-  window["io/czlab/conn4/AI"]=function(Mojo){
-    const Nega= window["io/czlab/mcfud/negamax"]();
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  window["io/czlab/chess/AI"]=function(Mojo){
+    const Mini= window["io/czlab/mcfud/minimax"]();
     const {Game:_G,
            ute:_,is}=Mojo;
 
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** @class */
-    class C extends Nega.GameBoard{
+    class CZ extends Mini.GameBoard{
       constructor(p1v,p2v){
         super();
         this.actors= [0, p1v, p2v];
-        this.grid=[];
-        this.depth=5;
-      }
-      isNil(cellv){
-        return cellv === 0 }
-      getFirstMove(){
-        let y= this.grid.length-1;
-        let r=this.grid[y];
-        let out;
-        if(_.every(r,0))
-          out= [y, _.randInt2(0,r.length-1)];
-        return out;
+        this.grid=null;
+        this.depth=4;
       }
       syncState(seed, actor){
         this.actors[0] = actor;
-        this.grid= _.deepCopyArray(seed);
+        this.grid= seed;
       }
       getNextMoves(snap){
-        let width=snap.state[0].length;
-        let out=[];
-        for(let y,x=0;x<width;++x){
-          y=_G.maxY(snap.state,x);
-          if(y>=0)
-            out.push([y,x])
-        }
-        return out;
+        let moves= snap.state.moves({verbose:true});
+        //console.log("ai-moves ====== ");
+        //console.log( JSON.stringify(moves));
+        return moves;
       }
-      undoMove(snap, move){
-        snap.state[move[0]][move[1]]=0 }
-      makeMove(snap, move){
-        if(snap.state[move[0]][move[1]]===0)
-          snap.state[move[0]][move[1]] = snap.cur;
-        else
-          throw `Error: cell [${move[0]},${move[1]}] is not free` }
-      switchPlayer(snap){
-        let t = snap.cur;
-        snap.cur= snap.other;
-        snap.other= t;
+      undoMove(snap,move){
+        snap.state.undo();
       }
-      getOtherPlayer(pv){
-        if(pv === this.actors[1]) return this.actors[2];
-        if(pv === this.actors[2]) return this.actors[1];
-        return 0;
+      doMove(snap, move){
+        let r= snap.state.move(move);
+        console.log(snap.state.ascii());
+        return r;
       }
       takeGFrame(){
-        let ff = new Nega.GFrame();
-        ff.state=_.deepCopyArray(this.grid);
+        let ff = new Mini.GFrame();
+        ff.state=this.grid;
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
         ff.lastBestMove=null;
         return ff;
       }
       isStalemate(snap){
-        return _G.checkDraw(snap.state)}
+      }
       isOver(snap,move){
-        return _G.check4(snap.state,
-                         move[0],
-                         move[1],snap.other) || this.isStalemate(snap) }
+      }
       evalScore(snap,move){
+        return 0;
         //if we lose, return a negative value
-        return _G.check4(snap.state, move[0], move[1],snap.other)?-100:0 }
+      }
     }
 
-    _G.AI=function(){ return new C(_G.X,_G.O) };
+    _G.AI=function(p1,p2){ return new CZ(p1,p2) };
 
   }
 
