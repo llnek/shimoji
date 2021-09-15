@@ -55,16 +55,21 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function toLocal(pos){
       let col,row;
-      for(let c,i=pos.length-1;i>=0;--i){
-        c=pos.charCodeAt(i);
-        if(c>VZERO&&c<VNINE){
-          col=COLPOSMAP[pos[i-1]];
-          row= +pos[i];
-          break;
+      let team=_G.mediator.cur().uuid();
+      if(pos=="O-O-O" || pos=="O-O"){
+        row= team=="w"? 1: 8;
+        col= pos.length>3 ? 2 : 6;
+      }else{
+        for(let c,i=pos.length-1;i>=0;--i){
+          c=pos.charCodeAt(i);
+          if(c>VZERO&&c<VNINE){
+            col=COLPOSMAP[pos[i-1]];
+            row= +pos[i];
+            break;
+          }
         }
       }
-      row=ROWPOS[row];
-      return [row,col];
+      return [ ROWPOS[row], col];
     }
 
     function toCPos(row,col){
@@ -84,23 +89,29 @@
         return this.pvalue;
       }
       onPoke(){
-        _.delay(444,()=> this.doPoke())
+        if(this.owner.state.in_checkmate()){
+          this.owner.gameOver(this.owner.other());
+          alert("Poo!");
+        }else if(this.owner.state.in_draw() ||
+                 this.owner.state.in_stalemate()){
+          this.owner.gameOver();
+        }else{
+          if(this.owner.state.in_check()){
+            _G.showCheckMsg();
+          }else{
+            _G.hideCheckMsg();
+          }
+          _.delay(444,()=> this.doPoke())
+        }
       }
       doPoke(){
-        let w,S= _G.mediator.gameState();
-        if(S.in_checkmate()){
-          w=this.ai.getOtherPlayer(this);
-          this.gameOver(w);
-        }else if(S.in_draw() || S.in_stalemate()){
-          this.gameOver();
-        }else{
-          let moves= S.moves({verbose:true});
-          console.log("aiMove=======");
-          console.log(JSON.stringify(moves));
-          let move=this.ai.run(S, this);
-          if(move)
-            _G.mediator.updateMove(this,move);
-        }
+        let S= _G.mediator.gameState();
+        let moves= S.moves({verbose:true});
+        console.log("aiMove=======");
+        console.log(JSON.stringify(moves));
+        let move=this.ai.run(S, this);
+        if(move)
+          _G.mediator.updateMove(this,move);
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -115,8 +126,21 @@
       }
       onPoke(){
         _S.tint(_G.selector, this.uuid()=="w"?WCOLOR:BCOLOR);
-        console.log(this.owner.state.ascii());
-        super.onPoke();
+        if(this.owner.state.in_checkmate()){
+          this.owner.gameOver( this.owner.other());
+          alert("Poo!!!");
+        }else if(this.owner.state.in_draw() ||
+                 this.owner.state.in_stalemate()){
+          this.owner.gameOver();
+        }else{
+          console.log(this.owner.state.ascii());
+          if(this.owner.state.in_check()){
+            _G.showCheckMsg();
+          }else{
+            _G.hideCheckMsg();
+          }
+          super.onPoke();
+        }
       }
       onWait(){
         super.onWait();
@@ -180,6 +204,14 @@
       ROWS:8,
       X:88,
       O:79,
+      hideCheckMsg(){
+        this.checkMsg.visible=false;
+      },
+      showCheckMsg(){
+        let c= this.mediator.other().uuid()=="w"?WCOLOR:BCOLOR;
+        _S.tint(this.checkMsg, c);
+        this.checkMsg.visible=true;
+      },
       hidePromotion(){
         this.promoteMenu.visible=false;
         this.promoteMenu.children.forEach(c=> _I.undoBtn(c));
@@ -335,6 +367,17 @@
       return _G.tiles[row][col] =s;
     }
 
+    function doCastling(castle){
+      let {rook,row,col}=castle;
+      let r= _G.tiles[row][rook];
+      let b= _G.board[row][col];
+      _G.tiles[row][rook]=null;
+      _G.tiles[row][col]=r;
+      r.g.row=row;
+      r.g.col=col;
+      _V.copy(r,b);
+    }
+
     //promotion moves
     //["e8=Q","e8=R","e8=B","e8=N+","exf8=Q+","exf8=R","exf8=B+","exf8=N"]
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -346,15 +389,28 @@
       switch(_G.board[row][col].g.status){
         case "t":
           if(1){
+            let castle;
+            let p,xxx,cfg;
             let r=_G.curSel.g.row;
             let c= _G.curSel.g.col;
-            let p;
-            if(_G.curSel.g.icon=="p" && row===0 || row===7 ){
+            if(_G.curSel.g.icon=="k" &&
+               r===row && (r===0 || r===_G.ROWS-1) && Math.abs(c-col)==2){
+              let rb, rc;
+              if(c>col){//o-o-o
+                rc=col+1;
+                rb=0;
+              }else{
+                rc=col-1;
+                rb=_G.COLS-1;
+              }
+              castle={ rook: rb, col:rc, row: row };
+            }
+            if(_G.curSel.g.icon=="p" && (row===0 || row===_G.ROWS-1)){
               p= _G.promoteMenu.getSelectedChoice()[1];
             }
-            let cfg= {to: toCPos(row,col),from: toCPos(r,c)};
+            cfg= {to: toCPos(row,col),from: toCPos(r,c)};
             if(p) cfg["promotion"]=p;
-            let xxx= board.move(cfg);
+            xxx= board.move(cfg);
             _.assert(xxx,"Bad user move");
             console.log("user moved= " + JSON.stringify(xxx));
             console.log(board.ascii());
@@ -372,6 +428,8 @@
             _G.hidePromotion();
             if(p)
               updatePromotion(scene, p,row,col);
+            if(castle)
+              doCastling(castle);
             M.takeTurn();
           }
           break;
@@ -415,21 +473,20 @@
                 _G.selector.visible=true;
                 moves.forEach(m=>{
                   let [row,col]= toLocal(m);
-                  //let c=_G.grid[row][col];
                   let b= _G.board[row][col];
                   let t= getTarget();
                   t.g.row=row;
                   t.g.col=col;
                   b.g.status="t";
-                  //_V.set(t,int((c.x1+c.x2)/2), int((c.y1+c.y2)/2));
                   _V.copy(t,b);
                   _G.curTargets.push(t);
                   let tt=_G.tiles[row][col];
                   if(!tt)
                     _I.mkBtn(b);
                 });
-                if(pms && pms.length>0)
-                  _G.showPromotion();
+                if(pms && pms.length>0){
+                  _G.showPromotion()
+                }
               }else{
                 console.log("GAME OVER!");
               }
@@ -569,7 +626,19 @@
           return _G.hidePromotion();
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initMsgs=(s)=>{
+          let cfg={fontName: UI_FONT, fontSize: 48*K};
+          s= _G.checkMsg=_S.bmpText("Check!",cfg);
+          _S.pinRight(_G.frame, s, 10);
+          s.visible=false;
+          self.insert(s);
+          //s=_G.checkMate=_S.bmpText("CheckMate!",cfg);
+          //_S.pinRight(_G.frame, s, 10);
+          //self.insert(s);
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.initBoard() && this.g.initArena() && this.g.initPromotion();
+        this.g.initMsgs();
         M.start(options.startsWith===1?p1:p2);
       },
       postUpdate(){
