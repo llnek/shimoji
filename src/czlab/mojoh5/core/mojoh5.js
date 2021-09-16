@@ -485,9 +485,9 @@
         return this.state;
       }
       gameOver(win){
-        this.pwin=win;
-        this.end=true;
         Mojo.Input.resume();
+        this.pwin=win;
+        return this.end=true;
       }
       start(who){
         _.assert(who,"bad player to start with");

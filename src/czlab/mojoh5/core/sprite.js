@@ -772,6 +772,13 @@
        * @return {Sprite} s
        */
       tint(s,color){ s.tint=color; return s },
+      /**Set a sprite's visibility.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {boolean} t
+       * @return {Sprite} s
+       */
+      manifest(s,t=true){ s.visible=t; return s },
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s

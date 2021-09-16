@@ -75,6 +75,30 @@
     function toCPos(row,col){
       return `${COLPOS[col]}${RPOS[row]}` }
 
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function checkEnd(){
+      let M=_G.mediator,
+          msg,e,w,S=M.gameState();
+      if(S.in_draw() || S.in_stalemate()){
+        e=M.gameOver();
+      }else if(S.in_checkmate()){
+        e=M.gameOver(M.other());
+      }
+      if(e){
+        msg="No Winner!";
+        if(w=M.winner()){
+          if(w.uuid()=="w")
+            msg= _G.mode===1? "You Win!" : "Player 1 Win!";
+          else
+            msg= _G.mode===1? "You Lose!" : "Player 2 Win!";
+        }
+        _I.resetAll();
+        _.delay(CLICK_DELAY,()=> _Z.runScene("EndGame",{msg}));
+      }
+      return e;
+    }
+
     /*
      * [{"color":"b","from":"b8","to":"c6","flags":"n","piece":"n","san":"Nc6"},{"color":"b","from":"b8","to":"a6","flags":"n","piece":"n","san":"Na6"},{"color":"b","from":"g8","to":"h6","flags":"n","piece":"n","san":"Nh6"},{"color":"b","from":"g8","to":"f6","flags":"n","piece":"n","san":"Nf6"},{"color":"b","from":"a7","to":"a6","flags":"n","piece":"p","san":"a6"},{"color":"b","from":"a7","to":"a5","flags":"b","piece":"p","san":"a5"},{"color":"b","from":"b7","to":"b6","flags":"n","piece":"p","san":"b6"},{"color":"b","from":"b7","to":"b5","flags":"b","piece":"p","san":"b5"},{"color":"b","from":"c7","to":"c6","flags":"n","piece":"p","san":"c6"},{"color":"b","from":"c7","to":"c5","flags":"b","piece":"p","san":"c5"},{"color":"b","from":"d7","to":"d6","flags":"n","piece":"p","san":"d6"},{"color":"b","from":"d7","to":"d5","flags":"b","piece":"p","san":"d5"},{"color":"b","from":"e7","to":"e6","flags":"n","piece":"p","san":"e6"},{"color":"b","from":"e7","to":"e5","flags":"b","piece":"p","san":"e5"},{"color":"b","from":"f7","to":"f6","flags":"n","piece":"p","san":"f6"},{"color":"b","from":"f7","to":"f5","flags":"b","piece":"p","san":"f5"},{"color":"b","from":"g7","to":"g6","flags":"n","piece":"p","san":"g6"},{"color":"b","from":"g7","to":"g5","flags":"b","piece":"p","san":"g5"},{"color":"b","from":"h7","to":"h6","flags":"n","piece":"p","san":"h6"},{"color":"b","from":"h7","to":"h5","flags":"b","piece":"p","san":"h5"}]
     */
@@ -89,29 +113,27 @@
         return this.pvalue;
       }
       onPoke(){
-        if(this.owner.state.in_checkmate()){
-          this.owner.gameOver(this.owner.other());
-          alert("Poo!");
-        }else if(this.owner.state.in_draw() ||
-                 this.owner.state.in_stalemate()){
-          this.owner.gameOver();
-        }else{
+        if(!checkEnd()){
           if(this.owner.state.in_check()){
             _G.showCheckMsg();
           }else{
             _G.hideCheckMsg();
           }
-          _.delay(444,()=> this.doPoke())
+          _.delay(242,()=> this.doPoke())
         }
       }
       doPoke(){
         let S= _G.mediator.gameState();
-        let moves= S.moves({verbose:true});
+        let move, moves= S.moves({verbose:true});
         console.log("aiMove=======");
         console.log(JSON.stringify(moves));
-        let move=this.ai.run(S, this);
-        if(move)
-          _G.mediator.updateMove(this,move);
+        if(moves && moves.length>0){
+          if(moves.length===1)
+            move=moves[0];
+          else
+            move=this.ai.run(S, this);
+        }
+        _G.mediator.updateMove(this,move);
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -125,15 +147,9 @@
         return this.pvalue;
       }
       onPoke(){
-        _S.tint(_G.selector, this.uuid()=="w"?WCOLOR:BCOLOR);
-        if(this.owner.state.in_checkmate()){
-          this.owner.gameOver( this.owner.other());
-          alert("Poo!!!");
-        }else if(this.owner.state.in_draw() ||
-                 this.owner.state.in_stalemate()){
-          this.owner.gameOver();
-        }else{
-          console.log(this.owner.state.ascii());
+        if(!checkEnd()){
+          _S.tint(_G.selector, this.uuid()=="w"?WCOLOR:BCOLOR);
+          console.log(this.owner.state.fen());
           if(this.owner.state.in_check()){
             _G.showCheckMsg();
           }else{
@@ -141,9 +157,6 @@
           }
           super.onPoke();
         }
-      }
-      onWait(){
-        super.onWait();
       }
     }
 
@@ -163,6 +176,7 @@
         super.start(cur);
       }
       updateState(who,move){
+        /*
         let [r,c]= toLocal(move.from);
         let [row,col]= toLocal(move.to);
         let a= _G.tiles[r][c];
@@ -177,7 +191,12 @@
         _V.copy(a,p);
         _G.tiles[row][col]=a;
         _G.tiles[r][c]=null;
-        this.state.move(move);
+        */
+        if(move){
+          let xxx=this.state.move(move);
+          _.assert(xxx, "Bad AI move!");
+          repaint();
+        }
       }
       postMove(who,move){
         console.log("post-ai========");
@@ -187,16 +206,9 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function checkEnd(){
-
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _nextToPlay(){
-      if(checkEnd()){
-      }else{
-        _G.curSel=null;
-        _.delay(100,()=>_G.mediator.takeTurn());
-      }
+      _G.curSel=null;
+      _.delay(100,()=>_G.mediator.takeTurn());
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
@@ -226,7 +238,7 @@
 
     function seekPromotion(moves){
       return moves.filter(m=>{
-        if(m.san){ m=san }
+        if(m.san){ m=m.san }
         if(is.str(m) && m.includes("=")){
           return true;
         }
@@ -268,6 +280,25 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
+      }
+    });
+    _Z.defScene("EndGame",{
+      setup(options){
+        let s1,s2,
+            snd="game_over.mp3",
+            s4,s5,s6,os={fontName:UI_FONT,
+                         fontSize: 72*Mojo.getScaleFactor()};
+        let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
+        s1=_S.bmpText("Game Over", os);
+        s2=_S.bmpText(options.msg||"No Winner!", os);
+        s4=_I.mkBtn(_S.bmpText("Play Again?",os));
+        s5=_S.bmpText(" or ",os);
+        s6=_I.mkBtn(_S.bmpText("Quit",os));
+        s4.m5.press=()=>{ _Z.runSceneEx("MainMenu") };
+        s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
+        if(options.msg) snd="game_win.mp3";
+        Mojo.sound(snd).play();
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -378,6 +409,15 @@
       _V.copy(r,b);
     }
 
+
+    function repaint(){
+      let S=_G.mediator.gameState();
+      fenDecode(S.fen(),_G.mask);
+      clearTiles();
+      setMask();
+      console.log(S.ascii());
+    }
+
     //promotion moves
     //["e8=Q","e8=R","e8=B","e8=N+","exf8=Q+","exf8=R","exf8=B+","exf8=N"]
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -393,7 +433,7 @@
             let p,xxx,cfg;
             let r=_G.curSel.g.row;
             let c= _G.curSel.g.col;
-            if(_G.curSel.g.icon=="k" &&
+            if((_G.curSel.g.icon=="k" || _G.curSel.g.icon=="K") &&
                r===row && (r===0 || r===_G.ROWS-1) && Math.abs(c-col)==2){
               let rb, rc;
               if(c>col){//o-o-o
@@ -405,7 +445,7 @@
               }
               castle={ rook: rb, col:rc, row: row };
             }
-            if(_G.curSel.g.icon=="p" && (row===0 || row===_G.ROWS-1)){
+            if((_G.curSel.g.icon=="p"||_G.curSel.g.icon=="P") && (row===0 || row===_G.ROWS-1)){
               p= _G.promoteMenu.getSelectedChoice()[1];
             }
             cfg= {to: toCPos(row,col),from: toCPos(r,c)};
@@ -413,23 +453,13 @@
             xxx= board.move(cfg);
             _.assert(xxx,"Bad user move");
             console.log("user moved= " + JSON.stringify(xxx));
-            console.log(board.ascii());
-            b=_G.board[row][col];
-            t= _G.tiles[row][col];
-            _S.remove(t);
             clsTargets(M);
-            _V.copy(_G.curSel,b);
-            _G.curSel.g.row=row;
-            _G.curSel.g.col=col;
-            _G.tiles[r][c]=null;
-            _G.tiles[row][col]=_G.curSel;
+            repaint();
             _G.selector.visible=false;
             _G.curSel=null;
             _G.hidePromotion();
-            if(p)
-              updatePromotion(scene, p,row,col);
-            if(castle)
-              doCastling(castle);
+            //if(p) updatePromotion(scene, p,row,col);
+            //if(0 && castle) doCastling(castle);
             M.takeTurn();
           }
           break;
@@ -446,7 +476,7 @@
                 skip=true;
               }else{
                 cpos=toCPos(row,col);
-                moves= board.moves({ square: cpos });
+                moves= board.moves({ square: cpos, verbose:true });
                 if(moves && moves.length>0){
                   _G.curSel=null;
                 }else{
@@ -454,15 +484,15 @@
                 }
               }
               if(!_G.curSel){
-                _G.selector.visible=false;
-                _G.hidePromotion();
                 clsTargets(M);
+                _G.hidePromotion();
+                _G.selector.visible=false;
               }
             }
             if(!_G.curSel && !skip){
               cpos=toCPos(row,col);
               if(!moves)
-                moves= board.moves({ square: cpos });
+                moves= board.moves({ square: cpos, verbose:true });
               if(moves && moves.length>0){
                 let pms= seekPromotion(moves);
                 console.log("p1 moves ==== ");
@@ -472,6 +502,7 @@
                 _V.copy(_G.selector,s);
                 _G.selector.visible=true;
                 moves.forEach(m=>{
+                  if(m.san){m=m.san}
                   let [row,col]= toLocal(m);
                   let b= _G.board[row][col];
                   let t= getTarget();
@@ -494,6 +525,130 @@
           }
           break;
       }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //kenl
+    const _PIECES="rRnNbBqQkKpP";
+    const _NUMS="12345678";
+    function PNG(piece){
+      switch(piece){
+        case "p": case "P": return "pawn.png";
+        case "r": case "R": return "rook.png";
+        case "n": case "N": return "knight.png";
+        case "b": case "B": return "bishop.png";
+        case "q": case "Q": return "queen.png";
+        case "k": case "K": return "king.png";
+      }
+    }
+    const CACHE=(function(c){
+      c.p=[]; c.P=c.p;
+      c.r=[]; c.R=c.r;
+      c.n=[]; c.N=c.n;
+      c.b=[]; c.B=c.b;
+      c.q=[]; c.Q=c.q;
+      c.k=[]; c.K=c.k;
+      return c;
+    })({});
+    function cacheIcons(scene){
+      _.dotimes(16, ()=> CACHE.p.push(scene.insert(makeIcon("p"))));
+      _.dotimes(8, ()=> CACHE.r.push(scene.insert(makeIcon("r"))));
+      _.dotimes(8, ()=> CACHE.n.push(scene.insert(makeIcon("n"))));
+      _.dotimes(8, ()=> CACHE.b.push(scene.insert(makeIcon("b"))));
+      _.dotimes(6, ()=> CACHE.q.push(scene.insert(makeIcon("q"))));
+      _.dotimes(2, ()=> CACHE.k.push(scene.insert(makeIcon("k"))));
+      CACHE.scene=scene;
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function makeIcon(piece, uid){
+      let s= _S.sprite(PNG(piece));
+      s.visible=false;
+      s.g.icon=piece;
+      s.g.team="";
+      s.g.row=0;
+      s.g.col=0;
+      if(uid){
+        _S.uuid(s, uid);
+      }else{
+        _S.centerAnchor(s);
+        s.m5.press=function(){
+          !_G.mediator.isGameOver() &&
+            _onClick(_G.gameScene, s, _G.mediator) };
+      }
+      return _S.sizeXY(s,_G.pieceSize, _G.pieceSize);
+    }
+    function makeTiles(){
+      return _.fill(_G.ROWS,()=> _.fill(_G.COLS,null))
+    }
+    function makeMask(){
+      return _.fill(_G.ROWS,()=> _.fill(_G.COLS,0))
+    }
+    function wipeMask(m){
+      m.forEach(r=> r.forEach((c,x)=> r[x]=0));
+      return m;
+    }
+    function dropTile(t){
+      if(t){
+        t.visible=false;
+        t.x=0;
+        t.y=0;
+        _I.undoBtn(t);
+        CACHE[t.g.icon].push(t);
+      }
+    }
+    function clearTiles(){
+      _G.tiles.forEach(r=>r.forEach((t,x)=> {
+        dropTile(t);
+        r[x]=null;
+      }));
+      return _G.tiles;
+    }
+    function fenDecode(fen, M){
+      let fs= fen.substring(0,fen.indexOf(" ")).split("/");
+      wipeMask(M);
+      fs.forEach((s,y)=>{
+        let x= 0;
+        for(let n,i=0;i<s.length;++i){
+          if(_NUMS.indexOf(s[i])>=0){
+            n=parseInt(s[i]);
+            x+=n;
+          }else{
+            M[y][x]=s[i];
+            ++x;
+          }
+        }
+      });
+      return M;
+    }
+    _G.fenDecode=fenDecode;
+    _G.makeMask=makeMask;
+    function getTile(c){
+      let rc, a=c?CACHE[c]:null;
+      if(a){
+        rc= a.length>0? a.pop() : makeIcon(c)
+      }
+      return rc;
+    }
+    function isWhite(c){
+      return c=="P"||c=="R"||c=="N"||c=="B"||c=="Q"||c=="K"
+    }
+    _G.isWhite=isWhite;
+    function setMask(){
+      let t,w,r,T= clearTiles();
+      _G.mask.forEach((r,y)=> r.forEach((c,x)=>{
+        t=getTile(c);
+        if(t){
+          _V.copy(t,_G.board[y][x]);
+          w=isWhite(c);
+          t.g.icon=c;
+          t.g.row=y;
+          t.g.col=x;
+          t.visible=true;
+          t.g.team=w?"w":"b";
+          _S.tint(t,w?WCOLOR:BCOLOR);
+          _G.tiles[y][x]=_I.mkBtn(t);
+        }
+      }));
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -540,6 +695,9 @@
           _G.tiles=[];
           _G.redScore=0;
           _G.blackScore=0;
+          _G.gameScene=self;
+          _G.mask= makeMask();
+          _G.tiles= makeTiles();
           M.add(p1= new CHHuman("w",_G.X));
           if(options.mode===1){
             M.add(p2=new CHBot("b",_G.O));
@@ -567,8 +725,12 @@
               _S.sizeXY(_S.uuid(s,`c:${y},${x}`),z,z);
               self.insert( _V.set(s, int((c.x1+c.x2)/2),
                                      int((c.y1+c.y2)/2)));
+              if(!_G.pieceSize){
+                _G.pieceSize= _.evenN(z*0.85,1);
+              }
             }
           }
+          cacheIcons(self);
           let sel= _G.selector= _S.sprite("select.png");
           sel.visible=false;
           _S.uuid(sel,"selector");
@@ -576,6 +738,7 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initArena=()=>{
+          /*
           for(let r,y=0;y<_G.ROWS;++y){
             _G.tiles.push(r=[]);
             for(let c,s,x=0;x<_G.COLS;++x){
@@ -600,26 +763,23 @@
               }
             }
           }
+          */
           //scene.insert(_S.bboxFrame(_G.arena,16,"#b2b2b2"));//"#4d4d4d"));//"#7f98a6"));
           return self.insert(_G.frame= _S.bboxFrame(_G.arena,16,"#4d4d4d"));//"#7f98a6"));
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initPromotion=()=>{
-          let ns=["rook","night","bishop","queen"];
-          let out=[];
           let cfg={
+            bg:"#cccccc",
+            opacity:0.3,
             defaultChoice:"#queen",
             selectedColor:C_ORANGE,
-            disabledColor:"#cccccc",
-            bg:"#cccccc",
-            opacity:0.3
+            disabledColor:"#cccccc"
           };
-          for(let p,i=0;i<ns.length;++i){
-            p=_makePiece(i,"");
-            _S.tint(p,C_ORANGE);
-            out.unshift(_S.uuid(p,`#${ns[i]}`));
-            _S.sizeXY(p, _G.pieceSize,_G.pieceSize);
-          }
+          let out=[makeIcon("q","#queen"),
+                   makeIcon("b","#bishop"),
+                   makeIcon("n","#night"),makeIcon("r","#rook")];
+          out.forEach(c=> _S.manifest(_S.tint(c,C_ORANGE)));
           _G.promoteMenu= _Z.choiceMenuY(out,cfg);
           _S.pinRight(_G.frame, _G.promoteMenu,10,0);
           self.insert(_G.promoteMenu);
@@ -639,6 +799,7 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.initBoard() && this.g.initArena() && this.g.initPromotion();
         this.g.initMsgs();
+        repaint();
         M.start(options.startsWith===1?p1:p2);
       },
       postUpdate(){

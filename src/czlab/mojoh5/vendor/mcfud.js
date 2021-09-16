@@ -962,6 +962,17 @@
           clearTimeout(handle);
         }
       },
+      /**Iterate n times, calling the provided function.
+       * @memberof module:mcfud/core._
+       * @param {number} n
+       * @param {callback} fn
+       * @param {any} target
+       * @param {any} args
+       */
+      dotimes(n,fn,target,...args){
+        for(let i=0;i<n;++i)
+          fn.call(target,i, ...args);
+      },
       /**Iterate a collection(array) in reverse.
        * @memberof module:mcfud/core._
        * @param {any[]} coll
@@ -5652,7 +5663,7 @@
           openMoves= _.shuffle(board.getNextMoves(game));
       if(maxing){
         let rc,pos,move,
-            bestMove=null, maxValue = -Infinity;
+            bestMove=openMoves[0], maxValue = -Infinity;
         for(let i=0; i<openMoves.length; ++i){
           if(!board.undoMove){
             _.assert(copier,"Missing state copier!");
@@ -5673,7 +5684,7 @@
         return [maxValue,bestMove];
       }else{
 			  let rc,pos,move,
-            bestMove=null, minValue = Infinity;
+            bestMove=openMoves[0], minValue = Infinity;
         for(let i=0; i<openMoves.length; ++i){
           if(!board.undoMove){
             _.assert(copier, "Missing state copier!");
