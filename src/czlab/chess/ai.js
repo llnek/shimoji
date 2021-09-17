@@ -157,7 +157,6 @@
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
         ff.lastBestMove=null;
-        ff.mask=_G.makeMask();
         return ff;
       }
       isStalemate(snap){

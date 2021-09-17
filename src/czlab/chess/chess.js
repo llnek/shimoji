@@ -16,6 +16,7 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
     window["io/czlab/chess/AI"](Mojo);
@@ -42,7 +43,17 @@
     const C_GREEN=_S.color("#7da633");
     const C_ORANGE=_S.color("#f4d52b");
     const CLICK_DELAY=343;
-    //
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function playClick(){
+      Mojo.sound("click.mp3").play();
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function playSnd(team){
+      Mojo.sound(team=="w"?"x.mp3":"o.mp3").play();
+    }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const COLPOSMAP={a:0,b:1,c:2,d:3,e:4,f:5,g:6,h:7};
     const COLPOS="abcdefgh";
@@ -72,9 +83,9 @@
       return [ ROWPOS[row], col];
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function toCPos(row,col){
       return `${COLPOS[col]}${RPOS[row]}` }
-
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkEnd(){
@@ -99,9 +110,6 @@
       return e;
     }
 
-    /*
-     * [{"color":"b","from":"b8","to":"c6","flags":"n","piece":"n","san":"Nc6"},{"color":"b","from":"b8","to":"a6","flags":"n","piece":"n","san":"Na6"},{"color":"b","from":"g8","to":"h6","flags":"n","piece":"n","san":"Nh6"},{"color":"b","from":"g8","to":"f6","flags":"n","piece":"n","san":"Nf6"},{"color":"b","from":"a7","to":"a6","flags":"n","piece":"p","san":"a6"},{"color":"b","from":"a7","to":"a5","flags":"b","piece":"p","san":"a5"},{"color":"b","from":"b7","to":"b6","flags":"n","piece":"p","san":"b6"},{"color":"b","from":"b7","to":"b5","flags":"b","piece":"p","san":"b5"},{"color":"b","from":"c7","to":"c6","flags":"n","piece":"p","san":"c6"},{"color":"b","from":"c7","to":"c5","flags":"b","piece":"p","san":"c5"},{"color":"b","from":"d7","to":"d6","flags":"n","piece":"p","san":"d6"},{"color":"b","from":"d7","to":"d5","flags":"b","piece":"p","san":"d5"},{"color":"b","from":"e7","to":"e6","flags":"n","piece":"p","san":"e6"},{"color":"b","from":"e7","to":"e5","flags":"b","piece":"p","san":"e5"},{"color":"b","from":"f7","to":"f6","flags":"n","piece":"p","san":"f6"},{"color":"b","from":"f7","to":"f5","flags":"b","piece":"p","san":"f5"},{"color":"b","from":"g7","to":"g6","flags":"n","piece":"p","san":"g6"},{"color":"b","from":"g7","to":"g5","flags":"b","piece":"p","san":"g5"},{"color":"b","from":"h7","to":"h6","flags":"n","piece":"p","san":"h6"},{"color":"b","from":"h7","to":"h5","flags":"b","piece":"p","san":"h5"}]
-    */
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** @class */
     class CHBot extends Bot{
@@ -114,24 +122,17 @@
       }
       onPoke(){
         if(!checkEnd()){
-          if(this.owner.state.in_check()){
-            _G.showCheckMsg();
-          }else{
-            _G.hideCheckMsg();
-          }
-          _.delay(242,()=> this.doPoke())
+          _G[this.owner.state.in_check()?"showCheckMsg":"hideCheckMsg"]();
+          _.delay(242,()=> this.doPoke());
         }
       }
       doPoke(){
-        let S= _G.mediator.gameState();
-        let move, moves= S.moves({verbose:true});
-        console.log("aiMove=======");
-        console.log(JSON.stringify(moves));
+        let S= _G.mediator.gameState(),
+            move, moves= S.moves({verbose:true});
+        //console.log("aiMove=======");
+        //console.log(JSON.stringify(moves));
         if(moves && moves.length>0){
-          if(moves.length===1)
-            move=moves[0];
-          else
-            move=this.ai.run(S, this);
+          move= moves.length===1?moves[0]: this.ai.run(S, this)
         }
         _G.mediator.updateMove(this,move);
       }
@@ -149,12 +150,8 @@
       onPoke(){
         if(!checkEnd()){
           _S.tint(_G.selector, this.uuid()=="w"?WCOLOR:BCOLOR);
-          console.log(this.owner.state.fen());
-          if(this.owner.state.in_check()){
-            _G.showCheckMsg();
-          }else{
-            _G.hideCheckMsg();
-          }
+          //console.log(this.owner.state.fen());
+          _G[this.owner.state.in_check()?"showCheckMsg":"hideCheckMsg"]();
           super.onPoke();
         }
       }
@@ -176,31 +173,16 @@
         super.start(cur);
       }
       updateState(who,move){
-        /*
-        let [r,c]= toLocal(move.from);
-        let [row,col]= toLocal(move.to);
-        let a= _G.tiles[r][c];
-        let b= _G.tiles[row][col];
-        let p= _G.board[row][col];
-        _.assert(a, "aiMove.from is bad");
-        if(b){
-          _S.remove(b);
-        }
-        a.g.row=row;
-        a.g.col=col;
-        _V.copy(a,p);
-        _G.tiles[row][col]=a;
-        _G.tiles[r][c]=null;
-        */
         if(move){
-          let xxx=this.state.move(move);
-          _.assert(xxx, "Bad AI move!");
+          let rc=this.state.move(move);
+          _.assert(rc, "Bad AI move!");
+          playSnd(who.uuid());
           repaint();
         }
       }
       postMove(who,move){
-        console.log("post-ai========");
-        console.log(this.state.ascii());
+        //console.log("post-ai========");
+        //console.log(this.state.ascii());
         _nextToPlay();
       }
     }
@@ -210,6 +192,7 @@
       _G.curSel=null;
       _.delay(100,()=>_G.mediator.takeTurn());
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
       COLS:8,
@@ -236,6 +219,7 @@
       }
     });
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function seekPromotion(moves){
       return moves.filter(m=>{
         if(m.san){ m=m.san }
@@ -260,20 +244,21 @@
             verb=Mojo.touchDevice?"Tap":"Click";
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.doTitle=(s)=>{
-          s=_S.bmpText("Chess",{fontName:TITLE_FONT, fontSize: 100*K});
+          s=_S.bmpText("Chess",{fontName:TITLE_FONT, fontSize: 180*K});
           _S.tint(s,C_TITLE);
           _V.set(s, Mojo.width/2, Mojo.height*0.3);
           return self.insert(_S.centerAnchor(s));
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.doNext=(b,s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize: 72*K});
+          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize: 64*K});
           _V.set(s, Mojo.width/2, Mojo.height*0.7);
           b=_I.mkBtn(s);
           t=_F.throb(b,0.99);
           b.m5.press=(btn)=>{
             _F.remove(t);
             _S.tint(btn,C_ORANGE);
+            playClick();
             _.delay(CLICK_DELAY,()=> _Z.runSceneEx("MainMenu"));
           };
           self.insert(_S.centerAnchor(s));
@@ -282,6 +267,8 @@
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("EndGame",{
       setup(options){
         let s1,s2,
@@ -301,6 +288,7 @@
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("MainMenu",{
       setup(){
@@ -309,45 +297,27 @@
             K=Mojo.getScaleFactor(),
             cfg={fontName:UI_FONT,fontSize:72*K};
         function space(){return _S.opacity(_S.bmpText("I",cfg),0)}
-        let b1= _S.uuid(_I.mkBtn(_S.bmpText("One Player",cfg)),"#p1");
+        let b1= _S.uuid(_I.mkBtn(_S.bmpText("1 PLAYER",cfg)),"#p1");
         let gap=_S.bmpText("or",cfg);
-        let b2= _S.uuid(_I.mkBtn(_S.bmpText("Two Player",cfg)),"#p2");
+        let b2= _S.uuid(_I.mkBtn(_S.bmpText("2 PLAYER",cfg)),"#p2");
         b1.m5.press=
         b2.m5.press=(btn)=>{
           if(btn.m5.uuid=="#p2")mode=2;
           _S.tint(btn,C_ORANGE);
-          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("StartMenu",{mode}));
+          playClick();
+          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame",{mode,startsWith:1}));
         };
-        self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"transparent"}));
+        doBackDrop(this);
+        self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"#cccccc",fit: 80,opacity:0.3}));
       }
     });
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("StartMenu",{
-      setup(options){
-        let self=this,
-            K=Mojo.getScaleFactor(),
-            cfg={fontName:UI_FONT,fontSize:72*K};
-        options.startsWith=1;
-        function space(){return _S.opacity(_S.bmpText("I",cfg),0)}
-        let msg= _S.bmpText("Player 1 (white) starts? ",cfg);
-        let b1= _I.mkBtn(_S.uuid(_S.bmpText("Yes",cfg),"#p1"));
-        let gap= _S.bmpText(" / ",cfg);
-        let b2= _I.mkBtn(_S.uuid(_S.bmpText("No",cfg), "#p2"));
-        b1.m5.press=
-        b2.m5.press=(btn)=>{
-          if(btn.m5.uuid=="#p2") options.startsWith=2;
-          _S.tint(btn,C_ORANGE);
-          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame", options));
-        };
-        self.insert(_Z.layoutX([msg,space(), b1, gap, b2],{bg:"transparent"}));
-      }
-    });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function clsTargets(M){
       _G.curTargets.forEach(t=>dropTarget(t));
       _G.curTargets.length=0;
       _G.board.forEach(r=> r.forEach(c=>{
-        c.g.status="";
+        c.g.status=""
       }));
     }
 
@@ -376,46 +346,12 @@
       return s;
     }
 
-    function updatePromotion(scene, p,row,col){
-      let M= _G.mediator,
-          b,z,s,t,pos,team= M.cur().uuid();
-      switch(p){
-        case "q": pos=3; break;
-        case "b": pos=2; break;
-        case "n": pos=1; break;
-        case "r": pos=0; break;
-      }
-      s= _makePiece(pos, team);
-      z=_G.pieceSize;
-      s.g.row=row;
-      s.g.col=col;
-      t= _G.tiles[row][col];
-      _S.remove(t);
-      _I.mkBtn(_S.centerAnchor( _S.sizeXY(s,z,z)));
-      _V.copy(s,  _G.board[row][col]);
-      scene.insert(s);
-      s.m5.press=()=>{ M.isGameOver() ? null : _onClick(scene, s,M) };
-      return _G.tiles[row][col] =s;
-    }
-
-    function doCastling(castle){
-      let {rook,row,col}=castle;
-      let r= _G.tiles[row][rook];
-      let b= _G.board[row][col];
-      _G.tiles[row][rook]=null;
-      _G.tiles[row][col]=r;
-      r.g.row=row;
-      r.g.col=col;
-      _V.copy(r,b);
-    }
-
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function repaint(){
       let S=_G.mediator.gameState();
-      fenDecode(S.fen(),_G.mask);
       clearTiles();
-      setMask();
-      console.log(S.ascii());
+      setMask(S);
+      //console.log(S.ascii());
     }
 
     //promotion moves
@@ -452,14 +388,13 @@
             if(p) cfg["promotion"]=p;
             xxx= board.move(cfg);
             _.assert(xxx,"Bad user move");
-            console.log("user moved= " + JSON.stringify(xxx));
+            //console.log("user moved= " + JSON.stringify(xxx));
+            playSnd(_G.curSel.g.team);
             clsTargets(M);
             repaint();
             _G.selector.visible=false;
             _G.curSel=null;
             _G.hidePromotion();
-            //if(p) updatePromotion(scene, p,row,col);
-            //if(0 && castle) doCastling(castle);
             M.takeTurn();
           }
           break;
@@ -495,8 +430,9 @@
                 moves= board.moves({ square: cpos, verbose:true });
               if(moves && moves.length>0){
                 let pms= seekPromotion(moves);
-                console.log("p1 moves ==== ");
-                console.log(JSON.stringify(moves));
+                playSnd(s.g.team);
+                //console.log("p1 moves ==== ");
+                //console.log(JSON.stringify(moves));
                 //valid moves
                 _G.curSel=s;
                 _V.copy(_G.selector,s);
@@ -577,16 +513,13 @@
       }
       return _S.sizeXY(s,_G.pieceSize, _G.pieceSize);
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function makeTiles(){
       return _.fill(_G.ROWS,()=> _.fill(_G.COLS,null))
     }
-    function makeMask(){
-      return _.fill(_G.ROWS,()=> _.fill(_G.COLS,0))
-    }
-    function wipeMask(m){
-      m.forEach(r=> r.forEach((c,x)=> r[x]=0));
-      return m;
-    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function dropTile(t){
       if(t){
         t.visible=false;
@@ -596,6 +529,8 @@
         CACHE[t.g.icon].push(t);
       }
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function clearTiles(){
       _G.tiles.forEach(r=>r.forEach((t,x)=> {
         dropTile(t);
@@ -603,9 +538,11 @@
       }));
       return _G.tiles;
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function fenDecode(fen, M){
       let fs= fen.substring(0,fen.indexOf(" ")).split("/");
-      wipeMask(M);
+      M.forEach(r=> r.forEach((c,x)=> r[x]=0));
       fs.forEach((s,y)=>{
         let x= 0;
         for(let n,i=0;i<s.length;++i){
@@ -621,7 +558,8 @@
       return M;
     }
     _G.fenDecode=fenDecode;
-    _G.makeMask=makeMask;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function getTile(c){
       let rc, a=c?CACHE[c]:null;
       if(a){
@@ -629,18 +567,17 @@
       }
       return rc;
     }
-    function isWhite(c){
-      return c=="P"||c=="R"||c=="N"||c=="B"||c=="Q"||c=="K"
-    }
-    _G.isWhite=isWhite;
-    function setMask(){
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function setMask(S){
       let t,w,r,T= clearTiles();
-      _G.mask.forEach((r,y)=> r.forEach((c,x)=>{
-        t=getTile(c);
-        if(t){
+      let board=S.board();
+      board.forEach((r,y)=> r.forEach((c,x)=>{
+        if(c){
+          t=getTile(c.type);
           _V.copy(t,_G.board[y][x]);
-          w=isWhite(c);
-          t.g.icon=c;
+          w= c.color=="w";
+          t.g.icon= w? c.type.toUpperCase() : c.type;
           t.g.row=y;
           t.g.col=x;
           t.visible=true;
@@ -657,30 +594,6 @@
     const WCOLOR=_S.color("#ffffff"); //WC="orange";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _makePawn(col,team){
-      const s=_S.uuid(_S.sprite("pawn.png"),`${team}/p${col+1}`);
-      s.g.team=team;
-      s.g.icon="p";
-      return _S.tint(s,_S.color(team=="b"?BCOLOR:WCOLOR));
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _makePiece(col,team){
-      let piece,n,s;
-      switch(col){
-        case 0: case 7: n="rook.png"; break;
-        case 1: case 6: n="knight.png"; break;
-        case 2: case 5: n="bishop.png"; break;
-        case 3: n="queen.png"; break;
-        case 4: n="king.png"; break;
-      }
-      piece=n[0];
-      if(n[0]=="k" && n[1]=="n") piece="n";
-      s= _S.uuid(_S.sprite(n), `${team}/${piece}${col+1}`);
-      s.g.icon=piece;
-      s.g.team=team;
-      return _S.tint(s,_S.color(team=="b"?BCOLOR:WCOLOR));
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PlayGame",{
       setup(options){
         let self=this,
@@ -696,7 +609,6 @@
           _G.redScore=0;
           _G.blackScore=0;
           _G.gameScene=self;
-          _G.mask= makeMask();
           _G.tiles= makeTiles();
           M.add(p1= new CHHuman("w",_G.X));
           if(options.mode===1){
@@ -734,36 +646,7 @@
           let sel= _G.selector= _S.sprite("select.png");
           sel.visible=false;
           _S.uuid(sel,"selector");
-          return self.insert( _S.sizeXY(_S.centerAnchor(sel),z,z));
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initArena=()=>{
-          /*
-          for(let r,y=0;y<_G.ROWS;++y){
-            _G.tiles.push(r=[]);
-            for(let c,s,x=0;x<_G.COLS;++x){
-              c=_G.grid[y][x];
-              s=null;
-              if(y<2){ //black
-                s= y===0 ? _makePiece(x,"b") : _makePawn(x,"b")
-              }else if(y>5){ //white
-                s= y===7 ? _makePiece(x,"w") : _makePawn(x,"w")
-              }
-              r.push(s);
-              if(s){
-                let z=int(0.85 * (c.x2-c.x1));
-                _G.pieceSize=z;
-                z=_.evenN(z,1);
-                s.g.row=y;
-                s.g.col=x;
-                _I.mkBtn(_S.centerAnchor( _S.sizeXY(s,z,z)));
-                _V.set(s, int((c.x1+c.x2)/2), int((c.y1+c.y2)/2));
-                self.insert(s);
-                s.m5.press=()=>{ M.isGameOver() ? null : _onClick(self, s,M) };
-              }
-            }
-          }
-          */
+          self.insert( _S.sizeXY(_S.centerAnchor(sel),z,z));
           //scene.insert(_S.bboxFrame(_G.arena,16,"#b2b2b2"));//"#4d4d4d"));//"#7f98a6"));
           return self.insert(_G.frame= _S.bboxFrame(_G.arena,16,"#4d4d4d"));//"#7f98a6"));
         };
@@ -797,7 +680,7 @@
           //self.insert(s);
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.initLevel() && this.g.initBoard() && this.g.initArena() && this.g.initPromotion();
+        doBackDrop(this) && this.g.initLevel() && this.g.initBoard() && this.g.initPromotion();
         this.g.initMsgs();
         repaint();
         M.start(options.startsWith===1?p1:p2);
@@ -805,6 +688,7 @@
       postUpdate(){
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("HUD",{
       setup(){
@@ -824,8 +708,10 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["images/tiles.json", "bggreen.jpg", "click.mp3", "x.mp3","o.mp3","game_over.mp3","game_win.mp3"],
-    arena:{width:1024, height:768},
+    assetFiles: ["images/tiles.json", "bggreen.jpg",
+                 "click.mp3", "x.mp3","o.mp3","game_over.mp3","game_win.mp3"],
+    //arena:{width:1024, height:768},
+    arena:{width:1680, height:1260}, //4:3
     iconSize: 96,
     rendering:false,//"crisp-edges",
     scaleFit:"y",
