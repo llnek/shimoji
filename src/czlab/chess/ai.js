@@ -88,12 +88,12 @@
                [-50,-30,-30,-30,-30,-30,-30,-50]];
 
     const VALUES={
-      p:100,P:100,
-      n:320,N:320,
-      b:330,B:330,
-      r:500,R:500,
-      q:900,Q:900,
-      k:20000,K:20000
+      p:100,//P:100,
+      n:320,//N:320,
+      b:330,//B:330,
+      r:500,//R:500,
+      q:900,//Q:900,
+      k:20000//,K:20000
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -106,20 +106,22 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TABLES={
-
-        P:PAWN,
-        N:KNIGHT,
-        B:BISHOP,
-        R:ROOK,
-        Q:QUEEN,
-        K:KING,
-
+      w:{
+        p:PAWN,
+        n:KNIGHT,
+        b:BISHOP,
+        r:ROOK,
+        q:QUEEN,
+        k:KING
+      },
+      b:{
         p:mirror(PAWN),
         n:mirror(KNIGHT),
         b:mirror(BISHOP),
         r:mirror(ROOK),
         q:mirror(QUEEN),
         k:mirror(KING)
+      }
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -163,15 +165,15 @@
       isOver(snap,move){
       }
       evalScore(snap,move){
-        let m= _G.fenDecode(snap.state.fen(), snap.mask);
+        let m= snap.state.board();
         let v,total=0;
         m.forEach((r,y)=> r.forEach((c,x)=>{
           if(c){
-            v= VALUES[c]+TABLES[c][y][x];
-            total += _G.isWhite(c) ? v : -v;
+            v= VALUES[c.type]+TABLES[c.color][c.type][y][x];
+            total += c.color=="w" ? v : -v;
           }
         }));
-        return total;
+        return -total;
       }
     }
 
