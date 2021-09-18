@@ -24,6 +24,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           Sound:_D,
            Game:_G,
            FX:_F,
            v2:_V,
@@ -343,6 +344,7 @@
         b2.m5.press=(btn)=>{
           if(btn.m5.uuid=="#p2") options.startsWith=2;
           _S.tint(btn,C_ORANGE);
+          playClick();
           _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame", options));
         };
         self.insert(_Z.layoutX([msg,space(), b1, gap, b2],{bg:"transparent"}));
@@ -828,12 +830,30 @@
           });
           out.forEach(m=>m.text="--");
         };
+        this.g.initMisc=(s)=>{
+          s= _S.spriteFrom("audioOn.png","audioOff.png");
+          _I.mkBtn(_S.scaleXY(s,K,K));
+          s.anchor.x=1;
+          s.anchor.y=0;
+          s.alpha=0.5;
+          s.m5.showFrame(_D.sfx()?0:1);
+          s.m5.press=(btn)=>{
+            if(_D.sfx()){
+              _D.mute();
+            }else{
+              _D.unmute();
+            }
+            s.m5.showFrame(_D.sfx()?0:1);
+          };
+          self.insert( _V.set(s,Mojo.width,0));
+        };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.initBoard() && this.g.initPromotion();
         M.flipped(p1.uuid()=="b");
         this.g.initMarks();
         this.g.initMsgs();
         this.g.initInfo();
+        this.g.initMisc();
         repaint();
         M.start(options.startsWith===1?p1:p2);
       },
@@ -877,6 +897,7 @@
   //game config
   const _$={
     assetFiles: ["images/tiles.json", "bggreen.jpg",
+                 "audioOff.png","audioOn.png",
                  "click.mp3", "x.mp3","o.mp3","game_over.mp3","game_win.mp3"],
     //arena:{width:1024, height:768},
     arena:{width:1680, height:1260}, //4:3
