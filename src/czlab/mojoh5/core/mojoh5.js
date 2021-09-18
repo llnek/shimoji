@@ -473,7 +473,8 @@
       add(p){
         p.pnum=++this._pcnt;
         p.owner=this;
-        this.players.push(p)
+        this.players.push(p);
+        return this;
       }
       winner(){
         return this.pwin }
@@ -536,11 +537,11 @@
       playSound(){}
       uuid(){ return this.uid }
       pokeMove(){
-        console.log(`player ${this.uid}: poked`);
+        //console.log(`player ${this.uid}: poked`);
         this.onPoke();
       }
       pokeWait(){
-        console.log(`player ${this.uid}: wait`);
+        //console.log(`player ${this.uid}: wait`);
         this.onWait();
       }
       stateValue(){

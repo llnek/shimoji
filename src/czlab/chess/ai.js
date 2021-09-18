@@ -164,12 +164,14 @@
       isOver(snap,move){
       }
       evalScore(snap,move){
+        let me= this.actors[2].uuid();
         let m= snap.state.board();
         let v,total=0;
         m.forEach((r,y)=> r.forEach((c,x)=>{
           if(c){
             v= VALUES[c.type]+TABLES[c.color][c.type][y][x];
-            total += c.color=="w" ? v : -v;
+            total += c.color!=me ? v : -v;
+            //total += c.color=="w" ? v : -v;
           }
         }));
         return -total;

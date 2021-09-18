@@ -55,7 +55,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const F_COLPOSMAP={a:7,b:6,c:5,d:4,e:3,f:2,g:1,h:0};
     const COLPOSMAP={a:0,b:1,c:2,d:3,e:4,f:5,g:6,h:7};
+
+    const F_COLPOS="hgfedcba";
     const COLPOS="abcdefgh";
     const ROWPOS=[null,7,6,5,4,3,2,1,0];
     const RPOS=[8,7,6,5,4,3,2,1];
@@ -65,27 +68,33 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function toLocal(pos){
-      let col,row;
-      let team=_G.mediator.cur().uuid();
+      let M=_G.mediator,
+          row, col,team=M.cur().uuid();
       if(pos=="O-O-O" || pos=="O-O"){
-        row= team=="w"? 1: 8;
+        row= team=="w"? 1 : 8;
         col= pos.length>3 ? 2 : 6;
       }else{
         for(let c,i=pos.length-1;i>=0;--i){
           c=pos.charCodeAt(i);
           if(c>VZERO&&c<VNINE){
-            col=COLPOSMAP[pos[i-1]];
+            col=(M.flipped()? F_COLPOSMAP: COLPOSMAP)[pos[i-1]];
             row= +pos[i];
             break;
           }
         }
       }
-      return [ ROWPOS[row], col];
+
+      return M.flipped() ? [row-1, col] : [ ROWPOS[row], col];
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function toCPos(row,col){
-      return `${COLPOS[col]}${RPOS[row]}` }
+      if(_G.mediator.flipped()){
+        return `${F_COLPOS[col]}${row+1}`
+      }else{
+        return `${COLPOS[col]}${RPOS[row]}`
+      }
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkEnd(){
@@ -99,7 +108,7 @@
       if(e){
         msg="No Winner!";
         if(w=M.winner()){
-          if(w.uuid()=="w")
+          if(w.stateValue()==_G.X)
             msg= _G.mode===1? "You Win!" : "Player 1 Win!";
           else
             msg= _G.mode===1? "You Lose!" : "Player 2 Win!";
@@ -150,7 +159,7 @@
       onPoke(){
         if(!checkEnd()){
           _S.tint(_G.selector, this.uuid()=="w"?WCOLOR:BCOLOR);
-          //console.log(this.owner.state.fen());
+          console.log(this.owner.state.ascii());
           _G[this.owner.state.in_check()?"showCheckMsg":"hideCheckMsg"]();
           super.onPoke();
         }
@@ -168,8 +177,12 @@
         this.end=this.state.game_over();
         return super.isGameOver();
       }
+      flipped(b) {
+        if(b !== undefined) this._flipped=b;
+        return this._flipped;
+      }
       start(cur){
-        _.assert(cur.uuid()=="w","White should start first!");
+        _.assert(cur && cur.uuid()=="w","White always starts!");
         super.start(cur);
       }
       updateState(who,move){
@@ -305,10 +318,32 @@
           if(btn.m5.uuid=="#p2")mode=2;
           _S.tint(btn,C_ORANGE);
           playClick();
-          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame",{mode,startsWith:1}));
+          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("StartMenu",{mode}));
         };
         doBackDrop(this);
         self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"#cccccc",fit: 80,opacity:0.3}));
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("StartMenu",{
+      setup(options){
+        let self=this,
+            K=Mojo.getScaleFactor(),
+            cfg={fontName:UI_FONT,fontSize:72*K};
+        options.startsWith=1;
+        function space(){return _S.opacity(_S.bmpText("I",cfg),0)}
+        let msg= _S.bmpText("Player 1 starts? ",cfg);
+        let b1= _I.mkBtn(_S.uuid(_S.bmpText("Yes",cfg),"#p1"));
+        let gap= _S.bmpText(" / ",cfg);
+        let b2= _I.mkBtn(_S.uuid(_S.bmpText("No",cfg), "#p2"));
+        b1.m5.press=
+        b2.m5.press=(btn)=>{
+          if(btn.m5.uuid=="#p2") options.startsWith=2;
+          _S.tint(btn,C_ORANGE);
+          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame", options));
+        };
+        self.insert(_Z.layoutX([msg,space(), b1, gap, b2],{bg:"transparent"}));
       }
     });
 
@@ -348,9 +383,14 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function repaint(){
-      let S=_G.mediator.gameState();
+      let M=_G.mediator,
+          S=M.gameState();
       clearTiles();
-      setMask(S);
+      if(M.flipped()){
+        flipMask(S);
+      }else{
+        setMask(S);
+      }
       //console.log(S.ascii());
     }
 
@@ -386,8 +426,9 @@
             }
             cfg= {to: toCPos(row,col),from: toCPos(r,c)};
             if(p) cfg["promotion"]=p;
-            xxx= board.move(cfg);
-            _.assert(xxx,"Bad user move");
+            if(! board.move(cfg)){
+              _.assert(false,"Bad user move");
+            }
             //console.log("user moved= " + JSON.stringify(xxx));
             playSnd(_G.curSel.g.team);
             clsTargets(M);
@@ -569,6 +610,30 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function flipMask(S){
+      let t,w,r,T= clearTiles();
+      let board=S.board();
+      for(let row=0,y=_G.ROWS-1;y>=0;--y){
+        for(let col=0,c,x=_G.COLS-1;x>=0;--x){
+          if(c=board[y][x]){
+            t=getTile(c.type);
+            _V.copy(t,_G.board[row][col]);
+            w= c.color=="w";
+            t.g.icon= w? c.type.toUpperCase() : c.type;
+            t.g.row=row;
+            t.g.col=col;
+            t.visible=true;
+            t.g.team=w?"w":"b";
+            _S.tint(t,w?WCOLOR:BCOLOR);
+            _G.tiles[row][col]=_I.mkBtn(t);
+          }
+          ++col;
+        }
+        ++row;
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function setMask(S){
       let t,w,r,T= clearTiles();
       let board=S.board();
@@ -598,6 +663,7 @@
       setup(options){
         let self=this,
             p1,p2,
+            team=[0,"w","b"],
             M,K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel=()=>{
@@ -610,14 +676,17 @@
           _G.blackScore=0;
           _G.gameScene=self;
           _G.tiles= makeTiles();
-          M.add(p1= new CHHuman("w",_G.X));
+          if(options.startsWith===2){
+            team[1]="b";team[2]="w";
+          }
+          p1= new CHHuman(team[1],_G.X);
           if(options.mode===1){
-            M.add(p2=new CHBot("b",_G.O));
+            p2=new CHBot(team[2],_G.O);
             p2.ai= _G.AI(p1,p2);
           }else{
-            M.add(p2= new CHHuman("b",_G.O));
+            p2= new CHHuman(team[2],_G.O);
           }
-          return M;
+          return M.add(p1).add(p2);
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initBoard=()=>{
@@ -682,6 +751,7 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.initBoard() && this.g.initPromotion();
         this.g.initMsgs();
+        M.flipped(p1.uuid()=="b");
         repaint();
         M.start(options.startsWith===1?p1:p2);
       },
