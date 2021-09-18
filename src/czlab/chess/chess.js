@@ -187,8 +187,10 @@
       }
       updateState(who,move){
         if(move){
-          let rc=this.state.move(move);
-          _.assert(rc, "Bad AI move!");
+          let xxx=this.state.move(move);
+          _.assert(xxx, "Bad AI move!");
+          //console.log("ai moved= " + JSON.stringify(xxx));
+          updateInfo(xxx);
           playSnd(who.uuid());
           repaint();
         }
@@ -426,9 +428,11 @@
             }
             cfg= {to: toCPos(row,col),from: toCPos(r,c)};
             if(p) cfg["promotion"]=p;
-            if(! board.move(cfg)){
+            xxx=board.move(cfg);
+            if(!xxx){
               _.assert(false,"Bad user move");
             }
+            updateInfo(xxx);
             //console.log("user moved= " + JSON.stringify(xxx));
             playSnd(_G.curSel.g.team);
             clsTargets(M);
@@ -690,7 +694,7 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initBoard=()=>{
-          let z,g= _G.grid= _S.gridXY([_G.COLS,_G.ROWS]);
+          let z,g= _G.grid= _S.gridXY([_G.COLS,_G.ROWS],0.9,0.75);
           _G.arena= _S.gridBBox(0,0,g);
           for(let t,y=0;y<_G.ROWS;++y){
             _G.board.push(t=[]);
@@ -720,6 +724,31 @@
           return self.insert(_G.frame= _S.bboxFrame(_G.arena,16,"#4d4d4d"));//"#7f98a6"));
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initMarks=()=>{
+          let M=_G.mediator,
+              cfg={fontName:UI_FONT,fontSize:36*K};
+          let s,color,rows,cols,row=_G.ROWS-1;
+          if(M.flipped()){
+            rows= RPOS.reverse();
+            cols= F_COLPOS;
+            color=BCOLOR;
+          }else{
+            color=WCOLOR;
+            rows= RPOS;
+            cols= COLPOS;
+          }
+          cols.split("").forEach((c,x)=>{
+            s= _S.tint(_S.bmpText(c,cfg),color);
+            _S.pinBottom(_G.board[row][x],s,24,0.5);
+            self.insert(s);
+          });
+          rows.forEach((c,x)=>{
+            s= _S.tint(_S.bmpText(`${c}`,cfg),color);
+            _S.pinLeft(_G.board[x][0],s,24,0.5);
+            self.insert(s);
+          });
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initPromotion=()=>{
           let cfg={
             bg:"#cccccc",
@@ -744,35 +773,104 @@
           _S.pinRight(_G.frame, s, 10);
           s.visible=false;
           self.insert(s);
-          //s=_G.checkMate=_S.bmpText("CheckMate!",cfg);
-          //_S.pinRight(_G.frame, s, 10);
-          //self.insert(s);
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initInfo=()=>{
+          let x= _S.leftSide(_G.frame)/2,
+              out,prev,m,s,c1,c2,
+              p2moves=[],p1moves=[],
+              xxx={fontName: UI_FONT, fontSize: 48*K},
+              cfg={fontName: UI_FONT, fontSize: 64*K};
+          _G.moves={};
+          if(_G.mediator.flipped()){
+            _G.moves["w"]=p2moves;
+            _G.moves["b"]=p1moves;
+            c1=BCOLOR;
+            c2=WCOLOR;
+          }else{
+            _G.moves["w"]=p1moves;
+            _G.moves["b"]=p2moves;
+            c2=BCOLOR;
+            c1=WCOLOR;
+          }
+          ///////
+          s= _S.bmpText("PLAYER 2",cfg);
+          _S.pinLeft(_G.frame,s, 100,0);
+          s.x=x;
+          s.y += s.height/2;
+          _S.centerAnchor(_S.tint(s,c2));
+          self.insert(s);
+          prev=s;
+          out=p2moves;
+          _.dotimes(5,()=>{
+            m=_S.bmpText("AAA",xxx);
+            _S.tint(m,c2);
+            _S.pinBottom(prev,m,16,0);
+            out.push(self.insert(m));
+            prev=m;
+          });
+          out.forEach(m=>m.text="--");
+          ////////
+          s= _S.bmpText("PLAYER 1",cfg);
+          _S.pinLeft(_G.frame,s, 100,1);
+          s.x=x;
+          s.y += s.height/2;
+          _S.centerAnchor(_S.tint(s,c1));
+          self.insert(s);
+          prev=s;
+          out=p1moves;
+          _.dotimes(5,()=>{
+            m=_S.bmpText("AAA",xxx);
+            _S.tint(m,c1);
+            _S.pinTop(prev,m,16,0);
+            out.push(self.insert(m));
+            prev=m;
+          });
+          out.forEach(m=>m.text="--");
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.initBoard() && this.g.initPromotion();
-        this.g.initMsgs();
         M.flipped(p1.uuid()=="b");
+        this.g.initMarks();
+        this.g.initMsgs();
+        this.g.initInfo();
         repaint();
         M.start(options.startsWith===1?p1:p2);
       },
       postUpdate(){
       }
     });
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("HUD",{
-      setup(){
-        let r= this.red=_S.bitmapText("",{fontSize:36,fill:"white"});
-        let b=this.black=_S.bitmapText("",{fontSize:36,fill:"white"});
-        this.insert(r);
-        this.insert(b);
-        _S.pinBottom(r,b,100);
-      },
-      postUpdate(){
-        //this.red.text=`Red Score: ${_G.redScore}`;
-        //this.black.text=`Black Score: ${_G.blackScore}`;
+    function pieceName(piece){
+      switch(piece){
+        case "p": return "pawn";
+        case "r": return "rook";
+        case "n": return "knight";
+        case "b": return "bishop";
+        case "q": return "queen";
+        case "k": return "king";
       }
-    })
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function updateInfo(move){
+      let {color,from,to,piece}= move;
+      let moves= _G.moves[color];
+      let m,i,
+          sz=moves.length,
+          fmt=`${from}${to}(${piece})`;
+      for(i=0;i<sz;++i){
+        m=moves[i];
+        if(m.text=="--"){
+          m.text=fmt;
+          return;
+        }
+      }
+      for(i=1;i<sz;++i){
+        m=moves[i];
+        moves[i-1].text=m.text;
+      }
+      moves[sz-1].text=fmt;
+    }
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
