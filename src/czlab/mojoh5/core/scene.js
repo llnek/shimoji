@@ -139,6 +139,15 @@
             Mojo.Input.undoButton(c);
           Mojo.off(c);
           _.dissoc(this.m5.index,c.m5.uuid); } }
+      /**Remove item from spatial grid temporarily.
+       * @param {Sprite} c
+       * @return {Sprite} c
+       */
+      degrid(c){
+        if(c)
+          this.m5.sgrid.degrid(c);
+        return c;
+      }
       /**Insert this child sprite.
        * @param {Sprite} c
        * @param {boolean} [engrid]
@@ -212,7 +221,9 @@
        * @param {object} obj
        */
       queueForRemoval(obj){
-        this.m5.garbo.push(obj) }
+        this.m5.garbo.push(obj);
+        return obj;
+      }
       /**
        * @param {number} dt
        */

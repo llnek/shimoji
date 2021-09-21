@@ -1177,6 +1177,34 @@
         }
         return _mkgrid(_x,_y,dim,dim,w,h);
       },
+      /**Divide a rectangular area.
+       * @memberof module:mojoh5/Sprites
+       * @param {number[]} [dimX,dimY]
+       * @param {number} ratio
+       * @param {object} [out]
+       * @return {number[][]}
+       */
+      divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
+        let szh=MFL(Mojo.height*ratioY),
+            szw=MFL(Mojo.width*ratioX),
+            cw=MFL(szw/dimX),
+            ch=MFL(szh/dimY),
+            _x,_y,sy,sx;
+        szh=dimY*ch;
+        szw=dimX*cw;
+        sy= MFL((Mojo.height-szh)/2);
+        sx= MFL((Mojo.width-szw)/2);
+        _x=sx,_y=sy;
+        if(out){
+          out.height=szh;
+          out.width=szw;
+          if(out.x !== undefined) _x=out.x;
+          if(out.y !== undefined) _y=out.y;
+          out.x=sx;
+          out.y=sy;
+        }
+        return _mkgrid(_x,_y,dimY,dimX,cw,ch);
+      },
       /**Create a rectangular grid.
        * @memberof module:mojoh5/Sprites
        * @param {number[]} [dimX,dimY]
