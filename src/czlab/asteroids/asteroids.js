@@ -19,7 +19,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
-    const E_SHIP=1, E_ASTRO=2, E_BULLET=4;
+    const E_SHIP=1, E_ASTRO=2, E_LASER=4;
     const int=Math.floor;
 
     const {Scenes:_Z,
@@ -69,7 +69,7 @@
         let C=Math.cos(s.rotation);
         let y=s.y+s.height*S* 0.5;
         let x=s.x+s.height*C* 0.5;
-        let b= takeBullet();
+        let b= takeLaser();
         b.angle=s.angle;
         _V.set(b,x,y);
         _V.set(b.m5.vel,5*C*K,5*S*K);
@@ -125,13 +125,13 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function takeBullet(){
+    function takeLaser(){
       //console.log("taking a bullet");
       const K=Mojo.getScaleFactor();
       let o;
       if(_G.bullets.length===0){
         o=_S.sprite("laser.png");
-        o.m5.type=E_BULLET;
+        o.m5.type=E_LASER;
         _S.centerAnchor(o);
         _S.scaleBy(o, 0.3*K, 0.5*K);
         _S.tint(o,_S.color("yellow"));
@@ -140,7 +140,7 @@
             repos(_S.move(o))
         };
         o.g.onHit=()=>{
-          dropBullet(o)
+          dropLaser(o)
         };
         _G.gameScene.insert(o,true);
         Mojo.on(["hit",o],"onHit",o.g);
@@ -152,7 +152,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function dropBullet(o){
+    function dropLaser(o){
       //console.log("got rid of a bullet");
       Mojo.off(["hit",o],"onHit",o.g);
       _G.bullets.push(o);
@@ -163,12 +163,12 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function repos(p){
       let r=p.width/2;
-      if(p.m5.type===E_BULLET){
+      if(p.m5.type===E_LASER){
         if(p.x-r>Mojo.width ||
            p.x+r<0 ||
            p.y-r>Mojo.height||
            p.y+r<0){
-          dropBullet(p);
+          dropLaser(p);
         }
       }else{
         //asteroids and ship
@@ -222,7 +222,7 @@
       a.m5.type=E_ASTRO;
       a.m5.circle=true;
       a.g.rank=kind;
-      a.m5.cmask=E_SHIP|E_BULLET;
+      a.m5.cmask=E_SHIP|E_LASER;
       switch(kind){
         case KIND_1:
           rao=0.6;
@@ -250,7 +250,7 @@
         let len=0;
         let X=a.x;
         let Y=a.y;
-        dropBullet(B);
+        dropLaser(B);
         dropAstro(a);
         if(t===KIND_2){
           len=_G.RANK2;
@@ -272,7 +272,7 @@
         }
       }
       a.g.onHit=(col)=>{
-        if(col.B.m5.type===E_BULLET){
+        if(col.B.m5.type===E_LASER){
           a.g.explode(col.B);
         }
       };
@@ -327,7 +327,7 @@
           _G.RANK3=6;
           _.fill(int(_G.RANK1*_G.RANK2*_G.RANK3/2),
                  ()=> takeAstro(KIND_3)).forEach(o=>dropAstro(o));
-          _.fill(20,()=> takeBullet()).forEach(o=> dropBullet(o));
+          _.fill(20,()=> takeLaser()).forEach(o=> dropLaser(o));
           return this;
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

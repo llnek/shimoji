@@ -126,6 +126,18 @@
         this.reset();
         this.ptr && this.ptr.reset();
       },
+      /**Fake a keypress(down).
+       * @memberof module:mojoh5/Input
+       */
+      setKeyOn(k){
+        _keyInputs.set(k,true);
+      },
+      /**Fake a keypress(up).
+       * @memberof module:mojoh5/Input
+       */
+      setKeyOff(k){
+        _keyInputs.set(k,false);
+      },
       /**
        * @memberof module:mojoh5/Input
        * @param {number} _key
