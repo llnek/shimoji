@@ -17,70 +17,527 @@
   "use strict";
 
   /**Creates the module. */
-  function _module(Mojo,ActiveTouches,Buttons,DragDrops){
+  function _module(Mojo){
 
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_,is}=Mojo;
-    const _keyInputs= _.jsMap();
-    let _ctrlKey=false, _altKey=false, _shiftKey=false;
+    const Layers= [];
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function cur(){ return Layers[0] }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function mkLayer(L={}){
+      function _uh(e){
+        L.keyInputs.set(e.keyCode,false);
+        L.shiftKey=e.shiftKey;
+        L.ctrlKey=e.ctrlKey;
+        L.altKey=e.altKey;
+        e.preventDefault();
+      }
+      function _dh(e){
+        L.keyInputs.set(e.keyCode,true);
+        L.ctrlKey= false;
+        L.altKey= false;
+        L.shiftKey=false;
+        e.preventDefault();
+      }
+      _.inject(L,{
+        keyInputs: _.jsMap(),
+        pauseInput:false,
+        ctrlKey:false,
+        altKey:false,
+        shiftKey:false,
+        ptr:null,
+        dispose(){
+          this.ptr.dispose();
+          if(!Mojo.touchDevice)
+            _.delEvent([["keyup", window, _uh, false],
+                        ["keydown", window, _dh, false]]);
+        },
+        pointer(){
+          if(!this.ptr)
+            this.ptr=mkPtr(this);
+          return this.ptr;
+        },
+        update(dt){
+          if(!this.pauseInput)
+            this.ptr.DragDrops.length>0 && this.ptr.update(dt)
+        },
+        keybd(_key,press,release){
+          const self=this;
+          const key={press,
+                     release,
+                     isDown:false, isUp:true,
+                     ctrl:false, alt:false, shift:false};
+          key.code= is.vec(_key)?_key:[_key];
+          function _down(e){
+            e.preventDefault();
+            if(key.code.includes(e.keyCode)){
+              key.ctrl=e.ctrlKey;
+              key.alt=e.altKey;
+              key.shift=e.shiftKey;
+              if(!self.pauseInput && key.isUp)
+                key.press && key.press(key.alt,key.ctrl,key.shift);
+              key.isUp=false;
+              key.isDown=true;
+            }
+          }
+          function _up(e){
+            e.preventDefault();
+            if(key.code.includes(e.keyCode)){
+              if(!self.pauseInput)
+                key.isDown && key.release && key.release();
+              key.isUp=true; key.isDown=false;
+              key.ctrl=false; key.alt=false; key.shift=false;
+            }
+          }
+          if(!Mojo.touchDevice)
+            _.addEvent([["keyup", window, _up, false],
+                        ["keydown", window, _down, false]]);
+          key.dispose=()=>{
+            if(!Mojo.touchDevice)
+              _.delEvent([["keyup", window, _up, false],
+                          ["keydown", window, _down, false]]);
+          }
+          return key;
+        },
+        reset(){
+          this.pauseInput=false;
+          this.ctrlKey=false;
+          this.altKey=false;
+          this.shiftKey=false;
+          this.ptr.reset();
+          this.keyInputs.clear();
+        },
+        resize(){
+          Mojo.mouse=this.ptr;
+          this.ptr.reset();
+        },
+        dbg(){
+          console.log(`N# of touches= ${this.ptr.ActiveTouches.size}`);
+          console.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
+          console.log(`N# of buttons= ${this.ptr.Buttons.length}`);
+          console.log(`N# of drags= ${this.ptr.DragDrops.length}`);
+          console.log(`Mouse pointer = ${this.ptr}`);
+        }
+      });
+
+      if(!Mojo.touchDevice)
+        //keep tracks of keyboard presses
+        _.addEvent([["keyup", window, _uh, false],
+                    ["keydown", window, _dh, false]]);
+
+      return L;
+    }
 
     /**
      * @module mojoh5/Input
      */
 
     /** @ignore */
-    function _uh(e){
-      e.preventDefault();
-      _ctrlKey=e.ctrlKey;
-      _altKey=e.altKey;
-      _shiftKey=e.shiftKey;
-      _keyInputs.set(e.keyCode,false); }
-
-    /** @ignore */
-    function _dh(e){
-      e.preventDefault();
-      _keyInputs.set(e.keyCode,true);
-      _ctrlKey= _altKey= _shiftKey=false; }
-
-    /** @ignore */
-    function _updateDrags(ptr){
-      if(ptr.state[0]){
-        if(ptr.dragged){
-          let px=ptr.dragged.x;
-          let py=ptr.dragged.y;
-          _V.set(ptr.dragged, ptr.dragStartX+(ptr.x-ptr.dragPtrX),
-                              ptr.dragStartY+(ptr.y-ptr.dragPtrY));
-        }else{
-          for(let g,cs,s,i=DragDrops.length-1; i>=0; --i){
-            s=DragDrops[i];
-            if(s.m5.drag && ptr.hitTest(s)){
-              cs= s.parent.children;
-              ptr.dragged = s;
-              ptr.dragStartX = s.x;
-              ptr.dragStartY = s.y;
-              ptr.dragPtrX= ptr.x;
-              ptr.dragPtrY= ptr.y;
-              //pop it up to top
-              _.disj(DragDrops,s);
-              _.disj(cs,s);
-              DragDrops.push(s);
-              cs.push(s);
+    function mkPtr(L){
+      let P={
+        ActiveDragsID: _.jsMap(),
+        ActiveDrags: _.jsMap(),
+        ActiveTouches: _.jsMap(),
+        Hotspots:[],
+        Buttons:[],
+        DragDrops:[],
+        //down,up
+        state: [false,true],
+        touchZeroID:0,
+        _visible: true,
+        _x: 0,
+        _y: 0,
+        width: 1,
+        height: 1,
+        downTime: 0,
+        downAt:[0,0],
+        elapsedTime: 0,
+        dragged: null,
+        dragOffsetX: 0,
+        dragOffsetY: 0,
+        anchor: Mojo.makeAnchor(0.5,0.5),
+        get cursor() { return Mojo.canvas.style.cursor },
+        set cursor(v) { Mojo.canvas.style.cursor = v },
+        get x() { return this._x / Mojo.scale },
+        get y() { return this._y / Mojo.scale },
+        get visible() { return this._visible },
+        get isUp(){return this.state[1]},
+        get isDown(){return this.state[0]},
+        set visible(v) {
+          this.cursor = v ? "auto" : "none";
+          this._visible = v;
+        },
+        update(dt){
+          Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt)
+        },
+        updateMultiDrags(dt){
+          let self=P;
+          for(let cs,a,i=0; i < self.ActiveTouches.length; ++i){
+            a=self.ActiveTouches[i];
+            for(let p,s,i=self.DragDrops.length-1; i>=0; --i){
+              s=self.DragDrops[i];
+              p=self.ActiveDrags.get(s.m5.uuid);
+              if(p){
+                _V.set(p.dragged, p.dragStartX+(a.x-p.dragPtrX),
+                                  p.dragStartY+(a.y-p.dragPtrY));
+                break;
+              }
+              if(s.m5.drag && self._test(s,a.x,a.y)){
+                _.assoc(self.ActiveDrags, s.m5.uuid, p={
+                  dragStartX: s.x,
+                  dragStartY: s.y,
+                  dragPtrX: a.x,
+                  dragPtrY: a.y,
+                  dragged: s,
+                  id: a.id
+                });
+                _.assoc(self.ActiveDragsID, a.id, p);
+                //pop it up to top
+                cs= s.parent.children;
+                _.disj(cs,s);
+                cs.push(s);
+                break;
+              }
+            }
+          }
+        },
+        updateDrags(dt){
+          if(this.state[0]){
+            if(this.dragged){
+              _V.set(this.dragged, this.dragStartX+(this.x-this.dragPtrX),
+                                   this.dragStartY+(this.y-this.dragPtrY));
+            }else{
+              for(let cs,s,i=this.DragDrops.length-1; i>=0; --i){
+                s=this.DragDrops[i];
+                if(s.m5.drag && this.hitTest(s)){
+                  this.dragStartX = s.x;
+                  this.dragStartY = s.y;
+                  this.dragPtrX= this.x;
+                  this.dragPtrY= this.y;
+                  this.dragged = s;
+                  //pop it up to top
+                  cs= s.parent.children;
+                  _.disj(cs,s);
+                  cs.push(s);
+                  break;
+                }
+              }
+            }
+          }
+          if(this.state[1]){
+            //dragged and now dropped
+            if(this.dragged &&
+               this.dragged.m5.onDragDropped)
+              this.dragged.m5.onDragDropped();
+            this.dragged=null;
+          }
+        },
+        getGlobalPosition(){
+          return {x: this.x, y: this.y}
+        },
+        //tap(){ this.press() },
+        _press(){
+          if(!L.pauseInput)
+            for(let s,i=0,z=this.Buttons.length;i<z;++i){
+              s=this.Buttons[i];
+              if(s.m5.press && this.hitTest(s)){
+                s.m5.press(s);
+                break;
+              }
+            }
+        },
+        _doMDown(b){
+          let found,self=P;
+          for(let s,i=0;i<self.Hotspots.length;++i){
+            s=self.Hotspots[i];
+            if(s.m5.touch && self.hitTest(s)){
+              s.m5.touch(s,b);
+              found=true;
               break;
             }
           }
+          return found;
+        },
+        mouseDown(e){
+          let self=P, nn=_.now();
+          //left click only
+          if(e.button===0){
+            e.preventDefault();
+            self._x = e.pageX - e.target.offsetLeft;
+            self._y = e.pageY - e.target.offsetTop;
+            //down,up,pressed
+            _.setVec(self.state,true,false);
+            self.downTime = nn;
+            self.downAt[0]=self._x;
+            self.downAt[1]=self._y;
+            Mojo.Sound.init();
+            if(!L.pauseInput){
+              Mojo.emit(["mousedown"]);
+              self._doMDown(true);
+            }
+          }
+        },
+        mouseMove(e){
+          let self=P;
+          self._x = e.pageX - e.target.offsetLeft;
+          self._y = e.pageY - e.target.offsetTop;
+          //e.preventDefault();
+          if(!L.pauseInput)
+            Mojo.emit(["mousemove"]);
+        },
+        mouseUp(e){
+          let self=P,nn=_.now();
+          if(e.button===0){
+            e.preventDefault();
+            self.elapsedTime = Math.max(0, nn - self.downTime);
+            self._x = e.pageX - e.target.offsetLeft;
+            self._y = e.pageY - e.target.offsetTop;
+            _.setVec(self.state,false,true);
+            if(!L.pauseInput){
+              Mojo.emit(["mouseup"]);
+              if(!self._doMDown(false)){
+                let v= _V.vecAB(self.downAt,self);
+                let z= _V.len2(v);
+                //small distance and fast then a click
+                if(z<400 && self.elapsedTime<200){
+                  Mojo.emit(["single.tap"]);
+                  self._press();
+                }else{
+                  self._swipeMotion(v,z,self.elapsedTime);
+                }
+              }
+            }
+          }
+        },
+        _swipeMotion(v,dd,dt,arg){
+          let n= _V.unit$(_V.normal(v));
+          let rc;
+          //up->down n(1,0)
+          //bottom->up n(-1,0)
+          //right->left n(0,1)
+          //left->right n(0,-1)
+          if(dd>400 && dt<1000 &&
+             (Math.abs(n[0]) > 0.8 || Math.abs(n[1]) > 0.8)){
+            if(n[0] > 0.8){
+              rc="swipe.down";
+            }
+            if(n[0] < -0.8){
+              rc="swipe.up";
+            }
+            if(n[1] > 0.8){
+              rc="swipe.left";
+            }
+            if(n[1] < -0.8){
+              rc="swipe.right";
+            }
+          }
+          if(rc)
+            Mojo.emit([rc], arg)
+        },
+        _doMTouch(ts,flag){
+          let self=P,
+              found=_.jsMap();
+          for(let a,i=0; i<ts.length; ++i){
+            a=ts[i];
+            for(let s,j=0; j<self.Hotspots.length; ++j){
+              s=self.Hotspots[j];
+              if(s.m5.touch && self._test(s,a.x,a.y)){
+                s.m5.touch(s,flag);
+                found.set(a.id,1);
+                break;
+              }
+            }
+          }
+          return found;
+        },
+        _doMDrag(ts,found){
+          let self=P;
+          for(let p,a,i=0; i<ts.length;++i){
+            a=ts[i];
+            if(found.get(a.id)){continue}
+            p=self.ActiveDragsID.get(a.id);
+            if(p){
+              found.set(a.id,1);
+              p.dragged.m5.onDragDropped &&
+              p.dragged.m5.onDragDropped();
+              self.ActiveDragsID.delete(a.id);
+              self.ActiveDrags.delete(p.dragged.m5.uuid);
+            }
+          }
+          return found;
+        },
+        touchCancel(e){
+          console.warn("received touchCancel event!");
+          this.freeTouches();
+        },
+        touchStart(e){
+          let self=P,
+              t= e.target,
+              out=[],
+              nn= _.now(),
+              T= e.targetTouches,
+              A= self.ActiveTouches;
+          e.preventDefault();
+          for(let a,cx,cy,id,o,i=0;i<T.length;++i){
+            o=T[i];
+            id=o.identifier;
+            cx = o.pageX - t.offsetLeft;
+            cy = o.pageY - t.offsetTop;
+            _.assoc(A, id, a={
+              id, _x:cx, _y:cy,
+              downTime: nn, downAt: [cx,cy],
+              x:cx/Mojo.scale, y:cy/Mojo.scale
+            });
+            out.push(a);
+            //handle single touch case
+            if(i===0){
+              self.touchZeroID=id;
+              self._x = cx;
+              self._y = cy;
+              self.downTime= nn;
+              self.downAt= [cx,cy];
+              _.setVec(self.state,true,false);
+            }
+          }
+          Mojo.Sound.init();
+          if(!L.pauseInput){
+            Mojo.emit(["touchstart"],out);
+            self._doMTouch(out,true);
+          }
+        },
+        touchMove(e){
+          let out=[],
+              self=P,
+              t = e.target,
+              T = e.targetTouches;
+          e.preventDefault();
+          for(let cx,cy,a,o,id,i=0;i<T.length;++i){
+            o=T[i];
+            id= o.identifier;
+            cx= o.pageX - t.offsetLeft;
+            cy= o.pageY - t.offsetTop;
+            if(id==self.touchZeroID){
+              self._x = cx;
+              self._y = cy;
+            }
+            if(a= self.ActiveTouches.get(id)){
+              a.x=cx/Mojo.scale;
+              a.y=cy/Mojo.scale;
+              a._x = cx;
+              a._y = cy;
+              out.push(a);
+            }
+          }
+          if(!L.pauseInput)
+            Mojo.emit(["touchmove"],out);
+        },
+        touchEnd(e){
+          let self=P,
+              out=[],
+              T = e.targetTouches,
+              C = e.changedTouches,
+              cx,cy,i,a,o,id,
+              t = e.target, nn=_.now();
+          e.preventDefault();
+          for(i=0;i<C.length;++i){
+            o=C[i];
+            id=o.identifier;
+            cx= o.pageX - t.offsetLeft;
+            cy= o.pageY - t.offsetTop;
+            a=self.ActiveTouches.get(id);
+            if(id==self.touchZeroID){
+              self.elapsedTime = Math.max(0,nn-self.downTime);
+              _.setVec(self.state,false,true);
+              self._x= cx;
+              self._y= cy;
+            }
+            if(a){
+              a.elapsedTime = Math.max(0,nn-a.downTime);
+              self.ActiveTouches.delete(id);
+              a._x= cx;
+              a._y= cy;
+              a.x=cx/Mojo.scale;
+              a.y=cy/Mojo.scale;
+              out.push(a);
+            }
+          }
+          if(!L.pauseInput){
+            Mojo.emit(["touchend"],out);
+            let found= self._doMTouch(out,false);
+            self._doMDrag(out,found);
+            self._onMultiTouches(out,found);
+          }
+        },
+        _onMultiTouches(ts,found){
+          let self=P;
+          for(let a,v,z,j=0; j<ts.length; ++j){
+            a=ts[j];
+            if(found.get(a.id)){continue}
+            v= _V.vecAB(a.downAt,a);
+            z= _V.len2(v);
+            if(z<400 && a.elapsedTime<200){
+              Mojo.emit(["single.tap"],a);
+              for(let s,i=0,n=self.Buttons.length;i<n;++i){
+                s=self.Buttons[i];
+                if(s.m5.press && self._test(s, a.x, a.y)){
+                  s.m5.press(s);
+                  break;
+                }
+              }
+            }else{
+              self._swipeMotion(v,z,a.elapsedTime,a);
+            }
+          }
+        },
+        freeTouches(){
+          _.setVec(this.state,false,true);
+          this.touchZeroID=0;
+          this.ActiveTouches.clear();
+          this.ActiveDrags.clear();
+          this.ActiveDragsID.clear();
+        },
+        reset(){
+          _.setVec(this.state,false,true);
+          this.freeTouches();
+          this.DragDrops.length=0;
+          this.Buttons.length=0;
+          this.Hotspots.length=0;
+        },
+        _test(s,x,y){
+          let _S=Mojo.Sprites,
+              g=_S.gposXY(s),
+              p=_S.toPolygon(s),
+              ps=_V.translate(g,p.calcPoints);
+          return Geo.hitTestPointInPolygon(x, y, ps);
+        },
+        hitTest(s){
+          return this._test(s,this.x, this.y)
         }
-      }
-      if(ptr.state[1]){
-        //dragged and now dropped
-        if(ptr.dragged &&
-           ptr.dragged.m5.onDragDropped)
-          ptr.dragged.m5.onDragDropped();
-        ptr.dragged=null;
-      }
+      };
+
+      //////
+      const sigs=[["mousemove", Mojo.canvas, P.mouseMove],
+                  ["mousedown", Mojo.canvas,P.mouseDown],
+                  ["mouseup", window, P.mouseUp],
+                  ["touchmove", Mojo.canvas, P.touchMove],
+                  ["touchstart", Mojo.canvas, P.touchStart],
+                  ["touchend", window, P.touchEnd],
+                  ["touchcancel", window, P.touchCancel]];
+      _.addEvent(sigs);
+      //////
+      P.dispose=function(){
+        this.reset();
+        _.delEvent(sigs);
+      };
+      //////
+      return P;
     }
 
-    let _pauseInput=false;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
       ZERO: 48, ONE: 49, TWO: 50,
@@ -95,84 +552,40 @@
       SHIFT: 16, CTRL: 17, ALT: 18, SPACE: 32,
       HOME: 36, END: 35,
       PGGUP: 33, PGDOWN: 34,
-      ptr:null,
-      dbg(){
-        console.log(`N# of touches= ${ActiveTouches.size}`);
-        console.log(`N# of buttons= ${Buttons.length}`);
-        console.log(`N# of drags= ${DragDrops.length}`);
-        console.log(`Mouse pointer = ${this.ptr}`);
-      },
-      resume(){ _pauseInput=false },
-      pause(){ _pauseInput=true },
-      isPaused(){ return _pauseInput },
+      isPaused(){ return cur().pauseInput },
+      resume(){ cur().pauseInput=false },
+      pause(){ cur().pauseInput=true },
+      dbg(){ cur().dbg() },
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
        */
       resize(){
-        this.ptr.dispose();
-        Mojo.mouse= this.pointer();
-      },
-      /**Clear all keyboard states.
-       * @memberof module:mojoh5/Input
-       */
-      reset(){
-        _pauseInput=false;
-        _keyInputs.clear();
+        cur().resize()
       },
       /**Clear all keyboard and mouse events.
        * @memberof module:mojoh5/Input
        */
-      resetAll(){
-        this.reset();
-        this.ptr && this.ptr.reset();
+      reset(){
+        cur().reset()
       },
       /**Fake a keypress(down).
        * @memberof module:mojoh5/Input
        */
       setKeyOn(k){
-        _keyInputs.set(k,true);
+        cur().keyInputs.set(k,true);
       },
       /**Fake a keypress(up).
        * @memberof module:mojoh5/Input
        */
       setKeyOff(k){
-        _keyInputs.set(k,false);
+        cur().keyInputs.set(k,false);
       },
       /**
        * @memberof module:mojoh5/Input
        * @param {number} _key
        */
       keybd(_key,press,release){
-        const key={press:press,
-                   release:release,
-                   isDown:false, isUp:true,
-                   ctrl:false, alt:false, shift:false};
-        key.code= is.vec(_key)?_key:[_key];
-        function _down(e){
-          e.preventDefault();
-          if(key.code.includes(e.keyCode)){
-            key.ctrl=e.ctrlKey;
-            key.alt=e.altKey;
-            key.shift=e.shiftKey;
-            !_pauseInput && key.isUp && key.press && key.press(key.alt,key.ctrl,key.shift);
-            key.isUp=false; key.isDown=true;
-          }
-        }
-        function _up(e){
-          e.preventDefault();
-          if(key.code.includes(e.keyCode)){
-            !_pauseInput && key.isDown && key.release && key.release();
-            key.isUp=true; key.isDown=false;
-            key.ctrl=false; key.alt=false; key.shift=false;
-          }
-        }
-        _.addEvent([["keyup", window, _up, false],
-                    ["keydown", window, _down, false]]);
-        key.dispose=()=>{
-          _.delEvent([["keyup", window, _up],
-                      ["keydown", window, _down]]);
-        }
-        return key;
+        return cur().keybd(_key,press,release)
       },
       /**This sprite is no longer a button.
        * @memberof module:mojoh5/Input
@@ -180,9 +593,8 @@
        * @return {Sprite}
        */
       undoButton(b){
-        b.m5.enabled=false;
+        _.disj(cur().ptr.Buttons,b);
         b.m5.button=false;
-        _.disj(Buttons,b);
         return b;
       },
       /**This sprite is now a button.
@@ -191,14 +603,33 @@
        * @return {Sprite}
        */
       makeButton(b){
-        b.m5.enabled = true;
+        _.conj(cur().ptr.Buttons,b);
         b.m5.button=true;
-        _.conj(Buttons,b);
+        return b;
+      },
+      /**This sprite is no longer a hotspot.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} b
+       * @return {Sprite}
+       */
+      undoHotspot(b){
+        _.disj(cur().ptr.Hotspots,b);
+        b.m5.hotspot=false;
+        return b;
+      },
+      /**This sprite is now a hotspot.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} b
+       * @return {Sprite}
+       */
+      makeHotspot(b){
+        _.conj(cur().ptr.Hotspots,b);
+        b.m5.hotspot=true;
         return b;
       },
       /** @ignore */
       update(dt){
-        !_pauseInput && DragDrops.length>0 && _updateDrags(this.ptr)
+        cur().update(dt)
       },
       /**This sprite is now draggable.
        * @memberof module:mojoh5/Input
@@ -206,7 +637,7 @@
        * @return {Sprite}
        */
       makeDrag(s){
-        _.conj(DragDrops,s);
+        _.conj(cur().ptr.DragDrops,s);
         s.m5.drag=true;
         return s;
       },
@@ -216,7 +647,7 @@
        * @return {Sprite}
        */
       undoDrag(s){
-        _.disj(DragDrops,s);
+        _.disj(cur().ptr.DragDrops,s);
         s.m5.drag=false;
         return s;
       },
@@ -231,240 +662,34 @@
        * @param {number} code
        * @return {boolean}
        */
-      keyDown(code){ return _keyInputs.get(code)===true },
-      keyShift(){ return _shiftKey },
-      keyAlt(){ return _altKey },
-      keyCtrl(){ return _ctrlKey },
+      keyDown(code){ return cur().keyInputs.get(code) },
+      keyShift(){ return cur().shiftKey },
+      keyAlt(){ return cur().altKey },
+      keyCtrl(){ return cur().ctrlKey },
       /**Create the default mouse pointer.
        * @memberof module:mojoh5/Input
        * @return {object}
        */
       pointer(){
-        let ptr={
-          state: [false,true],
-          //isDown: false, isUp: true, tapped: false,
-          _visible: true,
-          _x: 0,
-          _y: 0,
-          width: 1,
-          height: 1,
-          downTime: 0,
-          downAt:[0,0],
-          elapsedTime: 0,
-          dragged: null,
-          dragOffsetX: 0,
-          dragOffsetY: 0,
-          anchor: Mojo.makeAnchor(0.5,0.5),
-          get cursor() { return Mojo.canvas.style.cursor },
-          set cursor(v) { Mojo.canvas.style.cursor = v },
-          get x() { return this._x / Mojo.scale },
-          get y() { return this._y / Mojo.scale },
-          get visible() { return this._visible },
-          get isUp(){return this.state[1]},
-          get isDown(){return this.state[0]},
-          set visible(v) {
-            this.cursor = v ? "auto" : "none";
-            this._visible = v;
-          },
-          getGlobalPosition(){
-            return {x: this.x, y: this.y}
-          },
-          press(){
-            if(!_pauseInput)
-              for(let s,i=0,z=Buttons.length;i<z;++i){
-                s=Buttons[i];
-                if(s.m5.enabled &&
-                   s.m5.press &&
-                   ptr.hitTest(s)){
-                  s.m5.press(s);
-                  break;
-                }
-              }
-          },
-          tap(){
-            ptr.press();
-          },
-          mouseDown(e){
-            //left click only
-            if(e.button===0){
-              e.preventDefault();
-              ptr._x = e.pageX - e.target.offsetLeft;
-              ptr._y = e.pageY - e.target.offsetTop;
-              //down,up,pressed
-              _.setVec(ptr.state,true,false);
-              ptr.downAt[0]=ptr._x;
-              ptr.downAt[1]=ptr._y;
-              ptr.downTime = _.now();
-              Mojo.Sound.init();
-              !_pauseInput && Mojo.emit(["mousedown"]);
-            }
-          },
-          mouseMove(e){
-            ptr._x = e.pageX - e.target.offsetLeft;
-            ptr._y = e.pageY - e.target.offsetTop;
-            //e.preventDefault();
-            !_pauseInput && Mojo.emit(["mousemove"]);
-          },
-          mouseUp(e){
-            if(e.button===0){
-              e.preventDefault();
-              ptr.elapsedTime = Math.max(0,_.now()-ptr.downTime);
-              ptr._x = e.pageX - e.target.offsetLeft;
-              ptr._y = e.pageY - e.target.offsetTop;
-              _.setVec(ptr.state,false,true);
-              !_pauseInput && Mojo.emit(["mouseup"]);
-              let v= _V.vecAB(ptr.downAt,ptr);
-              let z= _V.len2(v);
-              if(!ptr.dragged){
-                //small distance and fast then a click
-                if(z<400 && ptr.elapsedTime<200){
-                  !_pauseInput && Mojo.emit(["single.tap"]);
-                  ptr.press();
-                }else{
-                  //maybe a swipe
-                  ptr._swipeMotion(v,z,ptr.elapsedTime);
-                }
-              }
-            }
-          },
-          _swipeMotion(v,dd,dt){
-            let n= _V.unit$(_V.normal(v));
-            let rc;
-            //up->down n(1,0)
-            //bottom->up n(-1,0)
-            //right->left n(0,1)
-            //left->right n(0,-1)
-            if(dd>400 && dt<1000 &&
-               (Math.abs(n[0]) > 0.8 || Math.abs(n[1]) > 0.8)){
-              if(n[0] > 0.8){
-                rc="swipe.down";
-              }
-              if(n[0] < -0.8){
-                rc="swipe.up";
-              }
-              if(n[1] > 0.8){
-                rc="swipe.left";
-              }
-              if(n[1] < -0.8){
-                rc="swipe.right";
-              }
-            }
-            if(!_pauseInput)
-              if(rc)
-                Mojo.emit([rc])
-          },
-          _copyTouch(t,target){
-            return{offsetLeft:target.offsetLeft,
-                   offsetTop:target.offsetTop,
-                   clientX:t.clientX,
-                   clientY:t.clientY,
-                   pageX:t.pageX,
-                   pageY:t.pageY,
-                   identifier:t.identifier}
-          },
-          touchStart(e){
-            let ct=e.changedTouches; //multitouch
-            //let tt=e.targetTouches;//single touch
-            let t = e.target;
-            let tid=ct[0].identifier||0;
-            ptr._x = ct[0].pageX - t.offsetLeft;
-            ptr._y = ct[0].pageY - t.offsetTop;
-            _.setVec(ptr.state,true,false);
-            ptr.downAt[0]=ptr._x;
-            ptr.downAt[1]=ptr._y;
-            ptr.downTime = _.now();
-            _.assoc(ActiveTouches,tid,ptr._copyTouch(ct[0],t));
-            Mojo.Sound.init();
-            e.preventDefault();
-            !_pauseInput && Mojo.emit(["touchstart"]);
-          },
-          touchMove(e){
-            let ct=e.changedTouches;
-            //let tt=e.targetTouches;
-            let t = e.target;
-            let tid= ct[0].identifier||0;
-            let active = _.get(ActiveTouches,tid);
-            ptr._x = ct[0].pageX - t.offsetLeft;
-            ptr._y = ct[0].pageY - t.offsetTop;
-            e.preventDefault();
-            !_pauseInput && Mojo.emit(["touchmove"]);
-          },
-          touchEnd(e){
-            let ct=e.changedTouches;
-            //let tt=e.targetTouches;
-            let t = e.target;
-            let nn=_.now();
-            let tid= ct[0].identifier||0;
-            let active = _.get(ActiveTouches,tid);
-            ptr.elapsedTime = Math.max(0,nn-ptr.downTime);
-            ptr._x = ct[0].pageX - t.offsetLeft;
-            ptr._y = ct[0].pageY - t.offsetTop;
-            _.setVec(ptr.state,false,true);
-            e.preventDefault();
-            !_pauseInput && Mojo.emit(["touchend"]);
-            if(!ptr.dragged){
-              let v= _V.vecAB(ptr.downAt,ptr);
-              let z= _V.len2(v);
-              if(active && z<400 && ptr.elapsedTime<200){
-                !_pauseInput && Mojo.emit(["single.tap"]);
-                ptr.press();
-              }else{
-                ptr._swipeMotion(v,z,ptr.elapsedTime);
-              }
-            }
-          },
-          touchCancel(e){
-            let ct=e.changedTouches;
-            //let tt=e.targetTouches;
-            let t=e.target;
-            let t0=ct[0];
-            let tid= touch.identifier || 0;
-            let active = _.get(ActiveTouches,tid);
-            e.preventDefault();
-            if(active)
-              _.dissoc(ActiveTouches,tid);
-            _.setVec(ptr.state,false,true);
-          },
-          reset(){
-            _.setVec(ptr.state,false,true);
-            ActiveTouches.clear();
-            Buttons.length=0;
-            DragDrops.length=0;
-          },
-          hitTest(s){
-            let _S=Mojo.Sprites,
-                g=_S.gposXY(s),
-                p=_S.toPolygon(s),
-                ps=_V.translate(g,p.calcPoints);
-            return Geo.hitTestPointInPolygon(ptr.x,ptr.y,ps);
-          }
-        };
-
-        const sigs=[["mousemove", Mojo.canvas, ptr.mouseMove],
-                    ["mousedown", Mojo.canvas,ptr.mouseDown],
-                    ["mouseup", window, ptr.mouseUp],
-                    ["touchmove", Mojo.canvas, ptr.touchMove],
-                    ["touchstart", Mojo.canvas, ptr.touchStart],
-                    ["touchend", window, ptr.touchEnd],
-                    ["touchcancel", window, ptr.touchCancel]];
-        _.addEvent(sigs);
-        ptr.dispose=function(){
-          ptr.reset();
-          _.delEvent(sigs);
-        };
-        //disable the default actions on the canvas
-        Mojo.canvas.style.touchAction = "none";
-        return this.ptr=ptr;
+        return cur().pointer()
       },
       dispose(){
-        _.delEvent([["keyup", window, _uh, false],
-                    ["keydown", window, _dh, false]]);
+        Layers.forEach(a => a.dispose())
+      },
+      pop(){
+        if(Layers.length>1){
+          Layers.shift().dispose()
+          cur().pauseInput=false;
+        }
+      },
+      push(){
+        Layers[0].pauseInput=true;
+        Layers.unshift(mkLayer());
       }
     };
 
-    //keep tracks of keyboard presses
-    _.addEvent([["keyup", window, _uh, false],
-                ["keydown", window, _dh, false]]);
+    //disable the default actions on the canvas
+    Mojo.canvas.style.touchAction = "none";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //aliases
@@ -472,6 +697,10 @@
     _$.mkBtn=_$.makeButton;
     _$.mkDrag=_$.makeDrag;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    Layers.push(mkLayer());
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     return (Mojo.Input= _$);
   }
 
@@ -481,7 +710,7 @@
     throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Input"]=function(M){
-      return M.Input ? M.Input : _module(M,new Map(),[],[])
+      return M.Input ? M.Input : _module(M)
     }
   }
 

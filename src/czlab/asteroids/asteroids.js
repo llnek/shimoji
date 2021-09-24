@@ -51,6 +51,21 @@
     const KIND_3=3;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function fireLaser(){
+      let s= _G.ship,
+          K=Mojo.getScaleFactor(),
+          S=Math.sin(s.rotation),
+          C=Math.cos(s.rotation),
+          y=s.y+s.height*S* 0.5,
+          x=s.x+s.height*C* 0.5;
+      let b= takeLaser();
+      b.angle=s.angle;
+      _V.set(b,x,y);
+      _V.set(b.m5.vel,5*C*K,5*S*K);
+      _G.shoot.play();
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkShip(scene,X,Y){
       const K= Mojo.getScaleFactor(),
             s= _S.sprite(_S.frames("rocket.png",512,396));
@@ -64,17 +79,7 @@
       _G.maxOmega= 400;
       _G.omegaDelta= 700;
       const fire=_I.keybd(_I.SPACE);
-      fire.press = ()=>{
-        let S=Math.sin(s.rotation);
-        let C=Math.cos(s.rotation);
-        let y=s.y+s.height*S* 0.5;
-        let x=s.x+s.height*C* 0.5;
-        let b= takeLaser();
-        b.angle=s.angle;
-        _V.set(b,x,y);
-        _V.set(b.m5.vel,5*C*K,5*S*K);
-        _G.shoot.play();
-      };
+      fire.press = fireLaser;
       s.m5.tick=(dt)=>{
         let u= _I.keyDown(_I.UP);
         let r= _I.keyDown(_I.RIGHT);
@@ -280,7 +285,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.defScene("Poo",{
       setup(){
         let self=this,
             K=Mojo.getScaleFactor(),
@@ -303,6 +308,36 @@
           };
           _V.set(b,Mojo.width/2,Mojo.height*0.7);
           return self.insert(_S.centerAnchor(b));
+        }
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle() && this.g.doNext();
+      }
+    });
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("Splash",{
+      setup(){
+        let self=this,
+            K=Mojo.getScaleFactor(),
+            verb=Mojo.touchDevice?"Tap":"Click";
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText("Asteroids",{fontName:TITLE_FONT,fontSize:120*K});
+          _S.tint(s,C_TITLE);
+          _V.set(s,Mojo.width/2,Mojo.height*0.3);
+          return self.insert(_S.centerAnchor(s));
+        }
+        this.g.doNext=(s,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
+          t=_F.throb(s,0.99);
+          function cb(){
+            Mojo.off(["single.tap"],cb);
+            _F.remove(t);
+            _S.tint(s,C_ORANGE);
+            playClick();
+            _.delay(CLICK_DELAY,()=>_Z.replaceScene(self,"PlayGame"));
+          }
+          Mojo.on(["single.tap"],cb);
+          _V.set(s,Mojo.width/2,Mojo.height*0.7);
+          return self.insert(_S.centerAnchor(s));
         }
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.doTitle() && this.g.doNext();
@@ -358,7 +393,7 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initShip=()=>{
-          let s= this.ship= mkShip(this, Mojo.width/2, Mojo.height/2);
+          let s= _G.ship= mkShip(this, Mojo.width/2, Mojo.height/2);
           return this.insert(s,true);
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -368,7 +403,62 @@
           return self.insert(s);
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.XXinitHotspots=()=>{
+          let cfg={fontName:UI_FONT,fontSize:64*K};
+          let l=_I.makeHotspot(_S.bmpText("  <-  ",cfg));
+          let r=_I.makeHotspot(_S.bmpText("  ->  ",cfg));
+          let u=_I.makeHotspot(_S.bmpText("  ^^  ",cfg));
+          let b=_Z.layoutX([l,u,r],{bg:"#cccccc",opacity:0.3,padding:84,fit:48});
+          let offY=b.height/8;
+          let offX=b.width/8;
+          b.y=Mojo.height-b.height-offY;
+          b.x=Mojo.width-b.width-offX;
+          self.insert(b);
+          r.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
+          l.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
+          u.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP) }
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          Mojo.on(["single.tap"],"fire",self);
+        };
+        this.g.initHotspots=()=>{
+          let cfg={fontName:UI_FONT,fontSize:64*K};
+          let alpha=0.2,grey=_S.color("#cccccc");
+          let L,U,R,F,offX, offY;
+          R= _S.rect(120,72,grey,grey,4);
+          _S.centerAnchor(R);
+          R.addChild(_S.centerAnchor(_S.bmpText("->",cfg)));
+          offY=K*R.height/2;
+          offX=offY;
+          _V.set(R, Mojo.width-offX-R.width/2, Mojo.height-offY-R.height/2);
+          self.insert(_S.opacity(_I.makeHotspot(R),alpha));
+          //////
+          U= _S.rect(120,72,grey,grey,4);
+          _S.centerAnchor(U);
+          U.addChild(_S.centerAnchor(_S.bmpText("++",cfg)));
+          _S.pinLeft(R,U,offX/2);
+          self.insert(_S.opacity(_I.makeHotspot(U),alpha));
+          //////
+          L= _S.rect(120,72,grey,grey,4);
+          _S.centerAnchor(L);
+          L.addChild(_S.centerAnchor(_S.bmpText("<-",cfg)));
+          _S.pinLeft(U,L,offX/2);
+          self.insert(_S.opacity(_I.makeHotspot(L),alpha));
+          //////
+          F= _S.rect(120,72,grey,grey,4);
+          _S.centerAnchor(F);
+          F.addChild(_S.centerAnchor(_S.bmpText("^^",cfg)));
+          _V.set(F, offX+F.width/2, Mojo.height-offY-F.height/2);
+          self.insert(_S.opacity(_I.mkBtn(F),alpha));
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
+          L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
+          U.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP) }
+          F.m5.press=(o)=>{ fireLaser() };
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel() && this.g.initAstros() && this.g.initShip() && this.g.initHUD();
+        if(Mojo.touchDevice)
+          this.g.initHotspots();
       },
       postUpdate(dt){
         for(let a,i=_G.astros.length-1;i>=0;--i){

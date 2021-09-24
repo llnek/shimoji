@@ -322,7 +322,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const _CT="body, * {padding: 0; margin: 0}";
+    const _CT="body, * {padding: 0; margin: 0; height:100%; overflow:hidden}";
     const _ScrSize={width:0,height:0};
     const _Size11={width:1,height:1};
 
