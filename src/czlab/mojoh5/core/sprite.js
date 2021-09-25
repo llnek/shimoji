@@ -1603,11 +1603,15 @@
        * @return {number[]} a list of collision points
        */
       clamp(s, container, bounce=false,extra=null){
-        let c;
+        let box,C;
         if(container instanceof Mojo.Scenes.Scene){
-          c=Mojo.mockStage();
+          C=Mojo.mockStage();
         }else if(container.m5 && container.m5.stage){
-          c=container;
+          C=container;
+        }else if(container.x2 !== undefined &&
+                 container.y2 !== undefined){
+          C=container;
+          box=true;
         }else{
           if(container.isSprite)
             _.assert(s.parent===container);
@@ -1616,18 +1620,17 @@
           _.assert(_.feq0(container.rotation),"Error: clamp() container can't rotate");
           _.assert(_.feq0(container.anchor.x),"Error: clamp() container anchor.x !==0");
           _.assert(_.feq0(container.anchor.y),"Error: clamp() container anchor.y !==0");
-          c=container;
+          C=container;
         }
-        let coff= this.topLeftOffsetXY(c);
+        let coff= box ? [0,0] : this.topLeftOffsetXY(C);
         let collision = new Set();
         let CX=false,CY=false;
         let R= Geo.getAABB(this.toShape(s));
-        let cl= c.x+coff[0],
-            cr= cl+c.width,
-            ct= c.y+coff[1],
-            cb= ct+c.height;
-        let rx=R.pos[0];
-        let ry=R.pos[1];
+        let cl= box ? C.x1 : C.x+coff[0],
+            cr= cl+ (box? C.x2-C.x1 : C.width),
+            ct= box ? C.y1 : C.y+coff[1],
+            cb= ct+ (box? C.y2-C.y1 : C.height);
+        let [rx,ry]=R.pos;
         //left
         if(rx<cl){
           s.x += cl-rx;

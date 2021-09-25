@@ -44,6 +44,10 @@
         this.g.stars=stars;
         this.g.gfx=gfx;
         this.g.lag=0;
+        this.g.dynamic=true;
+
+        if(o.static)
+          this.g.dynamic=false;
 
         for(let i=0; i<o.count; ++i)
           stars[i] = {x: _.rand()*o.width,
@@ -65,7 +69,7 @@
           this.g.gfx.endFill();
         });
       },
-      postUpdate(dt){
+      moveStars(dt){
         this.g.lag +=dt;
         if(this.g.lag<this.g.fps){}else{
           this.g.lag=0;
@@ -80,6 +84,9 @@
             s.vel=(_.rand()*(o.maxVel- o.minVel))+o.minVel; } }
           this._draw();
         }
+      },
+      postUpdate(dt){
+        this.g.dynamic ? this.moveStars(dt) : 0
       }
     },{fps:90, count:100, minVel:15, maxVel:30 });
 

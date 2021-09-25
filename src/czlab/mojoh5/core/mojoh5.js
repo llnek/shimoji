@@ -443,6 +443,7 @@
     //------------------------------------------------------------------------
     /**Code to run per tick. */
     function _update(dt){
+      Mojo._curFPS=Mojo.calcFPS(dt);
       //process any backgorund tasks
       _BgTasks.forEach(m=> m.update && m.update(dt));
       //update all scenes

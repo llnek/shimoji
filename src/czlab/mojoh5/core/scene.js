@@ -113,10 +113,14 @@
                              children:this.children}) }
       /**Run this function after a delay in millis or frames.
        * @param {function}
-       * @param {number} delay
+       * @param {number} delayFrames
        */
-      future(expr,delay){
-        this.m5.queue.push([expr,delay]) }
+      future(expr,delayMillis){
+        this.m5.queue.push([expr, MFL(Mojo._curFPS*delayMillis/1000)])
+      }
+      XXfuture(expr,delayFrames){
+        this.m5.queue.push([expr,delayFrames])
+      }
       /**Get the child with this id.
        * @param {string} id
        * @return {Sprite}
@@ -146,6 +150,15 @@
       degrid(c){
         if(c)
           this.m5.sgrid.degrid(c);
+        return c;
+      }
+      /**Force item to update spatial grid.
+       * @param {Sprite} c
+       * @return {Sprite} c
+       */
+      engrid(c){
+        if(c && c.m5._engrid)
+          this.m5.sgrid.engrid(c);
         return c;
       }
       /**Insert this child sprite.
@@ -209,8 +222,11 @@
             }
             c.m5.flip=false;
             Mojo.emit(["post.tick",c],dt);
-            if(c.m5._engrid) this.m5.sgrid.engrid(c); }
-          c.children.length>0 && this._tick(c.children, dt) }) }
+            if(c.m5._engrid) this.m5.sgrid.engrid(c);
+          }
+          c.children.length>0 && this._tick(c.children, dt)
+        })
+      }
       /**Find objects that may collide with this object.
        * @param {object} obj
        * @return {object[]}
