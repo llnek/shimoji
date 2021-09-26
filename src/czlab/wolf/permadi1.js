@@ -17,14 +17,62 @@
     const cos= Math.cos;
     const sin=Math.sin;
 
-    // Remember that PROJECTIONPLANE = screen.  This demo assumes your screen is 320 pixels wide, 200 pixels high
-    const PROJECTIONPLANEWIDTH = 640;
-    const PROJECTIONPLANEHEIGHT = 400;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //Map
+    const map1= "############"+
+                "#..........#"+
+                "#.....#.#..#"+
+                "#..#..#.#..#"+
+                "#..#..#.#..#"+
+                "#..#..#.#..#"+
+                "#..#..#.#..#"+
+                "#..#..#.#..#"+
+                "#..#..#.#..#"+
+                "#..####.#..#"+
+                "#..........#"+
+                "############".replace(/\s+/g, "");
+    const map2= "############"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "#..........#"+
+                "############".replace(/\s+/g, "");
+    const map3= "############"+
+                "#..........#"+
+                "#..........#"+
+                "#.......#..#"+
+                "#..#.#..#..#"+
+                "#..#.##.#..#"+
+                "#..#..#.#..#"+
+                "#...#.#.#..#"+
+                "#...#.#.#..#"+
+                "#...###.#..#"+
+                "#..........#"+
+                "############".replace(/\s+/g, "");
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const FMAP=map3;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const [PROJECTIONWIDTH, PROJECTIONHEIGHT,PROJDIST] = (function(){
+      if(Mojo.width > 1400){
+        return [1280, 800, 1108]
+      }else if(Mojo.width > 1040){
+        return [960, 600, 830]
+      }else if(Mojo.width > 800){
+        return [640, 400, 554]
+      }else{
+        return [320, 200, 276]
+      }
+    })();
 
-    // We use FOV of 60 degrees.  So we use this FOV basis of the table, taking into account
-    // that we need to cast 320 rays (PROJECTIONPLANEWIDTH) within that 60 degree FOV.
-    const ANGLE60 = PROJECTIONPLANEWIDTH;
-    // You must make sure these values are integers because we're using loopup tables.
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    // FOV = 60
+    const ANGLE60 = PROJECTIONWIDTH;
     const ANGLE30 = int(ANGLE60/2);
     const ANGLE15 = int(ANGLE30/2);
     const ANGLE90 = int(ANGLE30*3);
@@ -36,318 +84,215 @@
     const ANGLE10 = int(ANGLE5*2);
     const ANGLE45 = int(ANGLE15*3);
 
-    // trigonometric tables (the ones with "I" such as ISiTable are "Inverse" table)
-    let fSinTable;
-    let fISinTable;
-    let fCosTable;
-    let fICosTable;
-    let fTanTable;
-    let fITanTable;
-    let fFishTable;
-    let fXStepTable;
-    let fYStepTable;
-
     // size of tile (wall height)
     const TILE_SIZE = 64;
     const WALL_HEIGHT = 64;
     const MAP_WIDTH=12;
     const MAP_HEIGHT=12;
 
-    function arcToRad(arcAngle){
-		  return ((arcAngle*Math.PI)/ANGLE180);
-	  }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    // trigonometric tables (the ones with "I" such as ISiTable are "Inverse" table)
+    const tSIN=0;
+    const iSIN=1;
+    const tCOS=2;
+    const iCOS=3;
+    const tTAN=4;
+    const iTAN=5;
+    const tFISH=6;
+    const xSTEP=7;
+    const ySTEP=8;
+    const TABLES= (function(a){
+      for(let i=0;i<a.length;++i)
+        a[i]= new Array(ANGLE360+1)
+      return a;
+    })(_.fill(9));
 
-    function _rgbToHexColor(red, green, blue){
-      return "#"+
-      red.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
-      green.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
-      blue.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function paintRect(g,x, y, w, h, c){
+      g.beginFill(_S.color(c));
+      g.drawRect(x, y, w, h);
+      g.endFill();
     }
 
-    function init(self){
-      fSinTable = new Array(ANGLE360+1);
-      fISinTable = new Array(ANGLE360+1);
-      fCosTable = new Array(ANGLE360+1);
-      fICosTable = new Array(ANGLE360+1);
-      fTanTable = new Array(ANGLE360+1);
-      fITanTable = new Array(ANGLE360+1);
-      fFishTable = new Array(ANGLE360+1);
-      fXStepTable = new Array(ANGLE360+1);
-      fYStepTable = new Array(ANGLE360+1);
-      for(let r,i=0; i<=ANGLE360;++i){
-        // Populate tables with their radian values.
-        // (The addition of 0.0001 is a kludge to avoid divisions by 0. Removing it will produce unwanted holes in the wall when a ray is at 0, 90, 180, or 270 degree angles)
-        r= arcToRad(i) + (0.0001);
-			  fSinTable[i]=sin(r);
-			  fISinTable[i]=(1.0/(fSinTable[i]));
-			  fCosTable[i]=cos(r);
-			  fICosTable[i]=(1.0/(fCosTable[i]));
-			  fTanTable[i]=Math.tan(r);
-			  fITanTable[i]=(1.0/fTanTable[i]);
-        // Next we crate a table to speed up wall lookups.
-        //  You can see that the distance between walls are the same
-        //  if we know the angle
-        //  _____|_/next xi______________
-        //       |
-        //  ____/|next xi_________   slope = tan = height / dist between xi's
-        //     / |
-        //  __/__|_________  dist between xi = height/tan where height=tile size
-        // old xi|
-        //                  distance between xi = x_step[view_angle];
-        // Facing LEFT
-			  if(i>=ANGLE90 && i<ANGLE270){
-          fXStepTable[i] = (TILE_SIZE/fTanTable[i]);
-				if(fXStepTable[i]>0)
-					fXStepTable[i]=-fXStepTable[i];
-        }else{ // facing RIGHT
-				  fXStepTable[i] = (TILE_SIZE/fTanTable[i]);
-				  if(fXStepTable[i]<0)
-					  fXStepTable[i]=-fXStepTable[i];
-        }
-        // FACING DOWN
-        if(i>=ANGLE0 && i<ANGLE180){
-				  fYStepTable[i] = (TILE_SIZE*fTanTable[i]);
-				  if(fYStepTable[i]<0)
-					  fYStepTable[i]=-fYStepTable[i];
-        }else{ // FACING UP
-          fYStepTable[i] = (TILE_SIZE*fTanTable[i]);
-				  if(fYStepTable[i]>0)
-					  fYStepTable[i]=-fYStepTable[i];
-        }
-      }
-		  // Create table for fixing FISHBOWL distortion
-		  for(let r,i=-ANGLE30; i<=ANGLE30; ++i){
-        r = arcToRad(i);
-			  // we don't have negative angle, so make it start at 0
-			  // this will give range from column 0 to 319 (PROJECTONPLANEWIDTH) since we only will need to use those range
-			  fFishTable[i+ANGLE30] = (1.0/cos(r));
-      }
-      // CREATE A SIMPLE MAP.
-      // Use string for elegance (easier to see).  W=Wall, O=Opening
-      let map=
-			'WWWWWWWWWWWW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOWOWOOW'+
-			'WOOWOOWOWOOW'+
-			'WOOWOOWOWOOW'+
-			'WOOWOOWOWOOW'+
-			'WOOWOOWOWOOW'+
-			'WOOWOOWOWOOW'+
-			'WOOWOOWOWOOW'+
-			'WOOWWWWOWOOW'+
-			'WOOOOOOOOOOW'+
-			'WWWWWWWWWWWW';
-      let map2=
-			'WWWWWWWWWWWW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WOOOOOOOOOOW'+
-			'WWWWWWWWWWWW';
-      let map3=
-                'WWWWWWWWWWWW'+
-                'WOOOOOOOOOOW'+
-                'WOOOOOOOOOOW'+
-                'WOOOOOOOWOOW'+
-                'WOOWOWOOWOOW'+
-                'WOOWOWWOWOOW'+
-                'WOOWOOWOWOOW'+
-                'WOOOWOWOWOOW'+
-                'WOOOWOWOWOOW'+
-                'WOOOWWWOWOOW'+
-                'WOOOOOOOOOOW'+
-                'WWWWWWWWWWWW';
-      // Remove spaces and tabs
-      self.fMap=map3.replace(/\s+/g, '');
-    }
-
-    _Z.defScene("level1",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PlayGame",{
       setup(){
-        init(this);
-        this.fPlayerX = 100;
-        this.fPlayerY = 160;
-        this.fPlayerArc = ANGLE5+ANGLE5;
-        this.fPlayerDistanceToTheProjectionPlane = 277*2;
-        this.fPlayerHeight = WALL_HEIGHT/2;
-        this.fPlayerSpeed = 16;
-        // Half of the screen height
-        this.fProjectionPlaneYCenter = PROJECTIONPLANEHEIGHT/2;
-        // the following variables are used to keep the player coordinate in the overhead map
-        this.fPlayerMapX=0;
-        this.fPlayerMapY=0;
-        this.fMinimapWidth=0;
-        // 2 dimensional map
-        let sy= int((Mojo.height-PROJECTIONPLANEHEIGHT)/2);
-        let sx= int((Mojo.width-PROJECTIONPLANEWIDTH)/2);
-        _V.set(this,sx,sy);
-        _G.arena= {x1:sx, y1:sy, x2: sx+PROJECTIONPLANEWIDTH, y2: sy+PROJECTIONPLANEHEIGHT};
-        let pbox={x1:0,y1:0,
-                  x2:_G.arena.width,
-                  y2:_G.arena.height};
-        this.insert(_S.drawGridBox(pbox));
-        this.insert( this.gfx=_S.graphics());
-      },
-      drawBackgd(){
-        // sky
-        let c=255;
-        let r,css;
-        let incement=1;
-        for(r=0; r<PROJECTIONPLANEHEIGHT/2; r+=incement){
-          css= _rgbToHexColor(c, 125, 225);
-          //this.drawLine(0, r, PROJECTIONPLANEWIDTH,r, css);
-          this.gfx.beginFill(_S.color(css));
-          this.gfx.drawRect(0,r,PROJECTIONPLANEWIDTH,1);
-          this.gfx.endFill();
-          c-=incement;
-        }
-        // ground
-        c=22;
-        for(; r<PROJECTIONPLANEHEIGHT; r+=incement){
-          css=_rgbToHexColor(c, 20, 20);
-          //this.drawLine(0, r, PROJECTIONPLANEWIDTH,r, css);
-          this.gfx.beginFill(_S.color(css));
-          this.gfx.drawRect(0,r,PROJECTIONPLANEWIDTH,1);
-          this.gfx.endFill();
-          c+=incement;
-        }
-      },
-      drawFillRect(x, y, width, height, css){
-        this.gfx.beginFill(_S.color(css));
-        this.gfx.drawRect(x, y, width, height);
-        this.gfx.endFill();
+        _G.gameScene=this;
+        function arcToRad(a){ return a*Math.PI/ANGLE180 }
+        this.g.initTables=()=>{
+          for(let v,r,i=0; i<=ANGLE360; ++i){
+            r= arcToRad(i) + 0.0001;// add tiny amount to avoid 0 (div by 0)
+            v=TABLES[tSIN][i]=sin(r);
+            TABLES[iSIN][i]=1.0/v;
+            v=TABLES[tCOS][i]=cos(r);
+            TABLES[iCOS][i]=1.0/v;
+            v=TABLES[tTAN][i]=Math.tan(r);
+            TABLES[iTAN][i]=1.0/v;
+            // Next we create a table to speed up wall lookups.
+            //You can see that the distance between walls are the same
+            //if we know the angle
+            //  _____|_/next xi______________
+            //       |
+            //  ____/|next xi_________   slope = tan = height / dist between xi's
+            //     / |
+            //  __/__|_________  dist between xi = height/tan where height=tile size
+            // old xi|
+            // distance between xi = x_step[view_angle];
+            if(i>=ANGLE90 && i<ANGLE270){//facing LEFT
+              v= TABLES[xSTEP][i] = TILE_SIZE / TABLES[tTAN][i];
+              if(v>0) TABLES[xSTEP][i]=-v;
+            }else{ // facing RIGHT
+              v= TABLES[xSTEP][i] = TILE_SIZE / TABLES[tTAN][i];
+              if(v<0) TABLES[xSTEP][i]=-v;
+            }
+            if(i>=ANGLE0 && i<ANGLE180){//facing DOWN
+              v= TABLES[ySTEP][i] = TILE_SIZE* TABLES[tTAN][i];
+              if(v<0) TABLES[ySTEP][i]=-v;
+            }else{ // FACING UP
+              v= TABLES[ySTEP][i] = TILE_SIZE* TABLES[tTAN][i];
+              if(v>0) TABLES[ySTEP][i]=-v;
+            }
+          }
+          // Create table for fixing FISHBOWL distortion
+          for(let i=-ANGLE30; i<=ANGLE30; ++i){
+            // we don't have negative angle, so make it start at 0
+            // this will give range from column 0 to (PROJECTONPLANEWIDTH) since we only will need to use those range
+            TABLES[tFISH][i+ANGLE30] = 1.0/cos(arcToRad(i))
+          }
+
+          return this;
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initLevel=()=>{
+          this.fProjPlaneYCenter = PROJECTIONHEIGHT/2;
+          this.fPlayerDistToTheProjPlane = PROJDIST;
+          this.fPlayerHeight = WALL_HEIGHT/2;
+          this.fPlayerSpeed = 16;
+          _G.fPlayerArc = ANGLE5+ANGLE5;
+          _G.fPlayerX = 100;
+          _G.fPlayerY = 160;
+          //2 dimensional map
+          let sy= int((Mojo.height-PROJECTIONHEIGHT)/2);
+          let sx= int((Mojo.width-PROJECTIONWIDTH)/2);
+          _V.set(this,sx,sy);
+          _G.arena= {x1:sx, y1:sy, x2: sx+PROJECTIONWIDTH, y2: sy+PROJECTIONHEIGHT};
+          let pbox={x1:0,y1:0,
+                    x2:_G.arena.width,
+                    y2:_G.arena.height};
+          this.insert(_S.drawGridBox(pbox));
+          return this.insert( this.g.gfx=_S.graphics());
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.drawBackgd=()=>{
+          let r,step=2,c=255;
+          for(r=0; r<PROJECTIONHEIGHT/2; r+=step){//sky
+            this.g.gfx.beginFill(_S.color3(c, 125, 225));
+            this.g.gfx.drawRect(0,r,PROJECTIONWIDTH,step);
+            this.g.gfx.endFill();
+            --c;
+          }
+          for(c=22, r=PROJECTIONHEIGHT/2; r<PROJECTIONHEIGHT; r+=step){//floor
+            this.g.gfx.beginFill(_S.color3(c, 20, 20));
+            this.g.gfx.drawRect(0,r,PROJECTIONWIDTH,step);
+            this.g.gfx.endFill();
+            ++c;
+          }
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initTables() && this.g.initLevel();
       },
       raycast(){
-        let verticalGrid;  // horizotal or vertical coordinate of intersection
-        let horizontalGrid; // theoritically, this will be multiple of TILE_SIZE
-        // , but some trick did here might cause
-        // the values off by 1
-        let distToNextVerticalGrid; // how far to the next bound (this is multiple of
-        let distToNextHorizontalGrid; // tile size)
-        let xIntersection;  // x and y intersections
-        let yIntersection;
-        let distToNextXIntersection;
-        let distToNextYIntersection;
-        let xGridIndex;        // the current cell that the ray is in
+        let vtGrid;  // horizotal or vertical coordinate of intersection
+        let hzGrid; // theoritically, this will be multiple of TILE_SIZE
+        // , but some trick did here might cause the values off by 1
+        let distToNextVtGrid; // how far to the next bound (this is multiple of
+        let distToNextHzGrid; // tile size)
+        let i_x, i_y; // interseection
+        let distToNextXI;
+        let distToNextYI;
+        let xGridIndex; // the current cell that the ray is in
         let yGridIndex;
-        let distToVerticalGridBeingHit;      // the distance of the x and y ray intersections from
-        let distToHorizontalGridBeingHit;      // the viewpoint
-        let castArc, castColumn;
-        let DEBUG=false;
-        castArc = this.fPlayerArc;
-        // field of view is 60 degree with the point of view (player's direction in the middle)
-        // 30  30
-        //    ^
-        //  \ | /
-        //   \|/
-        //    v
-        // we will trace the rays starting from the leftmost ray
-        castArc-= ANGLE30;
-        // wrap around if necessary
-        if(castArc < 0)
-          castArc= ANGLE360 + castArc;
+        let distToVtGridBeingHit; // the distance of the x and y ray intersections from
+        let distToHzGridBeingHit; // the viewpoint
+        let castArc = _G.fPlayerArc;
+        castArc-= ANGLE30; // trace the rays from the left
+        if(castArc < 0) castArc += ANGLE360;
 
-        for(castColumn=0; castColumn<PROJECTIONPLANEWIDTH; castColumn+=1){
-          // Ray is between 0 to 180 degree (1st and 2nd quadrant).
+        //the big loop
+        for(let mapIndex,xtemp,ytemp,castCol=0; castCol<PROJECTIONWIDTH; ++castCol){
           // Ray is facing down
           if(castArc > ANGLE0 && castArc < ANGLE180){
             // truncuate then add to get the coordinate of the FIRST grid (horizontal
-            // wall) that is in front of the player (this is in pixel unit)
-            // ROUNDED DOWN
-            horizontalGrid = int(this.fPlayerY/TILE_SIZE)*TILE_SIZE  + TILE_SIZE;
+            // wall) that is in front of the player (this is in pixel unit) ROUNDED DOWN
+            hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE  + TILE_SIZE;
             // compute distance to the next horizontal wall
-            distToNextHorizontalGrid = TILE_SIZE;
-            let xtemp = fITanTable[castArc]*(horizontalGrid-this.fPlayerY);
-            // we can get the vertical distance to that wall by
-            // (horizontalGrid-playerY)
-            // we can get the horizontal distance to that wall by
-            // 1/tan(arc)*verticalDistance
+            distToNextHzGrid = TILE_SIZE;
+            xtemp = TABLES[iTAN][castArc]*(hzGrid-_G.fPlayerY);
+            // we can get the vertical distance to that wall by (hzGrid-playerY)
+            // we can get the horizontal distance to that wall by 1/tan(arc)*verticalDistance
             // find the x interception to that wall
-            xIntersection = xtemp + this.fPlayerX;
-            if(DEBUG)
-              console.log("castArc="+castArc+" in CHECKPOINT A, horizontalGrid="+horizontalGrid+" distToNextHorizontalGrid="+distToNextHorizontalGrid+ " xtemp="+xtemp+" xIntersection="+xIntersection);
           }else{// Else, the ray is facing up
-            horizontalGrid = int(this.fPlayerY/TILE_SIZE)*TILE_SIZE;
-            distToNextHorizontalGrid = -TILE_SIZE;
-            let xtemp = fITanTable[castArc]*(horizontalGrid - this.fPlayerY);
-            xIntersection = xtemp + this.fPlayerX;
-            --horizontalGrid;
-            if(DEBUG)
-              console.log("castArc="+castArc+" in CHECKPOINT B, horizontalGrid="+horizontalGrid+" distToNextHorizontalGrid="+distToNextHorizontalGrid+ " xtemp="+xtemp+" xIntersection="+xIntersection);
+            hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE;
+            distToNextHzGrid = -TILE_SIZE;
+            xtemp = TABLES[iTAN][castArc]*(hzGrid - _G.fPlayerY);
+            --hzGrid;
           }
+          i_x = xtemp + _G.fPlayerX;
           // LOOK FOR HORIZONTAL WALL
           // If ray is directly facing right or left, then ignore it
           if(castArc==ANGLE0 || castArc==ANGLE180){
-            distToHorizontalGridBeingHit=Number.MAX_VALUE;
+            distToHzGridBeingHit=Number.MAX_VALUE;
           }else{ // else, move the ray until it hits a horizontal wall
-            distToNextXIntersection = fXStepTable[castArc];
+            distToNextXI = TABLES[xSTEP][castArc];
             while(true){
-              xGridIndex = int(xIntersection/TILE_SIZE);
-              yGridIndex = int(horizontalGrid/TILE_SIZE);
-              let mapIndex=int(yGridIndex*MAP_WIDTH+xGridIndex);
-              if(DEBUG){
-                console.log("this.fPlayerY="+this.fPlayerY+" this.fPlayerX="+this.fPlayerX+" castColumn="+castColumn+" castArc="+castArc+" xIntersection="+xIntersection+" horizontalGrid="+horizontalGrid+" xGridIndex="+xGridIndex+" yGridIndex="+yGridIndex+" mapIndex="+mapIndex);
-                console.log("fITanTable="+fITanTable[castArc]);
-              }
+              yGridIndex = int(hzGrid/TILE_SIZE);
+              xGridIndex = int(i_x/TILE_SIZE);
+              mapIndex=int(yGridIndex*MAP_WIDTH+xGridIndex);
               // If we've looked as far as outside the map range, then bail out
               if((xGridIndex>=MAP_WIDTH) || (yGridIndex>=MAP_HEIGHT) || xGridIndex<0 || yGridIndex<0){
-                distToHorizontalGridBeingHit = Number.MAX_VALUE;
+                distToHzGridBeingHit = Number.MAX_VALUE;
                 break;
-              }else if(this.fMap.charAt(mapIndex)!="O"){
+              }else if(FMAP.charAt(mapIndex)!="."){
                 // If the grid is not an Opening, then stop
-                distToHorizontalGridBeingHit  = (xIntersection-this.fPlayerX)*fICosTable[castArc];
+                distToHzGridBeingHit  = (i_x-_G.fPlayerX)* TABLES[iCOS][castArc];
                 break;
               }else{ // Else, keep looking.  At this point, the ray is not blocked, extend the ray to the next grid
-                xIntersection += distToNextXIntersection;
-                horizontalGrid += distToNextHorizontalGrid;
+                i_x += distToNextXI;
+                hzGrid += distToNextHzGrid;
               }
             }
           }
           // FOLLOW X RAY
           if(castArc < ANGLE90 || castArc > ANGLE270){
-            verticalGrid = TILE_SIZE + int(this.fPlayerX/TILE_SIZE)*TILE_SIZE;
-            distToNextVerticalGrid = TILE_SIZE;
-            let ytemp = fTanTable[castArc]*(verticalGrid - this.fPlayerX);
-            yIntersection = ytemp + this.fPlayerY;
-            if(DEBUG)
-              console.log("castArc="+castArc+" in CHECKPOINT C, horizontalGrid="+horizontalGrid+" distToNextHorizontalGrid="+distToNextHorizontalGrid+ " ytemp="+ytemp+" yIntersection="+yIntersection);
+            vtGrid = TILE_SIZE + int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
+            distToNextVtGrid = TILE_SIZE;
+            ytemp = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
           }else{ // RAY FACING LEFT
-            verticalGrid = int(this.fPlayerX/TILE_SIZE)*TILE_SIZE;
-            distToNextVerticalGrid = -TILE_SIZE;
-            let ytemp = fTanTable[castArc]*(verticalGrid - this.fPlayerX);
-            yIntersection = ytemp + this.fPlayerY;
-            --verticalGrid;
-            if(DEBUG)
-              console.log("castArc="+castArc+" in CHECKPOINT D, horizontalGrid="+horizontalGrid+" distToNextHorizontalGrid="+distToNextHorizontalGrid+ " ytemp="+ytemp+" yIntersection="+yIntersection);
+            vtGrid = int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
+            distToNextVtGrid = -TILE_SIZE;
+            ytemp = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
+            --vtGrid;
           }
+          i_y = ytemp + _G.fPlayerY;
           // LOOK FOR VERTICAL WALL
           if(castArc==ANGLE90||castArc==ANGLE270){
-            distToVerticalGridBeingHit = Number.MAX_VALUE;
+            distToVtGridBeingHit = Number.MAX_VALUE;
           }else{
-            distToNextYIntersection = fYStepTable[castArc];
+            distToNextYI = TABLES[ySTEP][castArc];
             while(true){
               // compute current map position to inspect
-              xGridIndex = int(verticalGrid/TILE_SIZE);
-              yGridIndex = int(yIntersection/TILE_SIZE);
-              let mapIndex=int(yGridIndex*MAP_WIDTH+xGridIndex);
-              if(DEBUG){
-                console.log("this.fPlayerY="+this.fPlayerY+" this.fPlayerX="+this.fPlayerX+" castColumn="+castColumn+" castArc="+castArc+" xIntersection="+xIntersection+" horizontalGrid="+horizontalGrid+" xGridIndex="+xGridIndex+" yGridIndex="+yGridIndex+" mapIndex="+mapIndex);
-                console.log("fITanTable="+fITanTable[castArc]);
-              }
+              xGridIndex = int(vtGrid/TILE_SIZE);
+              yGridIndex = int(i_y/TILE_SIZE);
+              mapIndex=int(yGridIndex*MAP_WIDTH+xGridIndex);
               if((xGridIndex>=MAP_WIDTH) || (yGridIndex>=MAP_HEIGHT) || xGridIndex<0 || yGridIndex<0){
-                distToVerticalGridBeingHit = Number.MAX_VALUE;
+                distToVtGridBeingHit = Number.MAX_VALUE;
                 break;
-              }else if(this.fMap.charAt(mapIndex)!="O"){
-                distToVerticalGridBeingHit =(yIntersection-this.fPlayerY)*fISinTable[castArc];
+              }else if(FMAP.charAt(mapIndex)!="."){
+                distToVtGridBeingHit =(i_y-_G.fPlayerY)* TABLES[iSIN][castArc];
                 break;
               }else{
-                yIntersection += distToNextYIntersection;
-                verticalGrid += distToNextVerticalGrid;
+                i_y += distToNextYI;
+                vtGrid += distToNextVtGrid;
               }
             }
           }
@@ -359,64 +304,53 @@
           // determine which ray strikes a closer wall.
           // if yray distance to the wall is closer, the yDistance will be shorter than
           // the xDistance
-          if(distToHorizontalGridBeingHit < distToVerticalGridBeingHit){
-            // the next function call (drawRayOnMap()) is not a part of raycating rendering part,
-            // it just draws the ray on the overhead map to illustrate the raycasting process
-            //this.drawRayOnOverheadMap(xIntersection, horizontalGrid);
-            dist=distToHorizontalGridBeingHit;
-            if(DEBUG)
-              console.log("castColumn="+castColumn+" using distToHorizontalGridBeingHit");
+          if(distToHzGridBeingHit < distToVtGridBeingHit){
+            _G.HUD.drawRayOnOverheadMap(i_x, hzGrid);
+            dist=distToHzGridBeingHit;
           }else{
             // else, we use xray instead (meaning the vertical wall is closer than
             //   the horizontal wall)
-            // the next function call (drawRayOnMap()) is not a part of raycating rendering part,
-            // it just draws the ray on the overhead map to illustrate the raycasting process
-            //this.drawRayOnOverheadMap(verticalGrid, yIntersection);
-            dist=distToVerticalGridBeingHit;
-            if(DEBUG)
-              console.log("castColumn="+castColumn+" using distToVerticalGridBeingHit");
+            _G.HUD.drawRayOnOverheadMap(vtGrid, i_y);
+            dist=distToVtGridBeingHit;
           }
           // correct distance (compensate for the fishbown effect)
-          dist /= fFishTable[castColumn];
+          dist /= TABLES[tFISH][castCol];
           // projected_wall_height/wall_height = fPlayerDistToProjectionPlane/dist;
-          let projectedWallHeight=(WALL_HEIGHT*this.fPlayerDistanceToTheProjectionPlane/dist);
-          bottomOfWall = this.fProjectionPlaneYCenter+(projectedWallHeight*0.5);
-          topOfWall = this.fProjectionPlaneYCenter-(projectedWallHeight*0.5);
+          let projWallHeight=(WALL_HEIGHT*this.fPlayerDistToTheProjPlane/dist);
+          bottomOfWall = this.fProjPlaneYCenter+(projWallHeight*0.5);
+          topOfWall = this.fProjPlaneYCenter-(projWallHeight*0.5);
           if(topOfWall<0) topOfWall=0;
-          if(bottomOfWall>=PROJECTIONPLANEHEIGHT)
-            bottomOfWall=PROJECTIONPLANEHEIGHT-1;
-          if(DEBUG)
-            console.log("castColumn="+castColumn+" distance="+dist);
+          if(bottomOfWall>=PROJECTIONHEIGHT)
+            bottomOfWall=PROJECTIONHEIGHT-1;
           // Add simple shading so that farther wall slices appear darker.
           // 850 is arbitrary value of the farthest distance.
           dist=int(dist);
           let color=255-(dist/750.0)*255.0;
-          //color=255*(color/1000);
           // don't allow it to be too dark
           if(color<20) color=20;
           if(color>255) color=255;
           color=int(color);
-          let cssColor=_rgbToHexColor(color,color,color);
-          //console.log("dist="+dist+" color="+color);
-          this.drawFillRect(castColumn, topOfWall, 1, (bottomOfWall-topOfWall)+1, cssColor);
+          paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, _S.color3(color,color,color));
           // TRACE THE NEXT RAY
           castArc+=1;
           if(castArc>=ANGLE360) castArc-=ANGLE360;
         }
       },
       preUpdate(dt){
-        this.gfx.clear();
+        _G.HUD.g.gfx.clear();
+        this.g.gfx.clear();
       },
       postUpdate(dt){
-        this.drawBackgd();
+        this.g.drawBackgd();
+        _G.HUD.drawMap();
         this.raycast();
         if(_I.keyDown(_I.LEFT)){
-          this.fPlayerArc-=ANGLE10;
-          if(this.fPlayerArc<ANGLE0) this.fPlayerArc+=ANGLE360;
+          _G.fPlayerArc-=ANGLE10;
+          if(_G.fPlayerArc<ANGLE0) _G.fPlayerArc+=ANGLE360;
         }
         if(_I.keyDown(_I.RIGHT)){
-          this.fPlayerArc+=ANGLE10;
-			    if(this.fPlayerArc>=ANGLE360) this.fPlayerArc-=ANGLE360;
+          _G.fPlayerArc+=ANGLE10;
+          if(_G.fPlayerArc>=ANGLE360) _G.fPlayerArc-=ANGLE360;
         }
         //  _____     _
         // |\ arc     |
@@ -427,34 +361,114 @@
         //
         //  sin(arc)=y/diagonal
         //  cos(arc)=x/diagonal   where diagonal=speed
-        let playerXDir=fCosTable[this.fPlayerArc];
-        let playerYDir=fSinTable[this.fPlayerArc];
+        let playerXDir= TABLES[tCOS][_G.fPlayerArc];
+        let playerYDir= TABLES[tSIN][_G.fPlayerArc];
+        let dx=0,dy=0;
+        //move forward
         if(_I.keyDown(_I.UP)){
-          this.fPlayerX+=Math.round(playerXDir*this.fPlayerSpeed);
-          this.fPlayerY+=Math.round(playerYDir*this.fPlayerSpeed);
+          dx=Math.round(playerXDir*this.fPlayerSpeed);
+          dy=Math.round(playerYDir*this.fPlayerSpeed);
         }
         if(_I.keyDown(_I.DOWN)){
-          this.fPlayerX-=Math.round(playerXDir*this.fPlayerSpeed);
-          this.fPlayerY-=Math.round(playerYDir*this.fPlayerSpeed);
+          dx=-Math.round(playerXDir*this.fPlayerSpeed);
+          dy=-Math.round(playerYDir*this.fPlayerSpeed);
+        }
+        _G.fPlayerX+=dx;
+        _G.fPlayerY+=dy;
+        // CHECK COLLISION AGAINST WALLS
+        // compute cell position
+        let playerXCell = int(_G.fPlayerX/TILE_SIZE);
+        let playerYCell = int(_G.fPlayerY/TILE_SIZE);
+        // compute position relative to cell (ie: how many pixel from edge of cell)
+        let playerXCellOffset = _G.fPlayerX % TILE_SIZE;
+        let playerYCellOffset = _G.fPlayerY % TILE_SIZE;
+        let minDistanceToWall=30;
+        // make sure the player don't bump into walls
+        if(dx>0){ // moving right
+          if((FMAP.charAt((playerYCell*MAP_WIDTH)+playerXCell+1)!=".")&&
+             (playerXCellOffset > (TILE_SIZE-minDistanceToWall))){
+            // back player up
+            _G.fPlayerX -= (playerXCellOffset-(TILE_SIZE-minDistanceToWall));
+          }
+        }else{ // moving left
+          if((FMAP.charAt((playerYCell*MAP_WIDTH)+playerXCell-1)!=".")&&
+             (playerXCellOffset < (minDistanceToWall))){
+            // back player up
+            _G.fPlayerX += (minDistanceToWall-playerXCellOffset);
+          }
+        }
+        if(dy<0){ // moving up
+          if((FMAP.charAt(((playerYCell-1)*MAP_WIDTH)+playerXCell)!=".")&&
+             (playerYCellOffset < (minDistanceToWall))){
+            _G.fPlayerY += (minDistanceToWall-playerYCellOffset);
+          }
+        }else{ // moving down
+          if((FMAP.charAt(((playerYCell+1)*MAP_WIDTH)+playerXCell)!=".")&&
+             (playerYCellOffset > (TILE_SIZE-minDistanceToWall))){
+            _G.fPlayerY -= (playerYCellOffset-(TILE_SIZE-minDistanceToWall ));
+          }
         }
       }
 
-    },{centerStage:true})
+    });
+
+
+    _Z.defScene("HUD",{
+      setup(){
+        this.insert(this.g.gfx=_S.graphics());
+        this.fMinimapWidth=10;
+        this.fPlayerMapX=0;
+        this.fPlayerMapY=0;
+        _G.HUD=this;
+      },
+      // draw line from the player position to the position where the ray intersect with wall
+      drawRayOnOverheadMap(x,y){
+        this.g.gfx.lineStyle(2,_S.color("#00ff00"));
+        this.g.gfx.moveTo(this.fPlayerMapX, this.fPlayerMapY);
+        this.g.gfx.lineTo(PROJECTIONWIDTH+(x*this.fMinimapWidth/TILE_SIZE), y*this.fMinimapWidth/TILE_SIZE);
+      },
+      // draw a red line indication the player's direction
+      drawPlayerPOV(){
+        this.g.gfx.lineStyle(2,_S.color("#ff0000"));
+        this.g.gfx.moveTo( this.fPlayerMapX, this.fPlayerMapY);
+        this.g.gfx.lineTo(this.fPlayerMapX+ TABLES[tCOS][_G.fPlayerArc]*10,
+                          this.fPlayerMapY+ TABLES[tSIN][_G.fPlayerArc]*10);
+      },
+      drawMap(dt){
+        for(let css,r=0; r<MAP_HEIGHT; ++r){
+          for(let c=0; c<MAP_WIDTH;++c){
+            css="white";
+            if(FMAP.charAt(r*MAP_WIDTH+c)=="#"){
+              css="black";
+            }
+            paintRect(this.g.gfx, PROJECTIONWIDTH+(c*this.fMinimapWidth),
+                      (r*this.fMinimapWidth), this.fMinimapWidth, this.fMinimapWidth, css);
+          }
+        }
+        this.fPlayerMapX=PROJECTIONWIDTH+((_G.fPlayerX/TILE_SIZE) * this.fMinimapWidth);
+        this.fPlayerMapY=((_G.fPlayerY/TILE_SIZE) * this.fMinimapWidth);
+        this.drawPlayerPOV();
+      }
+    });
+
 
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
   const _$={
-    //assetFiles: [],
-    arena: {width: 1024, height: 640},
+    arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
-    scaleFit:"x",
+    scaleFit:"y",
     fps:24,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("PlayGame");
+      Mojo.Scenes.runScene("HUD");
     }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5(_$));
 

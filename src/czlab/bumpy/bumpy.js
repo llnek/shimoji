@@ -16,37 +16,48 @@
 
   "use strict";
 
+	//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
+
     const Q=window["io/czlab/mcfud/qtree"]();
-    const MFL=Math.floor;
+    const int=Math.floor;
     const {Scenes:_Z,
 			     Sprites:_S,
 			     v2:_V,
 			     Game:_G,ute:_,is}=Mojo;
 
-		/** @ignore */
-    _Z.defScene("game",{
-      _initLevel(left,right,top,bottom){
-				_G.qt= Q.quadtree({left,right,top,bottom});
-        _G.items=[];
-				let K=Mojo.getScaleFactor();
-				let W=right-left;
-				let H=bottom-top;
-				let a=4*K,z=16*K;
-        for(let s,i=0;i<Mojo.u.items;++i){
-          s={x: _.randInt2(left, right-z),
-             y: _.randInt2(top, bottom-z),
-             width : _.randInt2(a, z),
-             height : _.randInt2(a, z)};
-					s=_S.extend(s);
-					s.g.checked=false;
-					s.getBBox=()=>{
-						return {x1:s.x,y1:s.y,
-							      x2:s.x+s.width,y2:s.y+s.height} };
-					_V.set(s.m5.vel,_.randFloat(-0.5*K,0.5*K),
-						              _.randFloat(-0.5*K,0.5*K));
-					_G.items.push(s);
-        }
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PlayGame",{
+      setup(){
+				let K=Mojo.getScaleFactor(),
+				    H=int(Mojo.height*0.8),
+						W=int(Mojo.width*0.8),
+						top=int((Mojo.height-H)/2),
+						left=int((Mojo.width-W)/2), right=left+W, bottom=top+H;
+				//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+				this.g.initLevel=()=>{
+					_G.arena= {x1:left,x2:right,y1:top,y2:bottom};
+					_G.qt= Q.quadtree({left,right,top,bottom});
+					_G.items=[];
+					let a=6*K,z=24*K; //dim of boxes
+					for(let s,i=0;i<Mojo.u.items;++i){
+						s={x: _.randInt2(left, right-z),
+							 y: _.randInt2(top, bottom-z),
+							 width : _.randInt2(a, z),
+							 height : _.randInt2(a, z)};
+						_G.items.push(_S.extend(s));
+						s.g.checked=false;
+						s.getBBox=()=>{
+							return {x1:s.x,y1:s.y,
+											x2:s.x+s.width,y2:s.y+s.height}
+						};
+						_V.set(s.m5.vel,_.randFloat(-0.5*K,0.5*K),
+														_.randFloat(-0.5*K,0.5*K));
+					}
+				};
+				//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.insert(this.g.gfx=_S.graphics());
+				this.g.initLevel();
       },
       _drawTree(node){
 				let K=Mojo.getScaleFactor();
@@ -54,7 +65,7 @@
 				let g=this.g.gfx;
 				if(!cs){
           b=node.boundingBox();
-					g.lineStyle(1*K, _S.color("red"),0.2);
+					g.lineStyle(2*K, _S.color("red"),0.2);
 					g.drawRect(b.x1, b.y1, b.x2-b.x1,b.y2-b.y1);
 				}else{
           cs.forEach(c=> this._drawTree(c))
@@ -72,27 +83,12 @@
 					g.drawRect(o.x, o.y, o.width, o.height);
         });
 			},
-      setup(){
-				let K=Mojo.getScaleFactor();
-        let h=MFL(Mojo.height*0.8);
-        let w=MFL(Mojo.width*0.8);
-        let y1=MFL((Mojo.height-h)/2);
-        let x1=MFL((Mojo.width-w)/2);
-        let x2=x1+w;
-        let y2=y1+h;
-        let box= _G.arena= {x1,x2,y1,y2};
-				this.g.gfx=_S.graphics();
-        this.insert(this.g.gfx);
-        this._initLevel(x1,x2,y1,y2);
-      },
       postUpdate(dt){
 				this.g.gfx.clear();
 				_G.qt.reset();
 				_G.items.forEach(o=>{
+					//move & clamp
 					_V.add$(o,o.m5.vel);
-					//o.x += o.m5.vel[0];
-					//o.y += o.m5.vel[1];
-					//contain it
 					if(o.x<_G.arena.x1){ o.x=_G.arena.x1; o.m5.vel[0] *= -1; }
 					if(o.x+o.width > _G.arena.x2){ o.x=_G.arena.x2-o.width; o.m5.vel[0] *= -1; }
 					if(o.y<_G.arena.y1){ o.y=_G.arena.y1; o.m5.vel[1] *= -1; }
@@ -128,10 +124,10 @@
 				this._drawItems();
       },
       _collide(r1, r2){
-				let r1w = MFL(r1.width/2),
-					  r2w = MFL(r2.width/2),
-					  r1h = MFL(r1.height/2),
-					  r2h = MFL(r2.height/2);
+				let r1w = int(r1.width/2),
+					  r2w = int(r2.width/2),
+					  r1h = int(r1.height/2),
+					  r2h = int(r2.height/2);
 				let diffX = (r1.x + r1w) - (r2.x + r2w);
 				let diffY = (r1.y + r1h) - (r2.y + r2h);
 				if(Math.abs(diffX) < r1w + r2w &&
@@ -146,8 +142,8 @@
       }
     });
 
-		/** @ignore */
-		_Z.defScene("hud",{
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		_Z.defScene("HUD",{
 			setup(){
 				let K=Mojo.getScaleFactor(),
 				    s= _S.bboxFrame(_G.arena,12*K);
@@ -169,17 +165,19 @@
 
   }
 
+	//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	//game config
   const _$={
-    arena:{width:640, height:480},
+    arena:{width:1680, height:1050},
     scaleToWindow:"max",
     items:800,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("game");
-			Mojo.Scenes.runScene("hud");
+      Mojo.Scenes.runSceneSeq(["PlayGame"],["HUD"]);
     }
   };
 
+	//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5(_$));
 

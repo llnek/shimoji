@@ -491,7 +491,19 @@
        */
       runSceneEx(name,num,options){
         this.removeScenes();
-        this.runScene(name,num,options); },
+        this.runScene(name,num,options);
+      },
+      /**Run a sequence of scenes.
+       * @memberof module:mojoh5/Scenes
+       * @param {...any} args
+       * @return {Scene}
+       */
+      runSceneSeq(...args){
+        args.forEach(a=>{
+          _.assert(is.vec(a),"Expecting array");
+          this.runScene(a[0],a[1],a[2]);
+        });
+      },
       /**Run this scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
