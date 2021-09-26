@@ -64,10 +64,11 @@
       s.y=s.height;
       s.x=_G.arena.x1-s.width;
       Mojo.on(["hit",s],"onHit",s.g);
+      Mojo.sound("ufo.mp3").play();
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _ufo(scene){
+    function doUfo(scene){
       let s= _G.ufo= _S.sprite("ufo.png");
       let K=Mojo.getScaleFactor();
       let p=UFOSPEED*K;
@@ -99,7 +100,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _aliens(scene){
+    function doAliens(scene){
       let K=Mojo.getScaleFactor(),
           Y=K*200,
           X=5*K,
@@ -135,7 +136,10 @@
             }
             if(col.B.m5.type===E_PLAYER){
               playerDied();
+            }else{
+              Mojo.sound("explosion.mp3").play();
             }
+            checkEnd();
           };
           Mojo.on(["hit",s],"onHit",s.g);
         }
@@ -215,6 +219,11 @@
         }
       }));
 
+      if(_G.walkCount<0 || ++_G.walkCount>4){
+        Mojo.sound("march.mp3").play();
+        _G.walkCount=0;
+      }
+
       _G.gameScene.future(_walkAliens, WALK_FRAME);
     }
 
@@ -239,33 +248,81 @@
       Mojo.off(["hit",s],"onHit",s.g);
       s.m5.dead=true;
       s.visible=false;
+      s.parent.future(()=>{
+        doPlayer()
+      },400);
       _G.gameScene.queueForRemoval(s);
+      Mojo.sound("explosion.mp3").play();
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _player(scene){
-      let s= _G.player= _S.sprite("Laser_Cannon.png");
+    function cannon(r){
       let K=Mojo.getScaleFactor();
-      let Y;
-      let k=0.5*K;
-      _S.scaleXY(s,k,k);
-      s.m5.speed=8*K;
-      s.m5.type=E_PLAYER;
-      s.m5.cmask=E_BOMB;
-      s.m5.uuid="player";
-      s.g.frame=0;
-      _S.pinBottom(scene,s,-s.height*2*K);
-      Y= s.y = _G.arena.y2 - s.height - 40*K;
-      s.m5.tick=()=>{
-        _S.clamp(_S.move(s),_G.frame,false);
-        s.y=Y;
-      };
-      s.g.onHit=(col)=>{
-        if(col.B.m5===E_BOMB) reclaimBomb(col.B);
-        playerDied();
-      };
-      Mojo.on(["hit",s],"onHit",s.g);
-      return scene.insert(s,true);
+      return _S.scaleXY( _S.sprite("Laser_Cannon.png"), r*K,r*K);
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doPlayerIcons(score){
+      let r=0.3,p=score,
+          scene=score.parent,
+          s,i,K=Mojo.getScaleFactor();
+      for(i=0;i < 4; ++i){
+        s=cannon(r);
+        if(i===0){
+          _S.pinBottom(p,s,20*K,0);
+        }else{
+          _S.pinRight(p,s,10*K);
+        }
+        s.g.frame=0;
+        s.m5.speed=8*K;
+        s.m5.dead=true;
+        s.m5.cmask=E_BOMB;
+        s.m5.type=E_PLAYER;
+        _G.players.push( p=scene.insert(s,true));
+      }
+      return scene;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function checkEnd(){
+      for(let r,y=0; y<_G.aliens.length;++y){
+        r=_G.aliens[y];
+        for(let c,x=0; x<r.length; ++x){
+          if(c=r[x])
+            return false;
+        }
+      }
+      _G.gameScene.m5.dead=true;
+      _I.reset();
+      _.delay(CLICK_DELAY,()=> _Z.runScene("EndGame",{msg:"You Win!"}));
+      return true;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doPlayer(scene){
+      let s= _G.players.pop(),
+          Y,K=Mojo.getScaleFactor();
+      _G.player=s;
+      scene=_G.gameScene;
+      if(!s){
+        scene.m5.dead=true;
+        _I.reset();
+        _.delay(CLICK_DELAY,()=>_Z.runScene("EndGame"));
+      }else{
+        _S.uuid(_S.scaleBy(s,5/3,5/3),"player");
+        _S.pinBottom(scene,s,-s.height*2*K);
+        Y= s.y = _G.arena.y2 - s.height - 40*K;
+        s.m5.tick=()=>{
+          _S.clamp(_S.move(s),_G.frame,false);
+          s.y=Y;
+        };
+        s.g.onHit=(col)=>{
+          if(col.B.m5===E_BOMB) reclaimBomb(col.B);
+          playerDied();
+        };
+        s.m5.dead=false;
+        Mojo.on(["hit",s],"onHit",s.g);
+      }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -300,7 +357,7 @@
       let K=Mojo.getScaleFactor();
       _S.shoot(_G.player, -Mojo.PI_90,
                           7*K, takeBullet, int(_G.player.width/2), 0);
-      //G.shootSound.play();
+      Mojo.sound("fire.mp3").play();
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -335,6 +392,32 @@
       F.m5.press=(o)=>{ fireBullet() };
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("EndGame",{
+      setup(options){
+        let s1,s2,
+            snd="game_over.mp3",
+            s4,s5,s6,os={fontName:UI_FONT,
+                         fontSize: 72*Mojo.getScaleFactor()};
+        let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
+        s1=_S.bmpText("Game Over", os);
+        s2=_S.bmpText(options.msg||"You Lose!", os);
+        s4=_I.makeButton(_S.bmpText("Play Again?",os));
+        s5=_S.bmpText(" or ",os);
+        s6=_I.makeButton(_S.bmpText("Quit",os));
+        s4.m5.press=()=>{
+          _Z.runSceneEx("StarfieldBg",{static:true});
+          _Z.runScene("PlayGame");
+        };
+        s6.m5.press=()=>{
+          _Z.runSceneEx("StarfieldBg",{static:true});
+          _Z.runSceneEx("Splash");
+        };
+        if(options.msg) snd="game_win.mp3";
+        Mojo.sound(snd).play();
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("Splash",{
       setup(){
@@ -371,7 +454,7 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function reclaimBullet(b){return;
+    function reclaimBullet(b){
       _G.gameScene.degrid(b);
       b.visible=false;
       b.m5.dead=true;
@@ -433,19 +516,27 @@
         this.g.initLevel=()=>{
           _G.marchDir=Mojo.RIGHT;
           _G.gameScene=self;
+          _G.players=[];
           _G.bullets=[];
           _G.aliens=[];
           _G.bombs=[];
           _G.score=0;
-          _aliens(this);
-          _ufo(this);
-          _player(this);
+          _G.walkCount= -1;
+          return _G;
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initLevel();
+        this.g.initHud=(s)=>{
+          s=this.g.scoreText=_S.bmpText("0",{fontName:UI_FONT,fontSize:48*K});
+          self.insert(s);
+          return doPlayerIcons(s);
+        };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        s=this.g.scoreText=_S.bmpText("0",{fontName:UI_FONT,fontSize:48*K});
-        self.insert(s);
+        this.g.initLevel() && this.g.initHud();
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doAliens(this);
+        doUfo(this);
+        doPlayer(this);
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         //this.g.gfx=_S.drawGridBox(_G.frame,4*K,"white");
         //this.g.gfx.alpha=0.3;
         //this.insert(this.g.gfx);
@@ -459,6 +550,9 @@
         const s= _G.player;
         const goRight =_I.keyDown(_I.RIGHT);
         const goLeft = _I.keyDown(_I.LEFT);
+        if(!s){
+          return;
+        }
 
         if(goLeft){
           _V.set(s.m5.vel,-s.m5.speed,0)
@@ -505,9 +599,8 @@
   //game config
   const _$={
     assetFiles: ["pics.png","images/pics.json",
-                 "march.mp3",
-                 "click.mp3", "game_over.mp3","game_win.mp3"],
-    //arena: { width: 1024, height: 768 },
+                 "click.mp3", "game_over.mp3","game_win.mp3",
+                 "ufo.mp3", "march.mp3","explosion.mp3","fire.mp3"],
     arena:{width:1680, height:1260}, //4:3
     scaleToWindow:"max",
     scaleFit:"y",
