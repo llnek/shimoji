@@ -1,4 +1,18 @@
-(function(window){
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+
+;(function(window){
 
   "use strict";
 
@@ -200,130 +214,117 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initTables() && this.g.initLevel();
+        this.g.hud=new HUD(this);
       },
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      //check algo from permadi...
+      //https://permadi.com/1996/05/ray-casting-tutorial-7/
+      //https://permadi.com/1996/05/ray-casting-tutorial-8/
       raycast(){
-        let vtGrid;  // horizotal or vertical coordinate of intersection
-        let hzGrid; // theoritically, this will be multiple of TILE_SIZE
-        // , but some trick did here might cause the values off by 1
-        let distToNextVtGrid; // how far to the next bound (this is multiple of
-        let distToNextHzGrid; // tile size)
-        let i_x, i_y; // interseection
-        let distToNextXI;
-        let distToNextYI;
-        let xGridIndex; // the current cell that the ray is in
-        let yGridIndex;
-        let distToVtGridBeingHit; // the distance of the x and y ray intersections from
-        let distToHzGridBeingHit; // the viewpoint
+        let vtGridGap, hzGridGap;
+        let vtGrid, hzGrid;
+        let i_x, i_y;
+        let distToVtGridBeingHit;
+        let distToHzGridBeingHit;
         let castArc = _G.fPlayerArc;
         castArc-= ANGLE30; // trace the rays from the left
         if(castArc < 0) castArc += ANGLE360;
-
         //the big loop
-        for(let mapIndex,xtemp,ytemp,castCol=0; castCol<PROJECTIONWIDTH; ++castCol){
-          // Ray is facing down
-          if(castArc > ANGLE0 && castArc < ANGLE180){
-            // truncuate then add to get the coordinate of the FIRST grid (horizontal
-            // wall) that is in front of the player (this is in pixel unit) ROUNDED DOWN
+        for(let xtemp,ytemp,castCol=0; castCol<PROJECTIONWIDTH; ++castCol){
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          //DEAL WITH HORZ LINES
+          if(castArc > ANGLE0 && castArc < ANGLE180){//ray facing down
             hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE  + TILE_SIZE;
-            // compute distance to the next horizontal wall
-            distToNextHzGrid = TILE_SIZE;
+            hzGridGap = TILE_SIZE;
             xtemp = TABLES[iTAN][castArc]*(hzGrid-_G.fPlayerY);
-            // we can get the vertical distance to that wall by (hzGrid-playerY)
-            // we can get the horizontal distance to that wall by 1/tan(arc)*verticalDistance
-            // find the x interception to that wall
-          }else{// Else, the ray is facing up
+          }else{//ray is facing up
             hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE;
-            distToNextHzGrid = -TILE_SIZE;
+            hzGridGap = -TILE_SIZE;
             xtemp = TABLES[iTAN][castArc]*(hzGrid - _G.fPlayerY);
-            --hzGrid;
+            hzGrid -= 1;
           }
+          //first intersect
           i_x = xtemp + _G.fPlayerX;
-          // LOOK FOR HORIZONTAL WALL
-          // If ray is directly facing right or left, then ignore it
           if(castArc==ANGLE0 || castArc==ANGLE180){
             distToHzGridBeingHit=Number.MAX_VALUE;
-          }else{ // else, move the ray until it hits a horizontal wall
-            distToNextXI = TABLES[xSTEP][castArc];
+          }else{
+            let idx, gx,gy, dx = TABLES[xSTEP][castArc];
             while(true){
-              yGridIndex = int(hzGrid/TILE_SIZE);
-              xGridIndex = int(i_x/TILE_SIZE);
-              mapIndex=int(yGridIndex*MAP_WIDTH+xGridIndex);
-              // If we've looked as far as outside the map range, then bail out
-              if((xGridIndex>=MAP_WIDTH) || (yGridIndex>=MAP_HEIGHT) || xGridIndex<0 || yGridIndex<0){
+              gy = int(hzGrid/TILE_SIZE);
+              gx = int(i_x/TILE_SIZE);
+              idx= int(gy*MAP_WIDTH+gx);
+              if((gx>=MAP_WIDTH) || (gy>=MAP_HEIGHT) || gx<0 || gy<0){
                 distToHzGridBeingHit = Number.MAX_VALUE;
                 break;
-              }else if(FMAP.charAt(mapIndex)!="."){
-                // If the grid is not an Opening, then stop
+              }else if(FMAP.charAt(idx)!="."){
                 distToHzGridBeingHit  = (i_x-_G.fPlayerX)* TABLES[iCOS][castArc];
                 break;
-              }else{ // Else, keep looking.  At this point, the ray is not blocked, extend the ray to the next grid
-                i_x += distToNextXI;
-                hzGrid += distToNextHzGrid;
+              }else{
+                i_x += dx;
+                hzGrid += hzGridGap;
               }
             }
           }
-          // FOLLOW X RAY
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          //DEAL WITH VERT LINES
           if(castArc < ANGLE90 || castArc > ANGLE270){
             vtGrid = TILE_SIZE + int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
-            distToNextVtGrid = TILE_SIZE;
+            vtGridGap = TILE_SIZE;
             ytemp = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
           }else{ // RAY FACING LEFT
             vtGrid = int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
-            distToNextVtGrid = -TILE_SIZE;
+            vtGridGap = -TILE_SIZE;
             ytemp = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
-            --vtGrid;
+            vtGrid -=1;
           }
+          //first intersect
           i_y = ytemp + _G.fPlayerY;
-          // LOOK FOR VERTICAL WALL
           if(castArc==ANGLE90||castArc==ANGLE270){
             distToVtGridBeingHit = Number.MAX_VALUE;
           }else{
-            distToNextYI = TABLES[ySTEP][castArc];
+            let idx, gx,gy,dy = TABLES[ySTEP][castArc];
             while(true){
-              // compute current map position to inspect
-              xGridIndex = int(vtGrid/TILE_SIZE);
-              yGridIndex = int(i_y/TILE_SIZE);
-              mapIndex=int(yGridIndex*MAP_WIDTH+xGridIndex);
-              if((xGridIndex>=MAP_WIDTH) || (yGridIndex>=MAP_HEIGHT) || xGridIndex<0 || yGridIndex<0){
+              gx = int(vtGrid/TILE_SIZE);
+              gy = int(i_y/TILE_SIZE);
+              idx=int(gy*MAP_WIDTH+gx);
+              if((gx>=MAP_WIDTH) || (gy>=MAP_HEIGHT) || gx<0 || gy<0){
                 distToVtGridBeingHit = Number.MAX_VALUE;
                 break;
-              }else if(FMAP.charAt(mapIndex)!="."){
+              }else if(FMAP.charAt(idx)!="."){
                 distToVtGridBeingHit =(i_y-_G.fPlayerY)* TABLES[iSIN][castArc];
                 break;
               }else{
-                i_y += distToNextYI;
-                vtGrid += distToNextVtGrid;
+                i_y += dy;
+                vtGrid += vtGridGap;
               }
             }
           }
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
           // DRAW THE WALL SLICE
           let scaleFactor;
           let dist;
-          let topOfWall;   // used to compute the top and bottom of the sliver that
-          let bottomOfWall;   // will be the staring point of floor and ceiling
-          // determine which ray strikes a closer wall.
-          // if yray distance to the wall is closer, the yDistance will be shorter than
-          // the xDistance
+          let topOfWall;
+          let bottomOfWall;
           if(distToHzGridBeingHit < distToVtGridBeingHit){
-            _G.HUD.drawRayOnOverheadMap(i_x, hzGrid);
+            this.g.hud.drawRayOnOverheadMap(i_x, hzGrid);
             dist=distToHzGridBeingHit;
           }else{
-            // else, we use xray instead (meaning the vertical wall is closer than
-            //   the horizontal wall)
-            _G.HUD.drawRayOnOverheadMap(vtGrid, i_y);
+            //the vertical wall is closer than the horizontal wall
+            this.g.hud.drawRayOnOverheadMap(vtGrid, i_y);
             dist=distToVtGridBeingHit;
           }
           // correct distance (compensate for the fishbown effect)
           dist /= TABLES[tFISH][castCol];
-          // projected_wall_height/wall_height = fPlayerDistToProjectionPlane/dist;
+          //projected_wall_height/wall_height = fPlayerDistToProjectionPlane/dist;
           let projWallHeight=(WALL_HEIGHT*this.fPlayerDistToTheProjPlane/dist);
           bottomOfWall = this.fProjPlaneYCenter+(projWallHeight*0.5);
           topOfWall = this.fProjPlaneYCenter-(projWallHeight*0.5);
           if(topOfWall<0) topOfWall=0;
-          if(bottomOfWall>=PROJECTIONHEIGHT)
+          if(bottomOfWall>=PROJECTIONHEIGHT){
             bottomOfWall=PROJECTIONHEIGHT-1;
+          }
           // Add simple shading so that farther wall slices appear darker.
-          // 850 is arbitrary value of the farthest distance.
+          // 750 is arbitrary value of the farthest distance.
           dist=int(dist);
           let color=255-(dist/750.0)*255.0;
           // don't allow it to be too dark
@@ -331,19 +332,15 @@
           if(color>255) color=255;
           color=int(color);
           paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, _S.color3(color,color,color));
-          // TRACE THE NEXT RAY
           castArc+=1;
           if(castArc>=ANGLE360) castArc-=ANGLE360;
         }
       },
       preUpdate(dt){
-        _G.HUD.g.gfx.clear();
+        this.g.hud.gfx.clear();
         this.g.gfx.clear();
       },
-      postUpdate(dt){
-        this.g.drawBackgd();
-        _G.HUD.drawMap();
-        this.raycast();
+      doMotion(){
         if(_I.keyDown(_I.LEFT)){
           _G.fPlayerArc-=ANGLE10;
           if(_G.fPlayerArc<ANGLE0) _G.fPlayerArc+=ANGLE360;
@@ -352,15 +349,6 @@
           _G.fPlayerArc+=ANGLE10;
           if(_G.fPlayerArc>=ANGLE360) _G.fPlayerArc-=ANGLE360;
         }
-        //  _____     _
-        // |\ arc     |
-        // |  \       y
-        // |    \     |
-        //            -
-        // |--x--|
-        //
-        //  sin(arc)=y/diagonal
-        //  cos(arc)=x/diagonal   where diagonal=speed
         let playerXDir= TABLES[tCOS][_G.fPlayerArc];
         let playerYDir= TABLES[tSIN][_G.fPlayerArc];
         let dx=0,dy=0;
@@ -408,49 +396,51 @@
             _G.fPlayerY -= (playerYCellOffset-(TILE_SIZE-minDistanceToWall ));
           }
         }
+      },
+      postUpdate(dt){
+        this.g.drawBackgd();
+        this.g.hud.drawMap();
+        this.raycast();
+        this.doMotion();
       }
 
     });
 
-
-    _Z.defScene("HUD",{
-      setup(){
-        this.insert(this.g.gfx=_S.graphics());
-        this.fMinimapWidth=10;
-        this.fPlayerMapX=0;
-        this.fPlayerMapY=0;
-        _G.HUD=this;
-      },
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function HUD(scene){
+      scene.insert(this.gfx=_S.graphics());
+      this.fMinimapWidth=10;
+      this.fPlayerMapX=0;
+      this.fPlayerMapY=0;
       // draw line from the player position to the position where the ray intersect with wall
-      drawRayOnOverheadMap(x,y){
-        this.g.gfx.lineStyle(2,_S.color("#00ff00"));
-        this.g.gfx.moveTo(this.fPlayerMapX, this.fPlayerMapY);
-        this.g.gfx.lineTo(PROJECTIONWIDTH+(x*this.fMinimapWidth/TILE_SIZE), y*this.fMinimapWidth/TILE_SIZE);
-      },
+      this.drawRayOnOverheadMap=(x,y)=>{
+        this.gfx.lineStyle(2,_S.color("#f6e73b"));
+        this.gfx.moveTo(this.fPlayerMapX, this.fPlayerMapY);
+        this.gfx.lineTo(PROJECTIONWIDTH+(x*this.fMinimapWidth/TILE_SIZE), y*this.fMinimapWidth/TILE_SIZE);
+      };
       // draw a red line indication the player's direction
-      drawPlayerPOV(){
-        this.g.gfx.lineStyle(2,_S.color("#ff0000"));
-        this.g.gfx.moveTo( this.fPlayerMapX, this.fPlayerMapY);
-        this.g.gfx.lineTo(this.fPlayerMapX+ TABLES[tCOS][_G.fPlayerArc]*10,
+      this.drawPlayerPOV=()=>{
+        this.gfx.lineStyle(2,_S.color("#ff0000"));
+        this.gfx.moveTo( this.fPlayerMapX, this.fPlayerMapY);
+        this.gfx.lineTo(this.fPlayerMapX+ TABLES[tCOS][_G.fPlayerArc]*10,
                           this.fPlayerMapY+ TABLES[tSIN][_G.fPlayerArc]*10);
-      },
-      drawMap(dt){
+      };
+      this.drawMap=(dt)=>{
         for(let css,r=0; r<MAP_HEIGHT; ++r){
           for(let c=0; c<MAP_WIDTH;++c){
-            css="white";
+            css="black";
             if(FMAP.charAt(r*MAP_WIDTH+c)=="#"){
-              css="black";
+              css="white";
             }
-            paintRect(this.g.gfx, PROJECTIONWIDTH+(c*this.fMinimapWidth),
+            paintRect(this.gfx, PROJECTIONWIDTH+(c*this.fMinimapWidth),
                       (r*this.fMinimapWidth), this.fMinimapWidth, this.fMinimapWidth, css);
           }
         }
         this.fPlayerMapX=PROJECTIONWIDTH+((_G.fPlayerX/TILE_SIZE) * this.fMinimapWidth);
         this.fPlayerMapY=((_G.fPlayerY/TILE_SIZE) * this.fMinimapWidth);
         this.drawPlayerPOV();
-      }
-    });
-
+      };
+    }
 
   }
 
@@ -464,7 +454,6 @@
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.runScene("PlayGame");
-      Mojo.Scenes.runScene("HUD");
     }
   };
 
