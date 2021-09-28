@@ -1,8 +1,10 @@
-(function(window){
+;(function(global){
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
+
     const {Sprites:_S,
            Scenes:_Z,
            FX:T,
@@ -12,190 +14,263 @@
            v2:_V,
            ute:_,is}=Mojo;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const CIRCLE = Math.PI * 2;
-    const int=Math.floor;
+    const int = Math.floor;
+    const cos= Math.cos;
     const sin=Math.sin;
-    const cos=Math.cos;
 
-    _Z.defScene("level1",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const PROJECTIONWIDTH= (function(){
+      //return 320
+      if(Mojo.width > 1400){
+        return 1280
+      }else if(Mojo.width > 1040){
+        return 960
+      }else if(Mojo.width > 800){
+        return 640
+      }else{
+        return 320
+      }
+    })();
+
+    _G.spacing = Mojo.width / PROJECTIONWIDTH;
+    _G.fov = 0.8;
+    _G.range = 14;//MOBILE ? 8 : 14;
+    _G.lightRange = 5;
+    _G.scale = (Mojo.width + Mojo.height) / 1200;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function Player(x, y, dir){
+      //this.weapon = new Bitmap('assets/knife_hand.png', 319, 320);
+      return{
+        x,y,dir,paces:0,
+        rotate(angle){
+          this.dir += angle;
+          if(this.dir>CIRCLE) this.dir -= CIRCLE;
+          if(this.dir<0) this.dir += CIRCLE;
+        },
+        walk(dist, grid){
+          let dx = cos(this.dir) * dist;
+          let dy = sin(this.dir) * dist;
+          if(grid.get(this.x + dx, this.y) <= 0) this.x += dx;
+          if(grid.get(this.x, this.y + dy) <= 0) this.y += dy;
+          this.paces += dist;
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function Arena(size){
+      let grid= _.fill(size*size,0);
+      for(let i=0, z=size*size; i<z; ++i){
+        grid[i] = _.rand() < 0.3 ? 1 : 0;
+      }
+      return {
+        size,grid, light:0,
+        get(x, y){
+          x = int(x);
+          y = int(y);
+          if(x<0 || x > this.size-1 || y<0 || y > this.size-1) return -1;
+          return this.grid[y * this.size + x];
+        },
+        cast(point, angle, range){
+          let self = this;
+          let SIN = sin(angle);
+          let COS = cos(angle);
+          let noWall = { length2: Infinity };
+          return ray({ x: point.x, y: point.y, height: 0, dist: 0 });
+          function ray(origin){
+            let stepX = step(SIN, COS, origin.x, origin.y);
+            let stepY = step(COS, SIN, origin.y, origin.x, true);
+            let nextStep = stepX.length2 < stepY.length2
+              ? inspect(stepX, 1, 0, origin.dist, stepX.y)
+              : inspect(stepY, 0, 1, origin.dist, stepY.x);
+            if(nextStep.dist > range)
+              return [origin];
+            else
+              return [origin].concat(ray(nextStep));
+          }
+          function step(rise, run, x, y, inverted){
+            if(run === 0) return noWall;
+            let dx = run>0 ? int(x + 1) - x : Math.ceil(x - 1) - x;
+            let dy = dx * (rise / run);
+            return {
+              x: inverted ? y + dy : x + dx,
+              y: inverted ? x + dx : y + dy,
+              length2: dx * dx + dy * dy
+            };
+          }
+          function inspect(step, shiftX, shiftY, dist, offset){
+            let dx = COS < 0 ? shiftX : 0;
+            let dy = SIN < 0 ? shiftY : 0;
+            step.height = self.get(step.x - dx, step.y - dy);
+            step.dist = dist + Math.sqrt(step.length2);
+            if(shiftX) step.shading = COS < 0 ? 2 : 0;
+            else step.shading = SIN < 0 ? 2 : 1;
+            step.offset = offset - int(offset);
+            return step;
+          }
+        },
+        update(dt){
+          if(this.light > 0) this.light = Math.max(this.light - 10*dt, 0);
+          else if(_.rand()*5 < dt) this.light = 2;
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PlayGame",{
       setup(){
-        let out={x:0, y:0};
-        _G.grid=_S.gridXY([120,40],0.9,0.6,out);
-        _G.arena=Mojo.mockStage(out);
-        _V.set(this,_G.arena.x,_G.arena.y);
-        let pbox={x1:0,y1:0,
-                  x2:_G.arena.width,
-                  y2:_G.arena.height};
-        this.insert(_S.drawGridBox(pbox));
-        this.spacing= _G.grid[0][0].x2 - _G.grid[0][0].x1;
-        this.light=0;
-        this.fov=0.8;
-        this.range = 14;//MOBILE ? 8 : 14;
-        this.lightRange = 5;
-        this.sizeX=32;
-        this.sizeY=32;
-        this.wallGrid=new Array(this.sizeX*this.sizeY);
-        for(let i = 0; i < this.sizeX * this.sizeY; ++i){
-          this.wallGrid[i] = Math.random() < 0.3 ? 1 : 0;
-        }
-        this.sky=_S.sprite("deathvalley_panorama.jpg");
-        this.wall=_S.sprite("wall_texture.jpg");
-        this.player={x: 15.3, y: -1.2, dir: Math.PI * 0.3, paces:0};
+        let self=this,
+            K=Mojo.getScaleFactor();
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initLevel=()=>{
+          _G.player = Player(15.3, -1.2, Math.PI * 0.3);
+          _G.arena=Arena(20);
+          this.insert(this.g.gfx=_S.graphics());
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initLevel();
       },
-      hitTest(x,y){
-        x = Math.floor(x);
-        y = Math.floor(y);
-        if(x < 0 || x > this.sizeX - 1 || y < 0 || y > this.sizeY - 1) return -1;
-        return this.wallGrid[y * this.sizeX + x];
+      preUpdate(dt){
+        this.g.gfx.clear();
+        this.removeChildren();
+        this.insert(this.g.gfx);
       },
-      drawSky(){
-        let width = this.sky.width * (_G.arena.height / this.sky.height) * 2;
-        let left = (this.player.dir / CIRCLE) * -width;
-        let s=_S.sprite("deathvalley_panorama.jpg");
-        s.width=width;
-        s.height=_G.arena.height;
-        s.x=left;
-        this.insert(s);
-        if(left < width - _G.arena.width){
-          s=_S.sprite("deathvalley_panorama.jpg");
-          s.width=width;
-          s.height=_G.arena.height;
-          s.x= left + width;
-          this.insert(s);
-        }
-        if(this.light > 0){
-          s= _S.graphics();
-          s.beginFill(0xffffff);
-          s.alpha = this.light * 0.1;
-          s.drawRect(0, _G.arena.height * 0.5, _G.arena.width, _G.arena.height * 0.5);
-          s.endFill();
-          this.insert(s);
-        }
-      },
-      cast(angle,range){
-        angle += this.player.dir;
-        let self = this;
-        let _sin = sin(angle);
-        let _cos = cos(angle);
-        let noWall = { length2: Infinity };
-        function step(rise, run, x, y, inverted){
-          if(run === 0) return noWall;
-          let dx = run > 0 ? int(x + 1) - x : Math.ceil(x - 1) - x;
-          let dy = dx * (rise / run);
-          return {
-            x: inverted ? y + dy : x + dx,
-            y: inverted ? x + dx : y + dy,
-            length2: dx * dx + dy * dy
-          };
-        }
-        function inspect(step, shiftX, shiftY, distance, offset){
-          let dx = _cos < 0 ? shiftX : 0;
-          let dy = _sin < 0 ? shiftY : 0;
-          step.height = self.hitTest(step.x - dx, step.y - dy);
-          step.distance = distance + Math.sqrt(step.length2);
-          if(shiftX) step.shading = _cos < 0 ? 2 : 0;
-          else step.shading = _sin < 0 ? 2 : 1;
-          step.offset = offset - int(offset);
-          return step;
-        }
-        function ray(origin){
-          let stepX = step(_sin, _cos, origin.x, origin.y);
-          let stepY = step(_cos, _sin, origin.y, origin.x, true);
-          let nextStep = stepX.length2 < stepY.length2
-            ? inspect(stepX, 1, 0, origin.distance, stepX.y)
-            : inspect(stepY, 0, 1, origin.distance, stepY.x);
-          return (nextStep.distance > range) ? [origin] : [origin].concat(ray(nextStep));
-        }
-        return ray({ x: this.player.x, y: this.player.y, height: 0, distance: 0 });
+      postUpdate(dt){
+        _G.arena.update(dt);
+        if(_I.keyDown(_I.LEFT)) _G.player.rotate(-Math.PI * dt);
+        if(_I.keyDown(_I.RIGHT)) _G.player.rotate(Math.PI * dt);
+        if(_I.keyDown(_I.UP)) _G.player.walk(3 * dt, _G.arena);
+        if(_I.keyDown(_I.DOWN)) _G.player.walk(-3 * dt, _G.arena);
+        this.drawSky();
+        this.drawColumns();
+        //this.drawWeapon(player.weapon, player.paces);
       },
       drawColumns(){
-        this.gfx=_S.graphics();
-        for(let c= 0,z= _G.grid[0].length; c < z; ++c){
-          let x = c/z - 0.5;
-          let angle = Math.atan2(x, this.fov);
-          let ray = this.cast(angle,this.range);
-          this.drawCol(c, ray, angle);
+        for(let col= 0; col< PROJECTIONWIDTH; ++col){
+          let x = col/ PROJECTIONWIDTH - 0.5;
+          let angle = Math.atan2(x, _G.fov);
+          let ray = _G.arena.cast(_G.player, _G.player.dir+ angle, _G.range);
+          this.drawColumn(col, ray, angle);
         }
-        this.insert(this.gfx);
       },
-      drawCol(col, ray, angle){
-        let left = int(col * this.spacing);
-        let width = Math.ceil(this.spacing);
+      drawColumn(column, ray, angle){
+        let left = int(column * _G.spacing);
+        let width = Math.ceil(_G.spacing);
         let hit = -1;
-        let texture= this.wall;
+        let base=Mojo.tcached("wall.jpg");
 
         while(++hit < ray.length && ray[hit].height <= 0);
 
-        for(let g,s = ray.length-1; s >= 0; --s){
-          let step = ray[s];
-          let rainDrops = Math.pow(Math.random(), 3) * s;
-          let rain = (rainDrops > 0) && this.project(0.1, angle, step.distance);
-          if(s === hit){
-            let textureX = int(texture.width * step.offset);
-            let wall = this.project(step.height, angle, step.distance);
-            //ctx.globalAlpha = 1;
-            g=_S.frame("wall_texture.jpg",1,texture.height,textureX,0);
-            g.width=width;
-            g.height=wall.height;
-            g.x=left;
-            g.y=wall.top;
-            this.insert(g);
-            //this.gfx.beginFill(0);
-            //this.gfx.alpha = Math.max((step.distance + step.shading) / this.lightRange - this.light, 0);
-            //this.gfx.drawRect(left, wall.top, width, wall.height);
+        for(let step,s = ray.length-1; s >= 0; --s){
+          step = ray[s];
+          let rainDrops = Math.pow(_.rand(), 3) * s;
+          let rain = (rainDrops > 0) && this.project(0.1, angle, step.dist);
+            let old;
+          if(s=== hit){
+            let tX = int(base.width * step.offset);
+            let wall = this.project(step.height, angle, step.dist);
+            let s= new PIXI.Sprite(new PIXI.Texture(base, new PIXI.Rectangle(tX,0,1,base.height)));
+            s.width=width;
+            s.height=wall.height;
+            s.x=left;
+            s.y=wall.top;
+            this.insert(_S.extend(s));
+            /*
+            old=this.g.gfx.alpha;
+            this.g.gfx.beginFill(_S.color("#000000"));
+            this.g.gfx.alpha= Math.max((step.dist + step.shading) / _G.lightRange - _G.arena.light, 0);
+            this.g.gfx.drawRect(left, wall.top, width, wall.height);
+            this.g.gfx.endFill();
+            this.g.gfx.alpha=old;
+            */
           }
-          //this.gfx.beginFill(0xffffff);
-          //this.gfx.alpha = 0.15;
-          //while(--rainDrops > 0) this.gfx.drawRect(left, Math.random() * rain.top, 1, rain.height);
+          /*
+          old=this.g.gfx.alpha;
+          this.g.gfx.alpha=0.15;
+          while(--rainDrops > 0){
+            this.g.gfx.beginFill(_S.color("#ffffff"));
+            this.g.gfx.drawRect(left, _.rand() * rain.top, 1, rain.height);
+            this.g.gfx.endFill();
+          }
+          */
         }
       },
-      project(height, angle, distance){
-        let z = distance * cos(angle);
-        let wallHeight = _G.arena.height * height / z;
-        let bottom = _G.arena.height / 2 * (1 + 1 / z);
+      project(height, angle, dist){
+        let z = dist * cos(angle);
+        let wallHeight = Mojo.height * height / z;
+        let bottom = Mojo.height/2 * (1 + 1 / z);
         return {
-          top: bottom - wallHeight,
-          height: wallHeight
-        };
+          height: wallHeight,
+          top: bottom - wallHeight
+        }
       },
-      turn(angle){
-        this.player.dir= (this.player.dir + angle + CIRCLE) % (CIRCLE);
+      drawSky(){
+        let sky= _S.sprite("deathvalley.jpg");
+        let width = sky.width * (Mojo.height / sky.height) * 2;
+        let left = (_G.player.dir/ CIRCLE) * -width;
+        sky.x=left;
+        sky.y=0;
+        sky.width=width;
+        sky.height=Mojo.height;
+        this.insert(_S.extend(sky));
+        if(left < width - Mojo.width){
+          sky= _S.sprite("deathvalley.jpg");
+          sky.x= left+width;
+          sky.y=0;
+          sky.width=width;
+          sky.height=Mojo.height;
+          this.insert(_S.extend(sky));
+        }
+        if(false && _G.arena.light > 0){
+          let old=this.g.gfx.alpha;
+          this.g.gfx.beginFill(_S.color("#ffffff"));
+          this.g.gfx.alpha= _G.arena.light * 0.1;
+          this.g.gfx.drawRect(0, Mojo.height * 0.5, Mojo.width, Mojo.height * 0.5);
+          this.g.gfx.endFill();
+          this.g.gfx.alpha=old;
+        }
       },
-      walk(distance){
-        let dx = cos(this.player.dir) * distance;
-        let dy = sin(this.player.dir) * distance;
-        if(this.hitTest(this.player.x + dx, this.player.y) <= 0) this.player.x += dx;
-        if(this.hitTest(this.player.x, this.player.y + dy) <= 0) this.player.y += dy;
-        this.player.paces += distance;
-      },
-      draw(){
-        this.removeChildren();
-        this.drawSky();
-        this.drawColumns();
-      },
-      postUpdate(dt){
-        if(_I.keyDown(_I.LEFT)) this.turn(-Math.PI * dt);
-        if(_I.keyDown(_I.RIGHT)) this.turn(Math.PI * dt);
-        if(_I.keyDown(_I.UP)) this.walk(3 * dt);
-        if(_I.keyDown(_I.DOWN)) this.walk(-3 * dt);
-        this.draw();
+      drawWeapon(weapon, paces){
+        /*
+        let bobX = cos(paces * 2) * _G.scale * 6;
+        let bobY = sin(paces * 4) * _G.scale * 6;
+        let left = Mojo.width * 0.66 + bobX;
+        let top = Mojo.height * 0.6 + bobY;
+        this.ctx.drawImage(weapon.image, left, top, weapon.width * this.scale, weapon.height * this.scale);
+        */
       }
-    })
+
+    });
+
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
   const _$={
-    assetFiles: ["deathvalley_panorama.jpg"],
-    arena: {width: 720, height: 240},
+    assetFiles: ["wall.jpg","deathvalley.jpg"],
+    arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
-    scaleFit:"x",
+    scaleFit:"y",
+    fps:24,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.runScene("PlayGame");
     }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
+
+
+
+
+
+
+
 

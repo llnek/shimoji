@@ -69,10 +69,31 @@
                 "#...###.#..#"+
                 "#..........#"+
                 "############".replace(/\s+/g, "");
+    const map4= "####################"+
+                "#..................#"+
+                "#..#.#.#...#..##.#.#"+
+                "#.......#..#....##.#"+
+                "#..#.#..#..#..####.#"+
+                "#..#.##.#..#..#..#.#"+
+                "#..#..#.#..#..#..#.#"+
+                "#...#.#.#..#.....#.#"+
+                "#...#.#.#..#..#..#.#"+
+                "#...###.#..#..####.#"+
+                "#..................#"+
+                "#..#.#.#...#..##.#.#"+
+                "#.......#..#.....#.#"+
+                "#..#.#.#...#..##.#.#"+
+                "#.......#..#.....#.#"+
+                "#..#.#.#...#..##.#.#"+
+                "#.......#........#.#"+
+                "#..#.#.#...#..##.#.#"+
+                "#..........#.......#"+
+                "####################".replace(/\s+/g, "");
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const FMAP=map3;
+    const FMAP=map4;
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const [PROJECTIONWIDTH, PROJECTIONHEIGHT,PROJDIST] = (function(){
+      //return [320, 200, 276];
       if(Mojo.width > 1400){
         return [1280, 800, 1108]
       }else if(Mojo.width > 1040){
@@ -101,8 +122,8 @@
     // size of tile (wall height)
     const TILE_SIZE = 64;
     const WALL_HEIGHT = 64;
-    const MAP_WIDTH=12;
-    const MAP_HEIGHT=12;
+    const MAP_WIDTH=20;//12;
+    const MAP_HEIGHT=20;//12;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // trigonometric tables (the ones with "I" such as ISiTable are "Inverse" table)
@@ -182,9 +203,10 @@
           this.fPlayerDistToTheProjPlane = PROJDIST;
           this.fPlayerHeight = WALL_HEIGHT/2;
           this.fPlayerSpeed = 16;
-          _G.fPlayerArc = ANGLE5+ANGLE5;
+          _G.fPlayerArc = ANGLE60;//5+ANGLE5;
           _G.fPlayerX = 100;
           _G.fPlayerY = 160;
+          _G.textureUsed=1;
           //2 dimensional map
           let sy= int((Mojo.height-PROJECTIONHEIGHT)/2);
           let sx= int((Mojo.width-PROJECTIONWIDTH)/2);
@@ -302,16 +324,19 @@
           //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
           // DRAW THE WALL SLICE
           let scaleFactor;
+          let xOffset;
           let dist;
           let topOfWall;
           let bottomOfWall;
           if(distToHzGridBeingHit < distToVtGridBeingHit){
             this.g.hud.drawRayOnOverheadMap(i_x, hzGrid);
             dist=distToHzGridBeingHit;
+            xOffset=i_x%TILE_SIZE;
           }else{
             //the vertical wall is closer than the horizontal wall
             this.g.hud.drawRayOnOverheadMap(vtGrid, i_y);
             dist=distToVtGridBeingHit;
+            xOffset=i_y%TILE_SIZE;
           }
           // correct distance (compensate for the fishbown effect)
           dist /= TABLES[tFISH][castCol];
@@ -331,7 +356,13 @@
           if(color<20) color=20;
           if(color>255) color=255;
           color=int(color);
-          paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, _S.color3(color,color,color));
+          color=_S.color3(color,color,color);
+          if(_G.textureUsed){
+            drawWallSlice(this.g.gfx, castCol, topOfWall,
+                          1, (bottomOfWall-topOfWall)+1, color, xOffset);
+          }else{
+            paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, color);
+          }
           castArc+=1;
           if(castArc>=ANGLE360) castArc-=ANGLE360;
         }
@@ -339,6 +370,9 @@
       preUpdate(dt){
         this.g.hud.gfx.clear();
         this.g.gfx.clear();
+        this.removeChildren();
+        this.insert(this.g.gfx);
+        this.insert(this.g.hud.gfx);
       },
       doMotion(){
         if(_I.keyDown(_I.LEFT)){
@@ -407,9 +441,29 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function drawWallSlice(gfx, x, y, width, height, tint, xOffset){
+      let b= Mojo.tcached("brick2.png");
+      let dy;
+      let t= new PIXI.Texture(b,new PIXI.Rectangle(int(xOffset),0,1,b.height));
+      gfx.lineTextureStyle({ width, texture:t });
+      while(height>0){
+        gfx.moveTo(x,y);
+        if(height>t.height){
+          dy = t.height;
+        }else{
+          dy=height;
+        }
+        gfx.lineTo(x,y+dy);
+        y += dy;
+        height -= dy;
+      }
+      gfx.lineStyle(1,0xffffff);
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function HUD(scene){
       scene.insert(this.gfx=_S.graphics());
-      this.fMinimapWidth=10;
+      this.fMinimapWidth=6;
       this.fPlayerMapX=0;
       this.fPlayerMapY=0;
       // draw line from the player position to the position where the ray intersect with wall
@@ -447,6 +501,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
+    assetFiles: ["tile2.png","brick2.png","tile43.png","wall.jpg"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
