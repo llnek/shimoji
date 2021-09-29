@@ -32,6 +32,11 @@
     const sin=Math.sin;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    // size of tile (wall height)
+    const TILE_SIZE = 64;
+    const WALL_HEIGHT = 64;
+    const MAPWIDTH=20;//12;
+    const MAPDEPTH=20;//12;
     //Map
     const map1= "############"+
                 "#..........#"+
@@ -89,25 +94,90 @@
                 "#..#.#.#...#..##.#.#"+
                 "#..........#.......#"+
                 "####################".replace(/\s+/g, "");
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const FMAP=map4;
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const [PROJECTIONWIDTH, PROJECTIONHEIGHT,PROJDIST] = (function(){
-      //return [320, 200, 276];
-      if(Mojo.width > 1400){
-        return [1280, 800, 1108]
-      }else if(Mojo.width > 1040){
-        return [960, 600, 830]
-      }else if(Mojo.width > 800){
-        return [640, 400, 554]
-      }else{
-        return [320, 200, 276]
+    const map5="####################"+
+               "#..............##..#"+
+               "#....#..........####"+
+               "#..##.....#.#..#...#"+
+               "##.#..#.#.......#..#"+
+               "#....#..#..........#"+
+               "#.....#..###.#..##.#"+
+               "#...#..........#.#.#"+
+               "####.#..........##.#"+
+               "#...#..#...##......#"+
+               "#..#......#...#....#"+
+               "#.#.##.#..#.#.##.#.#"+
+               "###..##.#..###...#.#"+
+               "##.#..##.#...#...###"+
+               "#..##.##...#.......#"+
+               "#..##....#.#...###.#"+
+               "#.............#.#.##"+
+               "#.....#.......#....#"+
+               "##.#..#............#"+
+               "####################";
+
+    const map6="####################"+
+               "#..................#"+
+               "#.......###........#"+
+               "#.......###........#"+
+               "#..................#"+
+               "#.......###........#"+
+               "#.......###........#"+
+               "#.......###........#"+
+               "#.....########.....#"+
+               "#.....#......#.....#"+
+               "#.....#......#.....#"+
+               "#..................#"+
+               "#.....#......#.....#"+
+               "#.....###.####.....#"+
+               "#.......#.#........#"+
+               "#.......#.#........#"+
+               "#.......#.#........#"+
+               "#.......#.#........#"+
+               "#..................#"+
+               "####################";
+
+    const map9=randGenMapStr();
+    function randGenMapStr(){
+      let lastY=MAPDEPTH-1;
+      let lastX=MAPWIDTH-1;
+      let s="";
+      for(let y=0;y<MAPDEPTH;++y)
+      for(let x=0;x<MAPWIDTH;++x){
+        if(y===0||y===lastY){
+          s +="#"
+        }else{
+          if(x===0||x===lastX){
+            s += "#";
+          }else{
+            s += _.rand()<0.2?"#":".";
+          }
+        }
       }
+      return s;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const FMAP=map6;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const BASEW=320;
+    const BASEH=200;
+    const BASED=276;
+    const [PROJRATIO, PROJECTIONWIDTH, PROJECTIONHEIGHT] = (function(r){
+      if(Mojo.width > 1400){
+        r= 4
+      }else if(Mojo.width > 1040){
+        r= 3
+      }else if(Mojo.width > 800){
+        r= 2
+      }else{
+        r= 1
+      }
+      return [r,BASEW*r,BASEH*r]
     })();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // FOV = 60
-    const ANGLE60 = PROJECTIONWIDTH;
+    const ANGLE60 = BASEW;//PROJECTIONWIDTH;
     const ANGLE30 = int(ANGLE60/2);
     const ANGLE15 = int(ANGLE30/2);
     const ANGLE90 = int(ANGLE30*3);
@@ -119,11 +189,6 @@
     const ANGLE10 = int(ANGLE5*2);
     const ANGLE45 = int(ANGLE15*3);
 
-    // size of tile (wall height)
-    const TILE_SIZE = 64;
-    const WALL_HEIGHT = 64;
-    const MAP_WIDTH=20;//12;
-    const MAP_HEIGHT=20;//12;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // trigonometric tables (the ones with "I" such as ISiTable are "Inverse" table)
@@ -199,15 +264,17 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel=()=>{
-          this.fProjPlaneYCenter = PROJECTIONHEIGHT/2;
-          this.fPlayerDistToTheProjPlane = PROJDIST;
+          this.fProjPlaneYCenter = BASEH/2;//PROJECTIONHEIGHT/2;
+          this.fPlayerDistToTheProjPlane = BASED;
           this.fPlayerHeight = WALL_HEIGHT/2;
           this.fPlayerSpeed = 16;
           _G.fPlayerArc = ANGLE60;//5+ANGLE5;
           _G.fPlayerX = 100;
           _G.fPlayerY = 160;
-          _G.textureUsed=1;
-          //2 dimensional map
+          _G.fBgImageArc=0;
+          _G.textureUsed=true;
+          _G.skyUsed=true;
+          //center the scene!!!!!
           let sy= int((Mojo.height-PROJECTIONHEIGHT)/2);
           let sx= int((Mojo.width-PROJECTIONWIDTH)/2);
           _V.set(this,sx,sy);
@@ -219,19 +286,55 @@
           return this.insert( this.g.gfx=_S.graphics());
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.drawBackgd=()=>{
-          let r,step=2,c=255;
-          for(r=0; r<PROJECTIONHEIGHT/2; r+=step){//sky
-            this.g.gfx.beginFill(_S.color3(c, 125, 225));
-            this.g.gfx.drawRect(0,r,PROJECTIONWIDTH,step);
-            this.g.gfx.endFill();
+        this.g.wrapArena=()=>{
+          let a=_G.arena;
+          this.g.gfx.beginFill(_S.color("black"));
+          this.g.gfx.drawRect(-a.x1,-a.y1,Mojo.width,a.y1);
+          this.g.gfx.drawRect(-a.x1,a.y2-a.y1,Mojo.width,Mojo.height-a.y2);
+          this.g.gfx.drawRect(-a.x1,-a.y1,a.x1,Mojo.height);
+          this.g.gfx.drawRect(a.x2-a.x1,-a.y1,Mojo.width-a.x2,Mojo.height);
+          this.g.gfx.endFill();
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.drawBg=()=>{
+          let sx,sy;
+          let r,step=1,c=255;
+          let width=PROJRATIO*BASEW;
+          let height=PROJRATIO*step;
+          //scene is already centered, so start point = 0,0
+          sx=0;
+          sy=0;
+          for(r=0; r<BASEH/2; r+=step){//sky
+            if(!_G.skyUsed){
+              this.g.gfx.beginFill(_S.color3(c, 125, 225));
+              this.g.gfx.drawRect(sx,sy+(r*height),width,height);
+              this.g.gfx.endFill();
+            }
             --c;
           }
-          for(c=22, r=PROJECTIONHEIGHT/2; r<PROJECTIONHEIGHT; r+=step){//floor
-            this.g.gfx.beginFill(_S.color3(c, 20, 20));
-            this.g.gfx.drawRect(0,r,PROJECTIONWIDTH,step);
+          for(c=0, r=BASEH/2; r<BASEH; r+=step){//floor
+            this.g.gfx.beginFill(_S.color3(20, c, 20));
+            this.g.gfx.drawRect(sx,sy+(r*height),width, height);
             this.g.gfx.endFill();
             ++c;
+          }
+        };
+        this.g.drawSky=()=>{
+          let sky= _S.sprite("deathvalley.jpg");
+          let width = sky.width * (BASEH  / sky.height) * 2;
+          let left = (_G.fPlayerArc / ANGLE360) * -width;
+          sky.x=left*PROJRATIO;
+          sky.y=0;
+          sky.width=width*PROJRATIO;
+          sky.height=BASEH*PROJRATIO;
+          this.insert(_S.extend(sky));
+          if(left < width - BASEW){
+            sky= _S.sprite("deathvalley.jpg");
+            sky.x= PROJRATIO*(left+width);
+            sky.y=0;
+            sky.width=PROJRATIO*width;
+            sky.height=BASEH*PROJRATIO;
+            this.insert(_S.extend(sky));
           }
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -249,24 +352,25 @@
         let distToVtGridBeingHit;
         let distToHzGridBeingHit;
         let castArc = _G.fPlayerArc;
-        castArc-= ANGLE30; // trace the rays from the left
+        // trace the rays from the left,change if FOV changes!
+        castArc-= ANGLE30;
         if(castArc < 0) castArc += ANGLE360;
         //the big loop
-        for(let xtemp,ytemp,castCol=0; castCol<PROJECTIONWIDTH; ++castCol){
+        for(let tmpX,tmpY,castCol=0; castCol<BASEW; ++castCol){
           //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
           //DEAL WITH HORZ LINES
           if(castArc > ANGLE0 && castArc < ANGLE180){//ray facing down
             hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE  + TILE_SIZE;
             hzGridGap = TILE_SIZE;
-            xtemp = TABLES[iTAN][castArc]*(hzGrid-_G.fPlayerY);
+            tmpX = TABLES[iTAN][castArc]*(hzGrid-_G.fPlayerY);
           }else{//ray is facing up
             hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE;
             hzGridGap = -TILE_SIZE;
-            xtemp = TABLES[iTAN][castArc]*(hzGrid - _G.fPlayerY);
+            tmpX = TABLES[iTAN][castArc]*(hzGrid - _G.fPlayerY);
             hzGrid -= 1;
           }
           //first intersect
-          i_x = xtemp + _G.fPlayerX;
+          i_x = tmpX + _G.fPlayerX;
           if(castArc==ANGLE0 || castArc==ANGLE180){
             distToHzGridBeingHit=Number.MAX_VALUE;
           }else{
@@ -274,8 +378,8 @@
             while(true){
               gy = int(hzGrid/TILE_SIZE);
               gx = int(i_x/TILE_SIZE);
-              idx= int(gy*MAP_WIDTH+gx);
-              if((gx>=MAP_WIDTH) || (gy>=MAP_HEIGHT) || gx<0 || gy<0){
+              idx= int(gy*MAPWIDTH+gx);
+              if((gx>=MAPWIDTH) || (gy>=MAPDEPTH) || gx<0 || gy<0){
                 distToHzGridBeingHit = Number.MAX_VALUE;
                 break;
               }else if(FMAP.charAt(idx)!="."){
@@ -292,15 +396,15 @@
           if(castArc < ANGLE90 || castArc > ANGLE270){
             vtGrid = TILE_SIZE + int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
             vtGridGap = TILE_SIZE;
-            ytemp = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
+            tmpY = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
           }else{ // RAY FACING LEFT
             vtGrid = int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
             vtGridGap = -TILE_SIZE;
-            ytemp = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
+            tmpY = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
             vtGrid -=1;
           }
           //first intersect
-          i_y = ytemp + _G.fPlayerY;
+          i_y = tmpY + _G.fPlayerY;
           if(castArc==ANGLE90||castArc==ANGLE270){
             distToVtGridBeingHit = Number.MAX_VALUE;
           }else{
@@ -308,8 +412,8 @@
             while(true){
               gx = int(vtGrid/TILE_SIZE);
               gy = int(i_y/TILE_SIZE);
-              idx=int(gy*MAP_WIDTH+gx);
-              if((gx>=MAP_WIDTH) || (gy>=MAP_HEIGHT) || gx<0 || gy<0){
+              idx=int(gy*MAPWIDTH+gx);
+              if((gx>=MAPWIDTH) || (gy>=MAPDEPTH) || gx<0 || gy<0){
                 distToVtGridBeingHit = Number.MAX_VALUE;
                 break;
               }else if(FMAP.charAt(idx)!="."){
@@ -345,8 +449,8 @@
           bottomOfWall = this.fProjPlaneYCenter+(projWallHeight*0.5);
           topOfWall = this.fProjPlaneYCenter-(projWallHeight*0.5);
           if(topOfWall<0) topOfWall=0;
-          if(bottomOfWall>=PROJECTIONHEIGHT){
-            bottomOfWall=PROJECTIONHEIGHT-1;
+          if(bottomOfWall>=BASEH){//PROJECTIONHEIGHT){
+            bottomOfWall=BASEH-1;//PROJECTIONHEIGHT-1;
           }
           // Add simple shading so that farther wall slices appear darker.
           // 750 is arbitrary value of the farthest distance.
@@ -358,21 +462,15 @@
           color=int(color);
           color=_S.color3(color,color,color);
           if(_G.textureUsed){
-            drawWallSlice(this.g.gfx, castCol, topOfWall,
-                          1, (bottomOfWall-topOfWall)+1, color, xOffset);
+            drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, color, xOffset);
+            //drawFloor(this,castArc, castCol,bottomOfWall,1,color);
+            //drawCeiling(this,castArc, castCol,topOfWall,1,color);
           }else{
             paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, color);
           }
           castArc+=1;
           if(castArc>=ANGLE360) castArc-=ANGLE360;
         }
-      },
-      preUpdate(dt){
-        this.g.hud.gfx.clear();
-        this.g.gfx.clear();
-        this.removeChildren();
-        this.insert(this.g.gfx);
-        this.insert(this.g.hud.gfx);
       },
       doMotion(){
         if(_I.keyDown(_I.LEFT)){
@@ -407,32 +505,42 @@
         let minDistanceToWall=30;
         // make sure the player don't bump into walls
         if(dx>0){ // moving right
-          if((FMAP.charAt((playerYCell*MAP_WIDTH)+playerXCell+1)!=".")&&
+          if((FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell+1)!=".")&&
              (playerXCellOffset > (TILE_SIZE-minDistanceToWall))){
             // back player up
             _G.fPlayerX -= (playerXCellOffset-(TILE_SIZE-minDistanceToWall));
           }
         }else{ // moving left
-          if((FMAP.charAt((playerYCell*MAP_WIDTH)+playerXCell-1)!=".")&&
+          if((FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell-1)!=".")&&
              (playerXCellOffset < (minDistanceToWall))){
             // back player up
             _G.fPlayerX += (minDistanceToWall-playerXCellOffset);
           }
         }
         if(dy<0){ // moving up
-          if((FMAP.charAt(((playerYCell-1)*MAP_WIDTH)+playerXCell)!=".")&&
+          if((FMAP.charAt(((playerYCell-1)*MAPWIDTH)+playerXCell)!=".")&&
              (playerYCellOffset < (minDistanceToWall))){
             _G.fPlayerY += (minDistanceToWall-playerYCellOffset);
           }
         }else{ // moving down
-          if((FMAP.charAt(((playerYCell+1)*MAP_WIDTH)+playerXCell)!=".")&&
+          if((FMAP.charAt(((playerYCell+1)*MAPWIDTH)+playerXCell)!=".")&&
              (playerYCellOffset > (TILE_SIZE-minDistanceToWall))){
             _G.fPlayerY -= (playerYCellOffset-(TILE_SIZE-minDistanceToWall ));
           }
         }
       },
+      preUpdate(dt){
+        this.g.hud.gfx.clear();
+        this.g.gfx.clear();
+        this.removeChildren();
+        if(_G.skyUsed)
+          this.g.drawSky();
+        this.insert(this.g.gfx);
+        this.insert(this.g.hud.gfx);
+      },
       postUpdate(dt){
-        this.g.drawBackgd();
+        this.g.wrapArena();
+        this.g.drawBg();
         this.g.hud.drawMap();
         this.raycast();
         this.doMotion();
@@ -441,23 +549,70 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function drawWallSlice(gfx, x, y, width, height, tint, xOffset){
-      let b= Mojo.tcached("brick2.png");
-      let dy;
-      let t= new PIXI.Texture(b,new PIXI.Rectangle(int(xOffset),0,1,b.height));
-      gfx.lineTextureStyle({ width, texture:t });
-      while(height>0){
-        gfx.moveTo(x,y);
-        if(height>t.height){
-          dy = t.height;
-        }else{
-          dy=height;
+    function drawCeiling(scene, castArc, castCol, topOfWall, width, tint){
+      let B=Mojo.tcached("tile41.png");
+      for(let row=int(topOfWall); row >=0; --row){
+        let ratio=(WALL_HEIGHT-scene.fPlayerHeight)/(scene.fProjPlaneYCenter-row);
+        let diagDist= int(scene.fPlayerDistToTheProjPlane*ratio*TABLES[tFISH][castCol]);
+        let yEnd = int(diagDist* TABLES[tSIN][castArc]);
+        let xEnd = int(diagDist* TABLES[tCOS][castArc]);
+        // Translate relative to viewer coordinates:
+        xEnd+=_G.fPlayerX;
+        yEnd+=_G.fPlayerY;
+        // Get the tile intersected by ray:
+        let cellX = int(xEnd / TILE_SIZE);
+        let cellY = int(yEnd / TILE_SIZE);
+        if((cellX<MAPWIDTH) && (cellY<MAPDEPTH) && cellX>=0 && cellY>=0){
+          // Find offset of tile and column in texture
+          let ty = int(yEnd % TILE_SIZE);
+          let tx = int(xEnd % TILE_SIZE);
+          let s= _S.sprite(new PIXI.Texture(B,new PIXI.Rectangle(tx,ty,1,1)));
+          s.width = width*PROJRATIO;
+          s.height= PROJRATIO;
+          s.x=castCol*PROJRATIO;
+          s.y=row*PROJRATIO;
+          scene.insert(s);
         }
-        gfx.lineTo(x,y+dy);
-        y += dy;
-        height -= dy;
       }
-      gfx.lineStyle(1,0xffffff);
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function drawFloor(scene, castArc, castCol, bottomOfWall, width, tint){
+      let B=Mojo.tcached("floortile.png");
+      for(let row=int(bottomOfWall); row<BASEH; ++row){
+        let ratio=scene.fPlayerHeight/(row-scene.fProjPlaneYCenter);
+        let diagDist= int(scene.fPlayerDistToTheProjPlane*ratio*TABLES[tFISH][castCol]);
+        let yEnd = int(diagDist * TABLES[tSIN][castArc]);
+        let xEnd = int(diagDist * TABLES[tCOS][castArc]);
+        // Translate relative to viewer coordinates:
+        xEnd += _G.fPlayerX;
+        yEnd += _G.fPlayerY;
+        // Get the tile intersected by ray:
+        let cellX = int(xEnd / TILE_SIZE);
+        let cellY = int(yEnd / TILE_SIZE);
+        if((cellX<MAPWIDTH) && (cellY<MAPDEPTH) && cellX>=0 && cellY>=0){
+            // Find offset of tile and column in texture
+          let tx = int(xEnd % TILE_SIZE);
+          let ty = int(yEnd % TILE_SIZE);
+          let s= _S.sprite(new PIXI.Texture(B,new PIXI.Rectangle(tx,ty,1,1)));
+          s.width = width*PROJRATIO;
+          s.height= PROJRATIO;
+          s.x=castCol*PROJRATIO;
+          s.y=row*PROJRATIO;
+          scene.insert(s);
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function drawWallSlice(scene, x, y, width, height, tint, xOffset){
+      let b= Mojo.tcached("wall64.png");
+      let t= new PIXI.Texture(b,new PIXI.Rectangle(int(xOffset),0,width,b.height));
+      let s= _S.sprite(t);
+      s.height= height*PROJRATIO;
+      s.width = width*PROJRATIO;
+      s.x=x*PROJRATIO;
+      s.y=y*PROJRATIO;
+      scene.insert(s);
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -480,10 +635,10 @@
                           this.fPlayerMapY+ TABLES[tSIN][_G.fPlayerArc]*10);
       };
       this.drawMap=(dt)=>{
-        for(let css,r=0; r<MAP_HEIGHT; ++r){
-          for(let c=0; c<MAP_WIDTH;++c){
+        for(let css,r=0; r<MAPDEPTH; ++r){
+          for(let c=0; c<MAPWIDTH;++c){
             css="black";
-            if(FMAP.charAt(r*MAP_WIDTH+c)=="#"){
+            if(FMAP.charAt(r*MAPWIDTH+c)=="#"){
               css="white";
             }
             paintRect(this.gfx, PROJECTIONWIDTH+(c*this.fMinimapWidth),
@@ -501,7 +656,9 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["tile2.png","brick2.png","tile43.png","wall.jpg"],
+    assetFiles: ["tile2.png","brick2.png","tile43.png",
+                 "tile42.png","tile41.png",
+                 "wall64.png","floortile.png","deathvalley.jpg"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
