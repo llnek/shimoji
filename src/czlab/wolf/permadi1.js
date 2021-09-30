@@ -164,7 +164,7 @@
     const BASED=276;
     const [PROJRATIO, PROJECTIONWIDTH, PROJECTIONHEIGHT] = (function(r){
       if(Mojo.width > 1400){
-        r= 4
+        r= 3
       }else if(Mojo.width > 1040){
         r= 3
       }else if(Mojo.width > 800){
@@ -174,6 +174,7 @@
       }
       return [r,BASEW*r,BASEH*r]
     })();
+    console.log(`viewport width=${PROJECTIONWIDTH}, height=${PROJECTIONHEIGHT}`);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // FOV = 60
@@ -271,29 +272,37 @@
           _G.fPlayerArc = ANGLE60;//5+ANGLE5;
           _G.fPlayerX = 100;
           _G.fPlayerY = 160;
-          _G.fBgImageArc=0;
+          _G.prev={x:Infinity,y:Infinity,dir:Infinity};
           _G.textureUsed=true;
           _G.skyUsed=true;
           //center the scene!!!!!
           let sy= int((Mojo.height-PROJECTIONHEIGHT)/2);
           let sx= int((Mojo.width-PROJECTIONWIDTH)/2);
-          _V.set(this,sx,sy);
+          //_V.set(this,sx,sy);
           _G.arena= {x1:sx, y1:sy, x2: sx+PROJECTIONWIDTH, y2: sy+PROJECTIONHEIGHT};
-          let pbox={x1:0,y1:0,
+          let pbox={x1:sx,y1:sy,
                     x2:_G.arena.width,
                     y2:_G.arena.height};
-          this.insert(_S.drawGridBox(pbox));
-          return this.insert( this.g.gfx=_S.graphics());
+          //_S.drawGridBox(pbox);
+          this.g.box=_S.container();
+          this.g.gfx=_S.graphics();
+          this.g.box.x=sx;
+          this.g.box.y=sy;
+          this.insert(this.g.box);
+          _S.opacity(this.g.gfx2=_S.graphics(), 1);//0.618
+          return this.insert(this.g.gfx2);
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.wrapArena=()=>{
           let a=_G.arena;
-          this.g.gfx.beginFill(_S.color("black"));
-          this.g.gfx.drawRect(-a.x1,-a.y1,Mojo.width,a.y1);
-          this.g.gfx.drawRect(-a.x1,a.y2-a.y1,Mojo.width,Mojo.height-a.y2);
-          this.g.gfx.drawRect(-a.x1,-a.y1,a.x1,Mojo.height);
-          this.g.gfx.drawRect(a.x2-a.x1,-a.y1,Mojo.width-a.x2,Mojo.height);
-          this.g.gfx.endFill();
+          this.g.gfx2.beginFill(_S.color("black"));
+          //top,bottom
+          this.g.gfx2.drawRect(0,0,Mojo.width,a.y1);
+          this.g.gfx2.drawRect(0,a.y2,Mojo.width,Mojo.height-a.y2);
+          //left,right
+          this.g.gfx2.drawRect(0,0,a.x1,Mojo.height);
+          this.g.gfx2.drawRect(a.x2,0,Mojo.width-a.x2,Mojo.height);
+          this.g.gfx2.endFill();
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.drawBg=()=>{
@@ -320,21 +329,24 @@
           }
         };
         this.g.drawSky=()=>{
-          let sky= _S.sprite("deathvalley.jpg");
-          let width = sky.width * (BASEH  / sky.height) * 2;
-          let left = (_G.fPlayerArc / ANGLE360) * -width;
-          sky.x=left*PROJRATIO;
-          sky.y=0;
-          sky.width=width*PROJRATIO;
-          sky.height=BASEH*PROJRATIO;
-          this.insert(_S.extend(sky));
-          if(left < width - BASEW){
-            sky= _S.sprite("deathvalley.jpg");
-            sky.x= PROJRATIO*(left+width);
-            sky.y=0;
-            sky.width=PROJRATIO*width;
+          if(_G.skyUsed){
+            let sx=0,sy=0;
+            let sky= _S.sprite("bg.jpg");
+            let width = sky.width * (BASEH  / sky.height) * 2;
+            let left = (_G.fPlayerArc / ANGLE360) * -width;
+            sky.x=sx+left*PROJRATIO;
+            sky.y=sy;
+            sky.width=width*PROJRATIO;
             sky.height=BASEH*PROJRATIO;
-            this.insert(_S.extend(sky));
+            this.g.box.addChild(_S.extend(sky));
+            if(left < width - BASEW){
+              sky= _S.sprite("bg.jpg");
+              sky.x= sx+PROJRATIO*(left+width);
+              sky.y=sy;
+              sky.width=PROJRATIO*width;
+              sky.height=BASEH*PROJRATIO;
+              this.g.box.addChild(_S.extend(sky));
+            }
           }
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -427,7 +439,7 @@
           }
           //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
           // DRAW THE WALL SLICE
-          let scaleFactor;
+          let vertHit;
           let xOffset;
           let dist;
           let topOfWall;
@@ -441,6 +453,7 @@
             this.g.hud.drawRayOnOverheadMap(vtGrid, i_y);
             dist=distToVtGridBeingHit;
             xOffset=i_y%TILE_SIZE;
+            vertHit=true;
           }
           // correct distance (compensate for the fishbown effect)
           dist /= TABLES[tFISH][castCol];
@@ -460,12 +473,13 @@
           if(color<20) color=20;
           if(color>255) color=255;
           color=int(color);
-          color=_S.color3(color,color,color);
           if(_G.textureUsed){
-            drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, color, xOffset);
+            drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, xOffset, color);// (vertHit?160:100)/dist)
+            //too costly
             //drawFloor(this,castArc, castCol,bottomOfWall,1,color);
             //drawCeiling(this,castArc, castCol,topOfWall,1,color);
           }else{
+            color=_S.color3(color,color,color);
             paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, color);
           }
           castArc+=1;
@@ -473,6 +487,10 @@
         }
       },
       doMotion(){
+        _G.prev.dir=_G.fPlayerArc;
+        _G.prev.x=_G.fPlayerX;
+        _G.prev.y=_G.fPlayerY;
+
         if(_I.keyDown(_I.LEFT)){
           _G.fPlayerArc-=ANGLE10;
           if(_G.fPlayerArc<ANGLE0) _G.fPlayerArc+=ANGLE360;
@@ -530,22 +548,28 @@
         }
       },
       preUpdate(dt){
-        this.g.hud.gfx.clear();
-        this.g.gfx.clear();
-        this.removeChildren();
-        if(_G.skyUsed)
+        if(this.checkIdle()){}else{
+          this.g.box.removeChildren();
+          this.g.gfx.clear();
+          this.g.gfx2.clear();
           this.g.drawSky();
-        this.insert(this.g.gfx);
-        this.insert(this.g.hud.gfx);
+          this.g.wrapArena();
+          this.g.box.addChild(this.g.gfx);
+        }
       },
       postUpdate(dt){
-        this.g.wrapArena();
-        this.g.drawBg();
-        this.g.hud.drawMap();
-        this.raycast();
+        if(this.checkIdle()){}else{
+          this.g.drawBg();
+          this.g.hud.drawMap();
+          this.raycast();
+        }
         this.doMotion();
+      },
+      checkIdle(){
+        return _.feq(_G.prev.x, _G.fPlayerX) &&
+               _.feq(_G.prev.y, _G.fPlayerY) &&
+               _.feq(_G.prev.dir, _G.fPlayerArc)
       }
-
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -571,7 +595,7 @@
           s.height= PROJRATIO;
           s.x=castCol*PROJRATIO;
           s.y=row*PROJRATIO;
-          scene.insert(s);
+          scene.g.box.addChild(s);
         }
       }
     }
@@ -598,55 +622,55 @@
           s.height= PROJRATIO;
           s.x=castCol*PROJRATIO;
           s.y=row*PROJRATIO;
-          scene.insert(s);
+          scene.g.box.addChild(s);
         }
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function drawWallSlice(scene, x, y, width, height, tint, xOffset){
+    function drawWallSlice(scene, x, y, width, height, xOffset, tint){
       let b= Mojo.tcached("wall64.png");
       let t= new PIXI.Texture(b,new PIXI.Rectangle(int(xOffset),0,width,b.height));
       let s= _S.sprite(t);
+      let sx=0,sy=0;
       s.height= height*PROJRATIO;
       s.width = width*PROJRATIO;
-      s.x=x*PROJRATIO;
-      s.y=y*PROJRATIO;
-      scene.insert(s);
+      s.x=sx+ x*PROJRATIO;
+      s.y=sy+ y*PROJRATIO;
+      scene.g.box.addChild(s);
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function HUD(scene){
-      scene.insert(this.gfx=_S.graphics());
-      this.fMinimapWidth=6;
+    function HUD(scene,inside=true){
+      this.fMinimapWidth=PROJRATIO<2 ? 3: 6;
+      this.LEFT=_G.arena.x2;
       this.fPlayerMapX=0;
       this.fPlayerMapY=0;
+      if(inside)
+        this.LEFT -= (MAPWIDTH*this.fMinimapWidth);
       // draw line from the player position to the position where the ray intersect with wall
       this.drawRayOnOverheadMap=(x,y)=>{
-        this.gfx.lineStyle(2,_S.color("#f6e73b"));
-        this.gfx.moveTo(this.fPlayerMapX, this.fPlayerMapY);
-        this.gfx.lineTo(PROJECTIONWIDTH+(x*this.fMinimapWidth/TILE_SIZE), y*this.fMinimapWidth/TILE_SIZE);
+        scene.g.gfx2.lineStyle(2,_S.color("#f6e73b"));
+        scene.g.gfx2.moveTo(this.fPlayerMapX, this.fPlayerMapY);
+        scene.g.gfx2.lineTo(this.LEFT+(x*this.fMinimapWidth/TILE_SIZE), _G.arena.y1+ y*this.fMinimapWidth/TILE_SIZE);
       };
       // draw a red line indication the player's direction
       this.drawPlayerPOV=()=>{
-        this.gfx.lineStyle(2,_S.color("#ff0000"));
-        this.gfx.moveTo( this.fPlayerMapX, this.fPlayerMapY);
-        this.gfx.lineTo(this.fPlayerMapX+ TABLES[tCOS][_G.fPlayerArc]*10,
-                          this.fPlayerMapY+ TABLES[tSIN][_G.fPlayerArc]*10);
+        scene.g.gfx2.lineStyle(2,_S.color("#ff0000"));
+        scene.g.gfx2.moveTo( this.fPlayerMapX, this.fPlayerMapY);
+        scene.g.gfx2.lineTo(this.fPlayerMapX+ TABLES[tCOS][_G.fPlayerArc]*10,
+                            this.fPlayerMapY+ TABLES[tSIN][_G.fPlayerArc]*10);
       };
       this.drawMap=(dt)=>{
         for(let css,r=0; r<MAPDEPTH; ++r){
-          for(let c=0; c<MAPWIDTH;++c){
-            css="black";
-            if(FMAP.charAt(r*MAPWIDTH+c)=="#"){
-              css="white";
-            }
-            paintRect(this.gfx, PROJECTIONWIDTH+(c*this.fMinimapWidth),
-                      (r*this.fMinimapWidth), this.fMinimapWidth, this.fMinimapWidth, css);
+          for(let c=0;c<MAPWIDTH; ++c){
+            css=FMAP.charAt(r*MAPWIDTH+c)=="#"? "white":"black";
+            paintRect(scene.g.gfx2, this.LEFT+(c*this.fMinimapWidth),
+                      _G.arena.y1+(r*this.fMinimapWidth), this.fMinimapWidth, this.fMinimapWidth, css);
           }
         }
-        this.fPlayerMapX=PROJECTIONWIDTH+((_G.fPlayerX/TILE_SIZE) * this.fMinimapWidth);
-        this.fPlayerMapY=((_G.fPlayerY/TILE_SIZE) * this.fMinimapWidth);
+        this.fPlayerMapX=this.LEFT+((_G.fPlayerX/TILE_SIZE) * this.fMinimapWidth);
+        this.fPlayerMapY= _G.arena.y1+ ((_G.fPlayerY/TILE_SIZE) * this.fMinimapWidth);
         this.drawPlayerPOV();
       };
     }
@@ -658,7 +682,7 @@
   const _$={
     assetFiles: ["tile2.png","brick2.png","tile43.png",
                  "tile42.png","tile41.png",
-                 "wall64.png","floortile.png","deathvalley.jpg"],
+                 "wall64.png","floortile.png","bg.jpg"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
