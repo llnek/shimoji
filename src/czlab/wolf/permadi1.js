@@ -163,8 +163,8 @@
     const BASEH=200;
     const BASED=276;
     const [PROJRATIO, PROJECTIONWIDTH, PROJECTIONHEIGHT] = (function(r){
-      if(Mojo.width > 1400){
-        r= 3
+      if(Mojo.width > 1680){
+        r= 4
       }else if(Mojo.width > 1040){
         r= 3
       }else if(Mojo.width > 800){
@@ -213,6 +213,22 @@
       g.beginFill(_S.color(c));
       g.drawRect(x, y, w, h);
       g.endFill();
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function initPlayerPos(mapstr){
+      let n,rc,i, a=mapstr.split("");
+      while(rc != "."){
+        [rc,i]= _.randItem(a,true);
+        if(rc == "."){
+          _G.fPlayerX= TILE_SIZE * (i%MAPWIDTH);
+          _G.fPlayerY= TILE_SIZE * int(i/MAPWIDTH);
+        }
+      }
+      a= [ANGLE60, ANGLE30, ANGLE15, ANGLE0, ANGLE90, ANGLE180, ANGLE270, ANGLE5, ANGLE10, ANGLE45];
+      n= [60, 30, 15, 0, 90, 180, 270, 5,10, 45];
+      [_G.fPlayerArc,i] = _.randItem(a,true);
+      console.log(`initial playerX= ${_G.fPlayerX}, playerY= ${_G.fPlayerY}, angle=${n[i]}`);
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -269,28 +285,32 @@
           this.fPlayerDistToTheProjPlane = BASED;
           this.fPlayerHeight = WALL_HEIGHT/2;
           this.fPlayerSpeed = 16;
-          _G.fPlayerArc = ANGLE60;//5+ANGLE5;
-          _G.fPlayerX = 100;
-          _G.fPlayerY = 160;
+          //_G.fPlayerArc = ANGLE60;
+          initPlayerPos(FMAP);
+          //_G.fPlayerX = 100;
+          //_G.fPlayerY = 160;
           _G.prev={x:Infinity,y:Infinity,dir:Infinity};
           _G.textureUsed=true;
           _G.skyUsed=true;
           //center the scene!!!!!
           let sy= int((Mojo.height-PROJECTIONHEIGHT)/2);
           let sx= int((Mojo.width-PROJECTIONWIDTH)/2);
-          //_V.set(this,sx,sy);
-          _G.arena= {x1:sx, y1:sy, x2: sx+PROJECTIONWIDTH, y2: sy+PROJECTIONHEIGHT};
-          let pbox={x1:sx,y1:sy,
-                    x2:_G.arena.width,
-                    y2:_G.arena.height};
-          //_S.drawGridBox(pbox);
+          _G.arena= {
+            x1:sx,
+            y1:sy,
+            x2: sx+PROJECTIONWIDTH,
+            y2: sy+PROJECTIONHEIGHT
+          };
           this.g.box=_S.container();
           this.g.gfx=_S.graphics();
           this.g.box.x=sx;
           this.g.box.y=sy;
           this.insert(this.g.box);
           _S.opacity(this.g.gfx2=_S.graphics(), 1);//0.618
-          return this.insert(this.g.gfx2);
+          this.insert(this.g.gfx2);
+          //put a mat around the arena to hide overflows
+          _Z.runScene("PhotoMat",_.inject({color:"black"},_G.arena));
+          return this;
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.wrapArena=()=>{
@@ -553,7 +573,7 @@
           this.g.gfx.clear();
           this.g.gfx2.clear();
           this.g.drawSky();
-          this.g.wrapArena();
+          //this.g.wrapArena();
           this.g.box.addChild(this.g.gfx);
         }
       },

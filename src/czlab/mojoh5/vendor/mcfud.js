@@ -545,24 +545,25 @@
       /**Randomly choose an item from this array.
        * @memberof module:mcfud/core._
        * @param {any[]} arr
+       * @param {wantIndex} boolean
        * @return {any}
        */
-      randItem(arr){
-        let rc;
+      randItem(arr,wantIndex){
+        let rc,i= -1;
         if(arr){
           switch(arr.length){
             case 0:
             case 1:
-              rc=arr[0];
+              rc=arr[i=0];
               break;
             case 2:
-              rc= this.randSign()>0? arr[1]:arr[0];
+              rc= arr[i= this.randSign()>0?1:0];
               break;
             default:
-              rc= arr[MFL(PRNG()*arr.length)];
+              rc= arr[i= (MFL(PRNG()*arr.length))];
           }
         }
-        return rc;
+        return wantIndex ? [rc,i] : rc;
       },
       /**Check if string represents a percentage value.
        * @memberof module:mcfud/core._
