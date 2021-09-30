@@ -31,16 +31,18 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PhotoMat",{
       setup(arg){
-        this.g.gfx=_S.graphics();
-        this.g.gfx.beginFill(_S.color(arg.color));
-        //top,bottom
-        this.g.gfx.drawRect(0,0,Mojo.width,arg.y1);
-        this.g.gfx.drawRect(0,arg.y2,Mojo.width,Mojo.height-arg.y2);
-        //left,right
-        this.g.gfx.drawRect(0,0,arg.x1,Mojo.height);
-        this.g.gfx.drawRect(arg.x2,0,Mojo.width-arg.x2,Mojo.height);
-        this.g.gfx.endFill();
-        this.insert(this.g.gfx);
+        if(arg.cb){ arg.cb(this) }else{
+          this.g.gfx=_S.graphics();
+          this.g.gfx.beginFill(_S.color(arg.color));
+          //top,bottom
+          this.g.gfx.drawRect(0,0,Mojo.width,arg.y1);
+          this.g.gfx.drawRect(0,arg.y2,Mojo.width,Mojo.height-arg.y2);
+          //left,right
+          this.g.gfx.drawRect(0,0,arg.x1,Mojo.height);
+          this.g.gfx.drawRect(arg.x2,0,Mojo.width-arg.x2,Mojo.height);
+          this.g.gfx.endFill();
+          this.insert(this.g.gfx);
+        }
       }
     });
 

@@ -20,13 +20,26 @@
 
     const {Sprites:_S,
            Scenes:_Z,
-           FX:T,
            Input:_I,
            Game:_G,
-           "2d":_2d,
+           FX: _F,
            v2:_V,
            ute:_,is}=Mojo;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT="Big Shout Bob";
+    const UI_FONT="Doki Lowercase";
+    const C_TITLE=_S.color("#fff20f");
+    const C_BG=_S.color("#169706");
+    const C_TEXT=_S.color("#fff20f");
+    const C_GREEN=_S.color("#7da633");
+    const C_ORANGE=_S.color("#f4d52b");
+    const CLICK_DELAY=343;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function playClick(){ Mojo.sound("click.mp3").play() }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const int = Math.floor;
     const cos= Math.cos;
     const sin=Math.sin;
@@ -218,11 +231,21 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function initPlayerPos(mapstr){
       let n,rc,i, a=mapstr.split("");
+      let x,y;
       while(rc != "."){
         [rc,i]= _.randItem(a,true);
         if(rc == "."){
-          _G.fPlayerX= TILE_SIZE * (i%MAPWIDTH);
-          _G.fPlayerY= TILE_SIZE * int(i/MAPWIDTH);
+          y= int(i/MAPWIDTH);
+          x= (i%MAPWIDTH);
+          if(a[(y+1)*MAPWIDTH+x]=="."&&
+             a[(y-1)*MAPWIDTH+x]=="."&&
+             a[y*MAPWIDTH+x+1]=="."&&
+             a[y*MAPWIDTH+x-1]=="."){
+            _G.fPlayerY= int(y*TILE_SIZE + TILE_SIZE/2);
+            _G.fPlayerX= int(x*TILE_SIZE + TILE_SIZE/2);
+          }else{
+            rc=0;
+          }
         }
       }
       a= [ANGLE60, ANGLE30, ANGLE15, ANGLE0, ANGLE90, ANGLE180, ANGLE270, ANGLE5, ANGLE10, ANGLE45];
@@ -230,6 +253,92 @@
       [_G.fPlayerArc,i] = _.randItem(a,true);
       console.log(`initial playerX= ${_G.fPlayerX}, playerY= ${_G.fPlayerY}, angle=${n[i]}`);
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("Splash",{
+      setup(){
+        let self=this,
+            K=Mojo.getScaleFactor(),
+            verb=Mojo.touchDevice?"Tap":"Click";
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText("Maze Runner",{fontName:TITLE_FONT,fontSize:120*K});
+          _S.tint(s,C_TITLE);
+          _V.set(s,Mojo.width/2,Mojo.height*0.3);
+          return self.insert(_S.centerAnchor(s));
+        }
+        this.g.doNext=(s,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
+          t=_F.throb(s,0.99);
+          function cb(){
+            Mojo.off(["single.tap"],cb);
+            _F.remove(t);
+            _S.tint(s,C_ORANGE);
+            playClick();
+            _.delay(CLICK_DELAY,()=>{
+              _Z.runSceneEx("PlayGame");
+              //put a mat around the arena to hide overflows
+              _Z.runScene("PhotoMat", _.inject({color:"black"},_G.arena));
+              if(Mojo.touchDevice) _Z.runScene("Ctrl");
+            });
+          }
+          Mojo.on(["single.tap"],cb);
+          _V.set(s,Mojo.width/2,Mojo.height*0.7);
+          return self.insert(_S.centerAnchor(s));
+        }
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle() && this.g.doNext();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("Ctrl",{
+      setup(){
+        let self=this,
+            K=Mojo.getScaleFactor();
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initHotspots=()=>{
+          let cfg={fontName:UI_FONT,fontSize:48*K};
+          let alpha=0.2,grey=_S.color("#cccccc");
+          let fw=132*K,fh=84*K,lw=4*K;
+          let L,U,R,D,offX, offY;
+          //////
+          D= _S.rect(fw,fh,grey,grey,lw);
+          _S.centerAnchor(D);
+          D.addChild(_S.centerAnchor(_S.bmpText("--",cfg)));
+          offY=D.height/4;
+          _V.set(D, _G.arena.x2+(Mojo.width-_G.arena.x2)/2,
+                    (_G.arena.y2-D.height/2));
+          self.insert(_S.opacity(_I.makeHotspot(D),alpha));
+          /////
+          R= _S.rect(fw,fh,grey,grey,lw);
+          _S.centerAnchor(R);
+          R.addChild(_S.centerAnchor(_S.bmpText("->",cfg)));
+          _S.pinTop(D,R,offY);
+          R.x += D.width/2+offY/2;
+          self.insert(_S.opacity(_I.makeHotspot(R),alpha));
+          //////
+          L= _S.rect(fw,fh,grey,grey,lw);
+          _S.centerAnchor(L);
+          L.addChild(_S.centerAnchor(_S.bmpText("<-",cfg)));
+          _S.pinTop(D,L,offY);
+          L.x -= D.width/2+offY/2;
+          self.insert(_S.opacity(_I.makeHotspot(L),alpha));
+          //////
+          U= _S.rect(fw,fh,grey,grey,lw);
+          _S.centerAnchor(U);
+          U.addChild(_S.centerAnchor(_S.bmpText("++",cfg)));
+          _S.pinTop(D,U,L.height+offY*2);
+          self.insert(_S.opacity(_I.makeHotspot(U),alpha));
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
+          L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
+          U.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP) }
+          D.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN) }
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initHotspots();
+      }
+    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PlayGame",{
@@ -308,21 +417,7 @@
           this.insert(this.g.box);
           _S.opacity(this.g.gfx2=_S.graphics(), 1);//0.618
           this.insert(this.g.gfx2);
-          //put a mat around the arena to hide overflows
-          _Z.runScene("PhotoMat",_.inject({color:"black"},_G.arena));
           return this;
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.wrapArena=()=>{
-          let a=_G.arena;
-          this.g.gfx2.beginFill(_S.color("black"));
-          //top,bottom
-          this.g.gfx2.drawRect(0,0,Mojo.width,a.y1);
-          this.g.gfx2.drawRect(0,a.y2,Mojo.width,Mojo.height-a.y2);
-          //left,right
-          this.g.gfx2.drawRect(0,0,a.x1,Mojo.height);
-          this.g.gfx2.drawRect(a.x2,0,Mojo.width-a.x2,Mojo.height);
-          this.g.gfx2.endFill();
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.drawBg=()=>{
@@ -573,7 +668,6 @@
           this.g.gfx.clear();
           this.g.gfx2.clear();
           this.g.drawSky();
-          //this.g.wrapArena();
           this.g.box.addChild(this.g.gfx);
         }
       },
@@ -702,14 +796,14 @@
   const _$={
     assetFiles: ["tile2.png","brick2.png","tile43.png",
                  "tile42.png","tile41.png",
-                 "wall64.png","floortile.png","bg.jpg"],
+                 "wall64.png","floortile.png","bg.jpg", "click.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
     fps:24,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("PlayGame");
+      Mojo.Scenes.runScene("Splash");
     }
   };
 
