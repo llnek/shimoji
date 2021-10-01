@@ -130,13 +130,13 @@
 
     const map6="####################"+
                "#..................#"+
-               "#.......###........#"+
-               "#.......###........#"+
+               "#..##........##....#"+
+               "#..##........##....#"+
                "#..................#"+
-               "#.......###........#"+
-               "#.......###........#"+
-               "#.......###........#"+
-               "#.....########.....#"+
+               "#.......#.#........#"+
+               "#.......#.#........#"+
+               "#.......#.#........#"+
+               "#.....###.####.....#"+
                "#.....#......#.....#"+
                "#.....#......#.....#"+
                "#..................#"+
@@ -144,8 +144,8 @@
                "#.....###.####.....#"+
                "#.......#.#........#"+
                "#.......#.#........#"+
-               "#.......#.#........#"+
-               "#.......#.#........#"+
+               "#..##...#.#........#"+
+               "#..##...#.#...##...#"+
                "#..................#"+
                "####################";
 
@@ -390,14 +390,15 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel=()=>{
-          this.fProjPlaneYCenter = BASEH/2;//PROJECTIONHEIGHT/2;
           this.fPlayerDistToTheProjPlane = BASED;
+          this.fProjPlaneYCenter = BASEH/2;
           this.fPlayerHeight = WALL_HEIGHT/2;
           this.fPlayerSpeed = 16;
-          //_G.fPlayerArc = ANGLE60;
           initPlayerPos(FMAP);
-          //_G.fPlayerX = 100;
-          //_G.fPlayerY = 160;
+          this.cvars={
+            i_x:0, i_y:0,
+            vtGrid:0, hzGrid:0,
+            distVtIntercept:0, distHzIntercept:0 };
           _G.prev={x:Infinity,y:Infinity,dir:Infinity};
           _G.textureUsed=true;
           _G.skyUsed=true;
@@ -473,132 +474,98 @@
       //https://permadi.com/1996/05/ray-casting-tutorial-7/
       //https://permadi.com/1996/05/ray-casting-tutorial-8/
       raycast(){
-        let vtGridGap, hzGridGap;
-        let vtGrid, hzGrid;
-        let i_x, i_y;
-        let distToVtGridBeingHit;
-        let distToHzGridBeingHit;
-        let castArc = _G.fPlayerArc;
         // trace the rays from the left,change if FOV changes!
+        let castArc = _G.fPlayerArc;
         castArc-= ANGLE30;
         if(castArc < 0) castArc += ANGLE360;
-        //the big loop
-        for(let tmpX,tmpY,castCol=0; castCol<BASEW; ++castCol){
-          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          //DEAL WITH HORZ LINES
-          if(castArc > ANGLE0 && castArc < ANGLE180){//ray facing down
-            hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE  + TILE_SIZE;
-            hzGridGap = TILE_SIZE;
-            tmpX = TABLES[iTAN][castArc]*(hzGrid-_G.fPlayerY);
-          }else{//ray is facing up
-            hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE;
-            hzGridGap = -TILE_SIZE;
-            tmpX = TABLES[iTAN][castArc]*(hzGrid - _G.fPlayerY);
-            hzGrid -= 1;
-          }
-          //first intersect
-          i_x = tmpX + _G.fPlayerX;
-          if(castArc==ANGLE0 || castArc==ANGLE180){
-            distToHzGridBeingHit=Number.MAX_VALUE;
+        for(let castCol=0; castCol<BASEW; ++castCol){
+          this.cast(castArc,castCol);
+          if(++castArc>=ANGLE360) castArc-=ANGLE360;
+        }
+      },
+      cast(castArc,castCol){
+        let dx,dy,gx,gy,idx, vtGridGap, hzGridGap;
+        let horzIX=(rDir)=>{
+          this.cvars.hzGrid = int(_G.fPlayerY/TILE_SIZE)*TILE_SIZE  + (rDir<0?TILE_SIZE:0);
+          this.cvars.i_x = _G.fPlayerX + TABLES[iTAN][castArc]*(this.cvars.hzGrid-_G.fPlayerY);
+          hzGridGap = TILE_SIZE * (rDir<0?1:-1);
+          this.cvars.hzGrid -= (rDir<0?0:1);
+        },
+        vertIY=(rDir)=>{
+          this.cvars.vtGrid = int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE + (rDir>0?TILE_SIZE:0);
+          this.cvars.i_y = _G.fPlayerY + TABLES[tTAN][castArc]*(this.cvars.vtGrid - _G.fPlayerX);
+          vtGridGap = TILE_SIZE * (rDir>0?1:-1);
+          this.cvars.vtGrid -= (rDir>0?0:1);
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        //DEAL WITH HORZ LINES, VERT LINES
+        //find initial intercept point
+        horzIX((castArc > ANGLE0 && castArc < ANGLE180)?-1:1);
+        vertIY((castArc < ANGLE90 || castArc > ANGLE270)?1:-1);
+        this.cvars.distHzIntercept=Infinity;
+        this.cvars.distVtIntercept=Infinity;
+        dx = TABLES[xSTEP][castArc];
+        dy = TABLES[ySTEP][castArc];
+        let seek=(H)=>{
+          gx = H ? int(this.cvars.i_x/TILE_SIZE) : int(this.cvars.vtGrid/TILE_SIZE);
+          gy = H ? int(this.cvars.hzGrid/TILE_SIZE) : int(this.cvars.i_y/TILE_SIZE);
+          idx= int(gy*MAPWIDTH+gx);
+          if(gx>=MAPWIDTH || gy>=MAPDEPTH || gx<0 || gy<0){
+            H ?
+              (this.cvars.distHzIntercept = Infinity)
+              : (this.cvars.distVtIntercept = Infinity);
+          }else if(FMAP.charAt(idx)!="."){
+            if(H)
+              this.cvars.distHzIntercept  = (this.cvars.i_x-_G.fPlayerX)* TABLES[iCOS][castArc];
+            else
+              this.cvars.distVtIntercept =(this.cvars.i_y-_G.fPlayerY)* TABLES[iSIN][castArc];
           }else{
-            let idx, gx,gy, dx = TABLES[xSTEP][castArc];
-            while(true){
-              gy = int(hzGrid/TILE_SIZE);
-              gx = int(i_x/TILE_SIZE);
-              idx= int(gy*MAPWIDTH+gx);
-              if((gx>=MAPWIDTH) || (gy>=MAPDEPTH) || gx<0 || gy<0){
-                distToHzGridBeingHit = Number.MAX_VALUE;
-                break;
-              }else if(FMAP.charAt(idx)!="."){
-                distToHzGridBeingHit  = (i_x-_G.fPlayerX)* TABLES[iCOS][castArc];
-                break;
-              }else{
-                i_x += dx;
-                hzGrid += hzGridGap;
-              }
+            if(H){
+              this.cvars.i_x += dx; this.cvars.hzGrid += hzGridGap;
+            }else{
+              this.cvars.i_y += dy; this.cvars.vtGrid += vtGridGap;
             }
+            return 1;
           }
-          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          //DEAL WITH VERT LINES
-          if(castArc < ANGLE90 || castArc > ANGLE270){
-            vtGrid = TILE_SIZE + int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
-            vtGridGap = TILE_SIZE;
-            tmpY = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
-          }else{ // RAY FACING LEFT
-            vtGrid = int(_G.fPlayerX/TILE_SIZE)*TILE_SIZE;
-            vtGridGap = -TILE_SIZE;
-            tmpY = TABLES[tTAN][castArc]*(vtGrid - _G.fPlayerX);
-            vtGrid -=1;
-          }
-          //first intersect
-          i_y = tmpY + _G.fPlayerY;
-          if(castArc==ANGLE90||castArc==ANGLE270){
-            distToVtGridBeingHit = Number.MAX_VALUE;
-          }else{
-            let idx, gx,gy,dy = TABLES[ySTEP][castArc];
-            while(true){
-              gx = int(vtGrid/TILE_SIZE);
-              gy = int(i_y/TILE_SIZE);
-              idx=int(gy*MAPWIDTH+gx);
-              if((gx>=MAPWIDTH) || (gy>=MAPDEPTH) || gx<0 || gy<0){
-                distToVtGridBeingHit = Number.MAX_VALUE;
-                break;
-              }else if(FMAP.charAt(idx)!="."){
-                distToVtGridBeingHit =(i_y-_G.fPlayerY)* TABLES[iSIN][castArc];
-                break;
-              }else{
-                i_y += dy;
-                vtGrid += vtGridGap;
-              }
-            }
-          }
-          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          // DRAW THE WALL SLICE
-          let vertHit;
-          let xOffset;
-          let dist;
-          let topOfWall;
-          let bottomOfWall;
-          if(distToHzGridBeingHit < distToVtGridBeingHit){
-            this.g.hud.drawRayOnOverheadMap(i_x, hzGrid);
-            dist=distToHzGridBeingHit;
-            xOffset=i_x%TILE_SIZE;
-          }else{
-            //the vertical wall is closer than the horizontal wall
-            this.g.hud.drawRayOnOverheadMap(vtGrid, i_y);
-            dist=distToVtGridBeingHit;
-            xOffset=i_y%TILE_SIZE;
-            vertHit=true;
-          }
-          // correct distance (compensate for the fishbown effect)
-          dist /= TABLES[tFISH][castCol];
-          //projected_wall_height/wall_height = fPlayerDistToProjectionPlane/dist;
-          let projWallHeight=(WALL_HEIGHT*this.fPlayerDistToTheProjPlane/dist);
-          bottomOfWall = this.fProjPlaneYCenter+(projWallHeight*0.5);
-          topOfWall = this.fProjPlaneYCenter-(projWallHeight*0.5);
-          if(topOfWall<0) topOfWall=0;
-          if(bottomOfWall>=BASEH){//PROJECTIONHEIGHT){
-            bottomOfWall=BASEH-1;//PROJECTIONHEIGHT-1;
-          }
-          // Add simple shading so that farther wall slices appear darker.
-          // 750 is arbitrary value of the farthest distance.
-          dist=int(dist);
-          let color=255-(dist/750.0)*255.0;
-          // don't allow it to be too dark
-          if(color<20) color=20;
-          if(color>255) color=255;
-          color=int(color);
-          if(_G.textureUsed){
-            drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, xOffset, color);// (vertHit?160:100)/dist)
-            //too costly
-            //drawFloor(this,castArc, castCol,bottomOfWall,1,color);
-            //drawCeiling(this,castArc, castCol,topOfWall,1,color);
-          }else{
-            color=_S.color3(color,color,color);
-            paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, color);
-          }
-          castArc+=1;
-          if(castArc>=ANGLE360) castArc-=ANGLE360;
+        }
+        if(castArc!=ANGLE0 && castArc!=ANGLE180) while(seek(true));
+        if(castArc!=ANGLE90 && castArc!=ANGLE270) while(seek(false));
+        this.drawCol(castArc,castCol);
+      },
+      drawCol(castArc,castCol){
+        let color, vertHit, xOffset, dist, topOfWall, bottomOfWall,projWallHeight;
+        if(this.cvars.distHzIntercept< this.cvars.distVtIntercept){
+          this.g.hud.drawRayOnOverheadMap(this.cvars.i_x, this.cvars.hzGrid);
+          dist=this.cvars.distHzIntercept;
+          xOffset=this.cvars.i_x%TILE_SIZE;
+        }else{
+          //the vertical wall is closer than the horizontal wall
+          this.g.hud.drawRayOnOverheadMap(this.cvars.vtGrid, this.cvars.i_y);
+          dist=this.cvars.distVtIntercept;
+          xOffset=this.cvars.i_y%TILE_SIZE;
+          vertHit=true;
+        }
+        // correct distance (compensate for the fishbown effect)
+        dist /= TABLES[tFISH][castCol];
+        //projected_wall_height/wall_height = fPlayerDistToProjectionPlane/dist;
+        projWallHeight=(WALL_HEIGHT*this.fPlayerDistToTheProjPlane/dist);
+        bottomOfWall = this.fProjPlaneYCenter+(projWallHeight*0.5);
+        topOfWall = this.fProjPlaneYCenter-(projWallHeight*0.5);
+        if(topOfWall<0) topOfWall=0;
+        if(bottomOfWall>=BASEH){ bottomOfWall=BASEH-1 }
+        // Add simple shading so that farther wall slices appear darker.
+        // 750 is arbitrary of the farthest distance, don't allow it to be too dark
+        color=255-(dist/750.0)*255.0;
+        if(color>255) color=255;
+        if(color<20) color=20;
+        color=int(color);
+        if(_G.textureUsed){
+          drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, xOffset, color);// (vertHit?160:100)/dist)
+          //drawFloor(this,castArc, castCol,bottomOfWall,1,color);
+          //drawCeiling(this,castArc, castCol,topOfWall,1,color);
+        }else{
+          color=_S.color3(color,color,color);
+          paintRect(this.g.gfx, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, color);
         }
       },
       doMotion(){
@@ -794,7 +761,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["tile2.png","brick2.png","tile43.png",
+    assetFiles: ["tile2.png","tile43.png",
                  "tile42.png","tile41.png",
                  "wall64.png","floortile.png","bg.jpg", "click.mp3"],
     arena: {width: 1680, height: 1050},
