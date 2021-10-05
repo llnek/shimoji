@@ -19,6 +19,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
+    const _M= window["io/czlab/mcfud/math"]();
     const {Sprites:_S,
            Scenes:_Z,
            FX:_F,
@@ -29,15 +30,16 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const int=Math.floor;
-    const ceil=Math.ceil;
-    const sin=Math.sin,
-          cos=Math.cos;
+    //shorthands
+    const int=Math.floor; const ceil=Math.ceil;
+    const sin=Math.sin, cos=Math.cos;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TITLE_FONT="Big Shout Bob";
     const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#fff20f");
+    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
+    //const C_TITLE=_S.color("#ea2152");//red
+    //const C_TITLE=_S.color("#1eb7e6");//blue
     const C_BG=_S.color("#169706");
     const C_TEXT=_S.color("#fff20f");
     const C_GREEN=_S.color("#7da633");
@@ -50,187 +52,124 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function doBackDrop(scene){
       if(!_G.backDropSprite)
-        _G.backDropSprite=_S.sizeXY(_S.sprite("bg.png"),Mojo.width,Mojo.height);
+        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
       return scene.insert(_S.opacity(_G.backDropSprite,0.15));
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("Splash",{
       setup(){
         let self=this,
+            W2=Mojo.width/2,
             K=Mojo.getScaleFactor(),
             verb=Mojo.touchDevice?"Tap":"Click";
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.doTitle=(s)=>{
           s=_S.bmpText("Retro Racer",{fontName:TITLE_FONT,fontSize:120*K});
           _S.tint(s,C_TITLE);
-          _V.set(s,Mojo.width/2,Mojo.height*0.3);
+          _V.set(s,W2,Mojo.height*0.3);
           return self.insert(_S.centerAnchor(s));
         }
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.doNext=(s,t)=>{
           s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.99);
+          t=_F.throb(s,0.747,0.747);
           function cb(){
             Mojo.off(["single.tap"],cb);
             _F.remove(t);
             _S.tint(s,C_ORANGE);
             playClick();
-            _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
-              _Z.runScene("HUD");
-            });
+            _.delay(CLICK_DELAY,()=> _Z.runSceneEx("PlayGame"));
           }
           Mojo.on(["single.tap"],cb);
-          _V.set(s,Mojo.width/2,Mojo.height*0.7);
+          _V.set(s,W2,Mojo.height*0.7);
           return self.insert(_S.centerAnchor(s));
         }
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("HUD",{
       setup(){
         const self=this,
               K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        //use a fixed width font
         _.inject(this.g,{
-          tmsgs:["Track Section",
-                 "Track Curvature",
-                 "Target Curvature"],
-          pmsgs:["Distance",
-                 "Player Speed",
-                 "Player Curvature",
-                 "Current LAP Time"],
-          tstats:[],
-          pstats:[],
-          fmtNum(n,v){
-            return `${n}:${Number(v).toFixed(3)}`
+          msgs:["   Track Section",
+                " Track Curvature",
+                "Target Curvature",
+                "================",
+                "        Distance",
+                "    Player Speed",
+                "Player Curvature",
+                "================",
+                "Current LAP Time"],
+          stats:[],
+          fmtNum(n,v,p){
+            return `${n}: ${Number(v).toFixed(p===undefined?3:p)}`
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         let pad=10*K,
-            cfg={fontName:UI_FONT,fontSize:24*K};
+            cfg={fontName:"unscii",fontSize:24*K};
         //track info
-        for(let a=this.g.tmsgs,z=a.length,i=0;i<z;++i)
-          this.g.tstats[i]=_S.bmpText(this.g.fmtNum(a[i],0),cfg);
+        for(let a=this.g.msgs,z=a.length,i=0;i<z;++i)
+          this.g.stats[i]=_S.bmpText(
+            (i==3||i==7)?this.g.msgs[i]: this.g.fmtNum(a[i],0),cfg);
         let T=_S.bmpText("Statistics",cfg);
         let p=this.insert(T);
         T.y -= (T.height+pad);
-        this.g.tstats.forEach(s=>{
+        this.g.stats.forEach(s=>{
           _S.pinBottom(p,s,pad,0);
           p=this.insert(s);
-          T=p;
         });
-        //player info
-        for(let a=this.g.pmsgs,z=a.length,i=0;i<z;++i)
-          this.g.pstats[i]=_S.bmpText(this.g.fmtNum(a[i],0),cfg);
-        this.g.pstats.forEach((s,i)=>{
-          _S.pinBottom(p,s,pad,0);
-          if(i===0)
-            s.y += pad;
-          p=this.insert(s);
-        });
+        if(true){
+          let r=64*K,r4=r/4;
+          this.g.spdo= _2d.gaugeUI({
+            cx: Mojo.width-r-r4,
+            cy: r+r4,
+            fill: "#cccccc",
+            scale:K,
+            radius:64,
+            alpha:0.4,
+            line:"white",
+            needle: "#FF9166",
+            gfx: _S.graphics(),
+            update(){ return _G.speed }
+          })
+          this.insert(this.g.spdo.gfx);
+        }
       },
       postUpdate(){
-        this.g.tstats[0].text= this.g.fmtNum(this.g.tmsgs[0],_G.trackSection);
-        this.g.tstats[2].text= this.g.fmtNum(this.g.tmsgs[2],_G.targetTurn);
-        this.g.tstats[1].text= this.g.fmtNum(this.g.tmsgs[1],_G.trackTurn);
-        this.g.pstats[2].text= this.g.fmtNum(this.g.pmsgs[2],_G.playerTurn);
-        this.g.pstats[1].text= this.g.fmtNum(this.g.pmsgs[1],_G.maxSpeed*_G.speed);
-        this.g.pstats[0].text= this.g.fmtNum(this.g.pmsgs[0],_G.playerDist);
-        this.g.pstats[3].text= this.g.fmtNum(this.g.pmsgs[3],_G.curLapTime);
+        this.g.stats[0].text= this.g.fmtNum(this.g.msgs[0],_G.trackSection,0);
+        this.g.stats[1].text= this.g.fmtNum(this.g.msgs[1],_G.trackCurvature);
+        this.g.stats[2].text= this.g.fmtNum(this.g.msgs[2],_G.targetBend);
+        //skip3
+        this.g.stats[4].text= this.g.fmtNum(this.g.msgs[4],_G.distance);
+        this.g.stats[5].text= this.g.fmtNum(this.g.msgs[5],_G.maxSpeed*_G.speed);
+        this.g.stats[6].text= this.g.fmtNum(this.g.msgs[6],_G.playerCurvature);
+        //skip7
+        this.g.stats[8].text= this.g.fmtNum(this.g.msgs[8],_G.lapTime);
+        this.g.spdo.draw();
       }
     });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function drawBackdrop(scene,K,W,H,W2,H2){
-      const gfx=scene.g.gfx,
-            HILLHEIGHT=434*K;
-      //draw sky
-      gfx.beginFill(_S.color("#87cefa"));
-      gfx.drawRect(0,0,W,H2);
-      gfx.endFill();
-      //draw scenery - our hills are a rectified sine wave, where the phase is adjusted by the accumulated track curvature
-      gfx.lineStyle(1,_S.color("#556b2f"));
-      for(let hh,x = 0; x < W; ++x){
-        hh = Math.abs(sin(x * 0.01 + _G.trackTurn) * HILLHEIGHT*K);
-        gfx.moveTo(x,H2-hh);
-        gfx.lineTo(x,H2);
-      }
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function drawTrack(scene,K,W,H,W2,H2,proj){
-      const gfx=scene.g.gfx;
-      function project(y){
-        let perspective = y/H2;
-        let roadWidth = 0.1 + perspective * 0.8; // Min 10% Max 90%
-        let clipWidth = roadWidth * 0.15;
-        /////
-        proj.p3= Math.pow(1-perspective,3);
-        proj.p2= Math.pow(1-perspective,2);
-        roadWidth *= 0.5;  // Halve it as track is symmetrical around center of track, but offset...
-        // ...depending on where the middle point is, which is defined by the current
-        // track curvature.
-        let middle= 0.5 + _G.curvature * proj.p3;
-        //work out segment boundaries
-        proj.leftGrassX = (middle- roadWidth - clipWidth) * W;
-        proj.leftClipX = (middle- roadWidth) * W;
-        proj.rightClipX = (middle + roadWidth) * W;
-        proj.rightGrassX = (middle+ roadWidth + clipWidth) * W;
-      }
-      function drawLine(x1,y1,x2,y2,color){
-        gfx.lineStyle(1,color);
-        gfx.moveTo(x1,y1);
-        gfx.lineTo(x2,y2);
-      }
-      for(let r,y=0;y<H2;++y){
-        project(y);
-        //Using periodic oscillatory functions to give lines, where the phase is controlled
-        //by the distance around the track. These take some fine tuning to give the right "feel"
-        proj.grassColor = _S.color(sin(20 *proj.p3 + _G.playerDist * 0.1) > 0 ? "#a6d608": "#8db600");
-        proj.clipColor = _S.color(sin(80 *proj.p2  + _G.playerDist) > 0 ? "#ff6347": "white");
-        // Start finish straight changes the road colour to inform the player lap is reset
-        proj.roadColor = _S.color((_G.trackSection-1) == 0 ? "#fffacd" : "#808080");
-        // Draw the row segments
-        r = H2 + y; //screen bottom up visually
-        drawLine(0,r,proj.leftGrassX,r,proj.grassColor);
-        drawLine(proj.leftGrassX,r,proj.leftClipX,r,proj.clipColor);
-        drawLine(proj.leftClipX,r,proj.rightClipX,r,proj.roadColor);
-        drawLine(proj.rightClipX,r,proj.rightGrassX,r,proj.clipColor);
-        drawLine(proj.rightGrassX,r,W,r,proj.grassColor);
-      }
-    }
-    function drawCar(scene,W,H,W2,H2){
-      //draw Car - car position on road is proportional to difference between
-      // current accumulated track curvature, and current accumulated player curvature
-      // i.e. if they are similar, the car will be in the middle of the track
-      _G.player.angle= _G.playerArc;
-      _G.playerPos = _G.playerTurn - _G.trackTurn;
-      _V.set(_G.player, W2 + ((W * _G.playerPos) * 0.5) ,H);
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function draw3D(scene,dt){
-      const W=Mojo.width,
-            H=Mojo.height,
-            H8= H*0.8,
-            W2= Mojo.width/2,
-            H2= Mojo.height/2,
-            dts= dt*_G.speed,
-            K=Mojo.getScaleFactor();
-      //interpolate towards current section curvature
-      _G.curvature += (_G.targetTurn - _G.curvature) * dts;
-      //accumulate track curvature
-      _G.trackTurn += _G.curvature * dts;
-      drawBackdrop(scene,K,W,H,W2,H2);
-      drawTrack(scene,K,W,H,W2,H2,{});
-      drawCar(scene,W,H,W2,H2);
-    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PlayGame",{
       setup(){
         const self=this,
+              projObj={},
+              W=Mojo.width,
+              H=Mojo.height,
+              W2= Mojo.width/2,
+              H2= Mojo.height/2,
               K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        const CHUNKX=int(4*K);
+        const CHUNKY=int(4*K);
         _.inject(this.g,{
           initLevel(){
             _.inject(_G,{
@@ -245,48 +184,123 @@
                      {ct:200,tu:0},
                      {ct:500,tu:0.2},
                      {ct:200,tu:0} ],
-              listLapTimes: [0,0,0,0,0],
-              curLapTime: 0,
-              playerDist:0,
+              HILL_COLOR: _S.color("#556b2f"),
+              SKY_COLOR: _S.color("#87cefa"),
+              HILLHEIGHT:343*K,
+              laps: [0,0,0,0,0],
+              lapTime: 0,
+              distance:0,
               curvature:0,
               playerPos:0,
               playerArc:0,
               speed:0,
-              trackSection:0,
-              trackTurn:0,
-              targetTurn:0,
-              playerTurn:0,
               maxSpeed:120,
+              targetBend:0,
+              trackSection:0,
+              trackCurvature:0,
+              playerCurvature:0,
               player: _S.sprite("images/javidx9/red_car.png")
             });
             _G.TRACK_DIST= _G.TRACK.reduce((a,r)=> a+r.ct, 0);
+            self.insert(self.g.gfx=_S.graphics());
+            return self.insert(_S.centerAnchor(_S.scaleBy(_G.player,K*1.4,K*1.4)));
           },
           updateStats(dt){
-            _G.curLapTime += dt;
-            if(_G.playerDist >= _G.TRACK_DIST){
-              _G.playerDist -= _G.TRACK_DIST;
-              _G.listLapTimes.pop();
-              _G.listLapTimes.unshift(_G.curLapTime);
-              _G.curLapTime = 0;
+            _G.lapTime += dt;
+            if(_G.distance >= _G.TRACK_DIST){
+              _G.distance -= _G.TRACK_DIST;
+              _G.laps.unshift(_G.lapTime);
+              _G.laps.pop();
+              _G.lapTime = 0;
             }
           },
           findSection(){
             let t=0,d=0;
-            while(t < _G.TRACK.length && d <= _G.playerDist){
+            while(t < _G.TRACK.length && d <= _G.distance){
               d += _G.TRACK[t].ct;
               ++t;
             }
             _G.trackSection=t;
-            _G.targetTurn = _G.TRACK[t-1].tu;
+            _G.targetBend = _G.TRACK[t-1].tu;
+          },
+          draw(dt){
+            let dts= dt*_G.speed;
+            //interpolate towards current section curvature
+            _G.curvature += (_G.targetBend - _G.curvature) * dts;
+            //accumulate track curvature
+            _G.trackCurvature += _G.curvature * dts;
+            this.gfx.clear() &&
+              this.drawWorld() && this.drawTrack({}) &&  this.drawCar();
+          },
+          drawWorld(){
+            //draw sky
+            this.gfx.beginFill(_G.SKY_COLOR);
+            this.gfx.drawRect(0,0,W,H2);
+            this.gfx.endFill();
+            //draw scenery - our hills are a rectified sine wave,
+            //where the phase is adjusted by the accumulated track curvature
+            for(let hh,x=0; x < W; x+=CHUNKX){
+              hh = Math.abs(sin(x * 0.01 + _G.trackCurvature) * _G.HILLHEIGHT);
+              this.gfx.beginFill(_G.HILL_COLOR);
+              this.gfx.drawRect(x,H2-hh,CHUNKX,hh);
+              this.gfx.endFill();
+            }
+            return this;
+          },
+          drawTrack(proj){
+            let project=(y)=>{
+              let perspective = y/H2,
+                  roadWidth = 0.1 + perspective * 0.8, // Min 10% Max 90%
+                  clipWidth = roadWidth * 0.15;
+              /////
+              proj.p3= Math.pow(1-perspective,3);
+              proj.p2= Math.pow(1-perspective,2);
+              roadWidth *= 0.5;  // Halve it as track is symmetrical around center of track, but offset...
+              // ...depending on where the middle point is, which is defined by the current track curvature.
+              let middle= 0.5 + _G.curvature * proj.p3;
+              //work out segment boundaries
+              proj.leftGrassX = (middle- roadWidth - clipWidth) * W;
+              proj.leftClipX = (middle- roadWidth) * W;
+              proj.rightClipX = (middle + roadWidth) * W;
+              proj.rightGrassX = (middle+ roadWidth + clipWidth) * W;
+            },
+            drawRow=(x1,y1,x2,color)=>{
+              this.gfx.beginFill(color);
+              this.gfx.drawRect(x1,y1,x2-x1,CHUNKY);
+              this.gfx.endFill();
+            };
+            for(let r,y=0;y<H2; y+=CHUNKY){
+              project(y);
+              //Using periodic oscillatory functions to give lines, where the phase is controlled
+              //by the distance around the track. These take some fine tuning to give the right "feel"
+              proj.grassColor = _S.color(sin(20 *proj.p3 + _G.distance * 0.1) > 0 ? "#a6d608": "#8db600");
+              proj.clipColor = _S.color(sin(80 *proj.p2  + _G.distance) > 0 ? "#ff6347": "white");
+              // Start finish straight changes the road colour to inform the player lap is reset
+              proj.roadColor = _S.color((_G.trackSection-1) == 0 ? "#fffacd" : "#808080");
+              // Draw the row segments
+              r = H2 + y; //screen bottom up visually
+              drawRow(0,r,proj.leftGrassX,proj.grassColor);
+              drawRow(proj.leftGrassX,r,proj.leftClipX,proj.clipColor);
+              drawRow(proj.leftClipX,r,proj.rightClipX,proj.roadColor);
+              drawRow(proj.rightClipX,r,proj.rightGrassX,proj.clipColor);
+              drawRow(proj.rightGrassX,r,W,proj.grassColor);
+            }
+            return this;
+          },
+          drawCar(){
+            //draw Car - car position on road is proportional to difference between
+            // current accumulated track curvature, and current accumulated player curvature
+            // i.e. if they are similar, the car will be in the middle of the track
+            _G.player.angle= _G.playerArc;
+            _G.playerPos = _G.playerCurvature - _G.trackCurvature;
+            return _V.set(_G.player, W2 + ((W * _G.playerPos) * 0.5) ,H);
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initLevel();
-        this.insert(this.g.gfx=_S.graphics());
-        this.insert(_S.centerAnchor(_S.scaleBy(_G.player,K*1.4,K*1.4)));
+        this.g.initLevel() && _Z.runScene("HUD");
       },
       postUpdate(dt){
-        _G.speed += dt * _I.keyDown(_I.SPACE)?2:-1;
+        _G.speed += dt * (_I.keyDown(_I.SPACE)?2:-1);
         _G.playerArc= 0;
         let b=0,dv= 0.7*dt*(1-_G.speed/2);
         //car curvature is accumulated left/right input, but inversely proportional to speed
@@ -294,28 +308,28 @@
         if(_I.keyDown(_I.LEFT)){ b=-1 }
         if(_I.keyDown(_I.RIGHT)){ b=1 }
         if(b !== 0){
-          _G.playerTurn += b*dv;
           _G.playerArc= b*30;
+          _G.playerCurvature += b*dv;
         }
-        //car curvature is too different to track curvature, slow down as car has gone off track
-        if(Math.abs(_G.playerTurn - _G.trackTurn) >= 0.8){
+        //car curvature is too different to track curvature,
+        //slow down as car has gone off track
+        if(Math.abs(_G.playerCurvature - _G.trackCurvature) >= 0.8){
           _G.speed -= 5*dt
         }
-        //clamp Speed
-        if(_G.speed<0) _G.speed = 0;
-        if(_G.speed>1) _G.speed = 1;
-        //move car along track according to car speed
-        _G.playerDist += (_G.maxSpeed * _G.speed) * dt;
-        //lap timing and counting
+        //clamp Speed//////////////
+        _G.speed= _M.clamp(0,1,_G.speed);
+        _G.distance += (_G.maxSpeed * _G.speed) * dt;
+        ///////////////////////////
         this.g.updateStats(dt);
-        //update to track section
         this.g.findSection();
-        //repaint
-        this.g.gfx.clear() && draw3D(this,dt);
+        //paint///////////////////
+        this.g.draw(dt);
       }
     });
   }
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
   const _$={
     assetFiles: ["images/javidx9/red_car.png","bg.png","click.mp3"],
     arena: {width: 1680, height: 1050},
@@ -328,7 +342,11 @@
     }
   };
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //load & run
   window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
+
+
 

@@ -335,9 +335,10 @@
 
     function _configCanvas(arg){
       let p= { "outline":"none" };
+      //p["image-rendering"]="crisp-edges";
+      //p["image-rendering"]="pixelated";
       if(arg.rendering !== false){
-        p["image-rendering"]= arg.rendering || "pixelated";
-        //p["image-rendering"]="crisp-edges";
+        p["image-rendering"]= arg.rendering
       }
       dom.css(Mojo.canvas,p);
       dom.attrs(Mojo.canvas,"tabindex","0");
@@ -370,7 +371,9 @@
         cmdArg.logos=new Array();
 
       Mojo.touchDevice= !!("ontouchstart" in document);
-      Mojo.ctx= PIXI.autoDetectRenderer(box);
+      Mojo.ctx= PIXI.autoDetectRenderer(_.inject(box,{
+        antialias: true
+      }));
       Mojo.ctx.bgColor = 0xFFFFFF;
       Mojo.canvas = Mojo.ctx.view;
       Mojo.canvas.id="mojo";

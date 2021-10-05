@@ -18,6 +18,7 @@
   /**Create the module. */
   function _module(Mojo){
     const _V=gscope["io/czlab/mcfud/vec2"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
            Sprites:_S,
            is, ute:_}=Mojo;
@@ -28,6 +29,63 @@
      * @module mojoh5/2d
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const R=Math.PI/180,
+          CIRCLE=Math.PI*2;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
+    //arg={cx,cy,radius,fill,line,alpha}
+    function gaugeUI(arg){
+      let {minDeg,maxDeg,radius,
+           gfx,scale:K,
+           line, fill, needle }= _.patch(arg,{minDeg:90,maxDeg:360});
+      needle=_S.color(needle);
+      line=_S.color(line);
+      fill=_S.color(fill);
+      radius *= K;
+      return {
+        segs: [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315],
+        gfx,
+        getPt(x, y, radius, rad){
+          return[x + radius * Math.cos(rad),
+                 y + radius * Math.sin(rad) ]
+        },
+        draw(){
+          gfx.clear();
+          gfx.lineStyle({width:8,color:line});
+          gfx.beginFill(fill, arg.alpha);
+          gfx.drawCircle(arg.cx, arg.cy, radius);
+          gfx.endFill();
+          this.segs.forEach(s=>{
+            this.drawTig(gfx, arg.cx, arg.cy, radius, s, 7*K);
+          });
+          this.drawPtr(gfx, arg.cx,arg.cy,
+                       64*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
+        },
+        drawTig(gfx, x, y, radius, rad, size){
+          let [sx,sy] = this.getPt(x, y, radius - 4*K, rad),
+              [ex,ey] = this.getPt(x, y, radius - 12*K, rad);
+          gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
+          gfx.moveTo(sx, sy);
+          gfx.lineTo(ex, ey);
+          gfx.closePath();
+        },
+        drawPtr(gfx, cx,cy, radius, color, rad){
+          let [px,py]= this.getPt(cx, cy, radius - 20*K, rad),
+              [p2x,p2y] = this.getPt(cx, cy, 2*K, rad+R*90),
+              [p3x,p3y] = this.getPt(cx, cy, 2*K, rad-R*90);
+          gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
+          gfx.moveTo(p2x, p2y);
+          gfx.lineTo(px, py);
+          gfx.lineTo(p3x, p3y);
+          gfx.closePath();
+          gfx.lineStyle({color:line});
+          gfx.beginFill(line);
+          gfx.drawCircle(cx,cy,9*K);
+          gfx.endFill();
+        }
+      }
+    }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PhotoMat",{
       setup(arg){
@@ -456,6 +514,7 @@
     });
 
     const _$={
+      gaugeUI,
       Patrol,
       Platformer,
       MazeRunner,

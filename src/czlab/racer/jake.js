@@ -174,23 +174,32 @@
     function resetTrees(){
       let n, side, sprite, offset;
       for(n = 10; n < 200; n += 4 + int(n/100)){
-        addSprite(n, "palm_tree.png", 0.5 + Math.random()*0.5);
-        addSprite(n, "palm_tree.png", 1 + Math.random()*2);
+        if(_.rand()<0.3){
+          addSprite(n, "palm_tree.png", 0.5 + Math.random()*0.5);
+          addSprite(n, "palm_tree.png", 1 + Math.random()*2);
+        }
       }
       for(n = 250 ; n < 1000 ; n += 5){
-        addSprite(n,"column.png", 1.1);
-        addSprite(n + _.randInt2(0,5), "tree1.png", -1 - (Math.random() * 2));
-        addSprite(n + _.randInt2(0,5), "tree2.png", -1 - (Math.random() * 2));
+        if(_.rand()>0.7){
+          addSprite(n,"column.png", 1.1);
+          addSprite(n + _.randInt2(0,5), "tree1.png", -1 - (Math.random() * 2));
+          addSprite(n + _.randInt2(0,5), "tree2.png", -1 - (Math.random() * 2));
+        }
       }
       for(n = 200 ; n < _G.lines.length ; n += 3){
-        addSprite(n, _.randItem(PLANTS), _.randSign * (2 + Math.random() * 5));
+        if(_.rand()<0.3)
+          addSprite(n, _.randItem(PLANTS), _.randSign * (2 + Math.random() * 5));
       }
       for(n = 1000 ; n < (_G.lines.length-50) ; n += 100){
-        side = _.randSign();
-        for(let i = 0 ; i < 20 ; ++i){
-          sprite = _.randItem(PLANTS);
-          offset = side * (1.5 + Math.random());
-          addSprite(n + _.randInt2(0, 50), sprite, offset);
+        if(_.rand()>0.7){
+          side = _.randSign();
+          for(let i = 0 ; i < 20 ; ++i){
+            if(_.rand()<0.3){
+              sprite = _.randItem(PLANTS);
+              offset = side * (1.5 + Math.random());
+              addSprite(n + _.randInt2(0, 50), sprite, offset);
+            }
+          }
         }
       }
     }
@@ -338,7 +347,7 @@
           lines: [],
           cars:[],
           centrifugal: 0.3,
-          totalCars: 200,
+          totalCars: 20,//200,
           skySpeed: 0.001,  // background sky layer scroll speed when going around curve (or up hill)
           hillSpeed: 0.002,  // background hill layer scroll speed when going around curve (or up hill)
           treeSpeed: 0.003,  // background tree layer scroll speed when going around curve (or up hill)

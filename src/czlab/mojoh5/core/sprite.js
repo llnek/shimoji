@@ -1367,6 +1367,37 @@
           Mojo.emit(["post.remove",s]);
         });
       },
+      /**Center this object on the screen.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite|Container} obj
+       * @return {Sprite|Container} obj
+       */
+      centerObj(obj){
+        obj.x= Mojo.width/2;
+        obj.y=Mojo.height/2;
+        if(obj.anchor.x<0.3){
+          obj.x -= obj.width/2;
+          obj.y -= obj.height/2;
+        }else if (obj.anchor<0.7){
+        }else{
+          _.assert(false, "bad anchor to center");
+        }
+        return obj;
+      },
+      /**Expand object to fill entire screen.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite|Container} obj
+       * @return {Sprite|Container} obj
+       */
+      fillMax(obj){
+        if(obj.anchor)
+          _.assert(obj.anchor.x<0.3,"wanted top left anchor");
+        obj.height=Mojo.height;
+        obj.width=Mojo.width;
+        obj.x=0;
+        obj.y=0;
+        return obj;
+      },
       /**Remove these sprites, will detach from their parents.
        * @memberof module:mojoh5/Sprites
        * @param {string} c

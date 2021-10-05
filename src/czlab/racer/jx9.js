@@ -1,6 +1,6 @@
-codepen.io/johan-tirholm/pen/PGYExJ
+//codepen.io/johan-tirholm/pen/PGYExJ
 
-(750x450)
+//(750x450)
 var $ = {
       canvas: null,
       ctx: null,

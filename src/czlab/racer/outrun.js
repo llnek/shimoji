@@ -88,7 +88,7 @@
           _G.lines.push(n);
         }
         _G.segN=_G.lines.length;
-        _G.roadL=_G.segN*_G.seqL;
+        _G.roadL=_G.segN*_G.segL;
         _S.repeatSprite("images/outrun/bg.png",true,true,Mojo.width,Mojo.height).forEach(s=>{
           this.insert(s);
         });
