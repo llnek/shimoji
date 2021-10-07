@@ -632,7 +632,7 @@
       PI_270:Math.PI*1.5,
       PI_360:Math.PI*2,
       v2:_V,
-      _M:_M,
+      math:_M,
       ute:_,
       is:is,
       dom:dom,

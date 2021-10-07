@@ -351,7 +351,12 @@
        * @param {number} total
        * @return {number}
        */
-      percentRemain(amt, total){ return (amt%total)/total },
+      percentRemain(amt, total,wrap){
+        if(amt>total){
+          amt= wrap ? amt%total : total
+        }
+        return Math.max(0,total-amt)/total;
+      },
       /**Break version string into `Major.Minor.Patch`.
        * @memberof module:mcfud/core._
        * @param {string} s

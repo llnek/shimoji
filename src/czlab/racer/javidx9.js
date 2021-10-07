@@ -161,7 +161,6 @@
     _Z.defScene("PlayGame",{
       setup(){
         const self=this,
-              projObj={},
               W=Mojo.width,
               H=Mojo.height,
               W2= Mojo.width/2,
