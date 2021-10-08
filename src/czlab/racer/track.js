@@ -124,7 +124,7 @@
       _G.lines.push({
         index: n,
         p1:{ world: { y: lastY(), z:  n * SEGLEN }, camera: {}, screen: {} },
-        p2:{ world: { y: y, z: (n+1)* SEGLEN }, camera: {}, screen: {} },
+        p2:{ world: { y: y, z: (n+1) * SEGLEN }, camera: {}, screen: {} },
         curve,
         sprites: [],
         cars: [],

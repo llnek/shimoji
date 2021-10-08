@@ -75,8 +75,7 @@
       skyOffset: 0,    // current sky scroll offset
       hillOffset: 0,   // current hill scroll offset
       treeOffset: 0,
-      resolution:  0,  // scaling factor to provide resolution independence (computed)
-      roadWidth:  2000, // actually half the roads width, easier math if the road spans from -roadWidth to +roadWidth
+      roadWidth:  2000,
       rumbles: 3, // number of segments per red/white rumble strip
       trackLength: 0, // z length of entire track (computed)
       lanes: 3,   // number of lanes
@@ -100,7 +99,6 @@
       W2:Mojo.width/2,
       H2:Mojo.height/2
     });
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function increase(start, increment, max){
       let r= start + increment;
@@ -111,18 +109,18 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function overlap(x1, w1, x2, w2, percent){
       let half = (percent||1)/2,
-          min1 = x1 - (w1*half),
-          max1 = x1 + (w1*half),
-          min2 = x2 - (w2*half),
-          max2 = x2 + (w2*half);
-      return ! ((max1 < min2) || (min1 > max2));
+          min1 = x1 - w1*half,
+          max1 = x1 + w1*half,
+          min2 = x2 - w2*half,
+          max2 = x2 + w2*half;
+      return ! (max1 < min2 || min1 > max2);
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function updateCars(seg,dt){
       for(let s1,s2,car,i=0;i<_G.cars.length;++i){
         car=_G.cars[i];
         s1= getLine(car.z);
-        car.offset  += updateCarOffset(car, s1,seg);
+        car.offset  += updateCarOffset(car, s1, seg);
         car.z= increase(car.z, dt * car.speed, _G.trackLength);
         car.percent = (car.z%SEGLEN)/SEGLEN; //for interpolation
         s2 = getLine(car.z);
@@ -141,7 +139,7 @@
         return 0
       }
       for(let seg, j, i = 1 ; i < lookahead ; ++i){
-        seg = _G.lines[(carSegment.index+i)%_G.lines.length];
+        seg = _G.lines[(carSegment.index+i)%_G.SEGN];
         if(seg == playerSegment &&
            car.speed > _G.speed &&
            overlap(_G.player.x, _G.player.w, car.offset, carW, 1.2)){
@@ -218,10 +216,10 @@
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function drawSprite(scene, resolution, roadWidth, sprite, scale, destX, destY, offsetX, offsetY, clipY){
-      let K=(_G.spritesScale * roadWidth);
-      if(sprite != "redracer.png")
-      K = K*10;
+    function drawSprite(scene, sprite, scale, destX, destY, offsetX, offsetY, clipY){
+      let K=(_G.spritesScale * _G.roadWidth);
+      //kenl
+      //if(sprite != "redracer.png") K = K*10;
       let t= Mojo.tcached(sprite),
           destW  = (t.width * scale * _G.W2) * K,
           destH  = (t.height * scale * _G.W2) * K;
@@ -240,7 +238,8 @@
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function drawPlayer(scene, resolution, roadWidth, speedPercent, scale, destX, destY, steer, updown){
+    function drawPlayer(scene, speedPercent, scale, destX, destY, steer, updown){
+      let resolution= _G.H/480;
       let sprite,bounce = (1.5 * Math.random() * speedPercent * resolution) * _.randSign();
       /*
       if(steer<0)
@@ -250,16 +249,18 @@
       else
         sprite = (updown > 0) ? "player_uphill_straight.png" : "player_straight.png";
         */
-      sprite="redracer.png";
-      drawSprite(scene, resolution, roadWidth, sprite, scale, destX, destY + bounce, -0.5, -1);
+      //kenl
+      //sprite = "player_straight.png";
+      sprite="player.png";
+      drawSprite(scene, sprite, scale, destX, destY + bounce, -0.5, -1);
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function project(p, camX, camY, camZ, camDepth, roadWidth){
+    function project(p, camX, camY, camZ, camDepth){
       p.camera.x     = (p.world.x || 0) - camX;
       p.camera.y     = (p.world.y || 0) - camY;
       p.camera.z     = (p.world.z || 0) - camZ;
       p.screen.scale = camDepth/p.camera.z;
-      p.screen.w     = Math.round(p.screen.scale * roadWidth   * _G.W2);
+      p.screen.w     = Math.round(p.screen.scale * _G.roadWidth   * _G.W2);
       p.screen.x     = Math.round(_G.W2  + p.screen.scale * p.camera.x  * _G.W2);
       p.screen.y     = Math.round(_G.H2 - p.screen.scale * p.camera.y  * _G.H2);
     }
@@ -314,18 +315,19 @@
           initLevel(){
             _G.camD  = 1 / Math.tan(_G.fov / 2);
             _G.player.z = _G.camH * _G.camD;
-            _G.resolution= _G.H/480;
-            let w= Mojo.tcached("redracer.png").width;
-            _G.spritesScale = 0.3 * (1/w); // the reference sprite width should be 1/3rd the (half-)roadWidth
+            //let w= Mojo.tcached( "player_straight.png").width;
+            //kenl
+            let w= Mojo.tcached("player.png").width;
+            _G.spritesScale = 0.3 * (1/w);
+            // the reference sprite width should be 1/3rd the (half-)roadWidth
             _G.player.w= w * _G.spritesScale;
             _G.resetRoad();
           },
           resetGfx(){
-            this.gfx.clear();
             self.insert(this.sky);
             self.insert(this.hills);
             self.insert(this.trees);
-            self.insert(this.gfx);
+            self.insert(this.gfx.clear());
           },
           draw(){
             let baseLine = getLine(_G.pos),
@@ -343,8 +345,8 @@
               cx= _G.player.x * _G.roadWidth;
               cy= _G.player.y + _G.camH;
               cz= _G.pos - (seg.index < baseLine.index ? _G.trackLength : 0);
-              project(seg.p1, cx - x, cy, cz, _G.camD, _G.roadWidth);
-              project(seg.p2, cx - x - dx, cy, cz, _G.camD, _G.roadWidth);
+              project(seg.p1, cx - x, cy, cz, _G.camD);
+              project(seg.p2, cx - x - dx, cy, cz, _G.camD);
               x  += dx;
               dx += seg.curve;
               if(seg.p2.screen.y >= maxY || // clip by (already rendered) segment
@@ -357,15 +359,14 @@
               seg.cars.forEach(car=>{
                 s= car.sprite;
                 ss=_M.lerp(seg.p1.screen.scale, seg.p2.screen.scale, car.percent);
-                drawSprite(self, _G.resolution, _G.roadWidth, s,
-                           ss,
+                drawSprite(self, s, ss,
                            _M.lerp(seg.p1.screen.x, seg.p2.screen.x,car.percent) +
                            (ss * car.offset * _G.roadWidth * _G.W2),
                            _M.lerp(seg.p1.screen.y, seg.p2.screen.y,car.percent), -0.5, -1, seg.clip);
               });
               for(i = 0 ; i < seg.sprites.length ; ++i){
                 s= seg.sprites[i];
-                drawSprite(self, _G.resolution,_G.roadWidth, s.source,
+                drawSprite(self, s.source,
                            seg.p1.screen.scale,
                            seg.p1.screen.x + (seg.p1.screen.scale * s.offset * _G.roadWidth * _G.W2),
                            seg.p1.screen.y,
@@ -373,7 +374,7 @@
               }
               if(seg == playerSegment){
                 d=_G.camD/_G.player.z;
-                drawPlayer(self,_G.resolution, _G.roadWidth, _G.speed/_G.maxSpeed,
+                drawPlayer(self, _G.speed/_G.maxSpeed,
                            d,
                            _G.W2,
                            _G.H2 - (d * _M.lerp(playerSegment.p1.camera.y, playerSegment.p2.camera.y, playerPercent) * _G.H2),
@@ -444,8 +445,8 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["bg.png","redracer.png","click.mp3","images/jake/sky.png","images/jake/hills.png","images/jake/trees.png", "images/jake/jake.png","images/jake/jake.json"],
-    arena: {width: 1690, height: 1050},
+    assetFiles: ["bg.png","player.png","click.mp3","images/jake/sky.png","images/jake/hills.png","images/jake/trees.png", "images/jake/jake.png","images/jake/jake.json"],
+    arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"x",
     SEGLEN:200,
