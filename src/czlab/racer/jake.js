@@ -68,24 +68,17 @@
       lines: [],
       cars:[],
       centrifugal: 0.3,
+      lookAhead:20,
+      lapTime:0,
       totalCars: 16,
-      skySpeed: 0.001,  // background sky layer scroll speed when going around curve (or up hill)
-      hillSpeed: 0.002,  // background hill layer scroll speed when going around curve (or up hill)
-      treeSpeed: 0.003,  // background tree layer scroll speed when going around curve (or up hill)
-      skyOffset: 0,    // current sky scroll offset
-      hillOffset: 0,   // current hill scroll offset
-      treeOffset: 0,
       roadWidth:  2000,
       rumbles: 3, // number of segments per red/white rumble strip
       trackLength: 0, // z length of entire track (computed)
-      lanes: 3,   // number of lanes
+      lanes: 3,
       fov: Math.PI/2, // field of view
-      camH: 1000,  // z height of camera
-      camD: 0,   // z distance camera is from screen (computed)
+      //camH  // z height of camera
+      //camD  // z distance camera is from screen (computed)
       drawRange: 300,  // number of segments to draw
-      // player x offset from center of road (-1 to 1 to stay independent of roadWidth)
-      // player relative z distance from camera (computed)
-      player: {w:0, x:0, y:0, z:0},
       pos:  0,  // current camera Z position (add playerZ to get player's absolute Z position)
       speed:  0,  // current speed
       maxSpeed: mspeed, // top speed (ensure we can't move more than 1 segment in a single frame to make collision detection easier)
@@ -117,6 +110,40 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function updateCars(seg,dt){
+      function updateCarOffset(car, carSeg, playerSeg){
+        let dir,other,otherW,
+            carW = scaleToRefWidth(car.w);
+        if((carSeg.index - playerSeg.index) > _G.drawRange){
+          return 0; //ignore when 'out of sight' of the player
+        }
+        for(let seg, j, i = 1 ; i < _G.lookAhead ; ++i){
+          seg = _G.lines[(carSeg.index+i)%_G.SEGN];
+          if(seg == playerSeg &&
+             car.speed > _G.speed &&
+             overlap(_G.player.x, _G.player.w, car.offset, carW, 1.2)){
+            dir= _G.player.x > 0.5? -1
+                                  :(_G.player.x < -0.5? 1
+                                                      : (car.offset > _G.player.x ?1:-1));
+            //the closer the cars (smaller i) and
+            //the greated the speed ratio, the larger the offset
+            return dir * 1/i * (car.speed-_G.speed)/_G.maxSpeed;
+          }
+          for(j = 0 ; j < seg.cars.length ; ++j){
+            other= seg.cars[j];
+            otherW = scaleToRefWidth(other.w);
+            if(car.speed > other.speed &&
+               overlap(car.offset, carW, other.offset, otherW, 1.2)){
+              dir= other.offset > 0.5?-1
+                                     :(other.offset < -0.5?1
+                                                          :(car.offset > other.offset ? 1 : -1));
+              return dir * 1/i * (car.speed-other.speed)/_G.maxSpeed;
+            }
+          }
+        }
+        // if no cars ahead, but have somehow
+        // ended up off road, then steer back on
+        return car.offset < -0.9? 0.1 : (car.offset > 0.9? -0.1: 0);
+      }
       for(let s1,s2,car,i=0;i<_G.cars.length;++i){
         car=_G.cars[i];
         s1= getLine(car.z);
@@ -124,53 +151,11 @@
         car.z= increase(car.z, dt * car.speed, _G.trackLength);
         car.percent = (car.z%SEGLEN)/SEGLEN; //for interpolation
         s2 = getLine(car.z);
-        if(s1 != s2){
+        if(s1 !== s2){
           s2.cars.push(car);
           _.disj(s1.cars,car);
         }
       }
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function updateCarOffset(car, carSegment, playerSegment){
-      let dir, otherCar, otherCarW;
-      let lookahead = 20, carW = car.w * _G.spritesScale;
-      if((carSegment.index - playerSegment.index) > _G.drawRange){
-        //ignore cars when 'out of sight' of the player
-        return 0
-      }
-      for(let seg, j, i = 1 ; i < lookahead ; ++i){
-        seg = _G.lines[(carSegment.index+i)%_G.SEGN];
-        if(seg == playerSegment &&
-           car.speed > _G.speed &&
-           overlap(_G.player.x, _G.player.w, car.offset, carW, 1.2)){
-          if(_G.player.x > 0.5)
-            dir = -1;
-          else if(_G.player.x < -0.5)
-            dir = 1;
-          else
-            dir = (car.offset > _G.player.x) ? 1 : -1;
-          // the closer the cars (smaller i) and the greated the speed ratio, the larger the offset
-          return dir * 1/i * (car.speed- _G.speed)/_G.maxSpeed;
-        }
-        for(j = 0 ; j < seg.cars.length ; ++j){
-          otherCar  = seg.cars[j];
-          otherCarW = otherCar.w * _G.spritesScale;
-          if(car.speed > otherCar.speed &&
-             overlap(car.offset, carW, otherCar.offset, otherCarW, 1.2)){
-            if(otherCar.offset > 0.5)
-              dir = -1;
-            else if(otherCar.offset < -0.5)
-              dir = 1;
-            else
-              dir = (car.offset > otherCar.offset) ? 1 : -1;
-            return dir * 1/i * (car.speed-otherCar.speed)/_G.maxSpeed;
-          }
-        }
-      }
-      // if no cars ahead, but I have somehow ended up off road, then steer back on
-      if(car.offset < -0.9) return 0.1;
-      if(car.offset > 0.9) return -0.1;
-      return 0;
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawPolygon(g, x1, y1, x2, y2, x3, y3, x4, y4, color){
@@ -179,11 +164,9 @@
       g.endFill();
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function laneMarkerWidth(road, lanes){ return road/Math.max(32, 8*lanes) }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function rumbleWidth(road, lanes){ return road/Math.max(6,  2*lanes) }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawSegment(gfx, lanes, p1, p2, color){
+      function laneMarkerWidth(road, lanes){ return road/Math.max(32, 8*lanes) }
+      function rumbleWidth(road, lanes){ return road/Math.max(6,  2*lanes) }
       let r1 = rumbleWidth(p1.w, lanes),
           r2 = rumbleWidth(p2.w, lanes),
           l1 = laneMarkerWidth(p1.w, lanes),
@@ -217,10 +200,8 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawSprite(scene, sprite, scale, destX, destY, offsetX, offsetY, clipY){
-      let K=(_G.spritesScale * _G.roadWidth);
-      //kenl
-      //if(sprite != "redracer.png") K = K*10;
       let t= Mojo.tcached(sprite),
+          K=ratioToRoadWidth(),
           destW  = (t.width * scale * _G.W2) * K,
           destH  = (t.height * scale * _G.W2) * K;
 
@@ -239,20 +220,9 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawPlayer(scene, speedPercent, scale, destX, destY, steer, updown){
-      let resolution= _G.H/480;
-      let sprite,bounce = (1.5 * Math.random() * speedPercent * resolution) * _.randSign();
-      /*
-      if(steer<0)
-        sprite = (updown > 0) ? "player_uphill_left.png" : "player_left.png";
-      else if(steer>0)
-        sprite = (updown > 0) ? "player_uphill_right.png" : "player_right.png";
-      else
-        sprite = (updown > 0) ? "player_uphill_straight.png" : "player_straight.png";
-        */
-      //kenl
-      //sprite = "player_straight.png";
-      sprite="player.png";
-      drawSprite(scene, sprite, scale, destX, destY + bounce, -0.5, -1);
+      let resolution= _G.H/480,
+          bounce = 1.5 * _.rand() * speedPercent * resolution * _.randSign();
+      drawSprite(scene, "player.png", scale, destX, destY + bounce, -0.5, -1);
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function project(p, camX, camY, camZ, camDepth){
@@ -264,7 +234,6 @@
       p.screen.x     = Math.round(_G.W2  + p.screen.scale * p.camera.x  * _G.W2);
       p.screen.y     = Math.round(_G.H2 - p.screen.scale * p.camera.y  * _G.H2);
     }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("Splash",{
       setup(){
@@ -300,6 +269,16 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function scaleToRefWidth(sw){
+      return sw * _G.SPRITES_SCALE
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function ratioToRoadWidth(){
+      return _G.roadWidth * _G.SPRITES_SCALE
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PlayGame",{
       setup(){
         const self=this,
@@ -313,14 +292,23 @@
           sky: _S.fillMax(_S.sprite("images/jake/sky.png")),
           gfx: _S.graphics(),
           initLevel(){
-            _G.camD  = 1 / Math.tan(_G.fov / 2);
-            _G.player.z = _G.camH * _G.camD;
-            //let w= Mojo.tcached( "player_straight.png").width;
-            //kenl
-            let w= Mojo.tcached("player.png").width;
-            _G.spritesScale = 0.3 * (1/w);
-            // the reference sprite width should be 1/3rd the (half-)roadWidth
-            _G.player.w= w * _G.spritesScale;
+             let r= 1/_G.lanes,
+                 camH=1000,
+                 camD= 1/Math.tan(_G.fov / 2),
+                 w= Mojo.tcached("player.png").width;
+            _.merge(_G,{
+              //the way to scale sprites by using the player's car
+              //as the reference.  the player is logically as wide
+              //as a lane (so if 3 lanes then 1/3), then compare
+              //the sprite's width to the player's width
+              SPRITES_SCALE: r/w, //0.00375
+              camH,
+              camD,
+              //player x offset from center of road
+              //(-1 to 1 to stay independent of roadWidth)
+              //player relative z distance from camera (computed)
+              player: {w: r, x:0, y:0, z: camH * camD }
+            });
             _G.resetRoad();
           },
           resetGfx(){
@@ -331,13 +319,13 @@
           },
           draw(){
             let baseLine = getLine(_G.pos),
-                basePercent = perc(_G.pos,SEGLEN),
+                basePerc= perc(_G.pos,SEGLEN),
                 x = 0,
                 maxY = _G.H,
-                dx = - (baseLine.curve * basePercent),
-                playerSegment = getLine(_G.pos+_G.player.z),
-                playerPercent = perc(_G.pos+_G.player.z,SEGLEN);
-            _G.player.y = _M.lerp(playerSegment.p1.world.y, playerSegment.p2.world.y, playerPercent);
+                dx = - (baseLine.curve * basePerc),
+                playerSeg= getLine(_G.pos+_G.player.z),
+                playerPerc= perc(_G.pos+_G.player.z,SEGLEN);
+            _G.player.y = _M.lerp(playerSeg.p1.world.y, playerSeg.p2.world.y, playerPerc);
             this.resetGfx();
             for(let cx,cy, cz, seg,n = 0; n < _G.drawRange; ++n){
               seg= _G.lines[(baseLine.index + n) % _G.SEGN];
@@ -372,33 +360,32 @@
                            seg.p1.screen.y,
                            (s.offset < 0 ? -1 : 0), -1, seg.clip);
               }
-              if(seg == playerSegment){
+              if(seg == playerSeg){
                 d=_G.camD/_G.player.z;
                 drawPlayer(self, _G.speed/_G.maxSpeed,
                            d,
                            _G.W2,
-                           _G.H2 - (d * _M.lerp(playerSegment.p1.camera.y, playerSegment.p2.camera.y, playerPercent) * _G.H2),
+                           _G.H2 - (d * _M.lerp(playerSeg.p1.camera.y, playerSeg.p2.camera.y, playerPerc) * _G.H2),
                            _G.speed * (_G.keyLeft ? -1 : _G.keyRight ? 1 : 0),
-                           playerSegment.p2.world.y - playerSegment.p1.world.y);
+                           playerSeg.p2.world.y - playerSeg.p1.world.y);
               }
             }
           },
           update(dt){
             let n, car, carW, sprite, spriteW;
-            let playerSegment = getLine(_G.pos + _G.player.z);
+            let playerSeg= getLine(_G.pos + _G.player.z);
             let speedPercent = _G.speed/_G.maxSpeed;
-            let dx = dt * 2 * speedPercent; // at top speed, should be able to cross from left to right (-1 to 1) in 1 second
+            let startPos=_G.pos,
+                dx = dt * 2 * speedPercent;
+            // at top speed, should be able to cross
+            // from left to right (-1 to 1) in 1 second
 
-            updateCars(playerSegment,dt);
+            updateCars(playerSeg,dt);
 
             _G.pos = increase(_G.pos, dt * _G.speed, _G.trackLength);
-            n= playerSegment.curve * speedPercent;
-            _G.skyOffset  = increase(_G.skyOffset,  _G.skySpeed  * n, 1);
-            _G.hillOffset = increase(_G.hillOffset, _G.hillSpeed * n, 1);
-            _G.treeOffset = increase(_G.treeOffset, _G.treeSpeed * n, 1);
 
             _G.player.x += _I.keyDown(_I.LEFT) ? -dx : (_I.keyDown(_I.RIGHT) ? dx : 0);
-            _G.player.x -= (dx * speedPercent * playerSegment.curve * _G.centrifugal);
+            _G.player.x -= (dx * speedPercent * playerSeg.curve * _G.centrifugal);
             _G.speed = _I.keyDown(_I.SPACE) ? Mojo.accel(_G.speed, _G.accel, dt)
                                             : (_I.keyDown(_I.DOWN) ? Mojo.accel(_G.speed, _G.braking, dt)
                                                                    : Mojo.accel(_G.speed, _G.decel, dt));
@@ -406,20 +393,20 @@
             if(_G.player.x < -1 || _G.player.x > 1){
               if(_G.speed > _G.offRoadLimit)
                 _G.speed = Mojo.accel(_G.speed, _G.offRoadDecel, dt);
-              for(n=0; n < playerSegment.sprites.length ; ++n){
-                sprite  = playerSegment.sprites[n];
-                spriteW = sprite.w * _G.spritesScale;
+              for(n=0; n < playerSeg.sprites.length ; ++n){
+                sprite  = playerSeg.sprites[n];
+                spriteW = scaleToRefWidth(sprite.w);
                 if(overlap(_G.player.x, _G.player.w, sprite.offset + spriteW/2 * (sprite.offset > 0 ? 1 : -1), spriteW)){
                   _G.speed = _G.maxSpeed/5;
                   // stop in front of sprite (at front of segment)
-                  _G.pos= increase(playerSegment.p1.world.z, -_G.player.z, _G.trackLength);
+                  _G.pos= increase(playerSeg.p1.world.z, -_G.player.z, _G.trackLength);
                   break;
                 }
               }
             }
-            for(n=0; n < playerSegment.cars.length; ++n){
-              car  = playerSegment.cars[n];
-              carW = car.w * _G.spritesScale;
+            for(n=0; n < playerSeg.cars.length; ++n){
+              car  = playerSeg.cars[n];
+              carW = scaleToRefWidth(car.w);
               if(_G.speed > car.speed){
                 if(overlap(_G.player.x, _G.player.w, car.offset, carW, 0.8)){
                   _G.speed= car.speed * (car.speed/_G.speed);
@@ -428,16 +415,40 @@
                 }
               }
             }
-            _G.player.x = _M.clamp(-2,2,_G.player.x);// dont ever let it go too far out of bounds
+            _G.player.x = _M.clamp(-3,3,_G.player.x);// dont ever let it go too far out of bounds
             _G.speed = _M.clamp(0, _G.maxSpeed,_G.speed); // or exceed maxSpeed
+
+            if(_G.pos > _G.player.z){
+              if(_G.lapTime && (startPos< _G.player.z)){
+                //_G.lastLapTime= _G.lapTime;
+                _G.lapTime = 0;
+              }else{
+                _G.lapTime += dt;
+              }
+            }
+
           }
         });
         this.g.initLevel();
+        _Z.runScene("HUD");
       },
       postUpdate(dt){
         this.removeChildren();
         this.g.update(dt);
         this.g.draw();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("HUD",{
+      setup(){
+        let K=Mojo.getScaleFactor(),
+            s= _S.bmpText("0",{fontName:"unscii",fontSize:36*K});
+        _V.set(s, 0,0);
+        this.insert(this.g.lapTime=s);
+      },
+      postUpdate(){
+        this.g.lapTime.text=`Lap Time: ${Number(_G.lapTime).toFixed(3)}`;
       }
     });
   }

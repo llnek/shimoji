@@ -40,14 +40,16 @@
                     "palm_tree.png",
                     "bush1.png", "bush2.png", "cactus.png",
                     "stump.png", "boulder1.png", "boulder2.png", "boulder3.png"];
+
     const ROAD= { NONE:0, EASY:25, NORMAL:50, HARD:100 };
     const HILL= { NONE:0, EASY:20, NORMAL:40, HARD:60 };
     const CURVE= { NONE:0, EASY:2, NORMAL:4, HARD:6 };
+
     const COLORS_LIGHT={ road: _S.color("#6B6B6B"), grass: _S.color("#10AA10"),
                          rumble: _S.color("#555555"), lane: _S.color("#CCCCCC")  };
-    const COLORS_DARK={ road: _S.color("#696969"), grass: _S.color("#009A00"), rumble: _S.color("#BBBBBB") };
+    const COLORS_DARK={ road: _S.color("#696969"), grass: _S.color("#009A00"), rumble: _S.color("#bbbbbb") };
     const COLORS_START= { road: _S.color("white"),   grass: _S.color("white"),   rumble: _S.color("white") };
-    const COLORS_FINISH= { road: _S.color("black"),   grass: _S.color("black"),   rumble: _S.color("black") };
+    const COLORS_FINISH= { road: _S.color("black"),   grass: _S.color("black"),   rumble: _S.color("yellow") };
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function lastY(){ return _G.lines.length == 0 ? 0 : _G.lines[_G.lines.length-1].p2.world.y }
     function easeInOut(a,b,percent){ return a + (b-a)*((-Math.cos(percent*Math.PI)/2) + 0.5) }
@@ -104,52 +106,50 @@
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function addRoad(enter, hold, leave, curve, y){
+      function newSeg(curve,Y){
+        let n = _G.lines.length;
+        _G.lines.push({
+          index: n,
+          p1:{ world: { y: lastY(), z:  n * SEGLEN }, camera: {}, screen: {} },
+          p2:{ world: { y: Y, z: (n+1) * SEGLEN }, camera: {}, screen: {} },
+          curve,
+          sprites: [],
+          cars: [],
+          color: int(n/_G.rumbles)%2 ? COLORS_DARK : COLORS_LIGHT
+        });
+      }
       let startY= lastY();
       let endY= startY + (_.toNum(y, 0) * SEGLEN);
       let n, total = enter + hold + leave;
       for(n = 0 ; n < enter ; ++n)
-        addSegment(easeIn(0, curve, n/enter), easeInOut(startY, endY, n/total));
+        newSeg(easeIn(0, curve, n/enter), easeInOut(startY, endY, n/total));
       for(n = 0 ; n < hold  ; ++n)
-        addSegment(curve, easeInOut(startY, endY, (enter+n)/total));
+        newSeg(curve, easeInOut(startY, endY, (enter+n)/total));
       for(n = 0 ; n < leave ; ++n)
-        addSegment(easeInOut(curve, 0, n/leave), easeInOut(startY, endY, (enter+hold+n)/total));
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function addSprite(n, sprite, offset){
-      _G.lines[n].sprites.push({source: sprite, offset, w: Mojo.tcached(sprite).width });
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function addSegment(curve,y){
-      let n = _G.lines.length;
-      _G.lines.push({
-        index: n,
-        p1:{ world: { y: lastY(), z:  n * SEGLEN }, camera: {}, screen: {} },
-        p2:{ world: { y: y, z: (n+1) * SEGLEN }, camera: {}, screen: {} },
-        curve,
-        sprites: [],
-        cars: [],
-        color: int(n/_G.rumbles)%2 ? COLORS_DARK : COLORS_LIGHT
-      });
+        newSeg(easeInOut(curve, 0, n/leave), easeInOut(startY, endY, (enter+hold+n)/total));
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function resetTrees(){
+      function add(n, sprite, offset){
+        _G.lines[n].sprites.push({source: sprite, offset, w: Mojo.tcached(sprite).width });
+      }
       let n, side, sprite, offset;
       for(n = 10; n < 200; n += 4 + int(n/100)){
         if(_.rand()<0.3){
-          addSprite(n, "palm_tree.png", 0.5 + _.rand()*0.5);
-          addSprite(n, "palm_tree.png", 1 + _.rand()*2);
+          add(n, "palm_tree.png", 0.5 + _.rand()*0.5);
+          add(n, "palm_tree.png", 1 + _.rand()*2);
         }
       }
       for(n = 250 ; n < 1000 ; n += 5){
         if(_.rand()>0.7){
-          addSprite(n,"column.png", 1.1);
-          addSprite(n + _.randInt2(0,5), "tree1.png", -1 - _.rand() * 2);
-          addSprite(n + _.randInt2(0,5), "tree2.png", -1 - _.rand() * 2);
+          add(n,"column.png", 1.1);
+          add(n + _.randInt2(0,5), "tree1.png", -1 - _.rand() * 2);
+          add(n + _.randInt2(0,5), "tree2.png", -1 - _.rand() * 2);
         }
       }
       for(n = 200 ; n < _G.lines.length ; n += 3){
         if(_.rand()<0.3)
-          addSprite(n, _.randItem(PLANTS), _.randSign * (2 + _.rand() * 5));
+          add(n, _.randItem(PLANTS), _.randSign * (2 + _.rand() * 5));
       }
       for(n = 1000 ; n < (_G.lines.length-50) ; n += 100){
         if(_.rand()>0.7){
@@ -158,7 +158,7 @@
             if(_.rand()<0.3){
               sprite = _.randItem(PLANTS);
               offset = side * (1.5 + _.rand());
-              addSprite(n + _.randInt2(0, 50), sprite, offset);
+              add(n + _.randInt2(0, 50), sprite, offset);
             }
           }
         }
