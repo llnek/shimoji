@@ -54,7 +54,7 @@
     function doBackDrop(scene){
       if(!_G.backDropSprite)
         _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,0.15));
+      return scene.insert(_S.opacity(_G.backDropSprite,0.148));
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -287,9 +287,9 @@
         function perc(a,b){ return (a%b)/b }
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
-          hills: _S.fillMax(_S.sprite("images/jake/hills.png")),
-          trees: _S.fillMax(_S.sprite("images/jake/trees.png")),
-          sky: _S.fillMax(_S.sprite("images/jake/sky.png")),
+          hills: _S.fillMax(_S.sprite("hills.png")),
+          trees: _S.fillMax(_S.sprite("trees.png")),
+          sky: _S.fillMax(_S.sprite("sky.png")),
           gfx: _S.graphics(),
           initLevel(){
              let r= 1/_G.lanes,
@@ -309,7 +309,7 @@
               //player relative z distance from camera (computed)
               player: {w: r, x:0, y:0, z: camH * camD }
             });
-            _G.resetRoad();
+            _G.initTrack();
           },
           resetGfx(){
             self.insert(this.sky);
@@ -442,10 +442,44 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("HUD",{
       setup(){
-        let K=Mojo.getScaleFactor(),
+        let self=this,
+            K=Mojo.getScaleFactor(),
             s= _S.bmpText("0",{fontName:"unscii",fontSize:36*K});
         _V.set(s, 0,0);
         this.insert(this.g.lapTime=s);
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initHotspots=()=>{
+          let cfg={fontName:UI_FONT,fontSize:48*K};
+          let alpha=0.2,grey=_S.color("#cccccc");
+          let fw=132*K,fh=84*K,lw=4*K;
+          let L,U,R,D,offX, offY;
+          /////
+          R= _S.rect(fw,fh,grey,grey,lw);
+          offX= R.width/4;
+          offY=offX;
+          _S.centerAnchor(R);
+          R.addChild(_S.centerAnchor(_S.bmpText("->",cfg)));
+          _V.set(R, Mojo.width-R.width/2-offX,Mojo.height-R.height/2-offY);
+          self.insert(_S.opacity(_I.makeHotspot(R),alpha));
+          //////
+          L= _S.rect(fw,fh,grey,grey,lw);
+          _S.centerAnchor(L);
+          L.addChild(_S.centerAnchor(_S.bmpText("<-",cfg)));
+          _S.pinLeft(R,L,offX);
+          self.insert(_S.opacity(_I.makeHotspot(L),alpha));
+          //////
+          U= _S.rect(fw,fh,grey,grey,lw);
+          _S.centerAnchor(U);
+          U.addChild(_S.centerAnchor(_S.bmpText("++",cfg)));
+          _V.set(U,offX+U.width/2,Mojo.height-U.height/2-offY);
+          self.insert(_S.opacity(_I.makeHotspot(U),alpha));
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
+          L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
+          U.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE) }
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        if(Mojo.touchDevice) this.g.initHotspots();
       },
       postUpdate(){
         this.g.lapTime.text=`Lap Time: ${Number(_G.lapTime).toFixed(3)}`;
@@ -456,7 +490,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["bg.png","player.png","click.mp3","images/jake/sky.png","images/jake/hills.png","images/jake/trees.png", "images/jake/jake.png","images/jake/jake.json"],
+    assetFiles: ["bg.png","player.png","click.mp3","sky.png","hills.png","trees.png", "tiles.png","images/tiles.json"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"x",

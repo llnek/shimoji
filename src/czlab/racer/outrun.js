@@ -113,7 +113,7 @@
               roadL:0,
               roadW:2000,
               playerCurvature:0,
-              player: _S.sprite("images/javidx9/red_car.png")
+              player: _S.sprite("red_car.png")
             });
             _G.roadL= _G.segN * _G.segL;
             for(let n, i=0,z=_G.segN; i<z; ++i){
@@ -124,9 +124,6 @@
               if(i>750 && i< 1400) n.y=sin(i/30)* _G.HH;
               if(i>1450) n.curve = -0.5;
             }
-            _S.repeatSprite("images/outrun/bg.png",true,true,Mojo.width,Mojo.height).forEach(s=>{
-              self.insert(s);
-            });
             return this;
           },
           draw(dt){
@@ -214,7 +211,6 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["images/outrun/bg.png"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",

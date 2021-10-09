@@ -51,9 +51,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function doBackDrop(scene){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,0.15));
+      return scene
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -330,7 +328,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["images/javidx9/red_car.png","bg.png","click.mp3"],
+    assetFiles: ["red_car.png","click.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"x",
