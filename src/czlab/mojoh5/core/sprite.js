@@ -16,6 +16,15 @@
 
   "use strict";
 
+  const BtnColors={
+    blue:"#319bd5",
+    green:"#78c03f",
+    yellow:"#f9ef50",
+    red:"#eb2224",
+    orange:"#f48917",
+    grey:"#848685",
+    purple:"#a6499a"
+  };
   const SomeColors={
     aqua: "#00FFFF",
     black:  "#000000",
@@ -293,6 +302,7 @@
 
     const _PT=_V.vec();
     const _$={
+      SomeColors, BtnColors,
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
                "boot/doki.fnt", "boot/riffic.fnt",
         "boot/kenney_high.fnt",
@@ -1026,15 +1036,23 @@
       rect(width, height,
            fillStyle = 0xFF3300,
            strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
-        let g=this.graphics(),
+        let a,g=this.graphics(),
             stroke=this.color(strokeStyle);
-        if(fillStyle !== false)
-          g.beginFill(this.color(fillStyle));
+        if(fillStyle !== false){
+          if(is.vec(fillStyle)){
+            a=fillStyle[1];
+            fillStyle=fillStyle[0];
+          }else{
+            a=1;
+          }
+          g.beginFill(this.color(fillStyle),a);
+        }
         if(lineWidth>0)
           g.lineStyle(lineWidth, stroke, 1);
         g.drawRect(0, 0, width,height);
-        if(fillStyle !== false)
-          g.endFill();
+        if(fillStyle !== false){
+          g.endFill()
+        }
         let s= new Mojo.PXSprite(this.genTexture(g));
         s=this.extend(s);
         return _V.set(s,x,y);
@@ -1232,6 +1250,9 @@
           if(out.y !== undefined) _y=out.y;
           out.x=sx;
           out.y=sy;
+          //shove more info into out :)
+          out.x1=sx; out.y1=sy;
+          out.x2=sx+szw; out.y2=sy+szh;
         }
         return _mkgrid(_x,_y,dimY,dimX,dim,dim);
       },
@@ -1634,7 +1655,19 @@
        * @return {number[]} a list of collision points
        */
       clamp(s, container, bounce=false,extra=null){
+        let left,right,top,bottom;
         let box,C;
+        if(is.vec(container)){
+          left=container[1].left;
+          right=container[1].right;
+          top=container[1].top;
+          bottom=container[1].bottom;
+          container=container[0];
+        }
+        right= right!==false;
+        left= left!==false;
+        top= top!==false;
+        bottom= bottom!==false;
         if(container instanceof Mojo.Scenes.Scene){
           C=Mojo.mockStage();
         }else if(container.m5 && container.m5.stage){
@@ -1663,25 +1696,25 @@
             cb= ct+ (box? C.y2-C.y1 : C.height);
         let [rx,ry]=R.pos;
         //left
-        if(rx<cl){
+        if(left && rx<cl){
           s.x += cl-rx;
           CX=true;
           collision.add(Mojo.LEFT);
         }
         //right
-        if(rx+R.width > cr){
+        if(right && (rx+R.width > cr)){
           s.x -= rx+R.width- cr;
           CX=true;
           collision.add(Mojo.RIGHT);
         }
         //top
-        if(ry < ct){
+        if(top && ry < ct){
           s.y += ct-ry;
           CY=true;
           collision.add(Mojo.TOP);
         }
         //bottom
-        if(ry+R.height > cb){
+        if(bottom && (ry+R.height > cb)){
           s.y -= ry+R.height - cb;
           CY=true;
           collision.add(Mojo.BOTTOM);

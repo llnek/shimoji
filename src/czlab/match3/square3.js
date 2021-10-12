@@ -111,7 +111,7 @@
     _Z.defScene("hud",{
       setup(){
         let K=Mojo.getScaleFactor();
-        let s=_S.bboxFrame(_G.arena,int(24*K),"#fe6dcc");
+        let s=_S.bboxFrame(_G.arena,int(24*K),"#f05680");
         this.insert(s);
         this.msg=_S.bitmapText("0",{fontName:"unscii",fontSize:36,tint:0xffffff});
       },

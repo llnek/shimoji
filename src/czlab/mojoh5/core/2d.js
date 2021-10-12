@@ -23,11 +23,36 @@
            Sprites:_S,
            is, ute:_}=Mojo;
     const ABS=Math.abs,
-          MFL=Math.floor;
+          int=Math.floor;
 
     /**
      * @module mojoh5/2d
      */
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function healthBar(arg){
+      let K=Mojo.getScaleFactor(),
+          c,out=[],padding=4*K,fit=4*K,
+          {width,height,lives,border,line,fill}=arg;
+      border = int(border || 4*K);
+      lives= lives || 3;
+      fill=_S.color(fill);
+      line=_S.color(line);
+      for(let r,w=int(width/lives), i=0;i<lives;++i){
+        out.push(_S.rect(w,height-2*border,fill))
+      }
+      return{
+        sprite: _Z.layoutX(out,{bg:["#cccccc",0],borderWidth:border,border:line,padding,fit}),
+        lives: out.length,
+        dec(){
+          if(this.lives>0){
+            this.lives -= 1;
+            out[this.lives].visible=false;
+          }
+          return this.lives>0;
+        }
+      };
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const R=Math.PI/180,
@@ -434,10 +459,10 @@
     Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
       const _height= canvas?canvas.height:worldHeight;
       const _width= canvas?canvas.width:worldWidth;
-      const height2=MFL(_height/2);
-      const width2=MFL(_width/2);
-      const height4=MFL(_height/4);
-      const width4=MFL(_width/4);
+      const height2=int(_height/2);
+      const width2=int(_width/2);
+      const height4=int(_height/4);
+      const width4=int(_width/4);
       const {Sprites}=Mojo;
       const sigs=[];
       const world=e;
@@ -462,19 +487,19 @@
           const bx= _.feq0(s.angle)? Sprites.getBBox(s)
                                    : Sprites.boundingBox(s);
           const _right=()=>{
-            if(bx.x2> this.x+MFL(width2+width4)){
+            if(bx.x2> this.x+int(width2+width4)){
               this.x = bx.x2-width4*3;
             }},
             _left=()=>{
-              if(bx.x1< this.x+MFL(width2-width4)){
+              if(bx.x1< this.x+int(width2-width4)){
               this.x = bx.x1-width4;
             }},
             _top=()=>{
-            if(bx.y1< this.y+MFL(height2-height4)){
+            if(bx.y1< this.y+int(height2-height4)){
               this.y = bx.y1-height4;
             }},
             _bottom=()=>{
-            if(bx.y2> this.y+MFL(height2+height4)){
+            if(bx.y2> this.y+int(height2+height4)){
               this.y = bx.y2- height4*3;
             }};
           _left();  _right();  _top();  _bottom();
@@ -514,6 +539,7 @@
     });
 
     const _$={
+      healthBar,
       gaugeUI,
       Patrol,
       Platformer,

@@ -21,7 +21,7 @@
 
     const SG=gscope["io/czlab/mcfud/spatial"]();
     const {ute:_,is}=Mojo;
-    const MFL=Math.floor;
+    const int=Math.floor;
 
     /**
      * @module mojoh5/Scenes
@@ -116,7 +116,7 @@
        * @param {number} delayFrames
        */
       future(expr,delayMillis){
-        this.m5.queue.push([expr, MFL(Mojo._curFPS*delayMillis/1000)])
+        this.m5.queue.push([expr, int(Mojo._curFPS*delayMillis/1000)])
       }
       XXfuture(expr,delayFrames){
         this.m5.queue.push([expr,delayFrames])
@@ -319,32 +319,34 @@
       h= C.height;
       last=_.tail(items);
 
+      //create a backdrop
       if(true){
-        //create a backdrop
         let r= Sprites.rect(w+fit2,h+fit2,
                             options.bg,
                             options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
-        r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
-        if(options.bg == "transparent")r.alpha=0;
+        if(!is.vec(options.bg)){
+          r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
+          if(options.bg == "transparent")r.alpha=0;
+        }
       }
 
       h= C.height;
       w= C.width;
 
-      let [w2,h2]=[MFL(w/2), MFL(h/2)];
+      let [w2,h2]=[int(w/2), int(h/2)];
       if(dir===Mojo.DOWN){
         //realign on x-axis
-        items.forEach(s=> s.x=w2-MFL(s.width/2));
+        items.forEach(s=> s.x=w2-int(s.width/2));
         let hd= h-(last.y+last.height);
-        hd= MFL(hd/2);
+        hd= int(hd/2);
         //realign on y-axis
         items.forEach(s=> s.y += hd);
       }else{
         //refit the items on y-axis
-        items.forEach(s=> s.y=h2-MFL(s.height/2));
+        items.forEach(s=> s.y=h2-int(s.height/2));
         let wd= w-(last.x+last.width);
-        wd= MFL(wd/2);
+        wd= int(wd/2);
         //refit the items on x-axis
         items.forEach(s=> s.x += wd);
       }
@@ -353,8 +355,8 @@
       w= C.width;
 
       //may be center the whole thing
-      C.x= _.nor(options.x, MFL((Mojo.width-w)/2));
-      C.y= _.nor(options.y, MFL((Mojo.height-h)/2));
+      C.x= _.nor(options.x, int((Mojo.width-w)/2));
+      C.y= _.nor(options.y, int((Mojo.height-h)/2));
 
       return C;
     }
