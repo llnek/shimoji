@@ -106,6 +106,26 @@
       })
     }
 
+    /** rotation */
+    function TweenAngle(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sa,ea){
+          this._a= [sa,ea];
+          this._run();
+        },
+        onLoopReset(){
+          //flip values
+          let [a,b]=this._a;
+          this._a[0]=b;
+          this._a[1]=a;
+        },
+        onFrame(end,alpha){
+          this.sprite.rotation= end ? this._a[1]
+                                 : _M.lerp(this._a[0], this._a[1], alpha)
+        }
+      })
+    }
+
     /** alpha */
     function TweenAlpha(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
@@ -390,6 +410,25 @@
       tweenAlpha(s,type,endA,frames=60,loop=false){
         const t= TweenAlpha(s,type,frames,loop);
         let sa=s.alpha;
+        let ea=endA;
+        if(is.vec(endA)){
+          sa=endA[0];
+          ea=endA[1]
+        }
+        return t.start(sa,ea), t;
+      },
+      /**Create a tween operating on sprite's rotation value.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {number|number[]} endA
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenAngle}
+       */
+      tweenAngle(s,type,endA,frames=60,loop=false){
+        const t= TweenAngle(s,type,frames,loop);
+        let sa=s.rotation;
         let ea=endA;
         if(is.vec(endA)){
           sa=endA[0];

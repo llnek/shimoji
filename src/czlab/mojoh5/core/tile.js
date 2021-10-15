@@ -68,13 +68,14 @@
         gidList.push([ts.firstgid, ts]);
         _image(ts);
         lprops={};
-        ts.tiles.forEach(t=>{
-          p=_.selectNotKeys(t,"properties");
-          p=_.inject(p, _parseProps(t));
-          p.gid=ts.firstgid + t.id;
-          lprops[t.id]=p;
-          gprops[p.gid]= p;
-        });
+        if(ts.tiles)
+          ts.tiles.forEach(t=>{
+            p=_.selectNotKeys(t,"properties");
+            p=_.inject(p, _parseProps(t));
+            p.gid=ts.firstgid + t.id;
+            lprops[t.id]=p;
+            gprops[p.gid]= p;
+          });
         tsi[ts.name]=lprops;
       });
       //sort gids ascending
@@ -132,11 +133,11 @@
           let tps=_parseProps(tl);
           for(let s,gid,i=0;i<tl.data.length;++i){
             if((gid=tl.data[i])===0){ continue }
-            if(tl.collision===false ||
-               tps.collision === false){
-            }else{
+            if(tl.collision===false || tps.collision === false){
+            }else if(tl.collision===true || tps.collision===true){
               tl.collision=true;
-              if(gid>0) scene.tiled.collision[i]=gid }
+              if(gid>0) scene.tiled.collision[i]=gid
+            }
             let mapX = i % tl.width,
                 mapY = MFL(i/tl.width),
                 ps=gtileProps[gid],
@@ -157,6 +158,7 @@
           }
         },
         objectgroup(tl){
+          tl.sprites=[];
           tl.objects.forEach(o=>{
             _.assert(is.num(o.x),"wanted xy position");
             let s,ps,
@@ -183,6 +185,7 @@
               s= createFunc.c(scene,s,tsi,ps,o)
             if(s){
               scene.insert(s,true);
+              tl.sprites.push(s);
               if(ps && ps.sensor){s.m5.sensor=true} }
           });
         }
@@ -367,7 +370,7 @@
         let out=[];
         this.tiled.objectgroup.forEach(c=>{
           c.objects.forEach(o=>{
-            if(name==_.get(o,"name")) out.push(c)
+            if(name==_.get(o,"name")) out.push(o)
           });
         });
         return out;
