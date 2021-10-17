@@ -51,7 +51,7 @@
     function playClick(){ Mojo.sound("click.mp3").play() }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){return 1;
+    function doBackDrop(scene){
       if(!_G.backDropSprite)
         _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
       return scene.insert(_S.opacity(_G.backDropSprite,0.148));
@@ -80,7 +80,10 @@
             _F.remove(t);
             _S.tint(s,C_ORANGE);
             playClick();
-            _.delay(CLICK_DELAY,()=> _Z.runSceneEx("PlayGame"));
+            _.delay(CLICK_DELAY,()=>{
+              _Z.runSceneEx("PlayGame");
+              _Z.runScene("HUD");
+            });
           }
           Mojo.on(["single.tap"],cb);
           _V.set(s,W2,Mojo.height*0.7);
@@ -94,6 +97,39 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _objF= {};
 
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function _touches(scene){
+      let K=Mojo.getScaleFactor(true);
+      let cfg={fontName:UI_FONT,fontSize:64*K};
+      let alpha=0.2,grey=_S.color("#cccccc");
+      let L,R,F,offX, offY;
+      R= _S.rect(120,72,grey,grey,4);
+      _S.centerAnchor(R);
+      R.addChild(_S.centerAnchor(_S.bmpText("->",cfg)));
+      offY=K*R.height/2;
+      offX=offY;
+      _V.set(R, Mojo.width-offX-R.width/2, Mojo.height-offY-R.height/2);
+      scene.insert(_S.opacity(_I.makeHotspot(R),alpha));
+      //////
+      //////
+      L= _S.rect(120,72,grey,grey,4);
+      _S.centerAnchor(L);
+      L.addChild(_S.centerAnchor(_S.bmpText("<-",cfg)));
+      _S.pinLeft(R,L,offX/2);
+      scene.insert(_S.opacity(_I.makeHotspot(L),alpha));
+      //////
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
+      L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("HUD",{
+      setup(){
+        if(1||Mojo.touchDevice) _touches(this);
+      }
+    });
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PlayGame",{
       setup(){
@@ -103,90 +139,77 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           initLevel(){
-            let x= _S.sprite("cars.png"),
-                h=x.height,
-                w=x.width/4;
             let {row,column}= self.getNamedItem("startpos")[0];
-            let items=self.getObjectGroup("items");
+            let x,y,items=self.getObjectGroup("items");
             items.sprites.forEach(s=>s.visible=false);
             let cps= self.getNamedItem("check").sort((a,b)=>{
               return a.order<b.order?-1:(a.order>b.order?1:0)
             });
-            let s,cs= _S.frames("cars.png",w,h);
-            _S.centerAnchor(s=_S.sprite(cs[0]));
-            s.x=column*tileW+s.width/2;
-            s.y=row*tileH+s.height/2;
-            s.m5.type=E_CAR;
-            s.m5.cmask=E_CAR;
+            let r,p,s= this.mkCar("red");
+            x=column*tileW+s.width/2;
+            y=row*tileH+s.height/2;
+            p=_S.sprite("start.png");
+            _S.centerAnchor(p);
+            p.angle=90;
+            p.x=x+tileW+2;
+            p.y=y;
+            self.insert(_S.scaleBy(p,0.2,0.2));
+            ////////
+            s.x=x;
+            s.y=y;
             s.m5.maxSpeed=400;
             s.m5.speed=s.m5.maxSpeed;
             s.m5.tick=(dt)=>{
-              //s["2d"].onTick(dt)
+              s["2d"].onTick(dt)
             };
-            self.insert(Mojo.addMixin(s,"2d"));
-            if(true){
-              let p1=_S.centerAnchor(_S.sprite(cs[1]));
-              let R=p1.width*1.4;
-              p1.m5.type=E_CAR;
-              p1.m5.cmask=E_CAR;
-              p1.m5.maxSpeed=250;
-              p1.m5.speed=p1.m5.maxSpeed;
-              p1.x= s.x;
-              p1.y= s.y - s.height - s.height/8;
-              p1.m5.vel[0] = p1.m5.speed;//cos(p1.rotation)*p1.m5.speed;
-              //p1.m5.vel[1] = sin(p1.rotation)*p1.m5.speed;
-              p1.g.cps=cps.slice();
-              p1.g.cpn=0;
-              p1.g.recalc=true;
-              p1.g.targetRot=null;
-              p1.m5.tick=(dt)=>{
-                let c= p1.g.cps[p1.g.cpn];
-                let t=[c.column*tileW+tileW/2,
-                       c.row*tileH+tileH/2];
-                let dx=t[0]-p1.x;
-                let dy=t[1]-p1.y;
-                let dr,D=Math.sqrt(dx*dx+dy*dy);
-                if(D<R){//next checkpoint
-                  p1.g.cpn= (p1.g.cpn+1)%p1.g.cps.length;
-                  return;
-                }
-                let beta=p1.rotation-Math.atan2(dy,dx);
-                if(sin(beta)<0){
-                  p1.m5.angVel = 0.03;
-                  //+beta
-                }else{
-                  //-beta
-                  p1.m5.angVel = -0.03;
-                }
+            self.insert(Mojo.addMixin(s,"2d"),true);
+            let p1=this.cfgCar(this.mkCar("green"),cps);
+            let p2=this.cfgCar(this.mkCar("orange"),cps);
+            return _.inject(_G,{
+              car:s,
+              racers:[s,p1,p2]
+            });
+          },
+          mkCar(color){
+            let K=Mojo.getScaleFactor(),
+                s=_S.sprite(`${color}.png`);
+            _S.centerAnchor(_S.scaleBy(s,0.08*K,0.08*K));
+            s.m5.type=E_CAR;
+            s.m5.cmask=E_CAR;
+            s.m5.maxSpeed=280*K;
+            s.m5.speed=s.m5.maxSpeed;
+            s.m5.vel[0] = s.m5.speed;
+            return s;
+          },
+          cfgCar(p1,cps){
+            let K=Mojo.getScaleFactor(),
+                A=0.05*K,r,R=K*p1.width*2.2;
+            p1.g.cps=cps.slice();
+            p1.g.cpn=0;
+            while(1){
+              r=_.randItem(cps); if(r.angle!==undefined){break;}}
+            p1.x=r.column*tileW+tileW/2;
+            p1.y=r.row*tileH+tileH/2;
+            p1.angle=r.angle;
+            p1.g.cpn=cps.indexOf(r);
+            p1.m5.tick=(dt)=>{
+              let c= p1.g.cps[p1.g.cpn];
+              let t=[c.column*tileW+tileW/2,
+                     c.row*tileH+tileH/2];
+              let dx=t[0]-p1.x;
+              let dy=t[1]-p1.y;
+              let a,dr,D=Math.sqrt(dx*dx+dy*dy);
+              if(D<R){//next checkpoint
+                p1.g.cpn= (p1.g.cpn+1)%p1.g.cps.length;
+              }else{
+                p1.m5.angVel = sin(p1.rotation-Math.atan2(dy,dx))<0? A : -A;
                 p1.rotation += p1.m5.angVel;
                 p1.m5.vel[0]=cos(p1.rotation)*p1.m5.speed;
                 p1.m5.vel[1]=sin(p1.rotation)*p1.m5.speed;
                 p1["2d"].onTick(dt)
-              };
-              p1.g.onHit=()=>{
-                p1.g.recalc=true;
               }
-              Mojo.on(["hit",p1],"onHit",p1.g);
-              self.insert(Mojo.addMixin(p1,"2d"));
-              let p2=_S.centerAnchor(_S.sprite(cs[2]));
-              p2.m5.type=E_CAR;
-              p2.m5.cmask=E_CAR;
-              p2.m5.maxSpeed=200;
-              p2.m5.speed=p2.m5.maxSpeed;
-              p2.x= s.x;
-              p2.y= s.y + s.height + s.height/8;
-              p2.m5.vel[0] = cos(p2.rotation)*p2.m5.speed;
-              p2.m5.vel[1] = sin(p2.rotation)*p2.m5.speed;
-              p2.g.cps=cps.slice();
-              p2.g.cpn=0;
-              p2.m5.tick=(dt)=>{
-                //p2["2d"].onTick(dt)
-              };
-              self.insert(Mojo.addMixin(p2,"2d"));
-            }
-            _.inject(_G,{
-              car:s
-            });
+            };
+            return self.insert(Mojo.addMixin(p1,"2d"),true);
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -194,28 +217,26 @@
         Mojo.addMixin(this,"camera2d", tiledWidth, tiledHeight,Mojo.canvas);
       },
       postUpdate(dt){
-        if(_I.keyDown(_I.DOWN)){
-          _G.car.m5.speed=0;
-        }else if(_I.keyDown(_I.UP)){
-          _G.car.m5.speed=_G.car.m5.maxSpeed;
-        }
         if(_I.keyDown(_I.LEFT)){
           _G.car.angle -= 3;
         }
         if(_I.keyDown(_I.RIGHT)){
           _G.car.angle += 3;
         }
-
         _G.car.m5.vel[0] = cos(_G.car.rotation)*_G.car.m5.speed;
         _G.car.m5.vel[1] = sin(_G.car.rotation)*_G.car.m5.speed;
+
+        for(let a,i=_G.racers.length-1;i>=0;--i){
+          a=_G.racers[i];
+          this.searchSGrid(a).forEach(o=>{
+            _S.collide(a,o);
+          });
+        }
 
         this["camera2d"].follow(_G.car);
       }
     },{sgridX:128,sgridY:128,centerStage:true, tiled:{name:"racing.json",factory:_objF}});
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("HUD",{
-    });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -223,8 +244,9 @@
   const _$={
     assetFiles: ["roadTextures_tilesheet.png",
                  "towerDefense_tilesheet.png",
-                 "cars.png","racing.json","click.mp3"],
-    arena: {},//width: 1680, height: 1050
+                 "red.png","green.png","orange.png",
+                 "start.png","bg.png","racing.json","click.mp3"],
+    arena: {width: 1680, height: 1050, scale:1},
     scaleToWindow:"max",
     scaleFit:"x",
     start(Mojo){

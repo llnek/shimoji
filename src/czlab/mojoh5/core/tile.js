@@ -98,7 +98,7 @@
     }
 
     /** process the tiled map */
-    function _loadTMX(scene,arg,objFactory){
+    function _loadTMX(scene,arg,objFactory,scale){
       let tmx= is.str(arg)?_checkVer(arg):arg;
       let tsProps={}, gtileProps={};
       _.assert(is.obj(tmx),"bad tiled map");
@@ -112,6 +112,10 @@
                             tiledWidth:tmx.tilewidth*tmx.width,
                             tiledHeight:tmx.tileheight*tmx.height}, _parseProps(tmx));
       let K=scene.getScaleFactor();
+      if(scale!==undefined){
+        K=scale;
+        scene.tiled.scale=scale;
+      }
       let NW= MFL(K*tmx.tilewidth);
       let NH= MFL(K*tmx.tileheight);
       if(!_.isEven(NW)) {--NW}
@@ -191,7 +195,7 @@
         }
       };
       objFactory=_.nor(objFactory,{});
-      _.inject(scene.tiled, {tileProps: gtileProps,
+      _.merge(scene.tiled, {tileProps: gtileProps,
                              tileSets: tsProps,
                              objFactory,
                              collision: _.fill(tmx.width*tmx.height,0),
@@ -220,7 +224,7 @@
     /** create a sprite */
     function _ctorTile(scene,gid,mapX,mapY,tw,th,cz){
       let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-          K=scene.getScaleFactor(),
+          K=scene.tiled.scale || scene.getScaleFactor(),
           cFunc,
           cols=tsi.columns,
           _id=gid - tsi.firstgid,
@@ -288,11 +292,11 @@
       reloadMap(options){
         let t= this.m5.options.tiled=options;
         this.tiled={};
-        _loadTMX(this, t.name, t.factory);
+        _loadTMX(this, t.name, t.factory,t.scale);
       }
       runOnce(){
         let t= this.m5.options.tiled;
-        _loadTMX(this, t.name, t.factory);
+        _loadTMX(this, t.name, t.factory,t.scale);
         super.runOnce();
       }
       removeTile(layer,s){

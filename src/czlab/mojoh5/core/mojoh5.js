@@ -358,8 +358,7 @@
         maxed=true;
         box= {width: _width(),
               height: _height()};
-        if(_.nichts(cmdArg.arena.width) &&
-           _.nichts(cmdArg.arena.height)){
+        if(cmdArg.arena.scale===1){
           //no scaling
           maxed=false;
           cmdArg.arena=box;
@@ -955,8 +954,8 @@
        * @memberof module:mojoh5/Mojo
        * @return {number}
        */
-      getScaleFactor(){
-        if(cmdArg.scaleToWindow!="max"){
+      getScaleFactor(force){
+        if(!force && cmdArg.scaleToWindow!="max"){
           return 1
         }else{
           _ScrSize.height=Mojo.height;
