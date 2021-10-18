@@ -19,42 +19,65 @@
   /**Create the module. */
   function _module(Mojo){
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const P8=Math.PI/8,
           P8_3=P8*3,
           P8_5=P8*5,
           P8_7= P8*7,
           {Sprites:_S, Input:_I, is,ute:_}=Mojo;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const sin=Math.sin,cos=Math.cos,abs=Math.abs;
+    const RTA=180/Math.PI;
+
     /**
      * @module mojoh5/Touch
      */
 
-    /** @ignore */
-    function _calcPower(s,cx,cy){
-      const a= +cx;
-      const b= +cy;
-      return Math.min(1, Math.sqrt(a*a + b*b)/s.m5.range) }
-
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _calcDir(cx,cy){
       const rad= Math.atan2(+cy, +cx);
 
-      if(rad > -P8_5 && rad < -P8_3){ return Mojo.UP }
-      if(rad > P8_3 && rad < P8_5){ return Mojo.DOWN }
+      if(rad > -P8_5 && rad < -P8_3){
+        console.log("calcDir=UP");
+        return Mojo.UP;
+      }
+      if(rad > P8_3 && rad < P8_5){
+        console.log("calcDir=DOWN");
+        return Mojo.DOWN;
+      }
       if((rad > -P8 && rad<0) ||
-         (rad > 0 && rad<P8)){ return Mojo.RIGHT }
+         (rad > 0 && rad<P8)){
+        console.log("calcDir=RIGHT");
+        return Mojo.RIGHT;
+      }
       if((rad > P8_7 && rad<Math.PI) ||
-         (rad > -Math.PI && rad < -P8_7)){ return Mojo.LEFT }
+         (rad > -Math.PI && rad < -P8_7)){
+        console.log("calcDir=LEFT");
+        return Mojo.LEFT;
+      }
 
-      if(rad > P8 && rad < P8_3){ return Mojo.SE }
-      if(rad > P8_5 && rad < P8_7){ return Mojo.SW }
-      if(rad> -P8_3 && rad < -P8){ return Mojo.NE }
-      if(rad > -P8_7 && rad < -P8_5){ return Mojo.NW }
+      if(rad > P8 && rad < P8_3){
+        console.log("calcDir= SE ");
+        return Mojo.SE;
+      }
+      if(rad > P8_5 && rad < P8_7){
+        console.log("calcDir= SW ");
+        return Mojo.SW;
+      }
+      if(rad> -P8_3 && rad < -P8){
+        console.log("calcDir= NE ");
+        return Mojo.NE;
+      }
+      if(rad > -P8_7 && rad < -P8_5){
+        console.log("calcDir= NW ");
+        return Mojo.NW;
+      }
 
       _.assert(false,"Failed Joystick calcDir");
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _bindEvents(s){
       function onDragStart(e){
         let ct=e.changedTouches;
@@ -62,7 +85,7 @@
         if(ct){
           e=ct[0];
           s.m5.touchId=ct[0].identifier;
-        }else{
+        }else{//for mouse
           s.m5.touchId=0;
         }
         s.m5.startX= e.pageX - t.offsetLeft;
@@ -91,14 +114,16 @@
         if(e.changedTouches){
           for(let i=0,
                   ct=e.changedTouches; i< ct.length; ++i){
-            if(s.m5.touchId === ct[i].identifier){
+            if(s.m5.touchId == ct[i].identifier){
               c= [ct[i].pageX-t.offsetLeft,
                   ct[i].pageY-t.offsetTop];
               break;
             }
           }
-        }else{
-          c= [e.pageX - t.offsetLeft, e.pageY - t.offsetTop] }
+        }else{//for mouse
+          c= [e.pageX - t.offsetLeft,
+              e.pageY - t.offsetTop]
+        }
         let X = c? (c[0] - s.m5.startX) :0;
         let Y = c? (c[1] - s.m5.startY) :0;
         let limit=s.m5.range;
@@ -106,8 +131,7 @@
         c[0]=0;
         c[1]=0;
         if(_.feq0(X) && _.feq0(Y)){return}
-        /**
-         * x:   -1 <-> 1
+        /**x:   -1 <-> 1
          * y:   -1 <-> 1
          *          Y
          *          ^
@@ -115,66 +139,67 @@
          *    ------------> X
          *     270  |  360
          */
-        let direction,power=0;
-        let sx=Math.abs(X);
-        let sy=Math.abs(Y);
+        let dir, sx=abs(X), sy=abs(Y);
         if(_.feq0(X)){
+          c[0]=0;
           if(Y>0){
-            c[0]=0;
             c[1]=Y>limit ? limit : Y;
             angle=270;
-            direction=Mojo.DOWN;
+            dir=Mojo.DOWN;
           }else{
-            c[0]=0;
             c[1]= -(sy > limit ? limit : sy);
             angle = 90;
-            direction = Mojo.UP;
+            dir= Mojo.UP;
           }
         }else if(_.feq0(Y)){
+          c[1]=0;
           if(X>0){
             c[0]=sx > limit ? limit : sx;
-            c[1]=0;
             angle=0;
-            direction = Mojo.RIGHT;
+            dir= Mojo.RIGHT;
           }else{
             c[0]=-(sx > limit ? limit : sx);
-            c[1]=0;
             angle = 180;
-            direction = Mojo.LEFT;
+            dir= Mojo.LEFT;
           }
         }else{
-          let rad= Math.atan(Math.abs(Y/X));
-          angle = rad*180/Math.PI;
-          c[0]=0;
-          c[1]=0;
+          let rad= Math.atan(abs(Y/X));
+          angle = rad*RTA;
+          c[0]=c[1]=0;
           if(X*X + Y*Y >= limit*limit){
-            c[0]= limit * Math.cos(rad);
-            c[1]= limit * Math.sin(rad);
+            c[0]= limit * cos(rad);
+            c[1]= limit * sin(rad);
           }else{
             c[0]= sx > limit ? limit : sx;
             c[1]= sy > limit ? limit : sy;
           }
           if(Y<0)
-            c[1]= -Math.abs(c[1]);
+            c[1]= -abs(c[1]);
           if(X<0)
-            c[0]= -Math.abs(c[0]);
+            c[0]= -abs(c[0]);
           if(X>0 && Y<0){
+            //console.log(`angle < 90`);
             // < 90
           }else if(X<0 && Y<0){
             // 90 ~ 180
+            //console.log(`angle 90 ~ 180`);
             angle= 180 - angle;
           }else if(X<0 && Y>0){
             // 180 ~ 270
+            //console.log(`angle 180 ~ 270`);
             angle += 180;
           }else if(X>0 && Y>0){
-            // 270 ~ 369
+            // 270 ~ 360
+            //console.log(`angle 270 ~ 360`);
             angle= 360 - angle;
           }
-          direction= _calcDir(c[0],c[1]);
+          dir= _calcDir(c[0],c[1]);
         }
         s.m5.inner.position.set(c[0],c[1]);
-        s.m5.onChange(direction,angle, _calcPower(s,c[0],c[1]));
+        s.m5.onChange(dir,angle);
       }
+
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       const sigs= [["mousemove", Mojo.canvas, onDragMove],
                    ["mousedown", Mojo.canvas, onDragStart],
                    ["mouseup", window, onDragEnd],
@@ -200,12 +225,13 @@
         let stick=new PIXI.Container();
         let mo= _.inject({oscale:0.7,
                           iscale:1,
-                          static:false,
                           inner,
                           outer,
-                          onStart(){},
                           onEnd(){},
-                          onChange(dir,angle,power){}}, options);
+                          onStart(){},
+                          prevDir:0,
+                          static:false,
+                          onChange(dir,angle){}}, options);
         _S.scaleXY(outer,mo.oscale, mo.oscale);
         _S.scaleXY(inner,mo.iscale, mo.iscale);
         outer.anchor.set(0.5);

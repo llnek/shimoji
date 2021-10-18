@@ -102,6 +102,7 @@
       let tmx= is.str(arg)?_checkVer(arg):arg;
       let tsProps={}, gtileProps={};
       _.assert(is.obj(tmx),"bad tiled map");
+      tmx=JSON.parse(JSON.stringify(tmx));
       _.inject(scene.tiled,{tileW:tmx.tilewidth,
                             tileH:tmx.tileheight,
                             tilesInX:tmx.width,
@@ -241,7 +242,7 @@
       if(tsi.spacing>0){
         tsX += tsi.spacing * tscol;
         tsY += tsi.spacing * tsrow; }
-      let s= cFunc&&cFunc.s() || Mojo.Sprites.frame(tsi.image,
+      let s= cFunc&&cFunc.s(scene) || Mojo.Sprites.frame(tsi.image,
                                                     tw||tsi.tilewidth,
                                                     th||tsi.tileheight,tsX,tsY);
       s.tiled={gid: gid, id: _id};

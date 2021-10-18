@@ -16,22 +16,51 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
+
     const {Scenes:_Z,
            Sprites:_S,
            Tiles:_T,
+           FX:_F,
            Input:_I,
            "2d":_2d,
            v2:_V,
            Game:_G,
            ute:_,is}=Mojo;
-    const MFL=Math.floor;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const int=Math.floor;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const E_PLAYER=1;
     const E_ENEMY=2;
     const E_COIN=4;
-    const E_TOWER=8;
+    const E_KEY=8;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT="Big Shout Bob";
+    const UI_FONT="Doki Lowercase";
+    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
+    //const C_TITLE=_S.color("#ea2152");//red
+    //const C_TITLE=_S.color("#1eb7e6");//blue
+    const C_BG=_S.color("#169706");
+    const C_TEXT=_S.color("#fff20f");
+    const C_GREEN=_S.color("#7da633");
+    const C_ORANGE=_S.color("#f4d52b");
+    const CLICK_DELAY=343;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function playClick(){ Mojo.sound("click.mp3").play() }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doBackDrop(scene){
+      if(!_G.backDropSprite)
+        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
+      return scene.insert(_S.opacity(_G.backDropSprite,0.148));
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     Mojo.defMixin("enemyAI", function(e){
       e.m5.heading=Mojo.LEFT;
       //e.m5.speed=100;
@@ -73,13 +102,14 @@
       return self;
     });
 
-    const Tower={
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const Key={
       s(){},
       c(scene,t,ts,ps){
-        t.m5.type=E_TOWER;
+        t.m5.type=E_KEY;
         t.m5.sensor=true;
         t.m5.onSensor=(colObj)=>{
-          scene.removeTile("Tiles",t)
+          scene.remove(t);
         };
         t.m5.dispose=()=>{
           Mojo.off(t.m5)
@@ -89,99 +119,185 @@
       }
     };
 
-    const Dot={
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const Coin={
       s(){},
       c(scene,s,ts,ps){
-        scene.dotCount = _.or(scene.dotCount,0);
-        scene.dotCount += 1;
-        s.m5.uuid=`dot#${scene.dotCount}`;
+        scene.g.dotCount = _.nor(scene.g.dotCount,0);
+        scene.g.dotCount += 1;
+        s.m5.uuid=`coin#${scene.g.dotCount}`;
         s.m5.type=E_COIN;
         s.m5.sensor=true;
         s.m5.onSensor=(colObj)=>{
-          scene.removeTile("Tiles",s);
-          scene.dotCount -= 1;
-          if(scene.dotCount===0){}
+          scene.removeTile("coins",s);
+          scene.g.dotCount -= 1;
+          if(scene.g.dotCount===0){
+            _I.reset();
+            _.delay(CLICK_DELAY,()=>{
+              scene.m5.dead=true;
+              _Z.runScene("EndGame",{msg:"You Win!"});
+            });
+          }
         };
         s.m5.dispose=()=>{
-          Mojo.off(s.m5);
+          Mojo.off(s.m5)
         };
         Mojo.on(["2d.sensor",s],"onSensor",s.m5);
         return s;
       }
     };
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Player={
-      s(){},
-      c(scene,p,ts,ps,os){
-        p.m5.type=E_PLAYER;
-        p.m5.cmask=E_TOWER | E_COIN;
-        _S.centerAnchor(p);
-        p.x += MFL(p.width/2);
-        p.y += MFL(p.height/2);
-        p.m5.uuid="player";
-        p.m5.speed= 150 * scene.getScaleFactor();
-        _V.set(p.m5.vel,p.m5.speed, p.m5.speed);
-        Mojo.addMixin(p,"2d",[_2d.MazeRunner,true]);
-        p.m5.tick=function(dt){
-          p["2d"].onTick(dt);
+      s(scene){
+        return _S.animation("pac.png",64,64)
+      },
+      c(scene,s,ts,ps,os){
+        _S.centerAnchor(s);
+        s.m5.type=E_PLAYER;
+        s.m5.cmask=E_KEY | E_COIN;
+        s.x += int(s.width/2);
+        s.y += int(s.height/2);
+        s.m5.uuid="player";
+        s.m5.speed= 200 * scene.getScaleFactor();
+        _V.set(s.m5.vel,s.m5.speed, 0);
+        s.m5.tick=function(dt){
+          s["2d"].onTick(dt);
         };
-        _G.player=p;
-        return p;
+        s.m5.heading=Mojo.RIGHT;
+        _G.player=s;
+        let frames={}
+        frames[Mojo.RIGHT]=0;
+        frames[Mojo.UP]=1;
+        frames[Mojo.LEFT]=2;
+        frames[Mojo.DOWN]=3;
+        return Mojo.addMixin(s,"2d",[_2d.MazeRunner,frames]);
       }
     };
 
-    const Enemy={
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const Ghost={
       s(){},
       c(scene,s,ts,ps,os){
         s.m5.uuid=`e#${_.nextId()}`;
         s.m5.type=E_ENEMY;
         s.m5.cmask=E_PLAYER;
-        s.x = os.column * s.width+MFL(s.width/2);
-        s.y = os.row * s.height+MFL(s.height/2);
+        s.x = os.column * s.width+int(s.width/2);
+        s.y = os.row * s.height+int(s.height/2);
         _S.centerAnchor(s);
-        s.m5.speed= 150 * scene.getScaleFactor();
+        s.m5.speed= 200 * scene.getScaleFactor();
         _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
         Mojo.addMixin(s,"2d");
         Mojo.addMixin(s,"enemyAI");
         s.m5.boom=function(col){
           if(col.B.m5.uuid=="player"){
-            Mojo.pause();
+            _I.reset();
+            _.delay(CLICK_DELAY,()=>{
+              scene.m5.dead=true;
+              _Z.runScene("EndGame",{msg:"You Lose!"});
+            });
           }
         };
         s.m5.dispose=()=>{
           Mojo.off(["bump",s],"boom",s.m5)
         }
         s.m5.tick=function(dt){
-          //s["2d"].onTick(dt);
-          //s["enemyAI"].onTick(dt);
+          s["2d"].onTick(dt);
+          s["enemyAI"].onTick(dt);
         };
         Mojo.on(["bump",s],"boom",s.m5);
-      return s;
+        return s;
       }
     };
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("Splash",{
+      setup(){
+        let self=this,
+            W2=Mojo.width/2,
+            K=Mojo.getScaleFactor(),
+            verb=Mojo.touchDevice?"Tap":"Click";
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doTitle=(s)=>{
+          s=_S.bmpText("Tacman",{fontName:TITLE_FONT,fontSize:120*K});
+          _S.tint(s,C_TITLE);
+          _V.set(s,W2,Mojo.height*0.3);
+          return self.insert(_S.centerAnchor(s));
+        }
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doNext=(s,t)=>{
+          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
+          t=_F.throb(s,0.747,0.747);
+          function cb(){
+            Mojo.off(["single.tap"],cb);
+            _F.remove(t);
+            _S.tint(s,C_ORANGE);
+            playClick();
+            _.delay(CLICK_DELAY,()=>{
+              _Z.runSceneEx("PlayGame");
+            });
+          }
+          Mojo.on(["single.tap"],cb);
+          _V.set(s,W2,Mojo.height*0.7);
+          return self.insert(_S.centerAnchor(s));
+        }
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _objFactory={
-      Player, Enemy, Dot, Tower
+      Player, Ghost, Coin, Key
     };
 
-    _Z.defScene("level1",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("EndGame",{
+      setup(options){
+        let s1,s2,
+            s4,s5,s6,os={fontName:UI_FONT,
+                         fontSize: 72*Mojo.getScaleFactor()};
+        let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
+        s1=_S.bmpText("Game Over", os);
+        s2=_S.bmpText(options.msg, os);
+        s4=_I.makeButton(_S.bmpText("Play Again?",os));
+        s5=_S.bmpText(" or ",os);
+        s6=_I.makeButton(_S.bmpText("Quit",os));
+        s4.m5.press=()=>{ _Z.runSceneEx("PlayGame") };
+        s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
+        options.bg="#cccccc";
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PlayGame",{
       setup(options){
       }
     },{sgridX:128,sgridY:128,centerStage:true,
-       tiled:{name: "map.json",factory:_objFactory}});
+       tiled:{name: "tacman.json",factory:_objFactory}});
 
-    _Z.defScene("hud",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("HUD",{
       setup(){
         let s= Mojo.Touch.joystick({
           onChange(dir){
             if(Mojo.sideRight(dir)){
-              _G.player.m5.heading=Mojo.RIGHT; }
+              _G.player.m5.heading=Mojo.RIGHT;
+              //console.log(`dir===right`);
+            }
             if(Mojo.sideLeft(dir)){
-              _G.player.m5.heading=Mojo.LEFT; }
+              _G.player.m5.heading=Mojo.LEFT;
+              //console.log(`dir===left`);
+            }
             if(Mojo.sideTop(dir)){
-              _G.player.m5.heading=Mojo.UP; }
+              _G.player.m5.heading=Mojo.UP;
+              //console.log(`dir===up`);
+            }
             if(Mojo.sideBottom(dir)){
-              _G.player.m5.heading=Mojo.DOWN; }
+              _G.player.m5.heading=Mojo.DOWN;
+              //console.log(`dir===down`);
+            }
           }
         });
         this.insert(s);
@@ -189,19 +305,23 @@
     });
   }
 
-  window.addEventListener("load",()=>{
-    MojoH5({
-      assetFiles: ["sprites.png", "map.json","tiles.png"],
-      arena: {width:640,height:480},
-      scaleToWindow:"max",
-      touchOnly:true,
-      start(Mojo){
-        scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
-        Mojo.Scenes.runScene("hud");
-      }
-    })
-  });
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //game config
+  const _$={
+    assetFiles: ["ghosts.png", "tacman.json","pac.png", "bg.png","click.mp3",
+                 "platformPack_tilesheet.png","towerDefense_tilesheet.png","RPGpack_sheet.png"],
+    XXarena: {width:64*20,height:78*14},
+    arena: {width:1280,height:1092},
+    scaleToWindow:"max",
+    start(Mojo){
+      scenes(Mojo);
+      Mojo.Scenes.runScene("Splash");
+    }
+  };
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //load & run
+  window.addEventListener("load",()=> MojoH5(_$));
 
 })(this);
 

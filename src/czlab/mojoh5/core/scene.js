@@ -45,6 +45,9 @@
         this.name=s.name;
         this.m5={stage:true};
       }
+      dispose(){
+        _killScene(this.children[0]);
+      }
       update(dt){
         this.children[0].update(dt)
       }

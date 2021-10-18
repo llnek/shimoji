@@ -228,14 +228,14 @@
               y = !_.feq0(vy);
           if(!(x&&y) && frames){
             if(y){
-              if(is.vec(frames))
+              if(is.obj(frames))
                 e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
               else if (frames){
                 e.angle=vy>0?180:0;
               }
             }
             if(x){
-              if(is.vec(frames))
+              if(is.obj(frames))
                 e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
               else if(frames){
                 e.angle=vx>0?90:-90;
