@@ -132,10 +132,15 @@
             tl.height=tl.data.length;
             tl.data=tl.data.flat();
           }
-          if(tl.visible === false){ return }
           if(!tl.width) tl.width=scene.tiled.tilesInX;
           if(!tl.height) tl.height=scene.tiled.tilesInY;
-          let tps=_parseProps(tl);
+          let cz,tps=_parseProps(tl);
+          if(tl.visible === false){
+            if(cz=tps["Class"]){
+              objFactory[cz](scene,tl)
+            }
+            return;
+          }
           for(let s,gid,i=0;i<tl.data.length;++i){
             if((gid=tl.data[i])===0){ continue }
             if(tl.collision===false || tps.collision === false){

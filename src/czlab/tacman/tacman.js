@@ -103,7 +103,7 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Key={
+    const Power={
       s(){},
       c(scene,t,ts,ps){
         t.m5.type=E_KEY;
@@ -120,32 +120,47 @@
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Coin={
-      s(){},
-      c(scene,s,ts,ps){
-        scene.g.dotCount = _.nor(scene.g.dotCount,0);
-        scene.g.dotCount += 1;
-        s.m5.uuid=`coin#${scene.g.dotCount}`;
-        s.m5.type=E_COIN;
-        s.m5.sensor=true;
-        s.m5.onSensor=(colObj)=>{
-          scene.removeTile("coins",s);
-          scene.g.dotCount -= 1;
-          if(scene.g.dotCount===0){
-            _I.reset();
-            _.delay(CLICK_DELAY,()=>{
-              scene.m5.dead=true;
-              _Z.runScene("EndGame",{msg:"You Win!"});
-            });
-          }
-        };
-        s.m5.dispose=()=>{
-          Mojo.off(s.m5)
-        };
-        Mojo.on(["2d.sensor",s],"onSensor",s.m5);
-        return s;
+    function CoinLayer(scene,tl){
+      let {new_tileW,new_tileH,tilesInX,tilesInY}=scene.tiled;
+      let c= tl.data;
+      let h=_S.sprite("coins.png").height;
+      let t=_S.frames("coins.png",h,h)[1];
+      for(let y=0;y<tilesInY;++y)
+      for(let s,x=0;x<tilesInX;++x){
+        if(634==c[y*tilesInX+x]){
+          s=_S.sprite(t);
+          _S.centerAnchor(_S.scaleBy(s,0.5,0.5));
+          s.y=new_tileH*y+new_tileH/2;
+          s.x=new_tileW*x+new_tileW/2;
+          scene.insert(cfgCoin(scene,s),true);
+        }
       }
-    };
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function cfgCoin(scene,s){
+      scene.g.dotCount = _.nor(scene.g.dotCount,0);
+      scene.g.dotCount += 1;
+      s.m5.uuid=`coin#${scene.g.dotCount}`;
+      s.m5.type=E_COIN;
+      s.m5.sensor=true;
+      s.m5.onSensor=(colObj)=>{
+        scene.g.dotCount -= 1;
+        _S.remove(s);
+        if(scene.g.dotCount===0){
+          _I.reset();
+          _.delay(CLICK_DELAY,()=>{
+            scene.m5.dead=true;
+            _Z.runScene("EndGame",{msg:"You Win!"});
+          });
+        }
+      };
+      s.m5.dispose=()=>{
+        Mojo.off(s.m5)
+      };
+      Mojo.on(["2d.sensor",s],"onSensor",s.m5);
+      return s;
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Player={
@@ -248,7 +263,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _objFactory={
-      Player, Ghost, Coin, Key
+      Player, Ghost, CoinLayer, Power
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -308,7 +323,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["ghosts.png", "tacman.json","pac.png", "bg.png","click.mp3",
+    assetFiles: ["ghosts.png", "tacman.json","pac.png", "bg.png","click.mp3","coins.png",
                  "platformPack_tilesheet.png","towerDefense_tilesheet.png","RPGpack_sheet.png"],
     XXarena: {width:64*20,height:78*14},
     arena: {width:1280,height:1092},
