@@ -196,7 +196,7 @@
               trackSection:0,
               trackCurvature:0,
               playerCurvature:0,
-              player: _S.sprite("images/javidx9/red_car.png")
+              player: _S.sprite("red_car.png")
             });
             _G.TRACK_DIST= _G.TRACK.reduce((a,r)=> a+r.ct, 0);
             self.insert(self.g.gfx=_S.graphics());

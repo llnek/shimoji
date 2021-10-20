@@ -166,7 +166,8 @@
             b=_2d.healthBar({
               width:out.width/3,
               height:h/2,
-              border:2,
+              borderWidth:2,
+              scale:K,
               lives:3,
               line: "white",
               fill: _S.BtnColors.green

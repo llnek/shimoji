@@ -29,6 +29,7 @@
     //import mcfud's core module
     const {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"]();
     const _V = gscope["io/czlab/mcfud/vec2"]();
+    const _M = gscope["io/czlab/mcfud/math"]();
     const EBus= EventBus();
     const MFL=Math.floor;
     const CON=console;
@@ -87,8 +88,8 @@
       const Y=cy-RH/2;
       return {
         init(){
-          this.fg=Sprites.rectangle(cx, RH, fgColor);
-          this.bg=Sprites.rectangle(cx, RH, bgColor);
+          this.fg=Sprites.rect(cx, RH, fgColor);
+          this.bg=Sprites.rect(cx, RH, bgColor);
           this.perc=Sprites.text("0%", {fontSize:MFL(RH/2),
                                         fill:"black",
                                         fontFamily:"sans-serif"});
@@ -198,9 +199,12 @@
           Mojo.delBgTask(ldrObj);
         _.delay(0,()=>{
           Mojo.Scenes.removeScene(scene);
-          if(!error) Mojo.u.start(Mojo); });
-      }
-      function _m1(){ --fcnt===0 && _finz() }
+          if(!error)
+            Mojo.u.start(Mojo);
+          else
+            _.error("Cannot load game!"); }); }
+      function _m1(b){
+        --fcnt===0 && _finz() }
       if(!error)
         _.doseq(Mojo.assets, (r,k)=>{
           ext= _.fileExt(k);
@@ -318,7 +322,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const _CT="body, * {padding: 0; margin: 0}";
+    const _CT="body, * {padding: 0; margin: 0; height:100%; overflow:hidden}";
     const _ScrSize={width:0,height:0};
     const _Size11={width:1,height:1};
 
@@ -331,18 +335,13 @@
 
     function _configCanvas(arg){
       let p= { "outline":"none" };
+      //p["image-rendering"]="crisp-edges";
+      //p["image-rendering"]="pixelated";
       if(arg.rendering !== false){
-        p["image-rendering"]= arg.rendering || "pixelated";
-        //p["image-rendering"]="crisp-edges";
+        p["image-rendering"]= arg.rendering
       }
       dom.css(Mojo.canvas,p);
       dom.attrs(Mojo.canvas,"tabindex","0");
-    }
-
-    /**Install a module. */
-    function _runM(m){
-      CON.log(`installing module ${m}...`);
-      gscope[`io/czlab/mojoh5/${m}`](Mojo)
     }
 
     /** Main */
@@ -359,8 +358,7 @@
         maxed=true;
         box= {width: _width(),
               height: _height()};
-        if(_.nichts(cmdArg.arena.width) &&
-           _.nichts(cmdArg.arena.height)){
+        if(cmdArg.arena.scale===1){
           //no scaling
           maxed=false;
           cmdArg.arena=box;
@@ -372,7 +370,9 @@
         cmdArg.logos=new Array();
 
       Mojo.touchDevice= !!("ontouchstart" in document);
-      Mojo.ctx= PIXI.autoDetectRenderer(box);
+      Mojo.ctx= PIXI.autoDetectRenderer(_.inject(box,{
+        antialias: true
+      }));
       Mojo.ctx.bgColor = 0xFFFFFF;
       Mojo.canvas = Mojo.ctx.view;
       Mojo.canvas.id="mojo";
@@ -382,8 +382,13 @@
       Mojo.scaledBgColor= "#323232";
 
       //install modules
-      _.seq("Sprites,Input,Scenes").forEach(_runM);
-      _.seq("Sound,FX,2d,Tiles,Touch").forEach(_runM);
+      ["Sprites","Input","Scenes",
+       "Sound","FX","2d","Tiles","Touch"].forEach(s=>{
+         CON.log(`installing module ${s}...`);
+         let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
+         if(m.assets)
+           m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
+      });
 
       //register these background tasks
       _BgTasks.push(Mojo.FX, Mojo.Input);
@@ -415,7 +420,11 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
+      if(Mojo.touchDevice) {
+        Mojo.scroll()
+      }
       Mojo.canvas.focus();
+
       return _boot(Mojo);
     }
 
@@ -436,6 +445,7 @@
     //------------------------------------------------------------------------
     /**Code to run per tick. */
     function _update(dt){
+      Mojo._curFPS=Mojo.calcFPS(dt);
       //process any backgorund tasks
       _BgTasks.forEach(m=> m.update && m.update(dt));
       //update all scenes
@@ -450,7 +460,130 @@
     function _raf(cb){
       return gscope.requestAnimationFrame(cb) }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** @abstract */
+    class Mediator{
+      constructor(){
+        this.players=[];
+        this.state=null;
+        this.pcur;
+        this.end;
+        this.pwin;
+        this._pcnt=0;
+      }
+      cur(){
+        return this.pcur }
+      add(p){
+        p.pnum=++this._pcnt;
+        p.owner=this;
+        this.players.push(p);
+        return this;
+      }
+      winner(){
+        return this.pwin }
+      isGameOver(){
+        return this.end }
+      gameState(x){
+        if(x)
+          this.state=x;
+        return this.state;
+      }
+      gameOver(win){
+        Mojo.Input.resume();
+        this.pwin=win;
+        return this.end=true;
+      }
+      start(who){
+        _.assert(who,"bad player to start with");
+        this.end=false;
+        this.pcur=who;
+        this._turn();
+      }
+      other(){
+        if(this.pcur===this.players[0]) return this.players[1];
+        if(this.pcur===this.players[1]) return this.players[0];
+      }
+      _turn(){
+        this.players.forEach(p=>{
+          if(p !== this.pcur) p.pokeWait()
+        });
+        this.pcur.pokeMove();
+      }
+      redoTurn(){
+        this.pcur.pokeMove() }
+      postMove(from,move){
+        _.assert(false,"implement postMove!") }
+      updateState(from,move){
+        _.assert(false,"implement updateState!") }
+      updateSound(actor){ }
+      updateMove(from,move){
+        if(!this.end){
+          this.updateState(from,move);
+          this.updateSound(from);
+          _.delay(0,()=>this.postMove(from,move));
+        }
+      }
+      takeTurn(){
+        if(!this.end){
+          if(this.pcur===this.players[0]) this.pcur=this.players[1];
+          else if(this.pcur===this.players[1]) this.pcur=this.players[0];
+          this._turn();
+        }
+      }
+    }
+
+    /** @abstract */
+    class Player{
+      constructor(uid){
+        this.uid=uid;
+      }
+      playSound(){}
+      uuid(){ return this.uid }
+      pokeMove(){
+        //console.log(`player ${this.uid}: poked`);
+        this.onPoke();
+      }
+      pokeWait(){
+        //console.log(`player ${this.uid}: wait`);
+        this.onWait();
+      }
+      stateValue(){
+        _.assert(false,"implement stateValue!") }
+    }
+
+    /** @abstract */
+    class Local extends Player{
+      constructor(uid="p1"){
+        super(uid)
+      }
+      onPoke(){
+        //wait for user click
+        Mojo.Input.resume();
+      }
+      onWait(){
+        //stop all ui actions
+        Mojo.Input.pause();
+      }
+    }
+
+    /** @abstract */
+    class Bot extends Player{
+      constructor(uid="p2"){
+        super(uid)
+      }
+      onPoke(){
+        //run ai code
+      }
+      onWait(){
+        //do nothing
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Mojo={
+      Bot,
+      Local,
+      Mediator,
       /**Enum (1)
       * @memberof module:mojoh5/Mojo */
       EVERY:1,
@@ -480,16 +613,16 @@
       DOWN: 9,
       /**Enum (10)
        * @memberof module:mojoh5/Mojo */
-      TOP_LEFT: 10,
+      NW: 10,
       /**Enum (11)
        * @memberof module:mojoh5/Mojo */
-      TOP_RIGHT: 11,
+      NE: 11,
       /**Enum (12)
        * @memberof module:mojoh5/Mojo */
-      BOTTOM_LEFT: 12,
+      SW: 12,
       /**Enum (13)
        * @memberof module:mojoh5/Mojo */
-      BOTTOM_RIGHT: 13,
+      SE: 13,
       /**Enum (100)
        * @memberof module:mojoh5/Mojo */
       NONE: 100,
@@ -498,6 +631,7 @@
       PI_270:Math.PI*1.5,
       PI_360:Math.PI*2,
       v2:_V,
+      math:_M,
       ute:_,
       is:is,
       dom:dom,
@@ -506,7 +640,10 @@
       u:cmdArg,
       /**Storage for all game data.
        * @memberof module:mojoh5/Mojo */
-      Game:{},
+      Game:{mode:1},
+      MODE_ONE:1,
+      MODE_TWO:2,
+      MODE_NET:3,
       CON:console,
       noop: ()=>{},
       PXContainer:PIXI.Container,
@@ -516,6 +653,7 @@
       PXLR:PIXI.LoaderResource,
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
+      accel(v,a,dt){ return v+a*dt },
       on(...args){
         return EBus.sub(...args)
       },
@@ -531,28 +669,28 @@
        * @return {boolean}
        */
       sideRight(d){
-        return d===Mojo.RIGHT || d===Mojo.TOP_RIGHT || d===Mojo.BOTTOM_RIGHT },
+        return d===Mojo.RIGHT || d===Mojo.NE || d===Mojo.SE },
       /**Check if `d` is on the left hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideLeft(d){
-        return d===Mojo.LEFT || d===Mojo.TOP_LEFT || d===Mojo.BOTTOM_LEFT },
+        return d===Mojo.LEFT || d===Mojo.NW || d===Mojo.SW },
       /**Check if `d` is on the top hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideTop(d){
-        return d===Mojo.TOP || d===Mojo.TOP_LEFT || d===Mojo.TOP_RIGHT },
+        return d===Mojo.UP || d===Mojo.TOP || d===Mojo.NW || d===Mojo.NE },
       /**Check if `d` is on the bottom hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideBottom(d){
-        return d===Mojo.BOTTOM || d===Mojo.BOTTOM_LEFT || d===Mojo.BOTTOM_RIGHT },
+        return d=== Mojo.DOWN || d===Mojo.BOTTOM || d===Mojo.SW || d===Mojo.SE },
       /**Check if 2 bboxes overlap.
        * @memberof module:mojoh5/Mojo
        * @param {object} a
@@ -660,6 +798,8 @@
           cb(s)
         })
       },
+      scroll(x,y){
+        gscope.scrollTo(x||0, y||1) },
       /**Check if viewport is in portrait mode.
        * @memberof module:mojoh5/Mojo
        * @return {boolean}
@@ -814,8 +954,8 @@
        * @memberof module:mojoh5/Mojo
        * @return {number}
        */
-      getScaleFactor(){
-        if(cmdArg.scaleToWindow!="max"){
+      getScaleFactor(force){
+        if(!force && cmdArg.scaleToWindow!="max"){
           return 1
         }else{
           _ScrSize.height=Mojo.height;
@@ -901,6 +1041,15 @@
 
   "use strict";
 
+  const BtnColors={
+    blue:"#319bd5",
+    green:"#78c03f",
+    yellow:"#f9ef50",
+    red:"#eb2224",
+    orange:"#f48917",
+    grey:"#848685",
+    purple:"#a6499a"
+  };
   const SomeColors={
     aqua: "#00FFFF",
     black:  "#000000",
@@ -939,6 +1088,7 @@
 
     /** @ignore */
     function _genTexture(displayObject, scaleMode, resolution, region){
+      //from pixijs
       region = region || displayObject.getLocalBounds(null, true);
       //minimum texture size is 1x1, 0x0 will throw an error
       if(region.width === 0){ region.width = 1 }
@@ -992,6 +1142,8 @@
     /** default contact points, counter clockwise */
     function _corners(a,w,h){
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
+      //fake anchor if none provided
+      if(!a)a={x:0,y:0};
       //adjust for anchor
       out.forEach(r=>{ r[0] -= MFL(w * a.x); r[1] -= MFL(h * a.y); });
       return out;
@@ -1014,6 +1166,9 @@
         }else if(s.loop){
           s.gotoAndStop(_state[0]);
           _state[2]=1;
+        }else{
+          _reset();
+          s.onComplete && s.onComplete();
         }
       }
       _.inject(s.m5,{
@@ -1041,6 +1196,7 @@
       return s;
     }
 
+    /** @ignore */
     function _animFromVec(x){
       _.assert(is.vec(x),"bad arg to animFromVec");
       if(is.str(x[0])){
@@ -1048,16 +1204,18 @@
                             :x.map(s=> Mojo.assetPath(s))
       }
       return _.inst(Mojo.PXTexture,x[0])? new Mojo.PXASprite(x)
-                                        : Mojo.PXASprite.fromImages(x)
-    }
+                                        : Mojo.PXASprite.fromImages(x) }
 
+    /** @ignore */
     function _textureFromImage(x){
-      return Mojo.PXTexture.from(Mojo.assetPath(x))
-    }
+      return Mojo.PXTexture.from(Mojo.assetPath(x)) }
 
     /**Low level sprite creation. */
     function _sprite(src,ctor){
       let s,obj;
+      if(_.inst(Mojo.PXGraphics,src)){
+        src=_genTexture(src);
+      }
       if(_.inst(Mojo.PXTexture,src)){
         obj=src
       }else if(is.vec(src)){
@@ -1067,8 +1225,7 @@
              _textureFromImage(src)
       }
       if(obj){s=ctor(obj)}
-      return _.assert(s, `SpriteError: ${src} not found`) && s
-    }
+      return _.assert(s, `SpriteError: ${src} not found`) && s }
 
     /** @ignore */
     function _mkgrid(sx,sy,rows,cols,cellW,cellH){
@@ -1111,20 +1268,21 @@
                    MFL((box.y1+box.y2)/2)]//center y
     }
 
-    function _bounceOff(o1,o2,m) {
+    /** @ignore */
+    function _bounceOff(o1,o2,m){
       if(o2.m5.static){
-        //full bounce
-        //v=v - (1+c)(v.n_)n_
-        let p= _V.mul(m.overlapN, 2 * _V.dot(o1.m5.vel,m.overlapN));
-        _V.sub$(o1.m5.vel,p);
+        //full bounce v=v - (1+c)(v.n_)n_
+        _V.sub$(o1.m5.vel,
+                _V.mul(m.overlapN, 2 * _V.dot(o1.m5.vel,m.overlapN)))
       }else{
-        let dd=_V.mul$(_V.sub(o2.m5.vel,o1.m5.vel),m.overlapN);
-        let k = -2 * (dd[0]+dd[1])/(o1.m5.invMass + o2.m5.invMass);
+        let dd=_V.mul$(_V.sub(o2.m5.vel,o1.m5.vel),m.overlapN),
+            k= -2 * (dd[0]+dd[1])/(o1.m5.invMass + o2.m5.invMass);
         _V.sub$(o1.m5.vel, _V.mul$(_V.div(m.overlapN,o1.m5.mass),k));
         _V.add$(o2.m5.vel, _V.mul$(_V.div(m.overlapN,o2.m5.mass),k));
       }
     }
 
+    /** @ignore */
     function _collideDir(col){
       const c=new Set();
       if(col.overlapN[1] < -0.3){ c.add(Mojo.TOP) }
@@ -1167,16 +1325,20 @@
       return m;
     }
 
-
     const _PT=_V.vec();
     const _$={
+      SomeColors, BtnColors,
+      assets: ["boot/tap-touch.png","boot/unscii.fnt",
+               "boot/doki.fnt", "boot/riffic.fnt",
+        "boot/kenney_high.fnt",
+               "boot/NineteenOhFive.fnt","boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        */
       assertCenter(s){
-        return _.assert(s.anchor.x>0.3 && s.anchor.x<0.7 &&
-                        s.anchor.y>0.3 && s.anchor.y<0.7, "not center'ed") },
+        return _.assert(s.anchor && s.anchor.x>0.3 && s.anchor.x<0.7 &&
+                                    s.anchor.y>0.3 && s.anchor.y<0.7, "not center'ed") },
       /**Check if sprite has children.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1184,18 +1346,6 @@
        */
       empty(s){
         return s.children.length === 0 },
-      /**Reposition the sprite.
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {number} x
-       * @param {number} y
-       * @return {Sprite} s
-       */
-      setXY(s,x,y){
-        if(is.num(x)) s.x=x;
-        if(is.num(y)) s.y=y;
-        return s;
-      },
       /**Change size of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1220,28 +1370,16 @@
         if(is.num(sy)) s.scale.y=sy;
         return s;
       },
-      /**Change sprite's anchor position.
+      /**Change scale factor of sprite by a factor.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
-       * @param {number} x
-       * @param {number} y
+       * @param {number} sx
+       * @param {number} sy
        * @return {Sprite} s
        */
-      anchorXY(s,x,y){
-        if(is.num(x)) s.anchor.x= x;
-        if(is.num(y)) s.anchor.y= y;
-        return s;
-      },
-      /**Change sprite's velocity.
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {number} vx
-       * @param {number} vy
-       * @return {Sprite} s
-       */
-      velXY(s,vx,vy){
-        if(is.num(vx)) s.m5.vel[0]= vx;
-        if(is.num(vy)) s.m5.vel[1]= vy;
+      scaleBy(s, sx, sy){
+        if(is.num(sx)) s.scale.x *= sx;
+        if(is.num(sy)) s.scale.y *= sy;
         return s;
       },
       /**Check if object is moving in x dir.
@@ -1258,42 +1396,6 @@
        */
       isVY(s){
         return !_.feq0(s.m5.vel[1]) },
-      /**Change sprite's acceleration.
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {number} ax
-       * @param {number} ay
-       * @return {Sprite} s
-       */
-      accXY(s,ax,ay){
-        if(is.num(ax)) s.m5.acc[0]= ax;
-        if(is.num(ay)) s.m5.acc[1]= ay;
-        return s;
-      },
-      /**Change sprite's gravity.
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {number} gx
-       * @param {number} gy
-       * @return {Sprite} s
-       */
-      gravityXY(s,gx,gy){
-        if(is.num(gx)) s.m5.gravity[0]= gx;
-        if(is.num(gy)) s.m5.gravity[1]= gy;
-        return s;
-      },
-      /**Change sprite's friction.
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {number} fx
-       * @param {number} fy
-       * @return {Sprite} s
-       */
-      frictionXY(s,fx,fy){
-        if(is.num(fx)) s.m5.friction[0]= fx;
-        if(is.num(fy)) s.m5.friction[1]= fy;
-        return s;
-      },
       /**Get the size of sprite, but halved.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1307,14 +1409,18 @@
        * @return {Sprite} s
        */
       centerAnchor(s){
-        s.anchor.set(0.5,0.5); return s },
+        if(s.anchor) s.anchor.set(0.5,0.5);
+        return s;
+      },
       /**Set sprite's anchor to be at it's top left.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       topLeftAnchor(s){
-        s.anchor.set(0,0); return s },
+        if(s.anchor) s.anchor.set(0,0);
+        return s;
+      },
       /**Get sprite's anchor offset from top-left corner.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1322,8 +1428,8 @@
        */
       topLeftOffsetXY(s){
         return this.isTopLeft(s)?_V.vec()
-                                :_V.vec(-MFL(s.width*s.anchor.x),
-                                        -MFL(s.height*s.anchor.y)) },
+                                :_V.vec(-MFL(s.width* (s.anchor?s.anchor.x:0)),
+                                        -MFL(s.height*(s.anchor?s.anchor.y:0))) },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1331,9 +1437,8 @@
        */
       centerOffsetXY(s){
         return this.isCenter(s)?_V.vec()
-                               :_V.vec(MFL(s.width/2) - MFL(s.anchor.x*s.width),
-                                       MFL(s.height/2) - MFL(s.anchor.y*s.height))
-      },
+                               :_V.vec(MFL(s.width/2) - MFL((s.anchor?s.anchor.x:0)*s.width),
+                                       MFL(s.height/2) - MFL((s.anchor?s.anchor.y:0)*s.height)) },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1362,7 +1467,7 @@
             cmask:0,
             speed:0,
             heading:Mojo.RIGHT,
-            get invMass() { return _.feq0(s.m5.mass)?0:1/s.m5.mass }
+            get invMass(){ return _.feq0(s.m5.mass)?0:1/s.m5.mass }
           };
           s.m5.resize=function(px,py,pw,ph){
             self.resize(s,px,py,pw,ph)
@@ -1374,9 +1479,10 @@
             return _corners(s.anchor,s.width,s.height)
           };
           //these special functions are for quadtree
-          s.getBBox=function(){ return self.boundingBox(s) };
           s.getGuid=function(){ return s.m5.uuid };
-          s.getSpatial=function(){ return s.m5.sgrid; }
+          s.getSpatial=function(){ return s.m5.sgrid; };
+          s.getBBox=function(){
+            return _.feq0(s.angle)?self.getBBox(s):self.boundingBox(s) };
         }
         return s;
       },
@@ -1408,8 +1514,8 @@
        * @return {Vec2} [x,y]
        */
       gposXY(s){
-        const p= s.getGlobalPosition();
-        return _V.vec(p.x,p.y);
+        const {x,y}= s.getGlobalPosition();
+        return _V.vec(x,y);
       },
       /**Check if sprite has anchor at it's top left.
        * @memberof module:mojoh5/Sprites
@@ -1417,15 +1523,16 @@
        * @return {boolean}
        */
       isTopLeft(s){
-        return s.anchor.x < 0.3 && s.anchor.y < 0.3 },
+        return s.anchor ? (s.anchor.x < 0.3 && s.anchor.y < 0.3): true;
+      },
       /**Check if sprite has anchor at it's center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {boolean}
        */
       isCenter(s){
-        return s.anchor.x > 0.3 && s.anchor.x < 0.7 &&
-               s.anchor.y > 0.3 && s.anchor.y < 0.7; },
+        return s.anchor? (s.anchor.x > 0.3 && s.anchor.x < 0.7 &&
+                          s.anchor.y > 0.3 && s.anchor.y < 0.7) : false; },
       /**Get the center position.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1458,8 +1565,7 @@
        * @return {number}
        */
       angle(s1, s2){
-        return _V.angle(this.centerXY(s1),
-                        this.centerXY(s2)) },
+        return _V.angle(this.centerXY(s1), this.centerXY(s2)) },
       /**Move a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1477,7 +1583,7 @@
       leftSide(s){
         let x=s.x,
             w= s.width,
-            ax= s.anchor.x;
+            ax= s.anchor?s.anchor.x:0;
         if(ax>0.7) x -= w;
         else if(ax>0) x -= MFL(w/2);
         return x;
@@ -1497,7 +1603,7 @@
       topSide(s){
         let y= s.y,
             h= s.height,
-            ay= s.anchor.y;
+            ay= s.anchor?s.anchor.y:0;
         if(ay>0.7) y -= h;
         else if(ay>0) y -= MFL(h/2);
         return y;
@@ -1519,7 +1625,7 @@
                 x2: this.rightSide(s),
                 y1: this.topSide(s),
                 y2: this.bottomSide(s)};
-        return _.assert(r.y1<=r.y2,"bbox bad y values") && r; },
+        return _.assert(r.y1<=r.y2,"bbox bad y values") && r },
       /**Create a bounding box.
        * @memberof module:mojoh5/Sprites
        * @param {number} left
@@ -1540,6 +1646,23 @@
         if(is.num(b4.x1))
           return _V.vec(MFL((b4.x1+b4.x2)/2),
                         MFL((b4.y1+b4.y2)/2)) },
+      /**Frame this box.
+       * @memberof module:mojoh5/Sprites
+       * @param {object} b4
+       * @return {Sprite}
+       */
+      bboxFrame(g,width=16,color="#dedede"){
+        let ctx= this.graphics();
+        let {x1,x2,y1,y2}=g;
+        let w=x2-x1;
+        let h=y2-y1;
+        ctx.lineStyle(width,this.color(color));
+        ctx.drawRoundedRect(0,0,w+width,h+width,MFL(width/4));
+        let s=this.sprite(ctx);
+        s.x=x1-width;
+        s.y=y1-width;
+        return s;
+      },
       /**Find the size of the bounding box.
        * @memberof module:mojoh5/Sprites
        * @param {object} b4
@@ -1595,11 +1718,10 @@
         y.sort((a,b) => a-b);
         x.sort((a,b) => a-b);
         //apply translation
-        x1=MFL(x[0]+c[0]);
-        x2=MFL(x[3]+c[0]);
-        y1=MFL(y[0]+c[1]);
-        y2=MFL(y[3]+c[1]);
-        return {x1,x2,y1,y2};
+        return {x1:MFL(x[0]+c[0]),
+                x2:MFL(x[3]+c[0]),
+                y1:MFL(y[0]+c[1]),
+                y2:MFL(y[3]+c[1])}
       },
       /**Check if point is inside this sprite.
        * @memberof module:mojoh5/Sprites
@@ -1608,7 +1730,7 @@
        * @param {Sprite} s
        * @return {boolean}
        */
-      hitTestPoint(px,py, s){
+      hitTestPoint(px,py,s){
         let z=this.toShape(s);
         return s.m5.circle ? Geo.hitTestPointCircle(px,py,z)
                            : Geo.hitTestPointPolygon(px,py,z) },
@@ -1642,8 +1764,7 @@
        * @return {number}
        */
       distance(s1, s2){
-        return _V.dist(this.centerXY(s1),
-                       this.centerXY(s2)) },
+        return _V.dist(this.centerXY(s1), this.centerXY(s2)) },
       /**Scale all these sprites by the global scale factor.
        * @memberof module:mojoh5/Sprites
        * @param {...Sprite} args
@@ -1651,7 +1772,7 @@
       scaleContent(...args){
         if(args.length===1&&is.vec(args[0])){ args=args[0] }
         let f=Mojo.getScaleFactor();
-        args.forEach(s=>{ s.scale.x=f; s.scale.y=f })
+        args.forEach(s=>{ s.scale.x=f; s.scale.y=f; })
       },
       /**Scale this object to be as big as canvas.
        * @memberof module:mojoh5/Sprites
@@ -1670,7 +1791,30 @@
        * @return {Sprite} s
        */
       uuid(s,id){
-        s.m5.uuid=id; return s; },
+        s.m5.uuid=id;
+        return s;
+      },
+      /**Set the transparency of this sprite.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} v
+       * @return {Sprite} s
+       */
+      opacity(s,v){ s.alpha=v; return s },
+      /**Set a sprite's color(tint).
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number|string} color
+       * @return {Sprite} s
+       */
+      tint(s,color){ s.tint=color; return s },
+      /**Set a sprite's visibility.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {boolean} t
+       * @return {Sprite} s
+       */
+      manifest(s,t=true){ s.visible=t; return s },
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1678,7 +1822,10 @@
        * @param {any} v
        * @return {Sprite} s
        */
-      pset(s,p,v){ s.g[p]=v; return s },
+      pset(s,p,v){
+        s.g[p]=v;
+        return s;
+      },
       /**Get a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1707,8 +1854,10 @@
        */
       sprite(src, center=false,x=0,y=0){
         let s= _sprite(src, o=> new Mojo.PXSprite(o));
-        center && this.centerAnchor(s);
-        s=this.setXY(this.extend(s),x,y);
+        s=this.extend(s);
+        _V.set(s,x,y);
+        if(center)
+          this.centerAnchor(s);
         return _.inst(Mojo.PXASprite,s) ? _exASprite(s) : s; },
       /**Create a TilingSprite.
        * @memberof module:mojoh5/Sprites
@@ -1718,9 +1867,64 @@
        * @return {Sprite}
        */
       tilingSprite(src, center=false,x=0,y=0){
-        let s= _sprite(src,o=> new Mojo.PXTSprite(o));
-        center && this.centerAnchor(s);
-        return this.setXY(this.extend(s),x,y);
+        let s= _sprite(src,o=> new Mojo.PXTSprite(o,o.width,o.height));
+        s=this.extend(s);
+        if(center)
+          this.centerAnchor(s);
+        return _V.set(s,x,y);
+      },
+      /**Tile sprite repeatingly in x and/or y axis.
+       * @memberof module:mojoh5/Sprites
+       * @param {any} src
+       * @param {boolean} rx
+       * @param {boolean} ry
+       * @param {number} width
+       * @param {number} height
+       * @return {Sprite}
+       */
+      repeatSprite(src,rx=true,ry=true,width,height){
+        let xx= ()=>{
+          let s= this.extend(_sprite(src, o=> new Mojo.PXSprite(o)));
+          let K=Mojo.getScaleFactor();K=1;
+          s.width *= K;
+          s.height *= K;
+          return s;
+        };
+        let x=0,y=0,w=0,h=0;
+        let s,out=[];
+        if(rx){
+          while(w<width){
+            out.push(s=xx());
+            s.x=x;
+            s.y=y;
+            w += s.width;
+            x += s.width;
+            if(w>=width && h<height && ry){
+              h += s.height;
+              y += s.height;
+              x=0;
+              w=0;
+            }
+          }
+          ry=false;
+        }
+        if(ry){
+          while(h<height){
+            out.push(s=xx());
+            s.x=x;
+            s.y=y;
+            h += s.height;
+            y += s.height;
+            if(h>=height&& w< width && rx){
+              w += s.width;
+              x += s.width;
+              x=y;
+              w=h;
+            }
+          }
+          rx=false;
+        }
+        return out;
       },
       /**Create a sequence of frames from this texture.
        * @memberof module:mojoh5/Sprites
@@ -1762,7 +1966,8 @@
        */
       frame(src, width, height,x,y){
         const t= Mojo.tcached(src);
-        return this.sprite(new Mojo.PXTexture(t.baseTexture,new Mojo.PXRect(x, y, width,height))); },
+        return this.sprite(new Mojo.PXTexture(t.baseTexture,new Mojo.PXRect(x, y, width,height)))
+      },
       /**Select a bunch of frames from image.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -1774,7 +1979,7 @@
       frameSelect(src,width,height,selectors){
         const t= Mojo.tcached(src);
         return selectors.map(s=> new Mojo.PXTexture(t.baseTexture,
-                                                    new Mojo.PXRect(s[0], s[1], width,height))); },
+                                                    new Mojo.PXRect(s[0], s[1], width,height))) },
       /**Create a sequence of frames from this texture.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -1798,7 +2003,7 @@
           for(let x,c=0;c<cols;++c){
             x= sx + tileW*c;
             out.push(new Mojo.PXTexture(t.baseTexture,
-                                        new Mojo.PXRect(x, y, tileW,tileH))); }
+                                        new Mojo.PXRect(x, y, tileW,tileH))) }
         }
         return out;
       },
@@ -1817,7 +2022,7 @@
        * @return {AnimatedSprite}
        */
       spriteFrom(...pics){
-        return this.sprite(this.frameImages(pics)) },
+        return this.sprite(this.frameImages(...pics)) },
       /**Create a PIXI.Text object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -1827,8 +2032,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        let s=new Mojo.PXText(msg,fspec);
-        return this.setXY(this.extend(s),x,y); },
+        return _V.set(this.extend(new Mojo.PXText(msg,fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -1837,9 +2041,12 @@
        * @param {number} y
        * @return {BitmapText}
        */
-      bitmapText(msg, fstyle, x=0, y=0){
-        let s= new Mojo.PXBText(msg,fstyle);
-        return this.setXY(this.extend(s),x,y); },
+      bitmapText(msg,fstyle,x=0,y=0){
+        //in pixi, no fontSize, defaults to 26, left-align
+        if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
+        if(!fstyle.fontName) fstyle.fontName="unscii";
+        if(!fstyle.align) fstyle.align="center";
+        return _V.set(this.extend(new Mojo.PXBText(msg,fstyle)),x,y) },
       /**Create a rectangular sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
@@ -1851,21 +2058,30 @@
        * @param {number} y
        * @return {Sprite}
        */
-      rectangle(width, height,
-                fillStyle = 0xFF3300,
-                strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
-        let g=this.graphics(),
-            stroke= this.color(strokeStyle);
-        if(fillStyle !== false)
-          g.beginFill(this.color(fillStyle));
+      rect(width, height,
+           fillStyle = 0xFF3300,
+           strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
+        let a,g=this.graphics(),
+            stroke=this.color(strokeStyle);
+        if(fillStyle !== false){
+          if(is.vec(fillStyle)){
+            a=fillStyle[1];
+            fillStyle=fillStyle[0];
+          }else{
+            a=1;
+          }
+          g.beginFill(this.color(fillStyle),a);
+        }
         if(lineWidth>0)
           g.lineStyle(lineWidth, stroke, 1);
         g.drawRect(0, 0, width,height);
-        if(fillStyle !== false)
-          g.endFill();
-        let t= this.genTexture(g);
-        let s= new Mojo.PXSprite(t);
-        return this.setXY(this.extend(s),x,y); },
+        if(fillStyle !== false){
+          g.endFill()
+        }
+        let s= new Mojo.PXSprite(this.genTexture(g));
+        s=this.extend(s);
+        return _V.set(s,x,y);
+      },
       /**Create a sprite by applying a drawing routine to the graphics object.
        * @memberof module:mojoh5/Sprites
        * @param {function} cb
@@ -1875,7 +2091,7 @@
       drawBody(cb,...args){
         let g = this.graphics();
         cb.apply(this, [g].concat(args));
-        return this.extend(new Mojo.PXSprite(this.genTexture(g))); },
+        return this.extend(new Mojo.PXSprite(this.genTexture(g))) },
       /**Create a circular sprite by generating a texture.
        * @memberof module:mojoh5/Sprites
        * @param {number} radius
@@ -1889,7 +2105,7 @@
       circle(radius,
              fillStyle=0xFF3300,
              strokeStyle=0x0033CC, lineWidth=0, x=0, y=0){
-        let s,g = this.graphics(),
+        let g = this.graphics(),
             stroke= this.color(strokeStyle);
         if(fillStyle !== false)
           g.beginFill(this.color(fillStyle));
@@ -1898,9 +2114,10 @@
         g.drawCircle(0, 0, radius);
         if(fillStyle !== false)
           g.endFill();
-        s=new Mojo.PXSprite(this.genTexture(g));
-        s=this.setXY(this.extend(s),x,y);
-        return (s.m5.circle=true) && this.centerAnchor(s); },
+        let s=new Mojo.PXSprite(this.genTexture(g));
+        s=this.extend(s);
+        _V.set(s,x,y);
+        return (s.m5.circle=true) && this.centerAnchor(s) },
       /**Create a line sprite.
        * @memberof module:mojoh5/Sprites
        * @param {number|string} strokeStyle
@@ -1910,7 +2127,7 @@
        * @return {Sprite}
        */
       line(strokeStyle, lineWidth, A,B){
-        let s,g = this.graphics(),
+        let g = this.graphics(),
             _a= _V.clone(A),
             _b= _V.clone(B),
             stroke= this.color(strokeStyle) ;
@@ -1921,7 +2138,7 @@
           g.lineTo(_b[0], _b[1]);
         }
         _draw();
-        s=this.extend(g);
+        let s=this.extend(g);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
             _a[0] = x;
@@ -1960,7 +2177,7 @@
       makeCells(sx,sy,ex,ey,cellW,cellH){
         let cols=MFL((ex-sx)/cellW),
             rows=MFL((ey-sx)/cellH);
-        return _mkgrid(sx,sy,rows,cols,cellW,cellH); },
+        return _mkgrid(sx,sy,rows,cols,cellW,cellH) },
       /**Create a rectangular arena.
        * @memberof module:mojoh5/Sprites
        * @param {number} ratioX
@@ -1986,8 +2203,11 @@
       gridSQ(dim,ratio=0.6,out=null){
         let sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
             w=MFL(sz/dim),
-            h=w,
-            sy=MFL((Mojo.height-sz)/2),
+            h=w;
+        if(!_.isEven(w)){--w}
+        h=w;
+        sz=dim*w;
+        let sy=MFL((Mojo.height-sz)/2),
             sx=MFL((Mojo.width-sz)/2),
             _x=sx,_y=sy;
         if(out){
@@ -1999,6 +2219,34 @@
           out.y=sy;
         }
         return _mkgrid(_x,_y,dim,dim,w,h);
+      },
+      /**Divide a rectangular area.
+       * @memberof module:mojoh5/Sprites
+       * @param {number[]} [dimX,dimY]
+       * @param {number} ratio
+       * @param {object} [out]
+       * @return {number[][]}
+       */
+      divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
+        let szh=MFL(Mojo.height*ratioY),
+            szw=MFL(Mojo.width*ratioX),
+            cw=MFL(szw/dimX),
+            ch=MFL(szh/dimY),
+            _x,_y,sy,sx;
+        szh=dimY*ch;
+        szw=dimX*cw;
+        sy= MFL((Mojo.height-szh)/2);
+        sx= MFL((Mojo.width-szw)/2);
+        _x=sx,_y=sy;
+        if(out){
+          out.height=szh;
+          out.width=szw;
+          if(out.x !== undefined) _x=out.x;
+          if(out.y !== undefined) _y=out.y;
+          out.x=sx;
+          out.y=sy;
+        }
+        return _mkgrid(_x,_y,dimY,dimX,cw,ch);
       },
       /**Create a rectangular grid.
        * @memberof module:mojoh5/Sprites
@@ -2014,6 +2262,7 @@
             ch=MFL(szh/dimY),
             dim=cw>ch?ch:cw,
             _x,_y,sy,sx;
+        if(!_.isEven(dim)){dim--}
         szh=dimY*dim;
         szw=dimX*dim;
         sy= MFL((Mojo.height-szh)/2);
@@ -2026,6 +2275,9 @@
           if(out.y !== undefined) _y=out.y;
           out.x=sx;
           out.y=sy;
+          //shove more info into out :)
+          out.x1=sx; out.y1=sy;
+          out.x2=sx+szw; out.y2=sy+szh;
         }
         return _mkgrid(_x,_y,dimY,dimX,dim,dim);
       },
@@ -2041,7 +2293,7 @@
             f=grid[0][0],
             e=grid[grid.length-1][w-1];
         return {x1:sx+f.x1,
-                x2:sx+e.x2, y1:sy+f.y1, y2:sy+e.y2}; },
+                x2:sx+e.x2, y1:sy+f.y1, y2:sy+e.y2} },
       /**Create a PIXI Graphics object.
        * @memberof module:mojoh5/Sprites
        * @param {number|string} [id]
@@ -2049,7 +2301,7 @@
        */
       graphics(id=null){
         let ctx= new Mojo.PXGraphics();
-        return (ctx.m5={uuid:`${id?id:_.nextId()}`}) && ctx; },
+        return (ctx.m5={uuid:`${id?id:_.nextId()}`}) && ctx },
       /**Draw borders around this grid.
        * @memberof module:mojoh5/Sprites
        * @param {number} sx
@@ -2066,6 +2318,14 @@
         ctx.lineStyle(lineWidth,this.color(lineColor));
         ctx.drawRect(bbox.x1,bbox.y1,
                      bbox.x2-bbox.x1,bbox.y2-bbox.y1);
+        return ctx;
+      },
+      drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=null){
+        if(!ctx)
+          ctx= this.graphics();
+        ctx.lineStyle(lineWidth,this.color(lineColor));
+        ctx.drawRoundedRect(bbox.x1,bbox.y1,
+                            bbox.x2-bbox.x1,bbox.y2-bbox.y1,radius);
         return ctx;
       },
       /**Draw grid lines.
@@ -2130,7 +2390,9 @@
        * @return {Container} parent
        */
       add(par,...cs){
-        cs.forEach(c=> c && par.addChild(c)); return par; },
+        cs.forEach(c=> c && par.addChild(c));
+        return par;
+      },
       /**Remove these sprites, will detach from their parents.
        * @memberof module:mojoh5/Sprites
        * @param {...Sprite} sprites
@@ -2151,6 +2413,37 @@
           Mojo.emit(["post.remove",s]);
         });
       },
+      /**Center this object on the screen.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite|Container} obj
+       * @return {Sprite|Container} obj
+       */
+      centerObj(obj){
+        obj.x= Mojo.width/2;
+        obj.y=Mojo.height/2;
+        if(obj.anchor.x<0.3){
+          obj.x -= obj.width/2;
+          obj.y -= obj.height/2;
+        }else if (obj.anchor<0.7){
+        }else{
+          _.assert(false, "bad anchor to center");
+        }
+        return obj;
+      },
+      /**Expand object to fill entire screen.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite|Container} obj
+       * @return {Sprite|Container} obj
+       */
+      fillMax(obj){
+        if(obj.anchor)
+          _.assert(obj.anchor.x<0.3,"wanted top left anchor");
+        obj.height=Mojo.height;
+        obj.width=Mojo.width;
+        obj.x=0;
+        obj.y=0;
+        return obj;
+      },
       /**Remove these sprites, will detach from their parents.
        * @memberof module:mojoh5/Sprites
        * @param {string} c
@@ -2167,13 +2460,13 @@
           return [parseInt(c.substr(1, 2), 16),
                   parseInt(c.substr(3, 2), 16),
                   parseInt(c.substr(5, 2), 16),
-                  c.length>7 ? parseInt(c.substr(7, 2), 16)/255 : 1]; }
+                  c.length>7 ? parseInt(c.substr(7, 2), 16)/255 : 1] }
 
         if(lc == "transparent"){ return [0,0,0,0] }
 
         if(lc.indexOf("rgb") === 0){
           if(lc.indexOf("rgba")<0){lc += ",1"}
-          return lc.match(/[\.\d]+/g).map(a=> { return +a });
+          return lc.match(/[\.\d]+/g).map(a=> { return +a })
         }else{
           throw `Error: Bad color: ${c}`
         }
@@ -2196,7 +2489,9 @@
         // colorToHex('red')            # '#ff0000'
         // colorToHex('rgb(255, 0, 0)') # '#ff0000'
         const rgba = this.colorToRgbA(color);
-        return "0x"+ [0,1,2].map(i=> this.byteToHex(rgba[i])).join(""); },
+        return "0x"+ [0,1,2].map(i=> this.byteToHex(rgba[i])).join("") },
+      color3(r,g,b){
+        return parseInt(["0x",this.byteToHex(r),this.byteToHex(g),this.byteToHex(b)].join("")) },
       /**Get the integer value of this color.
        * @memberof module:mojoh5/Sprites
        * @param {number|string} value
@@ -2251,8 +2546,8 @@
         let x= (alignX<0.3) ? boxA.x1
                             : (alignX<0.7 ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : (b.anchor.y<0.7 ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : (b.anchor.x<0.7 ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : (b.anchor.y<0.7 ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : (b.anchor.x<0.7 ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C)}
       },
       /**Place `b` below `C`.
@@ -2268,8 +2563,8 @@
         let y=boxA.y2+padY;
         let x=(alignX<0.3) ? boxA.x1 : ((alignX<0.7) ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C) }
       },
       /**Place b at center of C.
@@ -2283,8 +2578,8 @@
         let x=cxA-w2B;
         let y=cyA-h2B;
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(C.m5.stage || b.parent===C){ _V.sub$(b,C) }
       },
       /**Place b left of C.
@@ -2300,8 +2595,8 @@
         let x= boxA.x1 - padX - (boxB.x2-boxB.x1);
         let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C) }
       },
       /**Place b right of C.
@@ -2317,8 +2612,8 @@
         let x= boxA.x2 + padX;
         let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
-        b.y= (b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
-        b.x= (b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
+        b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
+        b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
         if(b.parent===C){ _V.sub$(b,C) }
       },
       /**Assign some mass to this sprite.
@@ -2326,8 +2621,7 @@
        * @param {Sprite} s
        * @param {number} m
        */
-      setMass(s,m){
-        s.m5.mass=m; },
+      setMass(s,m){ s.m5.mass=m },
       /**Copied from pixi.legacy, why didn't they want to keep this????
        * so useful!
        * @memberof module:mojoh5/Sprites
@@ -2386,11 +2680,27 @@
        * @return {number[]} a list of collision points
        */
       clamp(s, container, bounce=false,extra=null){
-        let c;
+        let left,right,top,bottom;
+        let box,C;
+        if(is.vec(container)){
+          left=container[1].left;
+          right=container[1].right;
+          top=container[1].top;
+          bottom=container[1].bottom;
+          container=container[0];
+        }
+        right= right!==false;
+        left= left!==false;
+        top= top!==false;
+        bottom= bottom!==false;
         if(container instanceof Mojo.Scenes.Scene){
-          c=Mojo.mockStage();
+          C=Mojo.mockStage();
         }else if(container.m5 && container.m5.stage){
-          c=container;
+          C=container;
+        }else if(container.x2 !== undefined &&
+                 container.y2 !== undefined){
+          C=container;
+          box=true;
         }else{
           if(container.isSprite)
             _.assert(s.parent===container);
@@ -2399,38 +2709,37 @@
           _.assert(_.feq0(container.rotation),"Error: clamp() container can't rotate");
           _.assert(_.feq0(container.anchor.x),"Error: clamp() container anchor.x !==0");
           _.assert(_.feq0(container.anchor.y),"Error: clamp() container anchor.y !==0");
-          c=container;
+          C=container;
         }
-        let coff= this.topLeftOffsetXY(c);
+        let coff= box ? [0,0] : this.topLeftOffsetXY(C);
         let collision = new Set();
         let CX=false,CY=false;
         let R= Geo.getAABB(this.toShape(s));
-        let cl= c.x+coff[0],
-            cr= cl+c.width,
-            ct= c.y+coff[1],
-            cb= ct+c.height;
-        let rx=R.pos[0];
-        let ry=R.pos[1];
+        let cl= box ? C.x1 : C.x+coff[0],
+            cr= cl+ (box? C.x2-C.x1 : C.width),
+            ct= box ? C.y1 : C.y+coff[1],
+            cb= ct+ (box? C.y2-C.y1 : C.height);
+        let [rx,ry]=R.pos;
         //left
-        if(rx<cl){
+        if(left && rx<cl){
           s.x += cl-rx;
           CX=true;
           collision.add(Mojo.LEFT);
         }
         //right
-        if(rx+R.width > cr){
+        if(right && (rx+R.width > cr)){
           s.x -= rx+R.width- cr;
           CX=true;
           collision.add(Mojo.RIGHT);
         }
         //top
-        if(ry < ct){
+        if(top && ry < ct){
           s.y += ct-ry;
           CY=true;
           collision.add(Mojo.TOP);
         }
         //bottom
-        if(ry+R.height > cb){
+        if(bottom && (ry+R.height > cb)){
           s.y -= ry+R.height - cb;
           CY=true;
           collision.add(Mojo.BOTTOM);
@@ -2450,27 +2759,50 @@
         }
         return collision;
       },
+      dbgShowDir(dir){
+        let s="?";
+        switch(dir){
+          case Mojo.NE:
+            s="top-right";
+            break;
+          case Mojo.NW:
+            s="top-left";
+            break;
+          case Mojo.TOP:
+          case Mojo.UP:
+            s="top";
+            break;
+          case Mojo.LEFT:
+            s="left";
+            break;
+          case Mojo.RIGHT:
+            s="right";
+            break;
+          case Mojo.BOTTOM:
+          case Mojo.DOWN:
+            s="bottom";
+            break;
+          case Mojo.SE:
+            s="bottom-right";
+            break;
+          case Mojo.SW:
+            s="bottom-left";
+            break;
+        }
+        return s;
+      },
       dbgShowCol(col){
         let out=[];
         if(is.set(col))
           for(let i of col.values())
-            switch(i){
-              case Mojo.TOP:
-                out.push("top");
-                break;
-              case Mojo.LEFT:
-                out.push("left");
-                break;
-              case Mojo.RIGHT:
-                out.push("right");
-                break;
-              case Mojo.BOTTOM:
-                out.push("bottom");
-                break;
-            }
+            out.push(this.dbgShowDir(i));
         return out.join(",");
       }
     };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //aliases
+    _$.bmpText=_$.bitmapText;
 
     return (Mojo.Sprites= _$);
   }
@@ -2511,109 +2843,13 @@
   /**Create the module. */
   function _module(Mojo, ScenesDict){
 
+    const SG=gscope["io/czlab/mcfud/spatial"]();
     const {ute:_,is}=Mojo;
-    const MFL=Math.floor;
+    const int=Math.floor;
 
     /**
      * @module mojoh5/Scenes
      */
-
-    /**Creates a 2d spatial grid. */
-    function SpatialGrid(cellW=320,cellH=320){
-      const _grid= new Map();
-      return{
-        searchAndExec(item,cb){
-          let ret,
-              g= item.m5.sgrid;
-          for(let X,Y,y = g.y1; y <= g.y2; ++y){
-            if(Y=_grid.get(y))
-              for(let vs,r,x= g.x1; x <= g.x2; ++x)
-                if(X=Y.get(x)){
-                  vs=X.values();
-                  r= vs.next();
-                  while(!r.done){
-                    if(item !== r.value){
-                      if(ret=cb(item,r.value)){
-                        x=y=Infinity;
-                        break;
-                      }
-                    }
-                    ret=null;
-                    r= vs.next();
-                  }
-                }
-          }
-          return ret;
-        },
-        search(item,incItem=false){
-          let X,Y,out=[],
-              g= item.m5.sgrid;
-          for(let y = g.y1; y <= g.y2; ++y){
-            if(Y=_grid.get(y))
-              for(let x= g.x1; x <= g.x2; ++x)
-                if(X=Y.get(x))
-                  X.forEach(v=>{
-                    if(v===item && !incItem){}else{
-                      out.push(v)
-                    }
-                  })
-          }
-          return out
-        },
-        engrid(item,skipAdd){
-          if(!item || !item.anchor){return}
-          let r = Mojo.Sprites.boundingBox(item),
-              g = item.m5.sgrid,
-              gridX1 = MFL(r.x1 / cellW),
-              gridY1 = MFL(r.y1 / cellH),
-              gridX2 = MFL(r.x2/cellW),
-              gridY2 = MFL(r.y2/ cellH);
-
-          if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
-             g.y1 !== gridY1 || g.y2 !== gridY2){
-            this.degrid(item);
-            g.x1= gridX1;
-            g.x2= gridX2;
-            g.y1= gridY1;
-            g.y2= gridY2;
-            if(!skipAdd) this._register(item);
-          }
-          return item;
-        },
-        reset(){
-          _grid.clear()
-        },
-        _register(item){
-          let g= item.m5.sgrid;
-          if(is.num(g.x1)){
-            for(let X,Y,y= g.y1; y <= g.y2; ++y){
-              if(!_grid.has(y))
-                _grid.set(y, new Map());
-              Y=_grid.get(y);
-              for(let x= g.x1; x <= g.x2; ++x){
-                if(!Y.has(x))
-                  Y.set(x, new Map());
-                X=Y.get(x);
-                _.assoc(X,item.m5.uuid, item);
-              }
-            }
-          }
-        },
-        degrid(item){
-          if(item && item.anchor){
-            let g= item.m5.sgrid;
-            if(is.num(g.x1)){
-              for(let X,Y,y= g.y1; y <= g.y2; ++y){
-                if(Y=_grid.get(y))
-                  for(let x= g.x1; x<=g.x2; ++x)
-                    if(X=Y.get(x))
-                      _.dissoc(X,item.m5.uuid)
-              }
-            }
-          }
-        }
-      }
-    }
 
     /** @ignore */
     function _sceneid(id){
@@ -2625,13 +2861,16 @@
         s.dispose && s.dispose();
         s.parent.removeChild(s); } }
 
-    /** internal class */
+    /** internal class, wraps a scene */
     class SceneWrapper extends Mojo.PXContainer{
       constructor(s){
         super();
         this.addChild(s);
         this.name=s.name;
         this.m5={stage:true};
+      }
+      dispose(){
+        _killScene(this.children[0]);
       }
       update(dt){
         this.children[0].update(dt)
@@ -2662,20 +2901,19 @@
           garbo:[],
           options,
           stage:true,
-          sgrid:SpatialGrid(options.sgridX||320,
-                            options.sgridY||320)
-        };
+          sgrid:SG.spatialGrid(options.sgridX||320,
+                               options.sgridY||320) };
         if(is.fun(func)){
           this.m5.setup= func.bind(this)
         }else if(is.obj(func)){
           let s= _.dissoc(func,"setup");
-          if(s) this.m5.setup=s.bind(this);
           _.inject(this, func);
-        }
+          if(s)this.m5.setup=s.bind(this); }
       }
       _hitObjects(grid,obj,found,maxCol=3){
         let curCol=maxCol;
-        for(let m,b,i=0,z=found.length;i<z;++i){
+        for(let m,b,
+            i=0,z=found.length;i<z;++i){
           b=found[i];
           if(obj !== b &&
              !b.m5.dead &&
@@ -2683,13 +2921,10 @@
             m= Mojo.Sprites.hitTest(obj,b);
             if(m){
               Mojo.emit(["hit",obj],m);
-              if(m.B.m5.static){ m=null }else{
-                Mojo.emit(["hit",m.B],m.swap())
-              }
+              if(!m.B.m5.static)
+                Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--curCol ===0){break}
-            }
-          }
+              if(--curCol===0){break} } }
         }
       }
       collideXY(obj){
@@ -2705,10 +2940,14 @@
                              children:this.children}) }
       /**Run this function after a delay in millis or frames.
        * @param {function}
-       * @param {number} delay
+       * @param {number} delayFrames
        */
-      future(expr,delay){
-        this.m5.queue.push([expr,delay]) }
+      future(expr,delayMillis){
+        this.m5.queue.push([expr, int(Mojo._curFPS*delayMillis/1000)])
+      }
+      XXfuture(expr,delayFrames){
+        this.m5.queue.push([expr,delayFrames])
+      }
       /**Get the child with this id.
        * @param {string} id
        * @return {Sprite}
@@ -2731,6 +2970,24 @@
             Mojo.Input.undoButton(c);
           Mojo.off(c);
           _.dissoc(this.m5.index,c.m5.uuid); } }
+      /**Remove item from spatial grid temporarily.
+       * @param {Sprite} c
+       * @return {Sprite} c
+       */
+      degrid(c){
+        if(c)
+          this.m5.sgrid.degrid(c);
+        return c;
+      }
+      /**Force item to update spatial grid.
+       * @param {Sprite} c
+       * @return {Sprite} c
+       */
+      engrid(c){
+        if(c && c.m5._engrid)
+          this.m5.sgrid.engrid(c);
+        return c;
+      }
       /**Insert this child sprite.
        * @param {Sprite} c
        * @param {boolean} [engrid]
@@ -2771,10 +3028,9 @@
           if(o){
             o.children.length>0 && o.children.forEach(c=> _c(c));
             const i=Mojo.Input;
-            o.m5.button && i.undoButton(o);
-            o.m5.drag && i.undoDrag(o);
-          }
-        }
+            if(o.m5){
+              o.m5.drag && i.undoDrag(o);
+              o.m5.button && i.undoButton(o); } } }
         Mojo.off(this);
         this.m5.dead=true;
         _c(this);
@@ -2795,20 +3051,27 @@
             Mojo.emit(["post.tick",c],dt);
             if(c.m5._engrid) this.m5.sgrid.engrid(c);
           }
-          c.children.length>0 && this._tick(c.children, dt) }) }
+          c.children.length>0 && this._tick(c.children, dt)
+        })
+      }
       /**Find objects that may collide with this object.
        * @param {object} obj
        * @return {object[]}
        */
       searchSGrid(obj,incObj=false){
         return this.m5.sgrid.search(obj,incObj) }
+      /**Stage this object for removal.
+       * @param {object} obj
+       */
       queueForRemoval(obj){
-        this.m5.garbo.push(obj) }
+        this.m5.garbo.push(obj);
+        return obj;
+      }
       /**
        * @param {number} dt
        */
       update(dt){
-        if(this.m5.dead){return;}
+        if(this.m5.dead){return}
         //handle queued stuff
         let f,futs= this.m5.queue.filter(q=>{
           q[1] -= 1;
@@ -2836,11 +3099,38 @@
       }
     }
 
+    function _layItems(C,items,pad,dir,skip){
+      let p,P=0,m=-1;
+      items.forEach((s,i)=>{
+        if(dir===Mojo.DOWN){
+          if(s.width>m){ P=i; m=s.width; }
+        }else{
+          if(s.height>m){ P=i; m=s.height; }
+        }
+        if(!skip) C.addChild(s);
+        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor");
+      });
+      //P is the fatest or tallest
+      p=items[P];
+      for(let s,i=P-1;i>=0;--i){
+        s=items[i];
+        Mojo.Sprites[dir===Mojo.DOWN?"pinTop":"pinLeft"](p,s,pad);
+        p=s;
+      }
+      p=items[P];
+      for(let s,i=P+1;i<items.length; ++i){
+        s=items[i];
+        Mojo.Sprites[dir===Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
+        p=s;
+      }
+    }
+
+    /** @ignore */
     function _layout(items,options,dir){
       const {Sprites}=Mojo,
             K=Mojo.getScaleFactor();
       if(items.length===0){return}
-      options= _.patch(options,{color:0,
+      options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
                                 borderWidth:4,
@@ -2849,47 +3139,86 @@
       let C=options.group || Sprites.group();
       let pad=options.padding * K;
       let fit= options.fit * K;
-      let p,fit2= 2*fit;
-      items.forEach((s,i)=>{
-        if(!options.skipAdd) C.addChild(s);
-        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor");
-        if(i>0)
-          Sprites[dir===Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
-        p=s;
-      });
-      let [w,h]= [C.width, C.height];
-      let last=_.tail(items);
-      if(options.bg != "transparent"){
-        //create a backdrop
-        let r= Sprites.rectangle(w+fit2,h+fit2,
-                                 options.bg,
-                                 options.border, borderWidth);
-        r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
+      let last,w,h,p,fit2= 2*fit;
+
+      _layItems(C,items,pad,dir,options.skipAdd);
+      w= C.width;
+      h= C.height;
+      last=_.tail(items);
+
+      //create a backdrop
+      if(true){
+        let r= Sprites.rect(w+fit2,h+fit2,
+                            options.bg,
+                            options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
+        if(!is.vec(options.bg)){
+          r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
+          if(options.bg == "transparent")r.alpha=0;
+        }
       }
-      //final width,height,center
+
       h= C.height;
       w= C.width;
-      let [w2,h2]=[MFL(w/2), MFL(h/2)];
+
+      let [w2,h2]=[int(w/2), int(h/2)];
       if(dir===Mojo.DOWN){
         //realign on x-axis
-        items.forEach(s=> s.x=w2-MFL(s.width/2));
+        items.forEach(s=> s.x=w2-int(s.width/2));
         let hd= h-(last.y+last.height);
-        hd= MFL(hd/2);
+        hd= int(hd/2);
         //realign on y-axis
         items.forEach(s=> s.y += hd);
       }else{
         //refit the items on y-axis
-        items.forEach(s=> s.y=h2-MFL(s.height/2));
+        items.forEach(s=> s.y=h2-int(s.height/2));
         let wd= w-(last.x+last.width);
-        wd= MFL(wd/2);
+        wd= int(wd/2);
         //refit the items on x-axis
         items.forEach(s=> s.x += wd);
       }
+
+      h= C.height;
+      w= C.width;
+
       //may be center the whole thing
-      C.x= _.nor(options.x, MFL((Mojo.width-w)/2));
-      C.y= _.nor(options.y, MFL((Mojo.height-h)/2));
+      C.x= _.nor(options.x, int((Mojo.width-w)/2));
+      C.y= _.nor(options.y, int((Mojo.height-h)/2));
+
       return C;
+    }
+
+    /** @ignore */
+    function _choiceBox(items,options,dir){
+      const selectedColor=Mojo.Sprites.color(options.selectedColor);
+      const disabledColor=Mojo.Sprites.color(options.disabledColor);
+      let cur;
+      items.forEach(o=>{
+        if(o.m5.uuid==options.defaultChoice){
+          cur=o;
+          o.tint=selectedColor;
+        }else{
+          o.tint=disabledColor;
+        }
+        Mojo.Input.mkBtn(o);
+        o.m5.press=(b)=>{
+          if(b!==cur){
+            cur.tint=disabledColor;
+            b.tint=selectedColor;
+            cur=b;
+            options.onClick && options.onClick(b);
+          }
+        };
+      });
+      if(!cur){
+        cur=items[0];
+        cur.tint= selectedColor;
+      }
+      let c= _layout(items,options,dir);
+      c.getSelectedChoice=function(){
+        return cur.m5.uuid
+      };
+      return c;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2913,6 +3242,22 @@
        */
       layoutY(items,options){
         return _layout(items, options, Mojo.DOWN) },
+      /**Lay selectable items out horizontally.
+       * @memberof module:mojoh5/Scenes
+       * @param {Sprite[]} items
+       * @param {object} [options]
+       * @return {Container}
+       */
+      choiceMenuX(items,options){
+        return _choiceBox(items, options, Mojo.RIGHT) },
+      /**Lay selectable items out vertically.
+       * @memberof module:mojoh5/Scenes
+       * @param {Sprite[]} items
+       * @param {object} [options]
+       * @return {Container}
+       */
+      choiceMenuY(items,options){
+        return _choiceBox(items, options, Mojo.DOWN) },
       /**Define a scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
@@ -2921,11 +3266,9 @@
        */
       defScene(name, func, options){
         //add a new scene definition
-        if(is.fun(func)){
-          func={setup:func}
-        }
-        ScenesDict[name]=[func, options]
-      },
+        if(is.fun(func))
+          func={setup:func};
+        ScenesDict[name]=[func, options]; },
       /**Replace the current scene with this one.
        * @memberof module:mojoh5/Scenes
        * @param {string|Scene} cur
@@ -2937,8 +3280,7 @@
         const c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;
-        return this.runScene(name, Mojo.stage.getChildIndex(c),options);
-      },
+        return this.runScene(name, Mojo.stage.getChildIndex(c),options); },
       /**Remove these scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...Scene} args
@@ -2960,6 +3302,7 @@
         while(Mojo.stage.children.length>0)
           _killScene(Mojo.stage.children[Mojo.stage.children.length-1])
         Mojo.mouse.reset();
+        Mojo["Input"].reset();
       },
       /**Find this scene.
        * @memberof module:mojoh5/Scenes
@@ -2977,7 +3320,19 @@
        */
       runSceneEx(name,num,options){
         this.removeScenes();
-        this.runScene(name,num,options); },
+        this.runScene(name,num,options);
+      },
+      /**Run a sequence of scenes.
+       * @memberof module:mojoh5/Scenes
+       * @param {...any} args
+       * @return {Scene}
+       */
+      runSceneSeq(...args){
+        args.forEach(a=>{
+          _.assert(is.vec(a),"Expecting array");
+          this.runScene(a[0],a[1],a[2]);
+        });
+      },
       /**Run this scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
@@ -2991,21 +3346,19 @@
           throw `Fatal: unknown scene: ${name}`;
         if(is.obj(num)){
           options = num;
-          num = _.dissoc(options,"slot");
-        }
+          num = _.dissoc(options,"slot"); }
         options = _.inject({},_s[1],options);
         s0=_.inject({},_s[0]);
         if(is.undef(num))
           num= options["slot"] || -1;
         //before we run a new scene
-        Mojo.mouse.reset();
+        //Mojo.mouse.reset();
         //create new
-        if(options.tiled){
-          _.assert(options.tiled.name, "no tmx file!");
-          y = new Mojo.Tiles.TiledScene(name, s0, options);
-        }else{
+        if(!options.tiled){
           y = new Scene(name, s0, options);
-        }
+        }else{
+          _.assert(options.tiled.name, "no tmx file!");
+          y = new Mojo.Tiles.TiledScene(name, s0, options); }
         py=y;
         if(options.centerStage){
           py=new SceneWrapper(y);
@@ -3076,65 +3429,106 @@
      * @module mojoh5/Sound
      */
 
+    const _actives=new Map();
+    let _sndCnt=1;
+
+    /** debounce */
+    function _debounce(s,now,interval){
+      let rc;
+      if(_actives.has(s) &&
+         _actives.get(s) > now){
+        rc=true
+      }else{
+        if(!interval)
+          _actives.delete(s)
+        else
+          _actives.set(s, now+interval)
+      }
+      return rc;
+    }
+
     /** @ignore */
     function _make(_A,name, url){
+      let _pan=0;
+      let _vol=1;
       const s={
-        soundNode: null,
-        buffer: null,
+        sids:new Map(),
+        buffer:null,
+        loop:false,
         src: url,
         name: name,
-        loop: false,
-        playing: false,
-        vol: 1,
-        start: 0,
-        startOffset: 0,
-        playbackRate: 1,
-        gainNode: _A.ctx.createGain(),
-        panNode: _A.ctx.createStereoPanner(),
+        //-1(left speaker)
+        //1(right speaker)
+        get pan(){ return _pan },
+        set pan(v){ _pan= v },
+        get volume(){ return _vol },
+        set volume(v){ _vol=v },
         play(){
-          this.start = _A.ctx.currentTime;
-          this.soundNode = _A.ctx.createBufferSource();
-          this.soundNode.buffer = this.buffer;
-          this.soundNode.playbackRate.value = this.playbackRate;
-          this.soundNode.connect(this.gainNode);
-          this.gainNode.connect(this.panNode);
-          this.panNode.connect(_A.ctx.destination);
-          this.soundNode.loop = this.loop;
-          this.soundNode.start(0, this.startOffset % this.buffer.duration);
-          this.playing = true;
+          if(!Mojo.Sound.sfx()){return}
+          const now = _.now();
+          const s= this.name;
+          if(!_debounce(s,now)){
+            let sid = _sndCnt++,
+                w=this.buffer.duration*1000,
+                g=_A.ctx.createGain(),
+                p=_A.ctx.createStereoPanner(),
+                src = _A.ctx.createBufferSource();
+            src.buffer = this.buffer;
+            src.connect(g);
+            g.connect(p);
+            p.connect(_A.ctx.destination);
+            if(this.loop){
+              src.loop = true;
+            }else{
+              _.delay(w,()=> this.sids.delete(sid))
+            }
+            p.pan.value = _pan;
+            g.gain.value = _vol;
+            src.start(0);
+            this.sids.set(sid,src);
+          }
         },
-        _stop(){
-          if(this.playing)
-            this.playing=false;
-            this.soundNode.stop(0) },
-        pause(){
-          if(this.playing){
-            this._stop();
-            this.startOffset += _A.ctx.currentTime - this.start; } },
-        playFrom(value){
-          this.startOffset = value;
-          this._stop();
-          this.play();
-        },
-        restart(){
-          this.playFrom(0) },
-        get pan(){
-          return this.panNode.pan.value },
-        set pan(v){
-          //-1(left speaker)
-          //1(right speaker)
-          this.panNode.pan.value = v },
-        get volume(){
-          return this.vol },
-        set volume(v){
-          this.vol=v;
-          this.gainNode.gain.value = v; }
+        stop(){
+          this.sids.forEach(s=> s.stop(0));
+          this.sids.length=0;
+        }
       };
       return SoundFiles[name]=s;
     };
 
     const _$={
       ctx: new gscope.AudioContext(),
+      _mute:0,
+      init(){
+        _.delay(0,()=>{
+          if(this.ctx.state == "suspended"){
+            this.ctx.resume()
+          }
+        })
+      },
+      /**Check if sound is on or off.
+       * @memberof module:mojoh5/Sound
+       * @return {boolean}
+       */
+      sfx(){
+        return this._mute===0
+      },
+      /**Turn sound off.
+       * @memberof module:mojoh5/Sound
+       * @return {object}
+       */
+      mute(){
+        this._mute=1;
+        return this;
+      },
+      /**Turn sound on.
+       * @memberof module:mojoh5/Sound
+       * @return {object}
+       */
+      unmute(){
+        this._mute=0;
+        return this;
+      },
       /**Decode these sound bytes.
        * @memberof module:mojoh5/Sound
        * @param {string} name
@@ -3214,64 +3608,527 @@
   "use strict";
 
   /**Creates the module. */
-  function _module(Mojo,ActiveTouches,Buttons,DragDrops){
+  function _module(Mojo){
 
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_,is}=Mojo;
-    const _keyInputs= _.jsMap();
+    const Layers= [];
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function cur(){ return Layers[0] }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function mkLayer(L={}){
+      function _uh(e){
+        L.keyInputs.set(e.keyCode,false);
+        L.shiftKey=e.shiftKey;
+        L.ctrlKey=e.ctrlKey;
+        L.altKey=e.altKey;
+        e.preventDefault();
+      }
+      function _dh(e){
+        L.keyInputs.set(e.keyCode,true);
+        L.ctrlKey= false;
+        L.altKey= false;
+        L.shiftKey=false;
+        e.preventDefault();
+      }
+      _.inject(L,{
+        keyInputs: _.jsMap(),
+        pauseInput:false,
+        ctrlKey:false,
+        altKey:false,
+        shiftKey:false,
+        ptr:null,
+        dispose(){
+          this.ptr.dispose();
+          if(!Mojo.touchDevice)
+            _.delEvent([["keyup", window, _uh, false],
+                        ["keydown", window, _dh, false]]);
+        },
+        pointer(){
+          if(!this.ptr)
+            this.ptr=mkPtr(this);
+          return this.ptr;
+        },
+        update(dt){
+          if(!this.pauseInput)
+            this.ptr.DragDrops.length>0 && this.ptr.update(dt)
+        },
+        keybd(_key,press,release){
+          const self=this;
+          const key={press,
+                     release,
+                     isDown:false, isUp:true,
+                     ctrl:false, alt:false, shift:false};
+          key.code= is.vec(_key)?_key:[_key];
+          function _down(e){
+            e.preventDefault();
+            if(key.code.includes(e.keyCode)){
+              key.ctrl=e.ctrlKey;
+              key.alt=e.altKey;
+              key.shift=e.shiftKey;
+              if(!self.pauseInput && key.isUp)
+                key.press && key.press(key.alt,key.ctrl,key.shift);
+              key.isUp=false;
+              key.isDown=true;
+            }
+          }
+          function _up(e){
+            e.preventDefault();
+            if(key.code.includes(e.keyCode)){
+              if(!self.pauseInput)
+                key.isDown && key.release && key.release();
+              key.isUp=true; key.isDown=false;
+              key.ctrl=false; key.alt=false; key.shift=false;
+            }
+          }
+          if(!Mojo.touchDevice)
+            _.addEvent([["keyup", window, _up, false],
+                        ["keydown", window, _down, false]]);
+          key.dispose=()=>{
+            if(!Mojo.touchDevice)
+              _.delEvent([["keyup", window, _up, false],
+                          ["keydown", window, _down, false]]);
+          }
+          return key;
+        },
+        reset(){
+          this.pauseInput=false;
+          this.ctrlKey=false;
+          this.altKey=false;
+          this.shiftKey=false;
+          this.ptr.reset();
+          this.keyInputs.clear();
+        },
+        resize(){
+          Mojo.mouse=this.ptr;
+          this.ptr.reset();
+        },
+        dbg(){
+          console.log(`N# of touches= ${this.ptr.ActiveTouches.size}`);
+          console.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
+          console.log(`N# of buttons= ${this.ptr.Buttons.length}`);
+          console.log(`N# of drags= ${this.ptr.DragDrops.length}`);
+          console.log(`Mouse pointer = ${this.ptr}`);
+        }
+      });
+
+      if(!Mojo.touchDevice)
+        //keep tracks of keyboard presses
+        _.addEvent([["keyup", window, _uh, false],
+                    ["keydown", window, _dh, false]]);
+
+      return L;
+    }
 
     /**
      * @module mojoh5/Input
      */
 
     /** @ignore */
-    function _uh(e){
-      e.preventDefault();
-      _keyInputs.set(e.keyCode,false); }
-
-    /** @ignore */
-    function _dh(e){
-      e.preventDefault();
-      _keyInputs.set(e.keyCode,true); }
-
-    /** @ignore */
-    function _updateDrags(ptr){
-      if(ptr && ptr.state[0]){
-        if(!ptr.dragged){
-          for(let s,i=DragDrops.length-1; i>=0; --i){
-            s=DragDrops[i];
-            if(s.m5.drag && ptr.hitTest(s)){
-              let cs= s.parent.children,
-                  g=Mojo.Sprites.gposXY(s);
-              ptr.dragged = s;
-              ptr.dragOffsetX = ptr.x - g[0];
-              ptr.dragOffsetY = ptr.y - g[1];
-              //important,force this flag to off so
-              //if drag dropped onto a button, button
-              //won't get triggered
-              ptr.state[2]=false;
-              //pop it up to top
-              _.disj(cs,s);
-              _.conj(cs,s);
-              _.disj(DragDrops,s);
-              _.conj(DragDrops,s);
+    function mkPtr(L){
+      let P={
+        ActiveDragsID: _.jsMap(),
+        ActiveDrags: _.jsMap(),
+        ActiveTouches: _.jsMap(),
+        Hotspots:[],
+        Buttons:[],
+        DragDrops:[],
+        //down,up
+        state: [false,true],
+        touchZeroID:0,
+        _visible: true,
+        _x: 0,
+        _y: 0,
+        width: 1,
+        height: 1,
+        downTime: 0,
+        downAt:[0,0],
+        elapsedTime: 0,
+        dragged: null,
+        dragOffsetX: 0,
+        dragOffsetY: 0,
+        anchor: Mojo.makeAnchor(0.5,0.5),
+        get cursor() { return Mojo.canvas.style.cursor },
+        set cursor(v) { Mojo.canvas.style.cursor = v },
+        get x() { return this._x / Mojo.scale },
+        get y() { return this._y / Mojo.scale },
+        get visible() { return this._visible },
+        get isUp(){return this.state[1]},
+        get isDown(){return this.state[0]},
+        set visible(v) {
+          this.cursor = v ? "auto" : "none";
+          this._visible = v;
+        },
+        update(dt){
+          Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt)
+        },
+        updateMultiDrags(dt){
+          let self=P;
+          for(let cs,a,i=0; i < self.ActiveTouches.length; ++i){
+            a=self.ActiveTouches[i];
+            for(let p,s,i=self.DragDrops.length-1; i>=0; --i){
+              s=self.DragDrops[i];
+              p=self.ActiveDrags.get(s.m5.uuid);
+              if(p){
+                _V.set(p.dragged, p.dragStartX+(a.x-p.dragPtrX),
+                                  p.dragStartY+(a.y-p.dragPtrY));
+                break;
+              }
+              if(s.m5.drag && self._test(s,a.x,a.y)){
+                _.assoc(self.ActiveDrags, s.m5.uuid, p={
+                  dragStartX: s.x,
+                  dragStartY: s.y,
+                  dragPtrX: a.x,
+                  dragPtrY: a.y,
+                  dragged: s,
+                  id: a.id
+                });
+                _.assoc(self.ActiveDragsID, a.id, p);
+                //pop it up to top
+                cs= s.parent.children;
+                _.disj(cs,s);
+                cs.push(s);
+                break;
+              }
+            }
+          }
+        },
+        updateDrags(dt){
+          if(this.state[0]){
+            if(this.dragged){
+              _V.set(this.dragged, this.dragStartX+(this.x-this.dragPtrX),
+                                   this.dragStartY+(this.y-this.dragPtrY));
+            }else{
+              for(let cs,s,i=this.DragDrops.length-1; i>=0; --i){
+                s=this.DragDrops[i];
+                if(s.m5.drag && this.hitTest(s)){
+                  this.dragStartX = s.x;
+                  this.dragStartY = s.y;
+                  this.dragPtrX= this.x;
+                  this.dragPtrY= this.y;
+                  this.dragged = s;
+                  //pop it up to top
+                  cs= s.parent.children;
+                  _.disj(cs,s);
+                  cs.push(s);
+                  break;
+                }
+              }
+            }
+          }
+          if(this.state[1]){
+            //dragged and now dropped
+            if(this.dragged &&
+               this.dragged.m5.onDragDropped)
+              this.dragged.m5.onDragDropped();
+            this.dragged=null;
+          }
+        },
+        getGlobalPosition(){
+          return {x: this.x, y: this.y}
+        },
+        //tap(){ this.press() },
+        _press(){
+          if(!L.pauseInput)
+            for(let s,i=0,z=this.Buttons.length;i<z;++i){
+              s=this.Buttons[i];
+              if(s.m5.press && this.hitTest(s)){
+                s.m5.press(s);
+                break;
+              }
+            }
+        },
+        _doMDown(b){
+          let found,self=P;
+          for(let s,i=0;i<self.Hotspots.length;++i){
+            s=self.Hotspots[i];
+            if(s.m5.touch && self.hitTest(s)){
+              s.m5.touch(s,b);
+              found=true;
               break;
             }
           }
-        }else{
-          _V.set(ptr.dragged, ptr.x - ptr.dragOffsetX, ptr.y - ptr.dragOffsetY)
+          return found;
+        },
+        mouseDown(e){
+          let self=P, nn=_.now();
+          //left click only
+          if(e.button===0){
+            e.preventDefault();
+            self._x = e.pageX - e.target.offsetLeft;
+            self._y = e.pageY - e.target.offsetTop;
+            //down,up,pressed
+            _.setVec(self.state,true,false);
+            self.downTime = nn;
+            self.downAt[0]=self._x;
+            self.downAt[1]=self._y;
+            Mojo.Sound.init();
+            if(!L.pauseInput){
+              Mojo.emit(["mousedown"]);
+              self._doMDown(true);
+            }
+          }
+        },
+        mouseMove(e){
+          let self=P;
+          self._x = e.pageX - e.target.offsetLeft;
+          self._y = e.pageY - e.target.offsetTop;
+          //e.preventDefault();
+          if(!L.pauseInput)
+            Mojo.emit(["mousemove"]);
+        },
+        mouseUp(e){
+          let self=P,nn=_.now();
+          if(e.button===0){
+            e.preventDefault();
+            self.elapsedTime = Math.max(0, nn - self.downTime);
+            self._x = e.pageX - e.target.offsetLeft;
+            self._y = e.pageY - e.target.offsetTop;
+            _.setVec(self.state,false,true);
+            if(!L.pauseInput){
+              Mojo.emit(["mouseup"]);
+              if(!self._doMDown(false)){
+                let v= _V.vecAB(self.downAt,self);
+                let z= _V.len2(v);
+                //small distance and fast then a click
+                if(z<400 && self.elapsedTime<200){
+                  Mojo.emit(["single.tap"]);
+                  self._press();
+                }else{
+                  self._swipeMotion(v,z,self.elapsedTime);
+                }
+              }
+            }
+          }
+        },
+        _swipeMotion(v,dd,dt,arg){
+          let n= _V.unit$(_V.normal(v));
+          let rc;
+          //up->down n(1,0)
+          //bottom->up n(-1,0)
+          //right->left n(0,1)
+          //left->right n(0,-1)
+          if(dd>400 && dt<1000 &&
+             (Math.abs(n[0]) > 0.8 || Math.abs(n[1]) > 0.8)){
+            if(n[0] > 0.8){
+              rc="swipe.down";
+            }
+            if(n[0] < -0.8){
+              rc="swipe.up";
+            }
+            if(n[1] > 0.8){
+              rc="swipe.left";
+            }
+            if(n[1] < -0.8){
+              rc="swipe.right";
+            }
+          }
+          if(rc)
+            Mojo.emit([rc], arg)
+        },
+        _doMTouch(ts,flag){
+          let self=P,
+              found=_.jsMap();
+          for(let a,i=0; i<ts.length; ++i){
+            a=ts[i];
+            for(let s,j=0; j<self.Hotspots.length; ++j){
+              s=self.Hotspots[j];
+              if(s.m5.touch && self._test(s,a.x,a.y)){
+                s.m5.touch(s,flag);
+                found.set(a.id,1);
+                break;
+              }
+            }
+          }
+          return found;
+        },
+        _doMDrag(ts,found){
+          let self=P;
+          for(let p,a,i=0; i<ts.length;++i){
+            a=ts[i];
+            if(found.get(a.id)){continue}
+            p=self.ActiveDragsID.get(a.id);
+            if(p){
+              found.set(a.id,1);
+              p.dragged.m5.onDragDropped &&
+              p.dragged.m5.onDragDropped();
+              self.ActiveDragsID.delete(a.id);
+              self.ActiveDrags.delete(p.dragged.m5.uuid);
+            }
+          }
+          return found;
+        },
+        touchCancel(e){
+          console.warn("received touchCancel event!");
+          this.freeTouches();
+        },
+        touchStart(e){
+          let self=P,
+              t= e.target,
+              out=[],
+              nn= _.now(),
+              T= e.targetTouches,
+              A= self.ActiveTouches;
+          e.preventDefault();
+          for(let a,cx,cy,id,o,i=0;i<T.length;++i){
+            o=T[i];
+            id=o.identifier;
+            cx = o.pageX - t.offsetLeft;
+            cy = o.pageY - t.offsetTop;
+            _.assoc(A, id, a={
+              id, _x:cx, _y:cy,
+              downTime: nn, downAt: [cx,cy],
+              x:cx/Mojo.scale, y:cy/Mojo.scale
+            });
+            out.push(a);
+            //handle single touch case
+            if(i===0){
+              self.touchZeroID=id;
+              self._x = cx;
+              self._y = cy;
+              self.downTime= nn;
+              self.downAt= [cx,cy];
+              _.setVec(self.state,true,false);
+            }
+          }
+          Mojo.Sound.init();
+          if(!L.pauseInput){
+            Mojo.emit(["touchstart"],out);
+            self._doMTouch(out,true);
+          }
+        },
+        touchMove(e){
+          let out=[],
+              self=P,
+              t = e.target,
+              T = e.targetTouches;
+          e.preventDefault();
+          for(let cx,cy,a,o,id,i=0;i<T.length;++i){
+            o=T[i];
+            id= o.identifier;
+            cx= o.pageX - t.offsetLeft;
+            cy= o.pageY - t.offsetTop;
+            if(id==self.touchZeroID){
+              self._x = cx;
+              self._y = cy;
+            }
+            if(a= self.ActiveTouches.get(id)){
+              a.x=cx/Mojo.scale;
+              a.y=cy/Mojo.scale;
+              a._x = cx;
+              a._y = cy;
+              out.push(a);
+            }
+          }
+          if(!L.pauseInput)
+            Mojo.emit(["touchmove"],out);
+        },
+        touchEnd(e){
+          let self=P,
+              out=[],
+              T = e.targetTouches,
+              C = e.changedTouches,
+              cx,cy,i,a,o,id,
+              t = e.target, nn=_.now();
+          e.preventDefault();
+          for(i=0;i<C.length;++i){
+            o=C[i];
+            id=o.identifier;
+            cx= o.pageX - t.offsetLeft;
+            cy= o.pageY - t.offsetTop;
+            a=self.ActiveTouches.get(id);
+            if(id==self.touchZeroID){
+              self.elapsedTime = Math.max(0,nn-self.downTime);
+              _.setVec(self.state,false,true);
+              self._x= cx;
+              self._y= cy;
+            }
+            if(a){
+              a.elapsedTime = Math.max(0,nn-a.downTime);
+              self.ActiveTouches.delete(id);
+              a._x= cx;
+              a._y= cy;
+              a.x=cx/Mojo.scale;
+              a.y=cy/Mojo.scale;
+              out.push(a);
+            }
+          }
+          if(!L.pauseInput){
+            Mojo.emit(["touchend"],out);
+            let found= self._doMTouch(out,false);
+            self._doMDrag(out,found);
+            self._onMultiTouches(out,found);
+          }
+        },
+        _onMultiTouches(ts,found){
+          let self=P;
+          for(let a,v,z,j=0; j<ts.length; ++j){
+            a=ts[j];
+            if(found.get(a.id)){continue}
+            v= _V.vecAB(a.downAt,a);
+            z= _V.len2(v);
+            if(z<400 && a.elapsedTime<200){
+              Mojo.emit(["single.tap"],a);
+              for(let s,i=0,n=self.Buttons.length;i<n;++i){
+                s=self.Buttons[i];
+                if(s.m5.press && self._test(s, a.x, a.y)){
+                  s.m5.press(s);
+                  break;
+                }
+              }
+            }else{
+              self._swipeMotion(v,z,a.elapsedTime,a);
+            }
+          }
+        },
+        freeTouches(){
+          _.setVec(this.state,false,true);
+          this.touchZeroID=0;
+          this.ActiveTouches.clear();
+          this.ActiveDrags.clear();
+          this.ActiveDragsID.clear();
+        },
+        reset(){
+          _.setVec(this.state,false,true);
+          this.freeTouches();
+          this.DragDrops.length=0;
+          this.Buttons.length=0;
+          this.Hotspots.length=0;
+        },
+        _test(s,x,y){
+          let _S=Mojo.Sprites,
+              g=_S.gposXY(s),
+              p=_S.toPolygon(s),
+              ps=_V.translate(g,p.calcPoints);
+          return Geo.hitTestPointInPolygon(x, y, ps);
+        },
+        hitTest(s){
+          return this._test(s,this.x, this.y)
         }
-      }
-      if(ptr && ptr.state[1]){
-        //dragged and now dropped
-        if(ptr.dragged &&
-           ptr.dragged.m5.onDragDropped)
-          ptr.dragged.m5.onDragDropped();
-        ptr.dragged=null;
-      }
+      };
+
+      //////
+      const sigs=[["mousemove", Mojo.canvas, P.mouseMove],
+                  ["mousedown", Mojo.canvas,P.mouseDown],
+                  ["mouseup", window, P.mouseUp],
+                  ["touchmove", Mojo.canvas, P.touchMove],
+                  ["touchstart", Mojo.canvas, P.touchStart],
+                  ["touchend", window, P.touchEnd],
+                  ["touchcancel", window, P.touchCancel]];
+      _.addEvent(sigs);
+      //////
+      P.dispose=function(){
+        this.reset();
+        _.delEvent(sigs);
+      };
+      //////
+      return P;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
       ZERO: 48, ONE: 49, TWO: 50,
@@ -3286,49 +4143,40 @@
       SHIFT: 16, CTRL: 17, ALT: 18, SPACE: 32,
       HOME: 36, END: 35,
       PGGUP: 33, PGDOWN: 34,
-      ptr:null,
+      isPaused(){ return cur().pauseInput },
+      resume(){ cur().pauseInput=false },
+      pause(){ cur().pauseInput=true },
+      dbg(){ cur().dbg() },
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
        */
       resize(){
-        if(this.ptr)
-          this.ptr.dispose();
-        Mojo.mouse= this.pointer();
+        cur().resize()
       },
-      /**Clear all keyboard states.
+      /**Clear all keyboard and mouse events.
        * @memberof module:mojoh5/Input
        */
-      reset(){ _keyInputs.clear() },
+      reset(){
+        cur().reset()
+      },
+      /**Fake a keypress(down).
+       * @memberof module:mojoh5/Input
+       */
+      setKeyOn(k){
+        cur().keyInputs.set(k,true);
+      },
+      /**Fake a keypress(up).
+       * @memberof module:mojoh5/Input
+       */
+      setKeyOff(k){
+        cur().keyInputs.set(k,false);
+      },
       /**
        * @memberof module:mojoh5/Input
        * @param {number} _key
        */
       keybd(_key,press,release){
-        const key={press:press,
-                   release:release,
-                   isDown:false, isUp:true};
-        key.code= is.vec(_key)?_key:[_key];
-        function _down(e){
-          e.preventDefault();
-          if(key.code.includes(e.keyCode)){
-            key.isUp && key.press && key.press();
-            key.isUp=false; key.isDown=true;
-          }
-        }
-        function _up(e){
-          e.preventDefault();
-          if(key.code.includes(e.keyCode)){
-            key.isDown && key.release && key.release();
-            key.isUp=true; key.isDown=false;
-          }
-        }
-        _.addEvent([["keyup", window, _up, false],
-                    ["keydown", window, _down, false]]);
-        key.dispose=()=>{
-          _.delEvent([["keyup", window, _up],
-                      ["keydown", window, _down]]);
-        }
-        return key;
+        return cur().keybd(_key,press,release)
       },
       /**This sprite is no longer a button.
        * @memberof module:mojoh5/Input
@@ -3336,9 +4184,8 @@
        * @return {Sprite}
        */
       undoButton(b){
-        b.m5.enabled=false;
+        _.disj(cur().ptr.Buttons,b);
         b.m5.button=false;
-        _.disj(Buttons,b);
         return b;
       },
       /**This sprite is now a button.
@@ -3347,14 +4194,33 @@
        * @return {Sprite}
        */
       makeButton(b){
-        b.m5.enabled = true;
+        _.conj(cur().ptr.Buttons,b);
         b.m5.button=true;
-        _.conj(Buttons,b);
+        return b;
+      },
+      /**This sprite is no longer a hotspot.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} b
+       * @return {Sprite}
+       */
+      undoHotspot(b){
+        _.disj(cur().ptr.Hotspots,b);
+        b.m5.hotspot=false;
+        return b;
+      },
+      /**This sprite is now a hotspot.
+       * @memberof module:mojoh5/Input
+       * @param {Sprite} b
+       * @return {Sprite}
+       */
+      makeHotspot(b){
+        _.conj(cur().ptr.Hotspots,b);
+        b.m5.hotspot=true;
         return b;
       },
       /** @ignore */
       update(dt){
-        DragDrops.length>0 && _updateDrags(this.ptr)
+        cur().update(dt)
       },
       /**This sprite is now draggable.
        * @memberof module:mojoh5/Input
@@ -3362,7 +4228,7 @@
        * @return {Sprite}
        */
       makeDrag(s){
-        _.conj(DragDrops,s);
+        _.conj(cur().ptr.DragDrops,s);
         s.m5.drag=true;
         return s;
       },
@@ -3372,7 +4238,7 @@
        * @return {Sprite}
        */
       undoDrag(s){
-        _.disj(DragDrops,s);
+        _.disj(cur().ptr.DragDrops,s);
         s.m5.drag=false;
         return s;
       },
@@ -3387,194 +4253,45 @@
        * @param {number} code
        * @return {boolean}
        */
-      keyDown(code){ return _keyInputs.get(code)===true },
+      keyDown(code){ return cur().keyInputs.get(code) },
+      keyShift(){ return cur().shiftKey },
+      keyAlt(){ return cur().altKey },
+      keyCtrl(){ return cur().ctrlKey },
       /**Create the default mouse pointer.
        * @memberof module:mojoh5/Input
        * @return {object}
        */
       pointer(){
-        let ptr={
-          state: [false,true,false],
-          //isDown: false, isUp: true, tapped: false,
-          _visible: true,
-          _x: 0,
-          _y: 0,
-          width: 1,
-          height: 1,
-          downTime: 0,
-          elapsedTime: 0,
-          dragged: null,
-          dragOffsetX: 0,
-          dragOffsetY: 0,
-          anchor: Mojo.makeAnchor(0.5,0.5),
-          get cursor() { return Mojo.canvas.style.cursor },
-          set cursor(v) { Mojo.canvas.style.cursor = v },
-          get x() { return this._x / Mojo.scale },
-          get y() { return this._y / Mojo.scale },
-          get visible() { return this._visible },
-          get isUp(){return this.state[1]},
-          get isDown(){return this.state[0]},
-          get isClicked(){return this.state[2]},
-          set visible(v) {
-            this.cursor = v ? "auto" : "none";
-            this._visible = v;
-          },
-          getGlobalPosition(){
-            return {x: this.x, y: this.y}
-          },
-          press(){
-            for(let s,i=0,z=Buttons.length;i<z;++i){
-              s=Buttons[i];
-              if(s.m5.enabled &&
-                 s.m5.press &&
-                 ptr.hitTest(s)){
-                s.m5.press(s);
-                break;
-              }
-            }
-          },
-          tap(){
-            ptr.press();
-          },
-          mouseDown(e){
-            //left click only
-            if(e.button===0){
-              ptr._x = e.pageX - e.target.offsetLeft;
-              ptr._y = e.pageY - e.target.offsetTop;
-              ptr.downTime = _.now();
-              //down,up,pressed
-              _.setVec(ptr.state,true,false,true);
-              e.preventDefault();
-              Mojo.emit(["mousedown"]);
-            }
-          },
-          mouseMove(e){
-            ptr._x = e.pageX - e.target.offsetLeft;
-            ptr._y = e.pageY - e.target.offsetTop;
-            //e.preventDefault();
-            Mojo.emit(["mousemove"]);
-          },
-          mouseUp(e){
-            if(e.button===0){
-              ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
-              ptr._x = e.pageX - e.target.offsetLeft;
-              ptr._y = e.pageY - e.target.offsetTop;
-              _.setVec(ptr.state,false,true);
-              //ptr.isDown = false;
-              //ptr.isUp = true;
-              if(ptr.state[2]){//pressed
-                ptr.press();
-                ptr.state[2]=false;
-              }
-              e.preventDefault();
-              Mojo.emit(["mouseup"]);
-            }
-          },
-          _copyTouch(t,target){
-            return{offsetLeft:target.offsetLeft,
-                   offsetTop:target.offsetTop,
-                   clientX:t.clientX,
-                   clientY:t.clientY,
-                   pageX:t.pageX,
-                   pageY:t.pageY,
-                   identifier:t.identifier}
-          },
-          touchStart(e){
-            let ct=e.changedTouches; //multitouch
-            //let tt=e.targetTouches;//single touch
-            let t = e.target;
-            let tid=ct[0].identifier||0;
-            ptr._x = ct[0].pageX - t.offsetLeft;
-            ptr._y = ct[0].pageY - t.offsetTop;
-            ptr.downTime = _.now();
-            _.setVec(ptr.state,true,false,true);
-            //ptr.isDown = true; ptr.isUp = false; ptr.tapped = true;
-            e.preventDefault();
-            _.assoc(ActiveTouches,tid,ptr._copyTouch(ct[0],t));
-            Mojo.emit(["touchstart"]);
-          },
-          touchMove(e){
-            let ct=e.changedTouches;
-            //let tt=e.targetTouches;
-            let t = e.target;
-            let tid= ct[0].identifier||0;
-            let active = _.get(ActiveTouches,tid);
-            ptr._x = ct[0].pageX - t.offsetLeft;
-            ptr._y = ct[0].pageY - t.offsetTop;
-            e.preventDefault();
-            Mojo.emit(["touchmove"]);
-          },
-          touchEnd(e){
-            let ct=e.changedTouches;
-            //let tt=e.targetTouches;
-            let t = e.target;
-            let tid= ct[0].identifier||0;
-            let active = _.get(ActiveTouches,tid);
-            ptr._x = ct[0].pageX - t.offsetLeft;
-            ptr._y = ct[0].pageY - t.offsetTop;
-            _.setVec(ptr.state,false,true);
-            //ptr.isDown = false; ptr.isUp = true;
-            ptr.elapsedTime = Math.abs(ptr.downTime - _.now());
-            if(ptr.state[2]){
-              if(active && ptr.elapsedTime <= 200){
-                ptr.tap();
-              }
-              ptr.state[2]=false;
-            }
-            e.preventDefault();
-            Mojo.emit(["touchend"]);
-          },
-          touchCancel(e){
-            let ct=e.changedTouches;
-            //let tt=e.targetTouches;
-            let t=e.target;
-            let t0=ct[0];
-            let tid= touch.identifier || 0;
-            let active = _.get(ActiveTouches,tid);
-            e.preventDefault();
-            if(active)
-              _.dissoc(ActiveTouches,tid);
-          },
-          reset(){
-            _.setVec(ptr.state,false,true,false);
-            Buttons.length=0;
-            DragDrops.length=0;
-          },
-          hitTest(s){
-            let _S=Mojo.Sprites,
-                g=_S.gposXY(s),
-                p=_S.toPolygon(s),
-                ps=_V.translate(g,p.calcPoints);
-            return Geo.hitTestPointInPolygon(ptr.x,ptr.y,ps);
-          },
-          dispose(){
-            ptr.reset();
-            _.delEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
-                        ["mousedown", Mojo.canvas,ptr.mouseDown],
-                        ["mouseup", window, ptr.mouseUp],
-                        ["touchmove", Mojo.canvas, ptr.touchMove],
-                        ["touchstart", Mojo.canvas, ptr.touchStart],
-                        ["touchend", window, ptr.touchEnd],
-                        ["touchcancel", window, ptr.touchCancel]]);
-          }
-        };
-        _.addEvent([["mousemove", Mojo.canvas, ptr.mouseMove],
-                    ["mousedown", Mojo.canvas,ptr.mouseDown],
-                    ["mouseup", window, ptr.mouseUp],
-                    ["touchmove", Mojo.canvas, ptr.touchMove],
-                    ["touchstart", Mojo.canvas, ptr.touchStart],
-                    ["touchend", window, ptr.touchEnd],
-                    ["touchcancel", window, ptr.touchCancel]]);
-        //disable the default actions on the canvas
-        Mojo.canvas.style.touchAction = "none";
-        return this.ptr=ptr;
+        return cur().pointer()
+      },
+      dispose(){
+        Layers.forEach(a => a.dispose())
+      },
+      pop(){
+        if(Layers.length>1){
+          Layers.shift().dispose()
+          cur().pauseInput=false;
+        }
+      },
+      push(){
+        Layers[0].pauseInput=true;
+        Layers.unshift(mkLayer());
       }
     };
 
-    //keep tracks of keyboard presses
-    _.addEvent([["keyup", window, _uh, false],
-                ["keydown", window, _dh, false]]);
+    //disable the default actions on the canvas
+    Mojo.canvas.style.touchAction = "none";
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //aliases
+    _$.undoBtn=_$.undoButton;
+    _$.mkBtn=_$.makeButton;
+    _$.mkDrag=_$.makeDrag;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    Layers.push(mkLayer());
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     return (Mojo.Input= _$);
   }
 
@@ -3584,7 +4301,7 @@
     throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/Input"]=function(M){
-      return M.Input ? M.Input : _module(M,new Map(),[],[])
+      return M.Input ? M.Input : _module(M)
     }
   }
 
@@ -3612,227 +4329,230 @@
   /**Create the module. */
   function _module(Mojo){
 
-    const {is,ute:_}=Mojo,
-          P8=Math.PI/8;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const P8=Math.PI/8,
+          P8_3=P8*3,
+          P8_5=P8*5,
+          P8_7= P8*7,
+          {Sprites:_S, Input:_I, is,ute:_}=Mojo;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const sin=Math.sin,cos=Math.cos,abs=Math.abs;
+    const RTA=180/Math.PI;
 
     /**
      * @module mojoh5/Touch
      */
 
-    /** @ignore */
-    function _calcPower(s,cx,cy){
-      const a= +cx;
-      const b= +cy;
-      return Math.min(1, Math.sqrt(a*a + b*b)/s.m5.outerRadius)
-    }
-
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _calcDir(cx,cy){
       const rad= Math.atan2(+cy, +cx);
-      let ret= Mojo.TOP_RIGHT;
-      if((rad >= -P8 && rad<0) || (rad >= 0 && rad<P8)){
-        ret= Mojo.RIGHT
+
+      if(rad > -P8_5 && rad < -P8_3){
+        console.log("calcDir=UP");
+        return Mojo.UP;
       }
-      else if(rad >= P8 && rad < 3*P8){
-        ret= Mojo.BOTTOM_RIGHT
+      if(rad > P8_3 && rad < P8_5){
+        console.log("calcDir=DOWN");
+        return Mojo.DOWN;
       }
-      else if(rad >= 3*P8 && rad < 5*P8){
-        ret= Mojo.BOTTOM
+      if((rad > -P8 && rad<0) ||
+         (rad > 0 && rad<P8)){
+        console.log("calcDir=RIGHT");
+        return Mojo.RIGHT;
       }
-      else if(rad >= 5*P8 && rad < 7*P8){
-        ret= Mojo.BOTTOM_LEFT
+      if((rad > P8_7 && rad<Math.PI) ||
+         (rad > -Math.PI && rad < -P8_7)){
+        console.log("calcDir=LEFT");
+        return Mojo.LEFT;
       }
-      else if((rad >= 7*P8 && rad<Math.PI) || (rad >= -Math.PI && rad < -7*P8)){
-        ret= Mojo.LEFT
+
+      if(rad > P8 && rad < P8_3){
+        console.log("calcDir= SE ");
+        return Mojo.SE;
       }
-      else if(rad >= -7*P8 && rad < -5*P8){
-        ret= Mojo.TOP_LEFT
+      if(rad > P8_5 && rad < P8_7){
+        console.log("calcDir= SW ");
+        return Mojo.SW;
       }
-      else if(rad >= -5*P8 && rad < -3*P8){
-        ret= Mojo.TOP
+      if(rad> -P8_3 && rad < -P8){
+        console.log("calcDir= NE ");
+        return Mojo.NE;
       }
-      return ret
+      if(rad > -P8_7 && rad < -P8_5){
+        console.log("calcDir= NW ");
+        return Mojo.NW;
+      }
+
+      _.assert(false,"Failed Joystick calcDir");
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _bindEvents(s){
       function onDragStart(e){
         let ct=e.changedTouches;
         let t= e.target;
         if(ct){
-          s.m5.startX= ct[0].pageX - t.offsetLeft;
-          s.m5.startY= ct[0].pageY - t.offsetTop;
+          e=ct[0];
           s.m5.touchId=ct[0].identifier;
-        }else{
-          s.m5.startX= e.pageX - t.offsetLeft;
-          s.m5.startY= e.pageY - t.offsetTop;
+        }else{//for mouse
           s.m5.touchId=0;
         }
+        s.m5.startX= e.pageX - t.offsetLeft;
+        s.m5.startY= e.pageY - t.offsetTop;
         s.m5.drag= true;
-        s.m5.inner.alpha = 1;
-        s.m5.onStart();
+        if(!s.m5.static){
+          s.visible=true;
+          s.x=s.m5.startX;
+          s.y=s.m5.startY;
+        }
+        if(!_I.isPaused()) s.m5.onStart();
       }
       function onDragEnd(e){
         if(s.m5.drag){
-          s.m5.inner.alpha = s.m5.innerAlphaStandby;
           s.m5.inner.position.set(0,0);
           s.m5.drag= false;
-          s.m5.onEnd();
+          if(!s.m5.static){
+            s.visible=false;
+          }
+          if(!_I.isPaused()) s.m5.onEnd();
         }
       }
       function onDragMove(e){
-        if(!s.m5.drag){return}
-        let ct=e.changedTouches;
-        let t= e.target;
-        let cx=null;
-        let cy=null;
-        if(ct){
-          for(let i=0; i< ct.length; ++i){
-            if(s.m5.touchId === ct[i].identifier){
-              cx= ct[i].pageX-t.offsetLeft;
-              cy= ct[i].pageY-t.offsetTop;
+        if(_I.isPaused() || !s.visible || !s.m5.drag){return}
+        let c,t= e.target;
+        if(e.changedTouches){
+          for(let i=0,
+                  ct=e.changedTouches; i< ct.length; ++i){
+            if(s.m5.touchId == ct[i].identifier){
+              c= [ct[i].pageX-t.offsetLeft,
+                  ct[i].pageY-t.offsetTop];
               break;
             }
           }
-        }else{
-          cx= e.pageX - t.offsetLeft;
-          cy= e.pageY - t.offsetTop;
+        }else{//for mouse
+          c= [e.pageX - t.offsetLeft,
+              e.pageY - t.offsetTop]
         }
-        if(cx===null||cy===null){return}
-        let sideX = cx - s.m5.startX;
-        let sideY = cy - s.m5.startY;
-        let calRadius = 0;
+        let X = c? (c[0] - s.m5.startX) :0;
+        let Y = c? (c[1] - s.m5.startY) :0;
+        let limit=s.m5.range;
         let angle = 0;
-        cx=0;
-        cy=0;
-        if(sideX === 0 && sideY === 0){return}
-        if(sideX * sideX + sideY * sideY >= s.m5.outerRadius * s.m5.outerRadius){
-          calRadius = s.m5.outerRadius
-        }else{
-          calRadius = s.m5.outerRadius - s.m5.innerRadius
-        }
-        /**
-         * x:   -1 <-> 1
+        c[0]=0;
+        c[1]=0;
+        if(_.feq0(X) && _.feq0(Y)){return}
+        /**x:   -1 <-> 1
          * y:   -1 <-> 1
          *          Y
          *          ^
-         *          |
          *     180  |  90
          *    ------------> X
          *     270  |  360
-         *          |
-         *          |
          */
-        let direction=Mojo.LEFT;
-        let sx=Math.abs(sideX);
-        let sy=Math.abs(sideY);
-        let power=0;
-        if(sideX === 0){
-          if(sideY>0){
-            cx=0;
-            cy=sideY>s.m5.outerRadius ? s.m5.outerRadius : sideY;
+        let dir, sx=abs(X), sy=abs(Y);
+        if(_.feq0(X)){
+          c[0]=0;
+          if(Y>0){
+            c[1]=Y>limit ? limit : Y;
             angle=270;
-            direction=Mojo.BOTTOM;
+            dir=Mojo.DOWN;
           }else{
-            cx=0;
-            cy= -(sy > s.m5.outerRadius ? s.m5.outerRadius : sy);
+            c[1]= -(sy > limit ? limit : sy);
             angle = 90;
-            direction = Mojo.TOP;
+            dir= Mojo.UP;
           }
-          s.m5.inner.position.set(cx,cy);
-          power = _calcPower(s,cx,cy);
-          s.m5.onChange(direction,angle,power);
-        } else if(sideY === 0){
-          if(sideX>0){
-            cx=sx > s.m5.outerRadius ? s.m5.outerRadius : sx;
-            cy=0;
+        }else if(_.feq0(Y)){
+          c[1]=0;
+          if(X>0){
+            c[0]=sx > limit ? limit : sx;
             angle=0;
-            direction = Mojo.LEFT;
+            dir= Mojo.RIGHT;
           }else{
-            cx=-(sx > s.m5.outerRadius ? s.m5.outerRadius : sx);
-            cy=0;
+            c[0]=-(sx > limit ? limit : sx);
             angle = 180;
-            direction = Mojo.RIGHT;
+            dir= Mojo.LEFT;
           }
-          s.m5.inner.position.set(cx,cy);
-          power = _calcPower(s,cx,cy);
-          s.m5.onChange(direction, angle, power);
         }else{
-          let tanVal= Math.abs(sideY/sideX);
-          let radian= Math.atan(tanVal);
-          angle = radian*180/Math.PI;
-          cx=cy=0;
-          if(sideX*sideX + sideY*sideY >= s.m5.outerRadius*s.m5.outerRadius){
-            cx= s.m5.outerRadius * Math.cos(radian);
-            cy= s.m5.outerRadius * Math.sin(radian);
+          let rad= Math.atan(abs(Y/X));
+          angle = rad*RTA;
+          c[0]=c[1]=0;
+          if(X*X + Y*Y >= limit*limit){
+            c[0]= limit * cos(rad);
+            c[1]= limit * sin(rad);
           }else{
-            cx= sx > s.m5.outerRadius ? s.m5.outerRadius : sx;
-            cy= sy > s.m5.outerRadius ? s.m5.outerRadius : sy;
+            c[0]= sx > limit ? limit : sx;
+            c[1]= sy > limit ? limit : sy;
           }
-          if(sideY<0)
-            cy= -Math.abs(cy);
-          if(sideX<0)
-            cx= -Math.abs(cx);
-          if(sideX>0 && sideY<0){
+          if(Y<0)
+            c[1]= -abs(c[1]);
+          if(X<0)
+            c[0]= -abs(c[0]);
+          if(X>0 && Y<0){
+            //console.log(`angle < 90`);
             // < 90
-          } else if(sideX<0 && sideY<0){
+          }else if(X<0 && Y<0){
             // 90 ~ 180
+            //console.log(`angle 90 ~ 180`);
             angle= 180 - angle;
-          } else if(sideX<0 && sideY>0){
+          }else if(X<0 && Y>0){
             // 180 ~ 270
-            angle= angle + 180;
-          } else if(sideX>0 && sideY>0){
-            // 270 ~ 369
+            //console.log(`angle 180 ~ 270`);
+            angle += 180;
+          }else if(X>0 && Y>0){
+            // 270 ~ 360
+            //console.log(`angle 270 ~ 360`);
             angle= 360 - angle;
           }
-          power= _calcPower(s,cx,cy);
-          direction= _calcDir(cx,cy);
-          s.m5.inner.position.set(cx,cy);
-          s.m5.onChange(direction, angle, power);
+          dir= _calcDir(c[0],c[1]);
         }
+        s.m5.inner.position.set(c[0],c[1]);
+        s.m5.onChange(dir,angle);
       }
-      _.addEvent([["mousemove", Mojo.canvas, onDragMove],
-                  ["mousedown", Mojo.canvas, onDragStart],
-                  ["mouseup", window, onDragEnd],
-                  ["touchend", window, onDragEnd],
-                  ["touchcancel", window, onDragEnd],
-                  ["touchmove", Mojo.canvas, onDragMove],
-                  ["touchstart", Mojo.canvas, onDragStart]]);
+
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      const sigs= [["mousemove", Mojo.canvas, onDragMove],
+                   ["mousedown", Mojo.canvas, onDragStart],
+                   ["mouseup", window, onDragEnd],
+                   ["touchend", window, onDragEnd],
+                   ["touchcancel", window, onDragEnd],
+                   ["touchmove", Mojo.canvas, onDragMove],
+                   ["touchstart", Mojo.canvas, onDragStart]];
+      _.addEvent(sigs);
+      s.m5.dispose=()=>{ _.delEvent(sigs) };
+      return s;
     }
 
     const _$={
+      assets:["boot/joystick.png","boot/joystick-handle.png"],
       /**Create the joystick.
        * @memberof module:mojoh5/Touch
        * @param {object} options
        * @return {PIXIContainer} the stick
        */
       joystick(options){
-        let mo= _.inject({outerScaleX:1,
-                          outerScaleY:1,
-                          outerRadius:0,
-                          innerRadius:0,
-                          innerScaleX:1,
-                          innerScaleY:1,
-                          innerAlphaStandby:0.5,
-                          onStart(){},
-                          onEnd(){},
-                          onChange(dir,angle,power){}}, options);
-        let outer= mo.outer= Mojo.Sprites.sprite("joystick.png");
-        let inner= mo.inner= Mojo.Sprites.sprite("joystick-handle.png");
+        let inner= _S.sprite("boot/joystick-handle.png");
+        let outer= _S.sprite("boot/joystick.png");
         let stick=new PIXI.Container();
-        stick.m5=mo;
-        outer.alpha = 0.5;
+        let mo= _.inject({oscale:0.7,
+                          iscale:1,
+                          inner,
+                          outer,
+                          onEnd(){},
+                          onStart(){},
+                          prevDir:0,
+                          static:false,
+                          onChange(dir,angle){}}, options);
+        _S.scaleXY(outer,mo.oscale, mo.oscale);
+        _S.scaleXY(inner,mo.iscale, mo.iscale);
         outer.anchor.set(0.5);
         inner.anchor.set(0.5);
-        inner.alpha = mo.innerAlphaStandby;
-        outer.scale.set(mo.outerScaleX, mo.outerScaleY);
-        inner.scale.set(mo.innerScaleX, mo.innerScaleY);
         stick.addChild(outer);
         stick.addChild(inner);
-        mo.outerRadius = stick.width / 2.5;
-        mo.innerRadius = inner.width / 2;
-        _bindEvents(stick);
-        return stick;
+        mo.range = stick.width/2.5;
+        if(!mo.static)
+          stick.visible=false;
+        stick.m5=mo;
+        return _bindEvents(stick);
       }
     };
 
@@ -3870,72 +4590,204 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   /**Create the module. */
   function _module(Mojo){
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _V=gscope["io/czlab/mcfud/vec2"]();
-    const WHITE=Mojo.Sprites.color("white");
-    const {is, ute:_}=Mojo;
-    const ABS=Math.abs,
-          MFL=Math.floor;
+    const _M=gscope["io/czlab/mcfud/math"]();
+    const {Scenes:_Z,
+           Sprites:_S,
+           is, ute:_}=Mojo;
+    const abs=Math.abs,
+          cos=Math.cos,
+          sin=Math.sin,
+          int=Math.floor;
 
     /**
      * @module mojoh5/2d
      */
 
-    //https://github.com/dwmkerr/starfield/blob/master/starfield.js
-    Mojo.Scenes.defScene("StarfieldBg",{
-      setup(options){
-        if(!options.minVel) options.minVel=15;
-        if(!options.maxVel) options.maxVel=30;
-        if(!options.count) options.count=100;
-        if(!options.width) options.width=Mojo.width;
-        if(!options.height) options.height=Mojo.height;
+    /**
+     * @typedef {object} HealthBarConfig
+     * @property {number} scale scaling factor for drawing
+     * @property {number} width width of the widget
+     * @property {number} height height of the widget
+     * @property {number} lives  default is 3
+     * @property {number} borderWidth width of the border
+     * @property {number} lineColor color used for line
+     * @property {number} fillColor color used to fill
+     */
 
-        let gfx= Mojo.Sprites.graphics();
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Create a health(lives) bar */
+    function healthBar(arg){
+      let {scale:K,width,height,
+           lives,border,line,fill}=arg;
+      let c,padding=4*K,fit=4*K,out=[];
+      border = (border||4)*K;
+      lives= lives||3;
+      fill=_S.color(fill);
+      line=_S.color(line);
+      for(let r,w=int(width/lives), i=0;i<lives;++i){
+        out.push(_S.rect(w,height-2*border,fill))
+      }
+      return{
+        dec(){
+          if(this.lives>0){
+            this.lives -= 1;
+            out[this.lives].visible=false;
+          }
+          return this.lives>0;
+        },
+        lives: out.length,
+        sprite: _Z.layoutX(out,{bg:["#cccccc",0],
+                                borderWidth:border,
+                                border:line,padding,fit})
+      };
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const R=Math.PI/180,
+          CIRCLE=Math.PI*2;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
+    //arg={cx,cy,radius,fill,line,alpha}
+    /**Create a gauge like speedometer */
+    function gaugeUI(arg){
+      let {minDeg,maxDeg,
+           line,gfx,scale:K,
+           radius, fill, needle }= _.patch(arg,{minDeg:90,maxDeg:360});
+      needle=_S.color(needle);
+      line=_S.color(line);
+      fill=_S.color(fill);
+      radius *= K;
+      return {
+        segs: [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315],
+        gfx,
+        getPt(x, y, radius, rad){
+          return[x + radius * cos(rad),
+                 y + radius * sin(rad) ]
+        },
+        draw(){
+          gfx.clear();
+          gfx.lineStyle({width: radius/8,color:line});
+          gfx.beginFill(fill, arg.alpha);
+          gfx.drawCircle(arg.cx, arg.cy, radius);
+          gfx.endFill();
+          this.segs.forEach(s=>{
+            this.drawTig(gfx, arg.cx, arg.cy, radius, s, 7*K);
+          });
+          this.drawPtr(gfx, arg.cx,arg.cy,
+                       64*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
+        },
+        drawTig(gfx, x, y, radius, rad, size){
+          let [sx,sy] = this.getPt(x, y, radius - 4*K, rad),
+              [ex,ey] = this.getPt(x, y, radius - 12*K, rad);
+          gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
+          gfx.moveTo(sx, sy);
+          gfx.lineTo(ex, ey);
+          gfx.closePath();
+        },
+        drawPtr(gfx, cx,cy, radius, color, rad){
+          let [px,py]= this.getPt(cx, cy, radius - 20*K, rad),
+              [p2x,p2y] = this.getPt(cx, cy, 2*K, rad+R*90),
+              [p3x,p3y] = this.getPt(cx, cy, 2*K, rad-R*90);
+          gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
+          gfx.moveTo(p2x, p2y);
+          gfx.lineTo(px, py);
+          gfx.lineTo(p3x, p3y);
+          gfx.closePath();
+          gfx.lineStyle({color:line});
+          gfx.beginFill(line);
+          gfx.drawCircle(cx,cy,9*K);
+          gfx.endFill();
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PhotoMat",{
+      setup(arg){
+        if(arg.cb){ arg.cb(this) }else{
+          this.g.gfx=_S.graphics();
+          this.g.gfx.beginFill(_S.color(arg.color));
+          //top,bottom
+          this.g.gfx.drawRect(0,0,Mojo.width,arg.y1);
+          this.g.gfx.drawRect(0,arg.y2,Mojo.width,Mojo.height-arg.y2);
+          //left,right
+          this.g.gfx.drawRect(0,0,arg.x1,Mojo.height);
+          this.g.gfx.drawRect(arg.x2,0,Mojo.width-arg.x2,Mojo.height);
+          this.g.gfx.endFill();
+          this.insert(this.g.gfx);
+        }
+      }
+    });
+
+    //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
+    _Z.defScene("StarfieldBg",{
+      setup(o){
+        if(!o.minVel) o.minVel=15;
+        if(!o.maxVel) o.maxVel=30;
+        if(!o.count) o.count=100;
+        if(!o.width) o.width=Mojo.width;
+        if(!o.height) o.height=Mojo.height;
+
+        let gfx= _S.graphics();
         let stars=[];
 
-        this.g.fps= 1.0/options.fps;
+        this.g.fps= 1.0/o.fps;
         this.g.stars=stars;
         this.g.gfx=gfx;
         this.g.lag=0;
+        this.g.dynamic=true;
 
-        for(let i=0; i<options.count; ++i){
-          stars[i] = {x: _.rand()*options.width,
-                      y: _.rand()*options.height,
+        if(o.static)
+          this.g.dynamic=false;
+
+        for(let i=0; i<o.count; ++i)
+          stars[i] = {x: _.rand()*o.width,
+                      y: _.rand()*o.height,
                       size:_.rand()*3+1,
-                      vel:(_.rand()*(options.maxVel- options.minVel))+options.minVel};
-        }
+                      vel:(_.rand()*(o.maxVel- o.minVel))+o.minVel};
         this._draw();
         this.insert(gfx);
       },
       _draw(){
+        const w=0xffffff;
         this.g.gfx.clear();
         this.g.stars.forEach(s=>{
-          this.g.gfx.beginFill(WHITE);
-          this.g.gfx.drawRect(s.x,s.y,s.size,s.size);
+          this.g.gfx.beginFill(w);
+          this.g.gfx.drawRect(s.x,
+                              s.y,
+                              s.size,
+                              s.size);
           this.g.gfx.endFill();
         });
       },
-      postUpdate(dt){
+      moveStars(dt){
         this.g.lag +=dt;
-        if(this.g.lag<this.g.fps){
-          return;
-        }else{
+        if(this.g.lag<this.g.fps){}else{
           this.g.lag=0;
+          for(let s,i=0,
+                  o=this.m5.options;
+                  i<this.g.stars.length;++i){
+            s=this.g.stars[i];
+            s.y += dt * s.vel;
+            if(s.y > o.height){
+              _V.set(s, _.randInt(o.width), 0);
+            s.size=_.randInt(4);
+            s.vel=(_.rand()*(o.maxVel- o.minVel))+o.minVel; } }
+          this._draw();
         }
-        for(let s,i=0;i<this.g.stars.length;++i){
-          s=this.g.stars[i];
-          s.y += dt * s.vel;
-          if(s.y > this.m5.options.height){
-            _V.set(s, _.rand()*this.m5.options.width,0);
-            s.size=_.rand()*3+1;
-            s.vel=(_.rand()*(this.m5.options.maxVel- this.m5.options.minVel))+this.m5.options.minVel;
-          }
-        }
-        this._draw();
+      },
+      postUpdate(dt){
+        this.g.dynamic ? this.moveStars(dt) : 0
       }
-    },{fps:30, count:100, minVel:15, maxVel:30 });
+    },{fps:90, count:100, minVel:15, maxVel:30 });
 
+    /** emit something every so often... */
     class PeriodicDischarge{
       constructor(ctor,intervalSecs,size=16,...args){
         this._interval=intervalSecs;
@@ -3944,10 +4796,6 @@
         this._size=size
         this._pool=_.fill(size,ctor);
       }
-      _take(){
-        if(this._pool.length>0) return this._pool.pop() }
-      reclaim(o){
-        if(this._pool.length<this._size) this._pool.push(o); }
       lifeCycle(dt){
         this._timer += dt;
         if(this._timer > this._interval){
@@ -3957,42 +4805,62 @@
       }
       discharge(){
         throw `PeriodicCharge: please implement action()` }
-    }
+      _take(){
+        if(this._pool.length>0) return this._pool.pop() }
+      reclaim(o){
+        if(this._pool.length<this._size) this._pool.push(o); } }
 
     /** walks around a maze like in Pacman. */
     function MazeRunner(e,frames){
       const {Sprites, Input}=Mojo;
       const self={
+        dispose(){
+          Mojo.off(self)
+        },
         onTick(dt){
           let [vx,vy]=e.m5.vel,
               vs=e.m5.speed,
               x = !_.feq0(vx),
               y = !_.feq0(vy);
           if(!(x&&y) && frames){
-            if(y)
-              e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP])
-            if(x)
-              e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT])
+            if(y){
+              if(is.obj(frames))
+                e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
+              else if (frames){
+                e.angle=vy>0?180:0;
+              }
+            }
+            if(x){
+              if(is.obj(frames))
+                e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
+              else if(frames){
+                e.angle=vx>0?90:-90;
+              }
+            }
           }
-          const r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
-          const d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
-          const l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
-          const u=Input.keyDown(Input.UP) && Mojo.UP;
+          let r,d,l,u;
+          if(Mojo.u.touchOnly){
+            r=e.m5.heading===Mojo.RIGHT;
+            l=e.m5.heading===Mojo.LEFT;
+            u=e.m5.heading===Mojo.UP;
+            d=e.m5.heading===Mojo.DOWN;
+          }else{
+            r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
+            d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
+            l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
+            u=Input.keyDown(Input.UP) && Mojo.UP;
+          }
           if(l||u){vs *= -1}
           if(l&&r){
             _V.setX(e.m5.vel,0);
           }else if(l||r){
-            _V.setX(e.m5.vel,vs);
             e.m5.heading= l||r;
-          }
+            _V.setX(e.m5.vel,vs); }
           if(u&&d){
             _V.setY(e.m5.vel,0);
           }else if(u||d){
-            _V.setY(e.m5.vel,vs);
             e.m5.heading= u||d;
-          }
-        }
-      };
+            _V.setY(e.m5.vel,vs); } } };
       return (e.m5.heading=Mojo.UP) && self;
     }
 
@@ -4023,13 +4891,12 @@
           if(col && (pL || pR || self._ground>0)){
             //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
-               col.overlapN[1] < -0.85){ col= null }
-          }
+               col.overlapN[1] < -0.85){ col= null } }
           if(pL && !pR){
             e.m5.heading = Mojo.LEFT;
             if(col && self._ground>0){
               _V.set(e.m5.vel, vs * col.overlapN[0],
-                                -vs * col.overlapN[1])
+                               -vs * col.overlapN[1])
             }else{
               _V.setX(e.m5.vel,-vs)
             }
@@ -4037,7 +4904,7 @@
             e.m5.heading = Mojo.RIGHT;
             if(col && self._ground>0){
               _V.set(e.m5.vel, -vs * col.overlapN[0],
-                                vs * col.overlapN[1])
+                               vs * col.overlapN[1])
             }else{
               _V.setX(e.m5.vel, vs)
             }
@@ -4084,29 +4951,29 @@
         boom(col){
           _.assert(col.A===e,"got hit by someone else???");
           if(col.B && col.B.m5.sensor){
-            Mojo.emit(["2d.sensor", col.B], col.A);
+            Mojo.emit(["2d.sensor", col.B], col.A)
           }else{
             let [dx,dy]= e.m5.vel;
             col.impact=null;
             _V.sub$(e,col.overlapV);
             if(col.overlapN[1] < -0.3){
               if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
-              col.impact = ABS(dy);
+              col.impact = abs(dy);
               Mojo.emit(["bump.top", e],col);
             }
             if(col.overlapN[1] > 0.3){
               if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
-              col.impact = ABS(dy);
+              col.impact = abs(dy);
               Mojo.emit(["bump.bottom",e],col);
             }
             if(col.overlapN[0] < -0.3){
               if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
-              col.impact = ABS(dx);
+              col.impact = abs(dx);
               Mojo.emit(["bump.left",e],col);
             }
             if(col.overlapN[0] > 0.3){
               if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
-              col.impact = ABS(dx);
+              col.impact = abs(dx);
               Mojo.emit(["bump.right",e],col);
             }
             if(is.num(col.impact)){
@@ -4143,20 +5010,21 @@
       return self;
     });
 
+    /** bounce back and forth... */
     function Patrol(e,xDir,yDir){
       const sigs=[];
       const self= {
         dispose(){
           sigs.forEach(a=>Mojo.off(...a)) },
         goLeft(col){
-          _V.setX(e.m5.vel, -col.impact);
           e.m5.heading=Mojo.LEFT;
           e.m5.flip= "x";
+          _V.setX(e.m5.vel, -col.impact);
         },
         goRight(col){
-          _V.setX(e.m5.vel, col.impact);
           e.m5.heading=Mojo.RIGHT;
           e.m5.flip= "x";
+          _V.setX(e.m5.vel, col.impact);
         },
         goUp(col){
           _V.setY(e.m5.vel,-col.impact);
@@ -4187,10 +5055,10 @@
     Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
       const _height= canvas?canvas.height:worldHeight;
       const _width= canvas?canvas.width:worldWidth;
-      const height2=MFL(_height/2);
-      const width2=MFL(_width/2);
-      const height4=MFL(_height/4);
-      const width4=MFL(_width/4);
+      const height2=int(_height/2);
+      const width2=int(_width/2);
+      const height4=int(_height/4);
+      const width4=int(_width/4);
       const {Sprites}=Mojo;
       const sigs=[];
       const world=e;
@@ -4215,19 +5083,19 @@
           const bx= _.feq0(s.angle)? Sprites.getBBox(s)
                                    : Sprites.boundingBox(s);
           const _right=()=>{
-            if(bx.x2> this.x+MFL(width2+width4)){
+            if(bx.x2> this.x+int(width2+width4)){
               this.x = bx.x2-width4*3;
             }},
             _left=()=>{
-              if(bx.x1< this.x+MFL(width2-width4)){
+              if(bx.x1< this.x+int(width2-width4)){
               this.x = bx.x1-width4;
             }},
             _top=()=>{
-            if(bx.y1< this.y+MFL(height2-height4)){
+            if(bx.y1< this.y+int(height2-height4)){
               this.y = bx.y1-height4;
             }},
             _bottom=()=>{
-            if(bx.y2> this.y+MFL(height2+height4)){
+            if(bx.y2> this.y+int(height2+height4)){
               this.y = bx.y2- height4*3;
             }};
           _left();  _right();  _top();  _bottom();
@@ -4266,7 +5134,10 @@
       return (sigs.forEach(e=>Mojo.on(...e)), self);
     });
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
+      healthBar,
+      gaugeUI,
       Patrol,
       Platformer,
       MazeRunner,
@@ -4278,13 +5149,11 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
-    gscope["io/czlab/mojoh5/2d"]=function(M){
-      return M["2d"] ? M["2d"] : _module(M)
-    }
-  }
+    gscope["io/czlab/mojoh5/2d"]=(M)=>{
+      return M["2d"] ? M["2d"] : _module(M) } }
 
 })(this);
 
@@ -4328,8 +5197,8 @@
         easing:t,
         on:false,
         curf:0,
-        loop:loop,
-        frames:frames,
+        loop,
+        frames,
         onFrame(end,alpha){},
         _run(){
           this.on=true;
@@ -4375,6 +5244,7 @@
           this._run();
         },
         onLoopReset(){
+          //flip values
           if(this._x){
             let [a,b]=this._x;
             this._x[0]=b;
@@ -4397,6 +5267,26 @@
       })
     }
 
+    /** rotation */
+    function TweenAngle(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sa,ea){
+          this._a= [sa,ea];
+          this._run();
+        },
+        onLoopReset(){
+          //flip values
+          let [a,b]=this._a;
+          this._a[0]=b;
+          this._a[1]=a;
+        },
+        onFrame(end,alpha){
+          this.sprite.rotation= end ? this._a[1]
+                                 : _M.lerp(this._a[0], this._a[1], alpha)
+        }
+      })
+    }
+
     /** alpha */
     function TweenAlpha(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
@@ -4405,6 +5295,7 @@
           this._run();
         },
         onLoopReset(){
+          //flip values
           let [a,b]=this._a;
           this._a[0]=b;
           this._a[1]=a;
@@ -4425,6 +5316,7 @@
           this._run();
         },
         onLoopReset(){
+          //flip values
           if(this._x){
             let [a,b]=this._x;
             this._x[0]=b;
@@ -4500,8 +5392,7 @@
 			  return x===0 ? 0
                      : (x===1) ? 1
                      : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
-                     : (0.5 * (2 -Math.pow(2, -10 * (x-1))))
-      },
+                     : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
       /**Easing function: linear.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4544,10 +5435,11 @@
        * @return {number}
        */
       EASE_INOUT_CUBIC(x){
-        if(x < 0.5){ return 4*x*x*x }else{
-          let n= -2*x+2; return 1- n*n*n/2
-        }
-      },
+        if(x < 0.5){
+          return 4*x*x*x
+        }else{
+          let n= -2*x+2;
+          return 1- n*n*n/2 } },
       /**Easing function: quadratic-ease-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4566,10 +5458,11 @@
        * @return {number}
        */
       EASE_INOUT_QUAD(x){
-        if(x < 0.5){ return 2*x*x }else{
-          let n= -2*x+2; return 1 - n*n/2
-        }
-      },
+        if(x < 0.5){
+          return 2*x*x
+        }else{
+          let n= -2*x+2;
+          return 1 - n*n/2 } },
       /**Easing function: sinusoidal-ease-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4596,8 +5489,7 @@
       SPLINE(t, a, b, c, d){
         return (2*b + (c-a)*t +
                (2*a - 5*b + 4*c - d)*t*t +
-               (-a + 3*b - 3*c + d)*t*t*t) / 2
-      },
+               (-a + 3*b - 3*c + d)*t*t*t) / 2 },
       /**Easing function: cubic-bezier.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4607,8 +5499,7 @@
         return a*t*t*t +
                3*b*t*t*(1-t) +
                3*c*t*(1-t)*(1-t) +
-               d*(1-t)*(1-t)*(1-t)
-      },
+               d*(1-t)*(1-t)*(1-t) },
       /**Easing function: elastic-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4617,8 +5508,7 @@
 		  ELASTIC_IN(x){
         return x===0 ? 0
                      : x===1 ? 1
-                     : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
-		  },
+                     : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
       /**Easing function: elastic-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4627,8 +5517,7 @@
 		  ELASTIC_OUT(x){
         return x===0 ? 0
                      : x===1 ? 1
-                     : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5)
-		  },
+                     : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
       /**Easing function: elastic-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4641,9 +5530,7 @@
           default:
             x *= 2;
 			      return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
-                       : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5);
-        }
-      },
+                       : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5); } },
       /**Easing function: bounce-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4663,9 +5550,7 @@
         }else if(x < 2.5/2.75){
           return 7.5625 * (x -= 2.25/2.75) * x + 0.9375
         }else{
-          return 7.5625 * (x -= 2.625/2.75) * x + 0.984375
-        }
-		  },
+          return 7.5625 * (x -= 2.625/2.75) * x + 0.984375 } },
       /**Easing function: bounce-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4673,8 +5558,7 @@
        */
 		  BOUNCE_INOUT(x){
 			  return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
-                       : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5
-		  },
+                       : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5 },
       /**Create a tween operating on sprite's alpha value.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -4689,9 +5573,29 @@
         let sa=s.alpha;
         let ea=endA;
         if(is.vec(endA)){
-          sa=endA[0]; ea=endA[1]}
-        t.start(sa,ea);
-        return t;
+          sa=endA[0];
+          ea=endA[1]
+        }
+        return t.start(sa,ea), t;
+      },
+      /**Create a tween operating on sprite's rotation value.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {number|number[]} endA
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenAngle}
+       */
+      tweenAngle(s,type,endA,frames=60,loop=false){
+        const t= TweenAngle(s,type,frames,loop);
+        let sa=s.rotation;
+        let ea=endA;
+        if(is.vec(endA)){
+          sa=endA[0];
+          ea=endA[1]
+        }
+        return t.start(sa,ea), t;
       },
       /**Create a tween operating on sprite's scale value.
        * @memberof module:mojoh5/FX
@@ -4710,13 +5614,16 @@
         let ex=endX;
         let ey=endY;
         if(is.vec(endX)){
-          sx=endX[0]; ex=endX[1] }
+          sx=endX[0];
+          ex=endX[1]
+        }
         if(is.vec(endY)){
-          sy=endY[0]; ey=endY[1]}
+          sy=endY[0];
+          ey=endY[1]
+        }
         if(!is.num(ex)){ sx=ex=null }
         if(!is.num(ey)){ sy=ey=null }
-        t.start(sx,ex,sy,ey);
-        return t;
+        return t.start(sx,ex,sy,ey), t;
       },
       /**Create a tween operating on sprite's position.
        * @memberof module:mojoh5/FX
@@ -4735,13 +5642,16 @@
         let ex=endX;
         let ey=endY;
         if(is.vec(endX)){
-          sx=endX[0]; ex=endX[1]}
+          sx=endX[0];
+          ex=endX[1]
+        }
         if(is.vec(endY)){
-          sy=endY[0]; ey=endY[1]}
+          sy=endY[0];
+          ey=endY[1]
+        }
         if(!is.num(ex)){sx=ex=null}
         if(!is.num(ey)){sy=ey=null}
-        t.start(sx,ex,sy,ey);
-        return t;
+        return t.start(sx,ex,sy,ey), t;
       },
       /**Slowly fade out this object.
        * @memberof module:mojoh5/FX
@@ -4789,7 +5699,7 @@
        * @param {boolean} [loop]
        * @return {TweenScale}
        */
-      breathe(s, endX=0.8, endY=0.8, frames=60,loop=true){
+      throb(s, endX=0.9, endY=0.9, frames=60,loop=true){
         return this.tweenScale(s, this.SMOOTH_QUAD,endX,endY,frames,loop) },
       /**Scale this sprite.
        * @memberof module:mojoh5/FX
@@ -4826,12 +5736,10 @@
        */
       wobble(s, bounds, ex=1.2, ey=1.2, frames=10, loop=true){
         let {x1,x2,y1,y2}= bounds;
-        let tx=this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
-                                                  _.or(x2,10)), ex, null, frames,loop);
-        let ty=this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
-                                                  _.or(y2,-10)), null,ey, frames,loop);
-        return BatchTweens(tx,ty);
-      },
+        return BatchTweens(this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
+                                                              _.or(x2,10)), ex, null, frames,loop),
+                           this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
+                                                              _.or(y2,-10)), null,ey, frames,loop)) },
       /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
@@ -4843,18 +5751,16 @@
       followCurve(s, type, points, frames=60){
         let t= TweenXY(s,type,frames);
         let self=this;
-        t.start=function(points){
-          this._p = points;
+        t.start=function(ps){
+          this._p = ps;
           this._run();
         };
         t.onFrame=function(end,alpha){
           let p = this._p;
           if(!end)
             _V.set(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
-                      self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1]))
-        };
-        t.start(points);
-        return t;
+                      self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1])) };
+        return t.start(points), t;
       },
       /**Make object walk in a path.
        * @memberof module:mojoh5/FX
@@ -4870,8 +5776,7 @@
                                      [points[cur][1], points[cur+1][1]],frames);
           t.onComplete=()=>{
             if(++cur < points.length-1)
-              _.delay(0,()=> _calcPath(cur,frames))
-          };
+              _.delay(0,()=> _calcPath(cur,frames)) };
           return t;
         }
         return _calcPath(0, MFL(frames/points.length));
@@ -4890,8 +5795,7 @@
                                  points[cur], frames);
           t.onComplete=()=>{
             if(++cur < points.length)
-              _.delay(0,()=> _calcPath(cur,frames))
-          };
+              _.delay(0,()=> _calcPath(cur,frames)) };
           return t;
         }
         return _calcPath(0, MFL(frames/points.length));
@@ -5052,81 +5956,78 @@
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   /**Create the module. */
   function _module(Mojo){
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _DIRS = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_, is}=Mojo;
-    const ABS=Math.abs,
-          CEIL=Math.ceil,
-          MFL=Math.floor;
-
-    /** dummy empty array
-     * @private
-     * @var {array}
-     */
-    const _DA=[];
+    const abs=Math.abs,
+          ceil=Math.ceil,
+          int = Math.floor;
 
     /**
      * @module mojoh5/Tiles
      */
 
-    /** @ignore */
-    function _getIndex3(x, y, world){
-      return Mojo.getIndex(x,y,
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** from xy position to array index */
+    function _getIndex3(px, py, world){
+      return Mojo.getIndex(px,py,
                            world.tiled.tileW,
                            world.tiled.tileH,world.tiled.tilesInX) }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** get vector from s1->s2 */
     function _getVector(s1,s2){
       return _V.vecAB(Mojo.Sprites.centerXY(s1),
                       Mojo.Sprites.centerXY(s2)) }
 
-    /** @ignore */
-    function _getImage(obj){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** get image file name */
+    function _image(obj){
       const s= obj.image;
       const p= s && s.split("/");
-      return p && p.length && p[p.length-1];
-    }
+      obj.image= p && p.length && p[p.length-1] }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** get attributes for this gid */
     function _findGid(gid,gidMap){
       let idx = -1;
       if(gid>0){
         idx=0;
         while(gidMap[idx+1] &&
-              gid >= gidMap[idx+1][0]) ++idx;
-      }
-      if(idx>=0)
-        return gidMap[idx];
+              gid >= gidMap[idx+1][0]) ++idx }
+
+      return idx>=0?gidMap[idx]:[];
     }
 
-    /**Scans all tilesets and record all custom properties into
-     * one giant map.
-     * @private
-     * @function
-     */
-    function _scanTilesets(tilesets, tsi, gprops){
-      let p, gid, lprops, gidList = [];
-      tilesets.forEach(ts=>{
-        lprops={};
-        ts.image=_getImage(ts);
-        if(!is.num(ts.spacing)){
-          ts.spacing=0 }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Scans all tilesets and record all custom properties into one giant map */
+    function _tilesets(tsets, tsi, gprops){
+      let gidList = [];
+      tsets.forEach(ts=>{
         gidList.push([ts.firstgid, ts]);
-        ts.tiles.forEach(t=>{
-          p=_.inject(_.selectNotKeys(t,"properties"),
-                     _parseProps(t));
+        if(!ts.spacing) ts.spacing=0;
+        _image(ts);
+        let lprops={};
+        (ts.tiles||[]).forEach(t=>{
+          let p=_.selectNotKeys(t,"properties");
+          p=_.inject(p, _parseProps(t));
           p.gid=ts.firstgid + t.id;
           lprops[t.id]=p;
-          gprops[p.gid] = p; });
+          gprops[p.gid]= p;
+        });
         tsi[ts.name]=lprops;
       });
       //sort gids ascending
-      return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0)); }
+      return gidList.sort((a,b) => a[0]>b[0]?1:(a[0]<b[0]?-1:0));
+    }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** make sure we support this map */
     function _checkVer(json){
       let tmap = Mojo.resource(json,true).data;
       let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
@@ -5135,19 +6036,23 @@
                                                : _.assert(false,`${json} needs update`)
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** process properties group */
     function _parseProps(el){
-      return (el.properties||_DA).reduce((acc,p)=> {
+      return (el.properties||[]).reduce((acc,p)=>{
         acc[p.name]=p.value;
         return acc;
       }, {})
     }
 
-    /** @ignore */
-    function _loadTMX(scene,arg,objFactory){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** process the tiled map */
+    function _loadTMX(scene,arg,objFactory,scale){
       let tmx= is.str(arg)?_checkVer(arg):arg;
       let tsProps={}, gtileProps={};
       _.assert(is.obj(tmx),"bad tiled map");
+      //important to clone it
+      tmx=JSON.parse(JSON.stringify(tmx));
       _.inject(scene.tiled,{tileW:tmx.tilewidth,
                             tileH:tmx.tileheight,
                             tilesInX:tmx.width,
@@ -5157,136 +6062,104 @@
                             saved_tileH:tmx.tileheight,
                             tiledWidth:tmx.tilewidth*tmx.width,
                             tiledHeight:tmx.tileheight*tmx.height}, _parseProps(tmx));
-      let K=scene.getScaleFactor();
-      let NW= MFL(K*tmx.tilewidth);
-      let NH= MFL(K*tmx.tileheight);
-      if(!_.isEven(NW)) {--NW}
-      if(!_.isEven(NH)) {--NH}
+      let K= scale? scale: scene.getScaleFactor();
+      let NH= _.evenN(K*tmx.tileheight);
+      let NW= _.evenN(K*tmx.tilewidth);
       scene.tiled.new_tileW=NW;
       scene.tiled.new_tileH=NH;
-      function XXX(gid,mapcol,maprow,tw,th,cz){
-        let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-            cFunc,
-            cols=tsi.columns,
-            ps=gtileProps[gid],
-            _id=gid - tsi.firstgid;
-        cz= _.nor(cz, (ps && ps["Class"]));
-        cFunc=cz && objFactory[cz];
-        _.assertNot(_id<0, `Bad tile id: ${_id}`);
-        if(!is.num(cols))
-          cols=MFL(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
-        let tscol = _id % cols,
-            tsrow = MFL(_id/cols),
-            tsX = tscol * tsi.tilewidth,
-            tsY = tsrow * tsi.tileheight;
-        if(tsi.spacing>0){
-          tsX += tsi.spacing * tscol;
-          tsY += tsi.spacing * tsrow;
-        }
-        let s= cFunc&&cFunc.s() || Mojo.Sprites.frame(tsi.image,
-                                                      tw||tsi.tilewidth,
-                                                      th||tsi.tileheight,tsX,tsY);
-        s.tiled={gid: gid, id: _id};
-        if(tw===scene.tiled.saved_tileW){
-          s.width=NW;
-        }else{
-          s.scale.x=K;
-          s.width = MFL(s.width);
-          if(!_.isEven(s.width))--s.width;
-        }
-        if(th===scene.tiled.saved_tileH){
-          s.height=NH;
-        }else{
-          s.scale.y=K;
-          s.height = MFL(s.height);
-          if(!_.isEven(s.height))--s.height;
-        }
-        s.x=mapcol*NW;
-        s.y=maprow*NH;
-        return s;
-      }
+      if(scale)
+        scene.tiled.scale = scale;
+      //workers
       const F={
+        imagelayer(tl){ _image(tl) },
         tilelayer(tl){
           if(is.vec(tl.data[0])){
-            if(_.nichts(tl.width))
-              tl.width=tl.data[0].length;
-            if(_.nichts(tl.height))
-              tl.height=tl.data.length;
+            //from hand-crafted map creation
+            tl.width=tl.data[0].length;
+            tl.height=tl.data.length;
             tl.data=tl.data.flat();
           }
-          if(tl.visible === false){ return }
-          if(!tl.width) tl.width=scene.tiled.tilesInX;
-          if(!tl.height) tl.height=scene.tiled.tilesInY;
-          let tlprops=_parseProps(tl);
+          if(!tl.width)
+            tl.width=scene.tiled.tilesInX;
+          if(!tl.height)
+            tl.height=scene.tiled.tilesInY;
+          //maybe get layer's properties
+          let cz,tps=_parseProps(tl);
+          if(tl.visible === false){
+            //the layer is invisible but maybe user wants to handle it
+            if(cz=tps["Class"])
+              objFactory[cz](scene,tl);
+            return;
+          }
+          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          //process the tiles
           for(let s,gid,i=0;i<tl.data.length;++i){
-            if((gid=tl.data[i])===0){ continue }
-            if(tl.collision===false ||
-               tlprops.collision === false){}else{
+            if((gid=tl.data[i])==0){ continue }
+            if(tl.collision===false || tps.collision === false){
+            }else if(tl.collision===true || tps.collision===true){
+              if(gid>0) scene.tiled.collision[i]=gid;
               tl.collision=true;
-              if(gid>0)
-                scene.tiled.collision[i]=gid;
             }
-            let mapcol = i % tl.width,
-                maprow = MFL(i/tl.width),
-                tw=tlprops.width,
-                th=tlprops.height,
-                s=_ctorTile(scene,gid,mapcol,maprow,tw,th);
-            let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+            let mapX = i % tl.width,
+                mapY = int(i/tl.width),
                 ps=gtileProps[gid],
                 cz=ps && ps["Class"],
-                cFunc=cz && objFactory[cz];
-            s.tiled.index=i;
-            s.m5.static=true;
-            //special tile
+                cFunc=cz && objFactory[cz],
+                tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+                s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
+            //assume all these are static (collision) tiles
+            if(s){
+              s.tiled.layer=tl;
+              s.tiled.index=i;
+              s.m5.static=true;
+            }
             if(cFunc)
               s=cFunc.c(scene,s,tsi,ps);
-            if(s && ps){
-              if(ps.sensor) s.m5.sensor=true;
+            if(s){
+              if(ps && ps.sensor)
+                s.m5.sensor=true
+              scene.insert(s,!!cFunc);
             }
-            scene.insert(s,!!cFunc);
           }
-          //_.inject(tl,tlprops);
         },
         objectgroup(tl){
-          tl.objects.forEach(o=> {
+          tl.sprites=[];
+          tl.objects.forEach(o=>{
             _.assert(is.num(o.x),"wanted xy position");
-            let s,ps,gid=_.or(o.gid,-1);
-            let os=_parseProps(o);
-            if(gid>0)ps=gtileProps[gid];
+            let s,ps,
+                os=_parseProps(o),
+                gid=_.nor(o.gid, -1);
             _.inject(o,os);
-            let cz= _.nor(ps && ps["Class"],o["Class"]);
+            if(gid>0)
+              ps=gtileProps[gid];
+            let cz= _.nor(ps && ps["Class"], o["Class"]);
             let createFunc= cz && objFactory[cz];
             let w=scene.tiled.saved_tileW;
             let h=scene.tiled.saved_tileH;
-            let tx=MFL((o.x+w/2)/w);
-            let ty=MFL((o.y-h/2)/h);
-            let tsi=_findGid(gid,scene.tiled.tileGidList);
-            if(tsi)tsi=tsi[1];
+            let tx=int((o.x+w/2)/w);
+            let ty=int((o.y-h/2)/h);
+            let tsi=_findGid(gid,scene.tiled.tileGidList)[1];
             o.column=tx;
             o.row=ty;
-            if(gid>0){
-              s= _ctorTile(scene,gid,tx,ty,o.width,o.height,cz)
-            }else{
-              s={width:NW,height:NH}
-            }
-            if(createFunc){
+            s=gid<=0?{width:NW,height:NH}
+                    :_ctorTile(scene,gid,tx,ty,o.width,o.height,cz);
+            if(createFunc)
               s= createFunc.c(scene,s,tsi,ps,o);
-            }
             if(s){
-              if(ps && ps.sensor) s.m5.sensor=true;
+              tl.sprites.push(s);
               scene.insert(s,true);
+              if(ps && ps.sensor){s.m5.sensor=true}
             }
           });
-        },
-        imagelayer(tl){ tl.image=_getImage(tl) }
+        }
       };
-      objFactory=_.or(objFactory,{});
-      _.inject(scene.tiled, {tileProps: gtileProps,
+      objFactory=_.nor(objFactory,{});
+      _.inject(scene.tiled, {objFactory,
                              tileSets: tsProps,
-                             objFactory,
+                             tileProps: gtileProps,
                              collision: _.fill(tmx.width*tmx.height,0),
-                             imagelayer:[],objectgroup:[],tilelayer:[],
-                             tileGidList: _scanTilesets(tmx.tilesets,tsProps,gtileProps)});
+                             imagelayer:[], objectgroup:[], tilelayer:[],
+                             tileGidList: _tilesets(tmx.tilesets,tsProps,gtileProps)});
       ["imagelayer","tilelayer","objectgroup"].forEach(s=>{
         tmx.layers.filter(y=>y.type==s).forEach(y=>{
           F[s](y);
@@ -5298,71 +6171,78 @@
       scene.tiled.tileH=NH;
       scene.tiled.tiledWidth=NW * tmx.width;
       scene.tiled.tiledHeight=NH * tmx.height;
+      //
       if(scene.parent instanceof Mojo.Scenes.SceneWrapper){
         if(scene.tiled.tiledHeight<Mojo.height){
-          scene.parent.y = MFL((Mojo.height-scene.tiled.tiledHeight)/2)
-        }
+          scene.parent.y = int((Mojo.height-scene.tiled.tiledHeight)/2) }
         if(scene.tiled.tiledWidth<Mojo.width){
-          scene.parent.x = MFL((Mojo.width-scene.tiled.tiledWidth)/2)
-        }
+          scene.parent.x = int((Mojo.width-scene.tiled.tiledWidth)/2) }
       }
     }
 
-    function _ctorTile(scene,gid,mapcol,maprow,tw,th,cz){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** create a sprite */
+    function _ctorTile(scene,gid,mapX,mapY,tw,th,cz){
       let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-          K=scene.getScaleFactor(),
-          cFunc,
+          XXX=_.assert(tsi,"Bad GID, no tileset"),
           cols=tsi.columns,
+          id=gid - tsi.firstgid,
           ps=scene.tiled.tileProps[gid],
-          _id=gid - tsi.firstgid;
+          cFunc, K=scene.tiled.scale || scene.getScaleFactor();
       cz= _.nor(cz, (ps && ps["Class"]));
       cFunc=cz && scene.tiled.objFactory[cz];
-      _.assertNot(_id<0, `Bad tile id: ${_id}`);
+      _.assertNot(id<0, `Bad tile id: ${id}`);
       if(!is.num(cols))
-        cols=MFL(tsi.imagewidth / (tsi.tilewidth+tsi.spacing));
-      let tscol = _id % cols,
-          tsrow = MFL(_id/cols),
+        cols=int(tsi.imagewidth /
+                 (tsi.tilewidth+tsi.spacing));
+      let tscol = id % cols,
+          tsrow = int(id/cols),
           tsX = tscol * tsi.tilewidth,
           tsY = tsrow * tsi.tileheight;
       if(tsi.spacing>0){
         tsX += tsi.spacing * tscol;
         tsY += tsi.spacing * tsrow;
       }
-      let s= cFunc&&cFunc.s() || Mojo.Sprites.frame(tsi.image,
-                                                    tw||tsi.tilewidth,
-                                                    th||tsi.tileheight,tsX,tsY);
-      s.tiled={gid: gid, id: _id};
-      if(tw===scene.tiled.saved_tileW){
-        s.width= scene.tiled.new_tileW
-      }else{
-        s.scale.x=K;
-        s.width = MFL(s.width);
-        if(!_.isEven(s.width))--s.width;
+      //call user func to create sprite or not
+      let s= cFunc&&cFunc.s(scene) ||
+             Mojo.Sprites.frame(tsi.image,
+                                tw||tsi.tilewidth,
+                                th||tsi.tileheight,tsX,tsY);
+      if(s){
+        s.tiled={id, gid};
+        if(tw==scene.tiled.saved_tileW){
+          s.width= scene.tiled.new_tileW
+        }else{
+          s.scale.x=K;
+          s.width = _.evenN(s.width);
+        }
+        if(th==scene.tiled.saved_tileH){
+          s.height= scene.tiled.new_tileH
+        }else{
+          s.scale.y=K;
+          s.height = _.evenN(s.height);
+        }
+        s.x=mapX* scene.tiled.new_tileW;
+        s.y=mapY* scene.tiled.new_tileH;
       }
-      if(th===scene.tiled.saved_tileH){
-        s.height= scene.tiled.new_tileH
-      }else{
-        s.scale.y=K;
-        s.height = MFL(s.height);
-        if(!_.isEven(s.height))--s.height;
-      }
-      s.x=mapcol* scene.tiled.new_tileW;
-      s.y=maprow* scene.tiled.new_tileH;
       return s;
     }
 
-    const _contactObj = {width: 0,
-                         height: 0,
-                         parent:null,
-                         x:0, y:0,
-                         rotation:0,
-                         tiled:{},
-                         anchor: {x:0,y:0},
-                         getGlobalPosition(){
-                           return{
-                             x:this.x+this.parent.x,
-                             y:this.y+this.parent.y}
-                         }};
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** use it for collision */
+    const _contactObj = Mojo.Sprites.extend({width: 0,
+                                             height: 0,
+                                             parent:null,
+                                             x:0, y:0,
+                                             rotation:0,
+                                             tiled:{},
+                                             anchor: {x:0,y:0},
+                                             getGlobalPosition(){
+                                               return{
+                                                 x:this.x+this.parent.x,
+                                                 y:this.y+this.parent.y} }});
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**
      * @memberof module:mojoh5/Tiles
      * @class
@@ -5376,31 +6256,36 @@
       constructor(id,func,options){
         super(id,func,options);
         this.tiled={};
-        _contactObj.parent=this;
-        Mojo.Sprites.extend(_contactObj);
       }
-      reloadMap(options){
-        let t= this.m5.options.tiled=options;
+      /**
+      */
+      reloadMap(o){
         this.tiled={};
-        _loadTMX(this, t.name, t.factory);
+        this.m5.options.tiled = o;
+        _loadTMX(this, o.name, o.factory, o.scale);
       }
+      /**
+      */
       runOnce(){
-        let t= this.m5.options.tiled;
-        _loadTMX(this, t.name, t.factory);
+        const t= this.m5.options.tiled;
+        _loadTMX(this, t.name, t.factory, t.scale);
         super.runOnce();
       }
-      removeTile(s){
-        let x= s.x, y=s.y;
+      /**
+      */
+      removeTile(layer, s){
+        let {x,y}= s;
         if(s.anchor.x < 0.3){
-          x= s.x+MFL(s.width/2);
-          y= s.y+MFL(s.height/2);
+          y= s.y+int(s.height/2);
+          x= s.x+int(s.width/2);
         }
-        let tx= MFL(x/this.tiled.tileW);
-        let ty= MFL(y/this.tiled.tileH);
-        let pos= ty*this.tiled.tilesInX + tx;
-        let len = this.tiled.collision.length;
-        _.assert(pos>=0&&pos<len,"bad index to remove");
-        this.tiled.collision[pos]=0;
+        let tx= int(x/this.tiled.tileW),
+            ty= int(y/this.tiled.tileH),
+            yy= this.getTileLayer(layer),
+            pos= tx + ty*this.tiled.tilesInX;
+        yy.data[pos]=0;
+        if(yy.collision)
+          this.tiled.collision[pos]=0;
         Mojo.Sprites.remove(s);
       }
       /**Get a tile layer.
@@ -5431,40 +6316,60 @@
           throw `There is no group with name: ${name}`;
         return found;
       }
+      /**Set a tile to this position.
+       * @param {string} layer
+       * @param {number} row
+       * @param {number} col
+       * @param {number} gid
+       * @return {Sprite}
+       */
       setTile(layer,row,col,gid){
-        let i=this.tiled.tilesInX * row + col;
-        let y=this.getTileLayer(layer);
-        let ts=this.getTSInfo(gid);
-        let id= gid-ts.firstgid;
-        if(y.collision)
-          this.tiled.collision[i]=gid;
+        let ts=this.getTSInfo(gid),
+            id= gid-ts.firstgid,
+            yy=this.getTileLayer(layer),
+            pos=col + this.tiled.tilesInX * row;
+        if(yy.collision)
+          this.tiled.collision[pos]=gid;
         let s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
+        if(s){
+          s.tiled.layer=yy;
+          s.tiled.index=i;
+        }
         return s;
       }
+      /**Get the tile position for this sprite.
+       * @param {Sprite} s
+       * @return {array}
+       */
       getTile(s){
-        let x=s.x,y=s.y;
+        let {x,y}=s;
         if(s.anchor.x<0.3){
-          y += MFL(s.height/2);
-          x += MFL(s.width/2);
+          y += int(s.height/2);
+          x += int(s.width/2);
         }
         return this.getTileXY(x,y);
       }
-      getTileXY(x,y){
-        let tx= MFL(x/this.tiled.tileW);
-        let ty= MFL(y/this.tiled.tileH);
+      /**Get the tile position for this xy position
+       * @param {number} px
+       * @param {number} py
+       * @return {array}
+       */
+      getTileXY(px,py){
+        let tx= int(px/this.tiled.tileW),
+            ty= int(py/this.tiled.tileH);
         _.assert(tx>=0 && tx<this.tiled.tilesInX, `bad tile col:${tx}`);
         _.assert(ty>=0 && ty<this.tiled.tilesInY, `bad tile row:${ty}`);
         return [tx,ty];
       }
       /**Get item with this name.
        * @param {string} name
-       * @return {any}
+       * @return {array}
        */
       getNamedItem(name){
         let out=[];
         this.tiled.objectgroup.forEach(c=>{
           c.objects.forEach(o=>{
-            if(name==_.get(o,"name")) out.push(c)
+            if(name==_.get(o,"name")) out.push(o)
           });
         });
         return out;
@@ -5498,11 +6403,14 @@
        * @return {object}
        */
       getTSInfo(gid){
-        return _findGid(gid,this.tiled.tileGidList)[1]
-      }
+        return _findGid(gid,this.tiled.tileGidList)[1] }
+      /**Get tile information.
+       * @param {number} gid
+       * @return {object}
+       */
       getTileProps(gid){
-        return this.tiled.tileProps[gid]
-      }
+        return this.tiled.tileProps[gid] }
+      /** @ignore */
       _getContactObj(gid, tX, tY){
         let c= _contactObj;
         c.height=this.tiled.tileH;
@@ -5515,181 +6423,67 @@
         c.m5.sensor=false;
         return c;
       }
+      /**Check tile collision.
+       * @param {Sprite} obj
+       * @return {boolean}
+       */
       collideXY(obj){
         let _S=Mojo.Sprites,
             tw=this.tiled.tileW,
             th=this.tiled.tileH,
             tiles=this.tiled.collision,
-            box=_.feq0(obj.rotation)?_S.getBBox(obj):_S.boundingBox(obj);
-        let sX = Math.max(0,MFL(box.x1 / tw));
-        let sY = Math.max(0,MFL(box.y1 / th));
-        let eX =  Math.min(this.tiled.tilesInX-1,CEIL(box.x2 / tw));
-        let eY =  Math.min(this.tiled.tilesInY-1,CEIL(box.y2 / th));
+            box=_.feq0(obj.angle)?_S.getBBox(obj):_S.boundingBox(obj);
+        let sX = Math.max(0,int(box.x1 / tw));
+        let sY = Math.max(0,int(box.y1 / th));
+        let eX =  Math.min(this.tiled.tilesInX-1,ceil(box.x2 / tw));
+        let eY =  Math.min(this.tiled.tilesInY-1,ceil(box.y2 / th));
         for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
           for(let tX = sX; tX<=eX; ++tX){
             pos=tY*this.tiled.tilesInX+tX;
             gid=tiles[pos];
-            if(!is.num(gid)){
+            if(!is.num(gid))
               _.assert(is.num(gid),"bad gid");
-            }
             if(gid===0){continue}
             B=this._getContactObj(gid,tX, tY);
             ps=this.getTileProps(gid);
-            if(ps){
+            if(ps)
               B.m5.sensor= !!ps.sensor;
-            }
-            if(Mojo["Sprites"].hit(obj,B)){
-              if(B.m5.sensor)
-                Mojo.emit(["tile.sensor",obj],B);
-            }
+            B.parent=this;
+            if(_S.hit(obj,B)){
+              if(B.m5.sensor){
+                Mojo.emit(["2d.sensor",obj],B); } }
           }
         }
         return super.collideXY(obj);
       }
     }
 
-    class Grid2D{
-      constructor(g){
-        let dimX = g[0].length;
-        let dimY = g.length;
-        let dx1=dimX-1;
-        let dy1=dimY-1;
-        let s=g[0];
-        let s2=g[1];
-        let e=g[dy1];
-        let gapX=s[1].x1-s[0].x2;
-        let gapY=s2[0].y1-s[0].y2;
-        _.assert(gapX===gapY);
-        this._grid=g;
-        this._gap=gapX;
-      }
-      drawBox(color="white"){
-        return Mojo.Sprites.drawBody(ctx => this._draw(ctx,color,true))
-      }
-      draw(color="white"){
-        return Mojo.Sprites.drawBody(ctx => this._draw(ctx,color))
-      }
-      _draw(ctx,color="white",boxOnly=false){
-        let dimX = this._grid[0].length;
-        let dimY = this._grid.length;
-        let dx1=dimX-1;
-        let dy1=dimY-1;
-        let s=this._grid[0];
-        let e=this._grid[dy1];
-        let gf = s[0];
-        let gl = e[dx1];
-        ctx.lineStyle(this.gap,_S.color(color));
-        for(let r,i=0;i<dimY;++i){
-          r=this._grid[i];
-          if(i===0){
-            //draw the top horz line
-            ctx.moveTo(r[i].x1,r[i].y1);
-            ctx.lineTo(s[dx1].x2,s[dx1].y1);
-          }
-          if(i===dy1){
-            ctx.moveTo(r[0].x1,r[0].y2);
-            ctx.lineTo(r[dx1].x2,r[dx1].y2);
-          }else if(!boxOnly){
-            ctx.moveTo(r[0].x1,r[0].y2);
-            ctx.lineTo(r[dx1].x2,r[dx1].y2);
-          }
-        }
-        for(let i=0;i<dimX;++i){
-          if(i===0){
-            //draw the left vert line
-            ctx.moveTo(s[i].x1,s[i].y1);
-            ctx.lineTo(e[i].x1,e[i].y2);
-          }
-          if(i===dx1){
-            ctx.moveTo(s[i].x2,s[i].y1);
-            ctx.lineTo(e[i].x2,e[i].y2);
-          }else if(!boxOnly){
-            ctx.moveTo(s[i].x2,s[i].y1);
-            ctx.lineTo(e[i].x2,e[i].y2);
-          }
-        }
-      }
-      cell(row,col){ return this._grid[row][col] }
-      get gap() { return this._gap}
-      get data() { return this._grid}
-    }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class AStarAlgos{
       constructor(straightCost,diagonalCost){
         this.straightCost= straightCost;
         this.diagonalCost= diagonalCost;
       }
       manhattan(test, dest){
-        return ABS(test.row - dest.row) * this.straightCost +
-               ABS(test.col - dest.col) * this.straightCost
+        return abs(test.row - dest.row) * this.straightCost +
+               abs(test.col - dest.col) * this.straightCost
       }
       euclidean(test, dest){
         let vx = dest.col - test.col;
         let vy = dest.row - test.row;
-        return MFL(_.sqrt(vx * vx + vy * vy) * this.straightCost)
+        return int(_.sqrt(vx * vx + vy * vy) * this.straightCost)
       }
       diagonal(test, dest){
-        let vx = ABS(dest.col - test.col);
-        let vy = ABS(dest.row - test.row);
-        return (vx > vy) ? MFL(this.diagonalCost * vy + this.straightCost * (vx - vy))
-                         : MFL(this.diagonalCost * vx + this.straightCost * (vy - vx))
+        let vx = abs(dest.col - test.col);
+        let vy = abs(dest.row - test.row);
+        return (vx > vy) ? int(this.diagonalCost * vy + this.straightCost * (vx - vy))
+                         : int(this.diagonalCost * vx + this.straightCost * (vy - vx))
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       TiledScene,
-      /**Calculate position of each individual cells in the grid,
-       * so that we can detect when a user clicks on the cell.
-       * @memberof module:mojoh5/Tiles
-       * @param {number|number[]} dim
-       * @param {number} glwidth
-       * @param {number} ratio
-       * @param {string} align
-       * @return {}
-       */
-      mapGridPos(dim,glwidth,ratio=0.8,align="center"){
-        let cx,cy,x0,y0,x1,y1,x2,y2,out=[];
-        let gapX,gapY,dimX,dimY,cz,szX,szY;
-        if(is.vec(dim)){
-          [dimX,dimY]=dim;
-        }else{
-          dimX=dimY=dim;
-        }
-        if(glwidth<0){glwidth=0}
-        gapX=glwidth*(dimX+1);
-        gapY=glwidth*(dimY+1);
-        if(Mojo.portrait()){
-          cz=MFL((ratio*Mojo.width-gapX)/dimX);
-        }else{
-          cz=MFL((ratio*(Mojo.height-gapY))/dimY);
-        }
-        szX=cz*dimX+gapX;
-        szY=cz*dimY+gapY;
-        //top,left
-        y0=MFL((Mojo.height-szY)/2);
-        switch(align){
-          case "right": x0=Mojo.width-szX; break;
-          case "left": x0=0;break;
-          default: x0=MFL((Mojo.width-szX)/2); break;
-        }
-        x0 +=glwidth;
-        x1=x0;
-        y0 += glwidth;
-        y1=y0;
-        for(let arr,r=0; r<dimY; ++r){
-          arr=[];
-          for(let c= 0; c<dimX; ++c){
-            y2 = y1 + cz;
-            x2 = x1 + cz;
-            arr.push({x1,x2,y1,y2});
-            x1 = x2+glwidth;
-          }
-          out.push(arr);
-          y1 = y2+glwidth;
-          x1 = x0;
-        }
-        return new Grid2D(out);
-      },
       /**Get the indices of the neighbor cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -5701,8 +6495,8 @@
        */
       neighborCells(index, world, ignoreSelf){
         let w=world.tiled.tilesInX;
-        let a= [index - w - 1, index - w, index - w + 1, index - 1];
-        let b= [index + 1, index + w - 1, index + w, index + w + 1];
+        let a= [index-w-1, index-w, index-w+1, index-1];
+        let b= [index+1, index+w-1, index+w, index+w+1];
         if(!ignoreSelf) a.push(index);
         return a.concat(b);
       },
@@ -5721,8 +6515,7 @@
           s.tiled.index = pos;
           ret[pos] = s.tiled.gid;
         };
-        !is.vec(sprites) ? _mapper(sprites)
-                         : sprites.forEach(_mapper);
+        !is.vec(sprites) ? _mapper(sprites) : sprites.forEach(_mapper);
         return ret;
       },
       /**A-Star search.
@@ -5742,7 +6535,7 @@
         let W=world.tiled.tilesInX;
         let nodes=tiles.map((gid,i)=> ({f:0, g:0, h:0,
                                         parent:null, index:i,
-                                        col:i%W, row:MFL(i/W)}));
+                                        col:i%W, row:int(i/W)}));
         let targetNode = nodes[targetTile];
         let startNode = nodes[startTile];
         let centerNode = startNode;
@@ -5829,9 +6622,7 @@
           //until the start node is found
           while(tn !== startNode){
             tn = tn.parent;
-            theShortestPath.unshift(tn);
-          }
-        }
+            theShortestPath.unshift(tn); } }
         return theShortestPath;
       },
       /**Check if sprites are visible to each other.
@@ -5849,7 +6640,7 @@
                   angles = []) { //angles to restrict the line of sight
         let v= _getVector(s1,s2);
         let len = _V.len(v);
-        let numPts = MFL(len/segment);
+        let numPts = int(len/segment);
         let len2,x,y,ux,uy,points = [];
         for(let c,i = 1; i <= numPts; ++i){
           c= Mojo.Sprites.centerXY(s1);
@@ -5858,8 +6649,8 @@
           uy = v[1]/len;
           //Use the unit vector and newMagnitude to figure out the x/y
           //position of the next point in this loop iteration
-          x = MFL(c[0] + ux * len2);
-          y = MFL(c[1] + uy * len2);
+          x = int(c[0] + ux * len2);
+          y = int(c[1] + uy * len2);
           points.push({x,y, index: _getIndex3(x,y,world)});
         }
         //Restrict line of sight to right angles (don't want to use diagonals)
@@ -5871,8 +6662,7 @@
         //no walls. If any of them aren't 0, then the function returns
         //`false` which means there's a wall in the way
         return points.every(p=> tiles[p.index] === emptyGid) &&
-               (angles.length === 0 || angles.some(x=> x === angle))
-      },
+               (angles.length === 0 || angles.some(x=> x === angle)) },
       /**Get indices of orthognoal cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -5881,8 +6671,7 @@
        */
       crossCells(index, world){
         const w= world.tiled.tilesInX;
-        return [index - w, index - 1, index + 1, index + w]
-      },
+        return [index - w, index - 1, index + 1, index + w] },
       /**Get orthognoal cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -5891,8 +6680,7 @@
        * @return {any[]}
        */
       getCrossTiles(index, tiles, world){
-        return this.crossCells(index,world).map(c => tiles[c])
-      },
+        return this.crossCells(index,world).map(c=> tiles[c]) },
       /**Get the indices of corner cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -5901,8 +6689,7 @@
        */
       getDiagonalCells(index, world){
         const w= is.num(world)?world:world.tiled.tilesInX;
-        return [index - w - 1, index - w + 1, index + w - 1, index + w + 1]
-      },
+        return [index-w-1, index-w+1, index+w-1, index+w+1] },
       /**Get the corner cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -5911,8 +6698,7 @@
        * @return {any[]}
        */
       getDiagonalTiles(index, tiles, world){
-        return this.getDiagonalCells(index,world).map(c => tiles[c])
-      },
+        return this.getDiagonalCells(index,world).map(c=> tiles[c]) },
       /**Get all the valid directions to move for this sprite.
        * @memberof module:mojoh5/Tiles
        * @param {Sprite} sprite
@@ -5922,7 +6708,7 @@
        * @return {any[]}
        */
       validDirections(sprite, tiles, validGid, world){
-        const pos = this.getTileIndex(sprite, world);
+        const pos= this.getTileIndex(sprite, world);
         return this.getCrossTiles(pos, tiles, world).map((gid, i)=>{
           return gid === validGid ? _DIRS[i] : Mojo.NONE
         }).filter(d => d !== Mojo.NONE)
@@ -5938,18 +6724,16 @@
         let left = dirs.find(x => x === Mojo.LEFT);
         let right = dirs.find(x => x === Mojo.RIGHT);
         return dirs.length===0 ||
-               dirs.length===1 || ((up||down) && (left||right));
-      },
+               dirs.length===1 || ((up||down) && (left||right)); },
       /**Randomly choose the next direction.
        * @memberof module:mojoh5/Tiles
        * @param {number[]} dirs
        * @return {number}
        */
       randomDirection(dirs=[]){
-        return dirs.length===0 ? Mojo.TRAPPED
+        return dirs.length===0 ? Mojo.NONE
                                : (dirs.length===1 ? dirs[0]
-                                                  : dirs[_.randInt2(0, dirs.length-1)])
-      },
+                                                  : dirs[_.randInt2(0, dirs.length-1)]) },
       /**Find the best direction from s1 to s2.
        * @memberof module:mojoh5/Tiles
        * @param {Sprite} s1
@@ -5958,9 +6742,8 @@
        */
       closestDirection(s1, s2){
         const v= _getVector(s1,s2);
-        return ABS(v[0]) < ABS(v[1]) ? ((v[1] <= 0) ? Mojo.UP : Mojo.DOWN)
-                                     : ((v[0] <= 0) ? Mojo.LEFT : Mojo.RIGHT)
-      }
+        return abs(v[0]) < abs(v[1]) ? ((v[1] <= 0) ? Mojo.UP : Mojo.DOWN)
+                                     : ((v[0] <= 0) ? Mojo.LEFT : Mojo.RIGHT) }
     };
 
     return (Mojo.Tiles=_$);
