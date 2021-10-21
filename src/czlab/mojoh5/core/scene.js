@@ -182,7 +182,8 @@
         if(engrid){
           if(c instanceof PIXI.TilingSprite){}else{
             c.m5._engrid=true;
-            this.m5.sgrid.engrid(c);
+            if(c.visible)
+              this.m5.sgrid.engrid(c);
           }
         }
         return c;

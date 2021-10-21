@@ -206,6 +206,8 @@
             if(createFunc)
               s= createFunc.c(scene,s,tsi,ps,o);
             if(s){
+              if(o.visible===false) s.visible=false;
+              o.uuid=s.m5.uuid;
               tl.sprites.push(s);
               scene.insert(s,true);
               if(ps && ps.sensor){s.m5.sensor=true}
@@ -392,8 +394,8 @@
           this.tiled.collision[pos]=gid;
         let s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
         if(s){
+          s.tiled.index=pos;
           s.tiled.layer=yy;
-          s.tiled.index=i;
         }
         return s;
       }
