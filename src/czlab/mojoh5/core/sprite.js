@@ -1192,6 +1192,9 @@
           if(out.y !== undefined) _y=out.y;
           out.x=sx;
           out.y=sy;
+          //shove more info into out :)
+          out.x1=sx; out.y1=sy;
+          out.x2=sx+sz; out.y2=sy+sz;
         }
         return _mkgrid(_x,_y,dim,dim,w,h);
       },
@@ -1220,6 +1223,9 @@
           if(out.y !== undefined) _y=out.y;
           out.x=sx;
           out.y=sy;
+          //shove more info into out :)
+          out.x1=sx; out.y1=sy;
+          out.x2=sx+szw; out.y2=sy+szh;
         }
         return _mkgrid(_x,_y,dimY,dimX,cw,ch);
       },
