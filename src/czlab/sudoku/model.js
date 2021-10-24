@@ -58,6 +58,13 @@
       for(let x=0;x<DIM;++x) if(game[y][x]==0) return true
 		}
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function countEmpty(game){
+			let sum=0;
+			for(let y=0;y<DIM;++y)
+      for(let x=0;x<DIM;++x) if(game[y][x]==0) ++sum;
+			return sum;
+		}
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function gen(game){
 			let x,y,nums=NUMINTS.slice();
 			for(let i=0;i<DIMCNT;++i){
@@ -86,10 +93,12 @@
 				return out.length>2 ? _.shuffle(out) : out;
 			})([]);
 			let nonEmptyCnt = nonEmpty.length;
-			let rounds = 3;
+			let res,rounds = 3;
+			//3 => 38
+			//5 => 27
 			while(rounds > 0 && nonEmptyCnt >= 17){
 				//there should be at least 17 clues
-				let res,removed,copy,
+				let removed,copy,
 					  [y,x] = nonEmpty.pop();
 				nonEmptyCnt -= 1;
 				//might need to put the square value back if there is more than one solution
@@ -98,6 +107,7 @@
 				//make a copy of the grid to solve
 				copy = _.deepCopyArray(game);
 				resolve(copy,res=solverCtx());
+				//console.log(`orund=${rounds}, solns=${res.solutions}, cnt=${nonEmptyCnt}`);
 				//if there is more than one solution, put the last removed cell back into the grid
 				if(res.solutions != 1){
 					nonEmptyCnt += 1;
@@ -105,12 +115,13 @@
 					game[y][x]=removed;
 				}
 			}
-			//console.log("===> " + JSON.stringify(game))
+			//console.log(`rounds= ${rounds}, nonEmptyCnt=${nonEmptyCnt}, soln= ${res.solutions}`);
 			return game;
 		}
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function resolve(game,ctx){
+			//console.log("resolve: holes= " +countEmpty(game));
 			let x,y;
 			for(let i=0;i<DIMCNT;++i){
 				y= int(i/DIM);

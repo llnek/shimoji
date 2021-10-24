@@ -52,10 +52,10 @@
     function playClick(){ Mojo.sound("click.mp3").play() }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){return 1;
+    function doBackDrop(scene){
       if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,0.148));
+        _G.backDropSprite=_S.fillMax(_S.sprite("bg.jpg"));
+      return scene.insert(_S.opacity(_G.backDropSprite));
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -111,15 +111,18 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const FONTCFG={fontName:UI_FONT,fontSize:128*Mojo.getScaleFactor()};
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function initCache(w,h,cache){
-      const K=Mojo.getScaleFactor(),
-            cfg={fontName:UI_FONT,fontSize:128*K};
+      const K=Mojo.getScaleFactor(), cfg= FONTCFG;
       _G.NUMS.forEach(n=>{
+        let z=_G.NUMS.length+1;
         let out=[];
-        for(let c,s,i=0;i<_G.NUMS.length;++i){
+        for(let c,s,i=0;i<z;++i){
           s=_S.centerAnchor(_S.sprite("cell.png"));
           c=_S.centerAnchor(_S.bmpText(n,cfg));
-          c.tint=_S.color("black");
+          //c.tint=_S.color("black");
           s.addChild(c);
           s=_S.sizeXY(s,w,h);
           out.push(s);
@@ -127,6 +130,107 @@
         cache[+n]=out;
       });
       return cache;
+    }
+
+    function deselect(){
+      if(_G.curMarked){
+        _G.curMarked.g.marked=false;
+        whichColor(_G.curMarked);
+        _G.curMarked=null;
+      }
+    }
+    function select(s){
+      if(_G.curMarked!==s){
+        _G.curMarked=s;
+        s.g.marked=true;
+        s.tint=_S.color("black");//"#d2f22e");
+      }
+      return s;
+    }
+    function erase(){
+      let s= _G.curMarked;
+      if(s && s.g.value !=0){
+        _G.prevAction=new Deletion(s);
+        delNum(s);
+        s.g.value=0;
+        _G.sudoku[s.g.row][s.g.col]=0;
+        idleColor(s);
+        _G.curMarked=null;
+      }
+    }
+    function idleColor(s){
+      s.g.value=0;
+      return whichColor(s);
+    }
+    function assign(v){
+      let s=_G.curMarked;
+      if(s){
+        _G.prevAction=new Assignment(s,v);
+        s.g.marked=false;
+        s.g.value=v;
+        addNum(s,v);
+        whichColor(s);
+        _G.sudoku[s.g.row][s.g.col]=v;
+        _G.curMarked=null;
+      }
+    }
+    function whichColor(s){
+      if(s.g.value != 0){
+        s.tint=_S.color("#f1ad2e");
+      }else{
+        s.tint=_S.color("#e6e83b");
+      }
+      return s;
+    }
+    function addNum(s,v){
+      s.removeChildren();
+      s.addChild(_S.centerAnchor(_S.bmpText(""+v,FONTCFG)));
+    }
+    function delNum(s){
+      s.removeChildren();
+    }
+
+    function undoMarked(s){
+      s.g.marked=false;
+      if(_G.curMarked){
+        _G.curMarked.g.marked=false;
+        _G.curMarked=null;
+      }
+    }
+
+    class Action{
+      constructor(){ }
+      postUndo(s){
+        _G.sudoku[s.g.row][s.g.col]=this.prevValue;
+        if(this.prevValue==0)
+          delNum(s);
+        else
+          addNum(s,this.prevValue);
+        undoMarked(s);
+        whichColor(s);
+      }
+    }
+    class Assignment extends Action{
+      constructor(s,v){
+        super();
+        this.cell=s;
+        this.prevValue=s.g.value;
+      }
+      undo(){
+        this.cell.g.value=this.prevValue;
+        this.postUndo(this.cell);
+      }
+    }
+    class Deletion extends Action{
+      constructor(s){
+        super()
+        this.cell=s;
+        this.prevValue=s.g.value;
+      }
+      undo(){
+        this.cell.g.value=this.prevValue;
+        this.postUndo(this.cell);
+      }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -145,31 +249,127 @@
             let gfx=self.insert(_S.drawGridBox(out));
             _S.drawGridLines(0,0,grid,1,"white",gfx);
             _.inject(_G,{
+              tileW:w,
+              tileH:h,
               grid,
               sudoku:_G.sudoku(),
               cache: initCache(w,h,{})
             });
+            return this;
           },
-          poo(){
+          initGame(){
             for(let r,game=_G.sudoku, y=0;y<_G.DIM;++y){
               r=_G.grid[y];
-              for(let v,s,g,x=0;x<_G.DIM;++x){
+              for(let cx,cy,v,s,g,x=0;x<_G.DIM;++x){
+                g=r[x];
+                cx=int((g.x1+g.x2)/2);
+                cy=int((g.y1+g.y2)/2);
                 if((v=game[y][x]) != 0){
-                  g=r[x];
                   s= _G.cache[v].pop();
-                  s.x=int((g.x1+g.x2)/2);
-                  s.y=int((g.y1+g.y2)/2);
-                  self.insert(s);
+                  s.tint=_S.color("#f27c2e");
+                  s.g.value=v;
+                  self.insert(_V.set(s,cx,cy));
+                }else{
+                  s=_S.sprite("cell.png");
+                  s.g.value=0;
+                  s.g.cell=true;
+                  idleColor(s);
+                  _V.set(_S.centerAnchor(s),cx,cy);
+                  s.m5.press=()=>{
+                    if(_G.curMarked!==s){
+                      deselect();
+                      select(s);
+                    }
+                  }
+                  self.insert(_S.sizeXY(_I.mkBtn(s),_G.tileW,_G.tileH));
                 }
+                s.g.row=y;
+                s.g.col=x;
               }
             }
+            return this;
+          },
+          initSel(){
+            let K=Mojo.getScaleFactor(),
+                pad= 8 *K,
+                g=_G.grid[0][0],
+                w=g.x2-g.x1,
+                p,h=g.y2-g.y1,
+                W=_S.color("white"),
+                C=_S.color("#56d5ef");
+            for(let n,i=0;i<_G.NUMINTS.length;++i){
+              n=_G.NUMINTS[i];
+              let s= _G.cache[n].pop();
+              s.children[0].tint=W;
+              s.g.value=n;
+              s.tint=C;
+              if(n==1){
+                s.y= int((g.y1+g.y2)/2);
+                s.x= int((g.x1+g.x2)/2) - s.width - pad;
+                p= self.insert(_I.mkBtn(s));
+              }else{
+                _S.pinBottom(p,s,0);
+                p=self.insert(_I.mkBtn(s));
+              }
+              s.m5.press=()=>{
+                assign(s.g.value);
+              };
+            }
+            return this;
+          },
+          initHUD(){
+            let p,s=_S.sizeXY(_S.sprite("cell.png"),_G.tileW,_G.tileH);
+            let g=_G.grid[0][_G.grid[0].length-1];
+            let K=Mojo.getScaleFactor();
+            let cy= int((g.y1 +g.y2)/2);
+            let cx= int(g.x2 + 8*K + s.width/2);
+            //let cfg={fontName:UI_FONT,fontSize:256*K};
+            _V.set(_S.centerAnchor(s),cx,cy);
+            s.addChild(_S.centerAnchor(_S.bmpText("U",FONTCFG)));
+            s.m5.press=()=>{
+              if(_G.prevAction){
+                _G.prevAction.undo();
+                _G.prevAction=null;
+              }
+            }
+            s.tint=_S.color("magenta");
+            this.undoBtn=s;
+            p=self.insert(_I.mkBtn(s));
+            ///
+            let s2=_S.sizeXY(_S.sprite("cell.png"),_G.tileW,_G.tileH);
+            _S.centerAnchor(s2);
+            s2.addChild(_S.centerAnchor(_S.bmpText("X",FONTCFG)));
+            s2.m5.press=()=>{
+              erase();
+            }
+            s2.tint=_S.color("red");
+            this.eraseBtn=s2;
+            _S.pinBottom(p,s2,0);
+            return self.insert(_I.mkBtn(s2));
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initLevel();
-        this.g.poo();
+        doBackDrop(this) && this.g.initLevel() &&
+          this.g.initGame() && this.g.initSel() && this.g.initHUD();
       },
       postUpdate(dt){
+        if(this.g.undoBtn){
+          this.g.undoBtn.alpha= _G.prevAction?1:0.4;
+        }
+        if(this.g.eraseBtn){
+          let found;
+          for(let s,i=0; i<this.children.length;++i){
+            s=this.children[i];
+            if(s.g && s.g.cell && s.g.value != 0){
+                found=1;
+                break;
+            }
+          }
+          this.g.eraseBtn.alpha= found?1:0.4;
+        }
+        if(_I.keyDown(_I.SPACE)){
+          console.log("==> " + JSON.stringify(_G.sudoku));
+        }
       }
     });
 
@@ -178,7 +378,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["cell.png","click.mp3"],
+    assetFiles: ["bg.jpg","cell.png","click.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
