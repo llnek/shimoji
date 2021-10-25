@@ -50,7 +50,7 @@
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function checkCell(game,y,x,value){
 			return isInCol(game,x,value) ||
-			       isInRow(game, y,value) || isInBlock(game,y,x,value)?false:true
+						 isInRow(game, y,value) || isInBlock(game,y,x,value)?false:true
 		}
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function findEmpty(game){
@@ -85,21 +85,19 @@
     }
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function mkUnique(game){
+		function reduction(game, rounds=3){
+			//console.log("reduction rounds = "+rounds);
 			let nonEmpty= (function(out){
 				for(let y=0;y<DIM;++y)
 				for(let x=0;x<DIM;++x)
 					if(game[y][x] != 0) out.push([y,x]);
 				return out.length>2 ? _.shuffle(out) : out;
 			})([]);
-			let nonEmptyCnt = nonEmpty.length;
-			let res,rounds = 3;
-			//3 => 38
-			//5 => 27
+			let res,nonEmptyCnt = nonEmpty.length;
 			while(rounds > 0 && nonEmptyCnt >= 17){
 				//there should be at least 17 clues
 				let removed,copy,
-					  [y,x] = nonEmpty.pop();
+						[y,x] = nonEmpty.pop();
 				nonEmptyCnt -= 1;
 				//might need to put the square value back if there is more than one solution
 				removed = game[y][x];
@@ -157,7 +155,7 @@
 		//can prefill diagonal blocks since no dependencies in rows or cols
 		function seedBlock(game,block,seed){
 			let c= (block%D3) * D3,
-			    k=0, r= int(block/D3) * D3;
+					k=0, r= int(block/D3) * D3;
 			for(let y=r; y<(r+3); ++y)
 				for(let x=c; x<(c+3); ++x)
 					game[y][x]=seed[k++];
@@ -169,24 +167,52 @@
 			d.forEach((b,i) => seedBlock(g,b,s[i]));
 			return g;
 		}
+		function validateBlock(game,block){
+			let r= int(block/D3) * D3;
+			let c= block%D3 * D3;
+			let out=[];
+			for(let i=r;i<(r+D3);++i)
+				for(let j=c;j<(c+D3);++j) out.push(game[i][j]);
+			return out.sort().join("")==NUMSTR;
+		}
+		function checkDone(game){
+			_.assert(game.length==DIM,"Bad game");
+			_.assert(game[0].length==DIM, "Bad game");
+			for(let y=0;y<DIM;++y){
+				if(game[y].slice().sort().join("") != NUMSTR) return false;
+			}
+			for(let out=[],x=0;x<DIM;++x){
+				out.length=0;
+				for(let y=0;y<DIM;++y) out.push(game[y][x]);
+				if(out.sort().join("") != NUMSTR) return false;
+			}
+			for(let i=0;i<DIM;++i){
+				if(!validateBlock(game,i)) return false;
+			}
+			return true;
+		}
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function Sudoku(){
 			return{
-				generate(){
-					return mkUnique(gen(seedGame()));
+				generate(level){
+					return reduction(gen(seedGame()), level<0?1:(level>0?6:3))
 				},
 				solve(game){
-					return resolve(game, solverCtx()) && game;
+					return resolve(game, solverCtx()) && game
+				},
+				validate(game){
+					return checkDone(game)
+				},
+				validateCell(game,y,x,value){
+					return checkCell(game,y,x,value)
 				}
 			}
 		}
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
-      sudoku(){
-				return Sudoku().generate()
-      }
+			Sudoku:Sudoku()
     })
 
   }

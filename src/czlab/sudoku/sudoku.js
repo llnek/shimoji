@@ -82,7 +82,7 @@
             _S.tint(s,C_ORANGE);
             playClick();
             _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
+              _Z.runSceneEx("MainMenu");
             });
           }
           Mojo.on(["single.tap"],cb);
@@ -91,7 +91,6 @@
         }
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-        _G.sudoku();
       }
     });
 
@@ -165,6 +164,12 @@
     function assign(v){
       let s=_G.curMarked;
       if(s){
+        if(!_G.Sudoku.validateCell(_G.sudoku,s.g.row,s.g.col,v)){
+          Mojo.sound("error.mp3").play();
+          s=null;
+        }
+      }
+      if(s){
         _G.prevAction=new Assignment(s,v);
         s.g.marked=false;
         s.g.value=v;
@@ -234,12 +239,58 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.defScene("MainMenu",{
       setup(){
+        const K=Mojo.getScaleFactor();
+        const self=this;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.doChoices=function(){
+          const cfg={fontSize:64*K,fontName:UI_FONT};
+          function space(){
+            return _S.opacity(_S.bmpText("I", cfg),0)}
+          let b1=_I.mkBtn(_S.uuid(_S.bmpText("Easy",cfg),"#easy"));
+          let b2= _I.mkBtn(_S.uuid(_S.bmpText("Normal",cfg),"#normal"));
+          let b3=_I.mkBtn(_S.uuid(_S.bmpText("Hard",cfg),"#hard"));
+          function cb(b){
+            let mode= b.m5.uuid=="#easy"?-1:(b.m5.uuid=="#hard"?1:0);
+            playClick();
+            b.tint=C_ORANGE;
+            _.delay(CLICK_DELAY,()=>{
+              _Z.runSceneEx("PlayGame",{mode});
+            });
+          }
+          b1.m5.press=
+            b2.m5.press= b3.m5.press = cb;
+          let m= _Z.layoutY([b1, space(), b2, space(), b3], {bg:"#cccccc"});
+          self.insert(m);
+        };
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.doChoices();
+      }
+    });
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("PlayGame",{
+      setup(options){
         const self=this,
               K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
+          drawGrid(grid,gfx){
+            let h= grid.length,
+                w= grid[0].length;
+            gfx.lineStyle(Math.max(1,int(1*K)),_S.color("white"));
+            //horz lines
+            gfx.moveTo(grid[2][0].x1,grid[2][0].y2);
+            gfx.lineTo(grid[2][w-1].x2,grid[2][w-1].y2);
+            gfx.moveTo(grid[5][0].x1,grid[5][0].y2);
+            gfx.lineTo(grid[5][w-1].x2,grid[5][w-1].y2);
+            //vert lines
+            gfx.moveTo(grid[0][2].x2,grid[0][2].y1);
+            gfx.lineTo(grid[h-1][2].x2,grid[h-1][2].y2);
+            gfx.moveTo(grid[0][5].x2,grid[0][5].y1);
+            gfx.lineTo(grid[h-1][5].x2,grid[h-1][5].y2);
+            return gfx;
+          },
           initLevel(){
             let out={};
             let grid= _S.gridSQ(9,0.9,out);
@@ -247,13 +298,13 @@
             let w= c.x2-c.x1;
             let h= c.y2-c.y1;
             let gfx=self.insert(_S.drawGridBox(out));
-            _S.drawGridLines(0,0,grid,1,"white",gfx);
+            this.drawGrid(grid,gfx);
             _.inject(_G,{
               tileW:w,
               tileH:h,
               grid,
-              sudoku:_G.sudoku(),
-              cache: initCache(w,h,{})
+              cache: initCache(w,h,{}),
+              sudoku: _G.Sudoku.generate(options.mode)
             });
             return this;
           },
@@ -276,8 +327,9 @@
                   idleColor(s);
                   _V.set(_S.centerAnchor(s),cx,cy);
                   s.m5.press=()=>{
-                    if(_G.curMarked!==s){
+                    if(_G.curMarked===s){
                       deselect();
+                    }else{
                       select(s);
                     }
                   }
@@ -367,6 +419,11 @@
           }
           this.g.eraseBtn.alpha= found?1:0.4;
         }
+        let c= _G.Sudoku.validate(_G.sudoku);
+        if(c){
+          this.m5.dead=true;
+          console.log("YYYYYYY");
+        }
         if(_I.keyDown(_I.SPACE)){
           console.log("==> " + JSON.stringify(_G.sudoku));
         }
@@ -378,7 +435,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
-    assetFiles: ["bg.jpg","cell.png","click.mp3"],
+    assetFiles: ["bg.jpg","cell.png","click.mp3","error.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
