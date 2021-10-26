@@ -44,6 +44,19 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doCheckPt(){
+      let m={};
+      for(let o,i=0;i<_G.items.length;++i){
+        o=_G.items[i];
+        if(o.g.value==3){
+          m[o.m5.uuid]= [o.g.row,o.g.col];
+        }
+      }
+      m[_G.player.m5.uuid]=[_G.player.g.row,_G.player.g.col];
+      _G.history.push(m);
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function doBackDrop(scene){return 1;
       if(!_G.backDropSprite)
         _G.backDropSprite=_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height);
@@ -93,6 +106,7 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function doMove(y,x,dirY,dirX){
       let o= findCrate(y,x);
       if(o){
@@ -107,6 +121,24 @@
       _G.player.g.col=x;
       _G.player.x += dirX * _G.player.width;
       _G.player.y += dirY * _G.player.height;
+      //update history
+      doCheckPt();
+    }
+
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function undoMove(){
+      if(!_G.history.length>0){return}
+      let pos,c,s,m= _G.history.pop();
+      _.keys(m).forEach(k=>{
+        pos=m[k];
+        s=_G.gameScene.getChildById(k);
+        s.g.row=pos[0];
+        s.g.col=pos[1];
+        c=_G.grid[s.g.row][s.g.col];
+        s.y=c.y1;
+        s.x=c.x1;
+      })
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -236,7 +268,6 @@
             let player;
             let c=grid[0][0],
                 W=c.x2-c.x1, H=c.y2-c.y1;
-            //_S.drawGridLines(0,0,grid,1,"white", self.insert(_S.drawGridBox(out)));
             function cs(y,x,[n,value]){
               let s;
               if(value==4){
@@ -286,6 +317,8 @@
                 dirDown= _I.keybd(_I.DOWN);
             _.inject(_G,{
               level,grid,tileW:W,tileH:H,
+              history:[],
+              gameScene:self,
               items,player,dirRight, dirLeft, dirUp, dirDown
             });
             Mojo.on(["swipe.down"],"swipeDown",_G);
@@ -296,6 +329,8 @@
             dirLeft.press= ()=>_G.swipeLeft();
             dirUp.press= ()=>_G.swipeUp();
             dirDown.press= ()=>_G.swipeDown();
+            //init history
+            //doCheckPt();
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -306,10 +341,9 @@
       },
       postUpdate(dt){
         if(holesFilled()){
-          console.log("YYYYY");
           this.m5.dead=true;
           _.delay(CLICK_DELAY,()=>{
-            _Z.runScene("EndGame")
+            _Z.runScene("EndGame",{msg: "You Win!"})
           })
         }
       }
