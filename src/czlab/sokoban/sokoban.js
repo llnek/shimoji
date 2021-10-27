@@ -108,21 +108,26 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function doMove(y,x,dirY,dirX){
+      //update history
+      doCheckPt();
       let o= findCrate(y,x);
       if(o){
         let r=o.g.row;
         let c=o.g.col;
         o.g.row=r+dirY;
         o.g.col=c+dirX;
-        o.x += dirX * o.width;
-        o.y += dirY * o.height;
+        //o.x += dirX * o.width;
+        //o.y += dirY * o.height;
+        _F.tweenXY(o,_F.SMOOTH,  o.x + dirX * o.width, o.y + dirY * o.height);
       }
       _G.player.g.row=y;
       _G.player.g.col=x;
-      _G.player.x += dirX * _G.player.width;
-      _G.player.y += dirY * _G.player.height;
-      //update history
-      doCheckPt();
+      //_G.player.x += dirX * _G.player.width;
+      //_G.player.y += dirY * _G.player.height;
+      let z=_F.tweenXY(_G.player,_F.SMOOTH, _G.player.x + dirX * _G.player.width, _G.player.y + dirY * _G.player.height);
+      z.onComplete=()=>{
+        _G.player.m5.showFrame(0);
+      };
     }
 
 
@@ -147,25 +152,37 @@
         let {row,col}= _G.player.g;
         let c=col+1;
         if(c>=_G.level[0].length){return}
-        if(testMove(row,c,0,1)) doMove(row,c,0,1);
+        if(testMove(row,c,0,1)){
+          _G.player.m5.showFrame(3)
+          doMove(row,c,0,1);
+        }
       },
       swipeLeft(){
         let {row,col}= _G.player.g;
         let c=col-1;
         if(c<=0){return}
-        if(testMove(row,c,0,-1)) doMove(row,c,0,-1);
+        if(testMove(row,c,0,-1)){
+          _G.player.m5.showFrame(2);
+          doMove(row,c,0,-1);
+        }
       },
       swipeUp(){
         let {row,col}= _G.player.g;
         let r=row-1;
         if(r<=0){return}
-        if(testMove(r,col,-1,0)) doMove(r,col,-1,0);
+        if(testMove(r,col,-1,0)){
+          _G.player.m5.showFrame(1);
+          doMove(r,col,-1,0);
+        }
       },
       swipeDown(){
         let {row,col}= _G.player.g;
         let r=row+1;
         if(r>=_G.level.length){return}
-        if(testMove(r,col,1,0)) doMove(r,col,1,0);
+        if(testMove(r,col,1,0)){
+          _G.player.m5.showFrame(0);
+          doMove(r,col,1,0);
+        }
       }
     });
 
@@ -194,6 +211,7 @@
             playClick();
             _.delay(CLICK_DELAY,()=>{
               _Z.runSceneEx("PlayGame");
+              _Z.runScene("HUD");
             });
           }
           Mojo.on(["single.tap"],cb);
@@ -348,13 +366,73 @@
         }
       }
     });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.defScene("HUD",{
+      setup(){
+        let g=_G.grid[_G.grid.length-1][_G.grid[0].length-1];
+        let K=Mojo.getScaleFactor();
+        let c,p,s,pad=5*K;
+        for(let i=0;i<4;++i){
+          s= _I.mkBtn(_S.centerAnchor(_S.sprite("button.png")));
+          _S.sizeXY(s,_G.tileW,_G.tileH);
+          if(i==3){
+            c=_S.centerAnchor(_S.sprite("arrowLeft.png"));
+            _S.uuid(s,"#<-");
+          }
+          if(i==2){
+            c=_S.centerAnchor(_S.sprite("arrowRight.png"));
+            _S.uuid(s,"#->");
+          }
+          if(i==1){
+            c=_S.centerAnchor(_S.sprite("arrowUp.png"));
+            _S.uuid(s,"#^^");
+          }
+          if(i==0){
+            c=_S.centerAnchor(_S.sprite("arrowDown.png"));
+            _S.uuid(s,"#vv");
+          }
+          c.height= s.height;
+          c.width= s.width;
+          c.tint=_S.color("orange");
+          s.addChild(c);
+          s.m5.press=(b)=>{
+            switch(b.m5.uuid){
+              case "#<-": _G.swipeLeft(); break;
+              case "#->": _G.swipeRight(); break;
+              case "#^^": _G.swipeUp(); break;
+              case "#vv": _G.swipeDown(); break;
+            }
+          };
+          if(!p){
+            _V.set(s,g.x2+pad+s.width/2, g.y1+s.height/2);
+          }else{
+            _S.pinTop(p,s,pad);
+          }
+          p=this.insert(s);
+        }
+        //////
+        g=_G.grid[0][_G.grid[0].length-1];
+        s= _I.mkBtn(_S.centerAnchor(_S.sprite("button.png")));
+        _S.sizeXY(s,_G.tileW,_G.tileH);
+        _V.set(s,g.x2+pad+s.width/2, g.y1+s.height/2);
+        c=_S.centerAnchor(_S.sprite("undo.png"));
+        c.tint=_S.color("orange");
+        s.addChild(c);
+        s.m5.press=()=>{
+          undoMove()
+        };
+        this.insert(s);
+      }
+    });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //game config
   const _$={
     assetFiles: ["click.mp3","game_over.mp3","game_win.mp3",
-                 "left.png","right.png","up.png","down.png",
+      "button.png","arrowUp.png","arrowDown.png","arrowLeft.png","arrowRight.png",
+      "left.png","right.png","up.png","down.png","undo.png",
                  "wall.png","hole.png","grass.png","water.png","crate.png"],
     arena: {width:1680,height:1050},
     scaleToWindow: "max",
