@@ -1,0 +1,187 @@
+{"frames": {
+
+"_bus1.png":
+{
+	"frame": {"x":683,"y":128,"w":223,"h":106},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":223,"h":106},
+	"sourceSize": {"w":224,"h":106}
+},
+"_bus2.png":
+{
+	"frame": {"x":709,"y":1,"w":294,"h":125},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":294,"h":125},
+	"sourceSize": {"w":294,"h":126}
+},
+"_car1.png":
+{
+	"frame": {"x":1005,"y":1,"w":193,"h":92},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":193,"h":92},
+	"sourceSize": {"w":194,"h":94}
+},
+"_car2.png":
+{
+	"frame": {"x":957,"y":294,"w":198,"h":84},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":198,"h":84},
+	"sourceSize": {"w":198,"h":86}
+},
+"_car3.png":
+{
+	"frame": {"x":957,"y":189,"w":189,"h":103},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":189,"h":103},
+	"sourceSize": {"w":189,"h":103}
+},
+"_fire_truck.png":
+{
+	"frame": {"x":1,"y":130,"w":324,"h":145},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":324,"h":145},
+	"sourceSize": {"w":324,"h":146}
+},
+"_police.png":
+{
+	"frame": {"x":327,"y":236,"w":215,"h":120},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":120},
+	"sourceSize": {"w":215,"h":120}
+},
+"_taxi.png":
+{
+	"frame": {"x":552,"y":358,"w":194,"h":118},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":194,"h":118},
+	"sourceSize": {"w":196,"h":118}
+},
+"bus1.png":
+{
+	"frame": {"x":327,"y":358,"w":223,"h":106},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":0,"w":223,"h":106},
+	"sourceSize": {"w":224,"h":106}
+},
+"bus2.png":
+{
+	"frame": {"x":387,"y":109,"w":294,"h":125},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":294,"h":125},
+	"sourceSize": {"w":294,"h":126}
+},
+"car1.png":
+{
+	"frame": {"x":1005,"y":95,"w":193,"h":92},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":1,"w":193,"h":92},
+	"sourceSize": {"w":194,"h":94}
+},
+"car2.png":
+{
+	"frame": {"x":748,"y":422,"w":198,"h":84},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":0,"w":198,"h":84},
+	"sourceSize": {"w":198,"h":86}
+},
+"car3.png":
+{
+	"frame": {"x":955,"y":380,"w":189,"h":103},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":189,"h":103},
+	"sourceSize": {"w":189,"h":103}
+},
+"fire_truck.png":
+{
+	"frame": {"x":1,"y":277,"w":324,"h":145},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":324,"h":145},
+	"sourceSize": {"w":324,"h":146}
+},
+"log2.png":
+{
+	"frame": {"x":259,"y":466,"w":128,"h":42},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":42},
+	"sourceSize": {"w":128,"h":42}
+},
+"log3.png":
+{
+	"frame": {"x":761,"y":356,"w":192,"h":64},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":192,"h":64},
+	"sourceSize": {"w":192,"h":64}
+},
+"log4.png":
+{
+	"frame": {"x":1,"y":424,"w":256,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":256,"h":85},
+	"sourceSize": {"w":256,"h":85}
+},
+"log5.png":
+{
+	"frame": {"x":387,"y":1,"w":320,"h":106},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":320,"h":106},
+	"sourceSize": {"w":320,"h":106}
+},
+"log6.png":
+{
+	"frame": {"x":1,"y":1,"w":384,"h":127},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":384,"h":127},
+	"sourceSize": {"w":384,"h":127}
+},
+"police.png":
+{
+	"frame": {"x":544,"y":236,"w":215,"h":120},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":120},
+	"sourceSize": {"w":215,"h":120}
+},
+"taxi.png":
+{
+	"frame": {"x":761,"y":236,"w":194,"h":118},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":0,"w":194,"h":118},
+	"sourceSize": {"w":196,"h":118}
+}},
+"animations": {
+	"_bus": ["_bus1.png","_bus2.png"],
+	"_car": ["_car1.png","_car2.png","_car3.png"],
+	"bus": ["bus1.png","bus2.png"],
+	"car": ["car1.png","car2.png","car3.png"],
+	"log": ["log2.png","log3.png","log4.png","log5.png","log6.png"]
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "items.png",
+	"format": "RGBA8888",
+	"size": {"w":1199,"h":510},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:86ca036f6d7a4810608709f427be70a2:ddc588547ac8d722886eae2f01152799:110e074689c9edd2c54833ce2e4d9270$"
+}
+}
