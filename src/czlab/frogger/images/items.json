@@ -2,7 +2,7 @@
 
 "_bus1.png":
 {
-	"frame": {"x":683,"y":128,"w":223,"h":106},
+	"frame": {"x":763,"y":211,"w":223,"h":106},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":0,"w":223,"h":106},
@@ -10,7 +10,7 @@
 },
 "_bus2.png":
 {
-	"frame": {"x":709,"y":1,"w":294,"h":125},
+	"frame": {"x":401,"y":538,"w":294,"h":125},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":1,"w":294,"h":125},
@@ -18,7 +18,7 @@
 },
 "_car1.png":
 {
-	"frame": {"x":1005,"y":1,"w":193,"h":92},
+	"frame": {"x":523,"y":424,"w":193,"h":92},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":1,"w":193,"h":92},
@@ -26,7 +26,7 @@
 },
 "_car2.png":
 {
-	"frame": {"x":957,"y":294,"w":198,"h":84},
+	"frame": {"x":1,"y":624,"w":198,"h":84},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":0,"w":198,"h":84},
@@ -34,7 +34,7 @@
 },
 "_car3.png":
 {
-	"frame": {"x":957,"y":189,"w":189,"h":103},
+	"frame": {"x":826,"y":1,"w":189,"h":103},
 	"rotated": false,
 	"trimmed": false,
 	"spriteSourceSize": {"x":0,"y":0,"w":189,"h":103},
@@ -42,7 +42,7 @@
 },
 "_fire_truck.png":
 {
-	"frame": {"x":1,"y":130,"w":324,"h":145},
+	"frame": {"x":1,"y":330,"w":324,"h":145},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":1,"w":324,"h":145},
@@ -50,7 +50,7 @@
 },
 "_police.png":
 {
-	"frame": {"x":327,"y":236,"w":215,"h":120},
+	"frame": {"x":329,"y":176,"w":215,"h":120},
 	"rotated": false,
 	"trimmed": false,
 	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":120},
@@ -58,7 +58,7 @@
 },
 "_taxi.png":
 {
-	"frame": {"x":552,"y":358,"w":194,"h":118},
+	"frame": {"x":329,"y":298,"w":194,"h":118},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":0,"w":194,"h":118},
@@ -66,7 +66,7 @@
 },
 "bus1.png":
 {
-	"frame": {"x":327,"y":358,"w":223,"h":106},
+	"frame": {"x":525,"y":316,"w":223,"h":106},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":1,"y":0,"w":223,"h":106},
@@ -74,7 +74,7 @@
 },
 "bus2.png":
 {
-	"frame": {"x":387,"y":109,"w":294,"h":125},
+	"frame": {"x":697,"y":518,"w":294,"h":125},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":1,"w":294,"h":125},
@@ -82,7 +82,7 @@
 },
 "car1.png":
 {
-	"frame": {"x":1005,"y":95,"w":193,"h":92},
+	"frame": {"x":718,"y":424,"w":193,"h":92},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":1,"y":1,"w":193,"h":92},
@@ -90,7 +90,7 @@
 },
 "car2.png":
 {
-	"frame": {"x":748,"y":422,"w":198,"h":84},
+	"frame": {"x":201,"y":624,"w":198,"h":84},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":0,"w":198,"h":84},
@@ -98,7 +98,7 @@
 },
 "car3.png":
 {
-	"frame": {"x":955,"y":380,"w":189,"h":103},
+	"frame": {"x":826,"y":106,"w":189,"h":103},
 	"rotated": false,
 	"trimmed": false,
 	"spriteSourceSize": {"x":0,"y":0,"w":189,"h":103},
@@ -106,7 +106,7 @@
 },
 "fire_truck.png":
 {
-	"frame": {"x":1,"y":277,"w":324,"h":145},
+	"frame": {"x":1,"y":477,"w":324,"h":145},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":0,"y":1,"w":324,"h":145},
@@ -114,47 +114,31 @@
 },
 "log2.png":
 {
-	"frame": {"x":259,"y":466,"w":128,"h":42},
+	"frame": {"x":556,"y":1,"w":268,"h":191},
 	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":42},
-	"sourceSize": {"w":128,"h":42}
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":268,"h":191},
+	"sourceSize": {"w":270,"h":195}
 },
 "log3.png":
 {
-	"frame": {"x":761,"y":356,"w":192,"h":64},
+	"frame": {"x":1,"y":176,"w":326,"h":152},
 	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":192,"h":64},
-	"sourceSize": {"w":192,"h":64}
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":1,"w":326,"h":152},
+	"sourceSize": {"w":330,"h":154}
 },
 "log4.png":
 {
-	"frame": {"x":1,"y":424,"w":256,"h":85},
+	"frame": {"x":1,"y":1,"w":553,"h":173},
 	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":256,"h":85},
-	"sourceSize": {"w":256,"h":85}
-},
-"log5.png":
-{
-	"frame": {"x":387,"y":1,"w":320,"h":106},
-	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":320,"h":106},
-	"sourceSize": {"w":320,"h":106}
-},
-"log6.png":
-{
-	"frame": {"x":1,"y":1,"w":384,"h":127},
-	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":384,"h":127},
-	"sourceSize": {"w":384,"h":127}
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":2,"w":553,"h":173},
+	"sourceSize": {"w":560,"h":175}
 },
 "police.png":
 {
-	"frame": {"x":544,"y":236,"w":215,"h":120},
+	"frame": {"x":546,"y":194,"w":215,"h":120},
 	"rotated": false,
 	"trimmed": false,
 	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":120},
@@ -162,7 +146,7 @@
 },
 "taxi.png":
 {
-	"frame": {"x":761,"y":236,"w":194,"h":118},
+	"frame": {"x":327,"y":418,"w":194,"h":118},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":2,"y":0,"w":194,"h":118},
@@ -173,15 +157,15 @@
 	"_car": ["_car1.png","_car2.png","_car3.png"],
 	"bus": ["bus1.png","bus2.png"],
 	"car": ["car1.png","car2.png","car3.png"],
-	"log": ["log2.png","log3.png","log4.png","log5.png","log6.png"]
+	"log": ["log2.png","log3.png","log4.png"]
 },
 "meta": {
 	"app": "https://www.codeandweb.com/texturepacker",
 	"version": "1.0",
 	"image": "items.png",
 	"format": "RGBA8888",
-	"size": {"w":1199,"h":510},
+	"size": {"w":1016,"h":709},
 	"scale": "1",
-	"smartupdate": "$TexturePacker:SmartUpdate:86ca036f6d7a4810608709f427be70a2:ddc588547ac8d722886eae2f01152799:110e074689c9edd2c54833ce2e4d9270$"
+	"smartupdate": "$TexturePacker:SmartUpdate:d37f1c85aa361c8230a739f4fa879844:318c1c0c34d600a00f359146f9530164:110e074689c9edd2c54833ce2e4d9270$"
 }
 }
