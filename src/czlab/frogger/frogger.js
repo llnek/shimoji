@@ -417,11 +417,13 @@
                   g.blocked=true;
                 }else{
                   s=_S.sprite("coin.png");
+                  s.m5.type=E_COIN;
                   _S.sizeXY(s,tileW*0.5,tileH*0.5);
                   s.x=int((g.x1+g.x2)/2);
                   s.y=int((g.y1+g.y2)/2);
                   g.blocked=false;
-                  self.insert(_S.centerAnchor(s));
+                  _G.coins.push(s);
+                  self.insert(_S.centerAnchor(s),true);
                 }
               }
             });
@@ -450,8 +452,6 @@
               s.g.col=gMid;
               s.m5.vel[0]=0;
             };
-            s.g.slideOff=()=>{
-            }
             s.g.onRiver=(r)=>{
               let hit,row=_G.logs[r];
               for(let o,i=0;i<row.length;++i){
@@ -484,6 +484,9 @@
             s.m5.onHit=(col)=>{
               if(col.B.m5.type===E_CAR){
                 s.g.reset();
+              }else if (col.B.m5.type==E_COIN){
+                _.disj(_G.coins,col.B);
+                _S.remove(col.B);
               }
             };
             Mojo.on(["hit",s],"onHit",s.m5);
