@@ -59,7 +59,7 @@
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_, is, dom} =Mojo;
     const ABC=Math.abs,
-          MFL=Math.floor;
+          int=Math.floor;
 
     /** @ignore */
     function _genTexture(displayObject, scaleMode, resolution, region){
@@ -120,7 +120,7 @@
       //fake anchor if none provided
       if(!a)a={x:0,y:0};
       //adjust for anchor
-      out.forEach(r=>{ r[0] -= MFL(w * a.x); r[1] -= MFL(h * a.y); });
+      out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
       return out;
     }
 
@@ -237,10 +237,10 @@
         box.y1 += p.y;
         box.y2 += p.y;
       }
-      return [box, MFL((box.x2-box.x1)/2),//half width
-                   MFL((box.y2-box.y1)/2),//half height
-                   MFL((box.x1+box.x2)/2),//center x
-                   MFL((box.y1+box.y2)/2)]//center y
+      return [box, int((box.x2-box.x1)/2),//half width
+                   int((box.y2-box.y1)/2),//half height
+                   int((box.x1+box.x2)/2),//center x
+                   int((box.y1+box.y2)/2)]//center y
     }
 
     /** @ignore */
@@ -377,7 +377,7 @@
        * @return {object} {width,height}
        */
       halfSize(s){
-        return {width:MFL(s.width/2), height:MFL(s.height/2)} },
+        return {width:int(s.width/2), height:int(s.height/2)} },
       /**Set sprite's anchor to be at it's center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -403,8 +403,8 @@
        */
       topLeftOffsetXY(s){
         return this.isTopLeft(s)?_V.vec()
-                                :_V.vec(-MFL(s.width* (s.anchor?s.anchor.x:0)),
-                                        -MFL(s.height*(s.anchor?s.anchor.y:0))) },
+                                :_V.vec(-int(s.width* (s.anchor?s.anchor.x:0)),
+                                        -int(s.height*(s.anchor?s.anchor.y:0))) },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -412,8 +412,8 @@
        */
       centerOffsetXY(s){
         return this.isCenter(s)?_V.vec()
-                               :_V.vec(MFL(s.width/2) - MFL((s.anchor?s.anchor.x:0)*s.width),
-                                       MFL(s.height/2) - MFL((s.anchor?s.anchor.y:0)*s.height)) },
+                               :_V.vec(int(s.width/2) - int((s.anchor?s.anchor.x:0)*s.width),
+                                       int(s.height/2) - int((s.anchor?s.anchor.y:0)*s.height)) },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -475,7 +475,7 @@
        */
       toCircle(s){
         return this.assertCenter(s) &&
-               new Geo.Circle(MFL(s.width/2)).setPos(s.x,s.y).setOrient(s.rotation) },
+               new Geo.Circle(int(s.width/2)).setPos(s.x,s.y).setOrient(s.rotation) },
       /**Convert sprite to a geo shape.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -560,7 +560,7 @@
             w= s.width,
             ax= s.anchor?s.anchor.x:0;
         if(ax>0.7) x -= w;
-        else if(ax>0) x -= MFL(w/2);
+        else if(ax>0) x -= int(w/2);
         return x;
       },
       /**Get the right side of this sprite.
@@ -580,7 +580,7 @@
             h= s.height,
             ay= s.anchor?s.anchor.y:0;
         if(ay>0.7) y -= h;
-        else if(ay>0) y -= MFL(h/2);
+        else if(ay>0) y -= int(h/2);
         return y;
       },
       /**Get the bottom side of this sprite.
@@ -619,8 +619,8 @@
        */
       bboxCenter(b4){
         if(is.num(b4.x1))
-          return _V.vec(MFL((b4.x1+b4.x2)/2),
-                        MFL((b4.y1+b4.y2)/2)) },
+          return _V.vec(int((b4.x1+b4.x2)/2),
+                        int((b4.y1+b4.y2)/2)) },
       /**Frame this box.
        * @memberof module:mojoh5/Sprites
        * @param {object} b4
@@ -632,7 +632,7 @@
         let w=x2-x1;
         let h=y2-y1;
         ctx.lineStyle(width,this.color(color));
-        ctx.drawRoundedRect(0,0,w+width,h+width,MFL(width/4));
+        ctx.drawRoundedRect(0,0,w+width,h+width,int(width/4));
         let s=this.sprite(ctx);
         s.x=x1-width;
         s.y=y1-width;
@@ -666,8 +666,8 @@
             x1,x2,
             y1,y2,
             x=[],y=[],
-            hw=MFL(s.width/2),
-            hh=MFL(s.height/2),
+            hw=int(s.width/2),
+            hh=int(s.height/2),
             theta=Math.tanh(hh/hw),
             H=Math.sqrt(hw*hw+hh*hh);
         if(!_.feq0(s.rotation))
@@ -693,10 +693,10 @@
         y.sort((a,b) => a-b);
         x.sort((a,b) => a-b);
         //apply translation
-        return {x1:MFL(x[0]+c[0]),
-                x2:MFL(x[3]+c[0]),
-                y1:MFL(y[0]+c[1]),
-                y2:MFL(y[3]+c[1])}
+        return {x1:int(x[0]+c[0]),
+                x2:int(x[3]+c[0]),
+                y1:int(y[0]+c[1]),
+                y2:int(y[3]+c[1])}
       },
       /**Check if point is inside this sprite.
        * @memberof module:mojoh5/Sprites
@@ -725,7 +725,7 @@
             bad=false,
             dist= _V.len(v),
             u= _V.div(v,dist);
-        for(let mag,z= MFL(dist/segment),i=1; i<=z && !bad; ++i){
+        for(let mag,z= int(dist/segment),i=1; i<=z && !bad; ++i){
           mag = segment*i;
           _V.copy(pt,_V.add(s1c,_V.mul(u,mag)));
           bad= obstacles.some(o=> this.hitTestPoint(pt[0],pt[1], o));
@@ -916,16 +916,16 @@
         let t=Mojo.tcached(src);
         if(!t)
           throw `SpriteError: ${src} not loaded.`;
-        let cols = MFL(t.width/tileW),
-            rows = MFL(t.height/tileH),
+        let cols = int(t.width/tileW),
+            rows = int(t.height/tileH),
             pos= [],
             cells = cols*rows;
         for(let x,y,i=0; i<cells; ++i){
           x= (i%cols) * tileW;
-          y= MFL(i/cols) * tileH;
+          y= int(i/cols) * tileH;
           if(spacing>0){
             x += spacing + (spacing * i % cols);
-            y += spacing + (spacing * MFL(i/cols));
+            y += spacing + (spacing * int(i/cols));
           }
           pos.push(_V.vec(x,y));
         }
@@ -971,8 +971,8 @@
             dx=tileW+spaceX,
             dy=tileH+spaceY,
             out=[],
-            rows= MFL(t.height/dy),
-            cols= MFL((t.width+spaceX)/dx);
+            rows= int(t.height/dy),
+            cols= int((t.width+spaceX)/dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
@@ -1022,6 +1022,55 @@
         if(!fstyle.fontName) fstyle.fontName="unscii";
         if(!fstyle.align) fstyle.align="center";
         return _V.set(this.extend(new Mojo.PXBText(msg,fstyle)),x,y) },
+      /**Create a triangle sprite by generating a texture object.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} width
+       * @param {number} height
+       * @param {number} point
+       * @param {number|string} fillStyle
+       * @param {number|string} strokeStyle
+       * @param {number} lineWidth
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite}
+       */
+      triangle(width, height, peak,
+               fillStyle = 0xffffff,
+               strokeStyle = 0xffffff, lineWidth=0,x=0,y=0){
+        let g=this.graphics(),
+            a=1,w2=int(width/2),
+            stroke=this.color(strokeStyle),
+            X= peak<0.5?0:(peak>0.5?width:w2),
+            ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
+        if(fillStyle !== false){
+          if(is.vec(fillStyle)){
+            a=fillStyle[1];
+            fillStyle=fillStyle[0];
+          }
+          g.beginFill(this.color(fillStyle),a);
+        }
+        if(lineWidth>0)
+          g.lineStyle(lineWidth, stroke, 1);
+        g.drawPolygon(...ps);
+        if(fillStyle !== false){
+          g.endFill()
+        }
+        let s= new Mojo.PXSprite(this.genTexture(g));
+        s=this.extend(s);
+
+        if(true){
+          if(height<0){
+            s.m5.getContactPoints=()=>{
+              return [[X,-height],[width,0],[0,0]];
+            }
+          }else{
+            s.m5.getContactPoints=()=>{
+              return [[width,height],[X,0],[0,height]];
+            }
+          }
+        }
+        return _V.set(s,x,y);
+      },
       /**Create a rectangular sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
@@ -1034,8 +1083,8 @@
        * @return {Sprite}
        */
       rect(width, height,
-           fillStyle = 0xFF3300,
-           strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
+           fillStyle = 0xffffff,
+           strokeStyle = 0xffffff, lineWidth=1, x=0, y=0){
         let a,g=this.graphics(),
             stroke=this.color(strokeStyle);
         if(fillStyle !== false){
@@ -1078,8 +1127,8 @@
        * @return {Sprite}
        */
       circle(radius,
-             fillStyle=0xFF3300,
-             strokeStyle=0x0033CC, lineWidth=0, x=0, y=0){
+             fillStyle=0xffffff,
+             strokeStyle=0xffffff, lineWidth=1, x=0, y=0){
         let g = this.graphics(),
             stroke= this.color(strokeStyle);
         if(fillStyle !== false)
@@ -1150,8 +1199,8 @@
        * @return {number[][]}
        */
       makeCells(sx,sy,ex,ey,cellW,cellH){
-        let cols=MFL((ex-sx)/cellW),
-            rows=MFL((ey-sx)/cellH);
+        let cols=int((ex-sx)/cellW),
+            rows=int((ey-sx)/cellH);
         return _mkgrid(sx,sy,rows,cols,cellW,cellH) },
       /**Create a rectangular arena.
        * @memberof module:mojoh5/Sprites
@@ -1162,10 +1211,10 @@
        */
       gridBox(ratioX=0.9,ratioY=0.9,parent=null){
         let P=_.nor(parent,Mojo);
-        let h=MFL(P.height*ratioY);
-        let w=MFL(P.width*ratioX);
-        let x1=MFL((P.width-w)/2);
-        let y1=MFL((P.height-h)/2);
+        let h=int(P.height*ratioY);
+        let w=int(P.width*ratioX);
+        let x1=int((P.width-w)/2);
+        let y1=int((P.height-h)/2);
         return {x1,y1,x2:x1+w,y2:y1+h};
       },
       /**Create a square grid.
@@ -1177,13 +1226,13 @@
        */
       gridSQ(dim,ratio=0.6,out=null){
         let sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
-            w=MFL(sz/dim),
+            w=int(sz/dim),
             h=w;
         if(!_.isEven(w)){--w}
         h=w;
         sz=dim*w;
-        let sy=MFL((Mojo.height-sz)/2),
-            sx=MFL((Mojo.width-sz)/2),
+        let sy=int((Mojo.height-sz)/2),
+            sx=int((Mojo.width-sz)/2),
             _x=sx,_y=sy;
         if(out){
           out.height=sz;
@@ -1206,15 +1255,15 @@
        * @return {number[][]}
        */
       divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
-        let szh=MFL(Mojo.height*ratioY),
-            szw=MFL(Mojo.width*ratioX),
-            cw=MFL(szw/dimX),
-            ch=MFL(szh/dimY),
+        let szh=int(Mojo.height*ratioY),
+            szw=int(Mojo.width*ratioX),
+            cw=int(szw/dimX),
+            ch=int(szh/dimY),
             _x,_y,sy,sx;
         szh=dimY*ch;
         szw=dimX*cw;
-        sy= MFL((Mojo.height-szh)/2);
-        sx= MFL((Mojo.width-szw)/2);
+        sy= int((Mojo.height-szh)/2);
+        sx= int((Mojo.width-szw)/2);
         _x=sx,_y=sy;
         if(out){
           out.height=szh;
@@ -1237,17 +1286,17 @@
        * @return {number[][]}
        */
       gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
-        let szh=MFL(Mojo.height*ratioY),
-            szw=MFL(Mojo.width*ratioX),
-            cw=MFL(szw/dimX),
-            ch=MFL(szh/dimY),
+        let szh=int(Mojo.height*ratioY),
+            szw=int(Mojo.width*ratioX),
+            cw=int(szw/dimX),
+            ch=int(szh/dimY),
             dim=cw>ch?ch:cw,
             _x,_y,sy,sx;
         if(!_.isEven(dim)){dim--}
         szh=dimY*dim;
         szw=dimX*dim;
-        sy= MFL((Mojo.height-szh)/2);
-        sx= MFL((Mojo.width-szw)/2);
+        sy= int((Mojo.height-szh)/2);
+        sx= int((Mojo.width-szw)/2);
         _x=sx,_y=sy;
         if(out){
           out.height=szh;

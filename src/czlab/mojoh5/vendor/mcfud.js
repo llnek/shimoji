@@ -351,7 +351,7 @@
        * @param {number} total
        * @return {number}
        */
-      percentRemain(amt, total,wrap){
+      percentRemain(amt, total, wrap){
         if(amt>total){
           amt= wrap ? amt%total : total
         }
@@ -2171,6 +2171,19 @@
         MVPool.drop(p1,p2);
         return out;
       },
+      /**Check if these 2 points are equal.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {boolean}
+       */
+      equals(a,b){
+        let p1=MVPool.take().bind(a);
+        let p2=MVPool.take().bind(b);
+        ok= p1.x==p2.x && p1.y==p2.y;
+        MVPool.drop(p1,p2);
+        return ok;
+      },
       /**Create a vector A->B, calculated by doing B-A.
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2359,7 +2372,7 @@
       /**2d cross product.
        * The sign of the cross product (AxB) tells you whether the 2nd vector (B)
        * is on the left or right side of the 1st vector (A), +ve implies
-       * B is left of B, (rotate ccw to B), -ve means B is right of A (rotate cw to B).
+       * B is left of A, (rotate ccw to B), -ve means B is right of A (rotate cw to B).
        * The absolute value of the 2D cross product is the sine of the angle
        * in between the two vectors.
        * @memberof module:mcfud/vec2
@@ -4126,6 +4139,13 @@
         }
         return this;
       }
+      /**Return the translated polygon points.
+       * @param {Polygon} poly
+       * @return {array} points
+       */
+      static translateCalcPoints(poly){
+        return _V.translate(poly.pos,poly.calcPoints)
+      }
     }
 
     /** @ignore */
@@ -4776,6 +4796,40 @@
       hitTestPointPolygon(testx,testy,poly){
         return this.hitTestPointInPolygon(testx,testy,
                                           _V.translate(poly.pos,poly.calcPoints))
+      },
+      hitTestLinePolygon(p,p2, poly){
+        let vs=Polygon.translateCalcPoints(poly);
+        for(let i=0,i2=0; i<vs.length; ++i){
+          i2= i+1;
+          if(i2 == vs.length) i2=0;
+          let [hit,t] = this.lineIntersect2D(p,p2, vs[i],vs[i2]);
+          if(hit)
+            return [hit,t];
+        }
+        return [false];
+      },
+      lineIntersect2D(p, p2, q, q2){
+        let x1=p[0],y1=p[1];
+        let x2=p2[0],y2=p2[1];
+        let x3=q[0],y3=q[1];
+        let x4=q2[0],y4=q2[1];
+        let t;//forL1
+        let u;//forL2
+        let d= (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4);
+        //TODO: handle collinear correctly!?
+        if(_.feq0(d))
+          return [false];//parallel
+
+        t=(x1-x3)*(y3-y4)-(y1-y3)*(x3-x4);
+        t /= d;
+        u=(x1-x3)*(y1-y2)-(y1-y3)*(x1-x2);
+        u /= d;
+
+        if(0<=t && t<=1 && 0<=u && u<=1){
+          return [true, t, [x1+t*(x2-x1), y1+t*(y2-y1)]]
+        }else{
+          return [false]
+        }
       }
     };
 
