@@ -749,7 +749,7 @@
         if(isNum(a)){a= new Array(a)}
         if(isVec(a))
           for(let i=0;i<a.length;++i)
-            a[i]= isFun(v) ? v(...args) : v;
+            a[i]= isFun(v) ? v(i,...args) : v;
         return a;
       },
       /**Get the size of this input.
