@@ -26,7 +26,8 @@
 		      NUM_COPIES_ELITE  = 1;
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function SNeuron(numInputs){
+		function SNeuron(_numInputs){
+			let numInputs=_numInputs+1;
 			return {
 				numInputs,
 				weights: _.fill(numInputs, ()=> _.randMinus1To1())
