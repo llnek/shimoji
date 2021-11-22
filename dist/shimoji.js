@@ -1023,6 +1023,496 @@
 
 
 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+
+;(function(gscope){
+
+  "use strict";
+
+  /**Create the module.
+   */
+  function _module(Mojo){
+    const {Stack,StdCompare:CMP}= gscope["io/czlab/mcfud/algo_basic"]();
+    const {is, ute:_}=Mojo;
+    const int=Math.floor;
+
+    /**
+     * @module mojoh5/util
+     */
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    // stably merge a[lo .. mid] with a[mid+1 ..hi] using aux[lo .. hi]
+    // precondition: a[lo .. mid] and a[mid+1 .. hi] are sorted subarrays
+    function _merge(a, aux, lo, mid, hi){
+      for(let k = lo; k <= hi; ++k) _V.copy(aux[k], a[k]); // copy to aux[]
+      // merge back to a[]
+      let i = lo, j = mid+1;
+      for(let k = lo; k <= hi; ++k){
+        if(i > mid) _V.copy(a[k], aux[j++]);
+        else if(j > hi) _V.copy(a[k], aux[i++]);
+        else if(Point2D.compareTo(aux[j], aux[i])<0) _V.copy(a[k],aux[j++]);
+        else _V.copy(a[k], aux[i++]);
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**
+     * @memberof module:mojoh5/util
+     * @class
+     */
+    class Interval1D{
+      constructor(min, max){
+        _.assert(min<=max,"bad interval1D");
+        if(_.feq0(min)) min = 0;
+        if(_.feq0(max)) max = 0;
+        this.min = min;
+        this.max = max;
+      }
+      min(){ return this.min }
+      max(){ return this.max }
+      intersects(that){ return (this.max < that.min || that.max < this.min) ? false : true }
+      contains(x){ return (this.min <= x) && (x <= this.max) }
+      length(){ return this.max - this.min }
+      // ascending order of min endpoint, breaking ties by max endpoint
+      static MinEndpointComparator(a,b){
+        if(a.min < b.min) return -1;
+        if(a.min > b.min) return 1;
+        if(a.max < b.max) return -1;
+        if(a.max > b.max) return 1;
+        return  0;
+      }
+      // ascending order of max endpoint, breaking ties by min endpoint
+      static MaxEndpointComparator(a, b){
+        if(a.max < b.max) return -1;
+        if(a.max > b.max) return 1;
+        if(a.min < b.min) return -1;
+        if(a.min > b.min) return 1;
+        return  0;
+      }
+      // ascending order of length
+      static LengthComparator(a, b){
+        let alen = a.length(),
+            blen = b.length();
+        return alen < blen ? -1 : ( alen > blen ? 1 : 0);
+      }
+      static test(){
+        let ps = [new Interval1D(15.0, 33.0),
+                  new Interval1D(45.0, 60.0),
+                  new Interval1D(20.0, 70.0),
+                  new Interval1D(46.0, 55.0)];
+        console.log("Unsorted");
+        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
+        console.log("Sort by min endpoint");
+        ps.sort(Interval1D.MinEndpointComparator);
+        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
+        console.log("Sort by max endpoint");
+        ps.sort(Interval1D.MaxEndpointComparator);
+        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
+        console.log("Sort by length");
+        ps.sort(Interval1D.LengthComparator);
+        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
+      }
+    }
+    //Interval1D.test();
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**
+     * @memberof module:mojoh5/util
+     * @class
+     */
+    class Interval2D{
+      constructor(x, y){
+        this.x = x;
+        this.y = y;
+      }
+      intersects(that){
+        if(!this.x.intersects(that.x)) return false;
+        if(!this.y.intersects(that.y)) return false;
+        return true;
+      }
+      contains(p){
+        return x.contains(p[0])  && y.contains(p[1]);
+      }
+      area(){
+        return x.length() * y.length();
+      }
+      static test(){
+      }
+    }
+
+    /**
+     * @memberof module:mojoh5/util
+     * @class
+     */
+    class Point2D{
+      /** Returns the angle of this point in polar coordinates.
+       * @return the angle (in radians) of this point in polar coordiantes (between –&pi; and &pi;)
+       */
+      static theta(p){
+        return Math.atan2(p[1], p[0]);
+      }
+      /**Returns the angle between this point and that point.
+       * @return the angle in radians (between –&pi; and &pi;) between this point and that point (0 if equal)
+       */
+      static angleTo(a,b){
+        return Math.atan2(b[1] - a[1], b[0] - a[0]);
+      }
+      /**Returns true if a→b→c is a counterclockwise turn.
+       * @param a first point
+       * @param b second point
+       * @param c third point
+       * @return { -1, 0, +1 } if a→b→c is a { clockwise, collinear; counterclocwise } turn.
+       */
+      static ccw(a, b, c){
+        let area2 = (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
+        if(area2 < 0) return -1;
+        if(area2 > 0) return 1;
+        return  0;
+      }
+      /**Returns twice the signed area of the triangle a-b-c.
+       * @param a first point
+       * @param b second point
+       * @param c third point
+       * @return twice the signed area of the triangle a-b-c
+       */
+      static area2(a, b, c){
+        return (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
+      }
+      /**Returns the Euclidean distance between this point and that point.
+       * @param that the other point
+       * @return the Euclidean distance between this point and that point
+       */
+      static distanceTo(a,b){
+        let dx= a[0] - b[0],
+            dy= a[1] - b[1];
+        return Math.sqrt(dx*dx + dy*dy);
+      }
+      /**Returns the square of the Euclidean distance between this point and that point.
+       * @param that the other point
+       * @return the square of the Euclidean distance between this point and that point
+       */
+      static distanceSquaredTo(a,b){
+        let dx= a[0] - b[0],
+            dy= a[1] - b[1];
+        return dx*dx + dy*dy;
+      }
+      /**Compares two points by y-coordinate, breaking ties by x-coordinate.
+       * Formally, the invoking point (x0, y0) is less than the argument point (x1, y1)
+       * if and only if either {@code y0 < y1} or if {@code y0 == y1} and {@code x0 < x1}.
+       *
+       * @param  that the other point
+       * @return the value {@code 0} if this string is equal to the argument
+       *         string (precisely when {@code equals()} returns {@code true});
+       *         a negative integer if this point is less than the argument
+       *         point; and a positive integer if this point is greater than the
+       *         argument point
+       */
+      static compareTo(a,b){
+        if(a[1] < b[1]) return -1;
+        if(a[1] > b[1]) return 1;
+        if(a[0] < b[0]) return -1;
+        if(a[0] > b[0]) return 1;
+        return 0;
+      }
+      // compare points according to their x-coordinate
+      static XOrderComparator(p, q){
+        return p[0] < q[0] ? -1 : (p[0] > q[0] ? 1:0)
+      }
+      // compare points according to their y-coordinate
+      static YOrderComparator(p, q){
+        return p[1] < q[1] ? -1 : (p[1] > q[1] ? 1 : 0)
+      }
+      // compare points according to their polar radius
+      static ROrderComparator(p, q){
+        let delta = (p[0]*p[0] + p[1]*p[1]) - (q[0]*q[0] + q[1]*q[1]);
+        return delta < 0 ? -1 : (delta > 0 ? 1: 0)
+      }
+      // compare other points relative to atan2 angle (bewteen -pi/2 and pi/2) they make with this Point
+      static Atan2OrderComparator(q1, q2){
+        let angle1 = Point2D.angleTo(q1);
+        let angle2 = Point2D.angleTo(q2);
+        return angle1 < angle2 ? -1 : (angle1 > angle2 ? 1 : 0)
+      }
+      // compare other points relative to polar angle (between 0 and 2pi) they make with this Point
+      static PolarOrderComparator(q){
+        return (q1,q2)=>{
+          let dx1 = q1[0] - q[0];
+          let dy1 = q1[1] - q[1];
+          let dx2 = q2[0] - q[0];
+          let dy2 = q2[1] - q[1];
+          if(dy1 >= 0 && dy2 < 0) return -1;    // q1 above; q2 below
+          if(dy2 >= 0 && dy1 < 0) return 1;    // q1 below; q2 above
+          if(_.feq0(dy1) && _.feq0(dy2)){ // 3-collinear and horizontal
+            if(dx1 >= 0 && dx2 < 0) return -1;
+            if(dx2 >= 0 && dx1 < 0) return 1;
+            return  0;
+          }
+          return - Point2D.ccw(q, q1, q2);     // both above or below
+          // Note: ccw() recomputes dx1, dy1, dx2, and dy2
+        };
+      }
+      // compare points according to their distance to this point
+      static DistanceToOrderComparator(p, q){
+        let dist1 = Point2D.distanceSquaredTo(p);
+        let dist2 = Point2D.distanceSquaredTo(q);
+        return dist1 < dist2 ? -1 : (dist1 > dist2 ? 1 : 0)
+      }
+      static equals(a,b){
+        if(b === a) return true;
+        if(!b) return false;
+        return a[0]== b[0] && a[1] == b[1];
+      }
+      static farthestPair(points){
+        let best1=[0,0], best2=[0,0], bestDistance=0,bestDistSQ= -Infinity;
+        let m,H = Point2D.calcConvexHull(points);
+        // single point
+        if(H===false ||
+           points.length <= 1) return false;
+        // number of points on the hull
+        m = H.length;
+        // the hull, in counterclockwise order hull[1] to hull[m]
+        H.unshift(null);
+        // points are collinear
+        if(m == 2){
+          best1 = H[1];
+          best2 = H[2];
+          bestDistance= Point2D.distanceTo(best1,best2);
+        }else{
+          // k = farthest vertex from edge from hull[1] to hull[m]
+          let j,k = 2;
+          while(Point2D.area2(H[m], H[1], H[k+1]) > Point2D.area2(H[m], H[1], H[k])){ ++k }
+          j = k;
+          for(let d2,i = 1; i <= k && j <= m; ++i){
+            if(Point2D.distanceSquaredTo(H[i],H[j]) > bestDistSQ){
+              bestDistSQ= Point2D.distanceSquaredTo(H[i],H[j]);
+              _V.copy(best1,H[i]);
+              _V.copy(best2,H[j]);
+            }
+            while((j < m) &&
+                  Point2D.area2(H[i], H[i+1], H[j+1]) > Point2D.area2(H[i], H[i+1], H[j])){
+              ++j;
+              //console.log(`${H[i]} and ${H[j]} are antipodal`);
+              d2 = Point2D.distanceSquaredTo(H[i], H[j]);
+              if(d2 > bestDistSQ){
+                bestDistSQ= Point2D.distanceSquaredTo(H[i], H[j]);
+                _V.copy(best1, H[i]);
+                _V.copy(best2, H[j]);
+              }
+            }
+          }
+        }
+        return {best1,best2,bestDistance: Math.sqrt(bestDistSQ)};
+      }
+      static closestPair(points){
+        // sort by x-coordinate (breaking ties by y-coordinate via stability)
+        let best1=[0,0],best2=[0,0],bestDistance=Infinity;
+        let pointsByX = points.slice();
+        const n=points.length;
+        pointsByX.sort(Point2D.YOrderComparator);
+        pointsByX.sort(Point2D.XOrderComparator);
+        // check for coincident points
+        for(let i = 0; i < n-1; ++i){
+          if(Point2D.equals(pointsByX[i],pointsByX[i+1])){
+            _V.copy(best1, pointsByX[i]);
+            _V.copy(best2, pointsByX[i+1]);
+            return{ bestDistance:0, best1, best2 }
+          }
+        }
+        // sort by y-coordinate (but not yet sorted)
+        let pointsByY = pointsByX.slice();
+        let aux = _.fill(n,()=> [0,0]);
+        // find closest pair of points in pointsByX[lo..hi]
+        // precondition:  pointsByX[lo..hi] and pointsByY[lo..hi] are the same sequence of points
+        // precondition:  pointsByX[lo..hi] sorted by x-coordinate
+        // postcondition: pointsByY[lo..hi] sorted by y-coordinate
+        function _closest(pointsByX, pointsByY, aux, lo, hi){
+          if(hi <= lo) return Infinity;
+          let mid = lo + int((hi - lo) / 2);
+          let median = pointsByX[mid];
+          // compute closest pair with both endpoints in left subarray or both in right subarray
+          let delta1 = _closest(pointsByX, pointsByY, aux, lo, mid);
+          let delta2 = _closest(pointsByX, pointsByY, aux, mid+1, hi);
+          let delta = Math.min(delta1, delta2);
+          // merge back so that pointsByY[lo..hi] are sorted by y-coordinate
+          _merge(pointsByY, aux, lo, mid, hi);
+          // aux[0..m-1] = sequence of points closer than delta, sorted by y-coordinate
+          let m = 0;
+          for(let i = lo; i <= hi; ++i)
+            if(Math.abs(pointsByY[i][0] - median[0]) < delta) _V.copy(aux[m++],pointsByY[i]);
+          // compare each point to its neighbors with y-coordinate closer than delta
+          for(let i = 0; i < m; ++i){
+            // a geometric packing argument shows that this loop iterates at most 7 times
+            for(let d,j = i+1; (j < m) && (aux[j][1] - aux[i][1] < delta); ++j){
+              d= Point2D.distanceTo(aux[i],aux[j]);
+              if(d< delta){
+                delta = d;
+                if(d< bestDistance){
+                  bestDistance = delta;
+                  _V.copy(best1, aux[i]);
+                  _V.copy(best2, aux[j]);
+                  //console.log(`better distance = ${delta} from ${best1} to ${best2}`);
+                }
+              }
+            }
+          }
+          return delta;
+        }
+        _closest(pointsByX, pointsByY, aux, 0, n-1);
+        return {bestDistance,best1,best2};
+      }
+      /**Computes the convex hull of the specified array of points.
+       *  The {@code GrahamScan} data type provides methods for computing the
+       *  convex hull of a set of <em>n</em> points in the plane.
+       *  <p>
+       *  The implementation uses the Graham-Scan convex hull algorithm.
+       *  It runs in O(<em>n</em> log <em>n</em>) time in the worst case
+       *  and uses O(<em>n</em>) extra memory.
+       * @param  points the array of points
+       */
+      static calcConvexHull(points){
+        _.assert(points && points.length>0, "invalid points");
+        let a0, n=points.length, a= _.deepCopyArray(points);
+        let hull=new Stack();
+        // preprocess so that a[0] has lowest y-coordinate; break ties by x-coordinate
+        // a[0] is an extreme point of the convex hull
+        // (alternatively, could do easily in linear time)
+        a.sort(Point2D.compareTo);
+        a0=a[0];
+        // sort by polar angle with respect to base point a[0],
+        // breaking ties by distance to a[0]
+        //Arrays.sort(a, 1, n, Point2D.polarOrder(a[0]));
+        a.shift();//pop head off
+        a.sort(Point2D.PolarOrderComparator(a0));
+        //put head back
+        a.unshift(a0);
+
+        // a[0] is first extreme point
+        hull.push(a[0]);
+        // find index k1 of first point not equal to a[0]
+        let k1;
+        for(k1 = 1; k1 < n; ++k1)
+          if(!Point2D.equals(a[0],a[k1])) break;
+        if(k1 == n) return false; // all points equal
+        // find index k2 of first point not collinear with a[0] and a[k1]
+        let k2;
+        for(k2 = k1+1; k2 < n; ++k2)
+          if(Point2D.ccw(a[0], a[k1], a[k2]) != 0) break;
+        // a[k2-1] is second extreme point
+        hull.push(a[k2-1]);
+        // Graham scan; note that a[n-1] is extreme point different from a[0]
+        for(let top,i = k2; i < n; ++i){
+          top = hull.pop();
+          while(Point2D.ccw(hull.peek(), top, a[i]) <= 0){
+            top = hull.pop();
+          }
+          hull.push(top);
+          hull.push(a[i]);
+        }
+        //Returns the extreme points on the convex hull in counterclockwise order.
+        let H = new Stack();
+        for(let p,it= hull.iterator();it.hasNext();) H.push(it.next());
+        //check if convex
+        n = H.size();
+        points = [];
+        for(let p,it= H.iterator();it.hasNext();){
+          points.push(_V.clone(it.next()));
+        }
+        if(n > 2){
+          for(let i = 0; i < n; ++i){
+            if(Point2D.ccw(points[i], points[(i+1) % n], points[(i+2) % n]) <= 0)
+            return false;
+          }
+        }
+        return points;
+      }
+      static test_convexHull(){
+        let D=`9230 13137 4096 24064 8192 26112 22016  9344 4440  8028 6505 31422 28462 32343 17152 19200 9561 11599
+               4096 20992 21538  2430 21903 23677 17152 16128 7168 25088 10162 18638 822 32301 16128 12032 18989  3797
+               8192 28160 16128 20224 14080 20224 26112  7296 20367 20436 7486   422 17835  2689 22016  3200 22016  5248
+               24650 16886 15104 20224 25866  4204 13056 15104 13662 10301 17152 20224 15104 12032 6144 20992 26112  3200
+               6144 29184 13056 12032 8128 20992 5076 19172 17152 17152 823 15895 25216  3200 6071 29161 5120 20992
+               10324 22176 29900  9390 27424  7945 4096 23040 12831 27971 29860 12437 28668  2061 1429 12561 29413   596
+               17152 18176 8192 27136 5120 29184 22016 11392 1444 10362 32011  3140 15731 32661 26112  4224 13120 20224
+               30950  2616 4096 22016 4096 25088 24064  3200 26112  5248 4862 30650 5570  8885 21784 18853 23164 32371
+               4160 29184 13056 13056 8192 29184 23040  7296 5120 25088 22016  7296 7168 29184 25216  7296 23040  3200
+               4718  4451 14080 16128 7168 20992 19546 17728 13056 16128 17947 17017 26112  6272 20658  1204 23553 13965
+               13056 14080 14080 12032 24064  7296 21377 26361 17088
+               12032 16128 16128 30875 28560 2542 26201 8192 25088 11444 16973`.split(/\s+/).map(n=>{return +n});
+        let p=[];
+        for(let i=0;i<D.length;i+=2){
+          p.push([D[i],D[i+1]])
+        }
+        p=[[5,15], [5,-20], [-60,10], [70,-10], [-60,-10], [70,10]];
+        //p=[[5,1], [5,-2], [-60,10], [70,-10], [-60,-10], [70,10]];//concave
+        let hull=Point2D.calcConvexHull(p);
+        if(hull===false || hull.length!=p.length){
+          console.log("not convex!");
+        }else{
+          hull.forEach(v=>{ console.log(`${v[0]}, ${v[1]}`) });
+        }
+      }
+      static test_closestPair(){
+        let D=`954 11163 1125 11331 1296 11499 1467 11667 1657 11796 1847 11925 2037 12054 2238 12207 2439 12360
+               2640 12513 2878 12523 3116 12533 3354 12543 3518 12493 3682 12443 3846 12393
+               8463 7794 8022 7527 7581 7260 7140 6993 6731 6624 6322 6255 5913 5886
+               5521 5494 5129 5102 4737 4710 4599 5158`.split(/\s+/).map(n=>{return +n});
+        let ps=[];
+        for(let i=0;i<D.length;i+=2){
+          ps.push([D[i],D[i+1]]);
+        }
+        let {bestDistance,best1, best2}= Point2D.closestPair(ps)
+        console.log(`bestDist=${bestDistance}, p1=${best1}, p2=${best2}`);
+      }
+      static test_farthestPair(){
+        let D=`9230 13137 4096 24064 8192 26112 22016  9344 4440  8028 6505 31422 28462 32343 17152 19200 9561 11599 4096 20992 21538  2430
+               21903 23677 17152 16128 7168 25088 10162 18638 822 32301 16128 12032 18989  3797 8192 28160 16128 20224 14080 20224 26112  7296
+               20367 20436 7486   422 17835  2689 22016  3200 22016  5248 24650 16886 15104 20224 25866  4204 13056 15104 13662 10301 17152 20224
+               15104 12032 6144 20992 26112  3200 6144 29184 13056 12032 8128 20992 5076 19172 17152 17152 823 15895 25216  3200 6071 29161
+               5120 20992 10324 22176 29900  9390 27424  7945 4096 23040 12831 27971 29860 12437 28668  2061 1429 12561 29413   596 17152 18176
+               8192 27136 5120 29184 22016 11392 1444 10362 32011  3140 15731 32661 26112  4224 13120 20224 30950  2616 4096 22016
+               4096 25088 24064  3200 26112  5248 4862 30650 5570  8885 21784 18853 23164 32371 4160 29184 13056 13056 8192 29184 23040  7296
+               5120 25088 22016  7296 7168 29184 25216  7296 23040  3200 4718  4451 14080 16128 7168 20992 19546 17728 13056 16128 17947 17017
+               26112  6272 20658  1204 23553 13965 13056 14080 14080 12032 24064  7296 21377 26361 17088 12032 16128 16128
+               30875 28560 2542 26201 8192 25088 11444 16973`.split(/\s+/).map(n=>{return +n});
+        let ps=[];
+        for(let i=0;i<D.length;i+=2){
+          ps.push([D[i],D[i+1]]);
+        }
+        let {bestDistance,best1, best2}= Point2D.farthestPair(ps)
+        console.log(`bestDist=${bestDistance}, p1=${best1}, p2=${best2}`);
+      }
+    }
+
+    const _$={
+      Point2D, Interval1D, Interval2D
+    };
+
+    return (Mojo["util"]= _$);
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module=="object" && module.exports){
+    throw "Panic: browser only"
+  }else{
+    gscope["io/czlab/mojoh5/util"]=(M)=>{
+      return M["util"] ? M["util"] : _module(M) } }
+
+})(this);
+
+
+
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -1084,7 +1574,7 @@
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_, is, dom} =Mojo;
     const ABC=Math.abs,
-          MFL=Math.floor;
+          int=Math.floor;
 
     /** @ignore */
     function _genTexture(displayObject, scaleMode, resolution, region){
@@ -1145,7 +1635,7 @@
       //fake anchor if none provided
       if(!a)a={x:0,y:0};
       //adjust for anchor
-      out.forEach(r=>{ r[0] -= MFL(w * a.x); r[1] -= MFL(h * a.y); });
+      out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
       return out;
     }
 
@@ -1262,10 +1752,10 @@
         box.y1 += p.y;
         box.y2 += p.y;
       }
-      return [box, MFL((box.x2-box.x1)/2),//half width
-                   MFL((box.y2-box.y1)/2),//half height
-                   MFL((box.x1+box.x2)/2),//center x
-                   MFL((box.y1+box.y2)/2)]//center y
+      return [box, int((box.x2-box.x1)/2),//half width
+                   int((box.y2-box.y1)/2),//half height
+                   int((box.x1+box.x2)/2),//center x
+                   int((box.y1+box.y2)/2)]//center y
     }
 
     /** @ignore */
@@ -1402,7 +1892,7 @@
        * @return {object} {width,height}
        */
       halfSize(s){
-        return {width:MFL(s.width/2), height:MFL(s.height/2)} },
+        return {width:int(s.width/2), height:int(s.height/2)} },
       /**Set sprite's anchor to be at it's center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1428,8 +1918,8 @@
        */
       topLeftOffsetXY(s){
         return this.isTopLeft(s)?_V.vec()
-                                :_V.vec(-MFL(s.width* (s.anchor?s.anchor.x:0)),
-                                        -MFL(s.height*(s.anchor?s.anchor.y:0))) },
+                                :_V.vec(-int(s.width* (s.anchor?s.anchor.x:0)),
+                                        -int(s.height*(s.anchor?s.anchor.y:0))) },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1437,8 +1927,8 @@
        */
       centerOffsetXY(s){
         return this.isCenter(s)?_V.vec()
-                               :_V.vec(MFL(s.width/2) - MFL((s.anchor?s.anchor.x:0)*s.width),
-                                       MFL(s.height/2) - MFL((s.anchor?s.anchor.y:0)*s.height)) },
+                               :_V.vec(int(s.width/2) - int((s.anchor?s.anchor.x:0)*s.width),
+                                       int(s.height/2) - int((s.anchor?s.anchor.y:0)*s.height)) },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1500,7 +1990,7 @@
        */
       toCircle(s){
         return this.assertCenter(s) &&
-               new Geo.Circle(MFL(s.width/2)).setPos(s.x,s.y).setOrient(s.rotation) },
+               new Geo.Circle(int(s.width/2)).setPos(s.x,s.y).setOrient(s.rotation) },
       /**Convert sprite to a geo shape.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1585,7 +2075,7 @@
             w= s.width,
             ax= s.anchor?s.anchor.x:0;
         if(ax>0.7) x -= w;
-        else if(ax>0) x -= MFL(w/2);
+        else if(ax>0) x -= int(w/2);
         return x;
       },
       /**Get the right side of this sprite.
@@ -1605,7 +2095,7 @@
             h= s.height,
             ay= s.anchor?s.anchor.y:0;
         if(ay>0.7) y -= h;
-        else if(ay>0) y -= MFL(h/2);
+        else if(ay>0) y -= int(h/2);
         return y;
       },
       /**Get the bottom side of this sprite.
@@ -1644,8 +2134,8 @@
        */
       bboxCenter(b4){
         if(is.num(b4.x1))
-          return _V.vec(MFL((b4.x1+b4.x2)/2),
-                        MFL((b4.y1+b4.y2)/2)) },
+          return _V.vec(int((b4.x1+b4.x2)/2),
+                        int((b4.y1+b4.y2)/2)) },
       /**Frame this box.
        * @memberof module:mojoh5/Sprites
        * @param {object} b4
@@ -1657,7 +2147,7 @@
         let w=x2-x1;
         let h=y2-y1;
         ctx.lineStyle(width,this.color(color));
-        ctx.drawRoundedRect(0,0,w+width,h+width,MFL(width/4));
+        ctx.drawRoundedRect(0,0,w+width,h+width,int(width/4));
         let s=this.sprite(ctx);
         s.x=x1-width;
         s.y=y1-width;
@@ -1691,8 +2181,8 @@
             x1,x2,
             y1,y2,
             x=[],y=[],
-            hw=MFL(s.width/2),
-            hh=MFL(s.height/2),
+            hw=int(s.width/2),
+            hh=int(s.height/2),
             theta=Math.tanh(hh/hw),
             H=Math.sqrt(hw*hw+hh*hh);
         if(!_.feq0(s.rotation))
@@ -1718,10 +2208,10 @@
         y.sort((a,b) => a-b);
         x.sort((a,b) => a-b);
         //apply translation
-        return {x1:MFL(x[0]+c[0]),
-                x2:MFL(x[3]+c[0]),
-                y1:MFL(y[0]+c[1]),
-                y2:MFL(y[3]+c[1])}
+        return {x1:int(x[0]+c[0]),
+                x2:int(x[3]+c[0]),
+                y1:int(y[0]+c[1]),
+                y2:int(y[3]+c[1])}
       },
       /**Check if point is inside this sprite.
        * @memberof module:mojoh5/Sprites
@@ -1750,7 +2240,7 @@
             bad=false,
             dist= _V.len(v),
             u= _V.div(v,dist);
-        for(let mag,z= MFL(dist/segment),i=1; i<=z && !bad; ++i){
+        for(let mag,z= int(dist/segment),i=1; i<=z && !bad; ++i){
           mag = segment*i;
           _V.copy(pt,_V.add(s1c,_V.mul(u,mag)));
           bad= obstacles.some(o=> this.hitTestPoint(pt[0],pt[1], o));
@@ -1941,16 +2431,16 @@
         let t=Mojo.tcached(src);
         if(!t)
           throw `SpriteError: ${src} not loaded.`;
-        let cols = MFL(t.width/tileW),
-            rows = MFL(t.height/tileH),
+        let cols = int(t.width/tileW),
+            rows = int(t.height/tileH),
             pos= [],
             cells = cols*rows;
         for(let x,y,i=0; i<cells; ++i){
           x= (i%cols) * tileW;
-          y= MFL(i/cols) * tileH;
+          y= int(i/cols) * tileH;
           if(spacing>0){
             x += spacing + (spacing * i % cols);
-            y += spacing + (spacing * MFL(i/cols));
+            y += spacing + (spacing * int(i/cols));
           }
           pos.push(_V.vec(x,y));
         }
@@ -1996,8 +2486,8 @@
             dx=tileW+spaceX,
             dy=tileH+spaceY,
             out=[],
-            rows= MFL(t.height/dy),
-            cols= MFL((t.width+spaceX)/dx);
+            rows= int(t.height/dy),
+            cols= int((t.width+spaceX)/dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
@@ -2047,6 +2537,55 @@
         if(!fstyle.fontName) fstyle.fontName="unscii";
         if(!fstyle.align) fstyle.align="center";
         return _V.set(this.extend(new Mojo.PXBText(msg,fstyle)),x,y) },
+      /**Create a triangle sprite by generating a texture object.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} width
+       * @param {number} height
+       * @param {number} point
+       * @param {number|string} fillStyle
+       * @param {number|string} strokeStyle
+       * @param {number} lineWidth
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite}
+       */
+      triangle(width, height, peak,
+               fillStyle = 0xffffff,
+               strokeStyle = 0xffffff, lineWidth=0,x=0,y=0){
+        let g=this.graphics(),
+            a=1,w2=int(width/2),
+            stroke=this.color(strokeStyle),
+            X= peak<0.5?0:(peak>0.5?width:w2),
+            ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
+        if(fillStyle !== false){
+          if(is.vec(fillStyle)){
+            a=fillStyle[1];
+            fillStyle=fillStyle[0];
+          }
+          g.beginFill(this.color(fillStyle),a);
+        }
+        if(lineWidth>0)
+          g.lineStyle(lineWidth, stroke, 1);
+        g.drawPolygon(...ps);
+        if(fillStyle !== false){
+          g.endFill()
+        }
+        let s= new Mojo.PXSprite(this.genTexture(g));
+        s=this.extend(s);
+
+        if(true){
+          if(height<0){
+            s.m5.getContactPoints=()=>{
+              return [[X,-height],[width,0],[0,0]];
+            }
+          }else{
+            s.m5.getContactPoints=()=>{
+              return [[width,height],[X,0],[0,height]];
+            }
+          }
+        }
+        return _V.set(s,x,y);
+      },
       /**Create a rectangular sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
@@ -2059,8 +2598,8 @@
        * @return {Sprite}
        */
       rect(width, height,
-           fillStyle = 0xFF3300,
-           strokeStyle = 0x0033CC, lineWidth=0, x=0, y=0){
+           fillStyle = 0xffffff,
+           strokeStyle = 0xffffff, lineWidth=1, x=0, y=0){
         let a,g=this.graphics(),
             stroke=this.color(strokeStyle);
         if(fillStyle !== false){
@@ -2103,8 +2642,8 @@
        * @return {Sprite}
        */
       circle(radius,
-             fillStyle=0xFF3300,
-             strokeStyle=0x0033CC, lineWidth=0, x=0, y=0){
+             fillStyle=0xffffff,
+             strokeStyle=0xffffff, lineWidth=1, x=0, y=0){
         let g = this.graphics(),
             stroke= this.color(strokeStyle);
         if(fillStyle !== false)
@@ -2175,8 +2714,8 @@
        * @return {number[][]}
        */
       makeCells(sx,sy,ex,ey,cellW,cellH){
-        let cols=MFL((ex-sx)/cellW),
-            rows=MFL((ey-sx)/cellH);
+        let cols=int((ex-sx)/cellW),
+            rows=int((ey-sx)/cellH);
         return _mkgrid(sx,sy,rows,cols,cellW,cellH) },
       /**Create a rectangular arena.
        * @memberof module:mojoh5/Sprites
@@ -2187,10 +2726,10 @@
        */
       gridBox(ratioX=0.9,ratioY=0.9,parent=null){
         let P=_.nor(parent,Mojo);
-        let h=MFL(P.height*ratioY);
-        let w=MFL(P.width*ratioX);
-        let x1=MFL((P.width-w)/2);
-        let y1=MFL((P.height-h)/2);
+        let h=int(P.height*ratioY);
+        let w=int(P.width*ratioX);
+        let x1=int((P.width-w)/2);
+        let y1=int((P.height-h)/2);
         return {x1,y1,x2:x1+w,y2:y1+h};
       },
       /**Create a square grid.
@@ -2202,13 +2741,13 @@
        */
       gridSQ(dim,ratio=0.6,out=null){
         let sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
-            w=MFL(sz/dim),
+            w=int(sz/dim),
             h=w;
         if(!_.isEven(w)){--w}
         h=w;
         sz=dim*w;
-        let sy=MFL((Mojo.height-sz)/2),
-            sx=MFL((Mojo.width-sz)/2),
+        let sy=int((Mojo.height-sz)/2),
+            sx=int((Mojo.width-sz)/2),
             _x=sx,_y=sy;
         if(out){
           out.height=sz;
@@ -2217,6 +2756,9 @@
           if(out.y !== undefined) _y=out.y;
           out.x=sx;
           out.y=sy;
+          //shove more info into out :)
+          out.x1=sx; out.y1=sy;
+          out.x2=sx+sz; out.y2=sy+sz;
         }
         return _mkgrid(_x,_y,dim,dim,w,h);
       },
@@ -2228,15 +2770,15 @@
        * @return {number[][]}
        */
       divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
-        let szh=MFL(Mojo.height*ratioY),
-            szw=MFL(Mojo.width*ratioX),
-            cw=MFL(szw/dimX),
-            ch=MFL(szh/dimY),
+        let szh=int(Mojo.height*ratioY),
+            szw=int(Mojo.width*ratioX),
+            cw=int(szw/dimX),
+            ch=int(szh/dimY),
             _x,_y,sy,sx;
         szh=dimY*ch;
         szw=dimX*cw;
-        sy= MFL((Mojo.height-szh)/2);
-        sx= MFL((Mojo.width-szw)/2);
+        sy= int((Mojo.height-szh)/2);
+        sx= int((Mojo.width-szw)/2);
         _x=sx,_y=sy;
         if(out){
           out.height=szh;
@@ -2245,6 +2787,9 @@
           if(out.y !== undefined) _y=out.y;
           out.x=sx;
           out.y=sy;
+          //shove more info into out :)
+          out.x1=sx; out.y1=sy;
+          out.x2=sx+szw; out.y2=sy+szh;
         }
         return _mkgrid(_x,_y,dimY,dimX,cw,ch);
       },
@@ -2256,17 +2801,17 @@
        * @return {number[][]}
        */
       gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
-        let szh=MFL(Mojo.height*ratioY),
-            szw=MFL(Mojo.width*ratioX),
-            cw=MFL(szw/dimX),
-            ch=MFL(szh/dimY),
+        let szh=int(Mojo.height*ratioY),
+            szw=int(Mojo.width*ratioX),
+            cw=int(szw/dimX),
+            ch=int(szh/dimY),
             dim=cw>ch?ch:cw,
             _x,_y,sy,sx;
         if(!_.isEven(dim)){dim--}
         szh=dimY*dim;
         szw=dimX*dim;
-        sy= MFL((Mojo.height-szh)/2);
-        sx= MFL((Mojo.width-szw)/2);
+        sy= int((Mojo.height-szh)/2);
+        sx= int((Mojo.width-szw)/2);
         _x=sx,_y=sy;
         if(out){
           out.height=szh;
@@ -3006,7 +3551,8 @@
         if(engrid){
           if(c instanceof PIXI.TilingSprite){}else{
             c.m5._engrid=true;
-            this.m5.sgrid.engrid(c);
+            if(c.visible)
+              this.m5.sgrid.engrid(c);
           }
         }
         return c;
@@ -4605,6 +5151,10 @@
           sin=Math.sin,
           int=Math.floor;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const R=Math.PI/180,
+          CIRCLE=Math.PI*2;
+
     /**
      * @module mojoh5/2d
      */
@@ -4615,97 +5165,60 @@
      * @property {number} width width of the widget
      * @property {number} height height of the widget
      * @property {number} lives  default is 3
-     * @property {number} borderWidth width of the border
-     * @property {number} lineColor color used for line
-     * @property {number} fillColor color used to fill
+     * @property {number} borderWidth default is 4
+     * @property {number|string} line color used for line
+     * @property {number|string} fill color used for fill
      */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**Create a health(lives) bar */
-    function healthBar(arg){
-      let {scale:K,width,height,
-           lives,border,line,fill}=arg;
-      let c,padding=4*K,fit=4*K,out=[];
-      border = (border||4)*K;
-      lives= lives||3;
-      fill=_S.color(fill);
-      line=_S.color(line);
-      for(let r,w=int(width/lives), i=0;i<lives;++i){
-        out.push(_S.rect(w,height-2*border,fill))
-      }
-      return{
-        dec(){
-          if(this.lives>0){
-            this.lives -= 1;
-            out[this.lives].visible=false;
-          }
-          return this.lives>0;
-        },
-        lives: out.length,
-        sprite: _Z.layoutX(out,{bg:["#cccccc",0],
-                                borderWidth:border,
-                                border:line,padding,fit})
-      };
-    }
+    /**
+     * @typedef {object} HealthBarObj
+     * @property {function} dec decrement live count
+     * @property {number} lives lives remaining
+     * @property {PIXI/Sprite} sprite the visual widget
+     */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const R=Math.PI/180,
-          CIRCLE=Math.PI*2;
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
-    //arg={cx,cy,radius,fill,line,alpha}
-    /**Create a gauge like speedometer */
-    function gaugeUI(arg){
-      let {minDeg,maxDeg,
-           line,gfx,scale:K,
-           radius, fill, needle }= _.patch(arg,{minDeg:90,maxDeg:360});
-      needle=_S.color(needle);
-      line=_S.color(line);
-      fill=_S.color(fill);
-      radius *= K;
-      return {
-        segs: [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315],
-        gfx,
-        getPt(x, y, radius, rad){
-          return[x + radius * cos(rad),
-                 y + radius * sin(rad) ]
-        },
-        draw(){
-          gfx.clear();
-          gfx.lineStyle({width: radius/8,color:line});
-          gfx.beginFill(fill, arg.alpha);
-          gfx.drawCircle(arg.cx, arg.cy, radius);
-          gfx.endFill();
-          this.segs.forEach(s=>{
-            this.drawTig(gfx, arg.cx, arg.cy, radius, s, 7*K);
-          });
-          this.drawPtr(gfx, arg.cx,arg.cy,
-                       64*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
-        },
-        drawTig(gfx, x, y, radius, rad, size){
-          let [sx,sy] = this.getPt(x, y, radius - 4*K, rad),
-              [ex,ey] = this.getPt(x, y, radius - 12*K, rad);
-          gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
-          gfx.moveTo(sx, sy);
-          gfx.lineTo(ex, ey);
-          gfx.closePath();
-        },
-        drawPtr(gfx, cx,cy, radius, color, rad){
-          let [px,py]= this.getPt(cx, cy, radius - 20*K, rad),
-              [p2x,p2y] = this.getPt(cx, cy, 2*K, rad+R*90),
-              [p3x,p3y] = this.getPt(cx, cy, 2*K, rad-R*90);
-          gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
-          gfx.moveTo(p2x, p2y);
-          gfx.lineTo(px, py);
-          gfx.lineTo(p3x, p3y);
-          gfx.closePath();
-          gfx.lineStyle({color:line});
-          gfx.beginFill(line);
-          gfx.drawCircle(cx,cy,9*K);
-          gfx.endFill();
-        }
-      }
-    }
+    /**
+     * @typedef {object} GaugeUIConfig
+     * @property {number} cx
+     * @property {number} cy
+     * @property {number} scale
+     * @property {number} radius
+     * @property {number} alpha
+     * @property {PIXI/Graphics} gfx
+     * @property {number|string} fill fill color
+     * @property {number|string} line line color
+     * @property {number|string} needle color of the needle
+     * @property {function} update return next value (e.g. speed)
+     */
+
+    /**
+     * @typedef {object} GaugeUIObj
+     * @property {PIXI/Graphics} gfx
+     * @property {function} draw draw the widget
+     */
+
+    /**
+     * @typedef {object} PatrolObj
+     * @property {function} goLeft
+     * @property {function} goRight
+     * @property {function} goUp
+     * @property {function} goDown
+     * @property {function} dispose
+     */
+
+    /**
+     * @typedef {object} PlatformerObj
+     * @property {function} dispose
+     * @property {function} onTick
+     * @property {number} jumpSpeed
+     * @property {number} jumpKey  default is UP key
+     */
+
+    /**
+     * @typedef {object} MazeRunnerObj
+     * @property {function} dispose
+     * @property {function} onTick
+     */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("PhotoMat",{
@@ -4725,71 +5238,70 @@
       }
     });
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
     _Z.defScene("StarfieldBg",{
       setup(o){
+        if(!o.height) o.height=Mojo.height;
+        if(!o.width) o.width=Mojo.width;
+        if(!o.count) o.count=100;
         if(!o.minVel) o.minVel=15;
         if(!o.maxVel) o.maxVel=30;
-        if(!o.count) o.count=100;
-        if(!o.width) o.width=Mojo.width;
-        if(!o.height) o.height=Mojo.height;
-
-        let gfx= _S.graphics();
-        let stars=[];
-
-        this.g.fps= 1.0/o.fps;
-        this.g.stars=stars;
-        this.g.gfx=gfx;
-        this.g.lag=0;
-        this.g.dynamic=true;
-
+        const self=this,
+              stars=[],
+              W=0xffffff,
+              gfx=_S.graphics();
+        _.inject(this.g,{
+          gfx,
+          stars,
+          lag:0,
+          dynamic:true,
+          fps: 1.0/o.fps,
+          draw(){
+            gfx.clear();
+            stars.forEach(s=>{
+              gfx.beginFill(W);
+              gfx.drawRect(s.x, s.y, s.size, s.size);
+              gfx.endFill();
+            });
+            return this;
+          },
+          moveStars(dt){
+            this.lag +=dt;
+            if(this.lag>=this.fps){
+              this.lag=0;
+              stars.forEach(s=>{
+                s.y += dt * s.vel;
+                if(s.y > o.height){
+                  _V.set(s, _.randInt(o.width), 0);
+                  s.size=_.randInt(4);
+                  s.vel=(_.rand()*(o.maxVel- o.minVel))+o.minVel;
+                }
+              });
+              this.draw();
+            }
+          }
+        });
         if(o.static)
           this.g.dynamic=false;
-
         for(let i=0; i<o.count; ++i)
           stars[i] = {x: _.rand()*o.width,
                       y: _.rand()*o.height,
                       size:_.rand()*3+1,
                       vel:(_.rand()*(o.maxVel- o.minVel))+o.minVel};
-        this._draw();
-        this.insert(gfx);
-      },
-      _draw(){
-        const w=0xffffff;
-        this.g.gfx.clear();
-        this.g.stars.forEach(s=>{
-          this.g.gfx.beginFill(w);
-          this.g.gfx.drawRect(s.x,
-                              s.y,
-                              s.size,
-                              s.size);
-          this.g.gfx.endFill();
-        });
-      },
-      moveStars(dt){
-        this.g.lag +=dt;
-        if(this.g.lag<this.g.fps){}else{
-          this.g.lag=0;
-          for(let s,i=0,
-                  o=this.m5.options;
-                  i<this.g.stars.length;++i){
-            s=this.g.stars[i];
-            s.y += dt * s.vel;
-            if(s.y > o.height){
-              _V.set(s, _.randInt(o.width), 0);
-            s.size=_.randInt(4);
-            s.vel=(_.rand()*(o.maxVel- o.minVel))+o.minVel; } }
-          this._draw();
-        }
+        this.g.draw() && this.insert(gfx);
       },
       postUpdate(dt){
-        this.g.dynamic ? this.moveStars(dt) : 0
+        this.g.dynamic ? this.g.moveStars(dt) : 0
       }
     },{fps:90, count:100, minVel:15, maxVel:30 });
 
-    /** emit something every so often... */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Emit something every so often...
+     * @class
+     */
     class PeriodicDischarge{
-      constructor(ctor,intervalSecs,size=16,...args){
+      constructor(ctor,intervalSecs,size=16){
         this._interval=intervalSecs;
         this._ctor=ctor;
         this._timer=0;
@@ -4805,343 +5317,424 @@
       }
       discharge(){
         throw `PeriodicCharge: please implement action()` }
-      _take(){
-        if(this._pool.length>0) return this._pool.pop() }
       reclaim(o){
-        if(this._pool.length<this._size) this._pool.push(o); } }
-
-    /** walks around a maze like in Pacman. */
-    function MazeRunner(e,frames){
-      const {Sprites, Input}=Mojo;
-      const self={
-        dispose(){
-          Mojo.off(self)
-        },
-        onTick(dt){
-          let [vx,vy]=e.m5.vel,
-              vs=e.m5.speed,
-              x = !_.feq0(vx),
-              y = !_.feq0(vy);
-          if(!(x&&y) && frames){
-            if(y){
-              if(is.obj(frames))
-                e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
-              else if (frames){
-                e.angle=vy>0?180:0;
-              }
-            }
-            if(x){
-              if(is.obj(frames))
-                e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
-              else if(frames){
-                e.angle=vx>0?90:-90;
-              }
-            }
-          }
-          let r,d,l,u;
-          if(Mojo.u.touchOnly){
-            r=e.m5.heading===Mojo.RIGHT;
-            l=e.m5.heading===Mojo.LEFT;
-            u=e.m5.heading===Mojo.UP;
-            d=e.m5.heading===Mojo.DOWN;
-          }else{
-            r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
-            d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
-            l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
-            u=Input.keyDown(Input.UP) && Mojo.UP;
-          }
-          if(l||u){vs *= -1}
-          if(l&&r){
-            _V.setX(e.m5.vel,0);
-          }else if(l||r){
-            e.m5.heading= l||r;
-            _V.setX(e.m5.vel,vs); }
-          if(u&&d){
-            _V.setY(e.m5.vel,0);
-          }else if(u||d){
-            e.m5.heading= u||d;
-            _V.setY(e.m5.vel,vs); } } };
-      return (e.m5.heading=Mojo.UP) && self;
+        if(this._pool.length<this._size) this._pool.push(o)
+      }
+      _take(){
+        return this._pool.length>0? this._pool.pop(): this._ctor()
+      }
     }
 
-    /** platformer like mario. */
-    function Platformer(e){
-      const {Input, Sprites}=Mojo;
-      const sigs=[];
-      const self={
-        jumpKey: Input.UP,
-        jumpSpeed: -300,
-        _jumping:0,
-        _ground:0,
-        dispose(){
-          sigs.forEach(s=> Mojo.off(...s)) },
-        onGround(){ self._ground=0.2 },
-        onTick(dt,colls){
-          if(!e.m5.skipHit)
-            this._onTick(dt,colls)
-          self._ground -=dt;
-        },
-        _onTick(dt,colls){
-          let col=colls[0],
-              vs= e.m5.speed,
-              j3= self.jumpSpeed/3,
-              pR= Input.keyDown(Input.RIGHT),
-              pL= Input.keyDown(Input.LEFT),
-              pU= Input.keyDown(self.jumpKey);
-          if(col && (pL || pR || self._ground>0)){
-            //too steep to go up or down
-            if(col.overlapN[1] > 0.85 ||
-               col.overlapN[1] < -0.85){ col= null } }
-          if(pL && !pR){
-            e.m5.heading = Mojo.LEFT;
-            if(col && self._ground>0){
-              _V.set(e.m5.vel, vs * col.overlapN[0],
-                               -vs * col.overlapN[1])
-            }else{
-              _V.setX(e.m5.vel,-vs)
-            }
-          }else if(pR && !pL){
-            e.m5.heading = Mojo.RIGHT;
-            if(col && self._ground>0){
-              _V.set(e.m5.vel, -vs * col.overlapN[0],
-                               vs * col.overlapN[1])
-            }else{
-              _V.setX(e.m5.vel, vs)
-            }
-          }else{
-            _V.setX(e.m5.vel,0);
-            if(col && self._ground>0)
-              _V.setY(e.m5.vel,0);
-          }
-          //handle jumpy things
-          if(self._ground>0 && !self._jumping && pU){
-            _V.setY(e.m5.vel,self.jumpSpeed);
-            self._jumping +=1;
-            self._ground = -dt;
-          }else if(pU){
-            //held long enough, tell others it's jumping
-            if(self._jumping<2){
-              self._jumping +=1;
-              Mojo.emit(["jump",e]);
-            }
-          }
-
-          if(self._jumping && !pU){
-            self._jumping = 0;
-            Mojo.emit(["jumped",e]);
-            if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
-          }
-        }
-      };
-      sigs.push([["bump.bottom",e],"onGround",self]);
-      sigs.forEach(s=> Mojo.on(...s));
-      return self;
-    }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Define a mixin object. */
     Mojo.defMixin("2d",function(e,...minors){
-      const {Sprites}= Mojo;
-      const colls=[];
-      const sigs=[];
-      const subs=[];
-      const self={
-        dispose(){
-          subs.forEach(s=> s.dispose());
-          sigs.forEach(s=> Mojo.off(...s)) },
-        boom(col){
-          _.assert(col.A===e,"got hit by someone else???");
-          if(col.B && col.B.m5.sensor){
-            Mojo.emit(["2d.sensor", col.B], col.A)
-          }else{
-            let [dx,dy]= e.m5.vel;
-            col.impact=null;
-            _V.sub$(e,col.overlapV);
-            if(col.overlapN[1] < -0.3){
-              if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
-              col.impact = abs(dy);
-              Mojo.emit(["bump.top", e],col);
-            }
-            if(col.overlapN[1] > 0.3){
-              if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
-              col.impact = abs(dy);
-              Mojo.emit(["bump.bottom",e],col);
-            }
-            if(col.overlapN[0] < -0.3){
-              if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
-              col.impact = abs(dx);
-              Mojo.emit(["bump.left",e],col);
-            }
-            if(col.overlapN[0] > 0.3){
-              if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
-              col.impact = abs(dx);
-              Mojo.emit(["bump.right",e],col);
-            }
-            if(is.num(col.impact)){
-              Mojo.emit(["bump",e],col);
-            }else{
-              col.impact=0
-            }
-          }
-          colls.shift(col);
-        },
-        onTick(dt){
-          colls.length=0;
-          if(is.num(dt)){
-            _V.add$(e.m5.vel,_V.mul(e.m5.gravity,dt));
-            _V.add$(e.m5.vel,_V.mul(e.m5.acc,dt));
-            _V.mul$(e.m5.vel, e.m5.friction);
-          }
-          e.parent.collideXY(Sprites.move(e,dt));
-          subs.forEach(s=> s.onTick(dt,colls));
-        }
-      };
+      const {Sprites}= Mojo,
+            subs=[],
+            sigs=[],
+            colls=[],
+            self={
+              dispose(){
+                subs.forEach(s=> s.dispose());
+                sigs.forEach(s=> Mojo.off(...s)) },
+              boom(col){
+                _.assert(col.A===e,"got hit by someone else???");
+                if(col.B && col.B.m5.sensor){
+                  Mojo.emit(["2d.sensor", col.B], col.A)
+                }else{
+                  let [dx,dy]= e.m5.vel;
+                  col.impact=null;
+                  _V.sub$(e,col.overlapV);
+                  if(col.overlapN[1] < -0.3){
+                    if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
+                    col.impact = abs(dy);
+                    Mojo.emit(["bump.top", e],col);
+                  }
+                  if(col.overlapN[1] > 0.3){
+                    if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
+                    col.impact = abs(dy);
+                    Mojo.emit(["bump.bottom",e],col);
+                  }
+                  if(col.overlapN[0] < -0.3){
+                    if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
+                    col.impact = abs(dx);
+                    Mojo.emit(["bump.left",e],col);
+                  }
+                  if(col.overlapN[0] > 0.3){
+                    if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
+                    col.impact = abs(dx);
+                    Mojo.emit(["bump.right",e],col);
+                  }
+                  if(is.num(col.impact)){
+                    Mojo.emit(["bump",e],col)
+                  }else{
+                    col.impact=0
+                  }
+                }
+                colls.shift(col);
+              },
+              onTick(dt){
+                colls.length=0;
+                if(is.num(dt)){
+                  _V.add$(e.m5.vel,_V.mul(e.m5.gravity,dt));
+                  _V.add$(e.m5.vel,_V.mul(e.m5.acc,dt));
+                  _V.mul$(e.m5.vel, e.m5.friction);
+                }
+                e.parent.collideXY(Sprites.move(e,dt));
+                subs.forEach(s=> s.onTick(dt,colls));
+              }
+            };
       sigs.push([["hit",e],"boom",self],
                 [["post.remove",e],"dispose",self]);
       sigs.forEach(s=> Mojo.on(...s));
-      for(let f,o,m,i=0;i<minors.length;++i){
-        m=minors[i];
-        f=m[0];
+      minors.forEach(m=>{
+        let o,f=m[0];
         m[0]=e;
         o=f(...m);
         if(o.onTick)
           subs.push(o);
         _.assert(is.str(f.name)) && (self[f.name]=o);
-      }
+      });
       return self;
     });
 
-    /** bounce back and forth... */
-    function Patrol(e,xDir,yDir){
-      const sigs=[];
-      const self= {
-        dispose(){
-          sigs.forEach(a=>Mojo.off(...a)) },
-        goLeft(col){
-          e.m5.heading=Mojo.LEFT;
-          e.m5.flip= "x";
-          _V.setX(e.m5.vel, -col.impact);
-        },
-        goRight(col){
-          e.m5.heading=Mojo.RIGHT;
-          e.m5.flip= "x";
-          _V.setX(e.m5.vel, col.impact);
-        },
-        goUp(col){
-          _V.setY(e.m5.vel,-col.impact);
-          e.m5.heading=Mojo.UP;
-          e.m5.flip= "y";
-        },
-        goDown(col){
-          _V.setY(e.m5.vel, col.impact);
-          e.m5.heading=Mojo.DOWN;
-          e.m5.flip= "y";
-        }
-      };
-      sigs.push([["post.remove",e],"dispose",self]);
-      if(xDir){
-        //e.m5.heading=Mojo.LEFT;
-        sigs.push([["bump.right",e],"goLeft",self],
-                  [["bump.left",e],"goRight",self]);
-      }
-      if(yDir){
-        //e.m5.heading=Mojo.UP;
-        sigs.push([["bump.top",e],"goDown",self],
-                  [["bump.bottom",e],"goUp",self]);
-      }
-      return sigs.forEach(a=>Mojo.on(...a)), self;
-    }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Define mixin `camera`. */
     Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
-      const _height= canvas?canvas.height:worldHeight;
-      const _width= canvas?canvas.width:worldWidth;
-      const height2=int(_height/2);
-      const width2=int(_width/2);
-      const height4=int(_height/4);
-      const width4=int(_width/4);
-      const {Sprites}=Mojo;
-      const sigs=[];
-      const world=e;
       let _x=0;
       let _y=0;
-      const self={
-        dispose(){ sigs.forEach(s=>Mojo.off(...s)) },
-        //changing the camera's xy pos shifts
-        //pos of the world in the opposite direction
-        set x(v){ _x=v; e.x= -_x },
-        set y(v){ _y=v; e.y= -_y },
-        get x(){ return _x },
-        get y(){ return _y },
-        worldWidth: worldWidth,
-        worldHeight: worldHeight,
-        width: _width,
-        height: _height,
-        follow(s){
-          //Check the sprites position in relation to the viewport.
-          //Move the camera to follow the sprite if the sprite
-          //strays outside the viewport
-          const bx= _.feq0(s.angle)? Sprites.getBBox(s)
-                                   : Sprites.boundingBox(s);
-          const _right=()=>{
-            if(bx.x2> this.x+int(width2+width4)){
-              this.x = bx.x2-width4*3;
-            }},
-            _left=()=>{
-              if(bx.x1< this.x+int(width2-width4)){
-              this.x = bx.x1-width4;
-            }},
-            _top=()=>{
-            if(bx.y1< this.y+int(height2-height4)){
-              this.y = bx.y1-height4;
-            }},
-            _bottom=()=>{
-            if(bx.y2> this.y+int(height2+height4)){
-              this.y = bx.y2- height4*3;
-            }};
-          _left();  _right();  _top();  _bottom();
-          //clamp the camera
-          if(this.x<0){ this.x = 0 }
-          if(this.y<0){ this.y = 0 }
-          if(this.x+_width > worldWidth){
-            this.x= worldWidth - _width
-          }
-          if(this.y+_height > worldHeight){
-            this.y= worldHeight - _height
-          }
-          //contain the object
-          let {x1,x2,y1,y2}=s.m5.getImageOffsets();
-          let n= bx.x2 - x2;
-          if(n>worldWidth){ s.x -= (n-worldWidth) }
-          n=bx.y2 - y2;
-          if(n>worldHeight){ s.y -= (n-worldHeight) }
-          n=bx.x1 + x1;
-          if(n<0) { s.x += -n }
-          n=bx.y1  + y1;
-          if(n<0) { s.y += -n }
-        },
-        centerOver:function(s,y){
-          if(arguments.length===1 && !is.num(s)){
-            let c=Sprites.centerXY(s)
-            this.x = c[0]- width2;
-            this.y = c[1] - height2;
-          }else{
-            if(is.num(s)) this.x=s - width2;
-            if(is.num(y)) this.y=y - height2;
-          }
-        }
-      };
+      const _height= canvas?canvas.height:worldHeight,
+            _width= canvas?canvas.width:worldWidth,
+            height2=int(_height/2),
+            width2=int(_width/2),
+            height4=int(_height/4),
+            width4=int(_width/4),
+            {Sprites}=Mojo,
+            sigs=[],
+            world=e,
+            self={
+              dispose(){ sigs.forEach(s=>Mojo.off(...s)) },
+              //changing the camera's xy pos shifts
+              //pos of the world in the opposite direction
+              set x(v){ _x=v; e.x= -_x },
+              set y(v){ _y=v; e.y= -_y },
+              get x(){ return _x },
+              get y(){ return _y },
+              worldHeight: worldHeight,
+              worldWidth: worldWidth,
+              width: _width,
+              height: _height,
+              follow(s){
+                //Check the sprites position in relation to the viewport.
+                //Move the camera to follow the sprite if the sprite
+                //strays outside the viewport
+                const bx= _.feq0(s.angle)? Sprites.getBBox(s)
+                                         : Sprites.boundingBox(s);
+                const _right=()=>{
+                  if(bx.x2> this.x+int(width2+width4)){ this.x = bx.x2-width4*3 }},
+                _left=()=>{
+                  if(bx.x1< this.x+int(width2-width4)){ this.x = bx.x1-width4 }},
+                _top=()=>{
+                  if(bx.y1< this.y+int(height2-height4)){ this.y = bx.y1-height4 }},
+                _bottom=()=>{
+                  if(bx.y2> this.y+int(height2+height4)){ this.y = bx.y2- height4*3 }};
+                _left();  _right();  _top();  _bottom();
+                //clamp the camera
+                if(this.x<0){ this.x = 0 }
+                if(this.y<0){ this.y = 0 }
+                if(this.x+_width > worldWidth){ this.x= worldWidth - _width }
+                if(this.y+_height > worldHeight){ this.y= worldHeight - _height }
+                //contain the object
+                let {x1,x2,y1,y2}=s.m5.getImageOffsets();
+                let n= bx.x2 - x2;
+                if(n>worldWidth){ s.x -= (n-worldWidth) }
+                n=bx.y2 - y2;
+                if(n>worldHeight){ s.y -= (n-worldHeight) }
+                n=bx.x1 + x1;
+                if(n<0) { s.x += -n }
+                n=bx.y1  + y1;
+                if(n<0) { s.y += -n }
+              },
+              centerOver:function(s,y){
+                if(arguments.length===1 && !is.num(s)){
+                  let c=Sprites.centerXY(s)
+                  this.x = c[0]- width2;
+                  this.y = c[1] - height2;
+                }else{
+                  if(is.num(s)) this.x=s - width2;
+                  if(is.num(y)) this.y=y - height2;
+                }
+              }
+            };
       sigs.push([["post.remove",e],"dispose",self]);
       return (sigs.forEach(e=>Mojo.on(...e)), self);
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-      healthBar,
-      gaugeUI,
-      Patrol,
-      Platformer,
-      MazeRunner,
-      PeriodicDischarge
+      PeriodicDischarge,
+      /**Create a HealthBar widget.
+       * @memberof module:mojoh5/2d
+       * @param {HealthBarConfig} cfg
+       * @return {HealthBarObj}
+       */
+      healthBar(arg){
+        let {scale:K,width,height,
+             lives,borderWidth,line,fill}=arg;
+        let c,padding=4*K,fit=4*K,out=[];
+        borderWidth = (borderWidth||4)*K;
+        lives= lives||3;
+        fill=_S.color(fill);
+        line=_S.color(line);
+        for(let r,w=int(width/lives), i=0;i<lives;++i){
+          out.push(_S.rect(w,height-2*borderWidth,fill))
+        }
+        return{
+          dec(){
+            if(this.lives>0){
+              this.lives -= 1;
+              out[this.lives].visible=false;
+            }
+            return this.lives>0;
+          },
+          lives: out.length,
+          sprite: _Z.layoutX(out,{bg:["#cccccc",0],
+                                  borderWidth,
+                                  border:line,padding,fit})
+        }
+      },
+      //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
+      /**Create a gauge like speedometer.
+       * @memberof module:mojoh5/2d
+       * @param {GaugeUIConfig} cfg
+       * @return {GaugeUIObj}
+       */
+      gaugeUI(arg){
+        let {minDeg,maxDeg,
+             line,gfx,scale:K,
+             cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
+        const segs= [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315];
+        function getPt(x, y, r,rad){ return[x + r * cos(rad), y + r * sin(rad) ] }
+        function drawTig(x, y, rad, size){
+          let [sx,sy] = getPt(x, y, radius - 4*K, rad),
+              [ex,ey] = getPt(x, y, radius - 12*K, rad);
+          gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
+          gfx.moveTo(sx, sy);
+          gfx.lineTo(ex, ey);
+          gfx.closePath();
+        }
+        function drawPtr(r,color, rad){
+          let [px,py]= getPt(cx, cy, r - 20*K, rad),
+              [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
+              [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
+          gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
+          gfx.moveTo(p2x, p2y);
+          gfx.lineTo(px, py);
+          gfx.lineTo(p3x, p3y);
+          gfx.closePath();
+          gfx.lineStyle({color:line});
+          gfx.beginFill(line);
+          gfx.drawCircle(cx,cy,9*K);
+          gfx.endFill();
+        }
+        needle=_S.color(needle);
+        line=_S.color(line);
+        fill=_S.color(fill);
+        radius *= K;
+        return {
+          gfx,
+          draw(){
+            gfx.clear();
+            gfx.lineStyle({width: radius/8,color:line});
+            gfx.beginFill(fill, alpha);
+            gfx.drawCircle(cx, cy, radius);
+            gfx.endFill();
+            segs.forEach(s=> drawTig(cx, cy, s, 7*K));
+            drawPtr(radius*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
+          }
+        }
+      },
+      /**Sprite walks back and forth, like a patrol.
+       * @memberof module:mojoh5/2d
+       * @param {PIXI/Sprite} e
+       * @param {boolean} xDir walk left and right
+       * @param {boolean} yDir walk up and down
+       * @return {PatrolObj}
+       */
+      Patrol(e,xDir,yDir){
+        const sigs=[];
+        const self={
+          dispose(){
+            sigs.forEach(a=>Mojo.off(...a)) },
+          goLeft(col){
+            e.m5.heading=Mojo.LEFT;
+            e.m5.flip= "x";
+            _V.setX(e.m5.vel, -col.impact);
+          },
+          goRight(col){
+            e.m5.heading=Mojo.RIGHT;
+            e.m5.flip= "x";
+            _V.setX(e.m5.vel, col.impact);
+          },
+          goUp(col){
+            _V.setY(e.m5.vel,-col.impact);
+            e.m5.heading=Mojo.UP;
+            e.m5.flip= "y";
+          },
+          goDown(col){
+            _V.setY(e.m5.vel, col.impact);
+            e.m5.heading=Mojo.DOWN;
+            e.m5.flip= "y";
+          }
+        };
+        sigs.push([["post.remove",e],"dispose",self]);
+        if(xDir){
+          //e.m5.heading=Mojo.LEFT;
+          sigs.push([["bump.right",e],"goLeft",self],
+                    [["bump.left",e],"goRight",self]);
+        }
+        if(yDir){
+          //e.m5.heading=Mojo.UP;
+          sigs.push([["bump.top",e],"goDown",self],
+                    [["bump.bottom",e],"goUp",self]);
+        }
+        sigs.forEach(a=>Mojo.on(...a));
+        return self;
+      },
+      /**Enhance sprite to move like mario
+       * @memberof module:mojoh5/2d
+       * @param {PIXI/Sprite} e
+       * @return {PlatformerObj}
+       */
+      Platformer(e){
+        const {Input, Sprites}=Mojo;
+        const sigs=[];
+        const self={
+          jumpKey: Input.UP,
+          jumpSpeed: -300,
+          _jumping:0,
+          _ground:0,
+          dispose(){
+            sigs.forEach(s=> Mojo.off(...s)) },
+          onGround(){ self._ground=0.24 },
+          onTick(dt,colls){
+            if(!e.m5.skipHit)
+              this._onTick(dt,colls)
+            self._ground -=dt;
+          },
+          _onTick(dt,colls){
+            let col=colls[0],
+                vs= e.m5.speed,
+                j3= self.jumpSpeed/3,
+                pR= Input.keyDown(Input.RIGHT),
+                pL= Input.keyDown(Input.LEFT),
+                pU= Input.keyDown(self.jumpKey);
+            if(col && (pL || pR || self._ground>0)){
+              //too steep to go up or down
+              if(col.overlapN[1] > 0.85 ||
+                 col.overlapN[1] < -0.85){ col= null } }
+            if(pL && !pR){
+              e.m5.heading = Mojo.LEFT;
+              if(col && self._ground>0){
+                _V.set(e.m5.vel, vs * col.overlapN[0],
+                                 -vs * col.overlapN[1])
+              }else{
+                _V.setX(e.m5.vel,-vs)
+              }
+            }else if(pR && !pL){
+              e.m5.heading = Mojo.RIGHT;
+              if(col && self._ground>0){
+                _V.set(e.m5.vel, -vs * col.overlapN[0],
+                                 vs * col.overlapN[1])
+              }else{
+                _V.setX(e.m5.vel, vs)
+              }
+            }else{
+              _V.setX(e.m5.vel,0);
+              if(col && self._ground>0)
+                _V.setY(e.m5.vel,0);
+            }
+            //handle jumpy things
+            if(self._ground>0 && !self._jumping && pU){
+              _V.setY(e.m5.vel,self.jumpSpeed);
+              self._jumping +=1;
+              self._ground = -dt;
+            }else if(pU){
+              //held long enough, tell others it's jumping
+              if(self._jumping<2){
+                self._jumping +=1;
+                Mojo.emit(["jump",e]);
+              }
+            }
+            if(self._jumping && !pU){
+              self._jumping = 0;
+              Mojo.emit(["jumped",e]);
+              if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
+            }
+          }
+        };
+        sigs.push([["bump.bottom",e],"onGround",self]);
+        sigs.forEach(s=> Mojo.on(...s));
+        return self;
+      },
+      /**Enhance sprite to move like pacman.
+       * @memberof module:mojoh5/2d
+       * @param {PIXI/Sprite} e
+       * @param {array} frames optional
+       * @return {MazeRunnerObj}
+       */
+      MazeRunner(e,frames){
+        const {Sprites, Input}=Mojo;
+        const self={
+          dispose(){
+            Mojo.off(self)
+          },
+          onTick(dt){
+            let [vx,vy]=e.m5.vel,
+                vs=e.m5.speed,
+                x = !_.feq0(vx),
+                y = !_.feq0(vy);
+            if(!(x&&y) && frames){
+              if(y){
+                if(is.obj(frames))
+                  e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
+                else if (frames){
+                  e.angle=vy>0?180:0;
+                }
+              }
+              if(x){
+                if(is.obj(frames))
+                  e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
+                else if(frames){
+                  e.angle=vx>0?90:-90;
+                }
+              }
+            }
+            let r,d,l,u;
+            if(Mojo.u.touchOnly){
+              r=e.m5.heading===Mojo.RIGHT;
+              l=e.m5.heading===Mojo.LEFT;
+              u=e.m5.heading===Mojo.UP;
+              d=e.m5.heading===Mojo.DOWN;
+            }else{
+              r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
+              d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
+              l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
+              u=Input.keyDown(Input.UP) && Mojo.UP;
+            }
+            if(l||u){vs *= -1}
+            if(l&&r){
+              _V.setX(e.m5.vel,0);
+            }else if(l||r){
+              e.m5.heading= l||r;
+              _V.setX(e.m5.vel,vs); }
+            if(u&&d){
+              _V.setY(e.m5.vel,0);
+            }else if(u||d){
+              e.m5.heading= u||d;
+              _V.setY(e.m5.vel,vs); } } };
+        e.m5.heading=Mojo.UP;
+        return self;
+      }
     };
 
     return (Mojo["2d"]= _$);
@@ -6146,6 +6739,8 @@
             if(createFunc)
               s= createFunc.c(scene,s,tsi,ps,o);
             if(s){
+              if(o.visible===false) s.visible=false;
+              o.uuid=s.m5.uuid;
               tl.sprites.push(s);
               scene.insert(s,true);
               if(ps && ps.sensor){s.m5.sensor=true}
@@ -6332,8 +6927,8 @@
           this.tiled.collision[pos]=gid;
         let s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
         if(s){
+          s.tiled.index=pos;
           s.tiled.layer=yy;
-          s.tiled.index=i;
         }
         return s;
       }

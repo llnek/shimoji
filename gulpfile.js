@@ -9,6 +9,7 @@ const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
   "src/czlab/mojoh5/core/mojoh5.js",
+  "src/czlab/mojoh5/core/util.js",
   "src/czlab/mojoh5/core/sprite.js",
   "src/czlab/mojoh5/core/scene.js",
   "src/czlab/mojoh5/core/sound.js",
