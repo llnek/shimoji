@@ -18,6 +18,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   const int=Math.floor;
+  const abs=Math.abs;
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
@@ -31,8 +32,95 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Bob= window["io/czlab/atgp/bob"](_,is);
-    let {ROWS,COLS,LEVEL,GaBob}=Bob;
+    const Core=window["io/czlab/mcfud/core"]();
+    const GA= window["io/czlab/mcfud/NNetGA"](Core);
+    const LEVEL=[
+			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+			[1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1],
+			[8, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1],
+			[1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1],
+			[1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+			[1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+			[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1],
+			[1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5],
+			[1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+		];
+    const NUMBITS=70,
+			    ROWS= LEVEL.length,
+					COLS= LEVEL[0].length;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		const DIRS=["North","South","East","West"];
+		const StartPos= [7,14];
+		const EndPos= [2,0];
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function create(){
+			let g= _.fill(NUMBITS, ()=> _.randSign()>0?1:0);
+			return GA.Chromosome(g, calcFit(0))
+		}
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function decode(genes){
+			function binToInt(bins){
+				let val = 0, mult= 1;
+				for(let i=bins.length-1;i>=0;--i){
+					val += bins[i] * mult;
+					mult *= 2;
+				}
+				return val;
+			}
+			let g = [0,0], dirs=[];
+			for(let i=0;i<genes.length;){
+				for(let j=0;j< g.length; ++j){
+					g[j]= genes[i+j]
+				}
+				i += g.length;
+				dirs.push(binToInt(g));
+			}
+			return dirs;
+		}
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function _mutate(genes,mRate){
+			for(let i=0; i<genes.length; ++i){
+				if(_.rand() < mRate){
+					if(genes[i] == 0)
+						genes[i] = 1;
+					else
+						genes[i] = 0;
+				}
+			}
+		}
+
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function calcFit(genes){
+      let [endY,endX] = EndPos,
+          [posY,posX] = StartPos;
+      decode(genes).forEach(d=>{
+        switch(d){
+          case 0://north
+            if(posY-1 >= 0 && LEVEL[posY-1][posX] != 1) posY -= 1;
+            break;
+          case 1://south
+            if(posY+1 < ROWS && LEVEL[posY+1][posX] != 1) posY += 1;
+            break;
+          case 2://east
+            if(posX+1 < COLS && LEVEL[posY][posX+1] != 1) posX += 1;
+            break;
+          case 3://west
+            if(posX-1 >= 0 && LEVEL[posY][posX-1] != 1) posX -= 1;
+            break;
+          default:
+            _.assert(false, `Bad direction: ${d}`);
+        }
+      });
+      let dx = abs(posX - endX);
+      let dy = abs(posY - endY);
+			return GA.NumericFitness(1/(dx+dy+1));
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("Splash",{
@@ -46,8 +134,7 @@
             let grid=_S.gridXY([COLS,ROWS],0.8,0.8,out);
             let s,g = grid[0][0];
             let W=g.x2-g.x1,
-                H=g.y2-g.y1,
-                ai= new GaBob();
+                H=g.y2-g.y1;
             //let gfx=_S.graphics();
             //self.insert(gfx);
             //_S.drawGridBox(out,1,"white",gfx);
@@ -85,7 +172,6 @@
               endPos,
               path,
               grid,
-              ai,
               cycles:0,
               tileW:W,
               tileH:H
@@ -96,11 +182,6 @@
             _V.set(s,_G.grid[y][x].x1, _G.grid[y][x].y1);
             _S.sizeXY(s,_G.tileW, _G.tileH);
             _G.path.push( self.insert(s));
-          },
-          runCycle(){
-            let p= _G.ai.cycle() && _G.ai.getFittestDirection();
-            p && this.showPath(p);
-            if(!_G.ai.started()) _G.gameOver=true;
           },
           showPath(dirs){
             let {ai,path,grid,endPos,startPos} = _G;
@@ -142,19 +223,22 @@
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
-        //this.g.showPath([3,3,3,3,0,3,0,0,3,3,0,0,0,3,0,1,0,3,0,3,0,1,0,3,0,0,1,0,1,3,3,3,0,1,3]);
-        //this.g.showPath([3,3,3,0,1,3,3,0,3,0,2,3,0,0,3,0,0,3,0,3,0,0,0,1,0,0,1,3,0,3,1,3,3,3,0]);
-        //_I.keybd(_I.SPACE, ()=>{ this.g.runCycle() });
+        this.g.showPath([]);
       },
       postUpdate(dt){
-        if(_G.ai.cycleCount()<100){
-          this.g.runCycle();
-        }else{
-          _G.ai=new GaBob();
-        }
-        if(_G.gameOver){
+        let extra={maxCycles:5, targetScore:1, create, calcFit,
+          mutate:(g)=>{
+            return _mutate(g,0.015)
+          },
+          crossOver:(b1,b2)=>{
+            return GA.crossOverRND(b1,b2,0.7)
+          }};
+        let [xx, pop]= GA.runGACycle(100,extra);
+        let s= GA.calcStats(pop);
+        this.g.showPath(decode(s.best.genes));
+        if(s.best.fitness.score()==1){
           this.m5.dead=true;
-          console.log(`Cycles = ${_G.ai.cycleCount()}`);
+          console.log(`Cycles = ${extra.cycles}`);
         }
       }
     });

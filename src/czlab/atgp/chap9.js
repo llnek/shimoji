@@ -31,7 +31,8 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const { CData,NeuralNet }= window["io/czlab/atgp/NNetGA"](_,is);
+    const Core= window["io/czlab/mcfud/core"]();
+    const GA= window["io/czlab/mcfud/NNetGA"](Core);
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const NOT_READY  = 0,
           TRAINING = 1,
@@ -52,6 +53,111 @@
     const C_GREEN=_S.color("#7da633");
     const C_ORANGE=_S.color("#f4d52b");
     const C_BG=_S.color("#1e1e1e");
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function CData(){
+			const vecPatterns= [[1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0],
+											[-1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0],
+											[0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0, 0,1.0],
+											[0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0, 0,-1.0],
+											[1.0,0, 1.0,0, 1.0,0, 0,1.0, 0,1.0, 0,1.0, -1.0,0, -1.0,0, -1.0,0, 0,-1.0, 0,-1.0, 0,-1.0],
+											[-1.0,0, -1.0,0, -1.0,0, 0,1.0, 0,1.0, 0,1.0, 1.0,0, 1.0,0, 1.0,0, 0,-1.0, 0,-1.0, 0,-1.0],
+											[1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0, -0.45,0.9, -0.9, 0.45, -0.9,0.45],
+											[-1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, -1.0,0, 0.45,0.9, 0.9, 0.45, 0.9,0.45],
+											[-0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7, -0.7,0.7],
+											[0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7, 0.7,0.7],
+											[1.0,0, 1.0,0, 1.0,0, 1.0,0, -0.72,0.69,-0.7,0.72,0.59,0.81, 1.0,0, 1.0,0, 1.0,0, 1.0,0, 1.0,0]];
+			const setIn=vecPatterns.slice(),
+				    numPatterns= vecPatterns.length,
+				    setOut=_.fill(numPatterns,(i,o)=>{
+							o=_.fill(numPatterns,0); o[i] = 1; return o; });
+			return{
+				setIn, //11x12,
+				setOut,//11x11
+				numPatterns,
+				vecNames: ["Right", "Left", "Down", "Up",
+					         "Clockwise Square", "Anti-Clockwise Square",
+								   "Right Arrow", "Left Arrow", "South West", "Sout East", "Zorro"],
+				patternName(i){
+					try{
+						return this.vecNames[i]
+					}catch(e){
+						return "Unknown pattern"
+					}
+				}
+			};
+		}
+
+    function networkTrainingCycle(nnet, learnRate, setIn, setOut){
+      nnet.errorSum = 0;
+      for(let err,outputs,vec=0;vec<setIn.length;++vec){
+        outputs = nnet.update(setIn[vec]);
+        if(outputs.length==0) return false;
+        for(let u,ws,op=0;op<nnet.numOutputs;++op){
+          err = (setOut[vec][op] - outputs[op]) * outputs[op] * (1 - outputs[op]);
+          u=nnet.layers[1].neurons[op];
+          ws=u.weights;
+          u.error = err;
+          nnet.errorSum += (setOut[vec][op] - outputs[op]) * (setOut[vec][op] - outputs[op]);
+
+          for(let i=0;i<ws.length-1;++i)
+            ws[i] += err*learnRate*nnet.layers[0].neurons[i].activation;
+
+          ws[ws.length-1] += err * learnRate * GA.BIAS;
+        }
+
+        for(let i=0;i<nnet.layers[0].neurons.length;++i){
+          err = 0;
+          for(let j=0;j<nnet.layers[1].neurons.length;++j){
+            err += nnet.layers[1].neurons[j].error * nnet.layers[1].neurons[j].weights[i];
+          }
+          err *= nnet.layers[0].neurons[i].activation * (1-nnet.layers[0].neurons[i].activation);
+
+          for(let w=0;w<nnet.numInputs;++w)
+            nnet.layers[0].neurons[i].weights[w] += err * learnRate * setIn[vec][w];
+
+          nnet.layers[0].neurons[i].weights[nnet.numInputs] += err * GA.BIAS;
+        }
+      }
+      return true;
+    }
+
+    function train(nnet,learnRate,data,async){
+      let {setIn,setOut} = data;
+      _.assert(setIn.length == setOut.length &&
+               setIn[0].length == nnet.numInputs &&
+               setOut[0].length == nnet.numOutputs, "Inputs/Outputs length is invalid.");
+      //initNetwork()
+      nnet.errorSum = 9999.9;
+      nnet.trainCycles = 0;
+      nnet.trained=false;
+      nnet.layers.forEach(y=> y.neurons.forEach(u=>{
+        u.weights=_.fill(u.numInputs, ()=> _.randMinus1To1())
+      }));
+      //
+      async.run((count=100)=>{
+        for(let i=0;i<count && !nnet.trained; ++i){
+          let ok= networkTrainingCycle(nnet, learnRate,setIn, setOut);
+          if(!ok){
+            console.log(`Ooopss..... bad training`);
+          }
+          nnet.trainCycles += 1;
+          console.log(`Epoch: ${nnet.trainCycles}, ErrorSum: ${nnet.errorSum}`);
+          if(nnet.errorSum>0.003){}else{
+            console.log(`trained-ok`);
+            nnet.trained=true;
+          }
+        }
+        return nnet.trained;
+      });
+      if(false){
+        while(nnet.errorSum>0.003){
+          if(!networkTrainingCycle(nnet,learnRate,setIn, setOut)) return false;
+          nnet.trainCycles += 1;
+        }
+        return nnet.trained = true;
+      }
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("Splash",{
@@ -79,8 +185,8 @@
           },
           initLevel(){
             this.data = CData();
-            this.nnet = NeuralNet(2*NUM_INPUTS, NUM_OUTPUTS, NEURONS_PER_HIDDEN, 0.5);
-            this.numSmoothPoints = NUM_INPUTS+1;//TODO
+            this.nnet = GA.NeuralNet(2*NUM_INPUTS, NUM_OUTPUTS, 1,NEURONS_PER_HIDDEN);
+            this.numSmoothPoints = NUM_INPUTS+1;
 
             this.mode = NOT_READY;
             this.highestOutput = 0;
@@ -99,7 +205,7 @@
           trainNetwork(){
             if(this.mode==TRAINING){return}
             let cb;
-            this.nnet.train(this.data,{ run(c){ cb=c } });
+            train(this.nnet, 0.5, this.data,{ run(c){ cb=c } });
             this.trainingFunc=cb;
             this.mode = TRAINING;
           },

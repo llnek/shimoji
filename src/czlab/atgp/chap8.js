@@ -33,17 +33,18 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const { NUM_ELITE,
-			      NUM_COPIES_ELITE, gaNNet, NeuralNet }= window["io/czlab/atgp/NNetGA"](_,is);
+    const Core= window["io/czlab/mcfud/core"]();
+    const GA= window["io/czlab/mcfud/NNetGA"](Core);
     const NUM_INPUTS=5,
           NUM_OUTPUTS=2,
+      NUM_ELITES=6,
           NUM_HIDDEN=1,
           NEURONS_HIDDENLAYER=10;
+
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const CrossOverRate = 0.7,
           MutationRate  = 0.1,
           MineScale     = 12,
-          NumElite      = 6,
           NumTicks      = 1000;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -113,14 +114,14 @@
         H2:h2,
         lTrack: 0.16,
         rTrack: 0.16,
-        fitness: StartEnergy,
+        fitness: GA.NumericFitness(StartEnergy),
         lookAt: {x:Math.cos(s.rotation),y: Math.sin(s.rotation)},
-        nnet: NeuralNet(NUM_INPUTS,NUM_OUTPUTS,NUM_HIDDEN,NEURONS_HIDDENLAYER),
+        nnet: GA.NeuralNet(NUM_INPUTS,NUM_OUTPUTS,NUM_HIDDEN,NEURONS_HIDDENLAYER),
         cmap: CMapper(),
         spinBonus: 0,
         collisionBonus: 0,
         reset(){
-          this.fitness = StartEnergy;
+          this.fitness = GA.NumericFitness(StartEnergy);
           s.rotation= _.rand() * PI2;
           randPos(s);
           this.lookAt.x= Math.cos(s.rotation);
@@ -139,7 +140,7 @@
           this.nnet.putWeights(weights)
         },
         incFitness(n=1){
-          this.fitness += n;
+          this.fitness = GA.NumericFitness(this.fitness.score()+n);
         },
         testSensors(input){
           this.collided = false;
@@ -166,7 +167,7 @@
           return input;
         },
         endOfRunCalc(){
-          this.fitness += this.spinBonus + this.collisionBonus;
+          this.fitness= GA.NumericFitness(this.fitness.score() + this.spinBonus + this.collisionBonus)
         },
         update(){
           let inputs=this.testSensors([]);
@@ -202,16 +203,11 @@
     }
 
     const NumSweepers=30;
+    let ticks;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function randX(){
-      return _.randInt2(_G.arena.x1,_G.arena.x2);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function randY(){
-      return _.randInt2(_G.arena.y1,_G.arena.y2);
-    }
+    function randX(){ return _.randInt2(_G.arena.x1,_G.arena.x2) }
+    function randY(){ return _.randInt2(_G.arena.y1,_G.arena.y2) }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function CMapper(){
@@ -257,6 +253,34 @@
       setup(){
         const self=this,
               K=Mojo.getScaleFactor();
+
+        let gaPop,
+            splitPoints,
+            numWeightsInNN;
+
+        function mutate(genes){
+					genes.forEach((w,i)=>{
+						if(_.rand() <= MutationRate)
+							genes[i] =  w + _.randMinus1To1() * GA.MAX_PERTURBATION;
+					});
+        }
+
+        function crossOver(b1,b2){
+          GA.crossOverAtSplits(b1,b2,CrossOverRate,splitPoints)
+        }
+
+        function calcFit(genes,old){
+          return old.clone()
+        }
+
+        function create(){
+          let g= _.fill(numWeightsInNN, ()=> _.randMinus1To1());
+          return GA.Chromosome(g, GA.NumericFitness(StartEnergy))
+        }
+
+        let extra={maxCycles:1,
+          calcFit,create,mutate,crossOver,NUM_ELITES,TOURNAMENT_COMPETITORS:4};
+
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           initBlocks(grid){
@@ -324,42 +348,33 @@
             });
             //////
             let vecSweepers= _.fill(NumSweepers,  ()=> self.insert(mkSWP()));
-            let numWeightsInNN= vecSweepers[0].g.getNumberOfWeights();
-            let splitPoints = vecSweepers[0].g.calcSplitPoints();
-            let GA = gaNNet(NumSweepers, MutationRate, CrossOverRate, numWeightsInNN, splitPoints);
-            let gaPop = GA.getChromos();
-            vecSweepers.forEach((c,i)=> c.g.putWeights(gaPop[i].weights));
-            this.numWeightsInNN=numWeightsInNN;
-            this.vecSweepers=vecSweepers;
-            this.gaPop=gaPop;
-            this.ticks= 0;
-            this.generation=1;
-            this.GA=GA;
-            this.update=()=>{
-              this.ticks += 1;
-              if(this.ticks < NumTicks){
-                for(let i=0;i<NumSweepers;++i){
-                  if(!this.vecSweepers[i].g.update(this.vecMines)) return false;
-                }
-              }else{
-                for(let i=0; i<NumSweepers;++i){
-                  this.vecSweepers[i].g.endOfRunCalc();
-                  this.gaPop[i].fitness = this.vecSweepers[i].g.fitness;
-                }
-                let ec= NUM_ELITE * NUM_COPIES_ELITE;
-                this.generation += 1;
-                this.ticks = 0;
-                this.gaPop = this.GA.cycle(this.gaPop);
-                for(let i=0;i<NumSweepers;++i){
-                  this.vecSweepers[i].g.putWeights(this.gaPop[i].weights);
-                  this.vecSweepers[i].g.reset();
-                  if(ec>0){
-                    this.vecSweepers[i].tint=_S.color("magenta");
-                    --ec;
-                  }
+            numWeightsInNN= vecSweepers[0].g.getNumberOfWeights();
+            splitPoints = vecSweepers[0].g.calcSplitPoints();
+            let [xxx,pop] = GA.runGACycle(NumSweepers, extra);
+            vecSweepers.forEach((c,i)=> c.g.putWeights(pop[i].genes));
+            gaPop=pop;
+            ticks= 0;
+            this.letThemRoam=()=>{
+              for(let i=0;i<NumSweepers;++i){
+                if(!vecSweepers[i].g.update()) return false;
+              }
+            }
+            this.reGen=()=>{
+              for(let i=0; i<NumSweepers;++i){
+                vecSweepers[i].g.endOfRunCalc();
+                gaPop[i].fitness = vecSweepers[i].g.fitness.clone();
+              }
+              ticks = 0;
+              let [xxx,pop]= GA.runGACycle(gaPop,extra);
+              gaPop=pop;
+              for(let ec=NUM_ELITES, i=vecSweepers.length-1;i>=0;--i){
+                vecSweepers[i].g.putWeights(pop[i].genes);
+                vecSweepers[i].g.reset();
+                if(ec>0){
+                  vecSweepers[i].tint=_S.color("magenta");
+                  --ec;
                 }
               }
-              return true;
             }
           }
         });
@@ -371,7 +386,11 @@
         //let p= _S.toPolygon(s);
         //let vs=geo.Polygon.translateCalcPoints(p);
         //let res= geo.hitTestLinePolygon([800,500], [900,600],p);
-        this.g.update();
+        if(++ticks<NumTicks){
+          this.g.letThemRoam()
+        }else{
+          this.g.reGen()
+        }
       }
     });
 

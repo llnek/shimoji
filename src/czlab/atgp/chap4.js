@@ -17,27 +17,62 @@
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  const Core=window["io/czlab/mcfud/core"]();
+  const GA= window["io/czlab/mcfud/NNetGA"](Core);
+  const PI2=Math.PI*2;
   const int=Math.floor;
+  const {is,u:_}=Core;
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  const NUM_CITIES =14,// 20,
+        CITY_SIZE = 8,
+        POP_SIZE = 40,
+        MUTATION_RATE = 0.2,
+        CROSSOVER_RATE = 0.75;
+
+  let cities=null,
+      bestRoute= null;
+
+  function calcA_to_B(c1, c2){
+    let dx=c1.x-c2.x,
+			  dy=c1.y-c2.y;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+
+  function create(){
+    let g= _.shuffle(_.fill(NUM_CITIES,(i)=> i));
+    return GA.Chromosome(g, calcFit(g));
+  }
+
+  function mutate(c){
+    //GA.mutateIVM(c,0.2);
+    GA.mutateSM(c,0.2);
+  }
+
+  function crossOver(b1,b2){
+    GA.crossOverPMX(b1,b2,0.75);
+  }
+
+  function calcFit(genes){
+    let sum = 0;
+    for(let i=0;i< genes.length-1; ++i)
+      sum += calcA_to_B(cities[genes[i]], cities[genes[i+1]]);
+    sum += calcA_to_B(cities[_.last(genes)], cities[genes[0]]);
+    return GA.NumericFitness(sum,1);
+  }
+
+  function calcBestRoute(){
+    //sum up 0->second last, then add last->0
+    let sum=0;
+    for(let c,i=0;i< cities.length-1;++i)
+      sum += calcA_to_B(cities[i], cities[i+1]);
+    return GA.NumericFitness(sum + calcA_to_B(_.last(cities), cities[0]), true);
+  }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
-    const {Sprites:_S,
-           Scenes:_Z,
-           FX:_F,
-           Input:_I,
-           Game:_G,
-           "2d":_2d,
-           v2:_V,
-           ute:_,is}=Mojo;
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TSP= window["io/czlab/atgp/TSP"](_,is);
-    const PI2=Math.PI*2;
-    let {NUM_CITIES,CITY_SIZE, gaTSP}= TSP;
-    const cities= makeCirclePoints(NUM_CITIES);
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function makeCirclePoints(pts){
+    cities= (function(pts){
       let seg= PI2 / pts,
           cx= int(Mojo.width/2),
           cy= int(Mojo.height/2),
@@ -48,7 +83,18 @@
                   y:r* Math.cos(angle) + cy, radius:CITY_SIZE});
       }
       return out;
-    }
+    })(NUM_CITIES);
+
+    bestRoute= calcBestRoute();
+
+    const {Sprites:_S,
+           Scenes:_Z,
+           FX:_F,
+           Input:_I,
+           Game:_G,
+           "2d":_2d,
+           v2:_V,
+           ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("Splash",{
@@ -60,17 +106,11 @@
           initLevel(){
             this.gfx=self.insert(_S.graphics());
             _.inject(_G,{
-              cities,
-              ai: new gaTSP(cities)
+              cities
             });
           },
-          runCycle(){
-            let p= _G.ai.cycle() && _G.ai.getFittestRoute();
-            p && this.showPath(p);
-            if(!_G.ai.started()) _G.gameOver=true;
-          },
-          showPath(p){
-            let done=!_G.ai.started();
+          showPath(c,done){
+            let p= c.genes;
             let a,b;
             this.drawMap(done?"green":"white");
             this.gfx.lineStyle(1,_S.color(done?"yellow":"red"));
@@ -80,7 +120,7 @@
               this.gfx.moveTo(a.x,a.y);
               this.gfx.lineTo(b.x,b.y);
             }
-            a=cities[p[p.length-1]];
+            a=cities[_.last(p)];
             b=cities[p[0]];
             this.gfx.moveTo(a.x,a.y);
             this.gfx.lineTo(b.x,b.y);
@@ -95,17 +135,17 @@
           }
         });
         this.g.initLevel();
-        this.g.drawMap(cities);
+        this.g.drawMap("white");
       },
       postUpdate(dt){
-        if(_G.ai.cycleCount()<200){
-          this.g.runCycle();
-        }else{
-          _G.ai=new gaTSP(cities);
-        }
-        if(_G.gameOver){
+        let extra={maxCycles:250,calcFit,create, mutate, crossOver,NUM_ELITES:8 };
+        let [xx,pop]= GA.runGACycle(100,extra);
+        let s= GA.calcStats(pop,true);
+        let b=s.best.fitness.score()<=bestRoute.score();
+        this.g.showPath(s.best,b);
+        if(b){
           this.m5.dead=true;
-          console.log(`Cycles = ${_G.ai.cycleCount()}`);
+          GA.showBest(s.best,extra);
         }
       }
     });

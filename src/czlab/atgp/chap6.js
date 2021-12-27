@@ -33,7 +33,18 @@
            v2:_V,
            ute:_,is}=Mojo;
 
-    const {ROTATE_LEFT,ROTATE_RIGHT,THRUST_UP,NONE}= window["io/czlab/atgp/NNetGA"](_,is);
+    const Core= window["io/czlab/mcfud/core"]();
+    const GA= window["io/czlab/mcfud/NNetGA"](Core);
+
+    const ROTATE_LEFT=0,
+          ROTATE_RIGHT=1,
+			    THRUST_UP=2,
+          NONE=3;
+		const MAX_ACTION_DURATION= 5;
+		const MAX_MUTATION_DURATION=3;
+		const DIST_TOLERANCE= 4;
+	  const SPEED_TOLERANCE= 4;
+	  const ROTATION_TOLERANCE= 0.1;
 
     // Default physical constants for the game
     const DEFAULT_MASS = 6000;        // Roughly based on LEM (4000 accent module + dry decent module)
@@ -53,6 +64,57 @@
 		const GRAVITY_PER_TICK= GRAVITY/60;
 		const THRUST_PER_TICK= THRUST/60;
 		const ROTATION_PER_TICK= ROTATION/60;
+
+
+
+    function create(){
+      function SGene(){
+        return{
+          action: _.randInt2(0,3),
+          duration: _.randInt2(1, MAX_ACTION_DURATION),
+          eq(b){
+            return this.action==b.action && this.duration==b.duration
+          }
+        }
+      }
+      let g= _.fill(NUM_ACTIONS, ()=> SGene());
+      return GA.Chromosome(g, calcFit(g));
+    }
+
+    function mutate(actions){
+			for(let m2=MutationRate/2, g,i=0;i<actions.length;++i){
+				g=actions[i];
+				if(_.rand()<MutationRate){
+					g.action= _.randInt2(0,3);
+				}
+				if(_.rand()<m2){
+					g.duration += _.randMinus1To1()*MAX_MUTATION_DURATION;
+					if(g.duration<0){
+						g.duration=0;
+					}else if(g.duration>MAX_ACTION_DURATION){
+						g.duration= MAX_ACTION_DURATION;
+					}
+				}
+			}
+		}
+
+    function calcFit(generation){
+			let distFromPad = Math.abs(_G.pad.x - _G.player.x);
+			let distFit = Mojo.width -distFromPad;
+			let speed = Math.sqrt(_G.player.m5.vel[0]* _G.player.m5.vel[0],
+                            _G.player.m5.vel[1]* _G.player.m5.vel[1]);
+			let rotFit = 1/(Math.abs(_G.player.rotation)+1);
+			//fitness due to time in air
+			let fitAirTime = _G.tickCount/(speed+1);
+			let fitness= distFit + Mojo.width*rotFit + (Mojo.width/100)*fitAirTime;
+			//check if we have a successful landing
+			if(distFromPad < DIST_TOLERANCE &&
+			   speed < SPEED_TOLERANCE &&
+				 Math.abs(_G.player.rotation) < ROTATION_TOLERANCE){
+				fitness=Infinity;
+			}
+			return GA.NumericFitness(fitness);
+		}
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.defScene("Splash",{

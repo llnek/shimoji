@@ -406,6 +406,43 @@
       findFiles(files, exts){
         return files.filter(s=> exts.indexOf(_fext(s,1)) > -1)
       },
+      /**Items in a as keys, mapped to items in b as values.
+       * @memberof module:mcfud/core._
+       * @param {array} array
+       * @param {array} array
+       * @return {Map}
+       */
+      zipMap(a,b,out){
+        let n=Math.min(a.length,b.length);
+        let m= out || new Map();
+        for(let i=0;i<n;++i){
+          m.set(a[i],b[i])
+        }
+        return m;
+      },
+      /**Items in a as keys, mapped to items in b as values.
+       * @memberof module:mcfud/core._
+       * @param {array} array
+       * @param {array} array
+       * @return {Map}
+       */
+      zip(a,b,out){
+        return this.zipMap(a,b,out)
+      },
+      /**Items in a as keys, mapped to items in b as values.
+       * @memberof module:mcfud/core._
+       * @param {array} array
+       * @param {array} array
+       * @return {Object}
+       */
+      zipObj(a,b,out){
+        let n=Math.min(a.length,b.length);
+        let m= out || {};
+        for(let i=0;i<n;++i){
+          m[a[i]]= b[i];
+        }
+        return m;
+      },
       /**Chop input into chunks of `count` items.
        * @memberof module:mcfud/core._
        * @param {number} count number of items in each chunk
@@ -553,10 +590,28 @@
           n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
       },
+      /**Randomly choose n items from this array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} arr
+       * @param {number} howMany
+       * @return {array} the samples
+       */
+      randSample(arr,n=1){
+        let ret;
+        if(n==1){
+          ret= [this.randItem(arr)]
+        }else if(n==0){
+          ret=[]
+        }else if(n>0){
+          let a= this.shuffle(arr,false);
+          ret = n>=a.length ? a : a.slice(0,n);
+        }
+        return ret;
+      },
       /**Randomly choose an item from this array.
        * @memberof module:mcfud/core._
        * @param {any[]} arr
-       * @param {wantIndex} boolean
+       * @param {boolean} wantIndex
        * @return {any}
        */
       randItem(arr,wantIndex){
@@ -1466,10 +1521,11 @@
        * @memberof module:mcfud/core._
        * @param {number} num
        * @param {number} digits
+       * @param {string} pad padding character
        * @return {string}
       */
-      prettyNumber(num, digits=2){
-        return this.strPadLeft(Number(num).toString(), digits, "0")
+      prettyNumber(num, digits=2, pad="0"){
+        return this.strPadLeft(Number(num).toString(), digits, pad)
       },
       /**Pretty print millis in nice
        * hour,minutes,seconds format.
@@ -1491,6 +1547,26 @@
         if(h>0)
           out.push(`${h} hrs, `);
         return out.reverse().join("");
+      },
+      /**Swap 2 elements in the array.
+       * @memberof module:mcfud/core._
+       * @param {array} arr
+       * @param {number} a
+       * @param {number} b
+       * @return {array} arr
+      */
+      swap(arr,a,b){
+        let t= arr[a]; arr[a]=arr[b]; arr[b]=t; return arr;
+      },
+      /**List indexes of this array
+       * @memberof module:mcfud/core._
+       * @param {array} arr
+       * @param {boolean} scramble
+       * @return {array} list of indexes
+      */
+      listIndexesOf(arr, scramble){
+        let xs= _.fill(arr.length,(i)=>i);
+        return scramble? this.shuffle(xs) : xs;
       },
       /**Remove some arguments from the front.
        * @memberof module:mcfud/core._
@@ -6821,7 +6897,7 @@
   function _module(Core,Basic){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
-    const {Bag,Stack,Iterator,StdCompare:CMP}= Basic;
+    const {prnIter,Bag,Stack,Iterator,StdCompare:CMP}= Basic;
     const int=Math.floor;
     const {is,u:_}= Core;
 
@@ -7262,6 +7338,544 @@
     }
 
     /**Represents a priority queue of generic keys.
+     *  It supports the usual insert and delete-the-minimum operations,
+     *  along with the merging of two heaps together.
+     * @memberof module:mcfud/algo_sort
+     * @class
+     */
+    class FibonacciMinPQ{
+      Node(key){
+        //int order;            //Order of the tree rooted by this Node
+        return {key, order:0, prev:null, next:null, child:null}
+      }
+      constructor(compareFn, keys){
+        //private Node head;          //Head of the circular root list
+        //private Node min;         //Minimum Node of the root list
+        //private int size;         //Number of keys in the heap
+        //private final Comparator<Key> comp; //Comparator over the keys
+        //private HashMap<Integer, Node> table = new HashMap<Integer, Node>(); //Used for the consolidate operation
+        this.compare=compareFn;
+        this.table=new Map();
+        this.head=null;
+        this._min=null;
+        this.n=0;
+        if(is.vec(keys))
+          keys.forEach(k=> this.insert(k));
+      }
+      /**Whether the priority queue is empty
+      * @return {boolean}
+      */
+      isEmpty(){
+        return this.n == 0;
+      }
+      /**Number of elements currently on the priority queue
+      * @return {number}
+      */
+      size(){
+        return this.n;
+      }
+      /**Insert a key in the queue
+      * @param {any} key a Key
+      */
+      insert(key){
+        let x = this.Node(key);
+        this.n+= 1;
+        this.head = this._insertNode(x, this.head);
+        this._min= !this._min? this.head
+                           : (this._greater(this._min.key, key) ? this.head : this._min);
+      }
+      /**Gets the minimum key currently in the queue
+      * @return {any}
+      */
+      min(){
+        if(this.isEmpty())
+          throw Error("Priority queue is empty");
+        return this._min.key;
+      }
+      /**Deletes the minimum key
+      * @return {any} the minimum key
+      */
+      delMin(){
+        if(this.isEmpty())
+          throw Error("Priority queue is empty");
+        this.head = this._cut(this._min, this.head);
+        let x= this._min.child,
+            key = this._min.key;
+        this._min.key = null;
+        if(x){
+          this.head = this._meld(this.head, x);
+          this._min.child = null;
+        }
+        this.n -= 1;
+        if(!this.isEmpty()) this._consolidate();
+        else this._min = null;
+        return key;
+      }
+      /**Merges two heaps together
+      * This operation is destructive
+      * @param {FibonacciMinPQ} that a Fibonacci heap
+      * @return {FibonacciMinPQ}
+      */
+      union(that){
+        this.head = this._meld(this.head, that.head);
+        this._min = this._greater(this._min.key, that._min.key) ? that._min : this._min;
+        this.n = this.n + that.n;
+        return this;
+      }
+      _greater(n, m){
+        if(_.nichts(n)) return false;
+        if(_.nichts(m)) return true;
+        return this.compare(n,m) > 0;
+      }
+      //Assuming root1 holds a greater key than root2, root2 becomes the new root
+      _link(root1, root2){
+        root2.child = this._insertNode(root1, root2.child);
+        root2.order+=1;
+      }
+      //Coalesce the roots, thus reshapes the tree
+      _consolidate(){
+        this.table.clear();
+        let x = this.head,
+            y = null,
+            z = null,
+            maxOrder = 0;
+        this._min = this.head;
+        do{
+          y = x;
+          x = x.next;
+          z = this.table.get(y.order);
+          while(z){
+            this.table.delete(y.order);
+            if(this._greater(y.key, z.key)){
+              this._link(y, z);
+              y = z;
+            }else{
+              this._link(z, y);
+            }
+            z = this.table.get(y.order);
+          }
+          this.table.set(y.order, y);
+          if(y.order > maxOrder) maxOrder = y.order;
+        }while(x !== this.head);
+        this.head = null;
+        this.table.forEach((v)=>{
+          if(v){
+            this._min = this._greater(this._min.key, v.key) ? v : this._min;
+            this.head = this._insertNode(v, this.head);
+          }
+        })
+      }
+      //Inserts a Node in a circular list containing head, returns a new head
+      _insertNode(x, head){
+        if(!head){
+          x.prev = x;
+          x.next = x;
+        }else{
+          head.prev.next = x;
+          x.next = head;
+          x.prev = head.prev;
+          head.prev = x;
+        }
+        return x;
+      }
+      //Removes a tree from the list defined by the head pointer
+      _cut(x, head){
+        if(x.next === x) {
+          x.next = null;
+          x.prev = null;
+          return null;
+        }else{
+          x.next.prev = x.prev;
+          x.prev.next = x.next;
+          let res = x.next;
+          x.next = null;
+          x.prev = null;
+          return head === x?  res: head;
+        }
+      }
+      //Merges two root lists together
+      _meld(x, y){
+        if(!x) return y;
+        if(!y) return x;
+        x.prev.next = y.next;
+        y.next.prev = x.prev;
+        x.prev = y;
+        y.next = x;
+        return x;
+      }
+      /**Gets an Iterator over the Keys in the priority queue in ascending order
+      * The Iterator does not implement the remove() method
+      * iterator() : Worst case is O(n)
+      * next() :  Worst case is O(log(n)) (amortized)
+      * hasNext() :   Worst case is O(1)
+      * @return {Iterator}
+      */
+      iter(){
+        let copy = new FibonacciMinPQ(this.compare);
+        let insertAll=(head)=>{
+          if(!head) return;
+          let x = head;
+          do{
+            copy.insert(x.key);
+            insertAll(x.child);
+            x = x.next;
+          }while (x !== head);
+        };
+        insertAll(this.head);
+        return{
+          remove(){ throw Error("UnsupportedOperationException") },
+          hasNext(){ return !copy.isEmpty() },
+          next(){
+            if(!this.hasNext()) throw Error("NoSuchElementException");
+            return copy.delMin();
+          }
+        }
+      }
+      static test(){
+        let msg="",
+            obj= new FibonacciMinPQ(CMP);
+        "PQE".split("").forEach(s=>obj.insert(s));
+        msg += obj.delMin() + " ";
+        "XAM".split("").forEach(s=>obj.insert(s));
+        msg += obj.delMin() + " ";
+        "PLE".split("").forEach(s=>obj.insert(s));
+        msg += obj.delMin() + " ";
+        obj.isEmpty();
+        console.log(msg)
+        console.log("min= " + obj.min());
+        console.log(prnIter(obj.iter()));
+        console.log("(" + obj.size() + " left on pq)");
+        let obj2 = new FibonacciMinPQ(CMP);
+        "ZTAK".split("").forEach(s=> obj2.insert(s));
+        obj2= obj2.union(obj);
+        console.log(prnIter(obj2.iter()));
+      }
+    }
+    //FibonacciMinPQ.test();
+
+    /**Represents an indexed priority queue of generic keys.
+     *  It supports the usual insert and delete-the-minimum operations,
+     *  along with delete and change-the-key methods.
+     * @memberof module:mcfud/algo_sort
+     * @class
+     */
+    class IndexFibonacciMinPQ{
+      Node(key){
+        //Node<Key> prev, next;     //siblings of the Node
+        ////Node<Key> parent, child;    //parent and child of this Node
+        //boolean mark;         //Indicates if this Node already lost a child
+        return{key, order:0, index:0,
+               prev:null, next:null, parent:null, child:null, mark:false}
+      }
+      constructor(maxN,compareFn){
+        //private Node<Key>[] nodes;      //Array of Nodes in the heap
+        //private Node<Key> head;       //Head of the circular root list
+        //private Node<Key> min;        //Minimum Node in the heap
+        //private int size;         //Number of keys in the heap
+        //private int n;            //Maximum number of elements in the heap
+        //private HashMap<Integer, Node<Key>> table = new HashMap<Integer, Node<Key>>(); //Used for the consolidate operation
+        if(maxN < 0)
+          throw Error("Cannot create a priority queue of negative size");
+        this.maxN = maxN;
+        this.n=0;
+        this.head=null;
+        this._min=null;
+        this.compare = compareFn;
+        this.table=new Map();
+        this.nodes = new Array(maxN);
+      }
+      /**Whether the priority queue is empty
+      * @return {boolean}
+      */
+      isEmpty(){
+        return this.n== 0;
+      }
+      /**Does the priority queue contains the index i ?
+      * @param {number} i an index
+      * @return {boolean}
+      */
+      contains(i){
+        if(i<0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        return _.echt(this.nodes[i]);
+      }
+      /**Number of elements currently on the priority queue
+      * @return {number}
+      */
+      size(){
+        return this.n;
+      }
+      /**Associates a key with an index
+      * @param {number} i an index
+      * @param {any} key a Key associated with i
+      */
+      insert(i, key){
+        if(i<0 || i>= this.maxN) throw Error("IllegalArgumentException");
+        if(this.contains(i)) throw Error("Specified index is already in the queue");
+        let x = this.Node(key);
+        x.index = i;
+        this.nodes[i] = x;
+        this.n+=1;
+        this.head = this._insertNode(x, this.head);
+        this._min= !this._min? this.head
+                             : this._greater(this._min.key, key) ? this.head : this._min;
+      }
+      /**Get the index associated with the minimum key
+      * @return {number} the index associated with the minimum key
+      */
+      minIndex(){
+        if(this.isEmpty()) throw Error("Priority queue is empty");
+        return this._min.index;
+      }
+      /**Get the minimum key currently in the queue
+      * @return {any} the minimum key currently in the priority queue
+      */
+      min(){
+        if(this.isEmpty()) throw Error("Priority queue is empty");
+        return this._min.key;
+      }
+      /**Delete the minimum key
+      * @return {number} the index associated with the minimum key
+      */
+      delMin(){
+        if(this.isEmpty()) throw Error("Priority queue is empty");
+        this.head = this._cutNode(this._min, this.head);
+        let x = this._min.child,
+            index = this._min.index;
+        this._min.key = null;
+        if(x){
+          do{
+            x.parent = null;
+            x = x.next;
+          }while(x !== this._min.child);
+          this.head = this._meld(this.head, x);
+          this._min.child = null;     //For garbage collection
+        }
+        this.n-=1;
+        if(!this.isEmpty()) this._consolidate();
+        else this._min = null;
+        this.nodes[index] = null;
+        return index;
+      }
+      /**Get the key associated with index i
+      * @param {number} i an index
+      * @return {any} the key associated with index i
+      */
+      keyOf(i){
+        if(i< 0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        return this.nodes[i].key;
+      }
+      /**Changes the key associated with index i to the given key
+      * If the given key is greater, Worst case is O(log(n))
+      * If the given key is lower, Worst case is O(1) (amortized)
+      * @param {number} i an index
+      * @param {any} key the key to associate with i
+      */
+      changeKey(i, key){
+        if(i < 0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        this._greater(key, this.nodes[i].key)? this.increaseKey(i, key) : this.decreaseKey(i, key);
+      }
+      /**Decreases the key associated with index i to the given key
+      * @param {number} i an index
+      * @param {any} key the key to associate with i
+      */
+      decreaseKey(i, key){
+        if(i<0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        if(this._greater(key, this.nodes[i].key))
+          throw Error("Calling with this argument would not decrease the key");
+        let x = this.nodes[i];
+        x.key = key;
+        if(this._greater(this._min.key, key)){
+          this._min = x;
+        }
+        if(x.parent && this._greater(x.parent.key, key)){
+          this._cut(i)
+        }
+      }
+      /**Increases the key associated with index i to the given key
+      * @param {number} i an index
+      * @param {any} key the key to associate with i
+      */
+      increaseKey(i, key){
+        if(i<0 || i>= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        if(this._greater(this.nodes[i].key, key))
+          throw Error("Calling with this argument would not increase the key");
+        this.delete(i);
+        this.insert(i, key);
+      }
+      /**Deletes the key associated the given index
+      * @param {number} i an index
+      */
+      delete(i){
+        if(i<0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        let x = this.nodes[i];
+        x.key = null;       //For garbage collection
+        if(x.parent){ this._cut(i) }
+        this.head = this._cutNode(x, this.head);
+        if(x.child){
+          let child = x.child;
+          x.child = null;     //For garbage collection
+          x = child;
+          do{
+            child.parent = null;
+            child = child.next;
+          }while(child !== x);
+          this.head = this._meld(this.head, child);
+        }
+        if(!this.isEmpty()) this._consolidate();
+        else this._min = null;
+        this.nodes[i] = null;
+        this.n-=1;
+      }
+      _greater(n, m){
+        if(_.nichts(n)) return false;
+        if(_.nichts(m)) return true;
+        return this.compare(n, m) > 0;
+      }
+      _link(root1, root2){
+        root1.parent = root2;
+        root2.child = this._insertNode(root1, root2.child);
+        root2.order+=1;
+      }
+      //Removes a Node from its parent's child list and insert it in the root list
+      //If the parent Node already lost a child, reshapes the heap accordingly
+      _cut(i){
+        let x = this.nodes[i];
+        let parent = x.parent;
+        parent.child = this._cutNode(x, parent.child);
+        x.parent = null;
+        parent.order-=1;
+        this.head = this._insertNode(x, this.head);
+        parent.mark = !parent.mark;
+        if(!parent.mark && parent.parent){
+          this._cut(parent.index);
+        }
+      }
+      //Coalesces the roots, thus reshapes the heap
+      //Caching a HashMap improves greatly performances
+      _consolidate(){
+        let y = null,
+            z = null,
+            maxOrder = 0,
+            x = this.head;
+        this.table.clear();
+        this._min = this.head;
+        do{
+          y = x;
+          x = x.next;
+          z = this.table.get(y.order);
+          while(z){
+            this.table.delete(y.order);
+            if(this._greater(y.key, z.key)){
+              this._link(y, z);
+              y = z;
+            }else{
+              this._link(z, y);
+            }
+            z = this.table.get(y.order);
+          }
+          this.table.set(y.order, y);
+          if(y.order > maxOrder) maxOrder = y.order;
+        }while(x !== this.head);
+        this.head = null;
+        this.table.forEach(n=>{
+          this._min = this._greater(this._min.key, n.key) ? n : this._min;
+          this.head = this._insertNode(n, this.head);
+        })
+      }
+      //Inserts a Node in a circular list containing head, returns a new head
+      _insertNode(x, head){
+        if(!head){
+          x.prev = x;
+          x.next = x;
+        }else{
+          head.prev.next = x;
+          x.next = head;
+          x.prev = head.prev;
+          head.prev = x;
+        }
+        return x;
+      }
+      //Removes a tree from the list defined by the head pointer
+      _cutNode(x, head){
+        if(x.next === x){
+          x.next = null;
+          x.prev = null;
+          return null;
+        }else{
+          x.next.prev = x.prev;
+          x.prev.next = x.next;
+          let res = x.next;
+          x.next = null;
+          x.prev = null;
+          return head === x?  res: head;
+        }
+      }
+      _meld(x, y){
+        if(!x) return y;
+        if(!y) return x;
+        x.prev.next = y.next;
+        y.next.prev = x.prev;
+        x.prev = y;
+        y.next = x;
+        return x;
+      }
+      /**Get an Iterator over the indexes in the priority queue in ascending order
+      * The Iterator does not implement the remove() method
+      * iterator() : Worst case is O(n)
+      * next() :  Worst case is O(log(n)) (amortized)
+      * hasNext() :   Worst case is O(1)
+      * @return {Iterator}
+      */
+      iter(){
+        let copy= new IndexFibonacciMinPQ(this.maxN,this.compare);
+        this.nodes.forEach(x=> {
+          if(x) copy.insert(x.index, x.key);
+        });
+        return{
+          remove(){ throw Error("UnsupportedOperationException") },
+          hasNext(){ return !copy.isEmpty() },
+          next(){
+            if(!this.hasNext()) throw Error("NoSuchElementException");
+            return copy.delMin();
+          }
+        }
+      }
+      static test(){
+        let strings = [ "it", "was", "the", "best", "of", "times", "it", "was", "the", "worst" ];
+        let pq = new IndexFibonacciMinPQ(strings.length,CMP);
+        for(let i=0; i<strings.length; ++i) pq.insert(i, strings[i]);
+        // delete and print each key
+        console.log("min= " +pq.min());
+        console.log("minindex= "+pq.minIndex());
+        console.log("size= "+pq.size());
+        console.log("contains(3)="+pq.contains(3));
+        console.log("keyOf(3)="+pq.keyOf(3));
+        pq.changeKey(3,"bbbb");
+        //pq.delete(3);
+        while(!pq.isEmpty()){
+          let i = pq.minIndex();
+          console.log(i + " " + pq.keyOf(i));
+          pq.delMin();
+        }
+        console.log("");
+        // reinsert the same strings
+        for(let i=0; i<strings.length; ++i) pq.insert(i, strings[i]);
+        // print each key using the iterator
+        for(let i,it=pq.iter();it.hasNext();){
+          i=it.next();
+          console.log(i + " " + strings[i]);
+        }
+        while(!pq.isEmpty()){ pq.delMin() }
+      }
+    }
+    //IndexFibonacciMinPQ.test();
+
+    /**Represents a priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
      */
@@ -7280,10 +7894,11 @@
           this.pq = new Array(keys.length+1);
           this.n = keys.length;
           for(let i=0; i< this.n; ++i) this.pq[i+1] = keys[i];
-          for(let k = int(this.n/2); k>=1; --k) this.sink(k,this);
+          for(let k = int(this.n/2); k>=1; --k) this._sink(k,this);
         }else{
           this.pq= new Array(is.num(keys)? keys: 2);
         }
+        _.assert(this._isMinHeap(),"not min heap");
       }
       /**Returns true if this priority queue is empty.
        * @return {boolean}
@@ -7304,13 +7919,6 @@
         if(this.isEmpty()) throw Error("Priority queue underflow");
         return this.pq[1];
       }
-      // resize the underlying array to have the given capacity
-      XX_resize(c){
-        _.assert(c> this.n,"bad resize capacity");
-        let temp = new Array(c);
-        for(let i=1; i<=this.n; ++i) temp[i] = this.pq[i];
-        this.pq = temp;
-      }
       /**Adds a new key to this priority queue.
        * @param  x the key to add to this priority queue
        */
@@ -7320,7 +7928,8 @@
           this.pq=resize(2*this.pq.length, this.n, 1, this.n+1, this.pq);
         // add x, and percolate it up to maintain heap invariant
         this.pq[++this.n] = x;
-        this.swim(this.n);
+        this._swim(this.n);
+        _.assert(this._isMinHeap(),"not min heap-insert");
       }
       /**Removes and returns a smallest key on this priority queue.
        * @return {any}
@@ -7329,45 +7938,45 @@
         if(this.isEmpty()) throw Error("Priority queue underflow");
         let min=this.pq[1];
         exch(this.pq, 1, this.n--);
-        this.sink(1);
+        this._sink(1);
         this.pq[this.n+1] = null;// to avoid loitering and help with garbage collection
         if((this.n>0) &&
            (this.n==int((this.pq.length-1)/4)))
           this.pq= resize(int(this.pq.length/2),this.n,1,this.n+1,this.pq);
         return min;
       }
-      swim(k){
-        while(k>1 && this.greater(int(k/2), k)){
+      _swim(k){
+        while(k>1 && this._greater(int(k/2), k)){
           exch(this.pq, k, int(k/2));
           k=int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         while(2*k <= this.n){
           let j = 2*k;
-          if(j<this.n && this.greater(j, j+1)) j++;
-          if(!this.greater(k, j)) break;
+          if(j<this.n && this._greater(j, j+1)) j++;
+          if(!this._greater(k, j)) break;
           exch(this.pq, k, j);
           k=j;
         }
       }
-      greater(i, j){
+      _greater(i, j){
         return this.comparator(this.pq[i], this.pq[j]) > 0;
       }
       // is pq[1..n] a min heap?
-      isMinHeap(){
+      _isMinHeap(){
         for(let i=1; i<=this.n; ++i) if(_.nichts(this.pq[i])) return false;
         for(let i=this.n+1; i<this.pq.length; ++i) if(!_.nichts(this.pq[i])) return false;
-        return _.echt(this.pq[0])? false: this.isMinHeapOrdered(1);
+        return _.echt(this.pq[0])? false: this._isMinHeapOrdered(1);
       }
       // is subtree of pq[1..n] rooted at k a min heap?
-      isMinHeapOrdered(k){
+      _isMinHeapOrdered(k){
         if(k>this.n) return true;
         let left = 2*k,
             right = 2*k + 1;
-        if(left  <= this.n && this.greater(k, left))  return false;
-        if(right <= this.n && this.greater(k, right)) return false;
-        return this.isMinHeapOrdered(left) && this.isMinHeapOrdered(right);
+        if(left  <= this.n && this._greater(k, left))  return false;
+        if(right <= this.n && this._greater(k, right)) return false;
+        return this._isMinHeapOrdered(left) && this._isMinHeapOrdered(right);
       }
       /**Returns an iterator that iterates over the keys.
        * @return {Iterator}
@@ -7421,10 +8030,11 @@
           this.pq = new Array(keys.length+1);
           this.n = keys.length;
           for(let i=0; i<this.n; ++i) this.pq[i+1] = keys[i];
-          for(let k=int(this.n/2); k>=1; --k) this.sink(k);
+          for(let k=int(this.n/2); k>=1; --k) this._sink(k);
         }else{
           this.pq= new Array(is.num(keys)? keys: 2);
         }
+        _.assert(this._isMaxHeap(),"not max heap");
       }
       /**Returns true if this priority queue is empty.
        * @return {boolean}
@@ -7456,7 +8066,8 @@
         // add x, and percolate it up to maintain heap invariant
         this.n+=1;
         this.pq[this.n] = x;
-        this.swim(this.n);
+        this._swim(this.n);
+        _.assert(this._isMaxHeap(),"not max heap-insert");
       }
       /**Removes and returns a largest key on this priority queue.
        * @return a largest key on this priority queue
@@ -7468,20 +8079,34 @@
         let max = this.pq[1];
         exch(this.pq, 1, this.n);
         this.n-=1;
-        this.sink(1);
+        this._sink(1);
         this.pq[this.n+1] = null;     // to avoid loitering and help with garbage collection
         if(this.n > 0 &&
            this.n == int((this.pq.length-1)/4))
           this.pq=resize(int(this.pq.length/2), this.n, 1, this.n+1, this.pq);
         return max;
       }
-      swim(k){
+      _isMaxHeap(){
+        for(let i=1; i <= this.n; ++i) if(_.nichts(this.pq[i])) return false;
+        for(let i = this.n+1; i < this.pq.length; ++i) if(_.echt(this.pq[i])) return false;
+        if(_.echt(this.pq[0])) return false;
+        return this._isMaxHeapOrdered(1);
+      }
+      _isMaxHeapOrdered(k){
+        if(k > this.n) return true;
+        let left = 2*k,
+            right = 2*k + 1;
+        if(left  <= this.n && less4(this.pq,k, left,this.comparator))  return false;
+        if(right <= this.n && less4(this.pq,k, right,this.comparator)) return false;
+        return this._isMaxHeapOrdered(left) && this._isMaxHeapOrdered(right);
+      }
+      _swim(k){
         while(k>1 && less4(this.pq, int(k/2), k, this.comparator)){
           exch(this.pq, k, int(k/2));
           k= int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         let j;
         while(2*k <= this.n){
           j = 2*k;
@@ -7614,7 +8239,7 @@
        * @return {boolean}
        */
       contains(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         return this.qp[i] != -1;
       }
       /**Returns the number of keys on this priority queue.
@@ -7628,14 +8253,14 @@
        * @param  {any} key the key to associate with index {@code i}
        */
       insert(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(this.contains(i))
           throw Error("index is already in the priority queue");
         ++this.n;
         this.qp[i] = this.n;
         this.pq[this.n] = i;
         this.mKeys[i] = key;
-        this.swim(this.n);
+        this._swim(this.n);
       }
       /**Returns an index associated with a minimum key.
        * @return {any}
@@ -7657,8 +8282,8 @@
       delMin(){
         if(this.n == 0) throw Error("Priority queue underflow");
         let min = this.pq[1];
-        this.exch(1, this.n--);
-        this.sink(1);
+        this._exch(1, this.n--);
+        this._sink(1);
         _.assert(min == this.pq[this.n+1], "No good");
         this.qp[min] = -1; // delete
         this.mKeys[min] = null;  // to help with garbage collection
@@ -7670,7 +8295,7 @@
        * @return {any}
        */
       keyOf(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         return this.mKeys[i];
@@ -7680,19 +8305,19 @@
        * @param  {any} key change the key associated with index {@code i} to this key
        */
       changeKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-        this.sink(this.qp[i]);
+        this._swim(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Decrease the key associated with index {@code i} to the specified value.
        * @param  {number} i the index of the key to decrease
        * @param  {any} key decrease the key associated with index {@code i} to this key
        */
       decreaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let c=this.compare(this.mKeys[i],key);
@@ -7701,14 +8326,14 @@
         if(c< 0)
           throw Error("Calling decreaseKey() with a key strictly greater than the key in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
+        this._swim(this.qp[i]);
       }
       /**Increase the key associated with index {@code i} to the specified value.
        * @param  {number} i the index of the key to increase
        * @param  {any} key increase the key associated with index {@code i} to this key
        */
       increaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let c= this.compare(this.mKeys[i],key);
@@ -7717,48 +8342,48 @@
         if(c>0)
           throw Error("Calling increaseKey() with a key strictly less than the key in the priority queue");
         this.mKeys[i] = key;
-        this.sink(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Remove the key associated with index {@code i}.
        * @param  {number} i the index of the key to remove
        */
       delete(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let index = this.qp[i];
-        this.exch(index, this.n--);
-        this.swim(index);
-        this.sink(index);
+        this._exch(index, this.n--);
+        this._swim(index);
+        this._sink(index);
         this.mKeys[i] = null;
         this.qp[i] = -1;
       }
-      validateIndex(i){
+      _validateIndex(i){
         if(i<0) throw Error("index is negative: " + i);
         if(i >= this.maxN) throw Error("index >= capacity: " + i);
       }
-      greater(i, j){
+      _greater(i, j){
         return this.compare(this.mKeys[this.pq[i]],this.mKeys[this.pq[j]]) > 0;
       }
-      exch(i, j){
+      _exch(i, j){
         let swap = this.pq[i];
         this.pq[i] = this.pq[j];
         this.pq[j] = swap;
         this.qp[this.pq[i]] = i;
         this.qp[this.pq[j]] = j;
       }
-      swim(k){
-        while(k>1 && this.greater(int(k/2), k)){
-          this.exch(k, int(k/2));
+      _swim(k){
+        while(k>1 && this._greater(int(k/2), k)){
+          this._exch(k, int(k/2));
           k = int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         while(2*k <= this.n){
           let j = 2*k;
-          if(j<this.n && this.greater(j, j+1)) ++j;
-          if(!this.greater(k, j)) break;
-          this.exch(k, j);
+          if(j<this.n && this._greater(j, j+1)) ++j;
+          if(!this._greater(k, j)) break;
+          this._exch(k, j);
           k = j;
         }
       }
@@ -7794,9 +8419,7 @@
         }
         console.log("");
         // reinsert the same strings
-        for(let i=0; i<strings.length; ++i){
-          pq.insert(i, strings[i]);
-        }
+        for(let i=0; i<strings.length; ++i) pq.insert(i, strings[i]);
         // print each key using the iterator
         for(let i,it=pq.iter();it.hasNext();){
           i=it.next();
@@ -7843,7 +8466,7 @@
        * @return {boolean}
        */
       contains(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         return this.qp[i] != -1;
       }
       /**Returns the number of keys on this priority queue.
@@ -7857,14 +8480,14 @@
        * @param {any} key the key to associate with index {@code i}
        */
       insert(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(this.contains(i))
           throw Error("index is already in the priority queue");
         ++this.n;
         this.qp[i] = this.n;
         this.pq[this.n] = i;
         this.mKeys[i] = key;
-        this.swim(this.n);
+        this._swim(this.n);
       }
       /**Returns an index associated with a maximum key.
        * @return {any}
@@ -7886,8 +8509,8 @@
       delMax(){
         if(this.n == 0) throw Error("Priority queue underflow");
         let max = this.pq[1];
-        this.exch(1, this.n--);
-        this.sink(1);
+        this._exch(1, this.n--);
+        this._sink(1);
         _.assert(this.pq[this.n+1] == max,"bad delMax");
         this.qp[max] = -1;        // delete
         this.mKeys[max] = null;    // to help with garbage collection
@@ -7899,7 +8522,7 @@
        * @return {any}
        */
       keyOf(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         return this.mKeys[i];
@@ -7909,19 +8532,19 @@
        * @param  {any} key change the key associated with index {@code i} to this key
        */
       changeKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-        this.sink(this.qp[i]);
+        this._swim(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Increase the key associated with index {@code i} to the specified value.
        * @param {number} i the index of the key to increase
        * @param {any} key increase the key associated with index {@code i} to this key
        */
       increaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         if(this.compare(this.mKeys[i],key) == 0)
@@ -7929,14 +8552,14 @@
         if(this.compare(this.mKeys[i],key) > 0)
           throw Error("Calling increaseKey() with a key that is strictly less than the key in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
+        this._swim(this.qp[i]);
       }
       /**Decrease the key associated with index {@code i} to the specified value.
        * @param {number} i the index of the key to decrease
        * @param {any} key decrease the key associated with index {@code i} to this key
        */
       decreaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         if(this.compare(this.mKeys[i],key) == 0)
@@ -7944,48 +8567,48 @@
         if(this.compare(this.mKeys[i],key) < 0)
           throw Error("Calling decreaseKey() with a key that is strictly greater than the key in the priority queue");
         this.mKeys[i] = key;
-        this.sink(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Remove the key on the priority queue associated with index {@code i}.
        * @param {number} i the index of the key to remove
        */
       delete(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let index = this.qp[i];
-        this.exch(index, this.n--);
-        this.swim(index);
-        this.sink(index);
+        this._exch(index, this.n--);
+        this._swim(index);
+        this._sink(index);
         this.mKeys[i] = null;
         this.qp[i] = -1;
       }
-      validateIndex(i){
+      _validateIndex(i){
         if(i<0) throw Error("index is negative: " + i);
         if(i>=this.maxN) throw Error("index >= capacity: " + i);
       }
-      less(i,j){
+      _less(i,j){
         return less(this.mKeys[this.pq[i]], this.mKeys[this.pq[j]], this.compare)
       }
-      exch(i, j){
+      _exch(i, j){
         let swap = this.pq[i];
         this.pq[i] = this.pq[j];
         this.pq[j] = swap;
         this.qp[this.pq[i]] = i;
         this.qp[this.pq[j]] = j;
       }
-      swim(k){
-        while(k > 1 && this.less(int(k/2), k)) {
-          this.exch(k, int(k/2));
+      _swim(k){
+        while(k > 1 && this._less(int(k/2), k)) {
+          this._exch(k, int(k/2));
           k = int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         while(2*k <= this.n){
           let j = 2*k;
-          if(j < this.n && this.less(j, j+1)) ++j;
-          if(!this.less(k, j)) break;
-          this.exch(k, j);
+          if(j < this.n && this._less(j, j+1)) ++j;
+          if(!this._less(k, j)) break;
+          this._exch(k, j);
           k = j;
         }
       }
@@ -8049,6 +8672,7 @@
     //IndexMaxPQ.test();
 
     const _$={
+      FibonacciMinPQ, IndexFibonacciMinPQ,
       Insertion,BinaryInsertion,Selection,Shell,
       Merge,Bubble,Quick,MinPQ, MaxPQ,Heap,IndexMinPQ,IndexMaxPQ
     };
@@ -8087,10 +8711,12 @@
 
   /**Create the module.
    */
-  function _module(Core,Basic){
+  function _module(Core,Basic,Sort){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
+    if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     const {Bag,Stack,Queue,StdCompare:CMP,prnIter}= Basic;
+    const {MinPQ}= Sort;
     const int=Math.floor;
     const {is,u:_}= Core;
 
@@ -9899,9 +10525,147 @@
         }
       }
     }
-    AVLTreeST.test();
+    //AVLTreeST.test();
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const SQRT2=Math.sqrt(2);
+    function AStarGridNode(loc,par){
+      return{
+        parent: par, pos: loc, f:0, g:0, h:0,
+        pid: `${loc[0]},${loc[1]}`,
+        equals(o){
+          return this.pos[0]==o.pos[0] &&
+                 this.pos[1]==o.pos[1]
+        }
+      }
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**A* search algo for grid.
+     * @memberof module:mcfud/algo_search
+     * @class
+     */
+    class AStarGrid{
+      /**Use when movement is limited to 4 directions only.
+       * @param {array} test node pos
+       * @param {array} goal node pos
+       * @param {number} cost
+       */
+      static manhattan(test, goal,cost=1){
+        return cost*Math.abs(test[1] - goal[1]) +
+               cost*Math.abs(test[0] - goal[0]);
+      }
+      /**Use when movements are allowed in all directions.
+       * @param {array} test node pos
+       * @param {array} goal node pos
+       * @param {number} cost
+       */
+      static euclidean(test, goal,cost=1){
+        let vx = goal[0] - test[0],
+            vy = goal[1] - test[1];
+        return cost * (vx * vx + vy * vy);
+      }
+      /**Use when movements are allowed in all directions.
+       * @param {array} test node pos
+       * @param {array} goal node pos
+       * @param {number} cost
+       */
+      static diagonal(test, goal,cost=1,xcost=SQRT2){
+        let dx = Math.abs(goal[0] - test[0]),
+            dy = Math.abs(goal[1] - test[1]);
+        return cost * (dx + dy) + (xcost - 2 * cost) * Math.min(dx, dy);
+      }
+      constructor(grid){
+        this.grid=grid;
+      }
+      pathTo(start, end, ctx){
+        return this._search(this.grid,start,end,ctx)
+      }
+      _search(grid,start,end,ctx){
+        const CMP=ctx.compare,
+              ROWS= grid.length,
+              COLS= grid[0].length,
+              closedSet = new Map(),
+              openTM= new Map(),
+              openSet = new MinPQ(CMP,10),
+              goalNode = AStarGridNode(end),
+              startNode = AStarGridNode(start),
+              dirs=[[1,0],[-1,0],[0,1],[0,-1]],
+              rpath=(cn,out)=>{ for(;cn;cn=cn.parent) out.unshift(cn.pos); return out; };
+        //include diagonal neighbors?
+        if(ctx.wantDiagonal)
+          dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);
+        openTM.set(startNode.pid,startNode.g);
+        openSet.insert(startNode);
+        //begin...
+        let cur,neighbors=[];
+        while(!openSet.isEmpty()){
+          cur= openSet.delMin();
+          openTM.delete(cur.pid);
+          closedSet.set(cur.pid,0);
+          //done?
+          if(cur.equals(goalNode)){return rpath(cur,[])}
+          neighbors.length=0;
+          for(let p,i=0;i<dirs.length;++i){
+            p = [cur.pos[0] + dirs[i][0], cur.pos[1] + dirs[i][1]];
+            if(p[0] > (COLS-1) || p[0] < 0 ||
+               p[1] > (ROWS-1) || p[1] < 0 || ctx.blocked(p)){
+            }else{
+              neighbors.push(AStarGridNode(p,cur));
+            }
+          }
+          neighbors.forEach(co=>{
+            if(!closedSet.has(co.pid)){
+              co.g = cur.g + ctx.cost();
+              co.h = ctx.calcHeuristic(co.pos,goalNode.pos);
+              co.f = co.g + co.h;
+              //update if lower cost
+              if(openTM.has(co.pid) && co.g > openTM.get(co.pid)){}else{
+                openSet.insert(co);
+                openTM.set(co.pid, co.g);
+              }
+            }
+          });
+        }
+      }
+      static test(){
+        let grid = [[0, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
+                    [0, 1, 0, 1, 0, 0],
+                    [0, 1, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 1, 0]];
+        let ROWS=grid.length,COLS=grid[0].length;
+        let ctx={
+          wantDiagonal:false,
+          compare(a,b){ return a.f-b.f },
+          cost(){ return 1 },
+          blocked(n){ return grid[n[1]][n[0]] != 0 },
+          calcHeuristic(a,g){
+            //return AStarGrid.diagonal(a,g,10,14);
+            return AStarGrid.euclidean(a,g);
+            //return AStarGrid.manhattan(a,g,10)
+          }
+        }
+        let c,r,m,p= new AStarGrid(grid).pathTo([0,0],[5,4],ctx);
+        if(p){
+          m=""; p.forEach(n=>{ m+= `[${n[0]},${n[1]}] `; }); console.log(m);
+          r=_.fill(ROWS, ()=> _.fill(COLS, "#"));
+          c=0;
+          p.forEach(n=>{
+            r[n[1]][n[0]]= ""+c;
+            ++c;
+          });
+          r.forEach(row=>{
+            console.log(row.toString())
+          });
+        }else{
+          console.log("no path");
+        }
+      }
+    }
+    //AStarGrid.test();
 
     const _$={
+      AStarGrid,
       AVLTreeST,
       BinarySearch,
       RedBlackBST,
@@ -9916,7 +10680,7 @@
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"))
+    module.exports=_module(require("../main/core"),require("./basic"),require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/search"]=_module
   }
@@ -9949,8 +10713,8 @@
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
-    const {prnIter, Bag,Stack,Queue,ST,StdCompare:CMP}= Basic;
-    const {IndexMinPQ}= Sort;
+    const {prnIter, TreeMap,Bag,Stack,Queue,ST,StdCompare:CMP}= Basic;
+    const {IndexMinPQ,MinPQ}= Sort;
     const int=Math.floor;
     const {is,u:_}= Core;
 
@@ -10537,7 +11301,7 @@
        */
       edges(){
         const list = new Bag();
-        for(let it,s,e,v=0; v<V; ++v){
+        for(let it,s,e,v=0; v<this._V; ++v){
           s=0;
           for(it=this.adjls[v].iter(); it.hasNext();){
             e=it.next();
@@ -10550,7 +11314,7 @@
             }
           }
         }
-        return list;
+        return list.iter();
       }
       /**Returns a string representation of the edge-weighted graph.
        * This method takes time proportional to <em>E</em> + <em>V</em>.
@@ -11997,10 +12761,252 @@
     }
     //DijkstraSP.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function AStarGraphNode(V=0,par=null,g=0,h=0,f=0){
+      return{
+        parent: par, V, f, g, h,
+        equals(o){ return o.V==this.V }
+      }
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**
+     * @memberof module:mcfud/algo_graph
+     * @class
+     */
+    class AStarSP{
+      constructor(G){
+        _.assert(G instanceof EdgeWeightedGraph,"Expected EdgeWeightedGraph");
+        this.G=G;
+      }
+      pathTo(start, end, ctx){
+        return this._search(this.G,start,end,ctx)
+      }
+      _search(G,start,end,ctx){
+        const CMP=ctx.compare,
+              closedSet = new Map(),
+              openTM= new Map(),
+              openSet = new MinPQ(CMP,10),
+              goalNode = AStarGraphNode(end),
+              startNode = AStarGraphNode(start),
+              rpath=(cn,out)=>{ for(;cn;cn=cn.parent) out.unshift(cn.V); return out; };
+        openTM.set(startNode.V,startNode.g);
+        openSet.insert(startNode);
+        //begin...
+        let cur,neighbors=[];
+        while(!openSet.isEmpty()){
+          cur= openSet.delMin();
+          openTM.delete(cur.V);
+          closedSet.set(cur.V,0);
+          //done?
+          if(cur.equals(goalNode)){return rpath(cur,[])}
+          //check neigbors
+          for(let co,f,g,h,w,it=G.adj(cur.V).iter(); it.hasNext();){
+            w=it.next().other(cur.V);
+            if(!closedSet.has(w)){
+              g = cur.g + ctx.calcCost(w,cur.V);
+              h = ctx.calcHeuristic(w,goalNode.V);
+              f = g + h;
+              //update if lower cost
+              if(openTM.has(w) && g > openTM.get(w)){}else{
+                openSet.insert(AStarGraphNode(w,cur,g,h,f));
+                openTM.set(w, g);
+              }
+            }
+          }
+        }
+      }
+      static test(){
+        let D=[0, 1, 111, 0, 2, 85, 1, 3, 104, 1, 4, 140, 1, 5, 183, 2, 3, 230, 2, 6, 67,
+               6, 7, 191, 6, 4, 64, 3, 5, 171, 3, 8, 170, 3, 9, 220, 4, 5, 107, 7, 10, 91,
+               7, 11, 85, 10, 11, 120, 11, 12, 184, 12, 5, 55, 12, 8, 115, 8, 5, 123,
+               8, 9, 189, 8, 13, 59, 13, 14, 81, 9, 15, 102, 14, 15, 126];
+        let G= EdgeWeightedGraph.load(16,D);
+        let H = {};
+        H['7'] = 204;
+        H['10'] = 247;
+        H['0'] = 215;
+        H['6'] = 137;
+        H['15'] = 318;
+        H['2'] = 164;
+        H['8'] = 120;
+        H['12'] = 47;
+        H['3'] = 132;
+        H['9'] = 257;
+        H['13'] = 168;
+        H['4'] = 75;
+        H['14'] = 236;
+        H['1'] = 153;
+        H['11'] = 157;
+        H['5'] = 0;
+        let ctx={
+          compare(a,b){ return a.f-b.f },
+          calcCost(test,cur){
+            for(let e,it=G.adj(test).iter();it.hasNext();){
+              e=it.next();
+              if(e.other(test)==cur) return e.weight();
+            }
+            throw Error("Boom");
+          },
+          calcHeuristic(w,g){
+            return H[w]
+          }
+        }
+        let c,r,m,p= new AStarSP(G).pathTo(0,5,ctx);
+        if(p){
+          m=""; p.forEach(n=>{ m+= `[${n}] `; }); console.log(m);
+        }else{
+          console.log("no path");
+        }
+      }
+    }
+    //AStarSP.test();
+
+    /**Represents a data type for solving
+     *  the single-source shortest paths problem in edge-weighted graphs
+     *  where the edge weights are non-negative.
+     * @memberof module:mcfud/algo_graph
+     * @class
+     */
+    class DijkstraUndirectedSP{
+      /**Computes a shortest-paths tree from the source vertex {@code s} to every
+       * other vertex in the edge-weighted graph {@code G}.
+       * @param {Graph} G the edge-weighted digraph
+       * @param {number} s the source vertex
+       * @param {function} compareFn
+       */
+      constructor(G, s,compareFn) {
+        _.assert(G instanceof EdgeWeightedGraph,"Expected EdgeWeightedGraph");
+        //distTo  distTo[v] = distance  of shortest s->v path
+        //edgeTo  edgeTo[v] = last edge on shortest s->v path
+        //pq     priority queue of vertices
+        for(let e,it=G.edges();it.hasNext();){
+          e=it.next();
+          if(e.weight()<0)
+            throw new Error(`edge ${e} has negative weight`);
+        }
+        this._distTo = _.fill(G.V(),()=> Infinity);
+        this._distTo[s] = 0;
+        this.compare=compareFn;
+        this.edgeTo = _.fill(G.V(), ()=> null);
+        _chkVertex(s,G.V());
+        // relax vertices in order of distance from s
+        this.pq = new IndexMinPQ(G.V(),this.compare);
+        this.pq.insert(s, this._distTo[s]);
+        while(!this.pq.isEmpty()){
+          let v = this.pq.delMin();
+          for(let it=G.adj(v).iter(); it.hasNext();) this._relax(it.next(), v);
+        }
+        // check optimality conditions
+        this._check(G, s);
+      }
+      // relax edge e and update pq if changed
+      _relax(e, v){
+        let w = e.other(v);
+        if(this._distTo[w] > this._distTo[v] + e.weight()) {
+          this._distTo[w] = this._distTo[v] + e.weight();
+          this.edgeTo[w] = e;
+          if(this.pq.contains(w)) this.pq.decreaseKey(w, this._distTo[w]);
+          else this.pq.insert(w, this._distTo[w]);
+        }
+      }
+      /**Returns the length of a shortest path between the source vertex {@code s} and
+       * vertex {@code v}.
+       * @param  {number} v the destination vertex
+       * @return {number}
+       */
+      distTo(v){
+        return _chkVertex(v,this._distTo.length) && this._distTo[v]
+      }
+      /**Returns true if there is a path between the source vertex {@code s} and
+       * vertex {@code v}.
+       * @param  {number} v the destination vertex
+       * @return {boolean}
+       */
+      hasPathTo(v){
+        return _chkVertex(v,this._distTo.length) && this._distTo[v] < Infinity
+      }
+      /**Returns a shortest path between the source vertex {@code s} and vertex {@code v}.
+       * @param  {number} v the destination vertex
+       * @return {Iterator}
+       */
+      pathTo(v){
+        if(_chkVertex(v,this._distTo.length) && this.hasPathTo(v)){
+          let x=v,path = new Stack();
+          for(let e = this.edgeTo[v]; e !== null; e = this.edgeTo[x]){
+            path.push(e);
+            x = e.other(x);
+          }
+          return path.iter();
+        }
+      }
+      // check optimality conditions:
+      // (i) for all edges e = v-w:            distTo[w] <= distTo[v] + e.weight()
+      // (ii) for all edge e = v-w on the SPT: distTo[w] == distTo[v] + e.weight()
+      _check(G, s){
+        // check that edge weights are non-negative
+        for(let it=G.edges();it.hasNext();){
+          if(it.next().weight() < 0)
+            throw Error("negative edge weight detected");
+        }
+        // check that distTo[v] and edgeTo[v] are consistent
+        if(this._distTo[s] != 0 || this.edgeTo[s] !== null){
+          throw Error("distTo[s] and edgeTo[s] inconsistent");
+        }
+        for(let v=0; v<G.V(); ++v){
+          if(v == s) continue;
+          if(this.edgeTo[v] === null &&
+             this._distTo[v] != Infinity){
+            throw Error("distTo[] and edgeTo[] inconsistent");
+          }
+        }
+        // check that all edges e = v-w satisfy distTo[w] <= distTo[v] + e.weight()
+        for(let v=0; v<G.V(); ++v){
+          for(let w,e,it=G.adj(v).iter();it.hasNext();){
+            e=it.next();
+            w = e.other(v);
+            if(this._distTo[v] + e.weight() < this._distTo[w]){
+              throw Error(`edge ${e} not relaxed`);
+            }
+          }
+        }
+        // check that all edges e = v-w on SPT satisfy distTo[w] == distTo[v] + e.weight()
+        for(let v,e,w=0; w<G.V(); ++w){
+          if(this.edgeTo[w] === null) continue;
+          e = this.edgeTo[w];
+          if(w != e.either() && w != e.other(e.either())) return false;
+          v = e.other(w);
+          if(this._distTo[v] + e.weight() != this._distTo[w]) {
+            throw Error(`edge ${e} on shortest path not tight`);
+          }
+        }
+        return true;
+      }
+      static test(){
+        let data=`4 5 0.35 4 7 0.37 5 7 0.28 0 7 0.16 1 5 0.32 0 4 0.38
+                  2 3 0.17 1 7 0.19 0 2 0.26 1 2 0.36 1 3 0.29 2 7 0.34
+                  6 2 0.40 3 6 0.52 6 0 0.58 6 4 0.93`.split(/\s+/).map(n=>{return +n});
+        let s=6,G = EdgeWeightedGraph.load(8,data);
+        let sp = new DijkstraUndirectedSP(G, s,CMP);
+        for(let m,t=0; t<G.V(); ++t){
+          if(sp.hasPathTo(t)){
+            m= `${s} to ${t} (${Number(sp.distTo(t)).toFixed(2)})  `;
+            for(let it= sp.pathTo(t);it.hasNext();){
+              m += `${it.next()}   `;
+            }
+            console.log(m);
+          }else{
+            console.log(`${s} to ${t}         no path`);
+          }
+        }
+      }
+    }
+    //DijkstraUndirectedSP.test();
+
     const _$={
       DepthFirstDirectedPaths,
       BreadthFirstDirectedPaths,
       SymbolGraph,
+      DijkstraUndirectedSP,
       DijkstraSP,
       Topological,
       SymbolDigraph,
@@ -12032,6 +13038,932 @@
   }
 
 })(this);
+
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+
+;(function(global){
+
+	"use strict";
+
+	/**Create the module.
+   */
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    const int=Math.floor;
+    const {u:_, is}= Core;
+
+		/**
+     * @module mcfud/NNetGA
+     */
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		const MAX_PERTURBATION = 0.3,
+			    BIAS= -1,
+			    ACTIVATION_RESPONSE = 1;
+
+		/**
+     * @typedef {object} Statistics
+     * @property {number} averageScore
+		 * @property {number} totalScore
+		 * @property {number} bestScore
+		 * @property {number} worstScore
+		 * @property {object} best
+     */
+
+		/**
+     * @typedef {object} FitnessObject
+     * @property {function} gt greater than
+     * @property {function} lt less than
+		 * @property {function} eq equals
+		 * @property {function} clone
+		 * @property {function} score
+     */
+
+		/**
+     * @typedef {object} ChromosomeObject
+     * @property {number} age
+     * @property {array} genes
+		 * @property {FitnessObject} fitness
+		 * @property {function} clone
+     */
+
+		/**
+     * @typedef {object} NeuronObject
+     * @property {number} numInputs number of inputs into neuron
+     * @property {number[]} weights list of weights
+     */
+
+		/**
+     * @typedef {object} NeuronLayerObject
+     * @property {number} numNeurons number of neurons in layer
+     * @property {NeuronObject[]} neurons list of neurons
+     */
+
+		/**
+     * @typedef {object} NeuronNetObject
+		 * @property {number} numOfWeights
+		 * @property {number} numOutputs
+		 * @property {number} numInputs
+		 * @property {number} numHidden
+		 * @property {number} neuronsPerHidden
+		 * @property {NeuronLayerObject[]} layers
+		 * @property {function} putWeights
+		 * @property {function} getNumberOfWeights
+		 * @property {function} update
+		 * @property {function} sigmoid
+		 * @property {function} calcSplitPoints
+     */
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {number} numInputs
+		 * @return {NeuronObject}
+		 */
+		function SNeuron(numInputs){
+			//add one for bias
+			let weights= _.fill(numInputs+1, ()=> _.randMinus1To1());
+			return{ activation:0, error:0, weights, numInputs: weights.length };
+		}
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {number} numNeurons
+		 * @param {number} numInputsPerNeuron
+		 * @return {NeuronLayerObject}
+		 */
+		function SNeuronLayer(numNeurons, numInputsPerNeuron){
+			return {
+				numNeurons,
+				neurons: _.fill(numNeurons,()=> SNeuron(numInputsPerNeuron))
+			}
+		}
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {number} numInputs
+		 * @param {number} numOutputs
+		 * @param {number} numHidden
+		 * @param {number} neuronsPerHidden
+		 * @return {NeuralNetObject}
+		 */
+		function NeuralNet(numInputs, numOutputs, numHidden, neuronsPerHidden){
+			function createNet(out){
+				//make the first layer
+				out.push(SNeuronLayer(numHidden>0?neuronsPerHidden:numOutputs,numInputs));
+				if(numHidden>0){
+					for(let i=0;i<numHidden-1;++i)
+						out.push(SNeuronLayer(neuronsPerHidden, neuronsPerHidden));
+					out.push(SNeuronLayer(numOutputs, neuronsPerHidden));
+				}
+				return [out, countWeights(out)];
+			}
+			function countWeights(l){
+				let sum = 0
+				_.doseq(l, y=>
+					_.doseq(y.neurons, u=> {sum += u.weights.length}));
+				return sum;
+			}
+			let [layers, numOfWeights]=createNet([]);
+			return{
+				numOfWeights,
+				numOutputs,
+				numInputs,
+				numHidden,
+				neuronsPerHidden,
+				layers,
+				//getWeights(){ return this.layers.map(y=> y.neurons.map(u=> u.weights.map(v=>v)).flat()).flat(); },
+				putWeights(weights){
+					let pos=0;
+					_.doseq(this.layers, y=>
+						_.doseq(y.neurons, u=>
+							_.doseq(u.weights, (v,i)=> u.weights[i]= weights[pos++])));
+				},
+				getNumberOfWeights(){
+					return this.numOfWeights;//countWeights(this.layers)
+				},
+				update(inputs){
+					let sumInput,numInputs,idx = 0, out=[];
+					if(inputs.length == this.numInputs)
+						_.doseq(this.layers, (y,i)=>{
+							if(i>0)
+								inputs = out;
+							idx  = 0;
+							out= [];
+							y.neurons.forEach(u=>{
+								idx = 0;
+								sumInput = 0;
+								numInputs = u.numInputs;
+								for(let k=0;k<numInputs-1;++k){
+									sumInput += (u.weights[k] * inputs[idx]);
+									++idx;
+								}
+								sumInput += (u.weights[numInputs-1] * BIAS);
+								u.activation= this.sigmoid(sumInput, ACTIVATION_RESPONSE);
+								out.push(u.activation);
+							});
+						});
+					_.assert(out.length== this.numOutputs, "out length incorrect");
+					return out;
+				},
+				sigmoid(input, response){
+					return (1 / (1 + Math.exp(-input / response)))
+				},
+				calcSplitPoints(){
+					let pts= [],
+							pos = 0;
+					this.layers.forEach(y=> y.neurons.forEach(u=>{
+						pos += u.numInputs;
+						pts.push(pos-1);
+					}));
+					return pts;
+				}
+			}
+		}
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} genes
+		 * @param {FitnessObject} fitness
+		 * @return {ChromosomeObject}
+		 */
+		function Chromosome(genes, fitness){
+			return {
+				age:0,genes,fitness, clone(){
+					return Chromosome(this.genes.slice(),this.fitness.clone())
+				}
+			}
+		}
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {number} v
+		 * @return {FitnessObject}
+		 */
+		function NumericFitness(v,flipped){
+			return{
+				value:v,
+				gt(b){
+					return flipped? this.value < b.value: this.value > b.value
+				},
+				eq(b){
+					return this.value==b.value
+				},
+				lt(b){
+					return flipped? this.value > b.value: this.value < b.value
+				},
+				score(){
+					return this.value
+				},
+				clone(){
+					return NumericFitness(v)
+				}
+			}
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function randSpan(genes){
+			let a= _.randInt(genes.length),
+					b= _.randInt(genes.length);
+			return a<b ? [a,b] : [b,a];
+		}
+
+		/**Choose two random points and “scramble” the genes located between them.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} genes
+		 */
+		function mutateSM(genes, mRate){
+			if(_.rand()<=mRate){
+				let [beg, end] = randSpan(genes);
+				let tmp,count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+					case 1:
+						break;
+					case 2:
+						tmp=genes[beg+1];
+						genes[beg+1]=genes[beg+2];
+						genes[beg+2]=tmp;
+						break;
+					default:
+						tmp=_.shuffle(genes.slice(beg+1,end));
+						for(let k=0,i=beg+1;i<end;++i){
+							genes[i]=tmp[k++];
+						}
+						break;
+				}
+			}
+		}
+
+		/**Select two random points, grab the chunk of chromosome between them,
+		 * and then reinsert at a random position displaced from the original.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} genes
+		 */
+		function mutateDM(genes,mRate){
+			if(_.rand()<=mRate){
+				let [beg, end]= randSpan(genes);
+				let p,tmp,rem,count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+						break;
+					default:
+						tmp=genes.slice(beg+1,end);
+						rem=genes.slice(0,beg+1).concat(genes.slice(end));
+						p=_.randInt2(rem.length-1);
+						tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
+						_.assert(tmp.length==genes.length,"Boom");
+						tmp.forEach((v,i)=> genes[i]=v);
+						break;
+				}
+			}
+		}
+
+		/**Almost the same as the DM operator, except here only one gene is selected
+		 * to be displaced and inserted back into the chromosome.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} genes
+		 */
+		function mutateIM(genes,mRate){
+			if(_.rand()<=mRate){
+				let b,a=_.randInt(genes.length);
+				b=_.randInt(genes.length);
+				while(b==a)
+					b=_.randInt(genes.length);
+				_.swap(genes, a,b);
+			}
+		}
+
+		/**Select two random points and reverse the genes between them.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} genes
+		 */
+		function mutateIVM(genes,mRate){
+			if(_.rand()<=mRate){
+				let [beg, end]= randSpan(genes);
+				let tmp,count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+					case 1:
+						break;
+					default:
+						tmp=genes.slice(beg+1,end).reverse();
+						for(let k=0, i=beg+1;i<end;++i){
+							genes[i]=tmp[k++];
+						}
+						break;
+				}
+			}
+		}
+
+		/**Select two random points, reverse the order between the two points,
+		 * and then displace them somewhere along the length of the original chromosome.
+		 * This is similar to performing IVM and then DM using the same start and end points.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} genes
+		 */
+		function mutateDIVM(genes,mRate){
+			if(_.rand()<=mRate){
+				let [beg, end]= randSpan(genes);
+				let p,tmp,rem,count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+						break;
+					default:
+						tmp=genes.slice(beg+1,end).reverse();
+						rem=genes.slice(0,beg+1).concat(genes.slice(end));
+						p=_.randInt2(rem.length-1);
+						tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
+						_.assert(tmp.length==genes.length,"Boom");
+						tmp.forEach((v,i)=> genes[i]=v);
+						break;
+				}
+			}
+		}
+
+		/**Several genes are chosen at random from one parent and
+		 * then the order of those cities is imposed on
+		 * the respective genes in the other parent.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} mum
+		 * @param {array} dad
+		 * @param {number} cRate
+		 */
+		function crossOverOBX(mum, dad,cRate){
+			if(_.rand()>cRate){ return }
+			let a= int(mum.length * 0.2),
+					b= int(mum.length * 0.8),
+					n=_.randInt2(a,b),
+					xs= _.listIndexesOf(mum,true).slice(n),
+					tmp= xs.map(i=> mum[i]),
+					b1=[],b2=[] ,bin=new Set(tmp);
+			//cross over and modify b2
+			for(let i=0;i<dad.length;++i){
+				if(tmp.length>0 && bin.has(dad[i])){
+					b2.push(tmp.shift());
+				}else{
+					b2.push(dad[i]);
+				}
+			}
+			_.assert(b2.length==dad.length,"Boom");
+			//cross over and modify b1
+			tmp= xs.map(i=> dad[i]);
+			bin=new Set(tmp);
+			for(let i=0;i<mum.length;++i){
+				if(tmp.length>0 && bin.has(mum[i])){
+					b1.push(tmp.shift());
+				}else{
+					b1.push(mum[i]);
+				}
+			}
+			_.assert(b1.length==mum.length,"Boom");
+
+			b1.forEach((v,i)=> mum[i]=v);
+			b2.forEach((v,i)=> dad[i]=v);
+		}
+
+		/**Similar to Order-Based CrossOver, but instead of imposing the order of the genes,
+		 * this imposes the position.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} mum
+		 * @param {array} dad
+		 * @param {number} cRate
+		 */
+		function crossOverPBX(mum, dad,cRate){
+			if(_.rand()>cRate){ return }
+			let a= int(mum.length * 0.2),
+					b= int(mum.length * 0.8),
+					n=_.randInt2(a,b),
+					xs= _.listIndexesOf(mum,true).slice(n),
+					b1=[], b2=[] , bin=new Set(xs);
+			//cross over and modify b2
+			for(let i=0;i<dad.length;++i){
+				if(bin.has(i)){
+					b2.push(mum[i]);
+				}else{
+					b2.push(dad[i]);
+				}
+			}
+			_.assert(b2.length==dad.length,"Boom");
+			//cross over and modify b1
+			for(let i=0;i<mum.length;++i){
+				if(bin.has(i)){
+					b1.push(dad[i]);
+				}else{
+					b1.push(mum[i]);
+				}
+			}
+			_.assert(b1.length==mum.length,"Boom");
+
+			b1.forEach((v,i)=> mum[i]=v);
+			b2.forEach((v,i)=> dad[i]=v);
+		}
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} mum
+		 * @param {array} dad
+		 * @param {number} cRate
+		 */
+		function crossOverRND(mum, dad, cRate){
+			if(_.rand() <= cRate){
+				let cp,b1,b2;
+				cp = _.randInt(mum.length);
+				b1=mum.slice(0,cp).concat(dad.slice(cp));
+				b2=dad.slice(0,cp).concat(mum.slice(cp));
+				b1.forEach((v,i)=> mum[i]=v);
+				b2.forEach((v,i)=> dad[i]=v);
+			}
+		}
+
+		function crossOverPMX(b1,b2,cRate){
+			if(_.rand() <= cRate){
+				let beg = _.randInt2(0, b1.length-2);
+				let end = _.randInt2(beg+1, b1.length-1);
+				for(let t,pos=beg; pos<=end;++pos){
+					let gene1 = b1[pos];
+					let gene2 = b2[pos];
+					if(gene1 != gene2){
+						let posGene1 = b1.indexOf(gene1);
+						let posGene2 = b1.indexOf(gene2);
+						_.swap(b1,posGene1,posGene2);
+						posGene1 = b2.indexOf(gene1);
+						posGene2 = b2.indexOf(gene2);
+						_.swap(b2,posGene1,posGene2);
+					}
+				}
+			}
+		}
+
+		function XXcrossOver(b1,b2,cRate){
+			if(_.rand() <= cRate){
+				let beg = _.randInt2(0, b1.length-2),
+				    end = _.randInt2(beg+1, b1.length-1);
+				let gene1,gene2,
+					  posGene1,posGene2;
+				for(let t,pos=beg; pos<=end; ++pos){
+					gene1 = b1[pos];
+					gene2 = b2[pos];
+					if(gene1 != gene2){
+						posGene1 = b1.indexOf(gene1);
+						posGene2 = b1.indexOf(gene2);
+						_.swap(b1,posGene1,posGene2);
+						posGene1 = b2.indexOf(gene1);
+						posGene2 = b2.indexOf(gene2);
+						_.swap(b2,posGene1,posGene2);
+					}
+				}
+			}
+		}
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} mum
+		 * @param {array} dad
+		 * @param {number} cRate
+		 * @param {array} splits
+		 */
+		function crossOverAtSplits(mum, dad,cRate,splits){
+			if(_.rand() <= cRate){
+				let cp,cp1,cp2,b1,b2;
+				cp = _.randInt(splits.length-2);
+				cp1 = splits[cp];
+				cp2 = splits[_.randInt2(cp1, splits.length-1)];
+				b1= mum.slice(0,cp1).concat(dad.slice(cp1,cp2)).concat(mum.slice(cp2));
+				b2= dad.slice(0,cp1).concat(mum.slice(cp1,cp2)).concat(dad.slice(cp2));
+				b1.forEach((v,i)=> mum[i]=v);
+				b2.forEach((v,i)=> dad[i]=v);
+			}
+		}
+
+		function chromoRoulette(pop,stats){
+			let sum= stats? stats.totalScore : pop.reduce((acc,p)=>{ return acc+ p.fitness.score() },0);
+			let i,prev=0,R=_.rand();
+			let ps=pop.map((p)=>{ return prev= (prev+ p.fitness.score()/sum) });
+			for(i=0;i<ps.length-1;++i)
+				if(R >= ps[i] && R <= ps[i+1]) return pop[i]
+			return pop[0];
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function chromoRoulette0(pop,stats){
+			let sel=0, best= 0,
+					slice = _.rand() * stats.totalScore;
+			for(let p,i=0;i<pop.length;++i){
+				p=pop[i];
+				best += p.fitness.score();
+				if(best >= slice){
+					sel= i;
+					break;
+				}
+			}
+			return pop[sel];
+		}
+
+		function tournamentSelection(pop,N){
+			let sel= 0,
+					best= -Infinity;
+			for(let t,i=0;i<N;++i){
+				t = _.randInt(pop.length);
+				if(pop[t].fitness.score()>best){
+					sel= t;
+					best= pop[t].fitness.score();
+				}
+			}
+			return pop[sel];
+		}
+
+		/**Calculate statistics on population.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} pop current generation
+		 * @return {object} statistics
+		 */
+		function calcStats(pop,flipped){
+			let best= 0,
+					worst= Infinity,
+					stats={averageScore:0,totalScore:0,bestScore:0,worstScore:0,best:null};
+			if(flipped){
+				best=Infinity;
+				worst=0;
+			}
+			pop.forEach((c,i)=>{
+				if(flipped){
+					if(c.fitness.score() < best){
+						best = c.fitness.score();
+						stats.bestScore = best;
+						stats.best= c;
+					}else if(c.fitness.score() > worst){
+						worst = c.fitness.score();
+						stats.worstScore = worst;
+					}
+				}else{
+					if(c.fitness.score() > best){
+						best = c.fitness.score();
+						stats.bestScore = best;
+						stats.best= c;
+					}else if(c.fitness.score() < worst){
+						worst = c.fitness.score();
+						stats.worstScore = worst;
+					}
+				}
+				stats.totalScore += c.fitness.score();
+			});
+			stats.averageScore = stats.totalScore / pop.length;
+			return stats;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function markStart(extra,fld="cycles"){
+			let s= extra.startTime=_.now();
+			extra[fld]=0;
+			return s;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function markEnd(extra){
+			return extra.endTime=_.now();
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function newChild(p1, parents, crossOver, mutate, calcFit){
+      let p2= _.randInt(parents.length);
+			while(parents.length>1 && p2==p1){
+				p2= _.randInt(parents.length)
+			}
+			let c1=parents[p1].genes.slice();
+			let c2=parents[p2].genes.slice();
+			if(crossOver)
+				crossOver(c1,c2);
+      if(mutate){
+        mutate(c1);
+			  mutate(c2);
+      }
+			let f1= calcFit(c1, parents[p1].fitness);
+			let f2= calcFit(c2, parents[p2].fitness);
+			return f1.gt(f2)? Chromosome(c1, f1): Chromosome(c2, f2);
+    }
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function bisectLeft(arr,e){
+      let a,i=0;
+      for(;i<arr.length;++i){
+        a=arr[i];
+        if(a.fitness.eq(e.fitness) ||
+           !e.fitness.gt(a.fitness)) break;
+      }
+      return i;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function* getNextStar([start,maxMillis],extra){
+			let {mutate,create,maxAge,
+				   calcFit,poolSize,crossOver}=extra;
+			let parent, bestParent = create();
+      yield bestParent;
+      let parents = [bestParent],
+          history = [bestParent],
+          ratio,child, index,pindex, lastParentIndex;
+			poolSize=poolSize || 1;
+			maxAge= maxAge || 50;
+      for(let i=0;i<poolSize-1;++i){
+        parent = create();
+        if(parent.fitness.gt(bestParent.fitness)){
+          yield (bestParent = parent);
+          history.push(parent);
+        }
+        parents.push(parent);
+      }
+      lastParentIndex = poolSize - 1;
+      pindex = 1;
+      while(true){
+				if(_.now()-start > maxMillis) yield bestParent;
+        pindex = pindex>0? pindex-1 : lastParentIndex;
+        parent = parents[pindex];
+        child = newChild(pindex, parents, crossOver, mutate, calcFit);
+        if(parent.fitness.gt(child.fitness)){
+          if(maxAge===undefined){
+						continue
+					}
+          parent.age += 1;
+					if(maxAge > parent.age){
+						continue
+					}
+          index = bisectLeft(history, child, 0, history.length);
+          ratio= index / history.length;
+          if(_.rand() < Math.exp(-ratio)){
+            parents[pindex] = child;
+            continue;
+          }
+          bestParent.age = 0;
+          parents[pindex] = bestParent;
+          continue;
+        }
+        if(!child.fitness.gt(parent.fitness)){
+          //same fitness
+          child.age = parent.age + 1;
+          parents[pindex] = child;
+          continue;
+        }
+				child.age = 0;
+				parents[pindex] = child;
+        if(child.fitness.gt(bestParent.fitness)){
+          yield (bestParent = child);
+          history.push(bestParent);
+				}
+      }
+    }
+
+		/**
+		 * @memberof module:mcfud/NNetGA
+		 * @param {FitnessObject} optimal
+		 * @param {object} extra
+		 * @return {array}
+		 */
+		function runGASearch(optimal,extra){
+			let start= markStart(extra),
+				  maxCycles=(extra.maxCycles|| 100),
+				  maxMillis= (extra.maxSeconds || 30) * 1000,
+			    imp, now, gen= getNextStar([start,maxMillis],extra);
+			while(true){
+				imp= gen.next().value;
+				now= markEnd(extra);
+				if(now-start > maxMillis){
+					now=null;
+					break;
+				}
+				if(!optimal.gt(imp.fitness)){
+					break;
+				}
+				if(extra.cycles >= maxCycles){
+					break;
+				}
+				extra.cycles += 1;
+				//console.log(imp.genes.join(","));
+			}
+			return [now==null, imp]
+		}
+
+		function runGACycle(pop,extra){
+			let { maxCycles, targetScore, maxSeconds }=extra;
+			let maxMillis= (maxSeconds || 30) * 1000,
+			    s,now, start= markStart(extra);
+			maxCycles= maxCycles || 100;
+			while(true){
+				pop= genPop(pop, extra);
+				now= markEnd(extra);
+				//time out?
+				if(now-start > maxMillis){
+					now=null;
+					break;
+				}
+				//pop.forEach(p=> console.log(p.genes.join("")));
+				s=calcStats(pop);
+				//matched?
+				if(_.echt(targetScore) && s.bestScore >= targetScore){
+					break;
+				}
+				//too many?
+				if(extra.cycles>= maxCycles){
+					break;
+				}
+				extra.cycles += 1;
+			}
+			return [now == null, pop];
+		}
+
+		function genPop(pop,extra){
+
+			if(is.num(pop))
+				return _.fill(pop, ()=> extra.create());
+
+			let b1,b2,res,mum,dad,vecNewPop = [];
+			let stats=calcStats(pop);
+			let {calcFit, crossOver, mutate,
+				   NUM_ELITES, TOURNAMENT_COMPETITORS}= extra;
+
+			pop.sort((a,b)=> a.fitness.lt(b.fitness)?-1:(a.fitness.gt(b.fitness)?1:0));
+			if(is.num(NUM_ELITES)){
+				for(let k=NUM_ELITES, i=pop.length-1;i>=0;--i){
+					if(k>0){
+						vecNewPop.push(pop[i]);
+						--k;
+					}else{
+						break;
+					}
+				}
+			}
+
+			while(vecNewPop.length < pop.length){
+				if(TOURNAMENT_COMPETITORS !== undefined){
+					mum = tournamentSelection(pop,TOURNAMENT_COMPETITORS);
+					dad = tournamentSelection(pop,TOURNAMENT_COMPETITORS);
+				}else{
+					mum = chromoRoulette(pop,stats);
+					dad = chromoRoulette(pop,stats);
+				}
+				b1=mum.genes.slice();
+				b2=dad.genes.slice();
+				if(crossOver)
+					crossOver(b1,b2);
+				if(mutate){
+					mutate(b1);
+					mutate(b2);
+				}
+				vecNewPop.push(Chromosome(b1, calcFit(b1, mum.fitness)), Chromosome(b2, calcFit(b2,dad.fitness)));
+			}
+
+			while(vecNewPop.length > pop.length){
+				vecNewPop.pop();
+			}
+
+			return vecNewPop;
+		}
+
+		function hillClimb(optimizationFunction, isImprovement, isOptimal, getNextFeatureValue, initialFeatureValue,extra){
+			let start= extra.startTime=_.now();
+			let best = optimizationFunction(initialFeatureValue);
+			//console.log("bb===="+best.genes.join(","));
+			//stdout = sys.stdout sys.stdout = None
+			while(!isOptimal(best)){
+				let child = optimizationFunction( getNextFeatureValue(best));
+				if(isImprovement(best, child)){
+					best = child
+					//sys.stdout = stdout
+					//display(best, featureValue)
+					//sys.stdout = None
+				}
+			}
+			extra.endTime=_.now();
+			return best;
+		}
+
+		function tournament(create, crossOver, compete, sortKey, numParents=10, maxGenerations=100){
+			let best,bestScore,parents,pool=[];
+			for(let i=0,z=1+numParents*numParents;i<z;++i){
+				pool.push([create(),[0,0,0]])
+			}
+			bestScore = pool[0];
+			function getSortKey(x){
+				return sortKey(x[0],
+											 x[1][CompetitionResult.Win],
+											 x[1][CompetitionResult.Tie],
+											 x[1][CompetitionResult.Loss]);
+			}
+			function getSortKeys(a,b){
+				let x= getSortKey(a),
+						y= getSortKey(b);
+				return x<y?-1:(x>y?1:0);
+			}
+			let generation = 0;
+			while(generation < maxGenerations){
+				generation += 1;
+				for(let i=0;i<pool.length;++i){
+					for(let j=0;j<pool.length;++j){
+						if(i == j) continue;
+						let [playera, scorea] = pool[i];
+						let [playerb, scoreb] = pool[j];
+						let result = compete(playera, playerb);
+						scorea[result] += 1;
+						scoreb[2 - result] += 1;
+					}
+				}
+				pool.sort(getSortKeys).reverse();
+				if(getSortKey(pool[0]) > getSortKey([best, bestScore])){
+					[best, bestScore] = pool[0];
+					//display(best, bestScore[CompetitionResult.Win], bestScore[CompetitionResult.Tie], bestScore[CompetitionResult.Loss], generation)
+				}
+				parents=[];
+				for(let i=0;i<numParents.length;++i){
+					parents.push(pool[i][0]);
+				}
+				pool=[];
+				for(let i=0;i<parents.length;++i)
+					for(let j=0;j<parents.length;++j){
+						if(i !== j)
+							pool.push([crossOver(parents[i], parents[j]), [0, 0, 0]]);
+					}
+				parents.forEach(p=> pool.push([p,[0,0,0]]));
+				pool.push([create(), [0, 0, 0]]);
+			}
+			return best;
+		}
+
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		const _$={
+
+			MAX_PERTURBATION,
+			BIAS,
+			//ACTIVATION_RESPONSE : 1,
+
+			//NUM_COPIES_ELITE  = 1,
+			//TOURNAMENT_COMPETITORS = 4;
+			CrossOverRate : 0.7,
+			MutationRate  : 0.1,
+			NumericFitness,
+			Chromosome,
+
+			mutateSM,
+			mutateDM,
+			mutateIM,
+			mutateIVM,
+			mutateDIVM,
+
+			crossOverRND,
+      crossOverOBX,
+      crossOverPBX,
+			crossOverPMX,
+			crossOverAtSplits,
+
+			calcStats,
+			runGACycle,
+			runGASearch,
+
+			hillClimb,
+
+			SNeuron,
+			SNeuronLayer,
+			NeuralNet,
+
+			showBest(best,extra,tout){
+        console.log(_.fill(80,"-").join(""));
+        console.log("total time: " + _.prettyMillis(extra.endTime-extra.startTime));
+				if(tout)
+					console.log("time expired");
+        console.log("total cycles= " + extra.cycles);
+        console.log("fitness= "+ best.fitness.score());
+        console.log(_.fill(80,"-").join(""));
+      }
+		};
+
+		return _$;
+	}
+
+	//export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("../main/core"))
+  }else{
+    global["io/czlab/mcfud/NNetGA"]=_module
+  }
+
+})(this)
 
 
 
