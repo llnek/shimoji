@@ -91,7 +91,7 @@
       p[p.length-1]=0;
       g=p.slice();
       //make some random moves to randomize the grid
-      for(let m,i=0;i<2*TILES;++i){
+      for(let m,i=0;i<3*TILES;++i){
         m= validMoves(p);
         makeMove(p, _.randItem(m));
       }
