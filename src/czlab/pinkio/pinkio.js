@@ -180,7 +180,6 @@
           _S.remove(s);
           Mojo.off(...sigs);
           _.delay(CLICK_DELAY,()=>{
-            alert("ppo")
 
           });
         };
@@ -342,7 +341,6 @@
         if(!s.m5.dead && col.B.m5.uuid=="player" && !col.B.m5.immune){
           //Mojo.emit(["enemy.hit", col.B],{"enemy":s,"col":col});
           Mojo.sound("hit.mp3").play();
-          alert("WWW");
         }
       };
 

@@ -38,23 +38,41 @@
       setup(){
         const self=this,
               K=Mojo.getScaleFactor();
+        let ticks=0,
+            radius,gfx,trail=[];
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           initLevel(){
             let s= _S.sprite("roomba.png");
             s.m5.circle=true;
-            s.m5.speed=1;
-            s.g.trail=[];
-            s.g.ticks=0;
+            s.m5.speed=20;
+            s.m5.tick=(dt)=>{
+              s.x += Math.cos(s.rotation) * s.m5.speed * dt;
+              s.y += Math.sin(s.rotation) * s.m5.speed * dt;
+              if(++ticks % 20 == 0){
+                trail.push([s.x,s.y])
+              }
+            };
             _S.centerAnchor(s);
             _S.scaleXY(s, 0.2*K,0.2*K);
+            radius=int(s.width/2);
+            gfx=self.insert(_S.graphics());
             self.insert(_V.set(s,Mojo.width/2,Mojo.height/2));
+          },
+          drawTrail(){
+            if(ticks % 40 != 0){return}
+            gfx.clear();
+            trail.forEach(p=>{
+              gfx.beginFill(_S.color("#cccccc"));
+              gfx.drawCircle(p[0],p[1],radius);
+            })
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
       },
       postUpdate(dt){
+        this.g.drawTrail();
       }
     });
 

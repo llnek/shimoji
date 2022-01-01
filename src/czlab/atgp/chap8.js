@@ -35,9 +35,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Core= window["io/czlab/mcfud/core"]();
     const GA= window["io/czlab/mcfud/NNetGA"](Core);
-    const NUM_INPUTS=5,
+    const NUM_INPUTS=10,//5,
           NUM_OUTPUTS=2,
-      NUM_ELITES=6,
+          NUM_ELITES=6,
           NUM_HIDDEN=1,
           NEURONS_HIDDENLAYER=10;
 
@@ -163,7 +163,24 @@
             }else{
               input.push(-1);
             }
+            let v= this.cmap.ticksLingered(w[1][0],w[1][1]);
+            //console.log("v===="+v);
+            if(v==0)
+              input.push(-1);
+            else if(v<10)
+              input.push(0);
+            else if(v<20)
+              input.push(0.2);
+            else if(v<30)
+              input.push(0.4);
+            else if(v<50)
+              input.push(0.6);
+            else if(v<80)
+              input.push(0.8);
+            else
+              input.push(1);
           }
+          //console.log("input length====="+input.length);
           return input;
         },
         endOfRunCalc(){
@@ -194,8 +211,11 @@
           if(!this.collided)
 			      this.collisionBonus += 1;
 
+          this.cmap.update(s.x,s.y);
+
           s.x > _G.arena.x2? respawn(s): (s.x < _G.arena.x1? respawn(s): null);
           s.y > _G.arena.y2? respawn(s): (s.y < _G.arena.y1? respawn(s): null);
+
           return true;
         }
       });
@@ -217,8 +237,8 @@
       grid.forEach(r=>r.forEach(c=> c.visits=0));
       /////
       function toCell(x,y){
-        let cy=int((y-y1)/tileH);
-        let cx=int((x-x1)/tileW);
+        let cy=int((y-bbox.y1)/tileH);
+        let cx=int((x-bbox.x1)/tileW);
         return grid[cy][cx];
       }
       return{
@@ -260,7 +280,7 @@
 
         function mutate(genes){
 					genes.forEach((w,i)=>{
-						if(_.rand() <= MutationRate)
+						if(_.rand() < MutationRate)
 							genes[i] =  w + _.randMinus1To1() * GA.MAX_PERTURBATION;
 					});
         }
