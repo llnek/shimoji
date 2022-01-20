@@ -571,6 +571,17 @@
        * @memberof module:mcfud/core._
        * @return {number}
        */
+      /**Returns a random number fitting a Gaussian, or normal, distribution.
+       * @param {number} v number of times rand is summed, should be >= 1
+       * @return {number}
+       */
+      randGaussian(v=6){
+        //adding a random value to the last increases the variance of the random numbers.
+        //Dividing by the number of times you add normalises the result to a range of 0–1
+        let r=0;
+        for(let i=0; i<v; ++i) r += this.rand();
+        return r/v;
+      },
       randSign(){ return PRNG()>0.5 ? -1 : 1 },
       /**Check if obj is a sub-class of this parent-class.
        * @memberof module:mcfud/core._
@@ -589,6 +600,15 @@
         for(let i=0; i<s.length; ++i)
           n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
+      },
+      /**Clear array.
+       * @memberof module:mcfud/core._
+       * @param {array} a
+       * @return {array}
+       */
+      cls(a){
+        try{ a.length=0 }catch(e){}
+        return a;
       },
       /**Randomly choose n items from this array.
        * @memberof module:mcfud/core._
@@ -793,10 +813,12 @@
        * @memberof module:mcfud/core._
        * @param {any[]} des
        * @param {any[]} src
+       * @param {boolean} reset false
        * @return {any[]}
        */
-      append(des,src=[]){
+      append(des,src=[],reset=false){
         _preAnd([[isVec,des],[isVec,src]],"arrays");
+        if(reset) des.length=0;
         for(let i=0;i<src.length;++i) des.push(src[i]);
         return des;
       },
@@ -14134,7 +14156,7 @@
       //the chance, each epoch, that a neuron or link will be added to the genome
       chanceAddLink:0.07,
       chanceAddNode:0.03,
-      chanceAddRecurrentLink:0.05,
+      chanceAddRecurrentLink: 0.05,
       //mutation probabilities for mutating the weights
       mutationRate:0.8,
       maxWeightPerturbation:0.5,
@@ -14192,14 +14214,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    let INNOV_COUNTER=0, NEURON_COUNTER=0,
-        GENOME_COUNTER=0, SPECIE_COUNTER=0;
-    function NextNID(){ return ++NEURON_COUNTER }
-    function NextIID(){ return ++INNOV_COUNTER }
-    function NextGID(){ return ++GENOME_COUNTER }
-    function NextSID(){ return ++SPECIE_COUNTER }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class NeuronGene{
       /**
        * @param {NeuronType} type
@@ -14215,9 +14229,17 @@
           this.id=type[0];
           this.neuronType= type[1];
         }else{
-          this.id=NextNID();
+          this.id=0;
           this.neuronType= type;
         }
+      }
+      clone(){
+        let c= new NeuronGene(this.neuronType);
+        c.id=this.id;
+        c.activation=this.activation;
+        c.recurrent=this.recurrent;
+        c.pos=this.pos.slice();
+        return c;
       }
       static from(id, type, pos=null, r=false){
         return new NeuronGene([id,type],pos,r);
@@ -14241,6 +14263,16 @@
         this.recurrent= rec===true;
         this.enabled= enable !== false;
         this.weight= w===null? _.randMinus1To1() : w;
+      }
+      clone(){
+        let c= new LinkGene();
+        c.fromNeuron= this.fromNeuron;
+        c.toNeuron= this.toNeuron;
+        c.innovationID= this.innovationID;
+        c.recurrent= this.recurrent;
+        c.enabled= this.enabled;
+        c.weight= this.weight;
+        return c;
       }
     }
 
@@ -14298,9 +14330,12 @@
        * @param {LinkGene[]} genes
        */
       constructor(neurons,genes){
-        this.vecInnovs= neurons.map(n=> Innov.from(n, NextIID())).concat(
-                        genes.map(g=> new Innov(g.fromNeuron, g.toNeuron, InnovType.LINK, NextIID())));
+        this.NEURON_COUNTER= neurons.length-1; // last known neuron id
+        this.INNOV_COUNTER=0;
+        this.vecInnovs= neurons.map(n=> Innov.from(n, this.nextIID())).concat(
+                        genes.map(g=> new Innov(g.fromNeuron, g.toNeuron, InnovType.LINK, this.nextIID())));
       }
+      nextIID(){ return this.INNOV_COUNTER++ }
       /**Checks to see if this innovation has already occurred. If it has it
        * returns the innovation ID. If not it returns a negative value.
        * @param {number} from
@@ -14323,7 +14358,10 @@
        * @return {Innov}
        */
       create(from, to, innovType, neuronType=NeuronType.NONE, pos=null){
-        let i= new Innov(from, to, innovType, NextIID(), neuronType,  pos);
+        let i= new Innov(from, to, innovType, this.nextIID(), neuronType,  pos);
+        if(InnovType.NEURON==innovType){
+          i.neuronID= ++this.NEURON_COUNTER;
+        }
         this.vecInnovs.push(i);
         return i;
       }
@@ -14344,6 +14382,14 @@
         this.from=from;
         this.out=out;
         this.recurrent= rec===true;
+      }
+      clone(){
+        let c= new NLink();
+        c.weight= this.weight;
+        c.from= this.from;
+        c.out= this.out;
+        c.recurrent= this.recurrent;
+        return c;
       }
     }
 
@@ -14368,6 +14414,20 @@
         this.activation=actResponse;
         this.pos= pos?pos.slice():[0,0];
       }
+      clone(){
+        let c= new NNeuron();
+        c.neuronType=this.neuronType;
+        c.neuronID= this.neuronID;
+        c.output=this.output;
+        c.posX=this.posX;
+        c.posY=this.posY;
+        c.pos= this.pos.slice();
+        c.activation=this.activation;
+        c.sumActivation= this.sumActivation;
+        c.vecLinksIn=this.vecLinksIn.map(v=> v.clone());
+        c.vecLinksOut=this.vecLinksOut.map(v=> v.clone());
+        return c;
+      }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -14382,14 +14442,14 @@
        * @param {number} depth
        */
       constructor(neurons, depth){
-        this.vecNeurons= neurons;
+        this.vecNeurons= neurons;//own it
         this.depth=depth;
       }
       /**Update network for this clock cycle.
        * @param {number[]} inputs
        * @param {RunType} type
        */
-      update(inputs, type){
+      update(inputs, type=RunType.ACTIVE){
         //if the mode is snapshot then we require all the neurons to be
         //iterated through as many times as the network is deep. If the
         //mode is set to active the method can return an output after just one iteration
@@ -14409,7 +14469,7 @@
           //hiddens or outputs
           ++n;
           while(n < this.vecNeurons.length){
-            sum= this.vecNeurons[n].vecLinksIn.reduce((acc,k)=>{ return acc + k.weight * k.in.output },0);
+            sum= this.vecNeurons[n].vecLinksIn.reduce((acc,k)=>{ return acc + k.weight * k.from.output },0);
             //put sum thru the activation func & assign the value to this neuron's output
             this.vecNeurons[n].output = sigmoid(sum, this.vecNeurons[n].activation);
             if(this.vecNeurons[n].neuronType == NeuronType.OUTPUT){
@@ -14430,45 +14490,40 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function sortGenomes(genomes){
-      return genomes.sort((lhs,rhs)=>{
-        //overload '<' used for sorting. From fittest to poorest.
-        return lhs.fitness().score() > rhs.fitness().score()?-1:(
-          lhs.fitness().score() < rhs.fitness().score()?1:0
-        )
-      })
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class Genome{
       /**A genome basically consists of a vector of link genes,
        * a vector of neuron genes and a fitness score.
+       * @param {number} gid
        * @param {number} inputs
        * @param {number} outputs
        * @param {NeuronGene[]} neurons (optional)
        * @param {LinkGene[]} genes (optional)
        */
-      constructor(inputs, outputs, neurons=null, genes=null){
-        let inputRowSlice = 1/(inputs+2),
-            i, outputRowSlice = 1/(outputs+1);
+      constructor(gid, inputs, outputs, neurons=null, genes=null){
+        if(gid<0){return}//hack for cloning
+        let i,nid=0,
+            inputRowSlice = 1/(inputs+2),
+            outputRowSlice = 1/(outputs+1);
         if(neurons && genes){
-          this.vecNeurons= neurons;
+          this.vecNeurons= neurons;//own it
           this.vecLinks= genes;
         }else{
           this.vecNeurons= [];
           this.vecLinks= [];
           for(i=0; i<inputs; ++i)
-            this.vecNeurons.push(new NeuronGene(NeuronType.INPUT, [(i+2)*inputRowSlice,0]));
-          this.vecNeurons.push(new NeuronGene(NeuronType.BIAS, [inputRowSlice,0]));
+            this.vecNeurons.push(NeuronGene.from(nid++, NeuronType.INPUT, [(i+2)*inputRowSlice,0]));
+          this.vecNeurons.push(NeuronGene.from(nid++, NeuronType.BIAS, [inputRowSlice,0]));
           for(i=0; i<outputs; ++i)
-            vecNeurons.push(new NeuronGene(NeuronType.OUTPUT, [(i+1)*outputRowSlice,1] ));
+            this.vecNeurons.push(NeuronGene.from(nid++, NeuronType.OUTPUT, [(i+1)*outputRowSlice,1] ));
           //create the link genes, connect each input neuron to each output neuron and
           for(i=0; i<inputs+1; ++i)
             for(let j=0; j<outputs; ++j)
-              vecLinks.push(new LinkGene(vecNeurons[i].id, vecNeurons[inputs+j+1].id, NextIID()));
+              this.vecLinks.push(new LinkGene(this.vecNeurons[i].id,
+                                              this.vecNeurons[inputs+1+j].id, inputs+outputs+1+this.vecLinks.length));
         }
+        this.nextNeuronID=nid;
         this.fitness=NumFitness(0);
-        this.genomeID= NextGID();
+        this.genomeID= gid;
         //its fitness score after it has been placed into a species and adjusted accordingly
         this.adjustedFitness=0;
         //the number of offspring is required to spawn for the next generation
@@ -14549,6 +14604,7 @@
           }
         }
         if(nid1 < 0 || nid2 < 0){}else{
+          //console.log("addlink!!!!!");
           let id = history.check(nid1, nid2, InnovType.LINK);
           if(this.vecNeurons[this.getIndex(nid1)].pos[1]>
              this.vecNeurons[this.getIndex(nid2)].pos[1]){ recurrent = true }
@@ -14628,16 +14684,22 @@
           let new_innov= history.create(from, to,
                                         InnovType.NEURON,
                                         NeuronType.HIDDEN, [newWidth, newDepth]),
-              n= new NeuronGene(NeuronType.HIDDEN, [newWidth,newDepth]);
-          new_innov.neuronID= newNeuronID=n.id;
+              //n= NeuronGene.from(new_innov.neuronID, NeuronType.HIDDEN, [newWidth,newDepth]);
+              n= NeuronGene.from(this.nextNeuronID, NeuronType.HIDDEN, [newWidth,newDepth]);
+          new_innov.neuronID=n.id;
+          newNeuronID=n.id;
+
+          this.nextNeuronID++;
           this.vecNeurons.push(n);
+
           //Two new link innovations are required, one for each of the
           //new links created when this gene is split.
           link1 = history.create(from, newNeuronID, InnovType.LINK).innovationID;
-          this.vecLinks.push(new LinkGene(from, newNeuronID, idLink1, true, 1));
+          this.vecLinks.push(new LinkGene(from, newNeuronID, link1, true, 1));
           link2 = history.create(newNeuronID, to, InnovType.LINK).innovationID;
-          this.vecLinks.push(new LinkGene(newNeuronID, to, idLink2, true, originalWeight));
+          this.vecLinks.push(new LinkGene(newNeuronID, to, link2, true, originalWeight));
         }else{
+          //console.log("add old neuron");
           //this innovation has already been created so grab the relevant neuron
           //and link info from the innovation database
           newNeuronID = history.getNeuronID(iid);
@@ -14669,7 +14731,7 @@
        * @return {boolean} true if the link is already part of the genome
        */
       duplicateLink(neuronIn, neuronOut){
-        return this.vecLinks[i].some(k=> k.fromNeuron == neuronIn && k.toNeuron == neuronOut)
+        return this.vecLinks.some(k=> k.fromNeuron == neuronIn && k.toNeuron == neuronOut)
       }
       /**Tests to see if the parameter is equal to any existing neuron ID's.
        * @param {number} id
@@ -14699,7 +14761,7 @@
        * @param {number} maxPertubation the maximum perturbation to be applied
        */
       mutateActivation(MutationRate, maxPertubation){
-        this.vecNeurons[i].forEach(n=>{
+        this.vecNeurons.forEach(n=>{
           if(_.rand() < MutationRate)
             n.activation += _.randMinus1To1() * maxPertubation
         })
@@ -14708,7 +14770,7 @@
        * @param {Genome} genome
        * @return {number}
        */
-      getCompatibilityScore(genome){
+      calcCompatibility(genome){
         //travel down the length of each genome counting the number of
         //disjoint genes, the number of excess genes and the number of matched genes
         let g1=0,g2=0,
@@ -14737,14 +14799,12 @@
               Excess   = 1,
               Matched  = 0.4,
               longest= Math.max(this.numGenes(), genome.numGenes());
-        return (Excess * numExcess/longest) +
-               (Disjoint * numDisjoint/longest) +
-               (Matched * sumWeightDiff/ numMatched);
+        let xxx= (Excess * numExcess/longest) + (Disjoint * numDisjoint/longest);
+        return numMatched>0 ? xxx + (Matched * sumWeightDiff/ numMatched) : xxx;
       }
       sortGenes(){
-        //overload '<' used for sorting(we use the innovation ID as the criteria)
-        this.vecLinks.sort((lhs,rhs)=>{
-          return lhs.innovationID < rhs.innovationID?-1:( lhs.innovationID > rhs.innovationID?1:0)
+        this.vecLinks.sort((a,b)=>{
+          return a.innovationID < b.innovationID?-1:(a.innovationID > b.innovationID?1:0)
         });
         return this;
       }
@@ -14752,18 +14812,26 @@
       setID(val){this.genomeID = val}
       numGenes(){return this.vecLinks.length}
       numNeurons(){return this.vecNeurons.length}
-      setAmountToSpawn(num){this.amountToSpawn = num}
-      setFitness(n){this.fitness = n}
-      setAdjFitness(num){this.adjustedFitness = num}
-      fitness(){return this.fitness}
-      getAdjFitness(){return this.adjustedFitness}
-      getSpecies(){return this.species}
-      setSpecies(spc){this.species = spc}
+      setFitness(num){this.fitness = NumFitness(num)}
       splitY(val){return this.vecNeurons[val].pos[1]}
       genes(){return this.vecLinks}
       neurons(){return this.vecNeurons}
       startOfGenes(){return 0}
-      endOfGenes(){return this.vecLinks.length-1}
+      endOfGenes(){return this.vecLinks.length}
+      clone(){
+        let src=this,
+            c=new Genome(-911);
+        c.fitness= src.fitness.clone();
+        c.genomeID= src.genomeID;
+        c.adjustedFitness= src.adjustedFitness;
+        c.amountToSpawn= src.amountToSpawn;
+        c.numInputs= src.numInputs;
+        c.numOutputs= src.numOutputs;
+        c.species= src.species;
+        c.vecNeurons= src.vecNeurons.map(v=> v.clone());
+        c.vecLinks= src.vecLinks.map(v=> v.clone());
+        return c;
+      }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -14771,8 +14839,8 @@
       /**
        * @param {Genome} firstOrg
        */
-      constructor(firstOrg){
-        this.speciesID= NextSID();
+      constructor(sid, firstOrg){
+        this.speciesID= sid;
         //generations since fitness has improved, we can use
         //this info to kill off a species if required
         this._gensNoImprovement=0;
@@ -14781,9 +14849,9 @@
         //how many of this species should be spawned for the next population
         this.spawnsRqd=0;
         this.vecMembers= [firstOrg];
-        this._leader= firstOrg;
+        this._leader= firstOrg.clone();
         //best fitness found so far by this species
-        this._bestFitness= firstOrg.fitness().score();
+        this._bestFitness= firstOrg.fitness.score();
       }
       /**Adjusts the fitness of each individual by first
        * examining the species age and penalising if old, boosting if young.
@@ -14794,7 +14862,7 @@
       adjustFitnesses(){
         let score,total = 0;
         this.vecMembers.forEach(m=>{
-          score = m.fitness().score();
+          score = m.fitness.score();
           if(this._age < Params.youngBonusAgeThreshhold){
             //boost the fitness scores if the species is young
             score *= Params.youngFitnessBonus
@@ -14805,19 +14873,20 @@
           }
           total += score;
           //apply fitness sharing to adjusted fitnesses
-          m.setAdjFitness(score/this.vecMembers.length);
+          m.adjustedFitness = score/this.vecMembers.length;
         })
       }
       /**Adds a new member to this species and updates the member variables accordingly
        * @param {Genome} newMember
        */
       addMember(newMember){
-        if(newMember.fitness().score() > this._bestFitness){
-          this._bestFitness = newMember.fitness().score();
+        if(newMember.fitness.score() > this._bestFitness){
+          this._bestFitness = newMember.fitness.score();
           this._gensNoImprovement = 0;
-          this._leader = newMember;
+          this._leader = newMember.clone();
         }
         this.vecMembers.push(newMember);
+        newMember.species= this.id();
       }
       /**Clears out all the members from the last generation, updates the age and gens no improvement.
        */
@@ -14826,6 +14895,7 @@
         ++this._gensNoImprovement;
         this.spawnsRqd = 0;
         ++this._age;
+        return this;
       }
       /**Simply adds up the expected spawn amount for each individual
        * in the species to calculate the amount of offspring
@@ -14849,16 +14919,16 @@
           if(n<0)n=1;
           baby = this.vecMembers[ _.randInt2(0, n) ];
         }
-        return baby;
+        return baby.clone();
       }
+      id(){return this.speciesID}
+      bestFitness(){return this._bestFitness }
+      age(){return this._age}
       leader(){return this._leader}
       numToSpawn(){return this.spawnsRqd}
       numMembers(){return this.vecMembers.length}
       gensNoImprovement(){return this._gensNoImprovement}
-      id(){return this.speciesID}
-      bestFitness(){return this._bestFitness }
-      age(){return this._age}
-      speciesLeaderFitness(){return this._leader.fitness().score() }
+      //speciesLeaderFitness(){return this._leader.fitness.score() }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -14886,21 +14956,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**Checks to see if a node ID has already been added to a vector of nodes.
-     * If not then the new ID  gets added. Used in Crossover.
-     * @param {number} nodeID
-     * @param {number[]} vec
-     * @return {number[]} vec
-     */
-    function addNeuronID(nodeID, vec){
-      for(let i=0; i<vec.length; ++i){
-        if(vec[i] == nodeID) { return vec }
-      }
-      vec.push(nodeID);
-      return vec;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class NeatGA{
       /**Creates a base genome from supplied values and creates a population
        * of 'size' similar (same topology, varying weights) genomes.
@@ -14909,18 +14964,8 @@
        * @param {number} outputs
        */
       constructor(size, inputs, outputs){
-        let dummy= new Genome(inputs, outputs);
-        this.generation=0;
-        this.popSize=size;
-        //adjusted fitness scores
-        this.totFitAdj=0;
-        this.avFitAdj=0;
-        //index into the genomes for the fittest genome
-        this.fittestGenome=0;
-        this._bestEverFitness=0;
-        this.vecGenomes= _.fill(size, ()=> new Genome(inputs, outputs));
-        //create the innovation list. First create a minimal genome
-        this.innovHistory= new InnovHistory(dummy.neurons(), dummy.genes());
+        let dummy= new Genome(0,inputs, outputs);
+
         //this holds the precalculated split depths. They are used
         //to calculate a neurons x/y position for rendering and also
         //for calculating the flush depth of the network when a
@@ -14929,6 +14974,21 @@
         this.vecSplits = split(0, 1, 0, []);
         this.vecBestGenomes=[];
         this.vecSpecies=[];
+
+        this.SPECIES_COUNTER=0;
+        this.GENOME_COUNTER=0;
+
+        this.generation=0;
+        this.popSize=size;
+        //adjusted fitness scores
+        this.totFitAdj=0;
+        this.avFitAdj=0;
+        //index into the genomes for the fittest genome
+        this.fittestGenome=0;
+        this._bestEverFitness=0;
+        this.vecGenomes= _.fill(size, ()=> new Genome(this.nextGID(), inputs, outputs));
+        //create the innovation list. First create a minimal genome
+        this.innovHistory= new InnovHistory(dummy.neurons(), dummy.genes());
       }
       /**Resets some values ready for the next epoch, kills off
        * all the phenotypes and any poorly performing species.
@@ -14936,20 +14996,18 @@
       resetAndKill(){
         this.totFitAdj = 0;
         this.avFitAdj  = 0;
-        let tmp=[];
+        let L,tmp=[];
         this.vecSpecies.forEach(s=>{
-          s.purge();
-          //kill off species if not improving and if not the species which contains
-          //the best genome found so far
           if(s.gensNoImprovement() > Params.numGensAllowedNoImprovement &&
              s.bestFitness() < this._bestEverFitness){
-            //delete it
+            //kill,delete it
           }else{
             //keep it
-            tmp.push(s);
+            tmp.push(s.purge());
           }
         });
-        this.vecSpecies=tmp;
+        this.vecSpecies.length=0;
+        tmp.forEach(t=> this.vecSpecies.push(t));
       }
       /**Separates each individual into its respective species by calculating
        * a compatibility score with every other member of the population and
@@ -14959,40 +15017,29 @@
        */
       speciateAndCalculateSpawnLevels(){
         let added = false;
-        for(let g=0; g<this.vecGenomes.length; ++g){
-          //calculate its compatibility score with each species leader. If
-          //compatible add to species. If not, create a new species
-          for(let cp, s=0; s<this.vecSpecies.length; ++s){
-            cp = this.vecGenomes[g].getCompatibilityScore(this.vecSpecies[s].leader());
-            //if this individual is similar to this species add to species
-            if(cp <= Params.compatibilityThreshold){
-              this.vecSpecies[s].addMember(this.vecGenomes[g]);
-              this.vecGenomes[g].setSpecies(this.vecSpecies[s].id());
+        this.vecGenomes.forEach(g=>{
+          for(let s=0; s<this.vecSpecies.length; ++s){
+            if(g.calcCompatibility(this.vecSpecies[s].leader()) <= Params.compatibilityThreshold){
+              this.vecSpecies[s].addMember(g);
               added = true;
               break;
             }
           }
           if(!added)
-            this.vecSpecies.push(new Species(this.vecGenomes[g]));
+            this.vecSpecies.push(new Species(this.nextSID(), g));
           added = false;
-        }
+        });
         //now all the genomes have been assigned a species the fitness scores
         //need to be adjusted to take into account sharing and species age.
-        this.adjustSpeciesFitnesses();
+        this.vecSpecies.forEach(s=> s.adjustFitnesses())
         //calculate new adjusted total & average fitness for the population
-        this.vecGenomes.forEach(g=> this.totFitAdj += g.getAdjFitness());
+        this.vecGenomes.forEach(g=> this.totFitAdj += g.adjustedFitness);
         //////
         this.avFitAdj = this.totFitAdj/this.vecGenomes.length;
         //calculate how many offspring each member of the population should spawn
-        this.vecGenomes.forEach(g=> g.setAmountToSpawn(g.getAdjFitness() / this.avFitAdj));
+        this.vecGenomes.forEach(g=> g.amountToSpawn=g.adjustedFitness / this.avFitAdj);
         //calculate how many offspring each species should spawn
         this.vecSpecies.forEach(s=> s.calculateSpawnAmount());
-      }
-      /**Adjusts the fitness scores depending on the number
-       * sharing the species and the age of the species.
-       */
-      adjustSpeciesFitnesses(){
-        this.vecSpecies.forEach(s=> s.adjustFitnesses())
       }
       /**
        * @param {Genome} mum
@@ -15005,12 +15052,13 @@
         let best;
         //if they are of equal fitness use the shorter (because we want to keep
         //the networks as small as possible)
-        if(mum.fitness().score() == dad.fitness().score()){
+        if(mum.fitness.score() == dad.fitness.score()){
           best=mum.numGenes() == dad.numGenes() ? (_.randSign()>0?DAD:MUM)
                                                 : (mum.numGenes() < dad.numGenes()?MUM :DAD)
         }else{
-          best = mum.fitness().score() > dad.fitness().score() ? MUM : DAD
+          best = mum.fitness.score() > dad.fitness.score() ? MUM : DAD
         }
+        function addNeuronID(nid, vec){ if(vec.indexOf(nid)<0) vec.push(nid) }
         //these vectors will hold the offspring's nodes and genes
         let babyNeurons=[],
             babyGenes=[],
@@ -15043,7 +15091,7 @@
           //add the selected gene if not already added
           if(babyGenes.length == 0 ||
              _.last(babyGenes).innovationID != selectedGene.innovationID){
-            babyGenes.push(selectedGene)
+            babyGenes.push(selectedGene.clone())
           }
           //Check if we already have the nodes referred to in SelectedGene.
           //If not, they need to be added.
@@ -15053,22 +15101,24 @@
         //now create the required nodes
         vecNeurons.sort().forEach(n=> babyNeurons.push(createNeuronFromID(this.innovHistory,n)));
         /////
-        return new Genome(mum.numInputs, mum.numOutputs, babyNeurons, babyGenes);
+        return new Genome(this.nextGID(), mum.numInputs, mum.numOutputs, babyNeurons, babyGenes);
       }
+      nextSID(){ return ++this.SPECIES_COUNTER}
+      nextGID(){ return ++this.GENOME_COUNTER }
       /**
        * @param {number} numComparisons
        * @return {Genome}
        */
-      tournamentSelection(numComparisons){
+      tournamentSelection(comparisons){
         let chosen = 0,
             bestSoFar = 0;
         //Select NumComparisons members from the population at random testing
         //against the best found so far
-        for(let g,i=0, z=this.vecGenomes.length-1; i<numComparisons; ++i){
+        for(let g,i=0, z=this.vecGenomes.length-1; i<comparisons; ++i){
           g = _.randInt2(0, z);
-          if(this.vecGenomes[g].fitness().score() > bestSoFar){
+          if(this.vecGenomes[g].fitness.score() > bestSoFar){
             chosen = g;
-            bestSoFar = this.vecGenomes[g].fitness().score();
+            bestSoFar = this.vecGenomes[g].fitness.score();
           }
         }
         return this.vecGenomes[chosen];
@@ -15092,74 +15142,57 @@
       /**Sorts the population into descending fitness, keeps a record of the best
        * n genomes and updates any fitness statistics accordingly.
        */
-      sortAndRecord(){
-        //sort the genomes according to their unadjusted (no fitness sharing) fitnesses
-        sortGenomes(this.vecGenomes);
-        //is the best genome this generation the best ever?
-        if(this.vecGenomes[0].fitness().score() > this._bestEverFitness){
-          this._bestEverFitness = this.vecGenomes[0].fitness().score()
-        }
-        this.storeBestGenomes();
+      sortAndRecord(scores){
+        this.vecGenomes.forEach((g,i)=> g.setFitness(scores[i]));
+        this.vecGenomes.sort((a,b)=>{
+          return a.fitness.score()>b.fitness.score()?-1:(a.fitness.score()<b.fitness.score()?1:0)
+        });
+        this._bestEverFitness = Math.max(this._bestEverFitness,this.vecGenomes[0].fitness.score());
+        //save the best
+        this.vecBestGenomes.length=0;
+        for(let i=0; i<Params.numBestElites; ++i)
+          this.vecBestGenomes.push(this.vecGenomes[i]);
       }
       /**Performs one epoch of the genetic algorithm and returns a vector of pointers to the new phenotypes.
        * @param {number[]} fitnessScores
        * @return {}
        */
-      epoch(fitnessScores){
-        _.assert(fitnessScores.length == this.vecGenomes.length, "NeatGA::Epoch(scores/ genomes mismatch)!");
+      epoch(scores){
+        _.assert(scores.length == this.vecGenomes.length, "NeatGA::Epoch(scores/ genomes mismatch)!");
         //reset appropriate values and kill off the existing phenotypes and any poorly performing species
         this.resetAndKill();
-        //update the genomes with the fitnesses scored in the last run
-        this.vecGenomes.forEach((g,i)=> g.setFitness(NumFitness(fitnessScores[i])));
-        //sort genomes and keep a record of the best performers
-        this.sortAndRecord();
-        //separate the population into species of similar topology, adjust
-        //fitnesses and calculate spawn levels
+        //update and sort genomes and keep a record of the best performers
+        this.sortAndRecord(scores);
+        //separate the population into species of similar topology,
         this.speciateAndCalculateSpawnLevels();
         //this will hold the new population of genomes
-        let newPop=[],
-            baby,
-            //request the offspring from each species. The number of children to
-            //spawn is a double which we need to convert to an int.
-            numSpawnedSoFar = 0;
-        //now to iterate through each species selecting offspring to be mated and mutated
-        for(let spc=0; spc<this.vecSpecies.length; ++spc){
-          //because of the number to spawn from each species is a double
-          //rounded up or down to an integer it is possible to get an overflow
-          //of genomes spawned. This statement just makes sure that doesn't happen
-          if(numSpawnedSoFar < this.popSize){
-            //this is the amount of offspring this species is required to
-            // spawn. Rounded simply rounds the double up or down.
-            let chosenBestYet = false,
-                numToSpawn = _.rounded(this.vecSpecies[spc].numToSpawn());
+        let baby2,baby,newPop=[],numSpawnedSoFar = 0;
+        this.vecSpecies.forEach(spc=>{
+          if(numSpawnedSoFar<this.popSize){
+            let chosenBest= false,
+                numToSpawn = _.rounded(spc.numToSpawn());
             while(numToSpawn--){
-              //first grab the best performing genome from this species and transfer
-              //to the new population without mutation. This provides per species elitism
-              if(!chosenBestYet){
-                chosenBestYet = true;
-                baby = this.vecSpecies[spc].leader();
+              if(!chosenBest){
+                chosenBest=true;
+                baby = spc.leader().clone();
               }else{
-                //if the number of individuals in this species is only one
-                //then we can only perform mutation
-                if(this.vecSpecies[spc].numMembers() == 1){
-                  baby = this.vecSpecies[spc].spawn()
+                if(spc.numMembers() == 1){
+                  baby = spc.spawn()
                 }else{
                   let numAttempts = 5,
-                      g2,g1 = this.vecSpecies[spc].spawn();
+                      g2,g1 = spc.spawn();
                   if(_.rand() < Params.crossOverRate){
-                    g2 = this.vecSpecies[spc].spawn();
+                    g2 = spc.spawn();
                     while(g1.id() == g2.id() && (numAttempts--)){
-                      g2 = this.vecSpecies[spc].spawn()
+                      g2 = spc.spawn()
                     }
-                    if(g1.id() != g2.id())
-                      baby = this.crossOver(g1, g2);
+                    baby= g1.id() != g2.id() ? this.crossOver(g1, g2) : g1;
                   }else{
                     baby = g1
                   }
                 }
-                //baby.setID(NextGID());
-                //now we have a spawned child lets mutate it! First there is the
-                //chance a neuron may be added
+                baby.setID(this.nextGID());
+                //now mutate this baby
                 if(baby.numNeurons() < Params.maxPermittedNeurons)
                   baby.addNeuron(Params.chanceAddNode,
                                  this.innovHistory, Params.numTrysToFindOldLink);
@@ -15175,12 +15208,12 @@
                 baby.mutateActivation(Params.activationMutationRate,
                                       Params.maxActivationPerturbation);
               }
-              //sort the babies genes by their innovation numbers
-              newPop.push( baby.sortGenes());
+              newPop.push(baby.sortGenes());
               if(++numSpawnedSoFar == this.popSize){ numToSpawn = 0 }
             }
           }
-        }
+          //kkeeee
+        });
         //if there is an underflow due to the rounding error and the amount
         //of offspring falls short of the population size additional children
         //need to be created and added to the new population. This is achieved
@@ -15189,27 +15222,18 @@
           //calculate amount of additional children required
           let rqd = this.popSize - numSpawnedSoFar;
           while(rqd--)
-            newPop.push(this.tournamentSelection(int(this.popSize/ 5)));
+            newPop.push(this.tournamentSelection(int(this.popSize/ 5)).clone());
         }
         //replace the current population with the new one
         this.vecGenomes = newPop;
-        let out=this.vecGenomes.map((g,i)=> g.createPhenotype( this.calculateNetDepth(g)));
         ++this.generation;
-        return out;
+        return this.createPhenotypes();
       }
       /**Cycles through all the members of the population and creates their phenotypes.
        * @return {NeuralNet[]} the new phenotypes
        */
       createPhenotypes(){
-        return this.vecGenomes.map((g,i)=> g.createPhenotype( this.calculateNetDepth(g)))
-      }
-      /**Used to keep a record of the previous populations best genomes
-       * so that they can be displayed if required.
-       */
-      storeBestGenomes(){
-        this.vecBestGenomes.length=0;
-        for(let i=0; i<Params.numBestElites; ++i)
-          this.vecBestGenomes.push(this.vecGenomes[i]);
+        return this.vecGenomes.map(g=> g.createPhenotype( this.calculateNetDepth(g)))
       }
       //renders the best performing species statistics and a visual aid
       //showing the distribution.

@@ -47,7 +47,7 @@
     const CrossOverRate = 0.7,
           MutationRate  = 0.1,
           MineScale     = 12,
-          NumTicks      = 1500;
+          NumTicks      = 1800;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const HALF_PI = Math.PI/2,
@@ -126,7 +126,7 @@
         cmap: CMapper(),
         spinBonus: 0,
         collisionBonus: 0,
-        nnet:brain,
+        brain,
         reset(){
           this.fitness = NumFIT(0);
           s.rotation= 0;//_.rand() * PI2;
@@ -186,7 +186,7 @@
           this.fitness = NumFIT(this.fitness.score()+ this.cmap.numCellsVisited());// + this.spinBonus + this.collisionBonus
         },
         update(){
-          let rotForce,output = this.nnet.update(this.testSensors([]));
+          let rotForce,output = this.brain.think(this.testSensors([]));
           this.lTrack = output[0];
           this.rTrack = output[1];
 
@@ -367,8 +367,8 @@
               tileH: g0.y2-g0.y1
             });
             //////
-            gaPop= new GA.NeatGA(NumSweepers, NUM_INPUTS, NUM_OUTPUTS);
-            let vecSweepers= gaPop.createPhenotypes().map(b=> mkSWP(b,self));
+            gaPop= new GA.Population(NumSweepers, NUM_INPUTS, NUM_OUTPUTS);
+            let vecSweepers= gaPop.genomes.map(b=> mkSWP(b,self));
             _.assert(vecSweepers.length==NumSweepers, "Bad pop size");
             vecSweepers.forEach(s=> self.insert(s));
             this.dbg= self.insert(_S.graphics());
@@ -379,7 +379,7 @@
             this.reGen=()=>{
               vecSweepers.forEach(v=> v.g.endOfRunCalc());
               gaPop.epoch(vecSweepers.map(v=> v.g.fitness.score())).forEach((b,i)=>{
-                vecSweepers[i].g.nnet=b;
+                vecSweepers[i].g.brain=b;
                 vecSweepers[i].g.reset();
               });
               ticks = 0;
