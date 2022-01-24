@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -33,67 +33,66 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Core=window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/NNetGA"](Core);
+    const GA= window["io/czlab/mcfud/algo/NNetGA"](Core);
     const LEVEL=[
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1],
-			[8, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1],
-			[1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1],
-			[1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
-			[1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
-			[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1],
-			[1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5],
-			[1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-		];
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1],
+      [8, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+      [1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+      [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1],
+      [1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5],
+      [1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    ];
     const NUMBITS=70,
-			    ROWS= LEVEL.length,
-					COLS= LEVEL[0].length;
+          ROWS= LEVEL.length,
+          COLS= LEVEL[0].length;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		const DIRS=["North","South","East","West"];
-		const StartPos= [7,14];
-		const EndPos= [2,0];
+    const DIRS=["North","South","East","West"];
+    const StartPos= [7,14];
+    const EndPos= [2,0];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function create(){
-			let g= _.fill(NUMBITS, ()=> _.randSign()>0?1:0);
-			return GA.Chromosome(g, calcFit(0))
-		}
+    function create(){
+      let g= _.fill(NUMBITS, ()=> _.randSign()>0?1:0);
+      return new GA.Chromosome(g, calcFit(0))
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function decode(genes){
-			function binToInt(bins){
-				let val = 0, mult= 1;
-				for(let i=bins.length-1;i>=0;--i){
-					val += bins[i] * mult;
-					mult *= 2;
-				}
-				return val;
-			}
-			let g = [0,0], dirs=[];
-			for(let i=0;i<genes.length;){
-				for(let j=0;j< g.length; ++j){
-					g[j]= genes[i+j]
-				}
-				i += g.length;
-				dirs.push(binToInt(g));
-			}
-			return dirs;
-		}
+    function decode(genes){
+      function binToInt(bins){
+        let val = 0, mult= 1;
+        for(let i=bins.length-1;i>=0;--i){
+          val += bins[i] * mult;
+          mult *= 2;
+        }
+        return val;
+      }
+      let g = [0,0], dirs=[];
+      for(let i=0;i<genes.length;){
+        for(let j=0;j< g.length; ++j){
+          g[j]= genes[i+j]
+        }
+        i += g.length;
+        dirs.push(binToInt(g));
+      }
+      return dirs;
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function _mutate(genes,mRate){
-			for(let i=0; i<genes.length; ++i){
-				if(_.rand() < mRate){
-					if(genes[i] == 0)
-						genes[i] = 1;
-					else
-						genes[i] = 0;
-				}
-			}
-		}
-
+    function _mutate(genes,mRate){
+      for(let i=0; i<genes.length; ++i){
+        if(_.rand() < mRate){
+          if(genes[i] == 0)
+            genes[i] = 1;
+          else
+            genes[i] = 0;
+        }
+      }
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function calcFit(genes){
@@ -119,7 +118,7 @@
       });
       let dx = abs(posX - endX);
       let dy = abs(posY - endY);
-			return GA.NumericFitness(1/(dx+dy+1));
+      return new GA.NumFitness(1/(dx+dy+1));
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -174,7 +173,8 @@
               grid,
               cycles:0,
               tileW:W,
-              tileH:H
+              tileH:H,
+              params: GA.config({mutationRate: 0.015, crossOverRate: 0.7})
             });
           },
           mkStep(y,x){
@@ -190,7 +190,7 @@
             path.forEach(s=>_S.remove(s));
             path.length=0;
             this.mkStep(row,col);
-            console.log(`directions = ${dirs.toString()}`);
+            //console.log(`directions = ${dirs.toString()}`);
             for(let i=0;i<dirs.length;++i){
               switch(dirs[i]){
                 case 0://n
@@ -224,21 +224,23 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
         this.g.showPath([]);
-      },
-      postUpdate(dt){
-        let extra={maxCycles:5, targetScore:1, create, calcFit,
+        this.g.extra={gen:0,maxCycles:5, targetScore:1, create, calcFit,
           mutate:(g)=>{
-            return _mutate(g,0.015)
+            return _mutate(g,_G.params.mutationRate)
           },
           crossOver:(b1,b2)=>{
-            return GA.crossOverRND(b1,b2,0.7)
-          }};
-        let [xx, pop]= GA.runGACycle(100,extra);
+            return GA.crossOverRND(b1,b2,_G.params.crossOverRate)
+          }
+        };
+      },
+      postUpdate(dt){
+        let [xx, pop]= GA.runGACycle(100,this.g.extra);
         let s= GA.calcStats(pop);
         this.g.showPath(decode(s.best.genes));
         if(s.best.fitness.score()==1){
           this.m5.dead=true;
-          console.log(`Cycles = ${extra.cycles}`);
+          console.log(`Gen = ${this.g.extra.gen}`);
+          console.log(`Cycles = ${this.g.extra.cycles}`);
         }
       }
     });

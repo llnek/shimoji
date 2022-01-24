@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -32,19 +32,15 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Core= window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/NNetGA"](Core);
+    const GA= window["io/czlab/mcfud/algo/NNetGA"](Core);
 
-    const MAX_PERTURBATION = 0.3,
-          NUM_INPUTS=4,
+    const NUM_INPUTS=4,
           NUM_OUTPUTS=2,
           NUM_HIDDEN=1,
-      NUM_ELITES=6,
           NEURONS_HIDDENLAYER=10;
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const CrossOverRate = 0.7,
-          MutationRate  = 0.1,
-          MineScale     = 12,
+    const MineScale     = 12,
           NumTicks      = 1000;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -57,23 +53,25 @@
     let ticks;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function mkMine(x,y){ return _V.set(_S.rect(MineScale,MineScale,false,_S.color("yellow"),1),x,y) }
+    function mkMine(x,y){
+      return _V.set(_S.rect(MineScale,MineScale,false,_S.color("yellow"),1),x,y)
+    }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkSWP(){
       let s= _S.spriteFrom("tank.png");
       _S.centerAnchor( _S.sizeXY(s,42,42));
-      s.rotation= _.rand() * PI2;
+      s.rotation= 0;//_.rand() * PI2;
       _V.set(s, randX(), randY());
       _.inject(s.g,{
         lTrack: 0.16,
         rTrack: 0.16,
         closestMine: 0,
-        fitness: GA.NumericFitness(StartEnergy),
+        fitness: new GA.NumFitness(StartEnergy),
         lookAt: {x:Math.cos(s.rotation),y: Math.sin(s.rotation)},
-        nnet: GA.NeuralNet(NUM_INPUTS,NUM_OUTPUTS,NUM_HIDDEN,NEURONS_HIDDENLAYER),
+        nnet: new GA.NeuralNet(NUM_INPUTS,NUM_OUTPUTS,NUM_HIDDEN,NEURONS_HIDDENLAYER),
         reset(){
-          this.fitness = GA.NumericFitness(StartEnergy);
-          s.rotation= _.rand() * PI2;
+          this.fitness = new GA.NumFitness(StartEnergy);
+          s.rotation= 0;//_.rand() * PI2;
           _V.set(s, randX(), randY());
           this.lookAt.x= Math.cos(s.rotation);
           this.lookAt.y= Math.sin(s.rotation);
@@ -105,7 +103,7 @@
           this.nnet.putWeights(weights)
         },
         incFitness(n=1){
-          this.fitness= GA.NumericFitness(this.fitness.score()+n)
+          this.fitness.update(this.fitness.score()+n)
         },
         update(mines){
           let closestMine = _V.unit$(this.getClosestMine(mines));
@@ -141,26 +139,25 @@
       setup(){
         const self=this,
               K=Mojo.getScaleFactor();
-        let
-            gaPop,
+        let gaPop,
             splitPoints,
             numWeightsInNN;
         function crossOver(a,b){
-          GA.crossOverAtSplits(a,b,CrossOverRate,splitPoints) }
+          return GA.crossOverAtSplits(a,b,splitPoints)
+        }
         function mutate(genes){
           genes.forEach((w,i)=>{
-            if(_.rand() <= MutationRate)
-              genes[i] =  w + _.randMinus1To1() * MAX_PERTURBATION;
+            if(_.rand() < _G.params.mutationRate)
+              genes[i] =  w + _.randMinus1To1() * _G.params.MAX_PERTURBATION;
           });
         }
         function create(){
           let g= _.fill(numWeightsInNN, ()=> _.randMinus1To1());
-          return GA.Chromosome(g,GA.NumericFitness(20));
+          return new GA.Chromosome(g,new GA.NumFitness(20));
         }
         function calcFit(genes,oldf){
           return oldf.clone();
         }
-        let extra={maxCycles:1,create,calcFit,NUM_ELITES,mutate,crossOver};
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           initLevel(){
@@ -170,7 +167,7 @@
             numWeightsInNN= vecSweepers[0].g.getNumberOfWeights();
             splitPoints = vecSweepers[0].g.calcSplitPoints();
 
-            let [xxx,pop]=GA.runGACycle(NumSweepers,extra);
+            let [xxx,pop]=GA.runGACycle(NumSweepers,this.extra);
             vecSweepers.forEach((c,i)=> c.g.putWeights(pop[i].genes));
             gaPop=pop;
             ticks= 0;
@@ -186,10 +183,10 @@
               }
             };
             this.reGen=()=>{
-              let [xxx,pop]= GA.runGACycle(gaPop,extra);
+              let [xxx,pop]= GA.runGACycle(gaPop,this.extra);
               ticks = 0;
               gaPop=pop;
-              for(let ec=NUM_ELITES,i=vecSweepers.length-1; i>=0;--i){
+              for(let ec=_G.params.NUM_ELITES,i=vecSweepers.length-1; i>=0;--i){
                 vecSweepers[i].g.putWeights(pop[i].genes);
                 vecSweepers[i].g.reset();
                 if(ec>0){
@@ -200,7 +197,9 @@
             }
           }
         });
+        _G.params=GA.config({mutationRate:0.1});
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.extra={gen:0,maxCycles:1,create,calcFit,mutate,crossOver};
         this.g.initLevel();
       },
       postUpdate(dt){

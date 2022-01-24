@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -32,7 +32,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Core= window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/NNetGA"](Core);
+    const GA= window["io/czlab/mcfud/algo/NNetGA"](Core);
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const NOT_READY  = 0,
           TRAINING = 1,
@@ -103,7 +103,7 @@
           for(let i=0;i<ws.length-1;++i)
             ws[i] += err*learnRate*nnet.layers[0].neurons[i].activation;
 
-          ws[ws.length-1] += err * learnRate * GA.BIAS;
+          ws[ws.length-1] += err * learnRate * _G.params.BIAS;
         }
 
         for(let i=0;i<nnet.layers[0].neurons.length;++i){
@@ -116,7 +116,7 @@
           for(let w=0;w<nnet.numInputs;++w)
             nnet.layers[0].neurons[i].weights[w] += err * learnRate * setIn[vec][w];
 
-          nnet.layers[0].neurons[i].weights[nnet.numInputs] += err * GA.BIAS;
+          nnet.layers[0].neurons[i].weights[nnet.numInputs] += err * _G.params.BIAS;
         }
       }
       return true;
@@ -185,7 +185,7 @@
           },
           initLevel(){
             this.data = CData();
-            this.nnet = GA.NeuralNet(2*NUM_INPUTS, NUM_OUTPUTS, 1,NEURONS_PER_HIDDEN);
+            this.nnet = new GA.NeuralNet(2*NUM_INPUTS, NUM_OUTPUTS, 1,NEURONS_PER_HIDDEN);
             this.numSmoothPoints = NUM_INPUTS+1;
 
             this.mode = NOT_READY;
@@ -340,6 +340,7 @@
             }
           }
         });
+        _G.params= GA.config({});
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
         this.g.initHUD();

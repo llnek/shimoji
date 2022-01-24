@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -18,17 +18,15 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   const Core=window["io/czlab/mcfud/core"]();
-  const GA= window["io/czlab/mcfud/NNetGA"](Core);
+  const GA= window["io/czlab/mcfud/algo/NNetGA"](Core);
   const PI2=Math.PI*2;
   const int=Math.floor;
   const {is,u:_}=Core;
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  const NUM_CITIES =14,// 20,
+  const NUM_CITIES =20,
         CITY_SIZE = 8,
-        POP_SIZE = 40,
-        MUTATION_RATE = 0.2,
-        CROSSOVER_RATE = 0.75;
+        POP_SIZE = 40;
 
   let cities=null,
       bestRoute= null;
@@ -41,24 +39,16 @@
 
   function create(){
     let g= _.shuffle(_.fill(NUM_CITIES,(i)=> i));
-    return GA.Chromosome(g, calcFit(g));
+    return new GA.Chromosome(g, calcFit(g));
   }
 
-  function mutate(c){
-    //GA.mutateIVM(c,0.2);
-    GA.mutateSM(c,0.2);
-  }
-
-  function crossOver(b1,b2){
-    GA.crossOverPMX(b1,b2,0.75);
-  }
 
   function calcFit(genes){
     let sum = 0;
     for(let i=0;i< genes.length-1; ++i)
       sum += calcA_to_B(cities[genes[i]], cities[genes[i+1]]);
     sum += calcA_to_B(cities[_.last(genes)], cities[genes[0]]);
-    return GA.NumericFitness(sum,1);
+    return new GA.NumFitness(sum,1);
   }
 
   function calcBestRoute(){
@@ -66,7 +56,7 @@
     let sum=0;
     for(let c,i=0;i< cities.length-1;++i)
       sum += calcA_to_B(cities[i], cities[i+1]);
-    return GA.NumericFitness(sum + calcA_to_B(_.last(cities), cities[0]), true);
+    return new GA.NumFitness(sum + calcA_to_B(_.last(cities), cities[0]), true);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -106,7 +96,12 @@
           initLevel(){
             this.gfx=self.insert(_S.graphics());
             _.inject(_G,{
-              cities
+              cities,
+              params:GA.config({
+                NUM_ELITES:8,
+                mutationRate : 0.2,
+                crossOverRate: 0.75
+              })
             });
           },
           showPath(c,done){
@@ -136,16 +131,22 @@
         });
         this.g.initLevel();
         this.g.drawMap("white");
+        function mutate(c){
+          GA.mutateSM(c,_G.params.mutationRate);
+        }
+        function crossOver(b1,b2){
+          GA.crossOverPMX(b1,b2,_G.params.crossOverRate);
+        }
+        this.g.extra={gen:0,maxCycles:250,calcFit,create, mutate, crossOver };
       },
       postUpdate(dt){
-        let extra={maxCycles:250,calcFit,create, mutate, crossOver,NUM_ELITES:8 };
-        let [xx,pop]= GA.runGACycle(100,extra);
+        let [xx,pop]= GA.runGACycle(100,this.g.extra);
         let s= GA.calcStats(pop,true);
         let b=s.best.fitness.score()<=bestRoute.score();
         this.g.showPath(s.best,b);
         if(b){
           this.m5.dead=true;
-          GA.showBest(s.best,extra);
+          GA.showBest(s.best,this.g.extra);
         }
       }
     });

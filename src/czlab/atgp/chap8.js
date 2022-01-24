@@ -34,17 +34,14 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Core= window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/NNetGA"](Core);
+    const GA= window["io/czlab/mcfud/algo/NNetGA"](Core);
     const NUM_INPUTS=10,//5,
           NUM_OUTPUTS=2,
-          NUM_ELITES=6,
           NUM_HIDDEN=1,
           NEURONS_HIDDENLAYER=10;
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const CrossOverRate = 0.7,
-          MutationRate  = 0.1,
-          MineScale     = 12,
+    const MineScale     = 12,
           NumTicks      = 1000;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -88,6 +85,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function randPos(s){
       let g,n=_.randInt2(0,3);
+      n=1;
       switch(n){
         case 0: g=_G.grid[6][11];break;
         case 1: g=_G.grid[7][11];break;
@@ -105,7 +103,7 @@
       let h2=s.height/2;
       let w2=s.width/2;
       s.g.diag=Math.sqrt(w2*w2+h2*h2) * 1.25;
-      s.rotation= _.rand() * PI2;
+      s.rotation= 0;//_.rand() * PI2;
       s.g.diagRatio= s.width/s.g.diag;
       randPos(s);
       _.inject(s.g,{
@@ -114,15 +112,15 @@
         H2:h2,
         lTrack: 0.16,
         rTrack: 0.16,
-        fitness: GA.NumericFitness(StartEnergy),
+        fitness: new GA.NumFitness(StartEnergy),
         lookAt: {x:Math.cos(s.rotation),y: Math.sin(s.rotation)},
-        nnet: GA.NeuralNet(NUM_INPUTS,NUM_OUTPUTS,NUM_HIDDEN,NEURONS_HIDDENLAYER),
+        nnet: new GA.NeuralNet(NUM_INPUTS,NUM_OUTPUTS,NUM_HIDDEN,NEURONS_HIDDENLAYER),
         cmap: CMapper(),
         spinBonus: 0,
         collisionBonus: 0,
         reset(){
-          this.fitness = GA.NumericFitness(StartEnergy);
-          s.rotation= _.rand() * PI2;
+          this.fitness = new GA.NumFitness(StartEnergy);
+          s.rotation= 0;//_.rand() * PI2;
           randPos(s);
           this.lookAt.x= Math.cos(s.rotation);
           this.lookAt.y= Math.sin(s.rotation);
@@ -140,7 +138,7 @@
           this.nnet.putWeights(weights)
         },
         incFitness(n=1){
-          this.fitness = GA.NumericFitness(this.fitness.score()+n);
+          this.fitness.update(this.fitness.score()+n);
         },
         testSensors(input){
           this.collided = false;
@@ -184,7 +182,7 @@
           return input;
         },
         endOfRunCalc(){
-          this.fitness= GA.NumericFitness(this.fitness.score() + this.spinBonus + this.collisionBonus)
+          this.fitness.update(this.fitness.score() + this.spinBonus + this.collisionBonus)
         },
         update(){
           let inputs=this.testSensors([]);
@@ -195,7 +193,7 @@
           //# Clamp rotation
           rotForce = rotForce < -MaxTurnRate ? -MaxTurnRate : (rotForce > MaxTurnRate?MaxTurnRate : rotForce);
           s.rotation += rotForce;
-          s.m5.speed = (this.lTrack + this.rTrack);
+          //s.m5.speed = (this.lTrack + this.rTrack);
           this.lookAt.x = Math.cos(s.rotation);
           this.lookAt.y = Math.sin(s.rotation);
 
@@ -213,8 +211,8 @@
 
           this.cmap.update(s.x,s.y);
 
-          s.x > _G.arena.x2? respawn(s): (s.x < _G.arena.x1? respawn(s): null);
-          s.y > _G.arena.y2? respawn(s): (s.y < _G.arena.y1? respawn(s): null);
+          s.x > _G.arena.x2? s.x=_G.arena.x2: (s.x < _G.arena.x1? s.x=_G.arena.x1: null);
+          s.y > _G.arena.y2? s.y=_G.arena.y2: (s.y < _G.arena.y1? s.y=_G.arena.y1: null);
 
           return true;
         }
@@ -231,7 +229,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function CMapper(){
-      let grid= _.deepCopyArray(_G.grid);
+      let grid= JSON.parse(JSON.stringify(_G.grid));
       let bbox=_S.gridBBox(0,0,grid);
       let {tileW,tileH}=_G;
       grid.forEach(r=>r.forEach(c=> c.visits=0));
@@ -239,6 +237,10 @@
       function toCell(x,y){
         let cy=int((y-bbox.y1)/tileH);
         let cx=int((x-bbox.x1)/tileW);
+        if(cy<0)cy=0;
+        if(cy>=grid.length) cy=grid.length-1;
+        if(cx<0)cx=0;
+        if(cx>=grid[0].length) cx=grid[0].length-1;
         return grid[cy][cx];
       }
       return{
@@ -280,26 +282,21 @@
 
         function mutate(genes){
 					genes.forEach((w,i)=>{
-						if(_.rand() < MutationRate)
-							genes[i] =  w + _.randMinus1To1() * GA.MAX_PERTURBATION;
+						if(_.rand() < _G.params.mutationRate)
+							genes[i] =  w + _.randMinus1To1() * _G.params.MAX_PERTURBATION;
 					});
         }
-
         function crossOver(b1,b2){
-          GA.crossOverAtSplits(b1,b2,CrossOverRate,splitPoints)
+          return GA.crossOverAtSplits(b1,b2,splitPoints)
         }
-
         function calcFit(genes,old){
           return old.clone()
         }
 
         function create(){
           let g= _.fill(numWeightsInNN, ()=> _.randMinus1To1());
-          return GA.Chromosome(g, GA.NumericFitness(StartEnergy))
+          return new GA.Chromosome(g, new GA.NumFitness(StartEnergy))
         }
-
-        let extra={maxCycles:1,
-          calcFit,create,mutate,crossOver,NUM_ELITES,TOURNAMENT_COMPETITORS:4};
 
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
@@ -361,16 +358,19 @@
             self.insert(gfx);
             this.initBlocks(grid);
             _.inject(_G,{
+              params:GA.config({mutationRate:0.1,crossOverRate: 0.7, NUM_ELITES:6}),
               arena:out,
               grid,
               tileW: g0.x2-g0.x1,
               tileH: g0.y2-g0.y1
             });
+            this.extra={gen:0,maxCycles:1,
+                        calcFit,create,mutate,crossOver};
             //////
             let vecSweepers= _.fill(NumSweepers,  ()=> self.insert(mkSWP()));
             numWeightsInNN= vecSweepers[0].g.getNumberOfWeights();
             splitPoints = vecSweepers[0].g.calcSplitPoints();
-            let [xxx,pop] = GA.runGACycle(NumSweepers, extra);
+            let [xxx,pop] = GA.runGACycle(NumSweepers, this.extra);
             vecSweepers.forEach((c,i)=> c.g.putWeights(pop[i].genes));
             gaPop=pop;
             ticks= 0;
@@ -385,9 +385,9 @@
                 gaPop[i].fitness = vecSweepers[i].g.fitness.clone();
               }
               ticks = 0;
-              let [xxx,pop]= GA.runGACycle(gaPop,extra);
+              let [xxx,pop]= GA.runGACycle(gaPop,this.extra);
               gaPop=pop;
-              for(let ec=NUM_ELITES, i=vecSweepers.length-1;i>=0;--i){
+              for(let ec=_G.params.NUM_ELITES, i=vecSweepers.length-1;i>=0;--i){
                 vecSweepers[i].g.putWeights(pop[i].genes);
                 vecSweepers[i].g.reset();
                 if(ec>0){
