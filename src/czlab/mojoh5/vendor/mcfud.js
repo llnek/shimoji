@@ -13342,6 +13342,18 @@
 				})
 			}
 			/**
+			 * @return {number[]}
+			 */
+			getWeights(){
+				let out=[];
+				for(let i=0; i<this.numHidden+1; ++i)
+					for(let j=0; j<this.layers[i].numNeurons; ++j)
+						for(let k=0; k<this.layers[i].neurons[j].numInputs; ++k){
+							out.push(this.layers[i].neurons[j].weights[k])
+						}
+				return out;
+			}
+			/**
 			 * @return {number}
 			 */
 			getNumberOfWeights(){
