@@ -34,7 +34,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Core= window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/algo/NEAT"](Core);
+    const GA= window["io/czlab/mcfud/algo/NEAT2"](Core);
     const NumFIT= GA.NumFitness;
 
     const NUM_INPUTS=10+1,//5,
@@ -186,7 +186,7 @@
           this.fitness = NumFIT(this.fitness.score()+ this.cmap.numCellsVisited());// + this.spinBonus + this.collisionBonus
         },
         update(){
-          let rotForce,output = this.brain.think(this.testSensors([]));
+          let rotForce,output = this.brain.compute(this.testSensors([]));
           this.lTrack = output[0];
           this.rTrack = output[1];
 
@@ -367,7 +367,7 @@
               tileH: g0.y2-g0.y1
             });
             //////
-            gaPop= new GA.Population(NumSweepers, NUM_INPUTS, NUM_OUTPUTS);
+            gaPop= new GA.NeatGA(NumSweepers, NUM_INPUTS, NUM_OUTPUTS);
             let vecSweepers= gaPop.genomes.map(b=> mkSWP(b,self));
             _.assert(vecSweepers.length==NumSweepers, "Bad pop size");
             vecSweepers.forEach(s=> self.insert(s));
