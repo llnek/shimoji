@@ -2727,7 +2727,30 @@
         });
         MVPool.drop(p1);
         return ret;
+      },
+      /**Clamp a vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} min
+       * @param {number} max
+       * @return {Vec2}
+       */
+      clamp$(v, min, max){
+        const n = this.len(v);
+        return this.mul$(this.div$(v, n || 1 ), Math.max(min, Math.min(max, n )));
+      },
+      /**Clamp a vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} min
+       * @param {number} max
+       * @return {Vec2}
+       */
+      clamp(v, min, max){
+        const n = this.len(v);
+        return this.mul(this.div(v, n || 1 ), Math.max(min, Math.min(max, n )));
       }
+
     };
     return _$;
   }

@@ -300,9 +300,26 @@
       return m;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function SteeringInfo(){
+      return{
+        wanderAngle: _.rand()*Math.PI*2,
+        arrivalThreshold: 400,
+        wanderDistance: 10,
+        wanderRadius: 5,
+        wanderRange: 1,
+        avoidDistance: 400,
+        inSightDistance: 200,
+        tooCloseDistance: 60,
+        maxForce: 5,
+        pathIndex:  0
+      }
+    }
+
     const _PT=_V.vec();
     const _$={
-      SomeColors, BtnColors,
+      SomeColors,
+      BtnColors,
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
                "boot/doki.fnt", "boot/riffic.fnt",
         "boot/kenney_high.fnt",
@@ -331,6 +348,15 @@
       sizeXY(s,w,h){
         if(is.num(h)) s.height=h;
         if(is.num(w)) s.width=w;
+        return s;
+      },
+      /**Set this as circular.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      asCircle(s){
+        s.m5.circle=true;
         return s;
       },
       /**Change scale factor of sprite.
@@ -414,6 +440,32 @@
         return this.isCenter(s)?_V.vec()
                                :_V.vec(int(s.width/2) - int((s.anchor?s.anchor.x:0)*s.width),
                                        int(s.height/2) - int((s.anchor?s.anchor.y:0)*s.height)) },
+      /**Make this sprite steerable.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      makeSteerable(s){
+        s.m5.steer=[0,0];
+        s.m5.radius=0;
+        s.m5.steerInfo=SteeringInfo();
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      updateSteer(s,reset=true){
+        if(s.m5.steer){
+          _V.clamp$(s.m5.steer, 0, s.m5.steerInfo.maxForce);
+          _V.div$(s.m5.steer,s.m5.mass);
+          _V.add$(s.m5.vel, s.m5.steer);
+          if(reset)
+            _V.mul$(s.m5.steer,0);
+        }
+        return s;
+      },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -441,6 +493,7 @@
             type: 0,
             cmask:0,
             speed:0,
+            maxSpeed:0,
             heading:Mojo.RIGHT,
             get invMass(){ return _.feq0(s.m5.mass)?0:1/s.m5.mass }
           };
@@ -1827,7 +1880,280 @@
           for(let i of col.values())
             out.push(this.dbgShowDir(i));
         return out.join(",");
+      },
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      //steering stuff
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {vec2} pos
+       */
+      seek(s, pos){
+        let dv = _V.unit$(_V.sub(pos,s));
+        if(dv){
+          _V.mul$(dv, s.m5.maxSpeed);
+          _V.sub$(dv, s.m5.vel);
+          _V.add$(s.m5.steer,dv);
+        }
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {vec2} pos
+       * @param {number} range
+       */
+      flee(s, pos,range){
+        //only flee if the target is within 'panic distance'
+        let dv=_V.sub(s,pos), n=_V.len2(dv);
+        if(range === undefined)
+          range= s.m5.steerInfo.tooCloseDistance;
+        if(n>range*range){}else{
+          if(!_V.unit$(dv)) dv=[0.1,0.1];
+          _V.mul$(dv, s.m5.maxSpeed);
+          _V.sub$(dv, s.m5.vel);
+          _V.add$(s.m5.steer, dv);
+        }
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {vec2} pos
+       * @param {number} range
+       */
+      arrive(s, pos,range){
+        let r=1, n= _V.dist(s,pos),
+            dv = _V.unit$(_V.sub(pos,s));
+        if(range === undefined)
+          range= s.m5.steerInfo.arrivalThreshold;
+        if(n>range){}else{ r=n/range }
+        _V.mul$(dv,s.m5.maxSpeed * r);
+        _V.sub$(dv,s.m5.vel);
+        _V.add$(s.m5.steer,dv);
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {Sprite} target
+       */
+      pursue(s,target){
+        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+            predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
+        return this.seek(s,predicted);
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {Sprite} target
+       */
+      evade(s,target){
+        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+            predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
+        return this.flee(s, predicted);
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite}
+       */
+      idle(s){
+        _V.mul$(s.m5.vel,0);
+        _V.mul$(s.m5.steer,0);
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       */
+      wander(s){
+        let offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
+            n=_V.len(offset),
+            center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
+        offset[0] = Math.cos(s.m5.steerInfo.wanderAngle) * n;
+        offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
+        s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
+        _V.add$(s.m5.steer, _V.add$(center,offset));
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {Sprite} targetA
+       * @param {Sprite} targetB
+       */
+      interpose(s,targetA, targetB){
+        let mid= _V.div$(_V.add(targetA,targetB),2),
+            dt= _V.dist(s,mid) / s.m5.maxSpeed,
+            pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
+            pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
+        return this.seek(s, _V.div$(_V.add$(pA,pB),2));
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {array} ents
+       * @param {number} separationRadius
+       * @param {number} maxSeparation
+       */
+      separation(s, ents, separationRadius=300, maxSeparation=100){
+        let force = [0,0],
+            neighborCount = 0;
+        ents.forEach(e=>{
+          if(e !== s && _V.dist(e,s) < separationRadius){
+            _V.add$(force,_V.sub(e,s));
+            ++neighborCount;
+          }
+        });
+        if(neighborCount > 0){
+          _V.flip$(_V.div$(force,neighborCount))
+        }
+        _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {Sprite} leader
+       * @param {array} ents
+       * @param {number} distance
+       * @param {number} separationRadius
+       * @param {number} maxSeparation
+       * @param {number} leaderSightRadius
+       * @param {number} arrivalThreshold
+       */
+      followLeader(s,leader, ents, distance=400, separationRadius=300,
+                   maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
+
+        function isOnLeaderSight(s,leader, ahead, leaderSightRadius){
+          return _V.dist(ahead,s) < leaderSightRadius ||
+                 _V.dist(leader,s) < leaderSightRadius
+        }
+
+        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
+        let ahead = _V.add(leader,tv);
+        _V.flip$(tv);
+        let behind = _V.add(leader,tv);
+        if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
+          this.evade(s,leader);
+        }
+        this.arrive(s,behind,arrivalThreshold);
+        return this.separation(s,ents, separationRadius, maxSeparation);
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {array} ents
+       * @param {number} maxQueueAhead
+       * @param {number} maxQueueRadius
+       */
+      queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
+
+        function getNeighborAhead(){
+          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
+          let res, ahead = _V.add(s, qa);
+          for(let d,i=0; i<ents.length; ++i){
+            if(ents[i] !== s &&
+               _V.dist(ahead,ents[i]) < maxQueueRadius){
+              res = ents[i];
+              break;
+            }
+          }
+          return res;
+        }
+
+        let neighbor = getNeighborAhead();
+        let brake = [0,0],
+            v = _V.mul(s.m5.vel,1);
+        if(neighbor){
+          brake = _V.mul$(_V.flip(s.m5.steer),0.8);
+          _V.unit$(_V.flip$(v));
+          _V.add$(brake,v);
+          if(_V.dist(s,neighbor) < maxQueueRadius){
+            _V.mul$(s.m5.vel,0.3)
+          }
+        }
+        _V.add$(s.m5.steer,brake);
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {array} ents
+       */
+      flock(s, ents){
+
+        function inSight(e){
+          return _V.dist(s,e) > s.m5.steerInfo.inSightDistance ? false
+                                        : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
+        }
+
+        let inSightCount = 0,
+            averagePosition = [0,0],
+            averageVelocity = _V.mul(s.m5.vel,1);
+
+        ents.forEach(e=>{
+          if(e !== this && inSight(e)){
+            _V.add$(averageVelocity,e.m5.vel);
+            _V.add$(averagePosition,e);
+            if(_V.dist(s,e) < s.m5.steerInfo.tooCloseDistance){
+              this.flee(s, e)
+            }
+            ++inSightCount;
+          }
+        });
+        if(inSightCount>0){
+          _V.div$(averageVelocity, inSightCount);
+          _V.div$(averagePosition,inSightCount);
+          this.seek(s,averagePosition);
+          _V.add$(s.m5.steer, _V.sub$(averageVelocity, s.m5.vel));
+        }
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {array} path
+       * @param {boolean} loop
+       * @param {number} thresholdRadius
+       */
+      followPath(s, path, loop, thresholdRadius=1){
+        let wayPoint = path[s.m5.pathIndex];
+        if(!wayPoint){return}
+        if(_V.dist(s, wayPoint) < thresholdRadius){
+          if(s.m5.pathIndex >= path.length-1){
+            if(loop)
+              s.m5.pathIndex = 0;
+          }else{
+            s.m5.pathIndex += 1;
+          }
+        }
+        if(s.m5.pathIndex >= path.length-1 && !loop){
+          this.arrive(s,wayPoint)
+        }else{
+          this.seek(s,wayPoint)
+        }
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {array} obstacles
+       */
+      avoid(s,obstacles){
+        let dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
+            ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
+            ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
+            avoidance, mostThreatening = null;
+        for(let c,i=0; i<obstacles.length; ++i){
+          if(obstacles[i] === this) continue;
+          c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
+              _V.dist(obstacles[i],ahead2) <= obstacles[i].m5.radius;
+          if(c)
+            if(mostThreatening === null ||
+               _V.dist(s,obstacles[i]) < _V.dist(s, mostThreatening)){
+              mostThreatening = obstacles[i]
+            }
+        }
+        if(mostThreatening){
+          avoidance = _V.mul$(_V.unit$(_V.sub(ahead,mostThreatening)),100);
+          _V.add$(s.m5.steer,avoidance);
+        }
       }
+
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
