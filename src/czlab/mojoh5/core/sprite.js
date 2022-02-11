@@ -446,9 +446,11 @@
        * @return {Sprite} s
        */
       makeSteerable(s){
+        let w2=s.width/2,
+            h2=s.height/2;
         s.m5.steer=[0,0];
-        s.m5.radius=0;
         s.m5.steerInfo=SteeringInfo();
+        s.m5.radius=Math.sqrt(w2*w2+h2+h2);
         return s;
       },
       /**
@@ -602,7 +604,11 @@
        */
       move(s,dt){
         dt=_.nor(dt,1);
-        return _V.add$(s,_V.mul(s.m5.vel,dt)); },
+        if(s.m5.maxSpeed !== undefined){
+          _V.clamp$(s.m5.vel,0, s.m5.maxSpeed)
+        }
+        return _V.add$(s,_V.mul(s.m5.vel,dt));
+      },
       /**Get the left side of this sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1972,6 +1978,7 @@
         offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
         s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
         _V.add$(s.m5.steer, _V.add$(center,offset));
+        return s;
       },
       /**
        * @memberof module:mojoh5/Sprites

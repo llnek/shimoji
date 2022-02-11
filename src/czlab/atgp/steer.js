@@ -48,10 +48,10 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           initLevel(){
-            let s= _S.rect(36,36);
-            s.m5.maxSpeed=3;
-            s.m5.vel[0]=1;
-            s.m5.vel[1]=1;
+            let s= _S.rect(8,8);
+            s.m5.maxSpeed=50;
+            s.m5.vel[0]=10;
+            s.m5.vel[1]=10;
             _S.centerAnchor(s);
             _G.car= self.insert(s);
             _G.car.x=Mojo.width/2;
@@ -76,9 +76,7 @@
       },
       postUpdate(dt){
         let p=[Mojo.mouse.x,Mojo.mouse.y];
-        _S.wander(_G.car);
-        _S.updateSteer(_G.car);
-        _S.move(_G.car,dt);
+        _S.move(_S.updateSteer( _S.wander(_G.car)),dt);
       }
     });
 
