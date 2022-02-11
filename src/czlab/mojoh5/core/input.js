@@ -62,8 +62,7 @@
           return this.ptr;
         },
         update(dt){
-          if(!this.pauseInput)
-            this.ptr.DragDrops.length>0 && this.ptr.update(dt)
+          if(!this.pauseInput) this.ptr.update(dt);
         },
         keybd(_key,press,release){
           const self=this;
@@ -136,6 +135,9 @@
      * @module mojoh5/Input
      */
 
+    const HISTORY_SIZE=20;
+    const TRAIL_SIZE=100;
+
     /** @ignore */
     function mkPtr(L){
       let P={
@@ -170,9 +172,6 @@
         set visible(v) {
           this.cursor = v ? "auto" : "none";
           this._visible = v;
-        },
-        update(dt){
-          Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt)
         },
         updateMultiDrags(dt){
           let self=P;
@@ -516,6 +515,58 @@
         },
         hitTest(s){
           return this._test(s,this.x, this.y)
+        },
+        update(dt){
+          if(this.DragDrops.length>0)
+            Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt);
+          if(this.tail)
+            this.updateTrail();
+        },
+        updateTrail(){
+          this.tailHistX.pop();
+          this.tailHistY.pop();
+          this.tailHistX.unshift(this.x);
+          this.tailHistY.unshift(this.y);
+          this.tailPoints.forEach((p,i)=>{
+            p.x= this.cubic(this.tailHistX, i/TRAIL_SIZE * HISTORY_SIZE);
+            p.y= this.cubic(this.tailHistY, i/TRAIL_SIZE * HISTORY_SIZE);
+          });
+        },
+        cubic(arr, t, tangentFactor=1){
+          function clipInput(k, arr){
+            if(k < 0) k = 0;
+            if(k > arr.length-1) k = arr.length-1;
+            return arr[k];
+          }
+          function getTangent(k, arr){
+            return tangentFactor * (clipInput(k+1, arr) - clipInput(k-1, arr))/2;
+          }
+          const k = Math.floor(t),
+                m = [getTangent(k, arr), getTangent(k+1, arr)],
+                p = [clipInput(k, arr), clipInput(k+1, arr)];
+          t -= k;
+          const t2 = t * t;
+          const t3 = t * t2;
+          return (2 * t3 - 3 * t2 + 1) * p[0] + (t3 - 2 * t2 + t) * m[0] + (-2 * t3 + 3 * t2) * p[1] + (t3 - t2) * m[1];
+        },
+        disableTrail(){
+          if(this.tail)
+            Mojo.stage.removeChild(this.tail);
+          this.tail=null;
+          this.tailHistX=null;
+          this.tailHistY=null;
+          this.tailPoints=null;
+        },
+        enableTrail(){
+          const ps= _.fill(TRAIL_SIZE, ()=> new PIXI.Point(0, 0)),
+                t= Mojo.tcached("boot/trail.png"),
+                rope = new PIXI.SimpleRope(t, ps);
+          rope.blendmode = PIXI.BLEND_MODES.ADD;
+          this.tail=rope;
+          this.tailPoints=ps;
+          this.tailHistX=_.fill(HISTORY_SIZE, 0);
+          this.tailHistY=_.fill(HISTORY_SIZE, 0);
+          Mojo.stage.addChild(rope);
         }
       };
 
@@ -535,6 +586,9 @@
       };
       //////
       return P;
+    }
+
+    function xxx(mouse){
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

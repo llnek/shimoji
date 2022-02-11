@@ -321,9 +321,8 @@
       SomeColors,
       BtnColors,
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
-               "boot/doki.fnt", "boot/riffic.fnt",
-        "boot/kenney_high.fnt",
-               "boot/NineteenOhFive.fnt","boot/BIG_SHOUT_BOB.fnt"],
+               "boot/trail.png","boot/star.png"],
+               "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1901,6 +1900,7 @@
           _V.sub$(dv, s.m5.vel);
           _V.add$(s.m5.steer,dv);
         }
+        return s;
       },
       /**
        * @memberof module:mojoh5/Sprites

@@ -30,6 +30,74 @@
      * @module mojoh5/FX
      */
 
+    function StarWarp(C){
+      const starTexture = Mojo.tcached("boot/star.png");
+      const starAmt = 1000;
+      let cameraZ = 0;
+      const fov = 20;
+      const baseSpeed = 0.025;
+      let speed = 0;
+      let warpSpeed = 0;
+      const starStretch = 5;
+      const starBaseSize = 0.05;
+      const stars = _.fill(starAmt,(i)=>{
+        i={x:0,y:0,z:0, sprite: Mojo.Sprites.sprite("boot/star.png") };
+        i.sprite.anchor.x = 0.5;
+        i.sprite.anchor.y = 0.7;
+        randStar(i, true);
+        C.addChild(i.sprite);
+        return i;
+      });
+      function randStar(star, initial){
+        star.z = initial ? _.rand() * 2000 : cameraZ + _.rand() * 1000 + 2000;
+        //calculate star positions with radial random coordinate so no star hits the camera.
+        const deg = _.rand() * Math.PI * 2,
+              distance = _.rand() * 50 + 1;
+        star.x = Math.cos(deg) * distance;
+        star.y = Math.sin(deg) * distance;
+      }
+      let mark=_.now();
+      return {
+        dispose(){
+          stars.forEach(s=> Mojo.Sprites.remove(s.sprite));
+        },
+        update(dt){
+          //simple easing. This should be changed to proper easing function when used for real.
+          let z;
+          speed += (warpSpeed - speed) / 20;
+          cameraZ += dt * 10 * (speed + baseSpeed);
+          stars.forEach(s=>{
+            if(s.z < cameraZ) randStar(s);
+            // Map star 3d position to 2d with really simple projection
+            z = s.z - cameraZ;
+            s.sprite.x = s.x * (fov / z) * Mojo.width + Mojo.width / 2;
+            s.sprite.y = s.y * (fov / z) * Mojo.width + Mojo.height / 2;
+            //calculate star scale & rotation.
+            const dxCenter = s.sprite.x - Mojo.width / 2;
+            const dyCenter = s.sprite.y - Mojo.height / 2;
+            const distanceCenter = Math.sqrt(dxCenter * dxCenter + dyCenter * dyCenter);
+            const distanceScale = Math.max(0, (2000 - z) / 2000);
+            s.sprite.scale.x = distanceScale * starBaseSize;
+            // Star is looking towards center so that y axis is towards center.
+            // Scale the star depending on how fast we are moving,
+            // what the stretchfactor is and depending on how far away it is from the center.
+            s.sprite.scale.y = distanceScale * starBaseSize + distanceScale * speed * starStretch * distanceCenter / Mojo.width;
+            s.sprite.rotation = Math.atan2(dyCenter, dxCenter) + Math.PI / 2;
+          });
+          let now=_.now();
+          if(now-mark>5000){
+            mark=now;
+            warpSpeed = warpSpeed > 0 ? 0 : 1;
+          }
+        }
+      }
+    }
+
+
+
+
+
+
     function Tween(s,t,frames=60,loop=false,ext={}){
       return _.inject({
         sprite:s,
@@ -757,7 +825,8 @@
                          : _upAndDownShake(wrapper)
         };
         DustBin.push(wrapper);
-      }
+      },
+      StarWarp
     };
 
     return (Mojo.FX= _$);

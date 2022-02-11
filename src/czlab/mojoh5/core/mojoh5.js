@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope){
 
@@ -795,7 +795,9 @@
           if(s instanceof Mojo.Scenes.SceneWrapper){
             s=s.children[0]
           }
-          cb(s)
+          if(s instanceof PIXI.SimpleRope){}else{
+            cb(s)
+          }
         })
       },
       scroll(x,y){
@@ -984,8 +986,13 @@
         return d * (Math.PI / 180) },
       radToDeg(r){
         return r * (180 / Math.PI) },
-      delBgTask(t){ t && _.disj(_BgTasks,t) },
       addBgTask(t){ _BgTasks.push(t) },
+      delBgTask(t){
+        if(t){
+          t.dispose && t.dispose();
+          _.disj(_BgTasks,t);
+        }
+      },
       resume(){ _paused = false },
       pause(){ _paused = true },
       start(){
@@ -1005,6 +1012,16 @@
           _raf(F);
         };
         return _raf(F);
+      },
+      takeScreenshot(){
+        Mojo.ctx.extract.canvas(Mojo.stage).toBlob(b=>{
+          const a = document.createElement("a");
+          document.body.append(a);
+          a.download = "screenshot";
+          a.href = URL.createObjectURL(b);
+          a.click();
+          a.remove();
+        }, "image/png");
       }
     };
 

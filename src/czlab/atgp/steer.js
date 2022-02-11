@@ -76,7 +76,7 @@
       },
       postUpdate(dt){
         let p=[Mojo.mouse.x,Mojo.mouse.y];
-        _S.move(_S.updateSteer( _S.wander(_G.car)),dt);
+        _S.move(_S.updateSteer( _S.seek(_G.car,p)),dt);
       }
     });
 
