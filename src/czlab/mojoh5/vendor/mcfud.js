@@ -2022,11 +2022,26 @@
     const DEG_2PI= 360;
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
+    const int=Math.floor;
     const {is,u:_}= Core;
 
     /**
      * @module mcfud/math
      */
+
+    const PERLIN_YWRAPB = 4;
+    const PERLIN_YWRAP = 1 << PERLIN_YWRAPB;
+    const PERLIN_ZWRAPB = 8;
+    const PERLIN_ZWRAP = 1 << PERLIN_ZWRAPB;
+    const PERLIN_SIZE = 4095;
+
+    let perlin_octaves = 4; // default to medium smooth
+    let perlin_amp_falloff = 0.5; // 50% reduction/octave
+    let _perlinArr;
+
+    function scaled_cosine(i){
+      return 0.5 * (1.0 - Math.cos(i * Math.PI))
+    }
 
     /** @ignore */
     function _mod_deg(deg){
@@ -2129,7 +2144,111 @@
       remap(n, start1, stop1, start2, stop2, withinBounds){
         const v= (n - start1) / (stop1 - start1) * (stop2 - start2) + start2;
         return !withinBounds ? v : (start2 < stop2? this.clamp(start2, stop2, v) : this.clamp(stop2, start2,v));
+      },
+      perlin(x, y = 0, z = 0){
+        if(!_perlinArr)
+          _perlinArr=_.fill(PERLIN_SIZE+1, ()=> _.rand());
+        /////
+        if(x<0){ x = -x}
+        if(y<0){ y = -y }
+        if(z<0){ z = -z }
+        let xi = int(x),
+            yi = int(y),
+            zi = int(z),
+            xf = x - xi,
+            yf = y - yi,
+            zf = z - zi,
+            rxf, ryf,
+            r = 0,
+            ampl = 0.5,
+            of, n1, n2, n3;
+        for(let o=0; o<PERLIN_OCTAVES; ++o){
+          of = xi + (yi << PERLIN_YWRAPB) + (zi << PERLIN_ZWRAPB);
+          rxf = scaled_cosine(xf);
+          ryf = scaled_cosine(yf);
+          n1 = _perlinArr[of & PERLIN_SIZE];
+          n1 += rxf * (_perlinArr[(of + 1) & PERLIN_SIZE] - n1);
+          n2 = _perlinArr[(of + PERLIN_YWRAP) & PERLIN_SIZE];
+          n2 += rxf * (_perlinArr[(of + PERLIN_YWRAP + 1) & PERLIN_SIZE] - n2);
+          n1 += ryf * (n2 - n1);
+          of += PERLIN_ZWRAP;
+          n2 = _perlinArr[of & PERLIN_SIZE];
+          n2 += rxf * (_perlinArr[(of + 1) & PERLIN_SIZE] - n2);
+          n3 = _perlinArr[(of + PERLIN_YWRAP) & PERLIN_SIZE];
+          n3 += rxf * (_perlinArr[(of + PERLIN_YWRAP + 1) & PERLIN_SIZE] - n3);
+          n2 += ryf * (n3 - n2);
+
+          n1 += scaled_cosine(zf) * (n2 - n1);
+          r += n1 * ampl;
+          ampl *= perlin_amp_falloff;
+          xi <<= 1;
+          xf *= 2;
+          yi <<= 1;
+          yf *= 2;
+          zi <<= 1;
+          zf *= 2;
+          if(xf >= 1.0){
+            xi++;
+            xf--;
+          }
+          if(yf >= 1.0){
+            yi++;
+            yf--;
+          }
+          if(zf >= 1.0){
+            zi++;
+            zf--;
+          }
+        }
+        return r
+      },
+      perlin1D(nCount, fSeed, nOctaves, fBias, fOutput){
+        let fNoise, fScaleAcc, fScale;
+        let nPitch, nSample1, nSample2, fBlend, fSample;
+        for(let x=0; x<nCount; ++x){
+          fNoise = 0; fScaleAcc = 0; fScale = 1;
+          for(let o=0; o<nOctaves; ++o){
+            nPitch = nCount >> o;
+            nSample1 = int(x/nPitch) * nPitch;
+            nSample2 = (nSample1 + nPitch) % nCount;
+            fBlend = (x - nSample1) / nPitch;
+            fSample = (1 - fBlend) * fSeed[int(nSample1)] + fBlend * fSeed[int(nSample2)];
+
+            fScaleAcc += fScale;
+            fNoise += fSample * fScale;
+            fScale = fScale / fBias;
+          }
+          //scale to seed range
+          fOutput[x] = fNoise / fScaleAcc;
+        }
+      },
+      perlin2D(nWidth, nHeight, fSeed, nOctaves, fBias, fOutput){
+        let fNoise, fScaleAcc, fScale;
+        let fBlendX, fBlendY, fSampleT, fSampleB;
+        let nPitch, nSampleX1, nSampleY1, nSampleX2, nSampleY2;
+        for(let x=0; x<nWidth; ++x)
+          for(let y=0; y<nHeight; ++y){
+            fNoise = 0; fScaleAcc = 0; fScale = 1;
+            for(let o=0; o<nOctaves; ++o){
+              nPitch = nWidth >> o;
+              nSampleX1 = int(x / nPitch) * nPitch;
+              nSampleY1 = int(y / nPitch) * nPitch;
+              nSampleX2 = (nSampleX1 + nPitch) % nWidth;
+              nSampleY2 = (nSampleY1 + nPitch) % nHeight;
+              fBlendX = (x - nSampleX1) / nPitch;
+              fBlendY = (y - nSampleY1) / nPitch;
+              fSampleT = (1 - fBlendX) * fSeed[int(nSampleY1 * nWidth + nSampleX1)] + fBlendX * fSeed[int(nSampleY1 * nWidth + nSampleX2)];
+              fSampleB = (1 - fBlendX) * fSeed[int(nSampleY2 * nWidth + nSampleX1)] + fBlendX * fSeed[int(nSampleY2 * nWidth + nSampleX2)];
+
+              fScaleAcc += fScale;
+              fNoise += (fBlendY * (fSampleB - fSampleT) + fSampleT) * fScale;
+              fScale = fScale / fBias;
+            }
+            //scale to seed range
+            fOutput[y * nWidth + x] = fNoise / fScaleAcc;
+          }
       }
+
     };
 
     return _$;

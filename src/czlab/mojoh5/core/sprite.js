@@ -321,7 +321,7 @@
       SomeColors,
       BtnColors,
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
-               "boot/trail.png","boot/star.png"],
+               "boot/trail.png","boot/star.png",
                "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
