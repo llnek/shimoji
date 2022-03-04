@@ -10,16 +10,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
   "use strict";
 
   function scenes(Mojo){
+    const _M=window["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "2d":_2d,
            Tiles:_T,
            v2:_V,
            Game:_G,
@@ -42,8 +42,8 @@
           m.m5.showFrame(_.randInt2(0,5));
           m.m5.circle=true;
           _S.centerAnchor(m);
-          _V.set(m,MFL((g.x1+g.x2)/2),
-                   MFL((g.y1+g.y2)/2));
+          _V.set(m,_M.ndiv(g.x1+g.x2,2),
+                   _M.ndiv(g.y1+g.y2,2));
           _S.sizeXY(m, rr=SIZES[_.randInt2(0, 6)],rr);
           _V.set(m.m5.vel, _.randInt2(-400, 400),
                            _.randInt2(-400, 400));
@@ -55,27 +55,27 @@
       _G.capturedMarble = null;
       _G.arena=Mojo.mockStage(out);
       _V.set(_G.arena,0,0);
-      //Create the "sling", a line that will connect the mouse to the marbles
-      _G.sling= _S.line("Yellow",4*K, [0,0],[32,32]);
-      _G.sling.visible = false;
-      self.insert(_G.sling);
+      //Create the "rubber-band", a line that will connect the mouse to the marbles
+      _G.rubber= _S.line("yellow",4*K, [0,0],[32,32]);
+      _G.rubber.visible = false;
+      self.insert(_G.rubber);
       self.insert(_S.drawGridBox(pbox));
     }
 
     function _onCaptured(self){
       if(_G.capturedMarble){
-        //draw the sling between the mouse and the captured marble
+        //draw the rubber-band between the mouse and the captured marble
         let c=_S.centerXY(_G.capturedMarble);
-        _G.sling.visible = true;
-        _G.sling.m5.ptA(c[0],c[1]);
-        _G.sling.m5.ptB(Mojo.mouse.x-self.x,Mojo.mouse.y-self.y);
+        _G.rubber.visible = true;
+        _G.rubber.m5.ptA(c[0],c[1]);
+        _G.rubber.m5.ptB(Mojo.mouse.x-self.x,Mojo.mouse.y-self.y);
       }
     }
 
     //Shoot the marble when mouse is released
     function _offCaptured(self){
       if(Mojo.mouse.isUp){
-        let s=_G.sling,
+        let s=_G.rubber,
             K=Mojo.getScaleFactor();
         s.visible = false;
         if(_G.capturedMarble){
@@ -137,9 +137,9 @@
     _Z.defScene("quadtree",{
       setup(){
         _init(this);
-        _G.qtree=QT.quadtree({left:0,top:0,
-                              right:_G.arena.width,
-                              bottom:_G.arena.height});
+        _G.qtree=QT.quadtree({x1:0,y1:0,
+                              x2:_G.arena.width,
+                              y2:_G.arena.height});
       },
       postUpdate(dt){
         let K=Mojo.getScaleFactor();
@@ -168,8 +168,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        //Mojo.Scenes.runScene("quadtree");
-        Mojo.Scenes.runScene("spatial");
+        Mojo.Scenes.runScene("quadtree");
+        //Mojo.Scenes.runScene("spatial");
       }
     })
   });

@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -19,9 +19,10 @@
   function scenes(Mojo){
     const {Scenes:_Z,
            Sprites:_S,
-           "2d":_2d,
+           D2:_D,
            Input:_I,
            Game:G,
+           math:_M,
            v2:_V,
            ute:_,is,EventBus}=Mojo;
 
@@ -45,19 +46,28 @@
         let bw,bh,bw2,bh2;
         for(let s,i=0; i < boxes.length; ++i){
           boxes[i]=(s=_S.sprite("box.png"));
-          _V.set(s.scale,K,K);
+          _S.scaleXY(s,K,K);
           _I.makeDrag(s);
-          this.insert(s);
-          _S.pinCenter(this,s);
+          _S.pinCenter(this, this.insert(s));
         }
         bh=boxes[0].height;
         bw=boxes[0].width;
-        bw2=Math.floor(bw/2);
-        bh2=Math.floor(bh/2);
+        bw2=_M.ndiv(bw,2);
+        bh2=_M.ndiv(bh,2);
         boxes[0].x -= bw2; boxes[0].y -= bh2;
         boxes[1].x += bw2; boxes[1].y -= bh2;
         boxes[2].x -= bw2; boxes[2].y += bh2;
         boxes[3].x += bw2; boxes[3].y += bh2;
+
+        _S.centerAnchor(boxes[0]);
+        _S.centerAnchor(boxes[3]);
+        boxes[0].m5.circle=true;
+        boxes[3].m5.circle=true;
+
+        //_S.centerAnchor(boxes[1]);
+        //_S.centerAnchor(boxes[2]);
+        //boxes[1].m5.circle=true;
+        //boxes[2].m5.circle=true;
 
         _I.makeDrag(monster);
         _I.makeDrag(player);
@@ -77,7 +87,7 @@
         G.line.m5.ptA(m[0], m[1]);
         G.line.m5.ptB(a[0], a[1]);
 
-        let hit = _S.lineOfSight(G.monster,G.player,G.boxes,16);
+        let hit = _D.lineOfSight(G.monster,G.player,G.boxes);
         if(hit){
           G.monster.m5.showFrame(1);
           G.line.alpha = 1;

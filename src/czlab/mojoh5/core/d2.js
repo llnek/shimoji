@@ -9,7 +9,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope){
 
@@ -20,6 +20,7 @@
   function _module(Mojo){
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const _M=gscope["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
@@ -35,7 +36,7 @@
           CIRCLE=Math.PI*2;
 
     /**
-     * @module mojoh5/2d
+     * @module mojoh5/D2
      */
 
     /**
@@ -121,11 +122,13 @@
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
     _Z.defScene("StarfieldBg",{
       setup(o){
-        if(!o.height) o.height=Mojo.height;
-        if(!o.width) o.width=Mojo.width;
-        if(!o.count) o.count=100;
-        if(!o.minVel) o.minVel=15;
-        if(!o.maxVel) o.maxVel=30;
+        _.patch(o,{
+          height:Mojo.height,
+          width:Mojo.width,
+          count:100,
+          minVel:15,
+          maxVel:30
+        });
         const self=this,
               stars=[],
               W=0xffffff,
@@ -135,7 +138,7 @@
           stars,
           lag:0,
           dynamic:true,
-          fps: 1.0/o.fps,
+          fps: 1/o.fps,
           draw(){
             gfx.clear();
             stars.forEach(s=>{
@@ -206,7 +209,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Define a mixin object. */
-    Mojo.defMixin("2d",function(e,...minors){
+    Mojo.defMixin("arcade",function(e, ...minors){
       const {Sprites}= Mojo,
             subs=[],
             sigs=[],
@@ -262,6 +265,7 @@
                 subs.forEach(s=> s.onTick(dt,colls));
               }
             };
+      //_.assert(e.parent && e.parent.collideXY, "no parent or parent.collideXY");
       sigs.push([["hit",e],"boom",self],
                 [["post.remove",e],"dispose",self]);
       sigs.forEach(s=> Mojo.on(...s));
@@ -283,10 +287,10 @@
       let _y=0;
       const _height= canvas?canvas.height:worldHeight,
             _width= canvas?canvas.width:worldWidth,
-            height2=int(_height/2),
-            width2=int(_width/2),
-            height4=int(_height/4),
-            width4=int(_width/4),
+            height2=_M.ndiv(_height,2),
+            width2=_M.ndiv(_width,2),
+            height4=_M.ndiv(_height,4),
+            width4=_M.ndiv(_width,4),
             {Sprites}=Mojo,
             sigs=[],
             world=e,
@@ -306,7 +310,7 @@
                 //Check the sprites position in relation to the viewport.
                 //Move the camera to follow the sprite if the sprite
                 //strays outside the viewport
-                const bx= _.feq0(s.angle)? Sprites.getBBox(s)
+                const bx= _.feq0(s.angle)? Sprites.getAABB(s)
                                          : Sprites.boundingBox(s);
                 const _right=()=>{
                   if(bx.x2> this.x+int(width2+width4)){ this.x = bx.x2-width4*3 }},
@@ -334,7 +338,7 @@
                 if(n<0) { s.y += -n }
               },
               centerOver:function(s,y){
-                if(arguments.length===1 && !is.num(s)){
+                if(arguments.length==1 && !is.num(s)){
                   let c=Sprites.centerXY(s)
                   this.x = c[0]- width2;
                   this.y = c[1] - height2;
@@ -351,8 +355,322 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       PeriodicDischarge,
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      //steering stuff
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {vec2} pos
+       */
+      seek(s, pos){
+        let dv = _V.unit$(_V.sub(pos,s));
+        if(dv){
+          _V.mul$(dv, s.m5.maxSpeed);
+          _V.sub$(dv, s.m5.vel);
+          _V.add$(s.m5.steer,dv);
+        }
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {vec2} pos
+       * @param {number} range
+       */
+      flee(s, pos,range){
+        //only flee if the target is within 'panic distance'
+        let dv=_V.sub(s,pos), n=_V.len2(dv);
+        if(range === undefined)
+          range= s.m5.steerInfo.tooCloseDistance;
+        if(n>range*range){}else{
+          if(!_V.unit$(dv)) dv=[0.1,0.1];
+          _V.mul$(dv, s.m5.maxSpeed);
+          _V.sub$(dv, s.m5.vel);
+          _V.add$(s.m5.steer, dv);
+        }
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {vec2} pos
+       * @param {number} range
+       */
+      arrive(s, pos,range){
+        let r=1, n= _V.dist(s,pos),
+            dv = _V.unit$(_V.sub(pos,s));
+        if(range === undefined)
+          range= s.m5.steerInfo.arrivalThreshold;
+        if(n>range){}else{ r=n/range }
+        _V.mul$(dv,s.m5.maxSpeed * r);
+        _V.sub$(dv,s.m5.vel);
+        _V.add$(s.m5.steer,dv);
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {Sprite} target
+       */
+      pursue(s,target){
+        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+            predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
+        return this.seek(s,predicted);
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {Sprite} target
+       */
+      evade(s,target){
+        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+            predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
+        return this.flee(s, predicted);
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @return {Sprite}
+       */
+      idle(s){
+        _V.mul$(s.m5.vel,0);
+        _V.mul$(s.m5.steer,0);
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       */
+      wander(s){
+        let offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
+            n=_V.len(offset),
+            center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
+        offset[0] = Math.cos(s.m5.steerInfo.wanderAngle) * n;
+        offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
+        s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
+        _V.add$(s.m5.steer, _V.add$(center,offset));
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {Sprite} targetA
+       * @param {Sprite} targetB
+       */
+      interpose(s,targetA, targetB){
+        let mid= _V.div$(_V.add(targetA,targetB),2),
+            dt= _V.dist(s,mid) / s.m5.maxSpeed,
+            pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
+            pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
+        return this.seek(s, _V.div$(_V.add$(pA,pB),2));
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {array} ents
+       * @param {number} separationRadius
+       * @param {number} maxSeparation
+       */
+      separation(s, ents, separationRadius=300, maxSeparation=100){
+        let force = [0,0],
+            neighborCount = 0;
+        ents.forEach(e=>{
+          if(e !== s && _V.dist(e,s) < separationRadius){
+            _V.add$(force,_V.sub(e,s));
+            ++neighborCount;
+          }
+        });
+        if(neighborCount > 0){
+          _V.flip$(_V.div$(force,neighborCount))
+        }
+        _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {Sprite} leader
+       * @param {array} ents
+       * @param {number} distance
+       * @param {number} separationRadius
+       * @param {number} maxSeparation
+       * @param {number} leaderSightRadius
+       * @param {number} arrivalThreshold
+       */
+      followLeader(s,leader, ents, distance=400, separationRadius=300,
+                   maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
+
+        function isOnLeaderSight(s,leader, ahead, leaderSightRadius){
+          return _V.dist(ahead,s) < leaderSightRadius ||
+                 _V.dist(leader,s) < leaderSightRadius
+        }
+
+        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
+        let ahead = _V.add(leader,tv);
+        _V.flip$(tv);
+        let behind = _V.add(leader,tv);
+        if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
+          this.evade(s,leader);
+        }
+        this.arrive(s,behind,arrivalThreshold);
+        return this.separation(s,ents, separationRadius, maxSeparation);
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {array} ents
+       * @param {number} maxQueueAhead
+       * @param {number} maxQueueRadius
+       */
+      queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
+
+        function getNeighborAhead(){
+          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
+          let res, ahead = _V.add(s, qa);
+          for(let d,i=0; i<ents.length; ++i){
+            if(ents[i] !== s &&
+               _V.dist(ahead,ents[i]) < maxQueueRadius){
+              res = ents[i];
+              break;
+            }
+          }
+          return res;
+        }
+
+        let neighbor = getNeighborAhead();
+        let brake = [0,0],
+            v = _V.mul(s.m5.vel,1);
+        if(neighbor){
+          brake = _V.mul$(_V.flip(s.m5.steer),0.8);
+          _V.unit$(_V.flip$(v));
+          _V.add$(brake,v);
+          if(_V.dist(s,neighbor) < maxQueueRadius){
+            _V.mul$(s.m5.vel,0.3)
+          }
+        }
+        _V.add$(s.m5.steer,brake);
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {array} ents
+       */
+      flock(s, ents){
+
+        function inSight(e){
+          return _V.dist(s,e) > s.m5.steerInfo.inSightDistance ? false
+                                        : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
+        }
+
+        let inSightCount = 0,
+            averagePosition = [0,0],
+            averageVelocity = _V.mul(s.m5.vel,1);
+
+        ents.forEach(e=>{
+          if(e !== this && inSight(e)){
+            _V.add$(averageVelocity,e.m5.vel);
+            _V.add$(averagePosition,e);
+            if(_V.dist(s,e) < s.m5.steerInfo.tooCloseDistance){
+              this.flee(s, e)
+            }
+            ++inSightCount;
+          }
+        });
+        if(inSightCount>0){
+          _V.div$(averageVelocity, inSightCount);
+          _V.div$(averagePosition,inSightCount);
+          this.seek(s,averagePosition);
+          _V.add$(s.m5.steer, _V.sub$(averageVelocity, s.m5.vel));
+        }
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {array} path
+       * @param {boolean} loop
+       * @param {number} thresholdRadius
+       */
+      followPath(s, path, loop, thresholdRadius=1){
+        let wayPoint = path[s.m5.pathIndex];
+        if(!wayPoint){return}
+        if(_V.dist(s, wayPoint) < thresholdRadius){
+          if(s.m5.pathIndex >= path.length-1){
+            if(loop)
+              s.m5.pathIndex = 0;
+          }else{
+            s.m5.pathIndex += 1;
+          }
+        }
+        if(s.m5.pathIndex >= path.length-1 && !loop){
+          this.arrive(s,wayPoint)
+        }else{
+          this.seek(s,wayPoint)
+        }
+      },
+      /**
+       * @memberof module:mojoh5/D2
+       * @param {Sprite} s
+       * @param {array} obstacles
+       */
+      avoid(s,obstacles){
+        let dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
+            ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
+            ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
+            avoidance, mostThreatening = null;
+        for(let c,i=0; i<obstacles.length; ++i){
+          if(obstacles[i] === this) continue;
+          c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
+              _V.dist(obstacles[i],ahead2) <= obstacles[i].m5.radius;
+          if(c)
+            if(mostThreatening === null ||
+               _V.dist(s,obstacles[i]) < _V.dist(s, mostThreatening)){
+              mostThreatening = obstacles[i]
+            }
+        }
+        if(mostThreatening){
+          avoidance = _V.mul$(_V.unit$(_V.sub(ahead,mostThreatening)),100);
+          _V.add$(s.m5.steer,avoidance);
+        }
+      },
+      /**Check if there’s clear line of sight between two sprites.
+       * memberof module:mojoh5/Sprites
+       * @param {Sprite} s1
+       * @param {Sprite} s2
+       * @param {any[]} obstacles
+       * @return {boolean}
+       */
+      lineOfSight(s1, s2, obstacles){
+        let c1=_S.centerXY(s1),
+            c2=_S.centerXY(s2);
+        for(let b,rc,s,o,i=0;i<obstacles.length;++i){
+          o=obstacles[i];
+          if(o.m5.circle){
+            rc=Geo.hitTestLineCircle(c1,c2, o.x, o.y, o.width/2)
+          }else{
+            rc=Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(_S.toPolygon(o),o.x,o.y))
+          }
+          if(rc[0]) return false;
+        }
+        return true;
+      },
+      /**Create a projectile being fired out of a shooter.
+       * @memberof module:mojoh5/D2
+       * @param {any} src
+       * @param {number} angle
+       * @param {number} speed
+       * @param {function} ctor
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite}
+       */
+      shoot(src, angle, speed, ctor,x,y){
+        let b=ctor(),
+            soff=Mojo.Sprites.topLeftOffsetXY(src);
+        _V.add$(soff,[x,y]);
+        _V.copy(b,_V.add(src,soff));
+        _V.set(b.m5.vel, Math.cos(angle) * speed,
+                         Math.sin(angle) * speed);
+        return b;
+      },
       /**Create a HealthBar widget.
-       * @memberof module:mojoh5/2d
+       * @memberof module:mojoh5/D2
        * @param {HealthBarConfig} cfg
        * @return {HealthBarObj}
        */
@@ -364,7 +682,7 @@
         lives= lives||3;
         fill=_S.color(fill);
         line=_S.color(line);
-        for(let r,w=int(width/lives), i=0;i<lives;++i){
+        for(let r,w=_M.ndiv(width,lives), i=0;i<lives;++i){
           out.push(_S.rect(w,height-2*borderWidth,fill))
         }
         return{
@@ -383,7 +701,7 @@
       },
       //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
       /**Create a gauge like speedometer.
-       * @memberof module:mojoh5/2d
+       * @memberof module:mojoh5/D2
        * @param {GaugeUIConfig} cfg
        * @return {GaugeUIObj}
        */
@@ -433,7 +751,7 @@
         }
       },
       /**Sprite walks back and forth, like a patrol.
-       * @memberof module:mojoh5/2d
+       * @memberof module:mojoh5/D2
        * @param {PIXI/Sprite} e
        * @param {boolean} xDir walk left and right
        * @param {boolean} yDir walk up and down
@@ -480,7 +798,7 @@
         return self;
       },
       /**Enhance sprite to move like mario
-       * @memberof module:mojoh5/2d
+       * @memberof module:mojoh5/D2
        * @param {PIXI/Sprite} e
        * @return {PlatformerObj}
        */
@@ -556,7 +874,7 @@
         return self;
       },
       /**Enhance sprite to move like pacman.
-       * @memberof module:mojoh5/2d
+       * @memberof module:mojoh5/D2
        * @param {PIXI/Sprite} e
        * @param {array} frames optional
        * @return {MazeRunnerObj}
@@ -616,7 +934,7 @@
       }
     };
 
-    return (Mojo["2d"]= _$);
+    return (Mojo["D2"]= _$);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -624,8 +942,8 @@
   if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
-    gscope["io/czlab/mojoh5/2d"]=(M)=>{
-      return M["2d"] ? M["2d"] : _module(M) } }
+    gscope["io/czlab/mojoh5/D2"]=(M)=>{
+      return M["D2"] ? M["D2"] : _module(M) } }
 
 })(this);
 

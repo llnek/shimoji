@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -22,7 +22,7 @@
   }
 
   const CON=console,
-        MFL=Math.floor;
+        int=Math.floor;
 
   /**Create the module.
    */
@@ -57,11 +57,11 @@
       let _pan=0;
       let _vol=1;
       const s={
-        sids:new Map(),
-        buffer:null,
+        sids: new Map(),
+        buffer:UNDEF,
         loop:false,
         src: url,
-        name: name,
+        name,
         //-1(left speaker)
         //1(right speaker)
         get pan(){ return _pan },

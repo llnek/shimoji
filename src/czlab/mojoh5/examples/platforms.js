@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -20,7 +20,7 @@
     const {Scenes:Z,
            Sprites:S,
            Input:I,
-           "2d":_2d,
+           "D2":_2d,
            Tiles:_T,
            v2:_V,
            Game:G,
@@ -48,10 +48,10 @@
       for(let i,y=0;y<h;++y){
         for(let x=0;x<w;++x){
           i=y*w+x;
-          if(x===0 || x===w-1){
+          if(x==0 || x==w-1){
             ts.data[i]=3;// left&right border
           }else if(i>=lastY ||
-                   _.randInt2(0,3)===0){
+                   _.randInt2(0,3)==0){
             ts.data[i]=4;//ground
           }else{
             ts.data[i]=6;//sky
@@ -63,9 +63,9 @@
       ts.data.forEach((gid,i)=>{
         let top =ts.data[i-w],
             top2 =ts.data[i-2*w];
-        if(gid===4 && top===6){
+        if(gid==4 && top==6){
           ts.data[i]=1;//change from rock to grass
-          if(top2===4 || top2===1){
+          if(top2==4 || top2==1){
             ts.data[i-2*w]=6;//change solid to sky
           }
         }
@@ -76,9 +76,9 @@
       let Class,gid,i,m, tx,ty,t,locs=[];
       //find all possible surfaces
       ts.data.forEach((gid,i)=>{
-        if(gid===4 || gid===1){
+        if(gid==4 || gid==1){
           t=i-w;
-          if(t>=0 && ts.data[t]===6){ locs.push(t) }
+          if(t>=0 && ts.data[t]==6){ locs.push(t) }
         }
       });
       m=new Map();
@@ -86,14 +86,14 @@
         i=_.randItem(locs);
         if(!m.has(i)){
           m.set(i,null);
-          if(m.size===4){ break }
+          if(m.size==4){ break }
         }
       }
       i=0;
       m.forEach((v,k)=>{
         ty = MFL(k/w);
         tx = k % w;
-        if(i===0){
+        if(i==0){
           gid=5;
           Class="Player";
         }else{
@@ -111,7 +111,7 @@
 
       //clean up world
       for(i=0;i<ts.data.length;++i){
-        if(ts.data[i]===6){
+        if(ts.data[i]==6){
           bg.data[i]=6;
           ts.data[i]=0;
         }
@@ -136,7 +136,7 @@
     const Player={
       s(){},
       c(scene,p,ts,ps,os){
-        Mojo.addMixin(p,"2d",[_2d.Platformer]);
+        Mojo.addMixin(p,"arcade",[_2d.Platformer]);
         p.m5.static=false;
         p.m5.uuid="player";
         p.m5.type=E_PLAYER;
@@ -149,9 +149,9 @@
         p.height -=2;
         p.x++;
         p.y++;
-        p["2d"].Platformer.jumpSpeed=-500;
+        p["arcade"].Platformer.jumpSpeed=-500;
         p.m5.tick=(dt)=>{
-          p["2d"].onTick(dt);
+          p["arcade"].onTick(dt);
         }
         return p;
       }
@@ -223,7 +223,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["platforms.png", "platforms.json", "unscii.fnt" ],
+      assetFiles: ["platforms.png", "platforms.json" ],
       arena: { width: 512, height: 512 },
       scaleToWindow:"max",
       start(Mojo){

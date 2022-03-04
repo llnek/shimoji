@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -22,15 +22,15 @@
            Sprites:_S,
            Input:_I,
            Game:G,
-           "2d":_2d,
            v2:_V,
            Tiles:_T,
            ute:_,is}=Mojo;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //assumes anchor 0
     function _isAligned(s,world){
-      return MFL(s.x) % world.tiled.tileW === 0 &&
-             MFL(s.y) % world.tiled.tileH === 0
+      return MFL(s.x) % world.tiled.tileW == 0 &&
+             MFL(s.y) % world.tiled.tileH == 0
     }
 
     const _objF={

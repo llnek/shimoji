@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -23,6 +23,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _DIRS = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
     const _V=gscope["io/czlab/mcfud/vec2"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
     const {ute:_, is}=Mojo;
     const abs=Math.abs,
           ceil=Math.ceil,
@@ -161,7 +162,7 @@
               tl.collision=true;
             }
             let mapX = i % tl.width,
-                mapY = int(i/tl.width),
+                mapY = _M.ndiv(i,tl.width),
                 ps=gtileProps[gid],
                 cz=ps && ps["Class"],
                 cFunc=cz && objFactory[cz],
@@ -196,8 +197,8 @@
             let createFunc= cz && objFactory[cz];
             let w=scene.tiled.saved_tileW;
             let h=scene.tiled.saved_tileH;
-            let tx=int((o.x+w/2)/w);
-            let ty=int((o.y-h/2)/h);
+            let tx=_M.ndiv(o.x+w/2,w);
+            let ty=_M.ndiv(o.y-h/2,h);
             let tsi=_findGid(gid,scene.tiled.tileGidList)[1];
             o.column=tx;
             o.row=ty;
@@ -236,9 +237,9 @@
       //
       if(scene.parent instanceof Mojo.Scenes.SceneWrapper){
         if(scene.tiled.tiledHeight<Mojo.height){
-          scene.parent.y = int((Mojo.height-scene.tiled.tiledHeight)/2) }
+          scene.parent.y = _M.ndiv(Mojo.height-scene.tiled.tiledHeight,2) }
         if(scene.tiled.tiledWidth<Mojo.width){
-          scene.parent.x = int((Mojo.width-scene.tiled.tiledWidth)/2) }
+          scene.parent.x = _M.ndiv(Mojo.width-scene.tiled.tiledWidth,2) }
       }
     }
 
@@ -255,10 +256,9 @@
       cFunc=cz && scene.tiled.objFactory[cz];
       _.assertNot(id<0, `Bad tile id: ${id}`);
       if(!is.num(cols))
-        cols=int(tsi.imagewidth /
-                 (tsi.tilewidth+tsi.spacing));
+        cols=_M.ndiv(tsi.imagewidth , tsi.tilewidth+tsi.spacing);
       let tscol = id % cols,
-          tsrow = int(id/cols),
+          tsrow = _M.ndiv(id,cols),
           tsX = tscol * tsi.tilewidth,
           tsY = tsrow * tsi.tileheight;
       if(tsi.spacing>0){
@@ -338,11 +338,11 @@
       removeTile(layer, s){
         let {x,y}= s;
         if(s.anchor.x < 0.3){
-          y= s.y+int(s.height/2);
-          x= s.x+int(s.width/2);
+          y= s.y+_M.ndiv(s.height,2);
+          x= s.x+_M.ndiv(s.width,2);
         }
-        let tx= int(x/this.tiled.tileW),
-            ty= int(y/this.tiled.tileH),
+        let tx= _M.ndiv(x,this.tiled.tileW),
+            ty= _M.ndiv(y,this.tiled.tileH),
             yy= this.getTileLayer(layer),
             pos= tx + ty*this.tiled.tilesInX;
         yy.data[pos]=0;
@@ -406,8 +406,8 @@
       getTile(s){
         let {x,y}=s;
         if(s.anchor.x<0.3){
-          y += int(s.height/2);
-          x += int(s.width/2);
+          y += _M.ndiv(s.height,2);
+          x += _M.ndiv(s.width,2);
         }
         return this.getTileXY(x,y);
       }
@@ -417,8 +417,8 @@
        * @return {array}
        */
       getTileXY(px,py){
-        let tx= int(px/this.tiled.tileW),
-            ty= int(py/this.tiled.tileH);
+        let tx= _M.ndiv(px,this.tiled.tileW),
+            ty= _M.ndiv(py,this.tiled.tileH);
         _.assert(tx>=0 && tx<this.tiled.tilesInX, `bad tile col:${tx}`);
         _.assert(ty>=0 && ty<this.tiled.tilesInY, `bad tile row:${ty}`);
         return [tx,ty];
@@ -494,9 +494,9 @@
             tw=this.tiled.tileW,
             th=this.tiled.tileH,
             tiles=this.tiled.collision,
-            box=_.feq0(obj.angle)?_S.getBBox(obj):_S.boundingBox(obj);
-        let sX = Math.max(0,int(box.x1 / tw));
-        let sY = Math.max(0,int(box.y1 / th));
+            box=_.feq0(obj.angle)?_S.getAABB(obj):_S.boundingBox(obj);
+        let sX = Math.max(0,_M.ndiv(box.x1 , tw));
+        let sY = Math.max(0,_M.ndiv(box.y1 , th));
         let eX =  Math.min(this.tiled.tilesInX-1,ceil(box.x2 / tw));
         let eY =  Math.min(this.tiled.tilesInY-1,ceil(box.y2 / th));
         for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
@@ -597,7 +597,7 @@
         let W=world.tiled.tilesInX;
         let nodes=tiles.map((gid,i)=> ({f:0, g:0, h:0,
                                         parent:null, index:i,
-                                        col:i%W, row:int(i/W)}));
+                                        col:i%W, row:_M.ndiv(i,W)}));
         let targetNode = nodes[targetTile];
         let startNode = nodes[startTile];
         let centerNode = startNode;
@@ -611,11 +611,11 @@
                               : this.neighborCells(i, world, true);
           return c.map(p=>nodes[p]).filter(n=>{
             if(n){
-              let indexOnLeft= (i% W) === 0;
-              let indexOnRight= ((i+1) % W) === 0;
-              let nodeBeyondLeft= (n.col % (W-1)) === 0 && n.col !== 0;
-              let nodeBeyondRight= (n.col % W) === 0;
-              let nodeIsObstacle = obstacles.some(o => tiles[n.index] === o);
+              let indexOnLeft= (i% W) == 0;
+              let indexOnRight= ((i+1) % W) == 0;
+              let nodeBeyondLeft= (n.col % (W-1)) == 0 && n.col != 0;
+              let nodeBeyondRight= (n.col % W) == 0;
+              let nodeIsObstacle = obstacles.some(o => tiles[n.index] == o);
               return indexOnLeft ? !nodeBeyondLeft
                                  : (indexOnRight ? !nodeBeyondRight : !nodeIsObstacle);
             }
@@ -630,8 +630,8 @@
             //A. Declare the cost variable
             cost = diagonalCost;
             //B. Do they occupy the same row or column?
-            if(centerNode.row === tn.row ||
-               centerNode.col === tn.col){
+            if(centerNode.row == tn.row ||
+               centerNode.col == tn.col){
               cost = straightCost;
             }
             //C. Calculate the costs (g, h and f)
@@ -667,7 +667,7 @@
           //Quit the loop if there's nothing on the open list.
           //This means that there is no path to the destination or the
           //destination is invalid, like a wall tile
-          if(openList.length === 0){
+          if(openList.length == 0){
             return theShortestPath;
           }
           //Sort the open list according to final cost
@@ -676,7 +676,7 @@
           centerNode = openList.shift();
         }
         //Now that we have all the candidates, let's find the shortest path!
-        if(openList.length !== 0){
+        if(openList.length != 0){
           //Start with the destination node
           let tn = targetNode;
           theShortestPath.push(tn);
@@ -702,7 +702,7 @@
                   angles = []) { //angles to restrict the line of sight
         let v= _getVector(s1,s2);
         let len = _V.len(v);
-        let numPts = int(len/segment);
+        let numPts = _M.ndiv(len,segment);
         let len2,x,y,ux,uy,points = [];
         for(let c,i = 1; i <= numPts; ++i){
           c= Mojo.Sprites.centerXY(s1);
@@ -723,8 +723,8 @@
         //index numbers along the vector are `0`, which means they contain
         //no walls. If any of them aren't 0, then the function returns
         //`false` which means there's a wall in the way
-        return points.every(p=> tiles[p.index] === emptyGid) &&
-               (angles.length === 0 || angles.some(x=> x === angle)) },
+        return points.every(p=> tiles[p.index] == emptyGid) &&
+               (angles.length == 0 || angles.some(x=> x == angle)) },
       /**Get indices of orthognoal cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index
@@ -772,7 +772,7 @@
       validDirections(sprite, tiles, validGid, world){
         const pos= this.getTileIndex(sprite, world);
         return this.getCrossTiles(pos, tiles, world).map((gid, i)=>{
-          return gid === validGid ? _DIRS[i] : Mojo.NONE
+          return gid == validGid ? _DIRS[i] : Mojo.NONE
         }).filter(d => d !== Mojo.NONE)
       },
       /**Check if these directions are valid.
@@ -785,16 +785,16 @@
         let down = dirs.find(x => x === Mojo.DOWN);
         let left = dirs.find(x => x === Mojo.LEFT);
         let right = dirs.find(x => x === Mojo.RIGHT);
-        return dirs.length===0 ||
-               dirs.length===1 || ((up||down) && (left||right)); },
+        return dirs.length==0 ||
+               dirs.length==1 || ((up||down) && (left||right)); },
       /**Randomly choose the next direction.
        * @memberof module:mojoh5/Tiles
        * @param {number[]} dirs
        * @return {number}
        */
       randomDirection(dirs=[]){
-        return dirs.length===0 ? Mojo.NONE
-                               : (dirs.length===1 ? dirs[0]
+        return dirs.length==0 ? Mojo.NONE
+                               : (dirs.length==1 ? dirs[0]
                                                   : dirs[_.randInt2(0, dirs.length-1)]) },
       /**Find the best direction from s1 to s2.
        * @memberof module:mojoh5/Tiles

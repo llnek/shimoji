@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -178,7 +178,7 @@
           }
         });
         G.msg.text=`Score: ${G.score}`;
-        if(G.blockCount===0){
+        if(G.blockCount==0){
           Mojo.pause();
           _.timer(()=>{
             Z.replaceScene("level1","splash");
@@ -191,7 +191,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["images/bloxyee/bloxyee.json", "unscii.fnt", "bounce.mp3"],
+      assetFiles: ["images/bloxyee/bloxyee.json", "bounce.mp3"],
       arena: {width: 512, height: 512},
       scaleToWindow:"max",
       start(Mojo){

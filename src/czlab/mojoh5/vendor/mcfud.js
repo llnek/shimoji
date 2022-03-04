@@ -13,11 +13,11 @@
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(window,doco,seed_rand){
+;(function(window,doco,seed_rand,UNDEF){
 
   "use strict";
 
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     seed_rand=require("../tpcl/seedrandom.min")
   }else{
     doco=window.document
@@ -26,10 +26,12 @@
   /**Create the module.
   */
   function _module(){
+
     const root=window,
-          MFL=Math.floor,
+          int=Math.floor,
           Slicer=Array.prototype.slice,
           toStr=Object.prototype.toString;
+
     function isObj(obj){ return toStr.call(obj) == "[object Object]" }
     function isObject(obj){ return isObj(obj) }
     function isNil(obj){ return toStr.call(obj) == "[object Null]" }
@@ -40,25 +42,24 @@
     function isStr(obj){ return toStr.call(obj) == "[object String]" }
     function isNum(obj){ return toStr.call(obj) == "[object Number]" }
     function isBool(obj){ return toStr.call(obj) == "[object Boolean]" }
-    function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
+    function isEven(n){ return (n<0?-n:n)%2 == 0 }
     function isUndef(o){ return o===undefined }
     function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //original source from https://developer.mozilla.org
     function completeAssign(target, source){
-      let descriptors = Object.keys(source).reduce((descriptors, key) => {
-        descriptors[key] = Object.getOwnPropertyDescriptor(source, key);
-        return descriptors;
+      let descriptors = Object.keys(source).reduce((acc, key)=>{
+        acc[key] = Object.getOwnPropertyDescriptor(source, key);
+        return acc;
       }, {});
       // By default, Object.assign copies enumerable Symbols, too
-      Object.getOwnPropertySymbols(source).forEach(sym => {
-        let descriptor = Object.getOwnPropertyDescriptor(source, sym);
-        if (descriptor.enumerable) {
-          descriptors[sym] = descriptor;
-        }
+      Object.getOwnPropertySymbols(source).forEach(sym=>{
+        let d= Object.getOwnPropertyDescriptor(source, sym);
+        if(d.enumerable)
+          descriptors[sym] = d;
       });
-      Object.defineProperties(target, descriptors);
-      return target;
+      return Object.defineProperties(target, descriptors);
     }
 
     /**
@@ -66,45 +67,51 @@
      */
 
     const GOLDEN_RATIO=1.6180339887;
+    const PRNG=(function(){
+      if(seed_rand)
+        return seed_rand();
+      if(Math.seedrandom)
+        return new Math.seedrandom();
+      return function(){ return Math.random() }
+    })();
 
-    /**
-     * @private
-     * @var {function}
-     */
-    let PRNG= seed_rand?seed_rand():new Math.seedrandom();
-
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _randXYInclusive(min,max){
-      return MFL(PRNG() * (max-min+1) + min) }
-
-    /** @ignore */
-    function _preAnd(conds,msg){
-      for(let c,i=0;i<conds.length;++i){
-        c=conds[i];
-        if(!c[0](c[1]))
-          throw new TypeError(`wanted ${msg}`) }
-      return true;
+      return min + int(PRNG() * (max-min+1))
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function _preAnd(conds,msg){
+      conds.forEach(c=>{
+        if(!c[0](c[1]))
+          throw new TypeError(`wanted ${msg}`)
+      });
+      return true
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _preOr(conds,msg){
       for(let c,i=0;i<conds.length;++i){
         c=conds[i];
         if(c[0](c[1])){return true}
       }
-      throw new TypeError(`wanted ${msg}`); }
+      throw new TypeError(`wanted ${msg}`)
+    }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _pre(f,arg,msg){
-      if(!f(arg)){
-        throw new TypeError(`wanted ${msg}`) } else {return true} }
+      if(!f(arg))
+        throw new TypeError(`wanted ${msg}`);
+      return true
+    }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //-- regex handling file names
     const BNAME=/(\/|\\\\)([^(\/|\\\\)]+)$/g;
     //-- regex handling file extensions
     const FEXT=/(\.[^\.\/\?\\]*)(\?.*)?$/;
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _fext(path,incdot){
       let t=FEXT.exec(path);
       if(t && t[1]){
@@ -114,30 +121,21 @@
       return t;
     }
 
-    /**
-     * private
-     * @var {number}
-     */
-    const EPSILON= 0.0000000001;
-
-    /**
-     * @private
-     * @var {number}
-     */
-    let _seqNum= 0;
-
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _everyF(F,_1,args){
-      let b=F(_1);
+      const b=F(_1);
       switch(args.length){
-      case 0: return b;
-      case 1: return b && F(args[0]);
-      case 2: return b && F(args[0]) && F(args[1]);
-      case 3: return b && F(args[0]) && F(args[1]) && F(args[2]);
-      default: return b && args.every(x => F(x));
+        case 0: return b;
+        case 1: return b && F(args[0]);
+        case 2: return b && F(args[0]) && F(args[1]);
+        case 3: return b && F(args[0]) && F(args[1]) && F(args[2]);
+        default: return b && args.every(x => F(x));
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const EPSILON= 0.0000000001;
+    let _seqNum= 0;
     const _$={};
 
     /** @namespace module:mcfud/core.is */
@@ -148,14 +146,14 @@
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      fun(f,...args){ return _everyF(isFun,f,args) },
+      fun(f, ...args){ return _everyF(isFun,f,args) },
       /**Check if input(s) are type `string`.
        * @memberof module:mcfud/core.is
        * @param {any} s anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      str(s,...args){ return _everyF(isStr,s,args) },
+      str(s, ...args){ return _everyF(isStr,s,args) },
       //void0(obj){ return obj === void 0 },
       /**Check if input(s) are type `undefined`.
        * @memberof module:mcfud/core.is
@@ -163,34 +161,34 @@
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      undef(o,...args){ return _everyF(isUndef,o,args) },
+      undef(o, ...args){ return _everyF(isUndef,o,args) },
       /**Check if input(s) are type `Map`.
        * @memberof module:mcfud/core.is
        * @param {any} m anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      map(m,...args){ return _everyF(isMap,m,args) },
+      map(m, ...args){ return _everyF(isMap,m,args) },
       /**Check if input(s) are type `Set`.
        * @memberof module:mcfud/core.is
        * @param {any} m anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      set(s,...args){ return _everyF(isSet,s,args) },
+      set(s, ...args){ return _everyF(isSet,s,args) },
       /**Check if input(s) are type `number`.
        * @memberof module:mcfud/core.is
        * @param {any} n anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      num(n,...args){ return _everyF(isNum,n,args) },
+      num(n, ...args){ return _everyF(isNum,n,args) },
       /**Check if input is a boolean.
        * @memberof module:mcfud/core.is
        * @param {boolean} n
        * @return {boolean}
        */
-      bool(n,...args){ return _everyF(isBool,n,args) },
+      bool(n, ...args){ return _everyF(isBool,n,args) },
       /**Check if input is a positive number.
        * @memberof module:mcfud/core.is
        * @param {number} n
@@ -209,26 +207,26 @@
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      vec(v,...args){ return _everyF(isVec,v,args) },
+      vec(v, ...args){ return _everyF(isVec,v,args) },
       /**Check if input(s) are type `object`.
        * @memberof module:mcfud/core.is
        * @param {any} o anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      obj(o,...args){ return _everyF(isObj,o,args) },
+      obj(o, ...args){ return _everyF(isObj,o,args) },
       /**Check if this collection is `not empty`.
        * @memberof module:mcfud/core.is
        * @param {object|array|map} o
        * @return {boolean}
        */
-      some(o){ return _.size(o) > 0 },
+      notEmpty(o){ return _.size(o) > 0 },
       /**Check if this collection is `empty`.
        * @memberof module:mcfud/core.is
        * @param {object|array|map} o
        * @return {boolean}
        */
-      none(o){ return _.size(o) === 0 },
+      isEmpty(o){ return _.size(o) == 0 },
       /**Check if this property belongs to this object.
        * @memberof module:mcfud/core.is
        * @param {object} o
@@ -241,33 +239,28 @@
     /** @namespace module:mcfud/core._ */
     const _={
       /** error message */
-      error(...args){
-        console.error(...args) },
+      error(...args){ console.error(...args) },
       /** log message */
-      log(...args){
-        console.log(...args) },
-      /**Re-seed the internal prng object.
-       * @memberof module:mcfud/core._
-       * @return {number}
-       */
-      srand(){ PRNG= seed_rand?seed_rand():new Math.seedrandom() },
+      log(...args){ console.log(...args) },
       /**Check if this float approximates zero.
        * @memberof module:mcfud/core._
        * @param {number} a
        * @return {boolean}
        */
-      feq0(a){ return Math.abs(a) < EPSILON },
+      feq0(a){
+        return a >= -EPSILON && a <= EPSILON;
+      },
       /**Check if these 2 floats are equal.
        * @memberof module:mcfud/core._
        * @param {number} a
        * @param {number} b
+       * @param {number} diff [EPSILON]
        * @return {boolean}
        */
-      feq(a, b){ return Math.abs(a-b) < EPSILON },
-      /** Fuzzy greater_equals */
-      //fgteq(a,b){ return a>b || this.feq(a,b) },
-      /** Fuzzy less_equals */
-      //flteq(a,b){ return a<b || this.feq(a,b) },
+      feq(a, b, diff=EPSILON){
+        //return Math.abs(a-b) < EPSILON
+        return a >= b-diff && a <= b+diff;
+      },
       /**Serialize input to JSON.
        * @memberof module:mcfud/core._
        * @param {any} o anything
@@ -293,21 +286,22 @@
        * @param {number} y
        * @return {object} {x,y}
        */
-      p2(x=0,y=0){ return {x: x, y: y} },
+      p2(x=0,y=0){ return {x, y} },
       /**Unless n is a number, return it else 0.
        * @memberof module:mcfud/core._
        * @param {number} n
        * @return {number} n or 0
        */
       numOrZero(n){ return isNaN(n) ? 0 : n },
-      /**Unless a is defined, return it else b.
+      /**Set values to array.
        * @memberof module:mcfud/core._
-       * @param {any} a
-       * @param {any} b
-       * @return {any} a or b
+       * @param {array} a
+       * @param {...any} args
+       * @return {array} a
        */
-      setVec(a,...args){
-        args.forEach((v,i)=> a[i]=v)
+      setVec(a, ...args){
+        args.forEach((v,i)=> a[i]=v);
+        return a;
       },
       /**If not even, make it even.
        * @memberof module:mcfud/core._
@@ -315,7 +309,7 @@
        * @return {number}
        */
       evenN(n,dir){
-        n=Math.floor(n);
+        n=int(n);
         return isEven(n)?n:(dir?n+1:n-1) },
       /**Check if a is null or undefined - `not real`.
        * @memberof module:mcfud/core._
@@ -410,37 +404,40 @@
       },
       /**Items in a as keys, mapped to items in b as values.
        * @memberof module:mcfud/core._
-       * @param {array} array
-       * @param {array} array
+       * @param {array} a
+       * @param {array} b
+       * @param {Map} out [undefined]
        * @return {Map}
        */
-      zipMap(a,b,out){
-        let n=Math.min(a.length,b.length);
-        let m= out || new Map();
-        for(let i=0;i<n;++i){
+      zipMap(a,b,out=UNDEF){
+        let n=Math.min(a.length,b.length),
+            i,m= out || new Map();
+        for(i=0;i<n;++i){
           m.set(a[i],b[i])
         }
         return m;
       },
       /**Items in a as keys, mapped to items in b as values.
        * @memberof module:mcfud/core._
-       * @param {array} array
-       * @param {array} array
+       * @param {array} a
+       * @param {array} b
+       * @param {Map} out [undefined]
        * @return {Map}
        */
-      zip(a,b,out){
+      zip(a,b,out=UNDEF){
         return this.zipMap(a,b,out)
       },
       /**Items in a as keys, mapped to items in b as values.
        * @memberof module:mcfud/core._
-       * @param {array} array
-       * @param {array} array
+       * @param {array} a
+       * @param {array} b
+       * @param {Object} out [undefined]
        * @return {Object}
        */
-      zipObj(a,b,out){
-        let n=Math.min(a.length,b.length);
-        let m= out || {};
-        for(let i=0;i<n;++i){
+      zipObj(a,b,out=UNDEF){
+        let n=Math.min(a.length,b.length),
+            i,m= out || {};
+        for(i=0;i<n;++i){
           m[a[i]]= b[i];
         }
         return m;
@@ -511,7 +508,7 @@
        * @throws Error if condition is true
        * @return {boolean} true
        */
-      assertNot(cond,...args){
+      assertNot(cond, ...args){
         return this.assert(!cond,...args)
       },
       /**Assert that the condition is true.
@@ -521,9 +518,9 @@
        * @throws Error if condition is false
        * @return {boolean} true
        */
-      assert(cond,...args){
+      assert(cond, ...args){
         if(!cond)
-          throw args.length===0 ? "Assertion!" : args.join("");
+          throw args.length==0 ? "Assertion!" : args.join("");
         return true;
       },
       /**Check if target has none of these keys.
@@ -534,8 +531,6 @@
        */
       noSuchKeys(keys,target){
         return !this.some(this.seq(keys),k=> this.has(target,k)?k:null)
-        //if(r) console.log("keyfound="+r);
-        //return !r;
       },
       /**Get a random int between min and max (inclusive).
        * @memberof module:mcfud/core._
@@ -543,16 +538,16 @@
        * @param {number} max
        * @return {number}
        */
-      randInt2(min,max){ return _randXYInclusive(min,max) },
+      randInt2(min,max){
+        return min + int(PRNG() * (max-min+1)) },
       /**Get a random float between min and max.
        * @memberof module:mcfud/core._
        * @param {number} min
        * @param {number} max
        * @return {number}
        */
-      randFloat(min, max){
-        return min + PRNG() * (max-min)
-      },
+      randFloat2(min, max){
+        return min + PRNG() * (max-min+1) },
       /**Get a random float between -1 and 1.
        * @memberof module:mcfud/core._
        * @return {number}
@@ -563,16 +558,12 @@
        * @param {number} num
        * @return {number}
        */
-      randInt(num){ return MFL(PRNG()*num) },
+      randInt(num){ return int(PRNG()*num) },
       /**Get a random float between 0 and 1.
        * @memberof module:mcfud/core._
        * @return {number}
        */
       rand(js=false){ return js? Math.random(): PRNG() },
-      /**Randomly choose -1 or 1.
-       * @memberof module:mcfud/core._
-       * @return {number}
-       */
       /**Returns a random number fitting a Gaussian, or normal, distribution.
        * @param {number} v number of times rand is summed, should be >= 1
        * @return {number}
@@ -580,8 +571,8 @@
       randGaussian(v=6){
         //adding a random value to the last increases the variance of the random numbers.
         //Dividing by the number of times you add normalises the result to a range of 0–1
-        let r=0;
-        for(let i=0; i<v; ++i) r += this.rand();
+        let i,r=0;
+        for(i=0; i<v; ++i) r += this.rand();
         return r/v;
       },
       randSign(){ return PRNG()>0.5 ? -1 : 1 },
@@ -591,8 +582,8 @@
        * @return {array} [a,b]
        */
       toGoldenRatio(len){
-        let a= len / GOLDEN_RATIO;
-        let b= a / GOLDEN_RATIO;
+        let a= len / GOLDEN_RATIO,
+            b= a / GOLDEN_RATIO;
         return [this.rounded(a),this.rounded(b)];
       },
       /**Check if obj is a sub-class of this parent-class.
@@ -608,15 +599,15 @@
        * @return {number}
        */
       hashCode(s){
-        let n=0;
-        for(let i=0; i<s.length; ++i)
+        let i,n=0;
+        for(i=0; i<s.length; ++i)
           n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
       },
       /**Clear array.
        * @memberof module:mcfud/core._
        * @param {array} a
-       * @return {array}
+       * @return {array} a
        */
       cls(a){
         try{ a.length=0 }catch(e){}
@@ -629,13 +620,13 @@
        * @return {array} the samples
        */
       randSample(arr,n=1){
-        let ret;
+        let a,ret;
         if(n==1){
           ret= [this.randItem(arr)]
         }else if(n==0){
           ret=[]
         }else if(n>0){
-          let a= this.shuffle(arr,false);
+          a= this.shuffle(arr,false);
           ret = n>=a.length ? a : a.slice(0,n);
         }
         return ret;
@@ -643,10 +634,10 @@
       /**Randomly choose an item from this array.
        * @memberof module:mcfud/core._
        * @param {any[]} arr
-       * @param {boolean} wantIndex
+       * @param {boolean} wantIndex [false]
        * @return {any}
        */
-      randItem(arr,wantIndex){
+      randItem(arr,wantIndex=false){
         let rc,i= -1;
         if(arr){
           switch(arr.length){
@@ -658,7 +649,7 @@
               rc= arr[i= this.randSign()>0?1:0];
               break;
             default:
-              rc= arr[i= (MFL(PRNG()*arr.length))];
+              rc= arr[i= (int(PRNG()*arr.length))];
           }
         }
         return wantIndex ? [rc,i] : rc;
@@ -684,8 +675,8 @@
        */
       jsMap(...args){
         _pre(isEven,args.length,"even n# of args");
-        let out=new Map();
-        for(let i=0;i<args.length;){
+        let i,out=new Map();
+        for(i=0;i<args.length;){
           out.set(args[i],args[i+1]); i+=2; }
         return out;
       },
@@ -696,8 +687,8 @@
        */
       jsObj(...args){
         _pre(isEven,args.length,"even n# of args");
-        let out={};
-        for(let i=0;i<args.length;){
+        let i,out={};
+        for(i=0;i<args.length;){
           out[args[i]]=args[i+1]; i+=2; }
         return out;
       },
@@ -706,7 +697,7 @@
        * @param {...any} args data to initialize array
        * @return {any[]}
        */
-      jsVec(...args){ return args.length===0 ? [] : args.slice() },
+      jsVec(...args){ return args.length==0 ? [] : args.slice() },
       /**Get the last index.
        * memberof module:mcfud/core._
        * @param {any[]} c
@@ -817,8 +808,8 @@
        */
       copy(des,src=[]){
         _preAnd([[isVec,des],[isVec,src]],"arrays");
-        const len= Math.min(des.length,src.length);
-        for(let i=0;i<len;++i) des[i]=src[i];
+        let i,len= Math.min(des.length,src.length);
+        for(i=0;i<len;++i) des[i]=src[i];
         return des;
       },
       /**Append all or some items from `src` to `des`.
@@ -840,7 +831,7 @@
        * @param {number|function} v
        * @return {any[]}
        */
-      fill(a,v,...args){
+      fill(a,v, ...args){
         if(isNum(a)){a= new Array(a)}
         if(isVec(a))
           for(let i=0;i<a.length;++i)
@@ -854,8 +845,7 @@
        */
       size(o){
         return (isVec(o)||isStr(o)) ? o.length
-                                    : (isSet(o)||isMap(o)) ? o.size
-                                       : o ? this.keys(o).length : 0
+                                    : (isSet(o)||isMap(o)) ? o.size : o ? this.keys(o).length : 0
       },
       /**Get the next sequence number.
        * @memberof module:mcfud/core._
@@ -900,7 +890,7 @@
        * @return {number[]}
        */
       range(start,stop,step=1){
-        if(arguments.length===1){
+        if(arguments.length==1){
           stop=start; start=0; step=1; }
         let len = (stop-start)/step;
         const res=[];
@@ -935,7 +925,7 @@
             break;
           default:
             for(let x,j,i= res.length-1; i>0; --i){
-              j= MFL(PRNG() * (i+1));
+              j= int(PRNG() * (i+1));
               x= res[i];
               res[i] = res[j];
               res[j] = x;
@@ -952,7 +942,7 @@
                 res=Slicer.call(obj,0);
           for(let s,r,i=0; i<n; ++i){
             // choose index uniformly in [i, n-1]
-            r = i + MFL(PRNG() * (n - i));
+            r = i + int(PRNG() * (n - i));
             s= obj[r];
             obj[r] = obj[i];
             obj[i] = s;
@@ -1119,9 +1109,9 @@
        * @param {number} n
        * @param {callback} fn
        * @param {any} target
-       * @param {any} args
+       * @param {...any} args
        */
-      dotimes(n,fn,target,...args){
+      dotimes(n,fn,target, ...args){
         for(let i=0;i<n;++i)
           fn.call(target,i, ...args);
       },
@@ -1242,7 +1232,7 @@
        * @param {...any} items
        * @return {any[]} coll
        */
-      conj(coll,...items){
+      conj(coll, ...items){
         if(coll)
           items.forEach(o=> coll.push(o));
         return coll;
@@ -1254,7 +1244,7 @@
        * @return {any[]}
        */
       seq(arg,sep=/[,; \t\n]+/){
-        if(typeof arg === "string")
+        if(typeof arg == "string")
           arg= arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
         if(!isVec(arg)){arg = [arg]}
         return arg;
@@ -1266,9 +1256,9 @@
        * @return {boolean}
        */
       has(coll,key){
-        return arguments.length===1 ? false
+        return arguments.length==1 ? false
           : isMap(coll) ? coll.has(key)
-          : isVec(coll) ? coll.indexOf(key) !== -1
+          : isVec(coll) ? coll.indexOf(key) != -1
           : isObj(coll) ? is.own(coll, key) : false;
       },
       /**Add keys to `des` only if that key is absent.
@@ -1300,7 +1290,7 @@
        * @param {...object} args
        * @return {object}
        */
-      inject(des,...args){
+      inject(des, ...args){
         des=des || {};
         args.forEach(s=> s && completeAssign(des,s));
         return des;
@@ -1312,8 +1302,8 @@
        */
       deepCopyArray(v){
         _pre(isVec,v,"array");
-        const out = [];
-        for(let i=0,z=v.length; i<z; ++i)
+        let i,z,out = [];
+        for(i=0,z=v.length; i<z; ++i)
           out[i]= isVec(v[i]) ? this.deepCopyArray(v[i]) : v[i];
         return out;
       },
@@ -1336,10 +1326,10 @@
         let key,ext;
         Object.keys(extended).forEach(key=>{
           ext= extended[key];
-          if(typeof ext !== "object" || ext === null || !original[key]){
+          if(typeof ext != "object" || ext === null || !original[key]){
             original[key] = ext;
           }else{
-            if(typeof original[key] !== "object"){
+            if(typeof original[key] != "object"){
               original[key] = ext instanceof Array ? [] : {}
             }
             this.merge(original[key], ext);
@@ -1602,11 +1592,11 @@
        * @return {string}
        */
       prettyMillis(ms){
-        let h,m,s= MFL(ms/1000);
-        m=MFL(s/60);
+        let h,m,s= int(ms/1000);
+        m=int(s/60);
         ms=ms-s*1000;
         s=s-m*60;
-        h= MFL(m/60);
+        h= int(m/60);
         m=m-h*60;
         let out=[];
         out.push(`${s}.${ms} secs`);
@@ -1624,7 +1614,10 @@
        * @return {array} arr
       */
       swap(arr,a,b){
-        let t= arr[a]; arr[a]=arr[b]; arr[b]=t; return arr;
+        let t= arr[a];
+        arr[a]=arr[b];
+        arr[b]=t;
+        return arr;
       },
       /**List indexes of this array
        * @memberof module:mcfud/core._
@@ -1675,8 +1668,8 @@
        */
       isCrossOrigin(url) {
         let wnd=window;
-        if(arguments.length===2 &&
-           arguments[1].hack===911){ wnd=arguments[1] }
+        if(arguments.length==2 &&
+           arguments[1].hack==911){ wnd=arguments[1] }
         if(wnd&&wnd.location&&url){
           const pos= url.indexOf("://");
           if(pos>0){
@@ -1694,7 +1687,7 @@
        * @param {any} arg
        */
       addEvent(event,target,cb,arg){
-        if(isVec(event) && arguments.length===1)
+        if(isVec(event) && arguments.length==1)
           event.forEach(e=> this.addEvent.apply(this, e));
         else
           target.addEventListener(event,cb,arg)
@@ -1707,7 +1700,7 @@
        * @param {any} arg
        */
       delEvent(event,target,cb,arg){
-        if(isVec(event) && arguments.length===1)
+        if(isVec(event) && arguments.length==1)
           event.forEach(e => this.delEvent.apply(this, e));
         else
           target.removeEventListener(event,cb,arg)
@@ -1727,7 +1720,7 @@
        * @return {number}
        */
       roundUnderOffset(val, offset){
-        let integral = Math.floor(val);
+        const integral = int(val);
         return (val - integral) < offset ? integral : (integral + 1);
       }
     };
@@ -1894,7 +1887,7 @@
        * @param {...any} args
        * @return {CEventBus} self
        */
-      pub(subject,...args){
+      pub(subject, ...args){
         let m,t,
             event=subject[0],
             target=subject[1] || NULL;
@@ -1938,7 +1931,7 @@
        * @return {CEventBus} self
        */
       unsub(subject,cb,ctx){
-        if(arguments.length===1 && !is.vec(subject)){
+        if(arguments.length==1 && !is.vec(subject)){
           this.drop(subject);
         }else{
           let event=subject[0],
@@ -1985,7 +1978,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     module.exports=_module()
   }else{
     window["io/czlab/mcfud/core"]=_module
@@ -2007,15 +2000,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     //const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
@@ -2029,24 +2023,21 @@
      * @module mcfud/math
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const PERLIN_YWRAPB = 4;
     const PERLIN_YWRAP = 1 << PERLIN_YWRAPB;
     const PERLIN_ZWRAPB = 8;
     const PERLIN_ZWRAP = 1 << PERLIN_ZWRAPB;
     const PERLIN_SIZE = 4095;
+    let _perlinArr,
+        perlin_octaves = 4, // default to medium smooth
+        perlin_amp_falloff = 0.5; // 50% reduction/octave
 
-    let perlin_octaves = 4; // default to medium smooth
-    let perlin_amp_falloff = 0.5; // 50% reduction/octave
-    let _perlinArr;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const scaled_cosine=(i)=> 0.5 * (1.0 - Math.cos(i * Math.PI));
+    const _mod_deg=(deg)=> deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI;
 
-    function scaled_cosine(i){
-      return 0.5 * (1.0 - Math.cos(i * Math.PI))
-    }
-
-    /** @ignore */
-    function _mod_deg(deg){
-      return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /**Liner interpolation.
        * @memberof module:mcfud/math
@@ -2065,7 +2056,29 @@
        * @return {number}
        */
       xmod(x,N){
-        return x<0 ? x-(-(N + N*Math.floor(-x/N))) : x%N
+        return x<0 ? x-(-(N + N*int(-x/N))) : x%N
+      },
+      /**Divide this number as integer.
+       * @memberof module:mcfud/math
+       * @param {number} a
+       * @param {number} b
+       * @return {number} integer result
+       */
+      ndiv(a,b){
+        return int(a/b)
+      },
+      /**Calc the base to the exponent power, as in base^exponent
+       * @memberof module:mcfud/math
+       * @param {number} a base
+       * @param {number} n exponent
+       * @return {number}
+       */
+      pow(a,n){
+        if(n==0) return 1;
+        if(n==1) return a;
+        if(n==2) return a*a;
+        if(n==3) return a*a*a;
+        return Math.pow(a,n);
       },
       /**Limit the value to within these 2 numbers.
        * @memberof module:mcfud/math
@@ -2128,8 +2141,8 @@
        * @ignore
        */
       biasGreater(a,b){
-        const biasRelative= 0.95;
-        const biasAbsolute= 0.01;
+        const biasRelative= 0.95,
+              biasAbsolute= 0.01;
         return a >= (b*biasRelative + a*biasAbsolute)
       },
       /**Re-maps a number from one range to another.
@@ -2145,66 +2158,18 @@
         const v= (n - start1) / (stop1 - start1) * (stop2 - start2) + start2;
         return !withinBounds ? v : (start2 < stop2? this.clamp(start2, stop2, v) : this.clamp(stop2, start2,v));
       },
-      perlin(x, y = 0, z = 0){
-        if(!_perlinArr)
-          _perlinArr=_.fill(PERLIN_SIZE+1, ()=> _.rand());
-        /////
-        if(x<0){ x = -x}
-        if(y<0){ y = -y }
-        if(z<0){ z = -z }
-        let xi = int(x),
-            yi = int(y),
-            zi = int(z),
-            xf = x - xi,
-            yf = y - yi,
-            zf = z - zi,
-            rxf, ryf,
-            r = 0,
-            ampl = 0.5,
-            of, n1, n2, n3;
-        for(let o=0; o<PERLIN_OCTAVES; ++o){
-          of = xi + (yi << PERLIN_YWRAPB) + (zi << PERLIN_ZWRAPB);
-          rxf = scaled_cosine(xf);
-          ryf = scaled_cosine(yf);
-          n1 = _perlinArr[of & PERLIN_SIZE];
-          n1 += rxf * (_perlinArr[(of + 1) & PERLIN_SIZE] - n1);
-          n2 = _perlinArr[(of + PERLIN_YWRAP) & PERLIN_SIZE];
-          n2 += rxf * (_perlinArr[(of + PERLIN_YWRAP + 1) & PERLIN_SIZE] - n2);
-          n1 += ryf * (n2 - n1);
-          of += PERLIN_ZWRAP;
-          n2 = _perlinArr[of & PERLIN_SIZE];
-          n2 += rxf * (_perlinArr[(of + 1) & PERLIN_SIZE] - n2);
-          n3 = _perlinArr[(of + PERLIN_YWRAP) & PERLIN_SIZE];
-          n3 += rxf * (_perlinArr[(of + PERLIN_YWRAP + 1) & PERLIN_SIZE] - n3);
-          n2 += ryf * (n3 - n2);
-
-          n1 += scaled_cosine(zf) * (n2 - n1);
-          r += n1 * ampl;
-          ampl *= perlin_amp_falloff;
-          xi <<= 1;
-          xf *= 2;
-          yi <<= 1;
-          yf *= 2;
-          zi <<= 1;
-          zf *= 2;
-          if(xf >= 1.0){
-            xi++;
-            xf--;
-          }
-          if(yf >= 1.0){
-            yi++;
-            yf--;
-          }
-          if(zf >= 1.0){
-            zi++;
-            zf--;
-          }
-        }
-        return r
-      },
+      /**Perlin noise in 1D.
+       * from https://github.com/OneLoneCoder/videos/blob/master/OneLoneCoder_PerlinNoise.cpp
+       * @param {number} nCount
+       * @param {number[]} fSeed
+       * @param {number} nOctaves
+       * @param {number} fBias
+       * @param {number[]} fOutput
+       * @return {number[]} fOutput
+       */
       perlin1D(nCount, fSeed, nOctaves, fBias, fOutput){
-        let fNoise, fScaleAcc, fScale;
-        let nPitch, nSample1, nSample2, fBlend, fSample;
+        let fNoise, fScaleAcc, fScale,
+            nPitch, nSample1, nSample2, fBlend, fSample;
         for(let x=0; x<nCount; ++x){
           fNoise = 0; fScaleAcc = 0; fScale = 1;
           for(let o=0; o<nOctaves; ++o){
@@ -2222,10 +2187,20 @@
           fOutput[x] = fNoise / fScaleAcc;
         }
       },
+      /**Perlin noise in 2D.
+       * from https://github.com/OneLoneCoder/videos/blob/master/OneLoneCoder_PerlinNoise.cpp
+       * @param {number} nWidth
+       * @param {number} nHeight
+       * @param {number[]} fSeed
+       * @param {number} nOctaves
+       * @param {number} fBias
+       * @param {number[]} fOutput
+       * @return {number[]} fOutput
+       */
       perlin2D(nWidth, nHeight, fSeed, nOctaves, fBias, fOutput){
-        let fNoise, fScaleAcc, fScale;
-        let fBlendX, fBlendY, fSampleT, fSampleB;
-        let nPitch, nSampleX1, nSampleY1, nSampleX2, nSampleY2;
+        let fNoise, fScaleAcc, fScale,
+            fBlendX, fBlendY, fSampleT, fSampleB,
+            nPitch, nSampleX1, nSampleY1, nSampleX2, nSampleY2;
         for(let x=0; x<nWidth; ++x)
           for(let y=0; y<nHeight; ++y){
             fNoise = 0; fScaleAcc = 0; fScale = 1;
@@ -2255,7 +2230,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/math"]=_module
@@ -2277,45 +2252,51 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
   */
-  function _module(Core=null){
+  function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_, is}= Core;
 
-    function assertArgs(a,b){
-      _.assert(!is.num(a) && !is.num(b) && a && b, "wanted 2 vecs");
-    }
-
-    function assertArg(a){
-      _.assert(!is.num(a) && a, "wanted vec");
-    }
-
-    function _ctor(b,x=0,y=0){ return b ? [x,y] : {x:x,y:y} }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const assertArgs=(a,b)=> _.assert(!is.num(a) && !is.num(b) && a && b, "wanted 2 vecs");
+    const assertArg=(a)=> _.assert(!is.num(a) && a, "wanted vec");
+    const _ctor=(b,x=0,y=0)=> b ? [x,y] : {x,y};
     const MVPool={};
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class MV{
       constructor(){
         this.x=0;
         this.y=0;
       }
       unit(out){
-        if(is.bool(out)){ out=_ctor(out) }
-        if(is.vec(out)){out[0]=this.x;out[1]=this.y}else{
-          out.x=this.x;out.y=this.y;
+        if(is.bool(out)){
+          out=_ctor(out)
+        }
+        if(is.vec(out)){
+          out[0]=this.x;
+          out[1]=this.y
+        }else{
+          out.x=this.x;
+          out.y=this.y;
         }
         return out;
       }
       bind(v){
-        if(is.vec(v)){this.x=v[0];this.y=v[1]}else{
-          this.x=v.x;this.y=v.y
+        if(is.vec(v)){
+          this.x=v[0];
+          this.y=v[1]
+        }else{
+          this.x=v.x;
+          this.y=v.y
         }
         return this;
       }
@@ -2349,6 +2330,7 @@
       "/"(m){ return this.op("/",m.x,m.y) }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(MVPool,{
       take(){ return this._pool.pop() },
       drop(...args){
@@ -2365,23 +2347,26 @@
      * @typedef {number[]} Vec2
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Rotate a vector around a pivot. */
     function _v2rot(ax,ay,cos,sin,cx,cy,out){
-      const x_= ax-cx;
-      const y_= ay-cy;
-      const x= cx+(x_*cos - y_*sin);
-      const y= cy+(x_ * sin + y_ * cos);
+      const x_= ax-cx,
+            y_= ay-cy,
+            x= cx+(x_*cos - y_*sin),
+            y= cy+(x_ * sin + y_ * cos);
       if(is.vec(out)){
-        out[0]=x;out[1]=y;
+        out[0]=x;
+        out[1]=y;
       }else{
-        out.x=x;out.y=y;
+        out.x=x;
+        out.y=y;
       }
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _opXXX(a,b,op,local){
-      let p1=MVPool.take().bind(a);
-      let out,pr;
+      let out,pr, p1=MVPool.take().bind(a);
       if(is.num(b)){
         pr=p1.op(op,b,b);
       }else{
@@ -2394,7 +2379,38 @@
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
+      /**Get the x part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {number} x
+       */
+      gx(v){
+        return is.vec(v)?v[0]:v.x },
+      /**Set the x part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} x
+       */
+      sx(v,x){
+        is.vec[v]? (v[0]=x) : (v.x=x)
+      },
+      /**Get the y part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {number} y
+       */
+      gy(v){
+        return is.vec(v)?v[1]:v.y },
+      /**Set the y part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} y
+       */
+      sy(v,y){
+        is.vec[v]? (v[1]=y) : (v.y=y)
+      },
       /**Create a free vector.
        * @memberof module:mcfud/vec2
        * @param {number} x
@@ -2416,7 +2432,7 @@
        * @return {Vec2}
        */
       add(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"+") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"+") },
       /**Vector addition: A=A+B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2424,7 +2440,7 @@
        * @return {Vec2}
        */
       add$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"+",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"+",true) },
       /**Vector subtraction: A-B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2432,7 +2448,7 @@
        * @return {Vec2}
        */
       sub(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"-") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"-") },
       /**Vector subtraction: A=A-B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2440,7 +2456,7 @@
        * @return {Vec2}
        */
       sub$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"-",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"-",true) },
       /**Vector multiply: A*B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2448,7 +2464,7 @@
        * @return {Vec2}
        */
       mul(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"*") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"*") },
       /**Vector multiply: A=A*B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2456,7 +2472,7 @@
        * @return {Vec2}
        */
       mul$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"*",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"*",true) },
       /**Vector division: A/B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2464,7 +2480,7 @@
        * @return {Vec2}
        */
       div(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"/") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"/") },
       /**Vector division: A=A/B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2472,7 +2488,7 @@
        * @return {Vec2}
        */
       div$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"/",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"/",true) },
       /**Dot product of 2 vectors,
        * cos(t) = a·b / (|a| * |b|)
        * @memberof module:mcfud/vec2
@@ -2482,9 +2498,9 @@
        */
       dot(a,b){
         assertArgs(a,b);
-        let p1=MVPool.take().bind(a);
-        let p2=MVPool.take().bind(b);
-        let out=p1.x*p2.x + p1.y*p2.y;
+        let p1=MVPool.take().bind(a),
+            p2=MVPool.take().bind(b),
+            out=p1.x*p2.x + p1.y*p2.y;
         MVPool.drop(p1,p2);
         return out;
       },
@@ -2495,9 +2511,9 @@
        * @return {boolean}
        */
       equals(a,b){
-        let p1=MVPool.take().bind(a);
-        let p2=MVPool.take().bind(b);
-        ok= p1.x==p2.x && p1.y==p2.y;
+        let p1=MVPool.take().bind(a),
+            p2=MVPool.take().bind(b),
+            ok= p1.x==p2.x && p1.y==p2.y;
         MVPool.drop(p1,p2);
         return ok;
       },
@@ -2509,12 +2525,12 @@
        */
       vecAB(a,b){
         assertArgs(a,b);
-        let p1=MVPool.take().bind(a);
-        let p2=MVPool.take().bind(b);
-        let pr=MVPool.take();
+        let p1=MVPool.take().bind(a),
+            p2=MVPool.take().bind(b),
+            out,pr=MVPool.take();
         pr.x=p2.x-p1.x;
         pr.y=p2.y-p1.y;
-        let out=pr.unit(is.vec(a));
+        out=pr.unit(is.vec(a));
         MVPool.drop(p1,p2,pr);
         return out;
       },
@@ -2545,15 +2561,16 @@
        * @param {Vec2} b
        * @return {number}
        */
-      dist(a,b){ return Math.sqrt(this.dist2(a,b)) },
+      dist(a,b){
+        return Math.sqrt(this.dist2(a,b)) },
       /**Normalize this vector: a/|a|
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
        * @return {Vec2} undefined if zero length
        */
       unit(a){
-        let p1=MVPool.take().bind(a);
-        let d=this.len(a);
+        let d=this.len(a),
+            out, p1=MVPool.take().bind(a);
         if(_.feq0(d)){
           p1.x=0;
           p1.y=0;
@@ -2561,7 +2578,7 @@
           p1.x /= d;
           p1.y /= d;
         }
-        let out= p1.unit(is.vec(a));
+        out= p1.unit(is.vec(a));
         MVPool.drop(p1);
         return out;
       },
@@ -2571,8 +2588,8 @@
        * @return {Vec2} undefined if zero length
        */
       unit$(a){
-        let p1=MVPool.take().bind(a);
-        let d=this.len(a);
+        let d=this.len(a),
+            out, p1=MVPool.take().bind(a);
         if(_.feq0(d)){
           p1.x=0;
           p1.y=0;
@@ -2580,7 +2597,7 @@
           p1.x /= d;
           p1.y /= d;
         }
-        let out= p1.unit(a);
+        out= p1.unit(a);
         MVPool.drop(p1);
         return out;
       },
@@ -2592,11 +2609,11 @@
        */
       copy(des,src){
         assertArgs(des,src);
-        let p1=MVPool.take().bind(des);
-        let p2=MVPool.take().bind(src);
+        let p1=MVPool.take().bind(des),
+            out, p2=MVPool.take().bind(src);
         p1.x=p2.x;
         p1.y=p2.y;
-        let out= p1.unit(des);
+        out= p1.unit(des);
         MVPool.drop(p1,p2);
         return out;
       },
@@ -2606,8 +2623,8 @@
        * @return {Vec2}
        */
       clone(v){
-        let p1= MVPool.take().bind(v);
-        let out= p1.unit(is.vec(v));
+        let p1= MVPool.take().bind(v),
+            out= p1.unit(is.vec(v));
         MVPool.drop(p1);
         return out;
       },
@@ -2619,10 +2636,10 @@
        * @return {Vec2}
        */
       set(des,x,y){
-        let p1= MVPool.take().bind(des);
+        let out, p1= MVPool.take().bind(des);
         if(is.num(x)) p1.x=x;
         if(is.num(y)) p1.y=y;
-        let out= p1.unit(des);
+        out= p1.unit(des);
         MVPool.drop(p1);
         return out;
       },
@@ -2650,17 +2667,17 @@
        * @return {Vec2}
        */
       rot(a,rot,pivot=null){
-        let p1= MVPool.take().bind(a);
-        let cx=0,cy=0;
+        let cx=0,cy=0,
+            out,p2,p1= MVPool.take().bind(a);
         if(pivot){
-          let p2=MVPool.take().bind(pivot);
+          p2=MVPool.take().bind(pivot);
           cx=p2.x;
           cy=p2.y;
           MVPool.drop(p2);
         }
-        let out= _v2rot(p1.x,p1.y,
-                        Math.cos(rot),
-                        Math.sin(rot), cx,cy,_ctor(is.vec(a)));
+        out= _v2rot(p1.x,p1.y,
+                    Math.cos(rot),
+                    Math.sin(rot), cx,cy,_ctor(is.vec(a)));
         MVPool.drop(p1);
         return out;
       },
@@ -2672,17 +2689,17 @@
        * @return {Vec2}
        */
       rot$(a,rot,pivot){
-        let p1= MVPool.take().bind(a);
-        let cx=0,cy=0;
+        let cx=0,cy=0,
+            out,p2,p1= MVPool.take().bind(a);
         if(pivot){
-          let p2=MVPool.take().bind(pivot);
+          p2=MVPool.take().bind(pivot);
           cx=p2.x;
           cy=p2.y;
           MVPool.drop(p2);
         }
-        let out= _v2rot(p1.x,p1.y,
-                        Math.cos(rot),
-                        Math.sin(rot), cx,cy,a);
+        out= _v2rot(p1.x,p1.y,
+                    Math.cos(rot),
+                    Math.sin(rot), cx,cy,a);
         MVPool.drop(p1);
         return out;
       },
@@ -2700,24 +2717,24 @@
       cross(p1,p2){
         let out;
         if(is.num(p1)){
-          let b= MVPool.take().bind(p2);
-          let r= MVPool.take();
+          let r= MVPool.take(),
+              b= MVPool.take().bind(p2);
           r.x=-p1 * b.y;
           r.y=p1 * b.x;
           out=r.unit(is.vec(p2));
           MVPool.drop(b,r);
         }
         else if(is.num(p2)){
-          let b= MVPool.take().bind(p1);
-          let r= MVPool.take();
+          let r= MVPool.take(),
+              b= MVPool.take().bind(p1);
           r.x=p2 * b.y;
           r.y= -p2 * b.x;
           out=r.unit(is.vec(p1));
           MVPool.drop(b,r);
         }else{
           assertArgs(p1,p2);
-          let a= MVPool.take().bind(p1);
-          let b= MVPool.take().bind(p2);
+          let a= MVPool.take().bind(p1),
+              b= MVPool.take().bind(p2);
           out= a.x * b.y - a.y * b.x;
           MVPool.drop(a,b);
         }
@@ -2730,7 +2747,8 @@
        * @param {Vec2} b
        * @return {number}
        */
-      angle(a,b){ return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
+      angle(a,b){
+        return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
       /**Change vector to be perpendicular to what it was before, effectively
        * rotates it 90 degrees(normal).
        * @memberof module:mcfud/vec2
@@ -2739,8 +2757,8 @@
        * @return {Vec2}
        */
       normal(a,ccw=false){
-        let p1=MVPool.take().bind(a);
-        let pr=MVPool.take();
+        let pr=MVPool.take(),
+            out,p1=MVPool.take().bind(a);
         if(ccw){
           pr.x= -p1.y;
           pr.y= p1.x;
@@ -2748,7 +2766,7 @@
           pr.x= p1.y;
           pr.y= -p1.x;
         }
-        let out= pr.unit(is.vec(a));
+        out= pr.unit(is.vec(a));
         MVPool.drop(p1,pr);
         return out;
       },
@@ -2760,8 +2778,8 @@
        * @return {Vec2}
        */
       normal$(a,ccw=false){
-        let p1=MVPool.take().bind(a);
-        let pr=MVPool.take();
+        let pr=MVPool.take(),
+            out, p1=MVPool.take().bind(a);
         if(ccw){
           pr.x= -p1.y;
           pr.y= p1.x;
@@ -2769,7 +2787,7 @@
           pr.x= p1.y;
           pr.y= -p1.x;
         }
-        let out= pr.unit(a);
+        out= pr.unit(a);
         MVPool.drop(p1,pr);
         return out;
       },
@@ -2779,7 +2797,8 @@
        * @param {Vec2} b
        * @return {number}
        */
-      proj_scalar(a,b){ return this.dot(a,b)/this.len(b) },
+      proj_scalar(a,b){
+        return this.dot(a,b)/this.len(b) },
       /**Find vector A projection onto B.
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -2789,8 +2808,8 @@
       proj(a,b){
         const bn = this.unit(b);
         this.mul$(bn, this.dot(a,bn));
-        let pr=MVPool.take().bind(bn);
-        let out=pr.unit(is.vec(a));
+        let pr=MVPool.take().bind(bn),
+            out=pr.unit(is.vec(a));
         MVPool.drop(pr);
         return out;
       },
@@ -2800,7 +2819,8 @@
        * @param {Vec2} b
        * @return {Vec2}
        */
-      perp(a,b){ return this.sub(a, this.proj(a,b)) },
+      perp(a,b){
+        return this.sub(a, this.proj(a,b)) },
       /**Reflect a ray, normal must be normalized.
        * @memberof module:mcfud/vec2
        * @param {Vec2} ray
@@ -2810,7 +2830,7 @@
       reflect(ray,surface_normal){
         //ray of light hitting a surface, find the reflected ray
         //reflect= ray - 2(ray.surface_normal)surface_normal
-        let v= 2*this.dot(ray,surface_normal);
+        const v= 2*this.dot(ray,surface_normal);
         return this.sub(ray, this.mul(surface_normal, v));
       },
       /**Negate a vector.
@@ -2834,7 +2854,7 @@
       translate(pos,...args){
         let pr,p2,p1=MVPool.take().bind(pos);
         let ret,out;
-        if(args.length===1 && is.vec(args[0]) && !is.num(args[0][0])){
+        if(args.length==1 && is.vec(args[0]) && !is.num(args[0][0])){
           args=args[0];
         }
         ret=args.map(a=>{
@@ -2855,8 +2875,9 @@
        * @return {Vec2}
        */
       clamp$(v, min, max){
-        const n = this.len(v);
-        return this.mul$(this.div$(v, n || 1 ), Math.max(min, Math.min(max, n )));
+        const n = this.len(v),
+              _n= Math.max(min, Math.min(max, n));
+        return n==_n ? v : this.mul$(this.div$(v, n || 1 ), _n);
       },
       /**Clamp a vector.
        * @memberof module:mcfud/vec2
@@ -2866,16 +2887,18 @@
        * @return {Vec2}
        */
       clamp(v, min, max){
-        const n = this.len(v);
-        return this.mul(this.div(v, n || 1 ), Math.max(min, Math.min(max, n )));
+        const n = this.len(v),
+              _n= Math.max(min, Math.min(max, n));
+        return n==_n?v: this.mul(this.div(v, n || 1 ), _n);
       }
 
     };
+
     return _$;
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/vec2"]=_module
@@ -2897,21 +2920,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;
     const TAN= Math.tan;
-    const MFL=Math.floor;
+    const int=Math.floor;
     const {u:_, is}= Core;
 
     /**
@@ -2932,33 +2956,26 @@
      * @typedef {number[]} VecN
      */
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _arrayEq(a1,a2){
-      //2 numeric arrays are equal?
-      for(let i=0;i<a1.length;++i){
-        if(!_.feq(a1[i],a2[i])) return false }
-      return true
+      return a1.length == a2.length &&
+             a1.every((a,i)=> a==a2[i] || _.feq(a,a2[i]))
     }
 
-    /** @ignore */
-    function _odd(n){ return n%2 !== 0 }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _odd=(n)=> n%2 != 0;
 
-    /** @ignore */
-    function _cell(rows,cols,r,c){
-      //index where matrix is mapped to 1D array.
-      return (c-1) + ((r-1)*cols)
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //index where matrix is mapped to 1D array (1-based, so do the minus1)
+    const _cell=(rows,cols,r,c)=> (c-1) + ((r-1)*cols);
 
-    /** @ignore */
-    function _matnew(rows,cols,cells){
-      return {dim: [rows,cols], cells: cells}
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _matnew=(rows,cols,cells)=> ({cells, dim: [rows,cols]});
 
-    /** @ignore */
-    function _new_mat(rows,cols){
-      return _matnew(rows,cols, _.fill(rows*cols,0))
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _new_mat=(rows,cols)=> _matnew(rows,cols, _.fill(rows*cols,0));
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /** @ignore */
       v4(x=0,y=0,z=0,K=0){ return [x,y,z,K] },
@@ -3060,8 +3077,8 @@
        */
       matrix([rows,cols],...args){
         const sz= rows*cols;
-        return args.length===0 ? _new_mat(rows,cols)
-                               : _.assert(sz===args.length) && _matnew(rows,cols,args)
+        return args.length==0 ? _new_mat(rows,cols)
+                              : _.assert(sz==args.length) && _matnew(rows,cols,args)
       },
       /**Get or set the value at this position.
        * @memberof module:mcfud/matrix
@@ -3196,8 +3213,8 @@
        * @return {boolean}
        */
       matEq(a,b){
-        return a.dim[0]===b.dim[0] &&
-               a.dim[1]===b.dim[1] && _arrayEq(a.cells,b.cells)
+        return a.dim[0]==b.dim[0] &&
+               a.dim[1]==b.dim[1] && _arrayEq(a.cells,b.cells)
       },
       /**Transpose this matrix.
        * @memberof module:mcfud/matrix
@@ -3209,7 +3226,7 @@
         const sz=rows*cols;
         const tmp=[];
         for(let i=0;i<sz;++i)
-          tmp.push(m.cells[MFL(i/rows) + cols*(i%rows)]);
+          tmp.push(m.cells[int(i/rows) + cols*(i%rows)]);
         return _matnew(cols,rows,tmp)
       },
       /**Multiply this matrix with a scalar value.
@@ -3232,7 +3249,7 @@
         let [bRows,bCols]=b.dim;
         let aCells=a.cells;
         let bCells=b.cells;
-        _.assert(aCols===bRows, "mismatch matrices");
+        _.assert(aCols==bRows, "mismatch matrices");
         let out=new Array(aRows*bCols);
         for(let i=0; i<aRows; ++i)
           for(let j=0; j<bCols; ++j){
@@ -3250,7 +3267,7 @@
       matDet(m){
         let [rows,cols]=m.dim;
         let tmp=[];
-        if(cols===2)
+        if(cols==2)
           return this._matDet2x2(m);
         for(let c=0; c< cols;++c)
           _.conj(tmp,this.matDet(this.matCut(m,1,c+1)));
@@ -3280,7 +3297,7 @@
         let tmp=[];
         for(let i=0; i<rows; ++i)
           for(let j=0; j<cols; ++j){
-            if(!(i === _row || j === _col))
+            if(!(i == _row || j == _col))
               _.conj(tmp, m.cells[j+i*cols]);
           }
         return _matnew(rows-1,cols-1, tmp)
@@ -3296,8 +3313,8 @@
       matMinor(m){
         const [rows,cols]=m.dim;
         let tmp=[];
-        _.assert(rows===cols);
-        if(cols===2)
+        _.assert(rows==cols);
+        if(cols==2)
           return this._matMinor2x2(m);
         for(let i=0; i< rows;++i)
           for(let j=0; j<cols; ++j){
@@ -3308,7 +3325,7 @@
       },
       /** @ignore */
       _matMinor2x2(m){
-        return _.assert(m.cells.length===4) &&
+        return _.assert(m.cells.length==4) &&
                this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
       },
       /**Find the `Matrix Cofactor` of this matrix.
@@ -3343,7 +3360,7 @@
       /** @ignore */
       _minv2x2(m){
         const [rows,cols]=m.dim;
-        _.assert(m.cells.length===4&&rows===2&&cols===2);
+        _.assert(m.cells.length==4&&rows==2&&cols==2);
         let r,c=m.cells;
         let det= c[0]*c[3] - c[1]*c[2];
         if(_.feq0(det))
@@ -3362,7 +3379,7 @@
        */
       matInv(m){
         const [rows,cols]=m.dim;
-        if(cols===2)
+        if(cols==2)
           return this._minv2x2(m);
         let d= this.matDet(m);
         return _.feq0(d) ? this.matIdentity(rows)
@@ -3448,7 +3465,7 @@
       matVMult(m,v){
         let cols=m.dim[1];
         let rows=v.length;
-        _.assert(cols===rows);
+        _.assert(cols==rows);
         let r= this.matMult(m, _matnew(rows, 1, v));
         let c=r.cells;
         r.cells=null;
@@ -3502,13 +3519,13 @@
        */
       isIdentity(m){
         const [rows,cols]=m.dim;
-        if(rows===cols){
+        if(rows==cols){
           for(let v,r=0;r<rows;++r){
             for(let c=0;c<cols;++c){
               v=m.cells[r*cols+c];
-              if((r+1)===(c+1)){
-                if(v !== 1) return false;
-              }else if(v !== 0) return false;
+              if((r+1)==(c+1)){
+                if(v != 1) return false;
+              }else if(v != 0) return false;
             }
           }
           return true
@@ -3528,7 +3545,7 @@
         //if xpose(A) X inv(A) === I
         //then A will be orthogonal
         let r,d= this.matDet(m);
-        return Math.abs(d)===1 &&
+        return Math.abs(d)==1 &&
                this.isIdentity(this.matMult(this.matXpose(m), this.matInv(m)));
       }
     };
@@ -3537,7 +3554,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/matrix"]=_module
@@ -3559,19 +3576,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
-  const VISCHS=" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
-               "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-";
+  const VISCHS=(" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
+                "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-").split("");
   const VISCHS_LEN=VISCHS.length;
 
   /**Create the module.
   */
   function _module(Core){
+
     if(!Core)
       Core= gscope["io/czlab/mcfud/core"]();
     const {u:_} = Core;
@@ -3581,23 +3599,13 @@
      */
 
     /**Find the offset. */
-    function _calcDelta(shift){
-      return Math.abs(shift) % VISCHS_LEN
-    }
+    const _calcDelta=(shift)=> Math.abs(shift) % VISCHS_LEN;
 
     /**Get the char at the index. */
-    function _charat(pos,string_){
-      return (string_ || VISCHS).charAt(pos)
-    }
+    const _charat=(i)=> VISCHS[i];
 
     /**Index for this char. */
-    function _getch(ch){
-      for(let i=0;i<VISCHS_LEN;++i){
-        if(_charat(i)===ch)
-          return i;
-      }
-      return -1
-    }
+    const _getch=(ch)=> VISCHS.findIndex(c=> c==ch);
 
     /**Rotate right. */
     function _rotr(delta, cpos){
@@ -3611,6 +3619,11 @@
       return _charat(pos< 0 ? (VISCHS_LEN+pos) : pos)
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _ef=(shift,delta,cpos)=> shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos);
+    const _df=(shift,delta,cpos)=> shift<0 ? _rotl(delta,cpos) : _rotr(delta,cpos);
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /**Encrypt source by shifts.
        * @memberof module:mcfud/crypt
@@ -3619,16 +3632,15 @@
        * @return {string} encrypted text
        */
       encrypt(src, shift){
-        if(shift===0){ return src }
-        function _f(shift,delta,cpos){
-          return shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos) }
-        let out=[];
-        let p,d=_calcDelta(shift);
-        src.split("").forEach(c=>{
-          p=_getch(c);
-          out.push(p<0 ? c : _f(shift,d,p));
-        });
-        return out.join("");
+        if(shift!=0){
+          let p,d=_calcDelta(shift);
+          p= src.split("").map(c=>{
+            p=_getch(c);
+            return p<0?c:_ef(shift,d,p);
+          });
+          src=p.join("");
+        }
+        return src;
       },
       /**Decrypt text by shifts.
        * @memberof module:mcfud/crypt
@@ -3637,16 +3649,15 @@
        * @return {string} decrypted text
        */
       decrypt(cipherText,shift){
-        if(shift===0){ return cipherText }
-        function _f(shift,delta,cpos) {
-          return shift< 0 ? _rotl(delta,cpos) : _rotr(delta,cpos) }
-        let p,out=[];
-        let d= _calcDelta(shift);
-        cipherText.split("").forEach(c=>{
-          p= _getch(c);
-          out.push(p<0 ? c : _f(shift,d,p));
-        });
-        return out.join("");
+        if(shift!=0){
+          let p,d= _calcDelta(shift);
+          p=cipherText.split("").map(c=>{
+            p= _getch(c);
+            return p<0?c:_df(shift,d,p);
+          });
+          cipherText=p.join("");
+        }
+        return cipherText;
       }
     };
 
@@ -3654,7 +3665,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/crypt"]=_module;
@@ -3675,9 +3686,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -3727,6 +3738,7 @@
      * @property {function} trigger(event) apply this event to the state machine
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /**Create a FSM instance.
        * @memberof module:mcfud/fsm
@@ -3737,8 +3749,7 @@
         let _state=defn.initState();
         return {
           /** the current state */
-          state(){
-            return _state },
+          state(){ return _state },
           /** run the current state `code` */
           process(){
             const fromStateObj=defn[_state];
@@ -3758,9 +3769,9 @@
                 fromStateObj.exit && fromStateObj.exit();
                 nextStateObj.enter && nextStateObj.enter();
                 if(options && options.action){
-                  options.action();
+                  options.action()
                 }else if(tx.action){
-                  options ? tx.action(options) : tx.action();
+                  tx.action(options)
                 }
                 return (_state = nextState);
               }
@@ -3769,6 +3780,7 @@
         }
       }
     };
+
     return _$;
   }
 
@@ -3802,7 +3814,7 @@
   };
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/fsm"]=_module
@@ -3824,17 +3836,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
-  function _module(Core,_M, _X){
+  function _module(Core,_V, _M, _X){
 
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
     if(!_M) _M=gscope["io/czlab/mcfud/math"]();
     if(!_X) _X=gscope["io/czlab/mcfud/matrix"]();
 
@@ -3845,169 +3858,269 @@
      * @module mcfud/gfx
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /**Set HTML5 2d-context's transformation matrix.
        * @memberof module:mcfud/gfx
-       * @param {object} ctx html2d-context
+       * @param {CanvasRenderingContext2D} ctx html2d-context
        * @param {C2DMatrix} m
+       * @param {boolean} reset [false]
+       * @return {CanvasRenderingContext2D} ctx
        */
-      setContextTransform(ctx,m){
+      setContextTransform(ctx,m,reset=false){
         // source:
         //  m[0] m[1] m[2]
         //  m[3] m[4] m[5]
         //  0     0   1
-        //
         // destination:
         //  m11  m21  dx
         //  m12  m22  dy
         //  0    0    1
-        //  setTransform(m11, m12, m21, m22, dx, dy)
-        ctx.transform(m.cells[0],m.cells[3],
-                      m.cells[1],m.cells[4],
-                      m.cells[2],m.cells[5]);
+        //setTransform(m11, m12, m21, m22, dx, dy)
+        ctx[reset?"setTransform":"transform"](m.cells[0],m.cells[3],
+                                              m.cells[1],m.cells[4],
+                                              m.cells[2],m.cells[5]);
+        return ctx;
       },
       /**Html5 Text Style object.
        * @example
        * "14px 'Arial'" "#dddddd" "left" "top"
        * @memberof module:mcfud/gfx
+       * @param {CanvasRenderingContext2D} ctx htm5 2d-context
        * @param {string} font
+       * @param {string|number} stroke
        * @param {string|number} fill
-       * @param {string} [align]
-       * @param {string} [base]
-       * @return {object} style object
+       * @param {string} align
+       * @param {string} base
+       * @return {CanvasRenderingContext2D} ctx
        */
-      textStyle(font,fill,align,base){
-        const x={font: font, fill: fill};
-        if(align) x.align=align;
-        if(base) x.base=base;
-        return x;
+      textStyle(ctx,font,stroke,fill,align,base){
+        if(font)
+          ctx.font=font;
+        if(fill)
+          ctx.fillStyle=fill;
+        if(align)
+          ctx.textAlign=align;
+        if(base)
+          ctx.textBaseline=base;
+        if(stroke)
+          ctx.strokeStyle=stroke;
+        return ctx;
       },
       /**Draw the shape onto the html5 canvas.
        * @memberof module:mcfud/gfx
-       * @param {object} ctx html5 2d-context
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
        * @param {object} s a shape
-       * @param (...any) args
+       * @param {...any} args
+       * @return {CanvasRenderingContext2D} ctx
        */
-      drawShape(ctx,s,...args){
-        if(s && s.draw)
-          s.draw(ctx,...args)
+      drawShape(ctx,s, ...args){
+        if(s && s.draw) s.draw(ctx, ...args);
+        return ctx;
       },
       /**Apply styles to the canvas.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d-context
-       * @param {object} style object
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @param {string|number} stroke
+       * @param {string|number} fill
+       * @param {number} lineWidth
+       * @param {string} lineCap
+       * @return {CanvasRenderingContext2D} ctx
        */
-      cfgStyle(ctx,styleObj){
-        const {line,stroke} =styleObj;
-        if(line){
-          if(line.cap)
-            ctx.lineCap=line.cap;
-          if(line.width)
-            ctx.lineWidth=line.width;
-        }
-        if(stroke){
-          if(stroke.style)
-            ctx.strokeStyle=stroke.style;
-        }
+      cfgStyle(ctx,stroke,fill,lineWidth,lineCap){
+        if(fill)
+          ctx.fillStyle=fill;
+        if(stroke)
+          ctx.strokeStyle=stroke;
+        if(lineCap)
+          ctx.lineCap=lineCap;
+        if(lineWidth)
+          ctx.lineWidth = lineWidth;
+        return ctx;
       },
       /**Draw and connect this set of points onto the canvas.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d-context
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
        * @param {Vec2[]} points
-       * @param {number} [size] n# of points to draw
+       * @return {CanvasRenderingContext2D} ctx
        */
-      drawPoints(ctx,points,size){
-        if(size === undefined) size=points.length;
-        _.assert(size<=points.length);
+      drawPoints(ctx,points){
         ctx.beginPath();
-        for(let p,q,i2,i=0;i<size;++i){
-          i2= (i+1)%size;
+        for(let p,q,i2,z=points.length,i=0;i<z;++i){
+          i2= (i+1)%z;
           p=points[i];
           q=points[i2];
-          ctx.moveTo(p[0],p[1]);
-          ctx.lineTo(q[0],q[1]);
+          ctx.moveTo(_V.gx(p), _V.gy(p));
+          ctx.lineTo(_V.gx(q), _V.gy(q));
         }
+        ctx.closePath();
         ctx.stroke();
+        return ctx;
       },
-      /**Draw a polygonal shape.
+      /**Fill and connect this set of points onto the canvas.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d-context
-       * @param {Polygon} poly
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @param {Vec2[]} points
+       * @return {CanvasRenderingContext2D} ctx
        */
-      drawShapePoly(ctx,poly){
-        return this.drawPoints(ctx,poly.points);
+      fillPoints(ctx,points){
+        ctx.beginPath();
+        for(let p,q,i2,z=points.length,i=0;i<z;++i){
+          i2= (i+1)%z;
+          p=points[i];
+          q=points[i2];
+          if(i==0)
+            ctx.moveTo(_V.gx(p), _V.gy(p));
+          else
+            ctx.lineTo(_V.gx(p), _V.gy(p));
+          ctx.lineTo(_V.gx(q), _V.gy(q));
+        }
+        ctx.closePath();
+        ctx.fill();
+        return ctx;
       },
       /**Draw a circle onto the canvas.  If a starting point
        * is provided, draw a line to the center.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d-context
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
        * @param {number} x
        * @param {number} y
        * @param {radius} r
+       * @return {CanvasRenderingContext2D} ctx
        */
       drawCircle(ctx,x,y,radius){
         ctx.beginPath();
         ctx.arc(x,y,radius,0,TWO_PI,true);
         ctx.closePath();
         ctx.stroke();
+        return ctx;
       },
-      /**Draw a circular shape.
+      /**Fill a circle onto the canvas.  If a starting point
+       * is provided, draw a line to the center.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d-context
-       * @param {Circle} circle
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @param {number} x
+       * @param {number} y
+       * @param {radius} r
+       * @return {CanvasRenderingContext2D} ctx
        */
-      drawShapeCircle(ctx,circle){
-        return this.drawCircle(ctx,circle.pos[0],circle.pos[1],circle.radius)
+      fillCircle(ctx,x,y,radius){
+        ctx.beginPath();
+        ctx.arc(x,y,radius,0,TWO_PI,true);
+        ctx.closePath();
+        ctx.fill();
+        return ctx;
       },
       /**Draw a rectangle.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d=context
+       * @param {CanvasRenderingContext2D} ctx html5 2d=context
        * @param {number} x
        * @param {number} y
        * @param {number} width
        * @param {number} height
        * @param {number} rot
+       * @param {number} cx [0]
+       * @param {number} cy [0]
+       * @return {CanvasRenderingContext2D} ctx
        */
-      drawRect(ctx,x,y,width,height,rot){
-        let left=x;
-        let top= y - height;
+      drawRect(ctx,x,y,width,height,rot=0,cx=0,cy=0){
         ctx.save();
-        ctx.translate(left,top);
+        ctx.translate(cx,cy);
         ctx.rotate(rot);
-        ctx.strokeRect(0,0,width,height);
+        ctx.translate(-cx,-cy);
+        ctx.strokeRect(x,y,width,height);
         ctx.restore();
+        return ctx;
       },
-      /**Draw a rectangular shape.
+      /**Fill a rectangle.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d-context
-       * @param {Rect} rect
+       * @param {CanvasRenderingContext2D} ctx html5 2d=context
+       * @param {number} x
+       * @param {number} y
+       * @param {number} width
+       * @param {number} height
+       * @param {number} rot
+       * @param {number} cx [0]
+       * @param {number} cy [0]
+       * @return {CanvasRenderingContext2D} ctx
        */
-      drawShapeRect(ctx,rect){
-        return this.drawRect(ctx,rect.pos[0],rect.pos[1],
-                             rect.width,rect.height,rect.rotation)
+      fillRect(ctx,x,y,width,height,rot=0,cx=0,cy=0){
+        ctx.save();
+        ctx.translate(cx,cy);
+        ctx.rotate(rot);
+        ctx.translate(-cx,-cy);
+        ctx.fillRect(x,y,width,height);
+        ctx.restore();
+        return ctx;
       },
       /**Draw a line.
        * @memberof module:mcfud/gfx
-       * @param {object} html5 2d-context
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
        * @param {number} x1
        * @param {number} y1
        * @param {number} x2
        * @param {number} y2
+       * @return {CanvasRenderingContext2D} ctx
        */
       drawLine(ctx,x1,y1,x2,y2){
         ctx.beginPath();
         ctx.moveTo(x1,y1);
         ctx.lineTo(x2,y2);
         ctx.stroke();
-        //ctx.closePath();
+        return ctx;
       },
-      /**Draw a 2d line.
+      /**Write text.
        * @memberof module:mcfud/gfx
-       * @param {ctx} html5 2d-context
-       * @param {Line} line
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @param {string} msg
+       * @param {number} x
+       * @param {number} y
+       * @return {CanvasRenderingContext2D} ctx
        */
-      drawShapeLine(ctx,line){
-        return this.drawLine(ctx,line.p[0],line.p[1],line.q[0],line.q[1])
+      drawText(ctx,msg,x,y){
+        ctx.strokeText(msg, x,y);
+        return ctx;
+      },
+      /**Fill text.
+       * @memberof module:mcfud/gfx
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @param {string} msg
+       * @param {number} x
+       * @param {number} y
+       * @return {CanvasRenderingContext2D} ctx
+       */
+      fillText(ctx,msg,x,y){
+        ctx.fillText(msg, x,y);
+        return ctx;
+      },
+      /**Clear the canvas.
+       * @memberof module:mcfud/gfx
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @return {CanvasRenderingContext2D} ctx
+       */
+      clearCanvas(ctx){
+        return this.clearRect(ctx, 0,0,ctx.canvas.width, ctx.canvas.height);
+      },
+      /**Fill the canvas.
+       * @memberof module:mcfud/gfx
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @return {CanvasRenderingContext2D} ctx
+       */
+      fillCanvas(ctx){
+        return this.fillRect(ctx, 0,0,ctx.canvas.width, ctx.canvas.height);
+      },
+      /**Clear a rectangular region.
+       * @memberof module:mcfud/gfx
+       * @param {CanvasRenderingContext2D} ctx html5 2d-context
+       * @param {number} x
+       * @param {number} y
+       * @param {number} width
+       * @param {number} height
+       * @return {CanvasRenderingContext2D} ctx
+       */
+      clearRect(ctx,x,y,width,height){
+        ctx.clearRect(x,y,width,height);
+        return ctx;
       }
     };
 
@@ -4015,8 +4128,9 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"),
+                           require("./vec2"),
                            require("./math"),
                            require("./matrix"))
   }else{
@@ -4038,9 +4152,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -4048,6 +4162,7 @@
   const [LEFT_VORONOI, MID_VORONOI, RIGHT_VORONOI]= [1,0,-1];
 
   /**Create the module.
+   * Standard XY cartesian coordinates, Y axis goes UP
    */
   function _module(Core,_M,_V,_X){
 
@@ -4056,8 +4171,7 @@
     if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
     if(!_X) _X=gscope["io/czlab/mcfud/matrix"]();
 
-    const MFL=Math.floor;
-    const ABS=Math.abs;
+    const int=Math.floor;
     const MaxVerts=36;
     const {is,u:_}=Core;
 
@@ -4087,16 +4201,17 @@
       return c
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TheHull=_.fill(MaxVerts,UNDEF);
     /**Original source from Randy Gaul's impulse-engine:
      * https://github.com/RandyGaul/ImpulseEngine#Shape.h
      */
-    function _orderPoints(vertices){
-      const count=vertices.length;
-      const hull= _.assert(count <= MaxVerts) && _.fill(MaxVerts);
+    function _orderPointsCCW(vertices){
+      _.assert(vertices.length>2 && vertices.length <= MaxVerts, "too little/many vertices");
       //find the right-most point
       let rightMost=0,
           maxX= vertices[0][0];
-      for(let x,i=1; i<count; ++i){
+      for(let x,i=1; i<vertices.length; ++i){
         x=vertices[i][0];
         if(x>maxX){
           maxX= x;
@@ -4112,15 +4227,14 @@
       //examine all the points, sorting them in order of ccw from the rightmost, one by one
       //and eventually wraps back to the rightmost point, at which time exit this inf-loop
       for(;;){
-        hull[hpos]=cur;
+        TheHull[hpos]=cur;
         //search for next index that wraps around the hull
         //by computing cross products to find the most counter-clockwise
         //vertex in the set, given the previos hull index
         let next= 0,
-            hp=hull[hpos];
-        for(let e1,e2,c,i=1; i<count; ++i){
-          if(next===cur){
-            next= i; continue } //same point, skip
+            hp=TheHull[hpos];
+        for(let e1,e2,c,i=1; i<vertices.length; ++i){
+          if(next==cur){ next= i; continue } //same point, skip
           //cross every set of three unique vertices
           //record each counter clockwise third vertex and add
           //to the output hull
@@ -4128,9 +4242,7 @@
           e1= _V.sub(vertices[next], vertices[hp]);
           e2= _V.sub(vertices[i], vertices[hp]);
           c= _V.cross(e1,e2);
-          if(c<0){
-            //counterclockwise, e2 on left of e1
-            next=i}
+          if(c<0){ next=i } //counterclockwise, e2 on left of e1
           //cross product is zero then e vectors are on same line
           //therefore want to record vertex farthest along that line
           if(_.feq0(c) && _V.len2(e2) > _V.len2(e1)){next=i}
@@ -4139,11 +4251,11 @@
         cur=next;
         ++hpos;
         //conclude algorithm upon wrap-around
-        if(next===rightMost){ break }
+        if(next==rightMost){ break }
       }
       const result=[];
       for(let i=0; i<hpos; ++i)
-        result.push(_V.clone(vertices[hull[i]]));
+        result.push(_V.clone(vertices[TheHull[i]]));
       return result;
     }
 
@@ -4198,7 +4310,7 @@
        * @return {Area}
        */
       half(){
-        return new Area(MFL(this.width/2),MFL(this.height/2))
+        return new Area(_M.ndiv(this.width,2),_M.ndiv(this.height,2))
       }
     }
 
@@ -4221,21 +4333,41 @@
       }
     }
 
+    /**
+     * @class
+     */
+    class Body{
+      constructor(s,x=0,y=0){
+        this.pos=_V.vec(x,y);
+        this.shape=s;
+      }
+    }
+
+    /**
+     * @abstract
+     */
+    class Shape{
+      constructor(){
+        this.orient=0;
+      }
+      setOrient(r){
+        throw Error("no implementation")
+      }
+    }
+
     /**A Circle.
      * @memberof module:mcfud/geo2d
      * @class
-     * @property {Vec2} pos
      * @property {number} radius
      * @property {number} orient
      */
-    class Circle{
+    class Circle extends Shape{
       /**
        * @param {number} r
        */
       constructor(r){
+        super();
         this.radius=r;
-        this.orient=0;
-        this.pos=_V.vec();
       }
       /**Set the rotation.
        * @param {number} r
@@ -4243,15 +4375,6 @@
        */
       setOrient(r){
         this.orient=r;
-        return this;
-      }
-      /**Set origin.
-       * @param {number} x
-       * @param {number} y
-       * @return {Circle} self
-       */
-      setPos(x,y){
-        _V.set(this.pos,x,y);
         return this;
       }
     }
@@ -4266,43 +4389,24 @@
      * @property {number} orient
      * @property {Vec2[]} calcPoints
      */
-    class Polygon{
-      /**
-       * @param {number} x
-       * @param {number} y
-       */
-      constructor(x,y){
-        this.calcPoints=null;
-        this.normals=null;
-        this.edges=null;
-        this.points=null;
-        this.orient = 0;
-        this.pos=_V.vec();
-        this.setPos(x,y);
-      }
-      /**Set origin.
-       * @param {number} x
-       * @param {number} y
-       * @return {Polygon} self
-       */
-      setPos(x=0,y=0){
-        _V.set(this.pos,x,y);
-        return this;
+    class Polygon extends Shape{
+      constructor(points){
+        super();
+        this.calcPoints=[];
+        this.normals=[];
+        this.edges=[];
+        this.set(points||[]);
       }
       /**Set vertices.
        * @param {Vec2[]} points
-       * @return {Polygon} self
+       * @return {Polygon}
        */
       set(points){
-        this.calcPoints= this.calcPoints || [];
-        this.normals= this.normals || [];
-        this.edges= this.edges || [];
         this.calcPoints.length=0;
         this.normals.length=0;
         this.edges.length=0;
-        this.points= _.assert(points.length>2) &&
-                     _orderPoints(points);
-        _.doseq(this.points, p=>{
+        this.points= _orderPointsCCW(points);
+        this.points.forEach(p=>{
           this.calcPoints.push(_V.vec());
           this.edges.push(_V.vec());
           this.normals.push(_V.vec());
@@ -4320,48 +4424,37 @@
       /**Move the points.
        * @param {number} x
        * @param {number} y
-       * @return {Polygon} self
+       * @return {Polygon}
        */
-      translate(x, y){
-        _.doseq(this.points,p=>{
-          p[0] += x; p[1] += y;
+      moveBy(x, y){
+        this.points.forEach(p=>{
+          p[0] += x;
+          p[1] += y;
         });
         return this._recalc();
       }
       /** @ignore */
       _recalc(){
-        if(this.points){
-          _.doseq(this.points,(p,i)=>{
-            _V.copy(this.calcPoints[i],p);
-            if(!_.feq0(this.orient))
-              _V.rot$(this.calcPoints[i],this.orient);
-          });
-          let i2,p1,p2;
-          _.doseq(this.points,(p,i)=>{
-            i2= (i+1) % this.calcPoints.length;
-            p1=this.calcPoints[i];
-            p2=this.calcPoints[i2];
-            this.edges[i]= _V.sub(p2,p1);
-            this.normals[i]= _V.unit(_V.normal(this.edges[i]));
-          });
-        }
+        let N=this.points.length;
+        this.points.forEach((p,i)=>{
+          _V.copy(this.calcPoints[i],p);
+          if(!_.feq0(this.orient))
+            _V.rot$(this.calcPoints[i],this.orient);
+        });
+        this.points.forEach((p,i)=>{
+          this.edges[i]= _V.sub(this.calcPoints[(i+1)%N],
+                                this.calcPoints[i]);
+          this.normals[i]= _V.unit(_V.normal(this.edges[i]));
+        });
         return this;
-      }
-      /**Return the translated polygon points.
-       * @param {Polygon} poly
-       * @return {array} points
-       */
-      static translateCalcPoints(poly){
-        return _V.translate(poly.pos,poly.calcPoints)
       }
     }
 
     /** @ignore */
     function toPolygon(r){
-      return new Polygon(r.pos[0],
-                         r.pos[1]).set([_V.vec(r.width,0),
-                                        _V.vec(r.width,r.height),
-                                        _V.vec(0,r.height),_V.vec()])
+      return new Polygon([_V.vec(r.width,0),
+                          _V.vec(r.width,r.height),
+                          _V.vec(0,r.height),_V.vec()]);
     }
 
     /**A collision manifold.
@@ -4486,40 +4579,30 @@
         if(absOverlap < resolve.overlap){
           resolve.overlap = absOverlap;
           _V.copy(resolve.overlapN,axis);
-          if(overlap<0)
-            _V.flip$(resolve.overlapN);
+          if(overlap<0) _V.flip$(resolve.overlapN);
         }
       }
     }
 
-    /**
-     * @private
-     * @var {Manifold}
-     */
-    const _RES= new Manifold();
-
-    /**
-     * @private
-     * @var {Polygon}
-     */
-    const _FAKE_POLY= toPolygon(new Rect(0,0, 1, 1));
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //const _FAKE_POLY= toPolygon(new Rect(0,0, 1, 1));
 
     /** @ignore */
     function _circle_circle(a, b, resolve){
-      let vAB= _V.vecAB(a.pos,b.pos);
-      let r_ab = a.radius+b.radius;
-      let r2 = r_ab*r_ab;
-      let d2 = _V.len2(vAB);
-      let status= !(d2 > r2);
+      let r_ab = a.shape.radius+b.shape.radius,
+          vAB= _V.vecAB(a.pos,b.pos),
+          d2 = _V.len2(vAB),
+          r2 = r_ab*r_ab,
+          dist, status= !(d2 > r2);
       if(status && resolve){
-        let dist = Math.sqrt(d2);
+        dist = Math.sqrt(d2);
         resolve.A = a;
         resolve.B = b;
         resolve.overlap = r_ab - dist;
         _V.copy(resolve.overlapN, _V.unit$(vAB));
         _V.copy(resolve.overlapV, _V.mul(vAB,resolve.overlap));
-        resolve.AInB = a.radius <= b.radius && dist <= b.radius - a.radius;
-        resolve.BInA = b.radius <= a.radius && dist <= a.radius - b.radius;
+        resolve.AInB = a.shape.radius <= b.shape.radius && dist <= b.shape.radius - a.shape.radius;
+        resolve.BInA = b.shape.radius <= a.shape.radius && dist <= a.shape.radius - b.shape.radius;
       }
       return status;
     }
@@ -4527,18 +4610,17 @@
     /** @ignore */
     function _poly_circle(polygon, circle, resolve){
       // get position of the circle relative to the polygon.
-      let vPC= _V.vecAB(polygon.pos,circle.pos);
-      let r2 = circle.radius*circle.radius;
-      let cps = polygon.calcPoints;
-      let edge = _V.vec();
-      let point;
+      let r2 = circle.shape.radius*circle.shape.radius,
+          vPC= _V.vecAB(polygon.pos,circle.pos),
+          cps = polygon.shape.calcPoints,
+          point, edge = _V.vec();
       // for each edge in the polygon:
       for(let next,prev, overlap,overlapN,len=cps.length,i=0; i<len; ++i){
-        next = i === len-1 ? 0 : i+1;
-        prev = i === 0 ? len-1 : i-1;
+        next = i == len-1 ? 0 : i+1;
+        prev = i == 0 ? len-1 : i-1;
         overlap = 0;
         overlapN = null;
-        _V.copy(edge,polygon.edges[i]);
+        _V.copy(edge,polygon.shape.edges[i]);
         // calculate the center of the circle relative to the starting point of the edge.
         point=_V.vecAB(cps[i],vPC);
         // if the distance between the center of the circle and the point
@@ -4551,38 +4633,38 @@
         let region = _voronoiRegion(edge, point);
         if(region === LEFT_VORONOI){
           // need to make sure we're in the RIGHT_VORONOI of the previous edge.
-          _V.copy(edge,polygon.edges[prev]);
+          _V.copy(edge,polygon.shape.edges[prev]);
           // calculate the center of the circle relative the starting point of the previous edge
           let point2= _V.vecAB(cps[prev],vPC);
           region = _voronoiRegion(edge, point2);
           if(region === RIGHT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.len(point);
-            if(dist>circle.radius){
+            if(dist>circle.shape.radius){
               // No intersection
               return false;
             } else if(resolve){
               // intersects, find the overlap.
               resolve.BInA = false;
               overlapN = _V.unit(point);
-              overlap = circle.radius - dist;
+              overlap = circle.shape.radius - dist;
             }
           }
         } else if(region === RIGHT_VORONOI){
           // need to make sure we're in the left region on the next edge
-          _V.copy(edge,polygon.edges[next]);
+          _V.copy(edge,polygon.shape.edges[next]);
           // calculate the center of the circle relative to the starting point of the next edge.
           _V.sub$(_V.copy(point,vPC),cps[next]);
           region = _voronoiRegion(edge, point);
           if(region === LEFT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.len(point);
-            if(dist>circle.radius){
+            if(dist>circle.shape.radius){
               return false;
             } else if(resolve){
               resolve.BInA = false;
               overlapN = _V.unit(point);
-              overlap = circle.radius - dist;
+              overlap = circle.shape.radius - dist;
             }
           }
         }else{
@@ -4593,14 +4675,14 @@
           let dist = _V.dot(point,normal);
           let distAbs = Math.abs(dist);
           // if the circle is on the outside of the edge, there is no intersection.
-          if(dist > 0 && distAbs > circle.radius){
+          if(dist > 0 && distAbs > circle.shape.radius){
             return false;
           } else if(resolve){
             overlapN = normal;
-            overlap = circle.radius - dist;
+            overlap = circle.shape.radius - dist;
             // if the center of the circle is on the outside of the edge, or part of the
             // circle is on the outside, the circle is not fully inside the polygon.
-            if(dist >= 0 || overlap < 2 * circle.radius){
+            if(dist >= 0 || overlap < 2 * circle.shape.radius){
               resolve.BInA = false;
             }
           }
@@ -4640,18 +4722,18 @@
 
     /** @ignore */
     function _poly_poly(a, b, resolve){
-      let pa = a.calcPoints;
-      let pb = b.calcPoints;
+      let pa = a.shape.calcPoints,
+          pb = b.shape.calcPoints;
       for(let i=0; i < pa.length; ++i){
-        if(_testSAT(a.pos, pa, b.pos, pb, a.normals[i], resolve))
+        if(_testSAT(a.pos, pa, b.pos, pb, a.shape.normals[i], resolve))
           return false;
       }
       for(let i=0;i < pb.length; ++i){
-        if(_testSAT(a.pos, pa, b.pos, pb, b.normals[i], resolve))
+        if(_testSAT(a.pos, pa, b.pos, pb, b.shape.normals[i], resolve))
           return false;
       }
       if(resolve){
-        if(resolve.overlap===0 || _.feq0(resolve.overlap))
+        if(resolve.overlap==0 || _.feq0(resolve.overlap))
           return false;
         resolve.A = a;
         resolve.B = b;
@@ -4735,20 +4817,32 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       Rect,
       Area,
       Line,
+      Body,
       Circle,
       Polygon,
       Manifold,
       C2DMatrix,
+      /**Wrap shape in this body
+       * @memberof module:mcfud/geo2d
+       * @param {Circle|Polygon} s
+       * @param {number} x
+       * @param {number} y
+       * @return {Body}
+       */
+      bodyWrap(s,x,y){
+        return new Body(s, x, y)
+      },
       /**Sort vertices in counter clockwise order.
        * @memberof module:mcfud/geo2d
        * @param {Vec2[]} vs
        * @return {Vec2[]}
        */
-      orderVertices(vs){ return _orderPoints(vs) },
+      orderVertices(vs){ return _orderPointsCCW(vs) },
       /**Calculate the area of this polygon.
        * @memberof module:mcfud/geo2d
        * @param{Vec2[]} points
@@ -4763,7 +4857,7 @@
           q=ps[i2];
           area += (p[0]*q[1] - q[0]*p[1]);
         }
-        return MFL(ABS(area)/2)
+        return _M.ndiv(Math.abs(area),2)
       },
       /**Find the center point of this polygon.
        * @memberof module:mcfud/geo2d
@@ -4782,24 +4876,21 @@
           cx += (p[0]+q[0]) * (p[0]*q[1]-q[0]*p[1]);
           cy += (p[1]+q[1]) * (p[0]*q[1]-q[0]*p[1]);
         }
-        return _V.vec(MFL(cx/A), MFL(cy/A))
+        return _V.vec(_M.ndiv(cx,A), _M.ndiv(cy,A))
       },
       /**Get the AABB rectangle.
        * @memberof module:mcfud/geo2d
-       * @param {Circle|Polygon} obj
-       * @param {Vec} [pos]
+       * @param {Body} obj
        * @return {Rect}
        */
-      getAABB(obj,pos=null){
-        if(!pos){
-          pos=obj.pos;
-        }
-        if(_.has(obj,"radius")){
-          return new Rect(pos[0]-obj.radius,
-                          pos[1]-obj.radius,
-                          obj.radius*2, obj.radius*2)
+      getAABB(obj){
+        _.assert(obj instanceof Body, "wanted a body");
+        if(_.has(obj.shape,"radius")){
+          return new Rect(obj.pos[0]-obj.shape.radius,
+                          obj.pos[1]-obj.shape.radius,
+                          obj.shape.radius*2, obj.shape.radius*2)
         }else{
-          let cps= _V.translate(pos, obj.calcPoints);
+          let cps= _V.translate(obj.pos, obj.shape.calcPoints);
           let xMin= cps[0][0];
           let yMin= cps[0][1];
           let xMax= xMin;
@@ -4839,8 +4930,8 @@
        * @return {Vec2[]} points in counter-cwise, bottom-right first
        */
       calcRectPoints(w,h){
-        const hw=MFL(w/2);
-        const hh=MFL(h/2);
+        const hw=w/2,
+              hh=h/2;
         return [_V.vec(hw,-hh), _V.vec(hw,hh),
                 _V.vec(-hw,hh), _V.vec(-hw,-hh)]
       },
@@ -4856,10 +4947,10 @@
        * @return {boolean}
        */
       rectEqRect(r1,r2){
-        return r1.width===r2.width &&
-               r1.height===r2.height &&
-               r1.pos[0]===r2.pos[0] &&
-               r1.pos[1]===r2.pos[1]
+        return r1.width==r2.width &&
+               r1.height==r2.height &&
+               r1.pos[0]==r2.pos[0] &&
+               r1.pos[1]==r2.pos[1]
       },
       /**Check if `R` contains `r`.
        * @memberof module:mcfud/geo2d
@@ -4884,7 +4975,7 @@
        * @param {Rect} r
        * @return {number}
        */
-      rectGetMidX(r){ return r.pos[0] + MFL(r.width/2) },
+      rectGetMidX(r){ return r.pos[0] + r.width/2 },
       /**Get the left on the x-axis.
        * @memberof module:mcfud/geo2d
        * @param {Rect} r
@@ -4902,7 +4993,7 @@
        * @param {Rect} r
        * @return {number}
        */
-      rectGetMidY(r){ return r.pos[1] + MFL(r.height/2) },
+      rectGetMidY(r){ return r.pos[1] + r.height/2 },
       /**Get the bottom on the y-axis.
        * @memberof module:mcfud/geo2d
        * @param {Rect} r
@@ -4970,9 +5061,10 @@
        * @return {boolean}
        */
       hitTestPointCircle(px, py, c){
+        _.assert(c instanceof Body, "wanted a body");
         let dx=px-c.pos[0];
         let dy=py-c.pos[1];
-        return dx*dx+dy*dy <= c.radius*c.radius;
+        return dx*dx+dy*dy <= c.shape.radius*c.shape.radius;
       },
       /**If these 2 circles collide, return the manifold.
        * @memberof module:mcfud/geo2d
@@ -4981,6 +5073,7 @@
        * @return {Manifold} if false undefined
        */
       hitCircleCircle(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         let m=new Manifold();
         if(_circle_circle(a,b,m)) return m;
       },
@@ -4991,6 +5084,7 @@
        * @return {boolean}
        */
       hitTestCircleCircle(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         return _circle_circle(a,b,new Manifold());
       },
       /**If this polygon collides with the circle, return the manifold.
@@ -5000,6 +5094,7 @@
        * @return {Manifold} if false undefined
        */
       hitPolygonCircle(p, c){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         let m=new Manifold();
         if(_poly_circle(p,c,m)) return m;
       },
@@ -5010,6 +5105,7 @@
        * @return {boolean}
        */
       hitTestPolygonCircle(p, c){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         return _poly_circle(p,c,new Manifold())
       },
       /**If this circle collides with polygon, return the manifold.
@@ -5019,6 +5115,7 @@
        * @return {Manifold} if false undefined
        */
       hitCirclePolygon(c, p){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         let m=new Manifold();
         if(_circle_poly(c,p,m)) return m;
       },
@@ -5029,6 +5126,7 @@
        * @return {boolean}
        */
       hitTestCirclePolygon(c, p){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         return _circle_poly(c,p,new Manifold())
       },
       /**If these 2 polygons collide, return the manifold.
@@ -5038,6 +5136,7 @@
        * @return {Manifold} if false undefined
        */
       hitPolygonPolygon(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         let m=new Manifold();
         if(_poly_poly(a,b,m)) return m;
       },
@@ -5048,6 +5147,7 @@
        * @return {boolean}
        */
       hitTestPolygonPolygon(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         return _poly_poly(a,b,new Manifold())
       },
       /**Check if a point is inside these polygon vertices.
@@ -5077,11 +5177,32 @@
        * @return {boolean}
        */
       hitTestPointPolygon(testx,testy,poly){
+        _.assert(poly instanceof Body, "wanted a body");
         return this.hitTestPointInPolygon(testx,testy,
-                                          _V.translate(poly.pos,poly.calcPoints))
+                                          _V.translate(poly.pos,poly.shape.calcPoints))
+      },
+      hitTestLineCircle(A,B, x, y, radius){
+        let AB=_V.sub(B,A),
+            C=[x,y],
+            AC=_V.sub(C,A),
+            BC=_V.sub(C,B),
+            AC_L2=_V.len2(AC);
+        //try to get the 90deg proj onto line
+        //let proj=_V.proj_scalar(AC,AB);
+        //let U=proj/_V.len(AB);
+        let dist,u = _V.dot(AC,AB) / _V.dot(AB,AB);
+        if(u >= 0 && u <= 1){
+          // point is on the line so just get the dist2 to the point
+          dist= AC_L2 - u*u*_V.len2(AB);
+        }else{
+          // find which end is closest and get dist2 to circle
+          dist = u < 0 ? AC_L2 : _V.len2(BC);
+        }
+        return [dist < radius * radius];
       },
       hitTestLinePolygon(p,p2, poly){
-        let vs=Polygon.translateCalcPoints(poly);
+        _.assert(poly instanceof Body, "wanted a body");
+        let vs=_V.translate(poly.pos, poly.shape.calcPoints);
         for(let i=0,i2=0; i<vs.length; ++i){
           i2= i+1;
           if(i2 == vs.length) i2=0;
@@ -5148,7 +5269,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"),
                            require("./math"),
                            require("./vec2"),
@@ -5158,6 +5279,8 @@
   }
 
 })(this);
+
+
 
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -5171,17 +5294,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
-  function _module(Core){
+  function _module(Core,_M){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
-    const MFL=Math.floor;
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
+    const int=Math.floor;
     const {u:_,is} = Core;
 
     /**
@@ -5243,12 +5368,12 @@
           if(!item){return}
           let r = item.getBBox(),
               g = item.getSpatial(),
-              gridX1 = MFL(r.x1 / cellW),
-              gridY1 = MFL(r.y1 / cellH),
-              gridX2 = MFL(r.x2/cellW),
-              gridY2 = MFL(r.y2/ cellH);
-          if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
-             g.y1 !== gridY1 || g.y2 !== gridY2){
+              gridX1 = _M.ndiv(r.x1 , cellW),
+              gridY1 = _M.ndiv(r.y1 , cellH),
+              gridX2 = _M.ndiv(r.x2,cellW),
+              gridY2 = _M.ndiv(r.y2, cellH);
+          if(g.x1 != gridX1 || g.x2 != gridX2 ||
+             g.y1 != gridY1 || g.y2 != gridY2){
             this.degrid(item);
             g.x1= gridX1;
             g.x2= gridX2;
@@ -5308,8 +5433,8 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"));
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("./core"),require("./math"));
   }else{
     gscope["io/czlab/mcfud/spatial"]=_module
   }
@@ -5332,15 +5457,17 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
-  function _module(Core){
+  function _module(Core,_M){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
-    const MFL=Math.floor;
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
+    const int=Math.floor;
     const {u:_} = Core;
 
     /**
@@ -5367,57 +5494,58 @@
      */
 
     /**Creates a QuadTree. */
-    function QuadTree(left,right,top,bottom,maxCount,maxDepth,level){
+    function QuadTree(X1,X2,Y1,Y2,maxCount,maxDepth,level){
       let boxes=null,
           objects = [];
-      //if flipped the co-ord system is LHS (like a browser, y grows down, objects are top-left+width_height)
-      //else RHS (standard, y grows up, objects are left-bottom+width_height)
-      let flipped=(top<bottom),
-          midX= MFL((left+right)/2),
-          midY= MFL((top+bottom)/2);
+      let midX= _M.ndiv(X1+X2,2),
+          midY= _M.ndiv(Y1+Y2,2);
+
       //find which quadrants r touches
       function _locate(r){
-        let x,y,width,height;
-        if(r.getBBox){
-          let {x1,x2,y1,y2}=r.getBBox();
-          x=x1;y=y1;width=x2-x1;height=flipped? y2-y1:y1-y2;
-        }else if(r.x !== undefined && r.y !== undefined && r.width !== undefined && r.height !== undefined){
-          x=r.x; y=r.y; width=r.width; height=r.height;
+        function _loc({x1,x2,y1,y2}){
+          let out=[],
+              left= x1<midX,
+              right= x2>midX;
+          if(y1<midY){
+            if(left) out.push(3);
+            if(right) out.push(0);
+          }
+          if(y2>midY){
+            if(left) out.push(2);
+            if(right) out.push(1);
+          }
+          return out;
         }
-        let out=[],
-            left= x<midX,
-            right= x+width>midX,
-            up= flipped? (y<midY) : (y+height>midY),
-            down= flipped? (y+height>midY): (y<midY);
-        if(up){
-          if(left) out.push(3);
-          if(right) out.push(0); }
-        if(down){
-          if(left) out.push(2);
-          if(right) out.push(1); }
-        return out;
+        /////
+        if(r.getBBox){
+          return _loc(r.getBBox())
+        }else{
+          _.assert(r.x1 !== undefined && r.y1 !== undefined &&
+                   r.x2 !== undefined && r.y2 !== undefined,"wanted bbox for quadtree");
+          return _loc(r)
+        }
       }
 
       //split into 4 quadrants
       function _split(){
+        //flipit
         //3|0
         //---
         //2|1
         _.assert(boxes===null);
-        boxes=[QuadTree(midX, right,top,midY,maxCount,maxDepth,level+1),
-               QuadTree(midX, right, midY, bottom,maxCount,maxDepth,level+1),
-               QuadTree(left, midX, midY, bottom,maxCount,maxDepth,level+1),
-               QuadTree(left, midX, top, midY,maxCount,maxDepth,level+1)];
+        boxes=[QuadTree(midX, X2, Y1,midY,     maxCount,maxDepth,level+1),
+               QuadTree(midX, X2, midY, Y2, maxCount,maxDepth,level+1),
+               QuadTree(X1, midX, midY, Y2, maxCount,maxDepth,level+1),
+               QuadTree(X1, midX, Y1, midY,    maxCount,maxDepth,level+1)];
       }
 
-      const bbox={x1:left,x2:right,y1:top,y2:bottom};
+      const bbox={x1:X1,x2:X2,y1:Y1,y2:Y2};
       return{
         boundingBox(){ return bbox },
         subTrees(){return boxes},
         dbg(f){ return f(objects,boxes,maxCount,maxDepth,level) },
-        insert:function(node){
-          for(let n=0;n<arguments.length;++n){
-            node=arguments[n];
+        insert(...nodes){
+          nodes.forEach(node=>{
             if(boxes){
               _locate(node).forEach(i=> boxes[i].insert(node))
             }else{
@@ -5428,7 +5556,7 @@
                 objects.length=0;
               }
             }
-          }
+          })
         },
         remove(node){
           if(boxes){
@@ -5453,12 +5581,11 @@
                 total+=n;
               }
             }
-            if(sum===boxes.length){//4
+            if(sum==boxes.length){//4
               //subtrees are leaves and total count is small
               //enough so pull them up into this node
               if(total<maxCount){
-                _.assert(objects.length===0,
-                         "quadtree wanted zero items");
+                _.assert(objects.length==0, "quadtree wanted zero items");
                 boxes.forEach(b=>b._swap(objects));
                 boxes=null;
                 //now this node is a leaf!
@@ -5523,14 +5650,14 @@
     const _$={
       /**
        * @memberof module:mcfud/quadtree
-       * @param {object} region {left,right,top,bottom} the bounding region
+       * @param {object} region {x1,x2,y1,y2} the bounding region
        * @param {number} maxCount maximum number of objects in each tree
        * @param {number} maxDepth maximum depth of tree
        * @return {QuadTree}
        */
       quadtree(region,maxCount=12,maxDepth=5){
-        const {left,right,top,bottom}=region;
-        return QuadTree(left,right,top,bottom,maxCount,maxDepth,0)
+        const {x1,x2,y1,y2}=region;
+        return QuadTree(x1,x2,y1,y2,maxCount,maxDepth,0)
       }
     };
 
@@ -5538,8 +5665,8 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"));
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("./core"),require("./math"));
   }else{
     gscope["io/czlab/mcfud/qtree"]=_module
   }
@@ -5560,15 +5687,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_}=Core;
 
@@ -5590,8 +5718,8 @@
        * @param {any} other
        */
       constructor(cur,other){
-        this.lastBestMove=null;
-        this.state= null;
+        this.lastBestMove=UNDEF;
+        this.state= UNDEF;
         this.other=other;
         this.cur=cur;
       }
@@ -5715,11 +5843,11 @@
       return score * (1 + 0.001 * depth);
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //option2
-    //
     function _negaAlphaBeta(board, game, depth, maxDepth, alpha, beta){
 
-      if(depth===0 || board.isOver(game)){
+      if(depth==0 || board.isOver(game)){
         return { depth, value: _calcScore(board,game,depth,maxDepth) }
       }
 
@@ -5753,8 +5881,6 @@
 
       return JSON.parse(JSON.stringify(alpha));
     }
-    //
-    //
 
     /**Implements the NegaMax Min-Max algo.
      * @see {@link https://github.com/Zulko/easyAI}
@@ -5768,7 +5894,7 @@
      */
     function _negaMax(board, game, depth,maxDepth,alpha, beta){
 
-      if(depth===0 || board.isOver(game)){
+      if(depth==0 || board.isOver(game)){
         return [_calcScore(board,game,depth,maxDepth),null]
       }
 
@@ -5778,7 +5904,7 @@
           bestValue = -Infinity,
           bestMove = openMoves[0];
 
-      if(depth===maxDepth)
+      if(depth==maxDepth)
         state.lastBestMove=bestMove;
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
@@ -5800,11 +5926,12 @@
         }
         if(alpha < rc){
           alpha=rc;
-          if(depth === maxDepth)
+          if(depth == maxDepth)
             state.lastBestMove = move;
           if(alpha >= beta) break;
         }
       }
+
       return [bestValue, state.lastBestMove];
     }
 
@@ -5820,8 +5947,7 @@
       XXevalNegaMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
-        let score,move;
-        [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
+        let [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
         if(_.nichts(move))
           console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${move}`);
         return move;
@@ -5862,15 +5988,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_}=Core;
 
@@ -5891,9 +6018,9 @@
        * @param {any} other
        */
       constructor(cur,other){
-        this.cur=cur;
-        this.state= null;
+        this.state= UNDEF;
         this.other=other;
+        this.cur=cur;
       }
       /**Make a copy of this.
        * @param {function} cp  able to make a copy of state
@@ -5914,7 +6041,7 @@
      */
     class GameBoard{
       constructor(){
-        this.aiActor=null;
+        this.aiActor=UNDEF;
       }
       /**Get the function that copies a game state.
        * @return {function}
@@ -6010,11 +6137,9 @@
       }
     }
 
-    /** @ignore */
-    function _calcScore(board,game,depth,maxDepth){
-      //+ve if AI wins
-      return board.evalScore(game,depth,maxDepth)
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //+ve if AI wins
+    const _calcScore=(board,game,depth,maxDepth)=> board.evalScore(game,depth,maxDepth);
 
     /**Implements the Min-Max (alpha-beta) algo.
      * @param {GameBoard} board
@@ -6026,8 +6151,8 @@
      * @return {number}
      */
     function _miniMax(board, game, depth,maxDepth, alpha, beta, maxing){
-      if(depth===0 || board.isOver(game)){
-        return [_calcScore(board,game,depth,maxDepth),null]
+      if(depth==0 || board.isOver(game)){
+        return [_calcScore(board,game,depth,maxDepth),UNDEF]
       }
       ///////////
       let state=game,
@@ -6091,8 +6216,7 @@
       evalMiniMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
-        let score,move;
-        [score, move]= _miniMax(board, f, d,d, -Infinity, Infinity, true);
+        let [score, move]= _miniMax(board, f, d,d, -Infinity, Infinity, true);
         if(_.nichts(move))
           console.log(`evalMiniMax: score=${score}, pos= ${move}`);
         return move;
@@ -6124,18 +6248,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
 
-    const CMP=(a,b)=>{return a<b?-1:(a>b?1:0)};
+    const CMP=(a,b)=> a<b?-1:(a>b?1:0);
     const int=Math.floor;
     const {is, u:_}= Core;
 
@@ -6144,16 +6269,15 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _checkKey=(key)=> _.assert(is.num(key) || is.str(key), `expected number or string`);
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function prnIter(it, sep=" ",out=""){
       for(; it.hasNext();) out += `${it.next()}${sep}`;
       return out;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _checkKey(key){
-      return _.assert(is.num(key) || is.str(key), `expected number or string`)
-    }
-
     /**Represents an interable.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -6165,7 +6289,8 @@
       hasNext(){ return _.echt(this.current) }
       remove(){ throw Error("Unsupported")  }
       next(){
-        if(!this.hasNext()) throw Error("NoSuchElementException");
+        if(!this.hasNext())
+          throw Error("NoSuchElementException");
         let item = this.current.item;
         this.current = this.current.next;
         return item;
@@ -6179,7 +6304,7 @@
      * @param {object} next
      * @return {object}
      */
-    function Node(item,next=null){
+    function Node(item,next=UNDEF){
       return { item, next }
     }
 
@@ -6191,7 +6316,7 @@
       constructor(){
         //* @property {first} beginning of bag
         //* @property {n} number of elements in bag
-        this.first = null;
+        this.first = UNDEF;
         this.n = 0;
       }
       clone(){
@@ -6247,6 +6372,7 @@
     }
     //Bag.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a last-in-first-out (LIFO) stack of generic items.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -6255,7 +6381,7 @@
       constructor(){
         //* @property {first} top of stack
         //* @property {n} size of stack
-        this.first = null;
+        this.first = UNDEF;
         this.n = 0;
       }
       clone(){
@@ -6340,6 +6466,7 @@
     }
     //Stack.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a first-in-first-out (FIFO) queue of generic items.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -6349,8 +6476,8 @@
         //* @property {first} beginning of queue
         //* @property {last} end of queue
         //* @property {n} number of elements on queue
-        this.first = null;
-        this.last  = null;
+        this.first = UNDEF;
+        this.last  = UNDEF;
         this.n = 0;
       }
       clone(){
@@ -6399,7 +6526,7 @@
         let item = this.first.item;
         this.first = this.first.next;
         this.n-=1;
-        if(this.isEmpty()) this.last = null;   // to avoid loitering
+        if(this.isEmpty()) this.last = UNDEF;   // to avoid loitering
         return item;
       }
       /**Returns a string representation of this queue.
@@ -6446,7 +6573,7 @@
         //* @property {object} root top of the map
         //* @property {number} n number of elements in map
         this.compare=C || CMP;
-        this.root=null;
+        this.root=UNDEF;
         this.n=0;
       }
       /**Number of entries in map.
@@ -6484,7 +6611,7 @@
         const _set=(key,value,node)=>{
           if(!node){
             this.n+=1;
-            return{key,value,left:null,right:null};
+            return{key,value};
           }
           let c= this.compare(key,node.key);
           if(c<0){
@@ -6501,7 +6628,7 @@
           this.root = _set(key, value, this.root);
       }
       _getMaxNode(node){
-        while(node !== null && node.right !== null){ node = node.right }
+        while(node && node.right){ node = node.right }
         return node;
       }
       _getMaxKey(){
@@ -6510,7 +6637,7 @@
           return n.key;
       }
       _getMinNode(node){
-        while(node !== null && node.left !== null){ node = node.left }
+        while(node && node.left){ node = node.left }
         return node;
       }
       _getMinKey(){
@@ -6546,7 +6673,7 @@
                 node= node.right;
                 this.n -=1;
               }else{
-                node= null;
+                node= UNDEF;
                 this.n -=1;
               }
             }
@@ -6622,6 +6749,7 @@
     }
     //TreeMap.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -6755,6 +6883,7 @@
     }
     //ST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -6769,7 +6898,7 @@
         }
       }
       // internal nodes: only use key and next external nodes: only use key and value
-      Entry(key,val,next=null){ return{ key, val, next } }
+      Entry(key,val,next=UNDEF){ return{ key, val, next } }
       constructor(compareFn){
         //* @property {number} height  height of tree
         //* @property {number} n  number of key-value pairs in the B-tree
@@ -6924,6 +7053,7 @@
     }
     //BTree.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a <em>d</em>-dimensional mathematical vector.
      *  Vectors are mutable: their values can be changed after they are created.
      *  It includes methods for addition, subtraction,
@@ -7066,9 +7196,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-      BTree,Bag,Stack,Queue,ST,TreeMap,SparseVector,Iterator,
       prnIter,
-      StdCompare:CMP
+      StdCompare:CMP,
+      BTree,Bag,Stack,Queue,ST,
+      TreeMap,SparseVector,Iterator
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -7077,7 +7208,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/basic"]=_module
@@ -7099,16 +7230,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
-  function _module(Core,Basic){
+  function _module(Core,_M,Basic){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     const {prnIter,Bag,Stack,Iterator,StdCompare:CMP}= Basic;
     const int=Math.floor;
@@ -7122,13 +7255,13 @@
     // resize the underlying array to have the given capacity
     function resize(c,n,lo,hi,a){
       _.assert(c>n,"bad resize capacity");
-      let temp = new Array(c);
-      for(let i=lo; i<hi; ++i) temp[i] = a[i];
+      let i, temp = new Array(c);
+      for(i=lo; i<hi; ++i) temp[i] = a[i];
       return temp;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function less(v, w, cmp){ return cmp(v,w) < 0 }
+    const less=(v, w, cmp)=> cmp(v,w) < 0;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function exch(a, i, j){
@@ -7138,19 +7271,22 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function isSorted(a,C){ return isSorted3(a, 0, a.length,C) }
+    const isSorted=(a,C)=> isSorted3(a, 0, a.length,C);
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function isSorted3(a, lo, hi,C){
-      for(let i = lo + 1; i < hi; ++i)
+      for(let i = lo+1; i < hi; ++i)
         if(less(a[i], a[i-1], C)) return false;
       return true;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function show(a){
-      let s="";
-      for(let i=0; i<a.length; ++i) s += `${a[i]} `;
+      let i,s="";
+      for(i=0; i<a.length; ++i) s += `${a[i]} `;
       console.log(s);
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using insertion sort.
      * @memberof module:mcfud/algo_sort
@@ -7211,6 +7347,7 @@
     }
     //Insertion.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides a static method for sorting an array using an optimized
      * binary insertion sort with half exchanges.
      * @memberof module:mcfud/algo_sort
@@ -7228,7 +7365,7 @@
           // binary search to determine index j at which to insert a[i]
           lo = 0; hi = i; v = a[i];
           while(lo<hi){
-            mid = lo + int((hi-lo) / 2);
+            mid = lo + _M.ndiv(hi-lo,2);
             if(less(v, a[mid],compareFn)) hi = mid;
             else lo = mid + 1;
           }
@@ -7248,6 +7385,7 @@
     }
     //BinaryInsertion.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using <em>selection sort</em>.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -7276,6 +7414,7 @@
     }
     //Selection.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using <em>Shellsort</em>.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -7288,7 +7427,7 @@
        */
       static sort(a, compareFn){
         let n = a.length,
-            h=1, n3=int(n/3);
+            h=1, n3= _M.ndiv(n,3);
         // 3x+1 increment sequence:  1, 4, 13, 40, 121, 364, 1093, ...
         while(h < n3) h = 3*h + 1;
         while(h >= 1){
@@ -7297,7 +7436,7 @@
             for(let j=i; j>=h && less(a[j], a[j-h],compareFn); j -= h)
               exch(a, j, j-h);
           }
-          h=int(h/3);
+          h= _M.ndiv(h,3);
         }
         return a;
       }
@@ -7351,7 +7490,7 @@
     // mergesort a[lo..hi] using auxiliary array aux[lo..hi]
     function sortIndex(a, index, aux, lo, hi,C){
       if(hi<=lo){}else{
-        let mid = lo + int((hi-lo) / 2);
+        let mid = lo + _M.ndiv(hi-lo,2);
         sortIndex(a, index, aux, lo, mid,C);
         sortIndex(a, index, aux, mid + 1, hi,C);
         mergeIndex(a, index, aux, lo, mid, hi,C);
@@ -7359,6 +7498,7 @@
       return a;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array
      * using a top-down, recursive version of <em>mergesort</em>.
      * @memberof module:mcfud/algo_sort
@@ -7374,7 +7514,7 @@
         // mergesort a[lo..hi] using auxiliary array aux[lo..hi]
         function _sort(a, aux, lo, hi,C){
           if(hi<=lo){}else{
-            let mid = lo + int((hi-lo) / 2);
+            let mid = lo + _M.ndiv(hi-lo,2);
             _sort(a, aux, lo, mid,C);
             _sort(a, aux, mid + 1, hi,C);
             merge(a, aux, lo, mid, hi,C);
@@ -7410,6 +7550,7 @@
     }
     //Merge.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using bubble sort.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -7465,6 +7606,8 @@
       // now, a[lo .. j-1] <= a[j] <= a[j+1 .. hi]
       return j;
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array and
      * selecting the ith smallest element in an array using quicksort.
      * @memberof module:mcfud/algo_sort
@@ -7523,7 +7666,7 @@
     //Quick.test();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function less4(a,i, j,C){ return less(a[i], a[j],C) }
+    const less4=(a,i, j,C)=> less(a[i], a[j],C);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // is pq[1..n] a max heap?
@@ -7537,6 +7680,7 @@
       if(!_.nichts(M.pq[0])) return false;
       return isMaxHeapOrdered(1,M);
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // is subtree of pq[1..n] rooted at k a max heap?
     function isMaxHeapOrdered(k,M){
@@ -7550,6 +7694,7 @@
       return isMaxHeapOrdered(left,M) && isMaxHeapOrdered(right,M);
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a priority queue of generic keys.
      *  It supports the usual insert and delete-the-minimum operations,
      *  along with the merging of two heaps together.
@@ -7558,8 +7703,8 @@
      */
     class FibonacciMinPQ{
       Node(key){
-        //int order;            //Order of the tree rooted by this Node
-        return {key, order:0, prev:null, next:null, child:null}
+        //int order; //Order of the tree rooted by this Node
+        return {key, order:0};// prev:null, next:null, child:null
       }
       constructor(compareFn, keys){
         //private Node head;          //Head of the circular root list
@@ -7569,8 +7714,8 @@
         //private HashMap<Integer, Node> table = new HashMap<Integer, Node>(); //Used for the consolidate operation
         this.compare=compareFn;
         this.table=new Map();
-        this.head=null;
-        this._min=null;
+        this.head=UNDEF;
+        this._min=UNDEF;
         this.n=0;
         if(is.vec(keys))
           keys.forEach(k=> this.insert(k));
@@ -7614,14 +7759,14 @@
         this.head = this._cut(this._min, this.head);
         let x= this._min.child,
             key = this._min.key;
-        this._min.key = null;
+        this._min.key = UNDEF;
         if(x){
           this.head = this._meld(this.head, x);
-          this._min.child = null;
+          this._min.child = UNDEF;
         }
         this.n -= 1;
         if(!this.isEmpty()) this._consolidate();
-        else this._min = null;
+        else this._min = UNDEF;
         return key;
       }
       /**Merges two heaps together
@@ -7649,8 +7794,8 @@
       _consolidate(){
         this.table.clear();
         let x = this.head,
-            y = null,
-            z = null,
+            y = UNDEF,
+            z = UNDEF,
             maxOrder = 0;
         this._min = this.head;
         do{
@@ -7694,15 +7839,15 @@
       //Removes a tree from the list defined by the head pointer
       _cut(x, head){
         if(x.next === x) {
-          x.next = null;
-          x.prev = null;
-          return null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
+          return UNDEF;
         }else{
           x.next.prev = x.prev;
           x.prev.next = x.next;
           let res = x.next;
-          x.next = null;
-          x.prev = null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
           return head === x?  res: head;
         }
       }
@@ -7766,6 +7911,7 @@
     }
     //FibonacciMinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an indexed priority queue of generic keys.
      *  It supports the usual insert and delete-the-minimum operations,
      *  along with delete and change-the-key methods.
@@ -7777,8 +7923,8 @@
         //Node<Key> prev, next;     //siblings of the Node
         ////Node<Key> parent, child;    //parent and child of this Node
         //boolean mark;         //Indicates if this Node already lost a child
-        return{key, order:0, index:0,
-               prev:null, next:null, parent:null, child:null, mark:false}
+        return{key, order:0, index:0};//
+        //prev:null, next:null, parent:null, child:null, mark:false
       }
       constructor(maxN,compareFn){
         //private Node<Key>[] nodes;      //Array of Nodes in the heap
@@ -7791,8 +7937,8 @@
           throw Error("Cannot create a priority queue of negative size");
         this.maxN = maxN;
         this.n=0;
-        this.head=null;
-        this._min=null;
+        this.head=UNDEF;
+        this._min=UNDEF;
         this.compare = compareFn;
         this.table=new Map();
         this.nodes = new Array(maxN);
@@ -7854,19 +8000,19 @@
         this.head = this._cutNode(this._min, this.head);
         let x = this._min.child,
             index = this._min.index;
-        this._min.key = null;
+        this._min.key = UNDEF;
         if(x){
           do{
-            x.parent = null;
+            x.parent = UNDEF;
             x = x.next;
           }while(x !== this._min.child);
           this.head = this._meld(this.head, x);
-          this._min.child = null;     //For garbage collection
+          this._min.child = UNDEF;     //For garbage collection
         }
         this.n-=1;
         if(!this.isEmpty()) this._consolidate();
-        else this._min = null;
-        this.nodes[index] = null;
+        else this._min = UNDEF;
+        this.nodes[index] = UNDEF;
         return index;
       }
       /**Get the key associated with index i
@@ -7931,17 +8077,17 @@
         this.head = this._cutNode(x, this.head);
         if(x.child){
           let child = x.child;
-          x.child = null;     //For garbage collection
+          x.child = UNDEF;     //For garbage collection
           x = child;
           do{
-            child.parent = null;
+            child.parent = UNDEF;
             child = child.next;
           }while(child !== x);
           this.head = this._meld(this.head, child);
         }
         if(!this.isEmpty()) this._consolidate();
-        else this._min = null;
-        this.nodes[i] = null;
+        else this._min = UNDEF;
+        this.nodes[i] = UNDEF;
         this.n-=1;
       }
       _greater(n, m){
@@ -7960,7 +8106,7 @@
         let x = this.nodes[i];
         let parent = x.parent;
         parent.child = this._cutNode(x, parent.child);
-        x.parent = null;
+        x.parent = UNDEF;
         parent.order-=1;
         this.head = this._insertNode(x, this.head);
         parent.mark = !parent.mark;
@@ -7971,8 +8117,8 @@
       //Coalesces the roots, thus reshapes the heap
       //Caching a HashMap improves greatly performances
       _consolidate(){
-        let y = null,
-            z = null,
+        let y = UNDEF,
+            z = UNDEF,
             maxOrder = 0,
             x = this.head;
         this.table.clear();
@@ -7994,7 +8140,7 @@
           this.table.set(y.order, y);
           if(y.order > maxOrder) maxOrder = y.order;
         }while(x !== this.head);
-        this.head = null;
+        this.head = UNDEF;
         this.table.forEach(n=>{
           this._min = this._greater(this._min.key, n.key) ? n : this._min;
           this.head = this._insertNode(n, this.head);
@@ -8016,15 +8162,15 @@
       //Removes a tree from the list defined by the head pointer
       _cutNode(x, head){
         if(x.next === x){
-          x.next = null;
-          x.prev = null;
-          return null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
+          return UNDEF;
         }else{
           x.next.prev = x.prev;
           x.prev.next = x.next;
           let res = x.next;
-          x.next = null;
-          x.prev = null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
           return head === x?  res: head;
         }
       }
@@ -8088,6 +8234,7 @@
     }
     //IndexFibonacciMinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -8152,16 +8299,16 @@
         let min=this.pq[1];
         exch(this.pq, 1, this.n--);
         this._sink(1);
-        this.pq[this.n+1] = null;// to avoid loitering and help with garbage collection
+        this.pq[this.n+1] = UNDEF;// to avoid loitering and help with garbage collection
         if((this.n>0) &&
-           (this.n==int((this.pq.length-1)/4)))
-          this.pq= resize(int(this.pq.length/2),this.n,1,this.n+1,this.pq);
+           (this.n== _M.ndiv(this.pq.length-1,4)))
+          this.pq= resize(_M.ndiv(this.pq.length,2),this.n,1,this.n+1,this.pq);
         return min;
       }
       _swim(k){
-        while(k>1 && this._greater(int(k/2), k)){
-          exch(this.pq, k, int(k/2));
-          k=int(k/2);
+        while(k>1 && this._greater(_M.ndiv(k,2), k)){
+          exch(this.pq, k, _M.ndiv(k,2));
+          k=_M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -8223,6 +8370,7 @@
     }
     //MinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -8295,8 +8443,8 @@
         this._sink(1);
         this.pq[this.n+1] = null;     // to avoid loitering and help with garbage collection
         if(this.n > 0 &&
-           this.n == int((this.pq.length-1)/4))
-          this.pq=resize(int(this.pq.length/2), this.n, 1, this.n+1, this.pq);
+           this.n == _M.ndiv(this.pq.length-1,4))
+          this.pq=resize(_M.ndiv(this.pq.length,2), this.n, 1, this.n+1, this.pq);
         return max;
       }
       _isMaxHeap(){
@@ -8314,9 +8462,9 @@
         return this._isMaxHeapOrdered(left) && this._isMaxHeapOrdered(right);
       }
       _swim(k){
-        while(k>1 && less4(this.pq, int(k/2), k, this.comparator)){
-          exch(this.pq, k, int(k/2));
-          k= int(k/2);
+        while(k>1 && less4(this.pq, _M.ndiv(k,2), k, this.comparator)){
+          exch(this.pq, k, _M.ndiv(k,2));
+          k= _M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -8367,12 +8515,15 @@
     function lessOneOff(pq, i, j, C){
       return C(pq[i-1], pq[j-1]) < 0
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function exchOneOff(pq, i, j){
       const swap = pq[i-1];
       pq[i-1] = pq[j-1];
       pq[j-1] = swap;
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides a static method to sort an array using <em>heapsort</em>.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -8394,7 +8545,7 @@
         }
         let k,n=pq.length;
         // heapify phase
-        for(k = int(n/2); k >= 1; --k){
+        for(k = _M.ndiv(n,2); k >= 1; --k){
           _sink4(pq, k, n, compareFn)
         }
         // sortdown phase
@@ -8415,6 +8566,7 @@
     }
     //Heap.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an indexed priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -8568,7 +8720,7 @@
         this._exch(index, this.n--);
         this._swim(index);
         this._sink(index);
-        this.mKeys[i] = null;
+        this.mKeys[i] = UNDEF;
         this.qp[i] = -1;
       }
       _validateIndex(i){
@@ -8586,9 +8738,9 @@
         this.qp[this.pq[j]] = j;
       }
       _swim(k){
-        while(k>1 && this._greater(int(k/2), k)){
-          this._exch(k, int(k/2));
-          k = int(k/2);
+        while(k>1 && this._greater(_M.ndiv(k,2), k)){
+          this._exch(k, _M.ndiv(k,2));
+          k = _M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -8643,6 +8795,7 @@
     }
     //IndexMinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an indexed priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -8726,7 +8879,7 @@
         this._sink(1);
         _.assert(this.pq[this.n+1] == max,"bad delMax");
         this.qp[max] = -1;        // delete
-        this.mKeys[max] = null;    // to help with garbage collection
+        this.mKeys[max] = UNDEF;    // to help with garbage collection
         this.pq[this.n+1] = -1;        // not needed
         return max;
       }
@@ -8793,7 +8946,7 @@
         this._exch(index, this.n--);
         this._swim(index);
         this._sink(index);
-        this.mKeys[i] = null;
+        this.mKeys[i] = UNDEF;
         this.qp[i] = -1;
       }
       _validateIndex(i){
@@ -8811,9 +8964,9 @@
         this.qp[this.pq[j]] = j;
       }
       _swim(k){
-        while(k > 1 && this._less(int(k/2), k)) {
-          this._exch(k, int(k/2));
-          k = int(k/2);
+        while(k > 1 && this._less(_M.ndiv(k,2), k)) {
+          this._exch(k, _M.ndiv(k,2));
+          k = _M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -8894,8 +9047,9 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"))
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("../main/core"),
+                           require("../main/math"), require("./basic"))
   }else{
     gscope["io/czlab/mcfud/algo/sort"]=_module
   }
@@ -8916,16 +9070,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
-  function _module(Core,Basic,Sort){
+  function _module(Core,_M,Basic,Sort){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     const {Bag,Stack,Queue,StdCompare:CMP,prnIter}= Basic;
@@ -8985,7 +9141,9 @@
     //FrequencyCounter.test();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SNode(key,val,next){ return {key,val,next} }
+    const SNode=(key,val,next)=> ({key,val,next});
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an (unordered) symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -8994,7 +9152,7 @@
       constructor(){
       //* @property {object} first the linked list of key-value pairs
       //* @property {number} n number of key-value pairs
-        this.first=null;
+        this.first=UNDEF;
         this.n=0;
       }
       /**Returns the number of key-value pairs in this symbol table.
@@ -9064,7 +9222,7 @@
         // delete key in linked list beginning at Node x
         // warning: function call stack too large if table is large
         const _delete=(x,key)=>{
-          if(!x) return null;
+          if(!x) return UNDEF;
           if(key==x.key){
             this.n -= 1;
             return x.next;
@@ -9190,7 +9348,7 @@
             lo=0, hi=this.n-1;
         this._argOk(key);
         while(lo <= hi){
-          mid = lo+int((hi-lo)/2);
+          mid = lo+ _M.ndiv(hi-lo,2);
           cmp = this.compare(key,this.mKeys[mid]);
           if(cmp < 0) hi = mid-1;
           else if(cmp > 0) lo = mid+1;
@@ -9245,12 +9403,12 @@
               this.vals[j] = this.vals[j+1];
             }
             this.n-=1;
-            this.mKeys[this.n] = null;  // to avoid loitering
-            this.vals[this.n] = null;
+            this.mKeys[this.n] = UNDEF;  // to avoid loitering
+            this.vals[this.n] = UNDEF;
             // resize if 1/4 full
             if(this.n>0 &&
-               this.n == int(this.mKeys.length/4))
-              this._resize(int(this.mKeys.length/2));
+               this.n == _M.ndiv(this.mKeys.length,4))
+              this._resize(_M.ndiv(this.mKeys.length,2));
             this._check();
           }
         }
@@ -9379,6 +9537,7 @@
     }
     //BinarySearchST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -9388,7 +9547,7 @@
         //* @property {object} root
         //* @property {function} compare
         this.compare=compareFn;
-        this.root=null;
+        this.root=UNDEF;
         this._argOk=(x)=> _.assert(x, "Invalid argument");
         this._check=()=>{
           if(!this.isBST(this.root,null,null)) console.log("Not in symmetric order");
@@ -9422,7 +9581,7 @@
         };
       }
       Node(key, val, size){
-        return{ key,val,size, left:null, right:null }
+        return{ key,val,size};// left:null, right:null
       }
       /**Returns true if this symbol table is empty.
        * @return {boolean}
@@ -9583,7 +9742,7 @@
         return x.key;
       }
       _ceilingNode(x, key){
-        if(_.nichts(x)){return null}
+        if(_.nichts(x)){return UNDEF}
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0){
@@ -9607,7 +9766,7 @@
       // Return key in BST rooted at x of given rank.
       // Precondition: rank is in legal range.
       _selectNode(x, rank){
-        if(_.nichts(x)){return null}
+        if(_.nichts(x)){return UNDEF}
         let leftSize = this._sizeNode(x.left);
         if(leftSize > rank) return this._selectNode(x.left,  rank);
         if(leftSize < rank) return this._selectNode(x.right, rank - leftSize - 1);
@@ -9744,6 +9903,7 @@
     }
     //BST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -9755,7 +9915,7 @@
         //* @property {object} root
         //* @property {function} compare
         this.compare=compareFn;
-        this.root=null;
+        this.root=UNDEF;
         this._argOk=(x)=>_.assert(x, "Invalid argument");
         this._check=()=>{
           // is the tree rooted at x a BST with all keys strictly between min and max
@@ -9811,7 +9971,7 @@
       }
       Node(key, val, color, size){
         //color is parent color
-        return {key,val,color,size,left:null,right:null}
+        return {key,val,color,size};//left:null,right:null
       }
       // is node x red; false if x is null ?
       _isRed(x){
@@ -10088,7 +10248,7 @@
       }
       // the largest key in the subtree rooted at x less than or equal to the given key
       _floorNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0)  return this._floorNode(x.left, key);
@@ -10109,7 +10269,7 @@
       }
       // the smallest key in the subtree rooted at x greater than or equal to the given key
       _ceilingNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp > 0)  return this._ceilingNode(x.right, key);
@@ -10131,7 +10291,7 @@
       // Return key in BST rooted at x of given rank.
       // Precondition: rank is in legal range.
       _selectNode(x, rank){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let leftSize = this._sizeNode(x.left);
         return leftSize > rank? this._selectNode(x.left,  rank)
                               : (leftSize < rank? this._selectNode(x.right, rank - leftSize - 1): x.key);
@@ -10229,6 +10389,7 @@
     }
     //RedBlackBST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides a static method for binary searching for an integer in a sorted array of integers.
      * @memberof module:mcfud/algo_search
      * @class
@@ -10244,7 +10405,7 @@
             hi = a.length - 1;
         while(lo <= hi){
           // Key is in a[lo..hi] or not present.
-          let mid = lo + int((hi-lo)/2);
+          let mid = lo + _M.ndiv(hi-lo,2);
           if(key < a[mid]) hi = mid - 1;
           else if(key > a[mid]) lo = mid + 1;
           else return mid;
@@ -10262,6 +10423,7 @@
     }
     //BinarySearch.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -10270,14 +10432,14 @@
       Node(key, val, height, size){
         // height: height of the subtree
         // size: number of nodes in subtree
-        return {key, val, height, size, left:null, right: null}
+        return {key, val, height, size};// left:null, right: null
       }
       /**
        * @param {function} compareFn
        */
       constructor(compareFn){
         this.compare=compareFn;
-        this.root=null;
+        this.root=UNDEF;
       }
       /**Checks if the symbol table is empty.
        * @return {boolean}
@@ -10321,7 +10483,7 @@
        *         {@code null} if no such key
        */
       _getNode(x, key){
-        if(!x) return null;
+        if(!x) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp < 0) return this._getNode(x.left, key);
         if(cmp > 0) return this._getNode(x.right, key);
@@ -10343,7 +10505,7 @@
        */
       put(key, val){
         if(_.nichts(key)) throw Error("first argument to put() is null");
-        if(val === undefined ){
+        if(val === undefined){
           this.delete(key);
         }else{
           this.root = this._putNode(this.root, key, val);
@@ -10540,7 +10702,7 @@
        *         to the given key
        */
       _floorNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0) return this._floorNode(x.left, key);
@@ -10567,7 +10729,7 @@
        *         equal to the given key
        */
       _ceilingNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp > 0) return this._ceilingNode(x.right, key);
@@ -10589,7 +10751,7 @@
        * @return {object} the node with key the kth smallest key in the subtree
        */
       _selectNode(x, k){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let t = this._sizeNode(x.left);
         if(t > k) return this._selectNode(x.left, k);
         if(t < k) return this._selectNode(x.right, k - t - 1);
@@ -10752,6 +10914,7 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**A* search algo for grid.
      * @memberof module:mcfud/algo_search
@@ -10877,23 +11040,26 @@
     }
     //AStarGrid.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       AStarGrid,
       AVLTreeST,
-      BinarySearch,
       RedBlackBST,
       BST,
+      BinarySearch,
       BinarySearchST,
-      SequentialSearchST,
-      FrequencyCounter
+      FrequencyCounter,
+      SequentialSearchST
     };
 
     return _$;
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"),require("./sort"))
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("../main/core"),
+                           require("../main/math"),
+                           require("./basic"),require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/search"]=_module
   }
@@ -10914,18 +11080,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
-  function _module(Core,Basic,Sort){
+  function _module(Core,_M,Basic,Sort){
+
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
+
     const {prnIter, TreeMap,Bag,Stack,Queue,ST,StdCompare:CMP}= Basic;
     const {IndexMinPQ,MinPQ}= Sort;
     const int=Math.floor;
@@ -10942,6 +11111,7 @@
       return true;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an undirected graph of vertices named 0 through <em>V</em> – 1.
      * @memberof module:mcfud/algo_graph
      * @class
@@ -11035,6 +11205,7 @@
     }
     //Graph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining the vertices
      * connected to a given source vertex <em>s</em>
      *  in an undirected graph.
@@ -11091,6 +11262,7 @@
     }
     //DepthFirstSearch.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for finding the vertices connected to a source vertex <em>s</em> in the undirected graph.
      * @memberof module:mcfud/algo_graph
      * @class
@@ -11148,6 +11320,7 @@
     }
     //NonrecursiveDFS.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for finding paths from a source vertex <em>s</em>
      * to every other vertex in an undirected graph.
      * @memberof module:mcfud/algo_graph
@@ -11221,7 +11394,8 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // breadth-first search from a single source
-    function _bfs(G, s, M){ return _bfss(G,[s],M) }
+    const _bfs=(G, s, M)=> _bfss(G,[s],M);
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // breadth-first search from multiple sources
     function _bfss(G, sources, M){
@@ -11246,6 +11420,7 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // check optimality conditions for single source
     function _check(G, s,M){
@@ -11280,6 +11455,7 @@
       }
       return true;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _chkVerts(vs,V){
       if(!vs || vs.length==0)
@@ -11287,6 +11463,8 @@
       vs.forEach(v=> _chkVertex(v,V));
       return true;
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for finding shortest paths (number of edges)
      * from a source vertex <em>s</em> (or a set of source vertices)
      * to every other vertex in an undirected graph.
@@ -11361,6 +11539,7 @@
     }
     //BreadthFirstPaths.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a weighted edge in an {@link EdgeWeightedGraph}.
      * Each edge consists of two integers.
      * (naming the two vertices) and a real-value weight.
@@ -11425,6 +11604,7 @@
     }
     //Edge.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an edge-weighted graph of vertices named 0 through <em>V</em> – 1,
      * where each undirected edge is of type {@link Edge} and has a real-valued weight.
      * @memberof module:mcfud/algo_graph
@@ -11562,6 +11742,7 @@
     }
     //EdgeWeightedGraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining the connected components in an undirected graph.
      * @memberof module:mcfud/algo_graph
      * @class
@@ -11653,6 +11834,7 @@
     }
     //CC.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a directed graph of vertices
      *  named 0 through <em>V</em> - 1.
      *  It supports the following two primary operations: add an edge to the digraph,
@@ -11794,6 +11976,7 @@
     }
     //Digraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining the vertices reachable
      * from a given source vertex <em>s</em> (or set of source vertices) in a digraph.
      * @memberof module:mcfud/algo_graph
@@ -11852,6 +12035,7 @@
     }
     //DirectedDFS.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining whether a digraph has a directed cycle.
      *  The <em>hasCycle</em> operation determines whether the digraph has
      *  a simple directed cycle and, if so, the <em>cycle</em> operation
@@ -11872,9 +12056,9 @@
         this.bMarked  = new Array(G.V());
         this.onStack = new Array(G.V());
         this.edgeTo  = new Array(G.V());
-        this.mCycle=null;
+        this.mCycle=UNDEF;
         for(let v=0; v<G.V(); ++v)
-          if(!this.bMarked[v] && this.mCycle === null) this._dfs(G, v);
+          if(!this.bMarked[v] && !this.mCycle) this._dfs(G, v);
       }
       // run DFS and find a directed cycle (if one exists)
       _dfs(G, v){
@@ -11883,7 +12067,7 @@
         for(let w, it=G.adj(v).iter(); it.hasNext();){
           w=it.next();
           // short circuit if directed cycle found
-          if(this.mCycle !== null){return}
+          if(this.mCycle){return}
           // found new vertex, so recur
           if(!this.bMarked[w]){
             this.edgeTo[w] = v;
@@ -11905,7 +12089,7 @@
        * @return {boolean}
        */
       hasCycle(){
-        return this.mCycle !== null;
+        return !!this.mCycle;
       }
       /**Returns a directed cycle if the digraph has a directed cycle, and {@code null} otherwise.
        * @return {Iterator}
@@ -11946,6 +12130,7 @@
     }
     //DirectedCycle.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a weighted edge in an
      *  {@link EdgeWeightedDigraph}. Each edge consists of two integers
      *  (naming the two vertices) and a real-value weight. The data type
@@ -12001,6 +12186,7 @@
     }
     //DirectedEdge.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a edge-weighted digraph of vertices named 0 through <em>V</em> - 1,
      * where each directed edge is of type {@link DirectedEdge} and has a real-valued weight.
      * @memberof module:mcfud/algo_graph
@@ -12142,6 +12328,7 @@
     }
     //EdgeWeightedDigraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining depth-first search ordering of the vertices in a digraph
      *  or edge-weighted digraph, including preorder, postorder, and reverse postorder.
      *  <p>
@@ -12262,6 +12449,7 @@
     }
     //DepthFirstOrder.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for
      *  determining whether an edge-weighted digraph has a directed cycle.
      *  The <em>hasCycle</em> operation determines whether the edge-weighted
@@ -12331,7 +12519,7 @@
       // certify that digraph is either acyclic or has a directed cycle
       _check(){
         if(this.hasCycle()){// edge-weighted digraph is cyclic
-          let first = null, last = null;
+          let first = UNDEF, last = UNDEF;
           for(let e, it=this.cycle(); it.hasNext();){
             e=it.next();
             if(!first) first = e;
@@ -12375,6 +12563,7 @@
     }
     //EdgeWeightedDirectedCycle.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a digraph, where the
      *  vertex names are arbitrary strings.
      *  By providing mappings between string vertex names and integers,
@@ -12479,6 +12668,7 @@
     }
     //SymbolGraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a digraph, where the
      *  vertex names are arbitrary strings.
      *  By providing mappings between string vertex names and integers,
@@ -12582,6 +12772,7 @@
     }
     //SymbolDigraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for
      *  determining a topological order of a <em>directed acyclic graph</em> (DAG).
      *  A digraph has a topological order if and only if it is a DAG.
@@ -12597,8 +12788,8 @@
        * @param {Graph} G the digraph
        */
       constructor(G){
-        this._order=null;
-        this.rank=null;
+        this._order=UNDEF;
+        this.rank=UNDEF;
         let finder;
         if(G instanceof EdgeWeightedDigraph){
           finder = new EdgeWeightedDirectedCycle(G);
@@ -12660,6 +12851,7 @@
     }
     //Topological.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving the
      *  single-source shortest paths problem in edge-weighted digraphs
      *  where the edge weights are non-negative.
@@ -12733,6 +12925,7 @@
     }
     //DepthFirstDirectedPaths.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving the
      *  single-source shortest paths problem in edge-weighted digraphs
      *  where the edge weights are non-negative.
@@ -12829,6 +13022,7 @@
     }
     //BreadthFirstDirectedPaths.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving the
      *  single-source shortest paths problem in edge-weighted digraphs
      *  where the edge weights are non-negative.
@@ -12900,7 +13094,7 @@
       pathTo(v){
         if(_chkVertex(v,this._distTo.length) && this.hasPathTo(v)){
           let path = new Stack();
-          for(let e = this.edgeTo[v]; e != null; e = this.edgeTo[e.from()])
+          for(let e = this.edgeTo[v]; e; e = this.edgeTo[e.from()])
             path.push(e);
           return path.iter();
         }
@@ -12914,12 +13108,12 @@
             throw Error("negative edge weight detected");
         }
         // check that distTo[v] and edgeTo[v] are consistent
-        if(this._distTo[s] != 0 || this.edgeTo[s] !== null)
+        if(this._distTo[s] != 0 || this.edgeTo[s])
           throw Error("distTo[s] and edgeTo[s] inconsistent");
         ////
         for(let v=0; v<G.V(); ++v){
           if(v == s) continue;
-          if(this.edgeTo[v] === null && this._distTo[v] != Infinity)
+          if(!this.edgeTo[v] && this._distTo[v] != Infinity)
             throw Error("distTo[] and edgeTo[] inconsistent");
         }
         // check that all edges e = v->w satisfy distTo[w] <= distTo[v] + e.weight()
@@ -12933,7 +13127,7 @@
         }
         // check that all edges e = v->w on SPT satisfy distTo[w] == distTo[v] + e.weight()
         for(let v,e,w=0; w<G.V(); ++w){
-          if(this.edgeTo[w] === null){}else{
+          if(!this.edgeTo[w]){}else{
             e = this.edgeTo[w];
             v = e.from();
             if(w != e.to()) throw Error("bad edge");
@@ -12981,6 +13175,7 @@
         equals(o){ return o.V==this.V }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**
      * @memberof module:mcfud/algo_graph
@@ -13074,6 +13269,7 @@
     }
     //AStarSP.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving
      *  the single-source shortest paths problem in edge-weighted graphs
      *  where the edge weights are non-negative.
@@ -13145,7 +13341,7 @@
       pathTo(v){
         if(_chkVertex(v,this._distTo.length) && this.hasPathTo(v)){
           let x=v,path = new Stack();
-          for(let e = this.edgeTo[v]; e !== null; e = this.edgeTo[x]){
+          for(let e = this.edgeTo[v]; e; e = this.edgeTo[x]){
             path.push(e);
             x = e.other(x);
           }
@@ -13162,12 +13358,12 @@
             throw Error("negative edge weight detected");
         }
         // check that distTo[v] and edgeTo[v] are consistent
-        if(this._distTo[s] != 0 || this.edgeTo[s] !== null){
+        if(this._distTo[s] != 0 || this.edgeTo[s]){
           throw Error("distTo[s] and edgeTo[s] inconsistent");
         }
         for(let v=0; v<G.V(); ++v){
           if(v == s) continue;
-          if(this.edgeTo[v] === null &&
+          if(!this.edgeTo[v] &&
              this._distTo[v] != Infinity){
             throw Error("distTo[] and edgeTo[] inconsistent");
           }
@@ -13184,7 +13380,7 @@
         }
         // check that all edges e = v-w on SPT satisfy distTo[w] == distTo[v] + e.weight()
         for(let v,e,w=0; w<G.V(); ++w){
-          if(this.edgeTo[w] === null) continue;
+          if(!this.edgeTo[w]) continue;
           e = this.edgeTo[w];
           if(w != e.either() && w != e.other(e.either())) return false;
           v = e.other(w);
@@ -13215,6 +13411,7 @@
     }
     //DijkstraUndirectedSP.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       DepthFirstDirectedPaths,
       BreadthFirstDirectedPaths,
@@ -13244,8 +13441,10 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"), require("./sort"))
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("../main/core"),
+                           require("../main/math"),
+                           require("./basic"), require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/graph"]=_module
   }
@@ -13268,7 +13467,7 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
 	"use strict";
 
@@ -13287,21 +13486,21 @@
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		const Params={
 
+			mutationRate: 0.1,
+			crossOverRate: 0.7,
+			probTournament: 0.75,
+
       NUM_HIDDEN: 1,
       BIAS:-1,
-      NEURONS_PER_HIDDEN:10,
-      ACTIVATION_RESPONSE: 1,
-      MAX_PERTURBATION: 0.3,
       NUM_ELITE:4,
-      NUM_COPIES_ELITE:1,
-      TOURNAMENT_COMPETITORS :5,
-
-			probTournament: 0.75,
-			crossOverRate: 0.7,
-			mutationRate: 0.1
+      TOURNAMENT_SIZE :5,
+      MAX_PERTURBATION: 0.3,
+      ACTIVATION_RESPONSE: 1,
+      NEURONS_PER_HIDDEN: 10
 
     };
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**Fitness Interface.
 		 * @class
 		 */
@@ -13338,6 +13537,7 @@
 			update(n){}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**Numeric fitness.
 		 * @class
 		 */
@@ -13392,6 +13592,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} averageScore
 		 * @property {number} totalScore
@@ -13407,11 +13608,11 @@
 				this.totalScore=0;
 				this.bestScore=0;
 				this.worstScore=0;
-				this.best=null;
+				this.best=UNDEF;
 			}
 		}
 
-
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} numInputs
 		 * @property {number} activation
@@ -13424,7 +13625,7 @@
 			 */
 			constructor(inputs){
 				//we need an additional weight for the bias hence the +1
-				let ws= _.fill(inputs+1, ()=> _.randMinus1To1());
+				const ws= _.fill(inputs+1, ()=> _.randMinus1To1());
 				this.numInputs= ws.length;
 				this.activation=0;
 				this.weights=ws;
@@ -13432,6 +13633,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} numNeurons
 		 * @property {Neuron[]} neurons
@@ -13447,6 +13649,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @class
 		 */
@@ -13458,22 +13661,16 @@
 			 * @param {number} neuronsPerHidden
 			 */
 			constructor(inputs, outputs, numHidden, neuronsPerHidden){
-				function createNet(out){
-					//create the layers of the network
+				//create the layers of the network
+				this.layers=(function(out){
 					if(numHidden>0){
-						//create first layer
 						out.push(new NeuronLayer(neuronsPerHidden, inputs));
 						for(let i=0; i<numHidden-1; ++i)
 							out.push(new NeuronLayer(neuronsPerHidden,neuronsPerHidden));
-						//create output layer
-						out.push(new NeuronLayer(outputs, neuronsPerHidden))
-					}else{
-						//create output layer
-						out.push(new NeuronLayer(outputs, inputs))
+						inputs= neuronsPerHidden;
 					}
-					return out;
-				}
-				this.layers= createNet([]);
+					return _.conj(out,new NeuronLayer(outputs, inputs));
+				})([]);
 				this.numOfWeights=this.layers.reduce((sum,y)=>{
 					return sum + y.neurons.reduce((acc,u)=>{
 						return acc+u.weights.length
@@ -13490,17 +13687,13 @@
 			putWeights(weights){
 				_.assert(weights.length>=this.numOfWeights,"bad input to putWeights");
 				let pos=0;
-				this.layers.forEach(y=>{
-					y.neurons.forEach(u=>{
-						u.weights.forEach((v,i)=> u.weights[i]= weights[pos++])
-					})
-				})
+				this.layers.forEach(y=> y.neurons.forEach(u=> u.weights.forEach((v,i)=> u.weights[i]= weights[pos++])))
 			}
 			/**
 			 * @return {number[]}
 			 */
 			getWeights(){
-				let out=[];
+				const out=[];
 				for(let i=0; i<this.numHidden+1; ++i)
 					for(let j=0; j<this.layers[i].numNeurons; ++j)
 						for(let k=0; k<this.layers[i].neurons[j].numInputs; ++k){
@@ -13549,7 +13742,7 @@
 			 * @private
 			 */
 			sigmoid(input, response){
-				return (1 / (1 + Math.exp(-input / response)))
+				return 1 / (1 + Math.exp(-input / response))
 			}
 			/**
 			 * @return {number[]}
@@ -13565,6 +13758,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} age
 		 * @property {any[]} genes
@@ -13623,10 +13817,10 @@
 		 * @param {any[]} genes
 		 */
 		function mutateDM(genes){
-			if(_.rand()< Params.mutationRate){
+			if(_.rand() < Params.mutationRate){
 				let [beg, end]= randSpan(genes);
 				let p,tmp,rem,
-					  N=genes.length,count= end-beg-1;
+						N=genes.length,count= end-beg-1;
 				if(count>0){
 					tmp=genes.slice(beg+1,end);
 					rem=genes.slice(0,beg+1).concat(genes.slice(end));
@@ -13714,7 +13908,7 @@
 		 */
 		function crossOverOBX(mum,dad){
 			let temp, positions,
-			    b1,b2,cpos, pos = _.randInt2(0, mum.length-2);
+					b1,b2,cpos, pos = _.randInt2(0, mum.length-2);
 			b1 = mum.slice();
 			b2 = dad.slice();
 			if(_.rand() > Params.crossOverRate || mum === dad){}else{
@@ -13833,7 +14027,7 @@
 		 */
 		function crossOverPMX(mum, dad){
 			let b1 = mum.slice(),
-			    b2 = dad.slice();
+					b2 = dad.slice();
 			if(_.rand() > Params.crossOverRate || mum === dad){}else{
 				//first we choose a section of the chromosome
 				let beg = _.randInt2(0, mum.length-2);
@@ -13876,7 +14070,7 @@
 			}else{
 				//determine two crossover points
 				let cp1 = splitPoints[_.randInt2(0, splitPoints.length-2)],
-				    cp2 = splitPoints[_.randInt2(cp1, splitPoints.length-1)];
+						cp2 = splitPoints[_.randInt2(cp1, splitPoints.length-1)];
 				b1=[];
 				b2=[];
 				//create the offspring
@@ -14104,7 +14298,7 @@
 				p2= _.randInt(parents.length)
 			}
 			let c1=parents[p1].genes,
-			    c,b1,b2,c2=parents[p2].genes;
+					c,b1,b2,c2=parents[p2].genes;
 			if(crossOver){
 				[b1,b2]=crossOver(c1,c2);
 			}else{
@@ -14116,7 +14310,7 @@
 				mutate(b2);
       }
 			let f1= calcFit(b1, parents[p1].fitness),
-			    f2= calcFit(b2, parents[p2].fitness);
+					f2= calcFit(b2, parents[p2].fitness);
 			return f1.gt(f2)? new Chromosome(b1, f1): new Chromosome(b2, f2);
     }
 
@@ -14135,7 +14329,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function* getNextStar([start,maxMillis],{
 			mutate,create,maxAge,
-		  calcFit,poolSize,crossOver
+			calcFit,poolSize,crossOver
 		})
 		{
 			let par, bestPar = create();
@@ -14276,9 +14470,9 @@
 			}
 
 			while(vecNewPop.length < pop.length){
-				if(Params.TOURNAMENT_COMPETITORS !== undefined){
-					mum = tournamentSelection(pop,Params.TOURNAMENT_COMPETITORS);
-					dad = tournamentSelection(pop,Params.TOURNAMENT_COMPETITORS);
+				if(Params.TOURNAMENT_SIZE !== undefined){
+					mum = tournamentSelection(pop,Params.TOURNAMENT_SIZE);
+					dad = tournamentSelection(pop,Params.TOURNAMENT_SIZE);
 				}else{
 					mum = chromoRoulette(pop,stats);
 					dad = chromoRoulette(pop,stats);
@@ -14294,7 +14488,7 @@
 					mutate(b2);
 				}
 				vecNewPop.push(new Chromosome(b1, calcFit(b1, mum.fitness)),
-					             new Chromosome(b2, calcFit(b2,dad.fitness)));
+											 new Chromosome(b2, calcFit(b2,dad.fitness)));
 			}
 
 			while(vecNewPop.length > pop.length){
@@ -14315,7 +14509,7 @@
 		 * @return {object}
 		 */
 		function hillClimb(optimizationFunction, isImprovement,
-			                 isOptimal, getNextFeatureValue, initialFeatureValue,extra){
+											 isOptimal, getNextFeatureValue, initialFeatureValue,extra){
 			let start= extra.startTime=_.now();
 			let child,best = optimizationFunction(initialFeatureValue);
 			while(!isOptimal(best)){
@@ -14362,7 +14556,6 @@
 				pool.sort(getSortKeys).reverse();
 				if(getSortKey(pool[0]) > getSortKey([best, bestScore])){
 					[best, bestScore] = pool[0];
-					//display(best, bestScore[CompetitionResult.Win], bestScore[CompetitionResult.Tie], bestScore[CompetitionResult.Loss], generation)
 				}
 				parents=[];
 				for(let i=0;i<numParents.length;++i){
@@ -14447,7 +14640,7 @@
 	}
 
 	//export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/NNetGA"]=_module
@@ -14471,13 +14664,14 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const int=Math.floor;
     const {u:_, is}= Core;
@@ -14599,7 +14793,7 @@
           this.value=n;
         },
         clone(){
-          return NumFitness(v, flip)
+          return NumFitness(this.value, flip)
         }
       }
     }
@@ -15330,7 +15524,6 @@
       numToSpawn(){return this.spawnsRqd}
       numMembers(){return this.vecMembers.length}
       gensNoImprovement(){return this._gensNoImprovement}
-      //speciesLeaderFitness(){return this._leader.fitness.score() }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -15614,7 +15807,6 @@
               if(++numSpawnedSoFar == this.popSize){ numToSpawn = 0 }
             }
           }
-          //kkeeee
         });
         //if there is an underflow due to the rounding error and the amount
         //of offspring falls short of the population size additional children
@@ -15665,7 +15857,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/NEAT"]=_module
@@ -15689,7 +15881,7 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -15731,11 +15923,11 @@
         score(){
           return this.value
         },
-        clone(){
-          return NumFitness(v, flip)
-        },
         update(v){
           this.value=v;
+        },
+        clone(){
+          return NumFitness(this.value, flip)
         }
       }
     }
@@ -15780,7 +15972,7 @@
       /**
        */
       mutateWeight(){
-        if(_.rand() <Params.probWeightReplaced){
+        if(_.rand()<Params.probWeightReplaced){
           this.weight = _.randMinus1To1();
         }else{
           this.weight += _.randGaussian() * Params.maxWeightPerturbation;
@@ -16103,7 +16295,6 @@
           console.log("failed to add-link");
           return this;
         }
-
 
         if(this.nodes[rn1].layer > this.nodes[rn2].layer){
           temp = rn2;
@@ -16586,7 +16777,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/NEAT2"]=_module
@@ -16608,15 +16799,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   /**Creates the module.
    */
   function _module(Core,Colors){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     if(!Colors){
       throw "Fatal: No Colors!"
@@ -16644,9 +16836,11 @@
      * @property {any[]} failed
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Checks for non-failure. */
-    function _f(s){ return !s.startsWith("F") }
+    const _f=(s)=> !s.startsWith("F");
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Make a string. */
     function rstr(len,ch){
       let out="";
@@ -16655,17 +16849,19 @@
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Check if valid exception was thrown. */
     function ex_thrown(expected,e){
       let out=t_bad;
       if(e){
         if(is.str(expected)){
-          out= expected==="any" || expected===e ? t_ok : t_bad
+          out= expected=="any" || expected==e ? t_ok : t_bad
         }else if(expected instanceof e){ out=t_ok }
       }
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Run the given form and check its result. */
     function ensure_eq(env,name,form){
       return new Promise((resolve,reject)=>{
@@ -16677,7 +16873,7 @@
               resolve(`${res?t_ok:t_bad}: ${name}`);
             })
           }else{
-            out= out ? (out===709394?t_skip:t_ok) : t_bad;
+            out= out ? (out==709394?t_skip:t_ok) : t_bad;
             resolve(`${out}: ${name}`);
           }
         }catch(e){
@@ -16687,13 +16883,14 @@
       })
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** Run the given form and check if exception was thrown. */
     function ensure_ex(env,name,form,error){
       return new Promise((resolve,reject)=>{
         let out;
         try{
           out=form.call(env);
-          out=out===709394?t_ok:ex_thrown(error,null);
+          out=out==709394?t_ok:ex_thrown(error,null);
         }catch(e){
           out=ex_thrown(error,e) }
         resolve(`${out}: ${name}`);
@@ -16809,9 +17006,9 @@
             date: new Date().toString(),
             total: res.length,
             duration: mark2-mark,
-            passed: res.filter(s=>s[0]==="P"),
-            skippd: res.filter(s=>s[0]==="S"),
-            failed: res.filter(s=>s[0]==="F")
+            passed: res.filter(s=>s[0]=="P"),
+            skippd: res.filter(s=>s[0]=="S"),
+            failed: res.filter(s=>s[0]=="F")
           };
           return new Promise((resolve)=>{
             resolve(out);
@@ -16824,7 +17021,7 @@
   }
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"), require("colors/safe"))
   }else{
     gscope["io/czlab/mcfud/test"]= _module

@@ -10,21 +10,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
   "use strict";
 
   function scenes(Mojo){
+    const _M=window["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
            Game:G,
            v2:_V,
-           "2d":_2d,
            ute:_, is}=Mojo;
-    const MFL=Math.floor;
     const E_PLAYER=1;
     const E_PEG=2;
 
@@ -44,21 +43,20 @@
             rr=cw>ch?ch:cw;
             w4=rr/4;
             w9=0.8*rr;
-            rr=Math.floor(_.randInt2(w4,w9)/2);
+            rr=_M.ndiv(_.randInt2(w4,w9),2);
             if(rr>maxR) maxR=rr;
             c = _S.circle(rr, colors[_.randInt2(0, 4)]);
             c.m5.static=true;
             c.m5.type=E_PEG;
-            _V.set(c,MFL((g.x1+g.x2)/2), MFL((g.y1+g.y2)/2));
+            _V.set(c, _M.ndiv(g.x1+g.x2,2), _M.ndiv(g.y1+g.y2,2));
             this.insert(c,true);
           }
         }
-        let r= Math.floor(_.randInt2(4,cw)/2);
+        let r= _M.ndiv(_.randInt2(4,cw),2);
         let K=Mojo.getScaleFactor();
         let ball = G.ball= _S.circle(r, "red");
         //randomly position ball
-        _V.set(ball,_.randInt2(ball.width, this.width - ball.width),
-                    Math.floor(ball.width/2));
+        _V.set(ball,_.randInt2(ball.width, this.width - ball.width), _M.ndiv(ball.width,2));
         ball.m5.type=E_PLAYER;
         ball.m5.cmask=E_PEG;
         _V.set(ball.m5.vel, _.randInt2(-15, 15)*K,0);
@@ -75,15 +73,14 @@
       },
       postUpdate(dt){
         let col = _S.clamp(G.ball, G.arena, true);
-        if(col){
-          _V.set(G.ball.m5.friction, col.has(Mojo.BOTTOM) ? 0.96 : 1,1);
-        }
+        if(col)
+          _V.set(G.ball.m5.friction, col.has(Mojo.BOTTOM) ? 0.96 : 1, 1);
         this.searchSGrid(G.ball).forEach(c=>{
           if(c!==G.ball)
             _S.collide(G.ball, c, true)
         });
       }
-    },{sgridX:100,sgridY:100,centerStage:true});
+    },{centerStage:true, sgridX:100,sgridY:100});
   }
 
   window.addEventListener("load",()=>{

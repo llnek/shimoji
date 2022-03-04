@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -25,7 +25,6 @@
            Input:I,
            Game:G,
            v2:_V,
-           "2d":_2d,
            Tiles:T,
            ute:_,is} =Mojo;
 
@@ -59,11 +58,10 @@
         p.m5.cmask=E_ITEM;
         p.m5.speed=80*K;
         p.m5.uuid="player";
-        _V.set(p.scale,K,K);
-        _V.set(p,mapcol * s.width,
-                 maprow * s.height);
+        S.scaleXY(p,K,K);
+        _V.set(p,mapcol * s.width, maprow * s.height);
         G.elf=p;
-        Mojo.addMixin(p,"2d");
+        Mojo.addMixin(p,"arcade");
         p.m5.getImageOffsets=function(){
           return {x1:p.scale.x*18,x2: p.scale.x*16,
                   y1:p.scale.y*10,y2:p.scale.y*4}
@@ -87,7 +85,7 @@
         };
         p.m5.showFrame(p.g.states.right);
         p.m5.tick=(dt)=>{
-          p["2d"].onTick(dt)
+          p["arcade"].onTick(dt)
         }
         scene.leftArrow = I.keybd(I.LEFT, ()=>{
           G.elf.m5.playFrames(G.elf.g.states.walkLeft);
@@ -182,7 +180,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: [ "fantasy.png", "walkcycle.png", "unscii.fnt", "fantasy.json"],
+      assetFiles: [ "fantasy.png", "walkcycle.png", "fantasy.json"],
       arena: {width:512, height:512},
       scaleToWindow:"max",
       start(Mojo){

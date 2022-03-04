@@ -10,9 +10,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -20,6 +20,7 @@
    */
   function _module(Mojo){
     const {Stack,StdCompare:CMP}= gscope["io/czlab/mcfud/algo_basic"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
     const {is, ute:_}=Mojo;
     const int=Math.floor;
 
@@ -314,7 +315,7 @@
         // postcondition: pointsByY[lo..hi] sorted by y-coordinate
         function _closest(pointsByX, pointsByY, aux, lo, hi){
           if(hi <= lo) return Infinity;
-          let mid = lo + int((hi - lo) / 2);
+          let mid = lo + _M.ndiv(hi - lo, 2);
           let median = pointsByX[mid];
           // compute closest pair with both endpoints in left subarray or both in right subarray
           let delta1 = _closest(pointsByX, pointsByY, aux, lo, mid);

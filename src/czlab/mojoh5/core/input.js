@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -25,7 +25,7 @@
     const Layers= [];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function cur(){ return Layers[0] }
+    const cur=()=> Layers[0];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkLayer(L={}){
@@ -49,7 +49,7 @@
         ctrlKey:false,
         altKey:false,
         shiftKey:false,
-        ptr:null,
+        ptr:UNDEF,
         dispose(){
           this.ptr.dispose();
           if(!Mojo.touchDevice)
@@ -135,8 +135,8 @@
      * @module mojoh5/Input
      */
 
-    const HISTORY_SIZE=20;
-    const TRAIL_SIZE=100;
+    const HISTORY_SIZE=20,
+          TRAIL_SIZE =100;
 
     /** @ignore */
     function mkPtr(L){
@@ -158,18 +158,18 @@
         downTime: 0,
         downAt:[0,0],
         elapsedTime: 0,
-        dragged: null,
+        dragged: UNDEF,
         dragOffsetX: 0,
         dragOffsetY: 0,
         anchor: Mojo.makeAnchor(0.5,0.5),
-        get cursor() { return Mojo.canvas.style.cursor },
-        set cursor(v) { Mojo.canvas.style.cursor = v },
-        get x() { return this._x / Mojo.scale },
-        get y() { return this._y / Mojo.scale },
-        get visible() { return this._visible },
+        get cursor(){ return Mojo.canvas.style.cursor },
+        set cursor(v){ Mojo.canvas.style.cursor = v },
+        get x(){ return this._x / Mojo.scale },
+        get y(){ return this._y / Mojo.scale },
+        get visible(){ return this._visible },
         get isUp(){return this.state[1]},
         get isDown(){return this.state[0]},
-        set visible(v) {
+        set visible(v){
           this.cursor = v ? "auto" : "none";
           this._visible = v;
         },
@@ -210,7 +210,7 @@
               _V.set(this.dragged, this.dragStartX+(this.x-this.dragPtrX),
                                    this.dragStartY+(this.y-this.dragPtrY));
             }else{
-              for(let cs,s,i=this.DragDrops.length-1; i>=0; --i){
+              for(let gp,cs,s,i=this.DragDrops.length-1; i>=0; --i){
                 s=this.DragDrops[i];
                 if(s.m5.drag && this.hitTest(s)){
                   this.dragStartX = s.x;
@@ -232,7 +232,7 @@
             if(this.dragged &&
                this.dragged.m5.onDragDropped)
               this.dragged.m5.onDragDropped();
-            this.dragged=null;
+            this.dragged=UNDEF;
           }
         },
         getGlobalPosition(){
@@ -264,7 +264,7 @@
         mouseDown(e){
           let self=P, nn=_.now();
           //left click only
-          if(e.button===0){
+          if(e.button==0){
             e.preventDefault();
             self._x = e.pageX - e.target.offsetLeft;
             self._y = e.pageY - e.target.offsetTop;
@@ -278,6 +278,7 @@
               Mojo.emit(["mousedown"]);
               self._doMDown(true);
             }
+            //console.log(`mouse x= ${self.x}, y = ${self.y}`);
           }
         },
         mouseMove(e){
@@ -290,7 +291,7 @@
         },
         mouseUp(e){
           let self=P,nn=_.now();
-          if(e.button===0){
+          if(e.button==0){
             e.preventDefault();
             self.elapsedTime = Math.max(0, nn - self.downTime);
             self._x = e.pageX - e.target.offsetLeft;
@@ -571,18 +572,19 @@
       };
 
       //////
-      const sigs=[["mousemove", Mojo.canvas, P.mouseMove],
+      const msigs=[["mousemove", Mojo.canvas, P.mouseMove],
                   ["mousedown", Mojo.canvas,P.mouseDown],
-                  ["mouseup", window, P.mouseUp],
-                  ["touchmove", Mojo.canvas, P.touchMove],
+                  ["mouseup", window, P.mouseUp]];
+      const tsigs=[["touchmove", Mojo.canvas, P.touchMove],
                   ["touchstart", Mojo.canvas, P.touchStart],
                   ["touchend", window, P.touchEnd],
                   ["touchcancel", window, P.touchCancel]];
-      _.addEvent(sigs);
+
+      Mojo.touchDevice? _.addEvent(tsigs) : _.addEvent(msigs);
       //////
       P.dispose=function(){
         this.reset();
-        _.delEvent(sigs);
+        Mojo.touchDevice? _.delEvent(tsigs) : _.delEvent(msigs);
       };
       //////
       return P;

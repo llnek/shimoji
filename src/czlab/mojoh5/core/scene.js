@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -20,6 +20,7 @@
   function _module(Mojo, ScenesDict){
 
     const SG=gscope["io/czlab/mcfud/spatial"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
     const {ute:_,is}=Mojo;
     const int=Math.floor;
 
@@ -100,7 +101,7 @@
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--curCol===0){break} } }
+              if(--curCol==0){break} } }
         }
       }
       collideXY(obj){
@@ -114,15 +115,19 @@
                              width:width,
                              height:height,
                              children:this.children}) }
-      /**Run this function after a delay in millis or frames.
+      /**Run this function after a delay in millis.
+       * @param {function}
+       * @param {number} delayMillis
+       */
+      future(expr,delayMillis){
+        this.m5.queue.push([expr, _M.ndiv(Mojo._curFPS*delayMillis,1000) || 1])
+      }
+      /**Run this function after a delay in frames.
        * @param {function}
        * @param {number} delayFrames
        */
-      future(expr,delayMillis){
-        this.m5.queue.push([expr, int(Mojo._curFPS*delayMillis/1000)])
-      }
-      XXfuture(expr,delayFrames){
-        this.m5.queue.push([expr,delayFrames])
+      futureX(expr,delayFrames){
+        this.m5.queue.push([expr,delayFrames||1])
       }
       /**Get the child with this id.
        * @param {string} id
@@ -306,14 +311,14 @@
     function _layout(items,options,dir){
       const {Sprites}=Mojo,
             K=Mojo.getScaleFactor();
-      if(items.length===0){return}
+      if(items.length==0){return}
       options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
                                 borderWidth:4,
                                 border:0xffffff});
       let borderWidth=options.borderWidth * K;
-      let C=options.group || Sprites.group();
+      let C=options.group || Sprites.container();
       let pad=options.padding * K;
       let fit= options.fit * K;
       let last,w,h,p,fit2= 2*fit;
@@ -330,7 +335,7 @@
                             options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
         if(!is.vec(options.bg)){
-          r.alpha= options.opacity===0 ? 0 : (options.opacity || 0.5);
+          r.alpha= options.opacity==0 ? 0 : (options.opacity || 0.5);
           if(options.bg == "transparent")r.alpha=0;
         }
       }
@@ -338,19 +343,19 @@
       h= C.height;
       w= C.width;
 
-      let [w2,h2]=[int(w/2), int(h/2)];
+      let [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)];
       if(dir===Mojo.DOWN){
         //realign on x-axis
-        items.forEach(s=> s.x=w2-int(s.width/2));
+        items.forEach(s=> s.x=w2-_M.ndiv(s.width,2));
         let hd= h-(last.y+last.height);
-        hd= int(hd/2);
+        hd= _M.ndiv(hd,2);
         //realign on y-axis
         items.forEach(s=> s.y += hd);
       }else{
         //refit the items on y-axis
-        items.forEach(s=> s.y=h2-int(s.height/2));
+        items.forEach(s=> s.y=h2- _M.ndiv(s.height,2));
         let wd= w-(last.x+last.width);
-        wd= int(wd/2);
+        wd= _M.ndiv(wd,2);
         //refit the items on x-axis
         items.forEach(s=> s.x += wd);
       }
@@ -359,8 +364,8 @@
       w= C.width;
 
       //may be center the whole thing
-      C.x= _.nor(options.x, int((Mojo.width-w)/2));
-      C.y= _.nor(options.y, int((Mojo.height-h)/2));
+      C.x= _.nor(options.x, _M.ndiv(Mojo.width-w,2));
+      C.y= _.nor(options.y, _M.ndiv(Mojo.height-h,2));
 
       return C;
     }
@@ -463,7 +468,7 @@
        * @param {...Scene} args
        */
       removeScene(...args){
-        if(args.length===1 &&
+        if(args.length==1 &&
            is.vec(args[0])){ args=args[0] }
         args.forEach(a=>{
           if(is.str(a))

@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -57,8 +57,9 @@
 
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
     const {ute:_, is, dom} =Mojo;
-    const ABC=Math.abs,
+    const PI2=Math.PI*2,
           int=Math.floor;
 
     /** @ignore */
@@ -66,8 +67,8 @@
       //from pixijs
       region = region || displayObject.getLocalBounds(null, true);
       //minimum texture size is 1x1, 0x0 will throw an error
-      if(region.width === 0){ region.width = 1 }
-      if(region.height === 0){ region.height = 1 }
+      if(region.width == 0){ region.width = 1 }
+      if(region.height == 0){ region.height = 1 }
       let mat=PIXI.Matrix.TEMP_MATRIX,
         renderTexture = PIXI.RenderTexture.create({
         width: region.width | 0,
@@ -126,46 +127,38 @@
 
     /**Add more to an AnimatedSprite. */
     function _exASprite(s){
-      let tmID,
-          //[start,end,cnt,total]
-          //[0,    1,  2,  3]
-          _state=[0,0,0,0];
+      let tid=0,_s={};
       function _reset(){
-        tmID = _.clear(tmID);
-        return s;
+        if(tid)
+          tid=clearInterval(tid)
       }
       function _adv(){
-        if(_state[2] < _state[3]+1){
+        if(_s.cnt < _s.total){
           s.gotoAndStop(s.currentFrame+1);
-          _state[2] += 1;
+          _s.cnt += 1;
         }else if(s.loop){
-          s.gotoAndStop(_state[0]);
-          _state[2]=1;
+          s.gotoAndStop(_s.start);
+          _s.cnt=1;
         }else{
           _reset();
           s.onComplete && s.onComplete();
         }
       }
       _.inject(s.m5,{
-        stopFrames(){
-          _reset() &&
-          s.gotoAndStop(s.currentFrame)
-        },
-        showFrame(f){
-          _reset() && s.gotoAndStop(f)
-        },
+        stopFrames(){ _reset(); s.gotoAndStop(s.currentFrame) },
+        showFrame(f){ _reset(); s.gotoAndStop(f) },
         playFrames(seq){
           _reset();
-          _state[0]=0;
-          _state[1]= s.totalFrames-1;
+          _s.start=0;
+          _s.end= s.totalFrames-1;
           if(is.vec(seq) && seq.length>1){
-            _state[0]=seq[0];
-            _state[1]=seq[1];
+            _s.start=seq[0];
+            _s.end=seq[1];
           }
-          _state[3]=_state[1]-_state[0];
-          s.gotoAndStop(_state[0]);
-          _state[2]=1;
-          tmID = _.timer(_adv, 1000/12, true);
+          _s.total=_s.end-_s.start+1;
+          s.gotoAndStop(_s.start);
+          _s.cnt=1;
+          tid= setInterval(_adv, 1000/Mojo.aniFps);
         }
       });
       return s;
@@ -174,16 +167,12 @@
     /** @ignore */
     function _animFromVec(x){
       _.assert(is.vec(x),"bad arg to animFromVec");
-      if(is.str(x[0])){
+      if(is.str(x[0]))
         x=Mojo.tcached(x[0])?x.map(s=> Mojo.tcached(s))
-                            :x.map(s=> Mojo.assetPath(s))
-      }
+                            :x.map(s=> Mojo.assetPath(s));
       return _.inst(Mojo.PXTexture,x[0])? new Mojo.PXASprite(x)
-                                        : Mojo.PXASprite.fromImages(x) }
-
-    /** @ignore */
-    function _textureFromImage(x){
-      return Mojo.PXTexture.from(Mojo.assetPath(x)) }
+                                        : Mojo.PXASprite.fromImages(x)
+    }
 
     /**Low level sprite creation. */
     function _sprite(src,ctor){
@@ -197,16 +186,17 @@
         s=_animFromVec(src)
       }else if(is.str(src)){
         obj= Mojo.tcached(src) ||
-             _textureFromImage(src)
+             Mojo.PXTexture.from(Mojo.assetPath(src))
       }
       if(obj){s=ctor(obj)}
-      return _.assert(s, `SpriteError: ${src} not found`) && s }
+      return _.assert(s, `SpriteError: ${src} not found`) && s
+    }
 
     /** @ignore */
     function _mkgrid(sx,sy,rows,cols,cellW,cellH){
-      const out=[];
-      let y1=sy;
-      let x1=sx;
+      let y1=sy,
+          x1=sx,
+          out=[];
       for(let x2,y2,v,r=0; r<rows; ++r){
         v=[];
         for(let c=0; c<cols; ++c){
@@ -224,12 +214,12 @@
 
     /** @ignore */
     function _pininfo(X,o,p=null){
-      let par=null,box;
+      let par,box;
       if(o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
         par=o.parent;
-        box=X.getBBox(o);
+        box=X.getAABB(o);
       }
       if(p && par===p){
         box.x1 += p.x;
@@ -237,10 +227,10 @@
         box.y1 += p.y;
         box.y2 += p.y;
       }
-      return [box, int((box.x2-box.x1)/2),//half width
-                   int((box.y2-box.y1)/2),//half height
-                   int((box.x1+box.x2)/2),//center x
-                   int((box.y1+box.y2)/2)]//center y
+      return [box, _M.ndiv(box.x2-box.x1,2),//half width
+                   _M.ndiv(box.y2-box.y1,2),//half height
+                   _M.ndiv(box.x1+box.x2,2),//center x
+                   _M.ndiv(box.y1+box.y2,2)]//center y
     }
 
     /** @ignore */
@@ -264,14 +254,14 @@
       if(col.overlapN[1] > 0.3){ c.add(Mojo.BOTTOM) }
       if(col.overlapN[0] < -0.3){ c.add(Mojo.LEFT) }
       if(col.overlapN[0] > 0.3){ c.add(Mojo.RIGHT) }
+      c.add(col);
       return c;
     }
 
     /** @ignore */
     function _hitAB(S,a,b){
-      const a_= S.toShape(a);
-      const b_= S.toShape(b);
-      let m;
+      let a_= S.toBody(a),
+          m, b_= S.toBody(b);
       if(a.m5.circle){
         m= b.m5.circle ? Geo.hitCircleCircle(a_, b_)
                        : Geo.hitCirclePolygon(a_, b_)
@@ -328,15 +318,15 @@
        * @param {Sprite} s
        */
       assertCenter(s){
-        return _.assert(s.anchor && s.anchor.x>0.3 && s.anchor.x<0.7 &&
-                                    s.anchor.y>0.3 && s.anchor.y<0.7, "not center'ed") },
+        return _.assert(s.anchor && _.feq(s.anchor.x,0.5) &&
+                                    _.feq(s.anchor.y,0.5), "not center'ed") },
       /**Check if sprite has children.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {boolean}
        */
       empty(s){
-        return s.children.length === 0 },
+        return s.children.length == 0 },
       /**Change size of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -402,7 +392,7 @@
        * @return {object} {width,height}
        */
       halfSize(s){
-        return {width:int(s.width/2), height:int(s.height/2)} },
+        return {width: _M.ndiv(s.width,2), height: _M.ndiv(s.height,2)} },
       /**Set sprite's anchor to be at it's center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -437,16 +427,16 @@
        */
       centerOffsetXY(s){
         return this.isCenter(s)?_V.vec()
-                               :_V.vec(int(s.width/2) - int((s.anchor?s.anchor.x:0)*s.width),
-                                       int(s.height/2) - int((s.anchor?s.anchor.y:0)*s.height)) },
+                               :_V.vec(_M.ndiv(s.width,2) - int((s.anchor?s.anchor.x:0)*s.width),
+                                       _M.ndiv(s.height,2) - int((s.anchor?s.anchor.y:0)*s.height)) },
       /**Make this sprite steerable.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       makeSteerable(s){
-        let w2=s.width/2,
-            h2=s.height/2;
+        let w2= _M.ndiv(s.width,2),
+            h2= _M.ndiv(s.height,2);
         s.m5.steer=[0,0];
         s.m5.steerInfo=SteeringInfo();
         s.m5.radius=Math.sqrt(w2*w2+h2+h2);
@@ -494,7 +484,7 @@
             type: 0,
             cmask:0,
             speed:0,
-            maxSpeed:0,
+            //maxSpeed:0,
             heading:Mojo.RIGHT,
             get invMass(){ return _.feq0(s.m5.mass)?0:1/s.m5.mass }
           };
@@ -511,7 +501,7 @@
           s.getGuid=function(){ return s.m5.uuid };
           s.getSpatial=function(){ return s.m5.sgrid; };
           s.getBBox=function(){
-            return _.feq0(s.angle)?self.getBBox(s):self.boundingBox(s) };
+            return _.feq0(s.angle)?self.getAABB(s):self.boundingBox(s) };
         }
         return s;
       },
@@ -521,7 +511,7 @@
        * @return {Polygon}
        */
       toPolygon(s){
-        return new Geo.Polygon(s.x,s.y).setOrient(s.rotation).set(s.m5.getContactPoints()) },
+        return new Geo.Polygon(s.m5.getContactPoints()).setOrient(s.rotation) },
       /**Convert sprite to a circular shape.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -529,14 +519,18 @@
        */
       toCircle(s){
         return this.assertCenter(s) &&
-               new Geo.Circle(int(s.width/2)).setPos(s.x,s.y).setOrient(s.rotation) },
-      /**Convert sprite to a geo shape.
+               new Geo.Circle(_M.ndiv(s.width,2)).setOrient(s.rotation) },
+      /**
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
-       * @return {Circle|Polygon}
+       * @return {Body}
        */
-      toShape(s){
-        return s.m5.circle?this.toCircle(s):this.toPolygon(s) },
+      toBody(s){
+        let px=s.x,
+            py=s.y,
+            b=s.m5.circle? this.toCircle(s) : this.toPolygon(s);
+        return Geo.bodyWrap(b,px,py);
+      },
       /**Get the PIXI global position.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -552,16 +546,14 @@
        * @return {boolean}
        */
       isTopLeft(s){
-        return s.anchor ? (s.anchor.x < 0.3 && s.anchor.y < 0.3): true;
-      },
+        return s.anchor ? _.feq0(s.anchor.x) && _.feq0(s.anchor.y) : true },
       /**Check if sprite has anchor at it's center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {boolean}
        */
       isCenter(s){
-        return s.anchor? (s.anchor.x > 0.3 && s.anchor.x < 0.7 &&
-                          s.anchor.y > 0.3 && s.anchor.y < 0.7) : false; },
+        return s.anchor? _.feq(s.anchor.x,0.5) && _.feq(s.anchor.y,0.5) : false },
       /**Get the center position.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -603,9 +595,8 @@
        */
       move(s,dt){
         dt=_.nor(dt,1);
-        if(s.m5.maxSpeed !== undefined){
-          _V.clamp$(s.m5.vel,0, s.m5.maxSpeed)
-        }
+        if(s.m5.maxSpeed !== undefined)
+          _V.clamp$(s.m5.vel,0, s.m5.maxSpeed);
         return _V.add$(s,_V.mul(s.m5.vel,dt));
       },
       /**Get the left side of this sprite.
@@ -618,7 +609,7 @@
             w= s.width,
             ax= s.anchor?s.anchor.x:0;
         if(ax>0.7) x -= w;
-        else if(ax>0) x -= int(w/2);
+        else if(ax>0) x -= _M.ndiv(w,2);
         return x;
       },
       /**Get the right side of this sprite.
@@ -638,7 +629,7 @@
             h= s.height,
             ay= s.anchor?s.anchor.y:0;
         if(ay>0.7) y -= h;
-        else if(ay>0) y -= int(h/2);
+        else if(ay>0) y -= _M.ndiv(h,2);
         return y;
       },
       /**Get the bottom side of this sprite.
@@ -653,12 +644,18 @@
        * @param {Sprite} s
        * @return {object} {x1,x2,y1,y2}
        */
-      getBBox(s){
-        let r= {x1: this.leftSide(s),
-                x2: this.rightSide(s),
-                y1: this.topSide(s),
-                y2: this.bottomSide(s)};
-        return _.assert(r.y1<=r.y2,"bbox bad y values") && r },
+      getAABB(s){
+        let {x1,y1,x2,y2}=s.m5.getImageOffsets();
+        let l= this.leftSide(s),
+            t= this.topSide(s),
+            r=l+s.width,
+            b=t+s.height;
+        l+=x1;
+        t+=y1;
+        r-=x2;
+        b-=y2;
+        return { x1:l,y1:t, x2:r, y2:b }
+      },
       /**Create a bounding box.
        * @memberof module:mojoh5/Sprites
        * @param {number} left
@@ -677,21 +674,21 @@
        */
       bboxCenter(b4){
         if(is.num(b4.x1))
-          return _V.vec(int((b4.x1+b4.x2)/2),
-                        int((b4.y1+b4.y2)/2)) },
+          return _V.vec(_M.ndiv(b4.x1+b4.x2,2),
+                        _M.ndiv(b4.y1+b4.y2,2)) },
       /**Frame this box.
        * @memberof module:mojoh5/Sprites
        * @param {object} b4
        * @return {Sprite}
        */
       bboxFrame(g,width=16,color="#dedede"){
-        let ctx= this.graphics();
-        let {x1,x2,y1,y2}=g;
-        let w=x2-x1;
-        let h=y2-y1;
+        let {x1,x2,y1,y2}=g,
+            w=x2-x1,
+            h=y2-y1,
+            s,ctx= this.graphics();
         ctx.lineStyle(width,this.color(color));
-        ctx.drawRoundedRect(0,0,w+width,h+width,int(width/4));
-        let s=this.sprite(ctx);
+        ctx.drawRoundedRect(0,0,w+width,h+width,_M.ndiv(width,4));
+        s=this.sprite(ctx);
         s.x=x1-width;
         s.y=y1-width;
         return s;
@@ -724,14 +721,14 @@
             x1,x2,
             y1,y2,
             x=[],y=[],
-            hw=int(s.width/2),
-            hh=int(s.height/2),
+            hw=_M.ndiv(s.width,2),
+            hh=_M.ndiv(s.height,2),
             theta=Math.tanh(hh/hw),
             H=Math.sqrt(hw*hw+hh*hh);
         if(!_.feq0(s.rotation))
           _.assert(this.isCenter(s),"wanted center anchor");
         //x2,y1
-        z=Math.PI*2-theta + s.rotation;
+        z=PI2-theta + s.rotation;
         y.push(H*Math.sin(z));
         x.push(H*Math.cos(z));
         //x2,y2
@@ -764,32 +761,9 @@
        * @return {boolean}
        */
       hitTestPoint(px,py,s){
-        let z=this.toShape(s);
+        let z=this.toBody(s);
         return s.m5.circle ? Geo.hitTestPointCircle(px,py,z)
                            : Geo.hitTestPointPolygon(px,py,z) },
-      /**Check if there’s clear line of sight between two sprites.
-       * memberof module:mojoh5/Sprites
-       * @param {Sprite} s1
-       * @param {Sprite} s2
-       * @param {any[]} obstacles
-       * @param {number} segment
-       * @return {boolean}
-       */
-      lineOfSight(s1, s2, obstacles, segment=32){
-        let s1c=this.centerXY(s1),
-            s2c=this.centerXY(s2),
-            v= _V.vecAB(s1c,s2c),
-            pt= _V.vec(),
-            bad=false,
-            dist= _V.len(v),
-            u= _V.div(v,dist);
-        for(let mag,z= int(dist/segment),i=1; i<=z && !bad; ++i){
-          mag = segment*i;
-          _V.copy(pt,_V.add(s1c,_V.mul(u,mag)));
-          bad= obstacles.some(o=> this.hitTestPoint(pt[0],pt[1], o));
-        }
-        return !bad;
-      },
       /**Find distance between these 2 sprites.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s1
@@ -803,9 +777,9 @@
        * @param {...Sprite} args
        */
       scaleContent(...args){
-        if(args.length===1&&is.vec(args[0])){ args=args[0] }
-        let f=Mojo.getScaleFactor();
-        args.forEach(s=>{ s.scale.x=f; s.scale.y=f; })
+        if(args.length==1&&is.vec(args[0])){ args=args[0] }
+        let K=Mojo.getScaleFactor();
+        args.forEach(s=>{ s.scale.x=K; s.scale.y=K; })
       },
       /**Scale this object to be as big as canvas.
        * @memberof module:mojoh5/Sprites
@@ -915,7 +889,7 @@
        * @param {number} height
        * @return {Sprite}
        */
-      repeatSprite(src,rx=true,ry=true,width,height){
+      repeatSprite(src,rx=true,ry=true,width=UNDEF,height=UNDEF){
         let xx= ()=>{
           let s= this.extend(_sprite(src, o=> new Mojo.PXSprite(o)));
           let K=Mojo.getScaleFactor();K=1;
@@ -923,13 +897,11 @@
           s.height *= K;
           return s;
         };
-        let x=0,y=0,w=0,h=0;
-        let s,out=[];
+        let s,out=[],x=0,y=0,w=0,h=0;
         if(rx){
           while(w<width){
             out.push(s=xx());
-            s.x=x;
-            s.y=y;
+            _V.set(s,x,y);
             w += s.width;
             x += s.width;
             if(w>=width && h<height && ry){
@@ -944,8 +916,7 @@
         if(ry){
           while(h<height){
             out.push(s=xx());
-            s.x=x;
-            s.y=y;
+            _V.set(s,x,y);
             h += s.height;
             y += s.height;
             if(h>=height&& w< width && rx){
@@ -974,16 +945,16 @@
         let t=Mojo.tcached(src);
         if(!t)
           throw `SpriteError: ${src} not loaded.`;
-        let cols = int(t.width/tileW),
-            rows = int(t.height/tileH),
+        let cols = _M.ndiv(t.width,tileW),
+            rows = _M.ndiv(t.height,tileH),
             pos= [],
             cells = cols*rows;
         for(let x,y,i=0; i<cells; ++i){
           x= (i%cols) * tileW;
-          y= int(i/cols) * tileH;
+          y= _M.ndiv(i,cols) * tileH;
           if(spacing>0){
             x += spacing + (spacing * i % cols);
-            y += spacing + (spacing * int(i/cols));
+            y += spacing + (spacing * _M.ndiv(i,cols));
           }
           pos.push(_V.vec(x,y));
         }
@@ -1029,8 +1000,8 @@
             dx=tileW+spaceX,
             dy=tileH+spaceY,
             out=[],
-            rows= int(t.height/dy),
-            cols= int((t.width+spaceX)/dx);
+            rows= _M.ndiv(t.height,dy),
+            cols= _M.ndiv(t.width+spaceX,dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
@@ -1046,7 +1017,7 @@
        * @return {Texture[]}
        */
       frameImages(...pics){
-        if(pics.length===1 &&
+        if(pics.length==1 &&
            is.vec(pics[0])){ pics=pics[0] }
         return pics.map(p=> Mojo.tcached(p)) },
       /**Create a PIXI AnimatedSprite from these images.
@@ -1096,7 +1067,7 @@
                fillStyle = 0xffffff,
                strokeStyle = 0xffffff, lineWidth=0,x=0,y=0){
         let g=this.graphics(),
-            a=1,w2=int(width/2),
+            a=1,w2=_M.ndiv(width,2),
             stroke=this.color(strokeStyle),
             X= peak<0.5?0:(peak>0.5?width:w2),
             ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
@@ -1142,9 +1113,8 @@
        */
       rect(width, height,
            fillStyle = 0xffffff,
-           strokeStyle = 0xffffff, lineWidth=1, x=0, y=0){
-        let a,g=this.graphics(),
-            stroke=this.color(strokeStyle);
+           strokeStyle = 0xffffff, lineWidth=0, x=0, y=0){
+        let a,g=this.graphics();
         if(fillStyle !== false){
           if(is.vec(fillStyle)){
             a=fillStyle[1];
@@ -1155,7 +1125,7 @@
           g.beginFill(this.color(fillStyle),a);
         }
         if(lineWidth>0)
-          g.lineStyle(lineWidth, stroke, 1);
+          g.lineStyle(lineWidth, this.color(strokeStyle));
         g.drawRect(0, 0, width,height);
         if(fillStyle !== false){
           g.endFill()
@@ -1186,13 +1156,19 @@
        */
       circle(radius,
              fillStyle=0xffffff,
-             strokeStyle=0xffffff, lineWidth=1, x=0, y=0){
-        let g = this.graphics(),
-            stroke= this.color(strokeStyle);
-        if(fillStyle !== false)
-          g.beginFill(this.color(fillStyle));
+             strokeStyle=0xffffff, lineWidth=0, x=0, y=0){
+        let a,g = this.graphics();
+        if(fillStyle !== false){
+          if(is.vec(fillStyle)){
+            a=fillStyle[1];
+            fillStyle=fillStyle[0];
+          }else{
+            a=1;
+          }
+          g.beginFill(this.color(fillStyle),a);
+        }
         if(lineWidth>0)
-          g.lineStyle(lineWidth, stroke, 1);
+          g.lineStyle(lineWidth, this.color(strokeStyle));
         g.drawCircle(0, 0, radius);
         if(fillStyle !== false)
           g.endFill();
@@ -1257,8 +1233,8 @@
        * @return {number[][]}
        */
       makeCells(sx,sy,ex,ey,cellW,cellH){
-        let cols=int((ex-sx)/cellW),
-            rows=int((ey-sx)/cellH);
+        let cols=_M.ndiv(ex-sx,cellW),
+            rows=_M.ndiv(ey-sx,cellH);
         return _mkgrid(sx,sy,rows,cols,cellW,cellH) },
       /**Create a rectangular arena.
        * @memberof module:mojoh5/Sprites
@@ -1267,12 +1243,12 @@
        * @param {object} [parent]
        * @return {object}
        */
-      gridBox(ratioX=0.9,ratioY=0.9,parent=null){
+      gridBox(ratioX=0.9,ratioY=0.9,parent=UNDEF){
         let P=_.nor(parent,Mojo);
         let h=int(P.height*ratioY);
         let w=int(P.width*ratioX);
-        let x1=int((P.width-w)/2);
-        let y1=int((P.height-h)/2);
+        let x1=_M.ndiv(P.width-w,2);
+        let y1=_M.ndiv(P.height-h,2);
         return {x1,y1,x2:x1+w,y2:y1+h};
       },
       /**Create a square grid.
@@ -1282,15 +1258,15 @@
        * @param {object} [out]
        * @return {number[][]}
        */
-      gridSQ(dim,ratio=0.6,out=null){
+      gridSQ(dim,ratio=0.6,out=UNDEF){
         let sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
-            w=int(sz/dim),
+            w=_M.ndiv(sz,dim),
             h=w;
         if(!_.isEven(w)){--w}
         h=w;
         sz=dim*w;
-        let sy=int((Mojo.height-sz)/2),
-            sx=int((Mojo.width-sz)/2),
+        let sy=_M.ndiv(Mojo.height-sz,2),
+            sx=_M.ndiv(Mojo.width-sz,2),
             _x=sx,_y=sy;
         if(out){
           out.height=sz;
@@ -1312,16 +1288,16 @@
        * @param {object} [out]
        * @return {number[][]}
        */
-      divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
+      divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=UNDEF){
         let szh=int(Mojo.height*ratioY),
             szw=int(Mojo.width*ratioX),
-            cw=int(szw/dimX),
-            ch=int(szh/dimY),
+            cw=_M.ndiv(szw,dimX),
+            ch=_M.ndiv(szh,dimY),
             _x,_y,sy,sx;
         szh=dimY*ch;
         szw=dimX*cw;
-        sy= int((Mojo.height-szh)/2);
-        sx= int((Mojo.width-szw)/2);
+        sy= _M.ndiv(Mojo.height-szh,2);
+        sx= _M.ndiv(Mojo.width-szw,2);
         _x=sx,_y=sy;
         if(out){
           out.height=szh;
@@ -1343,18 +1319,18 @@
        * @param {object} [out]
        * @return {number[][]}
        */
-      gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=null){
+      gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=UNDEF){
         let szh=int(Mojo.height*ratioY),
             szw=int(Mojo.width*ratioX),
-            cw=int(szw/dimX),
-            ch=int(szh/dimY),
+            cw=_M.ndiv(szw,dimX),
+            ch=_M.ndiv(szh,dimY),
             dim=cw>ch?ch:cw,
             _x,_y,sy,sx;
         if(!_.isEven(dim)){dim--}
         szh=dimY*dim;
         szw=dimX*dim;
-        sy= int((Mojo.height-szh)/2);
-        sx= int((Mojo.width-szw)/2);
+        sy= _M.ndiv(Mojo.height-szh,2);
+        sx= _M.ndiv(Mojo.width-szw,2);
         _x=sx,_y=sy;
         if(out){
           out.height=szh;
@@ -1387,7 +1363,7 @@
        * @param {number|string} [id]
        * @return {PIXI.Graphics}
        */
-      graphics(id=null){
+      graphics(id=UNDEF){
         let ctx= new Mojo.PXGraphics();
         return (ctx.m5={uuid:`${id?id:_.nextId()}`}) && ctx },
       /**Draw borders around this grid.
@@ -1400,7 +1376,7 @@
        * @param {number|string} lineColor
        * @return {PIXIGraphics}
        */
-      drawGridBox(bbox,lineWidth=1,lineColor="white",ctx=null){
+      drawGridBox(bbox,lineWidth=1,lineColor="white",ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
@@ -1408,7 +1384,7 @@
                      bbox.x2-bbox.x1,bbox.y2-bbox.y1);
         return ctx;
       },
-      drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=null){
+      drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
@@ -1426,7 +1402,7 @@
        * @param {PIXI.Graphics} ctx
        * @return {PIXIGraphics}
        */
-      drawGridLines(sx,sy,grid,lineWidth,lineColor,ctx=null){
+      drawGridLines(sx,sy,grid,lineWidth,lineColor,ctx=UNDEF){
         let h= grid.length,
             w= grid[0].length;
         if(!ctx)
@@ -1443,41 +1419,13 @@
           ctx.lineTo(sx+r[x].x1,sy+r[x].y2); }
         return ctx;
       },
-      /**Create a bullet shooting out of a shooter.
-       * @memberof module:mojoh5/Sprites
-       * @param {any} src
-       * @param {number} angle
-       * @param {number} speed
-       * @param {function} ctor
-       * @param {number} x
-       * @param {number} y
-       * @return {Sprite}
-       */
-      shoot(src, angle, speed, ctor,x,y){
-        let soff=this.topLeftOffsetXY(src);
-        let b= ctor();
-        _V.add$(soff,[x,y]);
-        _V.copy(b,_V.add(src,soff));
-        _V.set(b.m5.vel, Math.cos(angle) * speed,
-                         Math.sin(angle) * speed);
-        return b;
-      },
-      /**Group a bunch of sprites together.
-       * @memberof module:mojoh5/Sprites
-       * @param {...Sprite} sprites
-       * @return {Container}
-       */
-      group(...cs){
-        if(cs.length===1 &&
-           is.vec(cs[0])){ cs=cs[0] }
-        return this.container(c=> cs.forEach(s=> c.addChild(s))) },
       /**Add more children to this container.
        * @memberof module:mojoh5/Sprites
        * @param {Container} par
        * @param {...any} children
        * @return {Container} parent
        */
-      add(par,...cs){
+      add(par, ...cs){
         cs.forEach(c=> c && par.addChild(c));
         return par;
       },
@@ -1486,7 +1434,7 @@
        * @param {...Sprite} sprites
        */
       remove(...cs){
-        if(cs.length===1 &&
+        if(cs.length==1 &&
            is.vec(cs[0])){ cs=cs[0] }
         _.doseqEx(cs,s=>{
           if(s.parent){
@@ -1512,7 +1460,7 @@
         if(obj.anchor.x<0.3){
           obj.x -= obj.width/2;
           obj.y -= obj.height/2;
-        }else if (obj.anchor<0.7){
+        }else if(obj.anchor<0.7){
         }else{
           _.assert(false, "bad anchor to center");
         }
@@ -1538,7 +1486,7 @@
        * @return {number[]}
        */
       colorToRgbA(c){
-        if(!c||!is.str(c)||c.length===0){return}
+        if(!c||!is.str(c)||c.length==0){return}
         let lc=c.toLowerCase(),
             code=SomeColors[lc];
         if(code){c=code}
@@ -1552,7 +1500,7 @@
 
         if(lc == "transparent"){ return [0,0,0,0] }
 
-        if(lc.indexOf("rgb") === 0){
+        if(lc.indexOf("rgb") == 0){
           if(lc.indexOf("rgba")<0){lc += ",1"}
           return lc.match(/[\.\d]+/g).map(a=> { return +a })
         }else{
@@ -1594,26 +1542,23 @@
       hsla(h, s, l, a){
         function c1(v) { return Math.min(1, Math.max(0, v)) }
         function hue(h){
-            h = h < 0 ? h + 1 : (h > 1 ? h - 1 : h);
-            if (h * 6 < 1) {
-                return m1_1 + (m2_1 - m1_1) * h * 6;
-            }
-            else if (h * 2 < 1) {
-                return m2_1;
-            }
-            else if (h * 3 < 2) {
-                return m1_1 + (m2_1 - m1_1) * (2 / 3 - h) * 6;
-            }
-            else {
-                return m1_1;
-            }
+          h = h < 0 ? h + 1 : (h > 1 ? h - 1 : h);
+          if(h * 6 < 1){
+            return m1_1 + (m2_1 - m1_1) * h * 6;
+          }else if(h * 2 < 1){
+            return m2_1;
+          }else if(h * 3 < 2){
+            return m1_1 + (m2_1 - m1_1) * (2 / 3 - h) * 6;
+          }else{
+            return m1_1;
+          }
         }
         h = h % 360 / 360;
         s = c1(s);
         l = c1(l);
         a = c1(a);
-        let m2_1 = l <= 0.5 ? l * (s + 1) : l + s - l * s;
-        let m1_1 = l * 2 - m2_1;
+        let m2_1 = l <= 0.5 ? l * (s + 1) : l + s - l * s,
+            m1_1 = l * 2 - m2_1;
         return this.rgba([ hue(h + 1/3) * 255, hue(h) * 255, hue(h - 1/3) * 255, a ]);
       },
       /** @ignore */
@@ -1734,7 +1679,7 @@
        * @return {Manifold}
        */
       hit(a,b){
-        let m= _hitAB(this,a,b);
+        const m= _hitAB(this,a,b);
         if(m){
           Mojo.emit(["hit",a],m);
           Mojo.emit(["hit",b],m.swap()) }
@@ -1748,7 +1693,7 @@
        * @return {boolean}
        */
       collide(a,b, bounce=true){
-        let m= _collideAB(this,a,b,bounce);
+        const m= _collideAB(this,a,b,bounce);
         return m && _collideDir(m);
       },
       /**Check if these 2 sprites is colliding.
@@ -1767,7 +1712,7 @@
        * @param {function} [extra]
        * @return {number[]} a list of collision points
        */
-      clamp(s, container, bounce=false,extra=null){
+      clamp(s, container, bounce=false,extra=UNDEF){
         let left,right,top,bottom;
         let box,C;
         if(is.vec(container)){
@@ -1802,33 +1747,32 @@
         let coff= box ? [0,0] : this.topLeftOffsetXY(C);
         let collision = new Set();
         let CX=false,CY=false;
-        let R= Geo.getAABB(this.toShape(s));
+        let R= this.getAABB(s);
         let cl= box ? C.x1 : C.x+coff[0],
             cr= cl+ (box? C.x2-C.x1 : C.width),
             ct= box ? C.y1 : C.y+coff[1],
             cb= ct+ (box? C.y2-C.y1 : C.height);
-        let [rx,ry]=R.pos;
         //left
-        if(left && rx<cl){
-          s.x += cl-rx;
+        if(left && R.x1<cl){
+          s.x += cl-R.x1;
           CX=true;
           collision.add(Mojo.LEFT);
         }
         //right
-        if(right && (rx+R.width > cr)){
-          s.x -= rx+R.width- cr;
+        if(right && (R.x2 > cr)){
+          s.x -= R.x2- cr;
           CX=true;
           collision.add(Mojo.RIGHT);
         }
         //top
-        if(top && ry < ct){
-          s.y += ct-ry;
+        if(top && R.y1 < ct){
+          s.y += ct-R.y1;
           CY=true;
           collision.add(Mojo.TOP);
         }
         //bottom
-        if(bottom && (ry+R.height > cb)){
-          s.y -= ry+R.height - cb;
+        if(bottom && (R.y2 > cb)){
+          s.y -= R.y2 - cb;
           CY=true;
           collision.add(Mojo.BOTTOM);
         }
@@ -1885,282 +1829,7 @@
           for(let i of col.values())
             out.push(this.dbgShowDir(i));
         return out.join(",");
-      },
-      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      //steering stuff
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {vec2} pos
-       */
-      seek(s, pos){
-        let dv = _V.unit$(_V.sub(pos,s));
-        if(dv){
-          _V.mul$(dv, s.m5.maxSpeed);
-          _V.sub$(dv, s.m5.vel);
-          _V.add$(s.m5.steer,dv);
-        }
-        return s;
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {vec2} pos
-       * @param {number} range
-       */
-      flee(s, pos,range){
-        //only flee if the target is within 'panic distance'
-        let dv=_V.sub(s,pos), n=_V.len2(dv);
-        if(range === undefined)
-          range= s.m5.steerInfo.tooCloseDistance;
-        if(n>range*range){}else{
-          if(!_V.unit$(dv)) dv=[0.1,0.1];
-          _V.mul$(dv, s.m5.maxSpeed);
-          _V.sub$(dv, s.m5.vel);
-          _V.add$(s.m5.steer, dv);
-        }
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {vec2} pos
-       * @param {number} range
-       */
-      arrive(s, pos,range){
-        let r=1, n= _V.dist(s,pos),
-            dv = _V.unit$(_V.sub(pos,s));
-        if(range === undefined)
-          range= s.m5.steerInfo.arrivalThreshold;
-        if(n>range){}else{ r=n/range }
-        _V.mul$(dv,s.m5.maxSpeed * r);
-        _V.sub$(dv,s.m5.vel);
-        _V.add$(s.m5.steer,dv);
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {Sprite} target
-       */
-      pursue(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
-        return this.seek(s,predicted);
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {Sprite} target
-       */
-      evade(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
-        return this.flee(s, predicted);
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @return {Sprite}
-       */
-      idle(s){
-        _V.mul$(s.m5.vel,0);
-        _V.mul$(s.m5.steer,0);
-        return s;
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       */
-      wander(s){
-        let offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
-            n=_V.len(offset),
-            center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
-        offset[0] = Math.cos(s.m5.steerInfo.wanderAngle) * n;
-        offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
-        s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
-        _V.add$(s.m5.steer, _V.add$(center,offset));
-        return s;
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {Sprite} targetA
-       * @param {Sprite} targetB
-       */
-      interpose(s,targetA, targetB){
-        let mid= _V.div$(_V.add(targetA,targetB),2),
-            dt= _V.dist(s,mid) / s.m5.maxSpeed,
-            pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
-            pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
-        return this.seek(s, _V.div$(_V.add$(pA,pB),2));
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {array} ents
-       * @param {number} separationRadius
-       * @param {number} maxSeparation
-       */
-      separation(s, ents, separationRadius=300, maxSeparation=100){
-        let force = [0,0],
-            neighborCount = 0;
-        ents.forEach(e=>{
-          if(e !== s && _V.dist(e,s) < separationRadius){
-            _V.add$(force,_V.sub(e,s));
-            ++neighborCount;
-          }
-        });
-        if(neighborCount > 0){
-          _V.flip$(_V.div$(force,neighborCount))
-        }
-        _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {Sprite} leader
-       * @param {array} ents
-       * @param {number} distance
-       * @param {number} separationRadius
-       * @param {number} maxSeparation
-       * @param {number} leaderSightRadius
-       * @param {number} arrivalThreshold
-       */
-      followLeader(s,leader, ents, distance=400, separationRadius=300,
-                   maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
-
-        function isOnLeaderSight(s,leader, ahead, leaderSightRadius){
-          return _V.dist(ahead,s) < leaderSightRadius ||
-                 _V.dist(leader,s) < leaderSightRadius
-        }
-
-        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
-        let ahead = _V.add(leader,tv);
-        _V.flip$(tv);
-        let behind = _V.add(leader,tv);
-        if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
-          this.evade(s,leader);
-        }
-        this.arrive(s,behind,arrivalThreshold);
-        return this.separation(s,ents, separationRadius, maxSeparation);
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {array} ents
-       * @param {number} maxQueueAhead
-       * @param {number} maxQueueRadius
-       */
-      queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
-
-        function getNeighborAhead(){
-          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
-          let res, ahead = _V.add(s, qa);
-          for(let d,i=0; i<ents.length; ++i){
-            if(ents[i] !== s &&
-               _V.dist(ahead,ents[i]) < maxQueueRadius){
-              res = ents[i];
-              break;
-            }
-          }
-          return res;
-        }
-
-        let neighbor = getNeighborAhead();
-        let brake = [0,0],
-            v = _V.mul(s.m5.vel,1);
-        if(neighbor){
-          brake = _V.mul$(_V.flip(s.m5.steer),0.8);
-          _V.unit$(_V.flip$(v));
-          _V.add$(brake,v);
-          if(_V.dist(s,neighbor) < maxQueueRadius){
-            _V.mul$(s.m5.vel,0.3)
-          }
-        }
-        _V.add$(s.m5.steer,brake);
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {array} ents
-       */
-      flock(s, ents){
-
-        function inSight(e){
-          return _V.dist(s,e) > s.m5.steerInfo.inSightDistance ? false
-                                        : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
-        }
-
-        let inSightCount = 0,
-            averagePosition = [0,0],
-            averageVelocity = _V.mul(s.m5.vel,1);
-
-        ents.forEach(e=>{
-          if(e !== this && inSight(e)){
-            _V.add$(averageVelocity,e.m5.vel);
-            _V.add$(averagePosition,e);
-            if(_V.dist(s,e) < s.m5.steerInfo.tooCloseDistance){
-              this.flee(s, e)
-            }
-            ++inSightCount;
-          }
-        });
-        if(inSightCount>0){
-          _V.div$(averageVelocity, inSightCount);
-          _V.div$(averagePosition,inSightCount);
-          this.seek(s,averagePosition);
-          _V.add$(s.m5.steer, _V.sub$(averageVelocity, s.m5.vel));
-        }
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {array} path
-       * @param {boolean} loop
-       * @param {number} thresholdRadius
-       */
-      followPath(s, path, loop, thresholdRadius=1){
-        let wayPoint = path[s.m5.pathIndex];
-        if(!wayPoint){return}
-        if(_V.dist(s, wayPoint) < thresholdRadius){
-          if(s.m5.pathIndex >= path.length-1){
-            if(loop)
-              s.m5.pathIndex = 0;
-          }else{
-            s.m5.pathIndex += 1;
-          }
-        }
-        if(s.m5.pathIndex >= path.length-1 && !loop){
-          this.arrive(s,wayPoint)
-        }else{
-          this.seek(s,wayPoint)
-        }
-      },
-      /**
-       * @memberof module:mojoh5/Sprites
-       * @param {Sprite} s
-       * @param {array} obstacles
-       */
-      avoid(s,obstacles){
-        let dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
-            ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
-            ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
-            avoidance, mostThreatening = null;
-        for(let c,i=0; i<obstacles.length; ++i){
-          if(obstacles[i] === this) continue;
-          c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
-              _V.dist(obstacles[i],ahead2) <= obstacles[i].m5.radius;
-          if(c)
-            if(mostThreatening === null ||
-               _V.dist(s,obstacles[i]) < _V.dist(s, mostThreatening)){
-              mostThreatening = obstacles[i]
-            }
-        }
-        if(mostThreatening){
-          avoidance = _V.mul$(_V.unit$(_V.sub(ahead,mostThreatening)),100);
-          _V.add$(s.m5.steer,avoidance);
-        }
       }
-
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

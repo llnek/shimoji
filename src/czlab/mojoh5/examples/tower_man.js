@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -21,7 +21,7 @@
            Sprites:_S,
            Tiles:_T,
            Input:_I,
-           "2d":_2d,
+           "D2":_2d,
            Game:_G,
            v2:_V,
            ute:_,is}=Mojo;
@@ -37,18 +37,18 @@
       //e.m5.speed=100;
       e.m5.reroute=2;
       function tryDir(){
-        if(e.m5.vel[1] !== 0 && e.m5.vel[0]=== 0){
+        if(e.m5.vel[1] != 0 && e.m5.vel[0]== 0){
           e.m5.heading = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
-        }else if(e.m5.vel[0] !== 0 && e.m5.vel[1]=== 0){
+        }else if(e.m5.vel[0] != 0 && e.m5.vel[1]== 0){
           e.m5.heading = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
         }
       }
       function changeDir(col){
-        if(e.m5.vel[0]=== 0 && e.m5.vel[1]=== 0){
+        if(e.m5.vel[0]== 0 && e.m5.vel[1]== 0){
           let c=col.overlapN;
-          if(c[1] !== 0){
+          if(c[1] != 0){
             e.m5.heading = _.rand() < 0.5 ? Mojo.LEFT : Mojo.RIGHT;
-          }else if(c[0] !== 0){
+          }else if(c[0] != 0){
             e.m5.heading = _.rand() < 0.5 ? Mojo.UP : Mojo.DOWN;
           }
         }
@@ -79,7 +79,7 @@
         t.m5.type=E_TOWER;
         t.m5.sensor=true;
         t.m5.onSensor=(colObj)=>{
-          scene.removeTile(t)
+          scene.removeTile("Tiles", t)
         };
         t.m5.dispose=()=>{
           Mojo.off(["2d.sensor",t],"onSensor",t.m5)
@@ -98,9 +98,9 @@
         s.m5.type=E_COIN;
         s.m5.sensor=true;
         s.m5.onSensor=(colObj)=>{
-          scene.removeTile(s);
+          scene.removeTile("Tiles", s);
           scene.dotCount -= 1;
-          if(scene.dotCount===0){}
+          if(scene.dotCount==0){}
         };
         s.m5.dispose=()=>{
           Mojo.off(["2d.sensor",s],"onSensor",s.m5)
@@ -128,9 +128,9 @@
         frames[Mojo.DOWN]=1;
         frames[Mojo.RIGHT]=2;
         frames[Mojo.LEFT]=3;
-        Mojo.addMixin(p,"2d",[_2d.MazeRunner,frames]);
+        Mojo.addMixin(p,"arcade",[_2d.MazeRunner,frames]);
         p.m5.tick=function(dt){
-          p["2d"].onTick(dt);
+          p["arcade"].onTick(dt);
         };
         return p;
       }
@@ -147,7 +147,7 @@
         _S.centerAnchor(s);
         s.m5.speed= 150 * scene.getScaleFactor();
         _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
-        Mojo.addMixin(s,"2d");
+        Mojo.addMixin(s,"arcade");
         Mojo.addMixin(s,"enemyAI");
         s.m5.boom=function(col){
           if(col.B.m5.uuid=="player"){
@@ -155,7 +155,7 @@
           }
         };
         s.m5.tick=function(dt){
-          s["2d"].onTick(dt);
+          s["arcade"].onTick(dt);
           s["enemyAI"].onTick(dt);
         };
         Mojo.on(["bump",s],"boom",s.m5);

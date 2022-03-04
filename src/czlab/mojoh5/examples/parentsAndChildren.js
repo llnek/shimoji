@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -22,7 +22,6 @@
            Sprites:_S,
            Input:_I,
            FX:_F,
-           "2d":_2d,
            v2:_V,
            Game:G,
            ute:_,is}=Mojo;
@@ -40,7 +39,7 @@
         this.insert(square2);
         _S.pinTop(square,square2,40*K);
         //_F.shake(square2,10,true);
-        _F.shake(square2);
+        //_F.shake(square2);
 
         let square3 = _S.rect(20*K, 40*K, "green", "white", 1*K);
         this.insert(square3);

@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -27,7 +27,6 @@
            Input:_I,
            Game:_G,
            v2:_V,
-           "2d":_2d,
            ute:_,is}=Mojo;
 
     function Player(scene){
@@ -59,7 +58,7 @@
         s._mode=null;
       });
 
-      Mojo.addMixin(s,"2d");
+      Mojo.addMixin(s,"arcade");
       s.m5.getContactPoints=function(){
         return s._mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
                                            : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
@@ -72,7 +71,7 @@
         },5);
       };
       s.m5.tick=(dt)=>{
-        s["2d"].onTick(dt);
+        s["arcade"].onTick(dt);
         s.m5.vel[0] += (speed - s.m5.vel[0])/4;
         if(s.m5.vel[1]>0 && _S.bottomSide(s) > floor.y){
           _V.setY(s, floor.y - MFL(s.height/2));

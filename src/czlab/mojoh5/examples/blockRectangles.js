@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -22,9 +22,7 @@
            Sprites:_S,
            Input:_I,
            Game:G,
-           "2d":_2d,
            ute:_,is}=Mojo;
-
 
     _Z.defScene("level1",{
       setup(){
@@ -32,13 +30,13 @@
         let red = G.red= _S.rect(32*K, 32*K, "red");
         let blue = G.blue= _S.rect(64*K, 64*K, "blue");
 
-        blue.angle=60;
+        //blue.angle=60;
         _S.centerAnchor(blue);
         _S.pinCenter(this,blue);
         _I.makeDrag(blue);
         this.insert(blue,true);
 
-        //red.rotation=15;
+        red.angle=45;
         _S.centerAnchor(red);
         _S.pinTop(this,red,-60*K);
         _I.makeDrag(red);
@@ -53,8 +51,9 @@
         let s,col= _S.collide(G.blue, G.red, true);
         if(col){
           s=`Collided on: ${_S.dbgShowCol(col)}`;
+          s=s;
         }else{
-          s= `Drag the squares...`;
+          s= `Drag the square...`;
         }
         G.message.text=s;
       }

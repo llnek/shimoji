@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -24,32 +24,40 @@
            v2:_V,
            ute:_,is}=Mojo;
 
-    _Z.defScene("level1", function(){
-      let A=_S.rect(Mojo.width/2,Mojo.height/2,0xaa4455);
-      let C=_S.rect(Mojo.width/2,Mojo.height/2);
-      let hedgehog = _S.sprite("hedgehog.png");
-      let tiger = _S.sprite("tiger.png");
-      let cat = _S.sprite("cat.png");
-      let K=Mojo.getScaleFactor();
-      _I.makeDrag(hedgehog);
-      _I.makeDrag(cat);
-      _I.makeDrag(tiger);
-      _V.set(tiger,64*K, 64*K);
-      _V.set(hedgehog,128*K, 128*K);
-      if(false){
-        this.insert(cat);
-        this.insert(tiger);
-        this.insert(hedgehog);
-      }else{
-        C.addChild(cat);
-        C.addChild(tiger);
-        C.addChild(hedgehog);
-        C.x=14;
-        C.y= 32;
-        A.addChild(C);
-        A.x= 30;
-        A.y= 23;
-        this.insert(A);
+    _Z.defScene("level1", {
+      setup(){
+        let A=_S.rect(Mojo.width/2,Mojo.height/2,0xaa4455);
+        let C=_S.rect(Mojo.width/2,Mojo.height/2);
+        let hedgehog = _S.sprite("hedgehog.png");
+        let tiger = _S.sprite("tiger.png");
+        let cat = _S.sprite("cat.png");
+        let K=Mojo.getScaleFactor();
+        _I.makeDrag(hedgehog);
+        _I.makeDrag(cat);
+        _I.makeDrag(tiger);
+        _V.set(tiger,64*K, 64*K);
+        _V.set(hedgehog,128*K, 128*K);
+        if(true){
+          this.insert(cat);
+          this.insert(tiger);
+          this.insert(hedgehog);
+        }else{
+          C.addChild(cat);
+          C.addChild(tiger);
+          C.addChild(hedgehog);
+          C.x=14;
+          C.y= 32;
+          A.addChild(C);
+          A.x= 30;
+          A.y= 23;
+          this.insert(A);
+        }
+      },
+      postUpdate(dt){
+        let x=1;
+        x=0;
+        //console.log(`scale=${Mojo.scale}`);
+
       }
     });
   }
@@ -58,7 +66,7 @@
     MojoH5({
       assetFiles: ["images/animals.json"],
       arena: {width:640, height:640},
-      scaleToWindow:true,
+      scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
         Mojo.Scenes.runScene("level1");

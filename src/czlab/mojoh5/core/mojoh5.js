@@ -12,7 +12,7 @@
  *
  * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -31,7 +31,7 @@
     const _V = gscope["io/czlab/mcfud/vec2"]();
     const _M = gscope["io/czlab/mcfud/math"]();
     const EBus= EventBus();
-    const MFL=Math.floor;
+    const int=Math.floor;
     const CON=console;
     let _paused = false;
 
@@ -39,6 +39,7 @@
      * @module mojoh5/Mojo
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Main Stage class, holds scenes or scene-wrappers. */
     class PixiStage extends PIXI.Container{
       constructor(){
@@ -61,42 +62,40 @@
     _.patch(cmdArg,{
       assetFiles: [],
       logos: [],
+      aniFps: 12,
       fps: 60
     });
 
-    /** @ignore */
-    function _width(){ return gscope.innerWidth }
-    //return document.documentElement.clientWidth
 
-    /** @ignore */
-    function _height(){ return gscope.innerHeight }
-    //return document.documentElement.clientHeight
+    //const _height=()=> document.documentElement.clientHeight;
+    //const _width=()=> document.documentElement.clientWidth;
+    const _height=()=> gscope.innerHeight;
+    const _width=()=> gscope.innerWidth;
 
     /**Built-in progress bar, shown during the loading of
      * assets if no user-defined load function is provided.
      */
     function _PBar(Mojo){
-      const K=Mojo.getScaleFactor();
-      const cy= MFL(Mojo.height/2);
-      const cx= MFL(Mojo.width/2);
-      const w4= MFL(Mojo.width/4);
-      const bgColor=0x404040;
-      const fgColor=0xff8a00;
-      const {Sprites}=Mojo;
-      const WIDTH=w4*2;
-      const RH=24*K;
-      const Y=cy-RH/2;
-      return {
+      const cy= _M.ndiv(Mojo.height,2),
+            cx= _M.ndiv(Mojo.width,2),
+            w4= _M.ndiv(Mojo.width,4);
+      const K=Mojo.getScaleFactor(),
+            bgColor=0x404040,
+            fgColor=0xff8a00,
+            {Sprites}=Mojo,
+            WIDTH=w4*2,
+            RH=48*K,
+            Y=cy-RH/2;
+      return{
         init(){
-          this.fg=Sprites.rect(cx, RH, fgColor);
-          this.bg=Sprites.rect(cx, RH, bgColor);
-          this.perc=Sprites.text("0%", {fontSize:MFL(RH/2),
+          this.perc=Sprites.text("0%", {fontSize:_M.ndiv(RH,2),
                                         fill:"black",
                                         fontFamily:"sans-serif"});
+          this.fg=Sprites.rect(cx, RH, fgColor);
+          this.bg=Sprites.rect(cx, RH, bgColor);
           _V.set(this.bg, cx-w4, Y);
-          _V.set(this.fg, cx-w4, Y);
-          _V.set(this.perc, cx-w4+10,
-                            MFL(cy-this.perc.height/2));
+          _V.set(this.fg, cx-w4+1, Y);
+          _V.set(this.perc, cx-w4+10, int(cy-this.perc.height/2));
           this.insert(this.bg);
           this.insert(this.fg);
           this.insert(this.perc);
@@ -121,8 +120,8 @@
           let K=Mojo.getScaleFactor();
           let k= w>h?h:w;
           k *= 0.2;
-          _V.set(pbar.scale,k,k);
-          _V.set(logo.scale,k,k);
+          Sprites.scaleXY(pbar,k,k);
+          Sprites.scaleXY(logo,k,k);
           Sprites.pinCenter(this,logo);
           Sprites.pinBottom(logo,pbar,4*K);
           pbar.visible=false;
@@ -151,40 +150,6 @@
       return z;
     }
 
-    /**Scale canvas to max via CSS. */
-    function _scaleCanvas(canvas){
-      const [CH,CW]=[canvas.offsetHeight, canvas.offsetWidth];
-      const [WH,WW]=[_height(), _width()];
-      const K = Math.min(WW/CW, WH/CH);
-      const [scaledH,scaledW]=[CH*K, CW*K];
-      dom.css(canvas, {transformOrigin:"0 0",
-                       transform:`scale(${K})`});
-      if(true){
-        //lay flat?
-        if(CW>CH ? scaledW<WW : !(scaledH>WH)){
-          const margin = MFL((WW-scaledW)/2);
-          dom.css(canvas, {marginTop:"0px",
-                           marginBottom:"0px",
-                           marginLeft:`${margin}px`,
-                           marginRight:`${margin}px`});
-        }else{
-          const margin = MFL((WH-scaledH)/2);
-          dom.css(canvas, {marginLeft:"0px",
-                           marginRight:"0px",
-                           marginTop:`${margin}px`,
-                           marginBottom:`${margin}px`});
-        }
-        dom.css(canvas, {display:"block",
-                         paddingLeft:"0px",
-                         paddingRight:"0px",
-                         paddingTop:"0px",
-                         paddingBottom:"0px"});
-        //deal with possible edges, use a different color
-        dom.css(document.body, "backgroundColor", Mojo.scaledBgColor);
-      }
-      return K;
-    }
-
     /**Once all the files are loaded, do some post processing,
      * mainly to deal with sound files.
      */
@@ -202,9 +167,9 @@
           if(!error)
             Mojo.u.start(Mojo);
           else
-            _.error("Cannot load game!"); }); }
-      function _m1(b){
-        --fcnt===0 && _finz() }
+            _.error("Cannot load game!"); });
+      }
+      function _m1(b){ --fcnt==0 && _finz() }
       if(!error)
         _.doseq(Mojo.assets, (r,k)=>{
           ext= _.fileExt(k);
@@ -212,16 +177,17 @@
             fcnt +=1;
             Sound.decodeData(r.name, r.url,
                              r.xhr.response, _m1); } });
-      fcnt===0 && _finz();
+      //////
+      fcnt==0 && _finz();
     }
 
     /** Fetch required files. */
-    function _loadFiles(Mojo, error){
+    function _loadFiles(Mojo){
       let filesWanted= _.map(Mojo.u.assetFiles,
-                             f=> Mojo.assetPath(f));
-      let ffiles= _.findFiles(filesWanted, FONT_EXTS);
+                             f=> Mojo.assetPath(f)),
+          ffiles= _.findFiles(filesWanted, FONT_EXTS);
       const {PXLR,PXLoader}= Mojo;
-      //common hack to trick browser to load in font files.
+      //trick browser to load in font files.
       let family, face, span, style;
       ffiles.forEach(s=>{
         style= dom.newElm("style");
@@ -245,46 +211,41 @@
       PXLoader.reset();
       if(filesWanted.length>0){
         let cbObj=Mojo.u.load;
-        if(!error){
-          if(!cbObj)
-            cbObj= _LogoBar(Mojo);
-        }else if(cbObj){
-          cbObj=null;
-          CON.log("FatalError: can't proceed.");
-        }else{
-          cbObj=_PBar(Mojo);
-        }
-        if(cbObj){
-          let ecnt=0,
-              fs=[],
-              pg=[],
-              scene=_loadScene(cbObj);
-          PXLoader.add(filesWanted);
-          PXLoader.onError.add((e,ld,r)=>{
-            ++ecnt;
-            CON.log(`${e}`);
-          });
-          PXLoader.onProgress.add((ld,r)=>{
-            fs.unshift(r.url);
-            pg.unshift(ld.progress);
-          });
-          PXLoader.load(()=>{
-            if(ecnt===0)
-              CON.log(`asset loaded!`)
-          });
-          Mojo.addBgTask({
-            update(){
-              let f= fs.pop();
-              let n= pg.pop();
-              if(f && is.num(n)){
+        if(!cbObj)
+          cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
+        let ecnt=0,
+            fs=[],
+            pg=[],
+            scene=_loadScene(cbObj);
+        PXLoader.add(filesWanted);
+        PXLoader.onError.add((e,ld,r)=>{
+          ++ecnt;
+          CON.log(`${e}`);
+        });
+        PXLoader.onProgress.add((ld,r)=>{
+          CON.log(`loading ${r.url}`);
+          fs.unshift(r.url);
+          pg.unshift(ld.progress);
+        });
+        PXLoader.load(()=>{
+          if(ecnt==0)
+            CON.log(`asset loaded!`)
+          fs.unshift("$");
+        });
+        Mojo.addBgTask({
+          update(){
+            let f= fs.pop(),
+                n= pg.pop();
+
+            if(is.num(n))
+              if(f && f != "$")
                 cbObj.update.call(scene,f,n);
-              }
-              if(_.feq(n,100) || n > 99.95){
-                _postAssetLoad(Mojo,this,scene,ecnt>0);
-              }
-            }
-          });
-        }
+
+            if(f=="$")
+              _postAssetLoad(Mojo,this,scene,ecnt>0);
+          }
+        });
+
       }else{
         _postAssetLoad(Mojo);
       }
@@ -300,10 +261,9 @@
         //use default boot logos
         Mojo.u.logos=["boot/preloader_bar.png",
                       "boot/ZotohLab_x1240.png"];
-      let files= Mojo.u.logos;
-      let ecnt=0;
-      files=files.map(f=> Mojo.assetPath(f));
-      if(files.length===0){
+      let ecnt=0,
+          files=Mojo.u.logos.map(f=> Mojo.assetPath(f));
+      if(files.length==0){
         _loadFiles(Mojo)
       }else{
         PXLoader.reset();
@@ -313,9 +273,12 @@
           CON.log(`${e}`);
         });
         PXLoader.load(()=>{
-          _.delay(0,()=>_loadFiles(Mojo, ecnt>0));
-          if(ecnt===0)
-            CON.log(`logo files loaded!`);
+          if(ecnt==0){
+            _.delay(0,()=>_loadFiles(Mojo));
+            CON.log(`logo files loaded.`);
+          }else{
+            CON.log(`logo files not loaded!`)
+          }
         });
       }
       return Mojo;
@@ -335,11 +298,8 @@
 
     function _configCanvas(arg){
       let p= { "outline":"none" };
-      //p["image-rendering"]="crisp-edges";
-      //p["image-rendering"]="pixelated";
-      if(arg.rendering !== false){
-        p["image-rendering"]= arg.rendering
-      }
+      //p["image-rendering"]= arg.rendering || "pixelated";
+      //p["image-rendering"]= arg.rendering || "crisp-edges";
       dom.css(Mojo.canvas,p);
       dom.attrs(Mojo.canvas,"tabindex","0");
     }
@@ -354,12 +314,11 @@
 
       //want canvas max screen
       if(cmdArg.scaleToWindow=="max"){
-        //scaling ok
         maxed=true;
         box= {width: _width(),
               height: _height()};
-        if(cmdArg.arena.scale===1){
-          //no scaling
+        if(cmdArg.arena.scale==1){
+          //max but no scaling
           maxed=false;
           cmdArg.arena=box;
           cmdArg.scaleToWindow="win";
@@ -373,17 +332,16 @@
       Mojo.ctx= PIXI.autoDetectRenderer(_.inject(box,{
         antialias: true
       }));
-      Mojo.ctx.bgColor = 0xFFFFFF;
       Mojo.canvas = Mojo.ctx.view;
       Mojo.canvas.id="mojo";
       Mojo.maxed=maxed;
       Mojo.scale=1;
       Mojo.frame=1/cmdArg.fps;
-      Mojo.scaledBgColor= "#323232";
+      Mojo.scaledBgColor= "#5A0101";
 
       //install modules
       ["Sprites","Input","Scenes",
-       "Sound","FX","2d","Tiles","Touch"].forEach(s=>{
+       "Sound","FX","D2","Tiles","Touch"].forEach(s=>{
          CON.log(`installing module ${s}...`);
          let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
          if(m.assets)
@@ -405,11 +363,6 @@
         Mojo.ctx.backgroundColor =
           Mojo.Sprites.color(cmdArg.bgColor);
 
-      if(cmdArg.scaleToWindow===true)
-        Mojo.scale=_scaleCanvas(Mojo.canvas);
-
-      Mojo.mouse= Mojo.Input.pointer();
-
       if(cmdArg.resize === true){
         _.addEvent("resize", gscope, _.debounce(()=>{
           //save the current size and tell others
@@ -420,9 +373,12 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
-      if(Mojo.touchDevice) {
+      Mojo.mouse= Mojo.Input.pointer();
+
+      if(Mojo.touchDevice){
         Mojo.scroll()
       }
+
       Mojo.canvas.focus();
 
       return _boot(Mojo);
@@ -451,21 +407,20 @@
       //update all scenes
       if(!_paused)
         Mojo.stageCS(s=> s.update && s.update(dt));
-      //render drawings
+    }
+    function _draw(dt){
       Mojo.ctx.render(Mojo.stage);
     }
 
     //------------------------------------------------------------------------
-    /** @ignore */
-    function _raf(cb){
-      return gscope.requestAnimationFrame(cb) }
+    const _raf=(cb)=> gscope.requestAnimationFrame(cb);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** @abstract */
     class Mediator{
       constructor(){
         this.players=[];
-        this.state=null;
+        this.state;
         this.pcur;
         this.end;
         this.pwin;
@@ -581,6 +536,18 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Mojo={
+      //for world/screen conversions
+      _offsetX:0,
+      _offsetY:0,
+      _scaleX:1,
+      _scaleY:1,
+      //panning and zooming
+      _selectedCellX:0,
+      _selectedCellY:0,
+      _startPanX:0,
+      _startPanY:0,
+      //default fps
+      _curFPS:60,
       Bot,
       Local,
       Mediator,
@@ -626,6 +593,7 @@
       /**Enum (100)
        * @memberof module:mojoh5/Mojo */
       NONE: 100,
+      PI_45:Math.PI/4,
       PI_90:Math.PI/2,
       PI_180:Math.PI,
       PI_270:Math.PI*1.5,
@@ -702,6 +670,24 @@
                  b.x2 < a.x1 ||
                  a.y2 < b.y1 || b.y2 < a.y1)
       },
+      /**Check if 2 bboxes overlaps on the X axis.
+       * @memberof module:mojoh5/Mojo
+       * @param {object} a
+       * @param {object} b
+       * @return {boolean}
+       */
+      overlapX(a,b){
+        return a.x2>b.x1 && b.x2>a.x1
+      },
+      /**Check if 2 bboxes overlaps on the Y axis.
+       * @memberof module:mojoh5/Mojo
+       * @param {object} a
+       * @param {object} b
+       * @return {boolean}
+       */
+      overlapY(a,b){
+        return a.y2>b.y1 && b.y2>a.y1
+      },
       /**Check if this element contains a class name.
        * @memberof module:mojoh5/Mojo
        * @param {Element} e
@@ -709,7 +695,19 @@
        * @return {boolean}
        */
       hasClass(e,c){
-        return new RegExp(`(\\s|^)${c}(\\s|$)`).test(e.className)
+        if(c)
+          return e.classList.contains(c)
+        //return new RegExp(`(\\s|^)${c}(\\s|$)`).test(e.className)
+      },
+      /**Toggle a class name in this element.
+       * @memberof module:mojoh5/Mojo
+       * @param {Element} e
+       * @param {string} c
+       * @return {Element} e
+       */
+      toggleClass(e,c){
+        if(c) e.classList.toggle(c);
+        return e;
       },
       /**Add a class name to this element.
        * @memberof module:mojoh5/Mojo
@@ -718,7 +716,7 @@
        * @return {Element} e
        */
       addClass(e,c){
-        if(!_.hasClass(e,c)) e.className += `${c}`
+        if(!_.hasClass(e,c)) e.classList.add(c);
         return e;
       },
       /**Remove a class name from this element.
@@ -729,7 +727,8 @@
        */
       removeClass(e,c){
         if(_.hasClass(e,c))
-          e.className= e.className.replace(new RegExp(`(\\s|^)${c}(\\s|$)`), "");
+          e.classList.remove(c);
+          //e.className= e.className.replace(new RegExp(`(\\s|^)${c}(\\s|$)`), "");
         return e;
       },
       /**Wrap this number around these 2 limits.
@@ -759,8 +758,8 @@
        * @param {...string} fs names of mixins
        * @return {Sprite} s
        */
-      addMixin(s,n,...args){
-        return _mixinAdd(s,n, _mixins.get(n),...args)
+      addMixin(s,n, ...args){
+        return _mixinAdd(s,n, _mixins.get(n), ...args)
       },
       /**Get the loaded resources.
        * @memberof module:mojoh5/Mojo
@@ -811,7 +810,7 @@
        * @memberof module:mojoh5/Mojo
        * @return {Vec2} [x,y]
        */
-      screenCenter(){ return _.v2(MFL(Mojo.width/2),MFL(Mojo.height/2)) },
+      screenCenter(){ return _.v2(_M.ndiv(Mojo.width,2),_M.ndiv(Mojo.height,2)) },
       /**Scale the `src` size against the `des` size.
        * @memberof module:mojoh5/Mojo
        * @param {Vec2} src
@@ -856,7 +855,7 @@
       getIndex(x, y, cellW, cellH, widthInCols){
         if(x<0 || y<0)
           throw `IndexError: ${x},${y}, wanted +ve values`;
-        return MFL(x/cellW) + MFL(y/cellH) * widthInCols
+        return _M.ndiv(x,cellW) + _M.ndiv(y,cellH) * widthInCols
       },
       /**Get a cached Texture.
        * @memberof module:mojoh5/Mojo
@@ -864,11 +863,8 @@
        * @return {Texture}
        */
       tcached(x){
-        if(_.inst(this.PXTexture,x)){return x}
-        if(is.str(x)){
-          return PIXI.utils.TextureCache[x] ||
-                 PIXI.utils.TextureCache[this.assetPath(x)];
-        }
+        return _.inst(this.PXTexture,x)?x
+          :(is.str(x)? PIXI.utils.TextureCache[x] || PIXI.utils.TextureCache[this.assetPath(x)] : UNDEF)
       },
       /**Converts the position into a [col, row] for grid oriented processing.
        * @memberof module:mojoh5/Mojo
@@ -876,7 +872,7 @@
        * @param {number} width
        * @return {number[]} [col,row]
        */
-      splitXY(pos,width){ return [pos%width, MFL(pos/width)] },
+      splitXY(pos,width){ return [pos%width, _M.ndiv(pos,width)] },
       /**Create a PIXI Rectangle.
        * @memberof module:mojoh5/Mojo
        * @param {number} x
@@ -974,14 +970,31 @@
        */
       resource(x,panic){
         let t= x ? (this.assets[x] || this.assets[this.assetPath(x)]) : null;
-        return t || (panic ? _.assert(false, `no such resource ${x}.`) : undefined) },
+        return t || (panic ? _.assert(false, `no such resource ${x}.`) : UNDEF)
+      },
+      fpsList:UNDEF,
+      fpsSum:0,
       /**Get the current frames_per_second.
        * @memberof module:mojoh5/Mojo
        * @param {number} dt
        * @return {number}
        */
       calcFPS(dt){
-        return dt>0 ? MFL(1.0/dt) :0; },
+        let n,rc=0,size=60;
+        if(dt>0){
+          n=_M.ndiv(1,dt);
+          if(!this.fpsList){
+            this.fpsList=_.fill(size, n);
+            this.fpsSum= size*n;
+          }
+          this.fpsSum -= this.fpsList.pop();
+          this.fpsList.unshift(n);
+          this.fpsSum += n;
+          rc= _M.ndiv(this.fpsSum ,size);
+        }
+        //console.log("rc===="+rc);
+        return rc;
+      },
       degToRad(d){
         return d * (Math.PI / 180) },
       radToDeg(r){
@@ -996,21 +1009,20 @@
       resume(){ _paused = false },
       pause(){ _paused = true },
       start(){
-        let diff=Mojo.frame;
-        let last= _.now();
-        let acc=0;
-        let F=function(){
-          let cur= _.now();
-          let dt= (cur-last)/1000;
-          //console.log(`frames per sec= ${Math.floor(1/dt)}`);
-          //limit the time gap between calls
-          if(dt>_DT15) dt= _DT15;
-          for(acc += dt;
-              acc >= diff;
-              acc -= diff){ _update(dt); }
-          last = cur;
-          _raf(F);
-        };
+        let acc=0,
+            last= _.now(),
+            diff=Mojo.frame,
+            F=function(){
+              let cur= _.now(),
+                  dts= (cur-last)/1000;
+              //console.log(`frames per sec= ${Math.floor(1/dt)}`);
+              //limit the time gap between calls
+              if(dts>_DT15) dts= _DT15;
+              for(acc += dts; acc >= diff; acc -= diff){ _update(dts); }
+              _draw(acc/diff);
+              last = cur;
+              _raf(F);
+            };
         return _raf(F);
       },
       takeScreenshot(){
@@ -1022,7 +1034,16 @@
           a.click();
           a.remove();
         }, "image/png");
+      },
+      worldToScreen(wx, wy){
+        return [int((wx - this._offsetX) * this._scaleX),
+                int((wy - this._offsetY) * this._scaleY)]
+      },
+      screenToWorld(sx, sy){
+        return [sx / this._scaleX + this._offsetX,
+                sy / this._scaleY + this._offsetY]
       }
+
     };
 
     return _prologue(Mojo);

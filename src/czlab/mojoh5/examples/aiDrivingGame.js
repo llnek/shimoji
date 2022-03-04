@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -84,7 +84,7 @@
             car.m5.angVel = 0.03*K; //right
           }
           _move(car);
-          if(trackMap[pos] === 8){
+          if(trackMap[pos] == 8){
             _V.set(car.m5.friction,0.25*K, 0.25*K);
           }else{
             //more friction off track

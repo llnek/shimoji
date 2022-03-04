@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
 
@@ -28,11 +28,12 @@
            ute:_,
            is,
            v2:_V,
-           Sprites:S,"2d":_2d}=Mojo;
+           Sprites:S,
+      "D2":_2d}=Mojo;
 
-    G.boomSound = Mojo.sound("explosion.wav");
-    G.shootSound = Mojo.sound("shoot.wav");
-    G.music = Mojo.sound("music.wav");
+    G.boomSound = Mojo.sound("explosion.mp3");
+    G.shootSound = Mojo.sound("shoot.mp3");
+    //G.music = Mojo.sound("music.wav");
     G.aliens=[];
 
     function resetLevel(){
@@ -92,7 +93,7 @@
             G.boomSound.play();
             b.m5.dead=true;
             G.score += 1;
-            scene.future(()=> S.remove(b),5);
+            scene.futureX(()=> S.remove(b),5);
           }
           b.m5.tick=()=>{
             if(!b.m5.dead){
@@ -108,22 +109,22 @@
         }
 
         const fireFunc=()=>{
-          let b= S.shoot(cannon, -Mojo.PI_90,
+          let b= _2d.shoot(cannon, -Mojo.PI_90,
                          7*K, ctor, MFL(cannon.width/2), 0);
           scene.insert(b,true);
           G.shootSound.play();
-          scene.future(fireFunc,60);
+          scene.future(fireFunc,1000);
         };
         const fire = I.keybd(I.SPACE, fireFunc);
         G.shootSound.pan = -0.5;
         G.boomSound.pan = 0.5;
-        G.music.loop=true;
-        G.music.volume=5;
+        //G.music.loop=true;
+        //G.music.volume=5;
         G.aliens=[];
         G.score= 0;
         G.winner= null;
         G.alienTimer= 0;
-        scene.future(fireFunc,60);
+        scene.future(fireFunc,1000);
       },
       _spawnAlien(){
         const alienFrames = ["alien.png",
@@ -148,7 +149,7 @@
             if(col.B.m5.uuid=="player"){
               G.winner="p2";
             }else{
-              scene.future(()=> S.remove(alien),5);
+              scene.futureX(()=> S.remove(alien),5);
               alien.m5.showFrame(1);
               alien.m5.dead=true;
               _V.setY(alien.m5.vel,0);
@@ -163,7 +164,7 @@
       },
       postUpdate(dt){
         //maybe make more aliens?
-        if(++G.alienTimer === G.spawnInterval){
+        if(++G.alienTimer == G.spawnInterval){
           this._spawnAlien();
           if(G.spawnInterval>2) --G.spawnInterval;
         }
@@ -201,8 +202,8 @@
                               fill: "#00FF00",
                               fontSize: 20 * K}, 90 * K, 120 * K);
         this.insert(msg);
-        G.music.loop=false;
-        G.music.stop();
+        //G.music.loop=false;
+        //G.music.stop();
         if(G.winner == "p1"){
           msg.x = 120 * K;
           msg.text="Earth Saved!";
@@ -257,8 +258,8 @@
 
   window.addEventListener("load", ()=>
     MojoH5({
-      assetFiles: ["images/alienArmada.json",
-                   "explosion.wav", "music.wav", "shoot.wav", "unscii.fnt"],
+      assetFiles: ["alienArmada.png","images/alienArmada.json",
+                   "explosion.mp3", "shoot.mp3"],
       arena: { width: 480, height: 320 },
       scaleToWindow:"max",
       start(Mojo){

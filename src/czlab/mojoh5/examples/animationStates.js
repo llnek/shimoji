@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -23,22 +23,27 @@
            "2d":_2d,
            Game:G,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
+    const int=Math.floor;
 
     _Z.defScene("level1",{
       setup(){
-        let elf= G.elf=_S.animation("walkcycle.png", 64, 64);
-        let forest=G.forest= _S.sprite("forest.png");
-        let K=Mojo.getScaleFactor();
-
-        _V.set(forest.scale,K,K);
-        _V.set(elf.scale,K,K);
+        let K=Mojo.getScaleFactor(),
+            forest= G.forest= _S.sprite("forest.png"),
+            elf= G.elf=_S.animation("walkcycle.png", 64, 64);
+        _S.scaleXY(forest,K,K);
+        _S.scaleXY(elf,K,K);
+        elf.m5.getImageOffsets=()=>{
+          let h=elf.height/6;
+          let w=elf.width/4;
+          return{x1:w,y1:h,x2:w,y2:h/3}
+        };
         this.insert(forest);
         this.insert(elf);
         _V.set(elf,32*K, 128*K);
-        _V.set(this, Math.floor((Mojo.width-forest.width)/2),
-                     Math.floor((Mojo.height-forest.height)/2));
-
+        _V.set(this, _M.ndiv(Mojo.width-forest.width,2),
+                     _M.ndiv(Mojo.height-forest.height,2));
         const states={
           up: 0,
           left: 9,
@@ -55,34 +60,37 @@
           elf.m5.playFrames(states.walkLeft);
           _V.set(elf.m5.vel, -K,0);
         }, ()=>{
-          if (!goRight.isDown && elf.m5.vel[1] === 0){
+          if (!goRight.isDown && elf.m5.vel[1] == 0){
             _V.setX(elf.m5.vel,0);
             elf.m5.showFrame(states.left);
           }
         });
+
         let goUp = _I.keybd(_I.UP, ()=>{
           elf.m5.playFrames(states.walkUp);
           _V.set(elf.m5.vel, 0,-K);
         }, ()=>{
-          if(!goDown.isDown && elf.m5.vel[0] === 0){
+          if(!goDown.isDown && elf.m5.vel[0] == 0){
             _V.setY(elf.m5.vel,0);
             elf.m5.showFrame(states.up);
           }
         });
+
         let goRight = _I.keybd(_I.RIGHT, ()=>{
           elf.m5.playFrames(states.walkRight);
           _V.set(elf.m5.vel,K,0);
         }, ()=>{
-          if(!goLeft.isDown && elf.m5.vel[1] === 0){
-            _V.setY(elf.m5.vel,0);
+          if(!goLeft.isDown && elf.m5.vel[1] == 0){
+            _V.setX(elf.m5.vel,0);
             elf.m5.showFrame(states.right);
           }
         });
+
         let goDown = _I.keybd(_I.DOWN, ()=>{
           elf.m5.playFrames(states.walkDown);
           _V.set(elf.m5.vel,0,K);
         }, ()=>{
-          if(!goUp.isDown && elf.m5.vel[0] === 0){
+          if(!goUp.isDown && elf.m5.vel[0] == 0){
             _V.setY(elf.m5.vel,0);
             elf.m5.showFrame(states.down);
           }
@@ -93,8 +101,8 @@
                                 height:forest.height});
       },
       postUpdate(dt){
-        _V.add$(G.elf,G.elf.m5.vel);
-        _S.clamp(G.elf,G.arena,false);
+        _V.add$(G.elf, G.elf.m5.vel);
+        _S.clamp(G.elf, G.arena,false);
       }
     },{centerStage:true});
   }

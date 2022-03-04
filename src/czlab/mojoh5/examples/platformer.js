@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -25,7 +25,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "2d":_2d,
+           "D2":_2d,
            Tiles:_T,
            v2:_V,
            Game:G,
@@ -35,14 +35,14 @@
     const Player={
       s(){},
       c(scene,p,ts,ps,o){
-        Mojo.addMixin(p,"2d",[_2d.Platformer]);
+        Mojo.addMixin(p,"arcade",[_2d.Platformer]);
         _V.set(p.m5.gravity,0,200);
         p.m5.type=E_PLAYER;
         p.m5.cmask=E_TOWER;
         p.m5.uuid="player";
         p.m5.speed=200;
         p.m5.tick=(dt)=>{
-          p["2d"].onTick(dt);
+          p["arcade"].onTick(dt);
         };
         return p;
       }
@@ -69,7 +69,7 @@
       c(scene,e,ts,ps,o){
         let signals= [[["bump.top",e],"onbtop",e.m5],
                       [["bump.left,bump.right,bump.bottom",e], "onbump",e.m5]];
-        Mojo.addMixin(e,"2d",[_2d.Patrol,true,false]);
+        Mojo.addMixin(e,"arcade",[_2d.Patrol,true,false]);
         e.m5.speed=100*scene.getScaleFactor();
         e.m5.uuid=`e#${_.nextId()}`;
         e.m5.cmask=E_PLAYER|E_ENEMY;
@@ -80,7 +80,7 @@
           signals.forEach(s=> Mojo.off(...s))
         };
         e.m5.tick=(dt)=>{
-          e["2d"].onTick(dt)
+          e["arcade"].onTick(dt)
           e.m5.flip="";//no flipping
         };
         e.m5.onbump=(col)=>{

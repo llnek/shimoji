@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -30,38 +30,18 @@
     _Z.defScene("level1",function(){
       let cat = G.cat= _S.sprite("cat.png",32,32);
       let K=Mojo.getScaleFactor();
+      const _scale=(arr)=> arr.map(p=> _V.mul$(p,K));
 
-      function _scale(arr){
-        return arr.map(p=> _V.mul$(p,K))
-      }
-
-      _V.set(cat.scale,K,K);
+      _S.scaleXY(cat,K,K);
       this.insert(cat);
+      _W.walkPath(cat, _W.SMOOTH,
+                       _scale([ [32, 32], [32, 128], [300, 128], [300, 32], [32, 32] ]), 300);
 
-      let catPath = _W.walkPath(cat,
-                                _W.SMOOTH,
-                                _scale([
-                                  [32, 32],
-                                  [32, 128],
-                                  [300, 128],
-                                  [300, 32],
-                                  [32, 32]
-                                ]),
-                                300,
-                                true
-                              );
       let hedgehog = _S.sprite("hedgehog.png",32,256);
-      _V.set(hedgehog.scale,K,K);
-      this.insert(hedgehog);
-      let hedgehogPath = _W.walkCurve(hedgehog,
-                                      _W.SMOOTH,
-                                      [
-                                        _scale([[hedgehog.x, hedgehog.y],[75, 500],[200, 500],[300, 300]]),
-                                        _scale([[300, 300],[250, 100],[100, 100],[hedgehog.x, hedgehog.y]])
-                                      ],
-                                      300,
-                                      true
-                                    );
+      this.insert( _S.scaleXY(hedgehog,K,K));
+      _W.walkCurve(hedgehog, _W.SMOOTH,
+                             [ _scale([[hedgehog.x, hedgehog.y],[75, 500],[200, 500],[300, 300]]),
+                               _scale([[300, 300],[250, 100],[100, 100],[hedgehog.x, hedgehog.y]]) ], 300);
     });
   }
 

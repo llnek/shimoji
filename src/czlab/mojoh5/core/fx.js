@@ -10,18 +10,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
+
     const _M=gscope["io/czlab/mcfud/math"]();
     const _V=gscope["io/czlab/mcfud/vec2"]();
     const {ute:_, is}=Mojo;
-    const MFL=Math.floor,
+    const int=Math.floor,
           P5=Math.PI*5,
           PI_2= Math.PI/2,
           TWO_PI= Math.PI*2;
@@ -30,59 +31,59 @@
      * @module mojoh5/FX
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function StarWarp(C){
-      const starTexture = Mojo.tcached("boot/star.png");
-      const starAmt = 1000;
-      let cameraZ = 0;
-      const fov = 20;
-      const baseSpeed = 0.025;
-      let speed = 0;
-      let warpSpeed = 0;
-      const starStretch = 5;
-      const starBaseSize = 0.05;
-      const stars = _.fill(starAmt,(i)=>{
-        i={x:0,y:0,z:0, sprite: Mojo.Sprites.sprite("boot/star.png") };
+      const img = Mojo.tcached("boot/star.png");
+      const STAR_BASE_SZ= 0.05;
+      const STAR_STRETCH = 5;
+      const BASE_SPEED = 0.025;
+      const FOV = 20;
+      let cameraZ = 0,
+          speed = 0,
+          warpSpeed = 0;
+      const stars = _.fill(1000, i=>{
+        i={x:0,y:0,z:0, sprite: Mojo.Sprites.sprite(img) };
         i.sprite.anchor.x = 0.5;
         i.sprite.anchor.y = 0.7;
-        randStar(i, true);
+        randStar(i, _.rand()*2000);
         C.addChild(i.sprite);
         return i;
       });
-      function randStar(star, initial){
-        star.z = initial ? _.rand() * 2000 : cameraZ + _.rand() * 1000 + 2000;
-        //calculate star positions with radial random coordinate so no star hits the camera.
-        const deg = _.rand() * Math.PI * 2,
+      function randStar(star, zpos){
+        const deg = _.rand() * TWO_PI,
               distance = _.rand() * 50 + 1;
+        //calculate star positions with radial random coordinate so no star hits the camera.
+        star.z = _.nor(zpos, cameraZ + _.rand()*1000 + 2000);
         star.x = Math.cos(deg) * distance;
         star.y = Math.sin(deg) * distance;
       }
       let mark=_.now();
-      return {
+      return{
         dispose(){
           stars.forEach(s=> Mojo.Sprites.remove(s.sprite));
         },
         update(dt){
-          //simple easing. This should be changed to proper easing function when used for real.
-          let z;
+          let w2=Mojo.width/2,
+              z, h2=Mojo.height/2;
           speed += (warpSpeed - speed) / 20;
-          cameraZ += dt * 10 * (speed + baseSpeed);
+          cameraZ += dt * 10 * (speed + BASE_SPEED);
           stars.forEach(s=>{
             if(s.z < cameraZ) randStar(s);
-            // Map star 3d position to 2d with really simple projection
+            // map star 3d position to 2d with simple projection
             z = s.z - cameraZ;
-            s.sprite.x = s.x * (fov / z) * Mojo.width + Mojo.width / 2;
-            s.sprite.y = s.y * (fov / z) * Mojo.width + Mojo.height / 2;
+            s.sprite.x = s.x * (FOV/z) * Mojo.width + w2;
+            s.sprite.y = s.y * (FOV/z) * Mojo.width + h2;
             //calculate star scale & rotation.
-            const dxCenter = s.sprite.x - Mojo.width / 2;
-            const dyCenter = s.sprite.y - Mojo.height / 2;
-            const distanceCenter = Math.sqrt(dxCenter * dxCenter + dyCenter * dyCenter);
-            const distanceScale = Math.max(0, (2000 - z) / 2000);
-            s.sprite.scale.x = distanceScale * starBaseSize;
+            const dx= s.sprite.x - w2;
+            const dy= s.sprite.y - h2;
+            const d= Math.sqrt(dx* dx+ dy* dy);
+            const ds = Math.max(0, (2000 - z) / 2000);
+            s.sprite.scale.x = ds * STAR_BASE_SZ;
             // Star is looking towards center so that y axis is towards center.
             // Scale the star depending on how fast we are moving,
             // what the stretchfactor is and depending on how far away it is from the center.
-            s.sprite.scale.y = distanceScale * starBaseSize + distanceScale * speed * starStretch * distanceCenter / Mojo.width;
-            s.sprite.rotation = Math.atan2(dyCenter, dxCenter) + Math.PI / 2;
+            s.sprite.scale.y = ds * STAR_BASE_SZ + ds * speed * STAR_STRETCH * d / Mojo.width;
+            s.sprite.rotation = Math.atan2(dy, dx) + Math.PI / 2;
           });
           let now=_.now();
           if(now-mark>5000){
@@ -93,31 +94,27 @@
       }
     }
 
-
-
-
-
-
-    function Tween(s,t,frames=60,loop=false,ext={}){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function Tween(sprite,easing,duration=60,loop=false,ext={}){
       return _.inject({
-        sprite:s,
-        easing:t,
-        on:false,
-        curf:0,
+        duration,
+        sprite,
+        easing,
         loop,
-        frames,
+        cur:0,
+        on:0,
         onFrame(end,alpha){},
         _run(){
-          this.on=true;
-          this.curf=0;
+          this.cur=0;
+          this.on=1;
           TweensQueue.push(this);
         },
         onTick(){
           if(this.on){
-            if(this.curf<this.frames){
+            if(this.cur<this.duration){
               this.onFrame(false,
-                           this.easing(this.curf/this.frames));
-              this.curf += 1;
+                           this.easing(this.cur/this.duration));
+              this.cur += 1;
             }else{
               this.onFrame(true);
               if(this.loop){
@@ -125,9 +122,9 @@
                   --this.loop
                 }
                 this.onLoopReset()
-                this.curf=0;
+                this.cur=0;
               }else{
-                this.on=false;
+                this.on=0;
                 this.onComplete &&
                   _.delay(0,()=> this.onComplete());
                 this.dispose();
@@ -152,16 +149,10 @@
         },
         onLoopReset(){
           //flip values
-          if(this._x){
-            let [a,b]=this._x;
-            this._x[0]=b;
-            this._x[1]=a;
-          }
-          if(this._y){
-            let [a,b]=this._y;
-            this._y[0]=b;
-            this._y[1]=a;
-          }
+          if(this._x)
+            _.swap(this._x,0,1);
+          if(this._y)
+            _.swap(this._y,0,1);
         },
         onFrame(end,dt){
           if(this._x)
@@ -182,14 +173,11 @@
           this._run();
         },
         onLoopReset(){
-          //flip values
-          let [a,b]=this._a;
-          this._a[0]=b;
-          this._a[1]=a;
+          _.swap(this._a,0,1)
         },
         onFrame(end,alpha){
           this.sprite.rotation= end ? this._a[1]
-                                 : _M.lerp(this._a[0], this._a[1], alpha)
+                                    : _M.lerp(this._a[0], this._a[1], alpha)
         }
       })
     }
@@ -202,10 +190,7 @@
           this._run();
         },
         onLoopReset(){
-          //flip values
-          let [a,b]=this._a;
-          this._a[0]=b;
-          this._a[1]=a;
+          _.swap(this._a,0,1)
         },
         onFrame(end,alpha){
           this.sprite.alpha= end ? this._a[1]
@@ -224,16 +209,10 @@
         },
         onLoopReset(){
           //flip values
-          if(this._x){
-            let [a,b]=this._x;
-            this._x[0]=b;
-            this._x[1]=a;
-          }
-          if(this._y){
-            let [a,b]=this._y;
-            this._y[0]=b;
-            this._y[1]=a;
-          }
+          if(this._x)
+            _.swap(this._x,0,1);
+          if(this._y)
+            _.swap(this._y,0,1);
         },
         onFrame(end,dt){
           if(this._x)
@@ -258,10 +237,10 @@
               break;
             }
           }
-          if(this.children.length===0){
+          if(this.children.length==0){
+            this.dispose();
             this.onComplete &&
               _.delay(0,()=>this.onComplete());
-            this.dispose();
           }
         },
         size(){
@@ -277,29 +256,30 @@
       return t;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /**Easing function: exponential-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  EXPO_IN(x){ return x===0 ? 0 : Math.pow(1024, x-1) },
+		  EXPO_IN(x){ return x==0 ? 0 : Math.pow(1024, x-1) },
       /**Easing function: exponential-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  EXPO_OUT(x){ return x===1 ? 1 : 1-Math.pow(2, -10*x) },
+		  EXPO_OUT(x){ return x==1 ? 1 : 1-Math.pow(2, -10*x) },
       /**Easing function: exponential-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
 		  EXPO_INOUT(x){
-			  return x===0 ? 0
-                     : (x===1) ? 1
-                     : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
-                     : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
+			  return x==0 ? 0
+                    : (x==1) ? 1
+                             : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
+                                          : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
       /**Easing function: linear.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -413,18 +393,18 @@
        * @return {number}
        */
 		  ELASTIC_IN(x){
-        return x===0 ? 0
-                     : x===1 ? 1
-                     : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
+        return x==0 ? 0
+                    : x==1 ? 1
+                           : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
       /**Easing function: elastic-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
 		  ELASTIC_OUT(x){
-        return x===0 ? 0
-                     : x===1 ? 1
-                     : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
+        return x==0 ? 0
+                    : x==1 ? 1
+                           : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
       /**Easing function: elastic-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -651,61 +631,54 @@
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
        * @param {function} type
-       * @param {Vec2[]} points
+       * @param {Vec2[]} path
        * @param {number} frames
        * @return {TweenXY}
        */
-      followCurve(s, type, points, frames=60){
+      followCurve(s, type, path, frames=60){
         let t= TweenXY(s,type,frames);
-        let self=this;
-        t.start=function(ps){
-          this._p = ps;
-          this._run();
-        };
+        t.start=function(){ this._run() };
         t.onFrame=function(end,alpha){
-          let p = this._p;
           if(!end)
-            _V.set(s, self.CUBIC_BEZIER(alpha, p[0][0], p[1][0], p[2][0], p[3][0]),
-                      self.CUBIC_BEZIER(alpha, p[0][1], p[1][1], p[2][1], p[3][1])) };
-        return t.start(points), t;
+            _V.set(s, _$.CUBIC_BEZIER(alpha, path[0][0], path[1][0], path[2][0], path[3][0]),
+                      _$.CUBIC_BEZIER(alpha, path[0][1], path[1][1], path[2][1], path[3][1]))
+        };
+        return t.start(), t;
       },
       /**Make object walk in a path.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
        * @param {function} type
-       * @param {Vec2[]} points
-       * @param {number} frames
+       * @param {Vec2[]} path
+       * @param {number} duration
        * @return {TweenXY}
        */
-      walkPath(s, type, points, frames=300){
-        let _calcPath=(cur,frames)=>{
-          let t= this.tweenXY(s,type,[points[cur][0], points[cur+1][0]],
-                                     [points[cur][1], points[cur+1][1]],frames);
+      walkPath(s, type, path, duration=300){
+        return (function _calc(cur,frames){
+          let t= _$.tweenXY(s,type,[path[cur][0], path[cur+1][0]],
+                                   [path[cur][1], path[cur+1][1]],frames);
           t.onComplete=()=>{
-            if(++cur < points.length-1)
-              _.delay(0,()=> _calcPath(cur,frames)) };
+            if(++cur < path.length-1)
+              _.delay(0,()=> _calc(cur,frames)) };
           return t;
-        }
-        return _calcPath(0, MFL(frames/points.length));
+        })(0, _M.ndiv(duration, path.length));
       },
       /**Make object appear to walk in a curved path.
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
        * @param {function} type
-       * @param {Vec2[]} points
-       * @param {number} frames
+       * @param {Vec2[]} path
+       * @param {number} duration
        * @return {TweenXY}
        */
-      walkCurve(s, type, points, frames=300){
-        let _calcPath=(cur,frames)=>{
-          let t=this.followCurve(s, type,
-                                 points[cur], frames);
+      walkCurve(s, type, path, duration=300){
+        return (function _calc(cur,frames){
+          let t=_$.followCurve(s, type, path[cur], frames);
           t.onComplete=()=>{
-            if(++cur < points.length)
-              _.delay(0,()=> _calcPath(cur,frames)) };
+            if(++cur < path.length)
+              _.delay(0,()=> _calc(cur,frames)) };
           return t;
-        }
-        return _calcPath(0, MFL(frames/points.length));
+        })(0, _M.ndiv(duration,path.length));
       },
       /**Remove this tween object.
        * @memberof module:mojoh5/FX
@@ -739,10 +712,10 @@
           Mojo.Sprites.sizeXY(p, size,size);
           _V.set(p,x,y);
           Mojo.Sprites.centerAnchor(p);
-          p.m5.scaleSpeed = _.randFloat(mins.scale, maxs.scale);
-          p.m5.alphaSpeed = _.randFloat(mins.alpha, maxs.alpha);
-          p.m5.angVel = _.randFloat(mins.rotate, maxs.rotate);
-          let speed = _.randFloat(mins.speed, maxs.speed);
+          p.m5.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
+          p.m5.alphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
+          p.m5.angVel = _.randFloat2(mins.rotate, maxs.rotate);
+          let speed = _.randFloat2(mins.speed, maxs.speed);
           _V.set(p.m5.vel, speed * Math.cos(angle),
                            speed * Math.sin(angle));
           //the worker
@@ -764,8 +737,8 @@
           };
         }
         for(let gap= (maxs.angle-mins.angle)/(count-1),
-            a=mins.angle,i=0; i<count; ++i){
-          _make(random ? _.randFloat(mins.angle, maxs.angle) : a);
+                a=mins.angle,i=0; i<count; ++i){
+          _make(random ? _.randFloat2(mins.angle, maxs.angle) : a);
           a += gap;
         }
       },
@@ -784,7 +757,7 @@
             startMagnitude= magnitude,
             //Divide the magnitude into 10 units so that you can
             //reduce the amount of shake by 10 percent each frame
-            magnitudeUnit = MFL(magnitude / numberOfShakes);
+            magnitudeUnit = _M.ndiv(magnitude , numberOfShakes);
         function _upAndDownShake(){
           if(counter<numberOfShakes){
             s.x = startX;
@@ -834,7 +807,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
     gscope["io/czlab/mojoh5/FX"]=function(M){

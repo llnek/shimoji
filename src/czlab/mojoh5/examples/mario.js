@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -21,7 +21,7 @@
            Sprites:_S,
            Input:_I,
            Tiles:_T,
-           "2d":_2d,
+           "D2":_2d,
            v2:_V,
            Game:G,
            ute:_,is}=Mojo;
@@ -84,7 +84,7 @@
       _S.centerAnchor(s);
       _V.add$(s, [Math.floor(s.width/2),
                   Math.floor(s.height/2)]);
-      Mojo.addMixin(s,"2d",[_2d.Patrol,true,false]);
+      Mojo.addMixin(s,"arcade",[_2d.Patrol,true,false]);
       s.m5.heading=Mojo.LEFT;
       s.m5.speed= 150;
       s.m5.vel[0]= -150;
@@ -108,10 +108,10 @@
         }
       };
       s.m5.tick=(dt)=>{
-        s["2d"] && s["2d"].onTick(dt);
+        s["arcade"] && s["arcade"].onTick(dt);
         if(s.m5.dead){
-          s["2d"] && s["2d"].Patrol.dispose();
-          s["2d"]=null;
+          s["arcade"] && s["arcade"].Patrol.dispose();
+          s["arcade"]=null;
           ++s.m5.deadTimer;
           if(s.m5.deadTimer > 24){
             // Dead for 24 frames, remove it.
@@ -176,7 +176,7 @@
         p.m5.speed= 300;
         p.m5.score= 0;
         _S.centerAnchor(p);
-        Mojo.addMixin(p,"2d",[_2d.Platformer]);
+        Mojo.addMixin(p,"arcade",[_2d.Platformer]);
         p.m5.showFrame(1);
         //p["2d"].Platformer.jumpSpeed= -500;
         p.m5.heading= Mojo.RIGHT;
@@ -231,7 +231,8 @@
                      [["jump",p]],
                      [["jumped",p]],
                      [["down",Mojo.input],"checkDoor",p]];
-        p.m5.getContactPoints=function(){
+        //TODO: fix this
+        p.m5.XXgetContactPoints=function(){
           return _mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
                                            : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
         };
@@ -239,7 +240,7 @@
         p.checkDoor=function(){ p.m5.checkDoor = true; };
         p.resetLevel=function(){ };
         p.checkLadder=(col)=>{
-          if(!p.g.onLadder && col.tiled.gid===32){
+          if(!p.g.onLadder && col.tiled.gid==32){
             p.g.onLadder=true;
             p.x=col.x;
           }
@@ -253,19 +254,19 @@
         };
         p.breakTile=(col)=>{
           let gid=col.B.tiled.gid;
-          if(gid===25||gid===37){
+          if(gid==25||gid==37){
             let s,[tx,ty]= scene.getTile(col.B);
             //_S.remove(col.B);
             scene.removeTile("Collision",col.B);
             Mojo.sound("coin.mp3").play();
-            s=scene.setTile("Collision",ty,tx, gid===25?37:25);
+            s=scene.setTile("Collision",ty,tx, gid==25?37:25);
             scene.insert(s);
           }
         };
 
         p.m5.tick=function(dt){
-          p["2d"].onTick(dt);
-          if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
+          p["arcade"].onTick(dt);
+          if(p.m5.vel[0]==0 && p.m5.vel[1]==0){
             if(!p.g.onLadder && !_I.keyDown(_I.DOWN)) p.m5.showFrame(1);
           }
           if(p.g.onLadder){
@@ -280,143 +281,6 @@
           }
         };
 
-        /*
-        let wall=_T.getTileLayer(world,"Collision");
-        let scene=world.parent;
-        let mo=p.m5;
-        scene.player=p;
-        p.x=ps.x-210;
-        p.y=ps.y-72;
-        world.addChild(p);
-
-        p.checkLadder=function(col){
-          if(col.B.tiled.ladder){
-            mo.onLadder = true;
-            mo.ladderX = col.B.x;
-          }
-        };
-        p.enemyHit=function(data){
-          let col = data.col;
-          let enemy = data.enemy;
-          mo.vel[1] = -150;
-          if(col.overlapN[0] === 1){
-            // Hit from right
-            mo.x -=15;
-            mo.y -=15;
-          }else{
-            // Hit from left
-            mo.x +=15;
-            mo.y -=15;
-          }
-          mo.immune = true;
-          mo.immuneTimer = 0;
-          mo.immuneOpacity = 1;
-          mo.strength -= 25;
-          //Mojo.runScene('hud', 3, this.p);
-          if(mo.strength === 0){
-            p.resetLevel();
-          }
-        };
-        p.continueOverSensor=function(){
-          mo.vel[1] = 0;
-          //a.enact((this.p.vx !== 0 ? "walk_" : "stand_") + Mojo.dirToStr(this.p.direction));
-        };
-        p.m5.tick=function(dt){
-          p["2d"].onTick(dt);
-          p["platformer"].onTick(dt);
-          if(p.m5.vel[0]===0 && p.m5.vel[1]===0){
-            //if(_.feq0(p.m5.vel[0]) && _.feq0(p.m5.vel[1]))
-            if(!_I.keyDown(_I.keyDOWN))
-              p.m5.showFrame(1);
-          }
-          let processed = false;
-          if(mo.immune){
-            //Swing the sprite opacity between 50 and 100% percent when immune.
-            if((mo.immuneTimer % 12) === 0){
-              let opacity = (mo.immuneOpacity === 1 ? 0 : 1);
-              //f_tween.animate({"opacity":opacity}, 0);
-              mo.immuneOpacity = opacity;
-            }
-            mo.immuneTimer++;
-            if(mo.immuneTimer > 144){
-              // 3 seconds expired, remove immunity.
-              mo.immune = false;
-              //f_tween.animate({"opacity": 1}, 1);
-            }
-          }
-          if(mo.onLadder){
-            mo.gravity[0]=0; mo.gravity[1] = 0;
-            if(_I.keyDown(_I.keyUP)){
-              mo.vel[1] = -mo.speed;
-              p.x = mo.ladderX;
-              //f_anim.enact("climb");
-            }else if(_I.keyDown(_I.keyDOWN)){
-              mo.vel[1] = mo.speed;
-              p.x = mo.ladderX;
-              //f_anim.enact("climb");
-            }else{
-              p.continueOverSensor();
-            }
-            processed = true;
-          }
-          if(!processed && mo.door){
-            mo.gravity[0]=0;mo.gravity[1] = 500;
-            if(mo.checkDoor && p.platformer.landed > 0){
-              // Enter door.
-              p.y = mo.door.y;
-              p.x = mo.door.x;
-              //f_anim.enact('climb');
-              mo.toDoor = mo.door.findLinkedDoor();
-              processed = true;
-            }else if(mo.toDoor){
-              // Transport to matching door.
-              p.y = mo.toDoor.y;
-              p.x = mo.toDoor.x;
-              //f_view.centerOn(this.p.x, this.p.y);
-              mo.toDoor = false;
-              //f_view.follow(this);
-              processed = true;
-            }
-          }
-          if(!processed){
-            mo.gravity[0] =0; mo.gravity[1] = 500;
-            if(_I.keyDown(_I.keyDOWN) && !mo.door){
-              mo.ignoreControls = true;
-              //f_anim.enact("duck_" + Mojo.dirToStr(this.p.direction));
-              if(p.platformer.landed > 0){
-                mo.vel[0] *= (1 - dt*2);
-              }
-              //this.p.points = this.p.duckingPoints;
-            }else{
-              mo.ignoreControls = false;
-              //this.p.points = this.p.standingPoints;
-              if(mo.vel[0] > 0){
-                if(p.platformer.landed > 0){
-                  //f_anim.enact("walk_right");
-                }else{
-                  //f_anim.enact("jump_right");
-                }
-                mo.direction = Mojo.RIGHT;
-              }else if(mo.vel[0] < 0){
-                if(p.platformer.landed > 0){
-                  //f_anim.enact("walk_left");
-                }else{
-                  //f_anim.enact("jump_left");
-                }
-                mo.direction = Mojo.LEFT;
-              }else{
-                //f_anim.enact("stand_" + Mojo.dirToStr(this.p.direction));
-              }
-            }
-          }
-          mo.onLadder = false;
-          mo.door = false;
-          mo.checkDoor = false;
-          if(p.y > 2000) {
-            //p.resetLevel();
-          }
-        };
-      */
         signals.forEach(s=>Mojo.on(...s));
         return G.player=p;
       }
@@ -461,7 +325,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["unscii.fnt","mario.json",
+      assetFiles: ["mario.json",
          "fire.mp3", "jump.mp3", "heart.mp3", "hit.mp3", "coin.mp3",
          "bg.png","bg_castle.png","collectables.png","doors.png","enemies.png","blocks.png", "player.png"],
       scaleToWindow:"max",

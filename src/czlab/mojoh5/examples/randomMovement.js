@@ -10,17 +10,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
   "use strict";
 
   function scenes(Mojo){
+    const _M=window["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "2d":_2d,
+           "D2":_2d,
            Tiles:_T,
            v2:_V,
            Game:G,
@@ -29,10 +30,9 @@
     const E_PLAYER=1,
           E_ITEM=2;
 
-    Mojo.defMixin("enemyAI", function(e){
+    Mojo.defMixin("ai", function(e){
       e.m5.heading=Mojo.LEFT;
       e.m5.reroute=15/100;
-
       function tryDir(){
         if(_S.isVX(e) && !_S.isVY(e))
           e.m5.heading = _.rand()<0.5 ? Mojo.UP : Mojo.DOWN;
@@ -68,17 +68,17 @@
       Player:{
         c(scene,s,ts,ps,os){
           let K=scene.getScaleFactor();
-          Mojo.addMixin(s,"2d",[_2d.MazeRunner]);
+          Mojo.addMixin(s,"arcade",[_2d.MazeRunner]);
           s.m5.heading=Mojo.RIGHT;
           s.m5.type=E_PLAYER;
           s.m5.uuid="player";
           s.m5.speed=4*K;
           _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
-          _V.add$(s, [Math.floor(s.width/2),
-                      Math.floor(s.height/2)]);
+          _V.add$(s, [_M.ndiv(s.width,2),
+                      _M.ndiv(s.height,2)]);
           _S.centerAnchor(s);
           s.m5.tick=()=>{
-            s["2d"].onTick();
+            s["arcade"].onTick();
           };
           return G.player=s;
         },
@@ -93,22 +93,22 @@
           s.m5.uuid=`e#${_.nextId()}`;
           s.m5.cmask=E_PLAYER;
           s.m5.type=E_ITEM;
-          _V.set(s.scale,K,K);
-          _V.add$(s,[Math.floor(s.width/2),
-                     Math.floor(s.height/2)]);
+          _S.scaleXY(s,K,K);
+          _V.add$(s,[_M.ndiv(s.width,2),
+                     _M.ndiv(s.height,2)]);
           s.m5.heading = Mojo.NONE;
           s.m5.speed = 4*K;
           _S.centerAnchor(s);
           _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
-          Mojo.addMixin(s,"2d");
-          Mojo.addMixin(s,"enemyAI");
+          Mojo.addMixin(s,"arcade");
+          Mojo.addMixin(s,"ai");
           s.m5.boom=(col)=>{
             if(col.B.m5.uuid=="player")
               Mojo.pause();
           };
           s.m5.tick=(dt)=>{
-            s["2d"].onTick();
-            s["enemyAI"].onTick();
+            s["arcade"].onTick();
+            s["ai"].onTick();
             let ca= _S.centerXY(G.player);
             let cm= _S.centerXY(s);
             let d2=_V.len2(_V.sub$(ca,cm));

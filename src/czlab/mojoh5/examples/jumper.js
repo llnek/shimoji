@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -25,7 +25,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "2d":_2d,
+           "D2":_2d,
            Game:G,
            v2:_V,
            ute:_,is}=Mojo;
@@ -79,16 +79,16 @@
       p.y= -180*K;
       _S.centerAnchor(p);
       scene.insert(p,true);
-      Mojo.addMixin(p,"2d",[_2d.Platformer]);
+      Mojo.addMixin(p,"arcade",[_2d.Platformer]);
       _V.set(p.m5.gravity,0,200 * K);
       p.m5.speed=200 * K;
-      p["2d"].Platformer.jumpSpeed *= K;
+      p["arcade"].Platformer.jumpSpeed *= K;
       p.m5.tick=function(dt){
         if(p.y > scene.b5.y+scene.b5.height*3*K){
           _S.remove(p);
           _Z.runScene("endGame",{msg: "You Fell!"});
         }else{
-          p["2d"].onTick(dt);
+          p["arcade"].onTick(dt);
         }
       };
       return p;
