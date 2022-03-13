@@ -8,7 +8,7 @@ const jsdoc=require("gulp-jsdoc3");
 const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
-  "vendor/mcfud.js","vendor/shimoji.js",
+  "vendor/mcfud.js","public/shimoji.js",
   "models.js","tripeaks.js"
 ];
 

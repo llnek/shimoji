@@ -3759,13 +3759,13 @@
       p=items[P];
       for(let s,i=P-1;i>=0;--i){
         s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinTop":"pinLeft"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinAbove":"pinLeft"](p,s,pad);
         p=s;
       }
       p=items[P];
       for(let s,i=P+1;i<items.length; ++i){
         s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinBelow":"pinRight"](p,s,pad);
         p=s;
       }
     }
