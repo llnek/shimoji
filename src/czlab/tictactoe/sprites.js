@@ -96,7 +96,7 @@
       o.dispose=()=> Mojo.off(...signal);
       o.aiMove=()=> _.delay(500,()=> o.makeMove());
       o.makeMove=function(){
-        //console.log("level===="+_G.level);
+        //Mojo.CON.log("level===="+_G.level);
         let {cells,level}=_G,
           rc, pos= level == "#hard"?this.board.run(cells, this.pnum)
                                    :bruteAI(level, cells,this.pnum, _G.getOtherIcon(this.pnum));
