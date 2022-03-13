@@ -935,20 +935,32 @@
       },
       shuffle2(obj,inplace=true){
         _pre(isVec,obj,"array");
-        if(obj.length<3){
-          obj= this.shuffle(obj,inplace)
-        }else{
-          const n = obj.length,
-                res=Slicer.call(obj,0);
-          for(let s,r,i=0; i<n; ++i){
-            // choose index uniformly in [i, n-1]
-            r = i + int(PRNG() * (n - i));
-            s= obj[r];
-            obj[r] = obj[i];
-            obj[i] = s;
-          }
+        const res=Slicer.call(obj,0);
+        switch(res.length){
+          case 0:
+          case 1:
+            break;
+          case 2:
+            if(this.randSign()>0){
+              let a=res[0];
+              res[0]=res[1];
+              res[1]=a;
+            }
+            break;
+          default:
+            for(let s,r,i=0,n=res.length; i<n; ++i){
+              // choose index uniformly in [i, n-1]
+              r = i + int(PRNG() * (n - i));
+              s= res[r];
+              res[r] = res[i];
+              res[i] = s;
+            }
         }
-        return obj;
+        return inplace?this.copy(obj,res):res;
+      },
+      shuffle3(obj,inplace=true){
+        let a= inplace? obj : Slicer.call(obj,0);
+        return a.sort((x,y)=> this.rand()>0.5?-1:(this.rand()>0.5?1:0))
       },
       /**Get the distinct items only.
        * @memberof module:mcfud/core._
@@ -17099,7 +17111,6 @@
       fps: 60
     });
 
-
     //const _height=()=> document.documentElement.clientHeight;
     //const _width=()=> document.documentElement.clientWidth;
     const _height=()=> gscope.innerHeight;
@@ -17146,26 +17157,25 @@
       const {Sprites}=Mojo;
       return {
         init(){
-          let logo=Sprites.sprite("boot/ZotohLab_x1240.png");
-          let pbar=Sprites.sprite("boot/preloader_bar.png");
-          let [w,h]=Mojo.scaleXY([logo.width,logo.height],
-                                 [Mojo.width,Mojo.height]);
-          let K=Mojo.getScaleFactor();
-          let k= w>h?h:w;
+          let logo=Sprites.sprite("boot/ZotohLab_x1240.png"),
+            pbar=Sprites.sprite("boot/preloader_bar.png"),
+            [w,h]=Mojo.scaleXY([logo.width,logo.height],
+                               [Mojo.width,Mojo.height]),
+            K=Mojo.getScaleFactor(),
+            k= w>h?h:w;
           k *= 0.2;
           Sprites.scaleXY(pbar,k,k);
           Sprites.scaleXY(logo,k,k);
           Sprites.pinCenter(this,logo);
-          Sprites.pinBottom(logo,pbar,4*K);
-          pbar.visible=false;
+          Sprites.pinBelow(logo,pbar,4*K);
+          Sprites.hide(pbar);
           this.g.pbar=pbar;
           this.g.pbar_width=pbar.width;
           this.insert(logo);
           this.insert(pbar);
         },
         update(file,progress){
-          if(!this.g.pbar.visible)
-            this.g.pbar.visible=true
+          this.g.pbar.visible?0:Sprites.show(this.g.pbar);
           this.g.pbar.width = this.g.pbar_width*(progress/100);
         }
       };
@@ -17196,7 +17206,7 @@
         if(ldrObj)
           Mojo.delBgTask(ldrObj);
         _.delay(0,()=>{
-          Mojo.Scenes.removeScene(scene);
+          Mojo.Scenes.remove(scene);
           if(!error)
             Mojo.u.start(Mojo);
           else
@@ -17895,6 +17905,13 @@
       tcached(x){
         return _.inst(this.PXTexture,x)?x
           :(is.str(x)? PIXI.utils.TextureCache[x] || PIXI.utils.TextureCache[this.assetPath(x)] : UNDEF)
+      },
+      /**Click to play message.
+       * @memberof module:mojoh5/Mojo
+       * @return {string}
+       */
+      clickPlayMsg(){
+        return `${this.touchDevice?"Tap":"Click"} to Play!`
       },
       /**Converts the position into a [col, row] for grid oriented processing.
        * @memberof module:mojoh5/Mojo
@@ -18892,8 +18909,8 @@
 
     const _PT=_V.vec();
     const _$={
-      SomeColors,
-      BtnColors,
+      SomeColors:{},
+      BtnColors:{},
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
                "boot/trail.png","boot/star.png",
                "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
@@ -19412,13 +19429,18 @@
        * @return {Sprite} s
        */
       tint(s,color){ s.tint=color; return s },
+      /**Unset a sprite's visibility.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      hide(s){s.visible=false;return s},
       /**Set a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
-       * @param {boolean} t
        * @return {Sprite} s
        */
-      manifest(s,t=true){ s.visible=t; return s },
+      show(s){s.visible=true;return s},
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -19649,12 +19671,20 @@
        * @param {number} y
        * @return {BitmapText}
        */
-      bitmapText(msg,fstyle,x=0,y=0){
+      bitmapText(msg,name,size){
         //in pixi, no fontSize, defaults to 26, left-align
+        let fstyle;
+        if(is.str(name)){
+          fstyle={fontName:name};
+          if(is.num(size)) fstyle.fontSize=size;
+        }else{
+          fstyle=name;
+        }
         if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
         if(!fstyle.fontName) fstyle.fontName="unscii";
         if(!fstyle.align) fstyle.align="center";
-        return _V.set(this.extend(new Mojo.PXBText(msg,fstyle)),x,y) },
+        return this.extend(new Mojo.PXBText(msg,fstyle));
+      },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
@@ -20176,7 +20206,7 @@
        * @param {number} padY
        * @param {number} alignX
        */
-      pinTop(C,b,padY=10,alignX=0.5){
+      pinAbove(C,b,padY=10,alignX=0.5){
         let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
         let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
         let y=boxA.y1-padY-(boxB.y2-boxB.y1);
@@ -20194,7 +20224,7 @@
        * @param {number} padY
        * @param {number} alignX
        */
-      pinBottom(C,b,padY=10,alignX=0.5){
+      pinBelow(C,b,padY=10,alignX=0.5){
         let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
         let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
         let y=boxA.y2+padY;
@@ -20439,7 +20469,8 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //aliases
     _$.bmpText=_$.bitmapText;
-
+    _.doseq(SomeColors,(v,k)=>{ _$.SomeColors[k]= _$.color(v) });
+    _.doseq(BtnColors,(v,k)=>{ _$.BtnColors[k]= _$.color(v) });
     return (Mojo.Sprites= _$);
   }
 
@@ -20488,16 +20519,18 @@
      * @module mojoh5/Scenes
      */
 
-    /** @ignore */
-    function _sceneid(id){
-      return id.startsWith("scene::") ? id : `scene::${id}` }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _sceneid=(id)=> id.startsWith("scene::") ? id : `scene::${id}` ;
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _killScene(s){
       if(s){
         s.dispose && s.dispose();
-        s.parent.removeChild(s); } }
+        s.parent.removeChild(s);
+      }
+    }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** internal class, wraps a scene */
     class SceneWrapper extends Mojo.PXContainer{
       constructor(s){
@@ -20523,34 +20556,35 @@
      */
     class Scene extends Mojo.PXContainer{
       /**
-       * @param {string} id
+       * @param {string} sid
        * @param {object|function} func
        * @param {object} [options]
        */
-      constructor(id,func,options){
+      constructor(sid,func,options){
         super();
-        this.name= _sceneid(id);
+        this.name= _sceneid(sid);
         this.g={};
         this.m5={
-          sid:id,
           index:{},
           queue:[],
           garbo:[],
+          sid,
           options,
           stage:true,
           sgrid:SG.spatialGrid(options.sgridX||320,
                                options.sgridY||320) };
+        let s;
         if(is.fun(func)){
-          this.m5.setup= func.bind(this)
+          s=func;
         }else if(is.obj(func)){
-          let s= _.dissoc(func,"setup");
+          s= _.dissoc(func,"setup");
           _.inject(this, func);
-          if(s)this.m5.setup=s.bind(this); }
+        }
+        if(s)
+          this.m5.setup=s.bind(this);
       }
-      _hitObjects(grid,obj,found,maxCol=3){
-        let curCol=maxCol;
-        for(let m,b,
-            i=0,z=found.length;i<z;++i){
+      _hitObjects(grid,obj,found,repeat=3){
+        for(let m,b,i=0,cur=repeat;i<found.length;++i){
           b=found[i];
           if(obj !== b &&
              !b.m5.dead &&
@@ -20561,20 +20595,24 @@
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--curCol==0){break} } }
+              if(--curCol==0){break}
+            }
+          }
         }
       }
       collideXY(obj){
         this._hitObjects(this.m5.sgrid,obj,
-                         this.m5.sgrid.search(obj)) }
+                         this.m5.sgrid.search(obj))
+      }
       /**Callback to handle window resizing.
        * @param {number[]} old  window size before resize
        */
       onCanvasResize([width,height]){
         Mojo.Sprites.resize({x:0,y:0,
-                             width:width,
-                             height:height,
-                             children:this.children}) }
+                             width,
+                             height,
+                             children:this.children})
+      }
       /**Run this function after a delay in millis.
        * @param {function}
        * @param {number} delayMillis
@@ -20610,13 +20648,14 @@
           if(c.m5.button)
             Mojo.Input.undoButton(c);
           Mojo.off(c);
-          _.dissoc(this.m5.index,c.m5.uuid); } }
+          _.dissoc(this.m5.index,c.m5.uuid); }
+      }
       /**Remove item from spatial grid temporarily.
        * @param {Sprite} c
        * @return {Sprite} c
        */
       degrid(c){
-        if(c)
+        if(c && c.m5._engrid)
           this.m5.sgrid.degrid(c);
         return c;
       }
@@ -20653,8 +20692,13 @@
         }
         return c;
       }
-      /** @ignore */
       _addit(c,pos){
+        let self=this,
+          w=(r)=>{
+            if(r.m5)
+              r.m5.root=self;
+            r.children.forEach(z=>w(z)); };
+        ///
         if(is.num(pos) &&
            pos >= 0 &&
            pos < this.children.length){
@@ -20662,23 +20706,25 @@
         }else{
           this.addChild(c);
         }
-        return (this.m5.index[c.m5.uuid]=c); }
+        w(c);
+        return (this.m5.index[c.m5.uuid]=c);
+      }
       /**Clean up.
       */
       dispose(){
+        const i=Mojo["Input"];
         function _c(o){
           if(o){
-            o.children.length>0 && o.children.forEach(c=> _c(c));
-            const i=Mojo.Input;
             if(o.m5){
               o.m5.drag && i.undoDrag(o);
-              o.m5.button && i.undoButton(o); } } }
+              o.m5.button && i.undoButton(o); }
+            o.children.length>0 && o.children.forEach(c=> _c(c)); }
+        }
         Mojo.off(this);
-        this.m5.dead=true;
         _c(this);
+        this.m5.dead=true;
         this.removeChildren();
       }
-      /** @ignore */
       _tick(r,dt){
         r.forEach(c=>{
           if(c.visible && c.m5 && c.m5.tick){
@@ -20691,6 +20737,7 @@
             }
             c.m5.flip=false;
             Mojo.emit(["post.tick",c],dt);
+            //might have moved, so regrid
             if(c.m5._engrid) this.m5.sgrid.engrid(c);
           }
           c.children.length>0 && this._tick(c.children, dt)
@@ -20741,47 +20788,48 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _layItems(C,items,pad,dir,skip){
       let p,P=0,m=-1;
       items.forEach((s,i)=>{
-        if(dir===Mojo.DOWN){
+        if(dir==Mojo.DOWN){
           if(s.width>m){ P=i; m=s.width; }
         }else{
           if(s.height>m){ P=i; m=s.height; }
         }
         if(!skip) C.addChild(s);
-        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor");
+        _.assert(_.feq0(s.anchor.x)&&_.feq0(s.anchor.y),"wanted topleft anchor");
       });
       //P is the fatest or tallest
       p=items[P];
       for(let s,i=P-1;i>=0;--i){
         s=items[i];
-        Mojo.Sprites[dir===Mojo.DOWN?"pinTop":"pinLeft"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinAbove":"pinLeft"](p,s,pad);
         p=s;
       }
       p=items[P];
       for(let s,i=P+1;i<items.length; ++i){
         s=items[i];
-        Mojo.Sprites[dir===Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinBelow":"pinRight"](p,s,pad);
         p=s;
       }
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _layout(items,options,dir){
-      const {Sprites}=Mojo,
-            K=Mojo.getScaleFactor();
+      let {Sprites:_S}=Mojo,
+        K=Mojo.getScaleFactor();
       if(items.length==0){return}
       options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
                                 borderWidth:4,
-                                border:0xffffff});
-      let borderWidth=options.borderWidth * K;
-      let C=options.group || Sprites.container();
-      let pad=options.padding * K;
-      let fit= options.fit * K;
-      let last,w,h,p,fit2= 2*fit;
+                                border:_S.SomeColors.white});
+      let borderWidth=options.borderWidth * K,
+        C=options.group || _S.container(),
+        pad=options.padding * K,
+        fit= options.fit * K,
+        last,w,h,p,fit2= 2*fit;
 
       _layItems(C,items,pad,dir,options.skipAdd);
       w= C.width;
@@ -20790,9 +20838,9 @@
 
       //create a backdrop
       if(true){
-        let r= Sprites.rect(w+fit2,h+fit2,
-                            options.bg,
-                            options.border, borderWidth);
+        let r= _S.rect(w+fit2,h+fit2,
+                       options.bg,
+                       options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
         if(!is.vec(options.bg)){
           r.alpha= options.opacity==0 ? 0 : (options.opacity || 0.5);
@@ -20804,7 +20852,7 @@
       w= C.width;
 
       let [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)];
-      if(dir===Mojo.DOWN){
+      if(dir==Mojo.DOWN){
         //realign on x-axis
         items.forEach(s=> s.x=w2-_M.ndiv(s.width,2));
         let hd= h-(last.y+last.height);
@@ -20830,11 +20878,11 @@
       return C;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _choiceBox(items,options,dir){
-      const selectedColor=Mojo.Sprites.color(options.selectedColor);
-      const disabledColor=Mojo.Sprites.color(options.disabledColor);
-      let cur;
+      let {Sprites:_S,Input:_I}=Mojo,
+        selectedColor=_S.color(options.selectedColor),
+        c,cur, disabledColor=_S.color(options.disabledColor);
       items.forEach(o=>{
         if(o.m5.uuid==options.defaultChoice){
           cur=o;
@@ -20842,24 +20890,22 @@
         }else{
           o.tint=disabledColor;
         }
-        Mojo.Input.mkBtn(o);
-        o.m5.press=(b)=>{
-          if(b!==cur){
-            cur.tint=disabledColor;
-            b.tint=selectedColor;
-            cur=b;
-            options.onClick && options.onClick(b);
-          }
-        };
+        if(o.m5.button)
+          o.m5.press=(b)=>{
+            if(b!==cur){
+              cur.tint=disabledColor;
+              b.tint=selectedColor;
+              cur=b;
+              options.onClick && options.onClick(b);
+            }
+          };
       });
       if(!cur){
         cur=items[0];
         cur.tint= selectedColor;
       }
-      let c= _layout(items,options,dir);
-      c.getSelectedChoice=function(){
-        return cur.m5.uuid
-      };
+      c= _layout(items,options,dir);
+      c.getSelectedChoice=()=> cur.m5.uuid;
       return c;
     }
 
@@ -20906,41 +20952,38 @@
        * @param {object|function} func
        * @param {object} [options]
        */
-      defScene(name, func, options){
+      scene(name, func, options){
         //add a new scene definition
         if(is.fun(func))
           func={setup:func};
-        ScenesDict[name]=[func, options]; },
+        ScenesDict[name]=[func, options];
+      },
       /**Replace the current scene with this one.
        * @memberof module:mojoh5/Scenes
        * @param {string|Scene} cur
        * @param {string} name
        * @param {object} [options]
        */
-      replaceScene(cur,name,options){
-        const n=_sceneid(is.str(cur)?cur:cur.name);
-        const c= Mojo.stage.getChildByName(n);
+      replace(cur,name,options){
+        const n=_sceneid(is.str(cur)?cur:cur.name),
+          c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;
-        return this.runScene(name, Mojo.stage.getChildIndex(c),options); },
+        return this.run(name, Mojo.stage.getChildIndex(c),options);
+      },
       /**Remove these scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...Scene} args
        */
-      removeScene(...args){
+      remove(...args){
         if(args.length==1 &&
            is.vec(args[0])){ args=args[0] }
-        args.forEach(a=>{
-          if(is.str(a))
-            _killScene(Mojo.stage.getChildByName(_sceneid(a)));
-          else if(a)
-            _killScene(a);
-        })
+        args.forEach(a=>_killScene(is.str(a)?Mojo.stage.getChildByName(_sceneid(a)):a))
       },
       /**Remove all the scenes.
        * @memberof module:mojoh5/Scenes
        */
-      removeScenes(){
+      removeAll(){
         while(Mojo.stage.children.length>0)
           _killScene(Mojo.stage.children[Mojo.stage.children.length-1])
         Mojo.mouse.reset();
@@ -20951,7 +20994,7 @@
        * @param {string} name
        * @return {Scene}
        */
-      findScene(name){
+      find(name){
         return Mojo.stage.getChildByName(_sceneid(name)) },
       /**Remove all scenes first then run this scene.
        * @memberof module:mojoh5/Scenes
@@ -20960,19 +21003,19 @@
        * @param {object} [options]
        * @return {Scene}
        */
-      runSceneEx(name,num,options){
-        this.removeScenes();
-        this.runScene(name,num,options);
+      runEx(name,num,options){
+        this.removeAll();
+        this.run(name,num,options);
       },
       /**Run a sequence of scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...any} args
        * @return {Scene}
        */
-      runSceneSeq(...args){
+      runSeq(...args){
         args.forEach(a=>{
           _.assert(is.vec(a),"Expecting array");
-          this.runScene(a[0],a[1],a[2]);
+          this.run(a[0],a[1],a[2]);
         });
       },
       /**Run this scene.
@@ -20982,13 +21025,14 @@
        * @param {object} [options]
        * @return {Scene}
        */
-      runScene(name,num,options){
+      run(name,num,options){
         let py, y, s0,_s = ScenesDict[name];
         if(!_s)
           throw `Fatal: unknown scene: ${name}`;
         if(is.obj(num)){
           options = num;
-          num = _.dissoc(options,"slot"); }
+          num = _.dissoc(options,"slot");
+        }
         options = _.inject({},_s[1],options);
         s0=_.inject({},_s[0]);
         if(is.undef(num))
@@ -21000,7 +21044,8 @@
           y = new Scene(name, s0, options);
         }else{
           _.assert(options.tiled.name, "no tmx file!");
-          y = new Mojo.Tiles.TiledScene(name, s0, options); }
+          y = new Mojo.Tiles.TiledScene(name, s0, options);
+        }
         py=y;
         if(options.centerStage){
           py=new SceneWrapper(y);
@@ -21015,6 +21060,18 @@
         }
         y.runOnce();
         return y;
+      },
+      /**Get the topmost scene.
+       * @memberof module:mojoh5/Scenes
+       * @return {Scene}
+       */
+      topMost(){
+        let c= _.last(Mojo.stage.children);
+        if(c instanceof SceneWrapper){
+          c=c.children[0];
+        }
+        _.assert(c instanceof Scene, "top is not a scene!");
+        return c;
       }
     };
 
@@ -21473,16 +21530,29 @@
         getGlobalPosition(){
           return {x: this.x, y: this.y}
         },
-        //tap(){ this.press() },
         _press(){
-          if(!L.pauseInput)
-            for(let s,i=0,z=this.Buttons.length;i<z;++i){
-              s=this.Buttons[i];
+          let i=0,
+            top=_Z.topMost(),
+            s, z=this.Buttons.length;
+          for(;i<z;++i){
+            s=this.Buttons[i];
+            if(s.m5.gui || s.m5.root === top)
               if(s.m5.press && this.hitTest(s)){
                 s.m5.press(s);
                 break;
               }
+          }
+        },
+        _press(){
+          for(let s,i=0,z=this.Buttons.length;i<z;++i){
+            s=this.Buttons[i];
+            if((!L.pauseInput || s.m5.gui) &&
+               s.m5.press &&
+               this.hitTest(s)){
+              s.m5.press(s);
+              break;
             }
+          }
         },
         _doMDown(b){
           let found,self=P;
@@ -21893,9 +21963,10 @@
        * @param {Sprite} b
        * @return {Sprite}
        */
-      makeButton(b){
+      makeButton(b,gui=false){
         _.conj(cur().ptr.Buttons,b);
         b.m5.button=true;
+        b.m5.gui=gui;
         return b;
       },
       /**This sprite is no longer a hotspot.
@@ -22377,7 +22448,7 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PhotoMat",{
+    _Z.scene("PhotoMat",{
       setup(arg){
         if(arg.cb){ arg.cb(this) }else{
           let s= arg.image? Mojo.tcached(arg.image): UNDEF;
@@ -22399,7 +22470,7 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("AudioIcon",{
+    _Z.scene("AudioIcon",{
       setup(arg){
         let {xOffset,yOffset,xScale,yScale}=arg;
         let {cb,iconOn,iconOff}= arg;
@@ -22430,7 +22501,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
-    _Z.defScene("StarfieldBg",{
+    _Z.scene("StarfieldBg",{
       setup(o){
         _.patch(o,{
           height:Mojo.height,
@@ -24919,7 +24990,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window,UNDEF){
 
@@ -24976,12 +25047,13 @@
       return v.concat(h);
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function makeMove(p,move){
       let z=zix(p),
           m= move[0]*DIM + move[1], v= p[m];
       p[z]=v;
       p[m]=0;
-      //console.log("makemove====> "+ p.join(","));
+      //Mojo.CON.log("makemove====> "+ p.join(","));
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -24992,7 +25064,7 @@
           s+= (""+p[y*DIM+x]);
           s+=",";
         }
-        console.log(s);
+        Mojo.CON.log(s);
       }
       return p;
     }
@@ -25013,70 +25085,67 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
-        const verb = Mojo.touchDevice ? "Tap": "Click";
-        const K= Mojo.getScaleFactor();
-        const self=this;
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=function(s){
-          s=_S.bmpText("Sliding Tiles",
-                       {fontName:TITLE_FONT, fontSize: 120*K});
-          _S.tint(_S.anchorXY(s,0.5), C_TITLE);
-          return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doPlayBtn=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=> _Z.runSceneEx("PlayGame"));
+        const self=this,
+          K= Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Sliding Tiles", TITLE_FONT, 120*K);
+            _S.tint(_S.anchorXY(s,0.5), C_TITLE);
+            return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
+          },
+          doPlayBtn(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              Mojo.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+            }
+            Mojo.on(["single.tap"],cb);
+            _V.set(s,Mojo.width/2,Mojo.height*0.7);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,Mojo.width/2,Mojo.height*0.7);
-          return self.insert(_S.anchorXY(s,0.5));
-        }
+        });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doPlayBtn();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("EndGame",{
+    _Z.scene("EndGame",{
       setup(options){
-        let s1,s2,
-            snd="game_over.mp3",
-            s4,s5,s6,os={fontName:UI_FONT,
-                         fontSize: 72*Mojo.getScaleFactor()};
-        function space(s){ return _S.opacity(_S.bmpText("I",os),0) }
+        let snd="game_over.mp3",
+          os={fontName:UI_FONT,
+              fontSize: 72*Mojo.getScaleFactor()},
+          space=(s)=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"You Lose!", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        s4.m5.press=()=>_Z.runEx("PlayGame");
+        s6.m5.press=()=>_Z.runEx("Splash");
         if(options.msg) snd="game_win.mp3";
-        s1=_S.bmpText("Game Over", os);
-        s2=_S.bmpText(options.msg||"You Lose!", os);
-        s4=_I.makeButton(_S.bmpText("Play Again?",os));
-        s5=_S.bmpText(" or ",os);
-        s6=_I.makeButton(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runSceneEx("PlayGame");
-        s6.m5.press=()=>_Z.runSceneEx("Splash");
         Mojo.sound(snd).play();
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
-        let [goal,puz]= genPuzzle(DIM);
+          K=Mojo.getScaleFactor(),
+          [goal,puz]= genPuzzle(DIM);
         _.inject(this.g,{
           initLevel(){
             let out={},
-                grid= _S.gridSQ(DIM, 0.95,out),
-                v,n,t,os={fontName:UI_FONT, fontSize: 72*K};
+              grid= _S.gridSQ(DIM, 0.95,out),
+              v,n,t,os={fontName:UI_FONT, fontSize: 72*K};
             grid.forEach((row,y)=> row.forEach((c,x)=>{
               let R=0.98,s=_S.sprite("tile.png");
               s.tint=_S.color("#bb3b58");
@@ -25092,9 +25161,7 @@
               }else{
                 t=_S.anchorXY(_S.bmpText(`${v}`,os),0.5);
                 s.addChild(t);
-                s.m5.press=(b)=>{
-                  this.onClick(b);
-                };
+                s.m5.press=(b)=> this.onClick(b);
               }
               c.tile= self.insert(s);
             }));
@@ -25102,8 +25169,7 @@
           },
           onClick(b){
             let {row,col}=b.g,
-                bx=b.x, by=b.y,
-                z,zc, zr, g=_G.grid;
+              bx=b.x, by=b.y, z,zc, zr, g=_G.grid;
             g.forEach((row,y)=> row.forEach((c,x)=>{
               if(c.tile.g.value==0){
                 zc=x; zr=y; z=c.tile;
@@ -25112,20 +25178,19 @@
               }
               _I.undoBtn(c.tile);
             }));
-
             //swap the blank and the `clicked`
             g[zr][zc].tile=b;
             b.g.row=zr;
             b.g.col=zc;
             b.x=z.x;
             b.y=z.y;
-
+            ///
             g[row][col].tile=z;
             z.g.row=row;
             z.g.col=col;
             z.x=bx;
             z.y=by;
-
+            ///
             makeMove(_G.puz, [row,col]);
             playSlide();
             !this.checkFinz() && this.showMoves();
@@ -25135,15 +25200,16 @@
           },
           showMoves(){
             let g=_G.grid,
-                moves= validMoves(puz);
+              moves= validMoves(puz);
             moves.forEach(m=>{
               _I.mkBtn(_S.opacity(g[m[0]][m[1]].tile,0.7))
             });
           }
-        })
+        });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.showMoves();
-        _Z.runScene("AudioIcon",{
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        _Z.run("AudioIcon",{
           xScale:K, yScale:K,
           xOffset: -10*K, yOffset:0
         });
@@ -25151,8 +25217,8 @@
       postUpdate(){
         if(this.g.checkFinz()){
           this.m5.dead=true;
-          console.log("You Win!");
-          _Z.runScene("EndGame",{msg:"You Win!"});
+          Mojo.CON.log("You Win!");
+          _Z.run("EndGame",{msg:"You Win!"});
         }
       }
     });
@@ -25169,7 +25235,7 @@
     scaleFit: "y",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
 
   }));
