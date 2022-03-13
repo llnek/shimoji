@@ -154,7 +154,7 @@
             s= this.next = {lines: m.lines(), cells: m.clone(), row:0, col:0};
         s.cells.forEach(r=> r.forEach(c=>{
           if(c){
-            c.visible=false;
+            _S.hide(c);
             this.gameScene.insert(_S.sizeXY(c,_G.tileW,_G.tileH)) }
         }));
         return (Mojo.emit(["preview.shape"], s), s)
