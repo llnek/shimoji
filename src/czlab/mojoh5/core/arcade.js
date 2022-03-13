@@ -11,7 +11,7 @@
  *
  * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -25,6 +25,7 @@
     const _M=gscope["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
            Sprites:_S,
+           Input:_I,
            is, ute:_}=Mojo;
     const abs=Math.abs,
           cos=Math.cos,
@@ -36,7 +37,7 @@
           CIRCLE=Math.PI*2;
 
     /**
-     * @module mojoh5/D2
+     * @module mojoh5/Arcade
      */
 
     /**
@@ -101,11 +102,15 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PhotoMat",{
+    _Z.scene("PhotoMat",{
       setup(arg){
         if(arg.cb){ arg.cb(this) }else{
+          let s= arg.image? Mojo.tcached(arg.image): UNDEF;
           this.g.gfx=_S.graphics();
-          this.g.gfx.beginFill(_S.color(arg.color));
+          if(s)
+            this.g.gfx.beginTextureFill({texture:s});
+          else
+            this.g.gfx.beginFill(_S.color(arg.color));
           //top,bottom
           this.g.gfx.drawRect(0,0,Mojo.width,arg.y1);
           this.g.gfx.drawRect(0,arg.y2,Mojo.width,Mojo.height-arg.y2);
@@ -119,8 +124,38 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("AudioIcon",{
+      setup(arg){
+        let {xOffset,yOffset,xScale,yScale}=arg;
+        let {cb,iconOn,iconOff}= arg;
+        let {Sound}=Mojo;
+        let K=Mojo.getScaleFactor(),
+          s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
+
+        xScale= _.nor(xScale, K*2);
+        yScale= _.nor(yScale, K*2);
+        xOffset= _.nor(xOffset, -10*K);
+        yOffset= _.nor(yOffset, 0);
+        _S.scaleXY(_S.opacity(s,0.343),xScale,yScale);
+        _V.set(s,Mojo.width-s.width+xOffset, 0+yOffset);
+
+        s.m5.showFrame(Sound.sfx()?0:1);
+        s.m5.press=()=>{
+          if(Sound.sfx()){
+            Sound.mute();
+            s.m5.showFrame(1);
+          }else{
+            Sound.unmute();
+            s.m5.showFrame(0);
+          }
+        };
+        this.insert(s);
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
-    _Z.defScene("StarfieldBg",{
+    _Z.scene("StarfieldBg",{
       setup(o){
         _.patch(o,{
           height:Mojo.height,
@@ -358,7 +393,7 @@
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       //steering stuff
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {vec2} pos
        */
@@ -372,7 +407,7 @@
         return s;
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {vec2} pos
        * @param {number} range
@@ -390,7 +425,7 @@
         }
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {vec2} pos
        * @param {number} range
@@ -406,7 +441,7 @@
         _V.add$(s.m5.steer,dv);
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {Sprite} target
        */
@@ -416,7 +451,7 @@
         return this.seek(s,predicted);
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {Sprite} target
        */
@@ -426,7 +461,7 @@
         return this.flee(s, predicted);
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @return {Sprite}
        */
@@ -436,7 +471,7 @@
         return s;
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        */
       wander(s){
@@ -450,7 +485,7 @@
         return s;
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {Sprite} targetA
        * @param {Sprite} targetB
@@ -463,7 +498,7 @@
         return this.seek(s, _V.div$(_V.add$(pA,pB),2));
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {array} ents
        * @param {number} separationRadius
@@ -484,7 +519,7 @@
         _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {Sprite} leader
        * @param {array} ents
@@ -513,7 +548,7 @@
         return this.separation(s,ents, separationRadius, maxSeparation);
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {array} ents
        * @param {number} maxQueueAhead
@@ -548,7 +583,7 @@
         _V.add$(s.m5.steer,brake);
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {array} ents
        */
@@ -581,7 +616,7 @@
         }
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {array} path
        * @param {boolean} loop
@@ -605,7 +640,7 @@
         }
       },
       /**
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {Sprite} s
        * @param {array} obstacles
        */
@@ -651,7 +686,7 @@
         return true;
       },
       /**Create a projectile being fired out of a shooter.
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {any} src
        * @param {number} angle
        * @param {number} speed
@@ -670,7 +705,7 @@
         return b;
       },
       /**Create a HealthBar widget.
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {HealthBarConfig} cfg
        * @return {HealthBarObj}
        */
@@ -701,7 +736,7 @@
       },
       //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
       /**Create a gauge like speedometer.
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {GaugeUIConfig} cfg
        * @return {GaugeUIObj}
        */
@@ -751,7 +786,7 @@
         }
       },
       /**Sprite walks back and forth, like a patrol.
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {PIXI/Sprite} e
        * @param {boolean} xDir walk left and right
        * @param {boolean} yDir walk up and down
@@ -798,7 +833,7 @@
         return self;
       },
       /**Enhance sprite to move like mario
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {PIXI/Sprite} e
        * @return {PlatformerObj}
        */
@@ -874,7 +909,7 @@
         return self;
       },
       /**Enhance sprite to move like pacman.
-       * @memberof module:mojoh5/D2
+       * @memberof module:mojoh5/Arcade
        * @param {PIXI/Sprite} e
        * @param {array} frames optional
        * @return {MazeRunnerObj}
@@ -934,7 +969,7 @@
       }
     };
 
-    return (Mojo["D2"]= _$);
+    return (Mojo["Arcade"]= _$);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -942,8 +977,8 @@
   if(typeof module=="object" && module.exports){
     throw "Panic: browser only"
   }else{
-    gscope["io/czlab/mojoh5/D2"]=(M)=>{
-      return M["D2"] ? M["D2"] : _module(M) } }
+    gscope["io/czlab/mojoh5/Arcade"]=(M)=>{
+      return M["Arcade"] ? M["Arcade"] : _module(M) } }
 
 })(this);
 

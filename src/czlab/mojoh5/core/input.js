@@ -238,16 +238,29 @@
         getGlobalPosition(){
           return {x: this.x, y: this.y}
         },
-        //tap(){ this.press() },
         _press(){
-          if(!L.pauseInput)
-            for(let s,i=0,z=this.Buttons.length;i<z;++i){
-              s=this.Buttons[i];
+          let i=0,
+            top=_Z.topMost(),
+            s, z=this.Buttons.length;
+          for(;i<z;++i){
+            s=this.Buttons[i];
+            if(s.m5.gui || s.m5.root === top)
               if(s.m5.press && this.hitTest(s)){
                 s.m5.press(s);
                 break;
               }
+          }
+        },
+        _press(){
+          for(let s,i=0,z=this.Buttons.length;i<z;++i){
+            s=this.Buttons[i];
+            if((!L.pauseInput || s.m5.gui) &&
+               s.m5.press &&
+               this.hitTest(s)){
+              s.m5.press(s);
+              break;
             }
+          }
         },
         _doMDown(b){
           let found,self=P;
@@ -658,9 +671,10 @@
        * @param {Sprite} b
        * @return {Sprite}
        */
-      makeButton(b){
+      makeButton(b,gui=false){
         _.conj(cur().ptr.Buttons,b);
         b.m5.button=true;
+        b.m5.gui=gui;
         return b;
       },
       /**This sprite is no longer a hotspot.

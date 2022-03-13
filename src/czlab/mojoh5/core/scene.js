@@ -28,16 +28,18 @@
      * @module mojoh5/Scenes
      */
 
-    /** @ignore */
-    function _sceneid(id){
-      return id.startsWith("scene::") ? id : `scene::${id}` }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _sceneid=(id)=> id.startsWith("scene::") ? id : `scene::${id}` ;
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _killScene(s){
       if(s){
         s.dispose && s.dispose();
-        s.parent.removeChild(s); } }
+        s.parent.removeChild(s);
+      }
+    }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** internal class, wraps a scene */
     class SceneWrapper extends Mojo.PXContainer{
       constructor(s){
@@ -63,34 +65,35 @@
      */
     class Scene extends Mojo.PXContainer{
       /**
-       * @param {string} id
+       * @param {string} sid
        * @param {object|function} func
        * @param {object} [options]
        */
-      constructor(id,func,options){
+      constructor(sid,func,options){
         super();
-        this.name= _sceneid(id);
+        this.name= _sceneid(sid);
         this.g={};
         this.m5={
-          sid:id,
           index:{},
           queue:[],
           garbo:[],
+          sid,
           options,
           stage:true,
           sgrid:SG.spatialGrid(options.sgridX||320,
                                options.sgridY||320) };
+        let s;
         if(is.fun(func)){
-          this.m5.setup= func.bind(this)
+          s=func;
         }else if(is.obj(func)){
-          let s= _.dissoc(func,"setup");
+          s= _.dissoc(func,"setup");
           _.inject(this, func);
-          if(s)this.m5.setup=s.bind(this); }
+        }
+        if(s)
+          this.m5.setup=s.bind(this);
       }
-      _hitObjects(grid,obj,found,maxCol=3){
-        let curCol=maxCol;
-        for(let m,b,
-            i=0,z=found.length;i<z;++i){
+      _hitObjects(grid,obj,found,repeat=3){
+        for(let m,b,i=0,cur=repeat;i<found.length;++i){
           b=found[i];
           if(obj !== b &&
              !b.m5.dead &&
@@ -101,20 +104,24 @@
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--curCol==0){break} } }
+              if(--curCol==0){break}
+            }
+          }
         }
       }
       collideXY(obj){
         this._hitObjects(this.m5.sgrid,obj,
-                         this.m5.sgrid.search(obj)) }
+                         this.m5.sgrid.search(obj))
+      }
       /**Callback to handle window resizing.
        * @param {number[]} old  window size before resize
        */
       onCanvasResize([width,height]){
         Mojo.Sprites.resize({x:0,y:0,
-                             width:width,
-                             height:height,
-                             children:this.children}) }
+                             width,
+                             height,
+                             children:this.children})
+      }
       /**Run this function after a delay in millis.
        * @param {function}
        * @param {number} delayMillis
@@ -150,13 +157,14 @@
           if(c.m5.button)
             Mojo.Input.undoButton(c);
           Mojo.off(c);
-          _.dissoc(this.m5.index,c.m5.uuid); } }
+          _.dissoc(this.m5.index,c.m5.uuid); }
+      }
       /**Remove item from spatial grid temporarily.
        * @param {Sprite} c
        * @return {Sprite} c
        */
       degrid(c){
-        if(c)
+        if(c && c.m5._engrid)
           this.m5.sgrid.degrid(c);
         return c;
       }
@@ -193,8 +201,13 @@
         }
         return c;
       }
-      /** @ignore */
       _addit(c,pos){
+        let self=this,
+          w=(r)=>{
+            if(r.m5)
+              r.m5.root=self;
+            r.children.forEach(z=>w(z)); };
+        ///
         if(is.num(pos) &&
            pos >= 0 &&
            pos < this.children.length){
@@ -202,23 +215,25 @@
         }else{
           this.addChild(c);
         }
-        return (this.m5.index[c.m5.uuid]=c); }
+        w(c);
+        return (this.m5.index[c.m5.uuid]=c);
+      }
       /**Clean up.
       */
       dispose(){
+        const i=Mojo["Input"];
         function _c(o){
           if(o){
-            o.children.length>0 && o.children.forEach(c=> _c(c));
-            const i=Mojo.Input;
             if(o.m5){
               o.m5.drag && i.undoDrag(o);
-              o.m5.button && i.undoButton(o); } } }
+              o.m5.button && i.undoButton(o); }
+            o.children.length>0 && o.children.forEach(c=> _c(c)); }
+        }
         Mojo.off(this);
-        this.m5.dead=true;
         _c(this);
+        this.m5.dead=true;
         this.removeChildren();
       }
-      /** @ignore */
       _tick(r,dt){
         r.forEach(c=>{
           if(c.visible && c.m5 && c.m5.tick){
@@ -231,6 +246,7 @@
             }
             c.m5.flip=false;
             Mojo.emit(["post.tick",c],dt);
+            //might have moved, so regrid
             if(c.m5._engrid) this.m5.sgrid.engrid(c);
           }
           c.children.length>0 && this._tick(c.children, dt)
@@ -281,47 +297,48 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _layItems(C,items,pad,dir,skip){
       let p,P=0,m=-1;
       items.forEach((s,i)=>{
-        if(dir===Mojo.DOWN){
+        if(dir==Mojo.DOWN){
           if(s.width>m){ P=i; m=s.width; }
         }else{
           if(s.height>m){ P=i; m=s.height; }
         }
         if(!skip) C.addChild(s);
-        _.assert(s.anchor.x<0.3&&s.anchor.y<0.3,"wanted topleft anchor");
+        _.assert(_.feq0(s.anchor.x)&&_.feq0(s.anchor.y),"wanted topleft anchor");
       });
       //P is the fatest or tallest
       p=items[P];
       for(let s,i=P-1;i>=0;--i){
         s=items[i];
-        Mojo.Sprites[dir===Mojo.DOWN?"pinTop":"pinLeft"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinTop":"pinLeft"](p,s,pad);
         p=s;
       }
       p=items[P];
       for(let s,i=P+1;i<items.length; ++i){
         s=items[i];
-        Mojo.Sprites[dir===Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
         p=s;
       }
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _layout(items,options,dir){
-      const {Sprites}=Mojo,
-            K=Mojo.getScaleFactor();
+      let {Sprites:_S}=Mojo,
+        K=Mojo.getScaleFactor();
       if(items.length==0){return}
       options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
                                 borderWidth:4,
-                                border:0xffffff});
-      let borderWidth=options.borderWidth * K;
-      let C=options.group || Sprites.container();
-      let pad=options.padding * K;
-      let fit= options.fit * K;
-      let last,w,h,p,fit2= 2*fit;
+                                border:_S.SomeColors.white});
+      let borderWidth=options.borderWidth * K,
+        C=options.group || _S.container(),
+        pad=options.padding * K,
+        fit= options.fit * K,
+        last,w,h,p,fit2= 2*fit;
 
       _layItems(C,items,pad,dir,options.skipAdd);
       w= C.width;
@@ -330,9 +347,9 @@
 
       //create a backdrop
       if(true){
-        let r= Sprites.rect(w+fit2,h+fit2,
-                            options.bg,
-                            options.border, borderWidth);
+        let r= _S.rect(w+fit2,h+fit2,
+                       options.bg,
+                       options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
         if(!is.vec(options.bg)){
           r.alpha= options.opacity==0 ? 0 : (options.opacity || 0.5);
@@ -344,7 +361,7 @@
       w= C.width;
 
       let [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)];
-      if(dir===Mojo.DOWN){
+      if(dir==Mojo.DOWN){
         //realign on x-axis
         items.forEach(s=> s.x=w2-_M.ndiv(s.width,2));
         let hd= h-(last.y+last.height);
@@ -370,11 +387,11 @@
       return C;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _choiceBox(items,options,dir){
-      const selectedColor=Mojo.Sprites.color(options.selectedColor);
-      const disabledColor=Mojo.Sprites.color(options.disabledColor);
-      let cur;
+      let {Sprites:_S,Input:_I}=Mojo,
+        selectedColor=_S.color(options.selectedColor),
+        c,cur, disabledColor=_S.color(options.disabledColor);
       items.forEach(o=>{
         if(o.m5.uuid==options.defaultChoice){
           cur=o;
@@ -382,24 +399,22 @@
         }else{
           o.tint=disabledColor;
         }
-        Mojo.Input.mkBtn(o);
-        o.m5.press=(b)=>{
-          if(b!==cur){
-            cur.tint=disabledColor;
-            b.tint=selectedColor;
-            cur=b;
-            options.onClick && options.onClick(b);
-          }
-        };
+        if(o.m5.button)
+          o.m5.press=(b)=>{
+            if(b!==cur){
+              cur.tint=disabledColor;
+              b.tint=selectedColor;
+              cur=b;
+              options.onClick && options.onClick(b);
+            }
+          };
       });
       if(!cur){
         cur=items[0];
         cur.tint= selectedColor;
       }
-      let c= _layout(items,options,dir);
-      c.getSelectedChoice=function(){
-        return cur.m5.uuid
-      };
+      c= _layout(items,options,dir);
+      c.getSelectedChoice=()=> cur.m5.uuid;
       return c;
     }
 
@@ -446,41 +461,38 @@
        * @param {object|function} func
        * @param {object} [options]
        */
-      defScene(name, func, options){
+      scene(name, func, options){
         //add a new scene definition
         if(is.fun(func))
           func={setup:func};
-        ScenesDict[name]=[func, options]; },
+        ScenesDict[name]=[func, options];
+      },
       /**Replace the current scene with this one.
        * @memberof module:mojoh5/Scenes
        * @param {string|Scene} cur
        * @param {string} name
        * @param {object} [options]
        */
-      replaceScene(cur,name,options){
-        const n=_sceneid(is.str(cur)?cur:cur.name);
-        const c= Mojo.stage.getChildByName(n);
+      replace(cur,name,options){
+        const n=_sceneid(is.str(cur)?cur:cur.name),
+          c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;
-        return this.runScene(name, Mojo.stage.getChildIndex(c),options); },
+        return this.run(name, Mojo.stage.getChildIndex(c),options);
+      },
       /**Remove these scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...Scene} args
        */
-      removeScene(...args){
+      remove(...args){
         if(args.length==1 &&
            is.vec(args[0])){ args=args[0] }
-        args.forEach(a=>{
-          if(is.str(a))
-            _killScene(Mojo.stage.getChildByName(_sceneid(a)));
-          else if(a)
-            _killScene(a);
-        })
+        args.forEach(a=>_killScene(is.str(a)?Mojo.stage.getChildByName(_sceneid(a)):a))
       },
       /**Remove all the scenes.
        * @memberof module:mojoh5/Scenes
        */
-      removeScenes(){
+      removeAll(){
         while(Mojo.stage.children.length>0)
           _killScene(Mojo.stage.children[Mojo.stage.children.length-1])
         Mojo.mouse.reset();
@@ -491,7 +503,7 @@
        * @param {string} name
        * @return {Scene}
        */
-      findScene(name){
+      find(name){
         return Mojo.stage.getChildByName(_sceneid(name)) },
       /**Remove all scenes first then run this scene.
        * @memberof module:mojoh5/Scenes
@@ -500,19 +512,19 @@
        * @param {object} [options]
        * @return {Scene}
        */
-      runSceneEx(name,num,options){
-        this.removeScenes();
-        this.runScene(name,num,options);
+      runEx(name,num,options){
+        this.removeAll();
+        this.run(name,num,options);
       },
       /**Run a sequence of scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...any} args
        * @return {Scene}
        */
-      runSceneSeq(...args){
+      runSeq(...args){
         args.forEach(a=>{
           _.assert(is.vec(a),"Expecting array");
-          this.runScene(a[0],a[1],a[2]);
+          this.run(a[0],a[1],a[2]);
         });
       },
       /**Run this scene.
@@ -522,13 +534,14 @@
        * @param {object} [options]
        * @return {Scene}
        */
-      runScene(name,num,options){
+      run(name,num,options){
         let py, y, s0,_s = ScenesDict[name];
         if(!_s)
           throw `Fatal: unknown scene: ${name}`;
         if(is.obj(num)){
           options = num;
-          num = _.dissoc(options,"slot"); }
+          num = _.dissoc(options,"slot");
+        }
         options = _.inject({},_s[1],options);
         s0=_.inject({},_s[0]);
         if(is.undef(num))
@@ -540,7 +553,8 @@
           y = new Scene(name, s0, options);
         }else{
           _.assert(options.tiled.name, "no tmx file!");
-          y = new Mojo.Tiles.TiledScene(name, s0, options); }
+          y = new Mojo.Tiles.TiledScene(name, s0, options);
+        }
         py=y;
         if(options.centerStage){
           py=new SceneWrapper(y);
@@ -555,6 +569,18 @@
         }
         y.runOnce();
         return y;
+      },
+      /**Get the topmost scene.
+       * @memberof module:mojoh5/Scenes
+       * @return {Scene}
+       */
+      topMost(){
+        let c= _.last(Mojo.stage.children);
+        if(c instanceof SceneWrapper){
+          c=c.children[0];
+        }
+        _.assert(c instanceof Scene, "top is not a scene!");
+        return c;
       }
     };
 

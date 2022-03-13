@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -31,34 +31,31 @@
            Input:_I,
            Game:_G,
            v2:_V,
+           math:_M,
            ute:_, is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const C_TITLE=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
+    const C_TITLE=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b"),
+      TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase";
+
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-    function playClick(){
-      Mojo.sound("click.mp3").play()
-    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //set up some globals
     _.inject(_G,{
-
       CELLS:4,
-      cur:null,
-      next:null,
-      backDropSprite:null
+      cur:UNDEF,
+      next:UNDEF,
+      backDropSprite:UNDEF
     });
 
     /**/
     function doBackDrop(scene){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height);
-      scene.insert(_G.backDropSprite);
+      return _G.backDropSprite= scene.insert(_G.backDropSprite? _G.backDropSprite: _S.fillMax(_S.sprite("bg.jpg")))
     }
 
     /**/
@@ -70,62 +67,61 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.doTitle=(s)=>{
           s=_S.bmpText("Tetris",{fontName:TITLE_FONT, fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,Mojo.width/2,Mojo.height *0.3);
-          self.insert(_S.centerAnchor(s));
+          _V.set(_S.tint(s,C_TITLE),Mojo.width/2,Mojo.height *0.3);
+          return self.insert(_S.anchorXY(s,0.5));
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,b,t)=>{
+        this.g.doNext=(s,t)=>{
           s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize:72*K});
-          b=_I.mkBtn(s);
-          t=_T.throb(b);
-          b.m5.press=(btn)=>{
-            _S.tint(btn, C_ORANGE);
+          t=_T.throb(s,0.747,0.747);
+          function cb(){
+            Mojo.off(["single.tap"],cb);
+            _S.tint(s, C_ORANGE);
             _T.remove(t);
             playClick();
             _.delay(CLICK_DELAY, ()=> {
               _Z.runSceneEx("PlayGame");
               _Z.runScene("HUD");
             });
-          };
+          }
+          Mojo.on(["single.tap"],cb);
           _V.set(s,Mojo.width/2,Mojo.height * 0.7);
-          self.insert(_S.centerAnchor(s));
+          return self.insert(_S.anchorXY(s,0.5));
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this);
-        this.g.doTitle();
-        this.g.doNext();
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
+
     /**/
     _Z.defScene("EndGame",{
       setup(options){
-        let s1,s2,
-            s4,s5,s6,os={fontName:UI_FONT,
-                         fontSize: 72*Mojo.getScaleFactor()};
-        let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
-        s1=_S.bmpText("Game Over", os);
-        s4=_I.makeButton(_S.bmpText("Play Again?",os));
-        s5=_S.bmpText(" or ",os);
-        s6=_I.makeButton(_S.bmpText("Quit",os));
+        let os={fontName:UI_FONT,
+                fontSize: 72*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
         s4.m5.press=()=>{
           _Z.runSceneEx("PlayGame");
           _Z.runScene("HUD");
         };
-        s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
+        s6.m5.press=()=> _Z.runSceneEx("Splash");
         this.insert(_Z.layoutY([s1,space(),space(),space(),s4,s5,s6],options));
       }
     });
+
     /**/
     _Z.defScene("PlayGame",{
       onPtrDown(){
         if(_G.cur){
           _G.dragMode=true;
           _G.cur.sx=Mojo.mouse.x;
-          _G.cur.sy=Mojo.mouse.y;
-        }
+          _G.cur.sy=Mojo.mouse.y; }
       },
-      onPtrUp(){ _G.dragMode=false },
+      onPtrUp(){
+        _G.dragMode=false },
       onPtrMove(){
         if(_G.cur && _G.dragMode){
           let reset,
@@ -141,8 +137,7 @@
           }
           if(reset){
             _G.cur.sx=Mojo.mouse.x;
-            _G.cur.sy=Mojo.mouse.y;
-          }
+            _G.cur.sy=Mojo.mouse.y; }
         }
       },
       onSwipeDown(){ _G.dropDown() },
@@ -161,8 +156,7 @@
               ey=_G.vbox.y2;
           //show the grid
           _G.gfx.clear();
-          _G.gfx.lineStyle(1,_S.color("#cccccc"));
-          _G.gfx.alpha=0.2;
+          _G.gfx.lineStyle(1,_S.color("#cccccc"),0.2);
           for(let i=1;i<_G.rows;++i){
             _G.gfx.moveTo(sx,sy+i*_G.tileH);
             _G.gfx.lineTo(ex,sy+i*_G.tileH);
@@ -174,16 +168,14 @@
         }
       },
       setup(){
-        const self=this,
-              K=Mojo.getScaleFactor();
-        let H=Mojo.u.rows,
-            W=Mojo.u.cols;
+        let self=this,
+          H=Mojo.u.rows,
+          W=Mojo.u.cols,
+          K=Mojo.getScaleFactor();
         this.g.initLevel=()=>{
-          let Y=Mojo.height;
-          let X=0;
-          let grid=[];
-          let a= _S.gridXY([W,H],0.8,0.8);
-          let a0=a[0][0];
+          let grid=[],
+            a= _S.gridXY([W,H],0.8,0.8),
+            x1,y1,X=0,Y=Mojo.height, a0=a[0][0];
           _G.tileW=_.evenN(a0.x2-a0.x1);
           _G.tileH=_G.tileW;
           _G.gameOver=false;
@@ -192,7 +184,7 @@
           _G.rows=H;
           _G.cols=W;
           _G.cur=
-          _G.next=null;
+          _G.next=UNDEF;
           //make it taller but hide the top 4
           for(let row,y=0;y<(4+H);++y){
             grid.push(row=[]);
@@ -201,8 +193,8 @@
           //center the arena
           H= _G.tileH*_G.rows;
           W=_G.tileW*_G.cols;
-          let x1=int((Mojo.width-W)/2);
-          let y1=int((Mojo.height-H)/2);
+          x1=_M.ndiv(Mojo.width-W,2);
+          y1=_M.ndiv(Mojo.height-H,2);
           _G.vbox={x1,x2:x1+W,y1,y2:y1+H};
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -212,17 +204,20 @@
           _G.upMotion= _I.keybd(_I.UP);
           _G.downMotion= _I.keybd(_I.DOWN);
           _G.dropMotion= _I.keybd(_I.SPACE);
-          _G.rightMotion.press=()=>{ _G.shiftHZ(1) };
-          _G.leftMotion.press=()=>{ _G.shiftHZ(-1) };
-          _G.upMotion.press=()=>{ _G.rotateCCW() };
-          _G.downMotion.press=()=>{ _G.shiftDown() };
-          _G.dropMotion.press=()=>{ _G.dropDown() };
-          Mojo.on(["mouseup"],"onPtrUp",this);
-          Mojo.on(["touchend"],"onPtrUp",this);
-          Mojo.on(["mousedown"],"onPtrDown",this);
-          Mojo.on(["touchstart"],"onPtrDown",this);
-          Mojo.on(["mousemove"],"onPtrMove",this);
-          Mojo.on(["touchmove"],"onPtrMove",this);
+          _G.rightMotion.press=()=> _G.shiftHZ(1);
+          _G.leftMotion.press=()=> _G.shiftHZ(-1);
+          _G.upMotion.press=()=> _G.rotateCCW();
+          _G.downMotion.press=()=> _G.shiftDown();
+          _G.dropMotion.press=()=> _G.dropDown();
+          if(Mojo.touchDevice){
+            Mojo.on(["touchstart"],"onPtrDown",this);
+            Mojo.on(["touchend"],"onPtrUp",this);
+            Mojo.on(["touchmove"],"onPtrMove",this);
+          }else{
+            Mojo.on(["mouseup"],"onPtrUp",this);
+            Mojo.on(["mousedown"],"onPtrDown",this);
+            Mojo.on(["mousemove"],"onPtrMove",this);
+          }
           Mojo.on(["swipe.down"],"onSwipeDown",this);
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -230,24 +225,24 @@
         this.g.initLevel();
         this.g.initInput();
         this.insert(_G.gfx= _S.graphics());
-        this.future(()=>{ _.shuffle(_G.ModelList) },500);
+        this.futureX(()=>{ _.shuffle(_G.ModelList) },500);
         Mojo.on(["single.tap"],_.debounce(()=>{ if(_G.cur) _G.rotateCCW() },150));
       }
     });
+
     /**/
     _Z.defScene("HUD",{
       setup(){
-        let K=Mojo.getScaleFactor(),
-            LW=30*K;
+        let K=Mojo.getScaleFactor(), LW=30*K;
         Mojo.on(["preview.shape"],"onPreview", this);
         this.insert(_S.rect(Mojo.width,_G.vbox.y1, 0));
         this.insert(_S.bboxFrame(_G.vbox,LW));
         this.insert(this.g.score= _S.bmpText("Score: 0",
                                              {fontName:UI_FONT,fontSize:84*K}));
-        let Y = int(Mojo.height/2),
-            X = int(_G.vbox.x1/2),
+        let Y = _M.ndiv(Mojo.height,2),
+            X = _M.ndiv(_G.vbox.x1,2),
             r= _S.rect(_G.tileW*6,_G.tileH*6,0);
-        _V.set(r, X - int(r.width/2), Y - int(r.height/2));
+        _V.set(r, X - _M.ndiv(r.width,2), Y - _M.ndiv(r.height,2));
         _G.previewBox=r;
         ////////
         _G.gameScene.insert(_S.bboxFrame({x1:r.x, y1:r.y,
@@ -260,8 +255,8 @@
             Y = _G.previewBox.y + _G.previewBox.height/2,
             wy= _G.tileH* s.lines[2],
             wx= s.cells[0].length*_G.tileW;
-        X = int(X-wx/2);
-        Y= int(Y-wy/2);
+        X = int(X- wx/2);
+        Y= int(Y- wy/2);
         s.col=0;
         s.row=0;
         for(let r,k,w=0,y=0;y<s.cells.length;++y){
@@ -285,8 +280,8 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
     assetFiles: ["click.mp3","line.mp3", "tile.png", "bg.jpg", "game_over.mp3"],
     arena: {width: 768, height: 1408},
     scaleToWindow:"max",
@@ -297,11 +292,7 @@
       scenes(Mojo);
       Mojo.Scenes.runScene("Splash");
     }
-  };
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

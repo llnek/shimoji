@@ -10,18 +10,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window["io/czlab/tictactoe/AI"]=function(Mojo){
+
     const Algo= window["io/czlab/mcfud/negamax"]();
     //const Algo= window["io/czlab/mcfud/minimax"]();
     const {Game:_G,
            ute:_,is}=Mojo;
-
 
     /** @class */
     class CZ extends Algo.GameBoard{
@@ -30,16 +31,20 @@
         this.actors= [0, p1v, p2v];
         this.grid=[];
         this.depth=6;
-        this.goals= _G.mapGoalSpace() }
+        this.goals= _G.mapGoalSpace()
+      }
       isNil(cellv){
-        return cellv === 0 }
+        return cellv == 0
+      }
       getFirstMove(){
         let sz= this.grid.length;
-        return sz>0 && _.every(this.grid,0) ? _.randInt2(0,sz-1) : undefined }
+        if(sz>0 && _.every(this.grid,0)) return _.randInt2(0,sz-1)
+      }
       syncState(seed, actor){
         this.grid.length=0;
         this.actors[0] = actor;
-        _.append(this.grid,seed) }
+        _.append(this.grid,seed)
+      }
       getNextMoves(snap){
         let rc= [],
             sz= snap.state.length;
@@ -48,7 +53,7 @@
         return rc;
       }
       getStateCopier(){
-        return function(s){ return _.deepCopyArray(s) }
+        return s=> _.deepCopyArray(s)
       }
       undoMove(snap, move){
         _.assert(move>=0 &&
@@ -61,18 +66,19 @@
         if(this.isNil(snap.state[move]))
           snap.state[move] = snap.cur;
         else
-          throw `Error: cell [${move}] is not free` }
+          throw `Error: cell [${move}] is not free`
+      }
       takeGFrame(){
         let ff = new Algo.GFrame(_G.DIM);
-        ff.state=_.fill(new Array(_G.DIM*_G.DIM),0);
+        ff.state=_.fill(_G.DIM*_G.DIM,0);
         ff.other= this.getOtherPlayer(this.actors[0]);
         ff.cur= this.actors[0];
         _.copy(ff.state,this.grid);
         return ff;
       }
       evalScore(snap){
-        let p2= this.getAlgoActor();
-        let p1= this.getOtherPlayer(p2);
+        let p2= this.getAlgoActor(),
+          p1= this.getOtherPlayer(p2);
         //if we lose, return a negative value
         for(let g, i=0; i<this.goals.length; ++i){
           g= this.goals[i];
@@ -96,9 +102,9 @@
       testWin(vs, actor, g){
         let cnt=g.length;
         for(let n= 0; n<g.length; ++n)
-          if(actor === vs[g[n]])
+          if(actor == vs[g[n]])
             --cnt;
-        return cnt === 0;
+        return cnt == 0;
       }
       isStalemate(snap){
         return _.notAny(snap.state, 0) }

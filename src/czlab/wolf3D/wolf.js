@@ -10,12 +10,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
+  /**Checkout the excellent articles and code from
+   * https://permadi.com/1996/05/ray-casting-tutorial-table-of-contents/
+   */
   function scenes(Mojo){
 
     const {Sprites:_S,
@@ -24,20 +27,21 @@
            Game:_G,
            FX: _F,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#fff20f");
-    const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const CLICK_DELAY=343;
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#fff20f"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){ Mojo.sound("click.mp3").play() }
+    const playClick=()=> Mojo.sound("click.mp3").play();
+    const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const int = Math.floor;
@@ -46,10 +50,12 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // size of tile (wall height)
-    const TILESZ = 64;
-    const WALL_HEIGHT = 64;
-    const MAPWIDTH=20;//12;
-    const MAPDEPTH=20;//12;
+    const TILESZ = 64,
+      WALL_HEIGHT = 64,
+      MAPWIDTH=20,
+      MAPDEPTH=20;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //Map
     const map1= "############"+
                 "#..........#"+
@@ -149,17 +155,15 @@
                "#..................#"+
                "####################";
 
-    const map9=randGenMapStr();
-    function randGenMapStr(){
-      let lastY=MAPDEPTH-1;
-      let lastX=MAPWIDTH-1;
-      let s="";
-      for(let y=0;y<MAPDEPTH;++y)
-      for(let x=0;x<MAPWIDTH;++x){
-        if(y===0||y===lastY){
+    const map9=(function randGenMapStr(s){
+      let lastY=MAPDEPTH-1,
+          x,y, lastX=MAPWIDTH-1;
+      for(y=0;y<MAPDEPTH;++y)
+      for(x=0;x<MAPWIDTH;++x){
+        if(y==0||y==lastY){
           s +="#"
         }else{
-          if(x===0||x===lastX){
+          if(x==0||x==lastX){
             s += "#";
           }else{
             s += _.rand()<0.2?"#":".";
@@ -167,61 +171,58 @@
         }
       }
       return s;
-    }
+    })("");
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //you can tweak this by pointing to a different map
     const FMAP=map6;
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const BASEW=320;
-    const BASEH=200;
-    const BASED=276;
-    const PROJPLANE_MIDY = BASEH/2;
-    const PLAYERDIST_PROJPLANE = BASED;
-    const [PROJRATIO, PROJECTIONWIDTH, PROJECTIONHEIGHT] = (function(r){
-      if(Mojo.width > 1680){
-        r= 4
-      }else if(Mojo.width > 1040){
-        r= 3
-      }else if(Mojo.width > 800){
-        r= 2
-      }else{
-        r= 1
-      }
-      return [r,BASEW*r,BASEH*r]
-    })();
-    console.log(`viewport width=${PROJECTIONWIDTH}, height=${PROJECTIONHEIGHT}`);
+    const BASEW=320,
+      BASEH=200,
+      BASED=276,
+      PROJPLANE_MIDY = BASEH/2,
+      PLAYERDIST_PROJPLANE = BASED,
+      [PROJRATIO, PROJECTIONWIDTH, PROJECTIONHEIGHT] = (function(r){
+        if(Mojo.width > 1680){
+          r= 4
+        }else if(Mojo.width > 1040){
+          r= 3
+        }else if(Mojo.width > 800){
+          r= 2
+        }else{
+          r= 1
+        }
+        return [r,BASEW*r,BASEH*r]
+      })();
+    Mojo.CON.log(`viewport width=${PROJECTIONWIDTH}, height=${PROJECTIONHEIGHT}`);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // FOV = 60
-    const ANGLE60 = BASEW;//PROJECTIONWIDTH;
-    const ANGLE30 = int(ANGLE60/2);
-    const ANGLE15 = int(ANGLE30/2);
-    const ANGLE90 = int(ANGLE30*3);
-    const ANGLE180 = int(ANGLE90*2);
-    const ANGLE270 = int(ANGLE90*3);
-    const ANGLE360 = int(ANGLE60*6);
-    const ANGLE0 = 0;
-    const ANGLE5 = int(ANGLE30/6);
-    const ANGLE10 = int(ANGLE5*2);
-    const ANGLE45 = int(ANGLE15*3);
-
+    const ANGLE60 = BASEW,//PROJECTIONWIDTH;
+      ANGLE30 = _M.ndiv(ANGLE60,2),
+      ANGLE15 = _M.ndiv(ANGLE30,2),
+      ANGLE90 = int(ANGLE30*3),
+      ANGLE180 = int(ANGLE90*2),
+      ANGLE270 = int(ANGLE90*3),
+      ANGLE360 = int(ANGLE60*6),
+      ANGLE0 = 0,
+      ANGLE5 = _M.ndiv(ANGLE30,6),
+      ANGLE10 = int(ANGLE5*2),
+      ANGLE45 = int(ANGLE15*3);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    // trigonometric tables (the ones with "I" such as ISiTable are "Inverse" table)
-    const tSIN=0;
-    const iSIN=1;
-    const tCOS=2;
-    const iCOS=3;
-    const tTAN=4;
-    const iTAN=5;
-    const tFISH=6;
-    const xSTEP=7;
-    const ySTEP=8;
-    const TABLES= (function(a){
-      for(let i=0;i<a.length;++i)
-        a[i]= new Array(ANGLE360+1)
-      return a;
-    })(_.fill(9));
+    //trigonometric tables (the ones with "I" such as ISiTable are "Inverse" table)
+    //static table to speed things up
+    const tSIN=0,
+      iSIN=1,
+      tCOS=2,
+      iCOS=3,
+      tTAN=4,
+      iTAN=5,
+      tFISH=6,
+      xSTEP=7,
+      ySTEP=8,
+      TABLES=_.fill(9,i=> new Array(ANGLE360+1));
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (function(R){
@@ -233,8 +234,7 @@
         TABLES[iCOS][i]=1.0/v;
         v=TABLES[tTAN][i]=Math.tan(r);
         TABLES[iTAN][i]=1.0/v;
-        // Next we create a table to speed up wall lookups.
-        //You can see that the distance between walls are the same
+        //notice that the dist between walls are the same
         //if we know the angle
         //  _____|_/next xi______________
         //       |
@@ -245,42 +245,45 @@
         // distance between xi = x_step[view_angle];
         if(i>=ANGLE90 && i<ANGLE270){//facing LEFT
           v= TABLES[xSTEP][i] = TILESZ / TABLES[tTAN][i];
-          if(v>0) TABLES[xSTEP][i]=-v;
+          if(v>0) TABLES[xSTEP][i]= -v;
         }else{ // facing RIGHT
           v= TABLES[xSTEP][i] = TILESZ / TABLES[tTAN][i];
-          if(v<0) TABLES[xSTEP][i]=-v;
+          if(v<0) TABLES[xSTEP][i]= -v;
         }
         if(i>=ANGLE0 && i<ANGLE180){//facing DOWN
           v= TABLES[ySTEP][i] = TILESZ* TABLES[tTAN][i];
-          if(v<0) TABLES[ySTEP][i]=-v;
+          if(v<0) TABLES[ySTEP][i]= -v;
         }else{ // FACING UP
           v= TABLES[ySTEP][i] = TILESZ* TABLES[tTAN][i];
-          if(v>0) TABLES[ySTEP][i]=-v;
+          if(v>0) TABLES[ySTEP][i]= -v;
         }
       }
       // Create table for fixing FISHBOWL distortion
       for(let i=-ANGLE30; i<=ANGLE30; ++i){
         // we don't have negative angle, so make it start at 0
-        // this will give range from column 0 to (PROJECTONPLANEWIDTH) since we only will need to use those range
+        // this will give range from column 0 to (PROJECTONPLANEWIDTH)
+        // since we only will need to use those range
         TABLES[tFISH][i+ANGLE30] = 1.0/cos(i*R)
       }
     })(Math.PI/ANGLE180);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function paintRect(g,x, y, w, h, c){
-      g.beginFill(_S.color(c));
-      g.drawRect(x, y, w, h);
-      g.endFill();
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function paintRect(gfx,x, y, w, h, c){
+      gfx.beginFill(_S.color(c));
+      gfx.drawRect(x, y, w, h);
+      gfx.endFill();
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function initPlayerPos(mapstr){
-      let n,rc,i, a=mapstr.split("");
-      let x,y;
+      let x,y,n,rc,i, a=mapstr.split("");
       while(rc != "."){
         [rc,i]= _.randItem(a,true);
         if(rc == "."){
-          y= int(i/MAPWIDTH);
+          y= _M.ndiv(i,MAPWIDTH);
           x= (i%MAPWIDTH);
           if(a[(y+1)*MAPWIDTH+x]=="."&&
              a[(y-1)*MAPWIDTH+x]=="."&&
@@ -293,174 +296,171 @@
           }
         }
       }
-      a= [ANGLE60, ANGLE30, ANGLE15, ANGLE0, ANGLE90, ANGLE180, ANGLE270, ANGLE5, ANGLE10, ANGLE45];
+      a= [ANGLE60, ANGLE30, ANGLE15, ANGLE0,
+          ANGLE90, ANGLE180, ANGLE270, ANGLE5, ANGLE10, ANGLE45];
       n= [60, 30, 15, 0, 90, 180, 270, 5,10, 45];
       [_G.playerArc,i] = _.randItem(a,true);
-      console.log(`initial playerX= ${_G.playerX}, playerY= ${_G.playerY}, angle=${n[i]}`);
+      Mojo.CON.log(`initial playerX= ${_G.playerX}, playerY= ${_G.playerY}, angle=${n[i]}`);
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Maze Runner",{fontName:TITLE_FONT,fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,Mojo.width/2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.99);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
-              //put a mat around the arena to hide overflows
-              _Z.runScene("PhotoMat", _.inject({color:"black"},_G.arena));
-              if(Mojo.touchDevice) _Z.runScene("Ctrl");
-            });
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Wolf 3D",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,Mojo.width/2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              Mojo.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=>{
+                _Z.runEx("PlayGame");
+                //put a mat around the arena to hide overflows
+                _Z.run("PhotoMat", _.inject({color:"black"},_G.arena));
+                Mojo.touchDevice? _Z.run("Ctrl"):0;
+              });
+            }
+            Mojo.on(["single.tap"],cb);
+            _V.set(s,Mojo.width/2,Mojo.height*0.7);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,Mojo.width/2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
+        });
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle() && this.g.doNext();
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Ctrl",{
+    _Z.scene("Ctrl",{
       setup(){
         let self=this,
-            K=Mojo.getScaleFactor();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initHotspots=()=>{
-          let cfg={fontName:UI_FONT,fontSize:48*K};
-          let alpha=0.2,grey=_S.color("#cccccc");
-          let fw=132*K,fh=84*K,lw=4*K;
-          let L,U,R,D,offX, offY;
-          //////
-          D= _S.rect(fw,fh,grey,grey,lw);
-          _S.centerAnchor(D);
-          D.addChild(_S.centerAnchor(_S.bmpText("--",cfg)));
-          offY=D.height/4;
-          _V.set(D, _G.arena.x2+(Mojo.width-_G.arena.x2)/2,
-                    (_G.arena.y2-D.height/2));
-          self.insert(_S.opacity(_I.makeHotspot(D),alpha));
-          /////
-          R= _S.rect(fw,fh,grey,grey,lw);
-          _S.centerAnchor(R);
-          R.addChild(_S.centerAnchor(_S.bmpText("->",cfg)));
-          _S.pinTop(D,R,offY);
-          R.x += D.width/2+offY/2;
-          self.insert(_S.opacity(_I.makeHotspot(R),alpha));
-          //////
-          L= _S.rect(fw,fh,grey,grey,lw);
-          _S.centerAnchor(L);
-          L.addChild(_S.centerAnchor(_S.bmpText("<-",cfg)));
-          _S.pinTop(D,L,offY);
-          L.x -= D.width/2+offY/2;
-          self.insert(_S.opacity(_I.makeHotspot(L),alpha));
-          //////
-          U= _S.rect(fw,fh,grey,grey,lw);
-          _S.centerAnchor(U);
-          U.addChild(_S.centerAnchor(_S.bmpText("++",cfg)));
-          _S.pinTop(D,U,L.height+offY*2);
-          self.insert(_S.opacity(_I.makeHotspot(U),alpha));
-          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
-          L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
-          U.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP) }
-          D.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN) }
-        };
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          initHotspots(){
+            let cfg={fontName:UI_FONT,fontSize:48*K},
+              alpha=0.2,grey=_S.SomeColors.grey,
+              L,U,R,D,offX, offY, fw=132*K,fh=84*K,lw=4*K;
+            //////
+            D= _S.rect(fw,fh,grey,grey,lw);
+            _S.anchorXY(D,0.5);
+            D.addChild(_S.anchorXY(_S.bmpText("--",cfg),0.5));
+            offY=D.height/4;
+            _V.set(D, _G.arena.x2+(Mojo.width-_G.arena.x2)/2, (_G.arena.y2-D.height/2));
+            self.insert(_S.opacity(_I.makeHotspot(D),alpha));
+            /////
+            R= _S.rect(fw,fh,grey,grey,lw);
+            _S.anchorXY(R,0.5);
+            R.addChild(_S.anchorXY(_S.bmpText("->",cfg),0.5));
+            _S.pinAbove(D,R,offY);
+            R.x += D.width/2+offY/2;
+            self.insert(_S.opacity(_I.makeHotspot(R),alpha));
+            //////
+            L= _S.rect(fw,fh,grey,grey,lw);
+            _S.anchorXY(L,0.5);
+            L.addChild(_S.anchorXY(_S.bmpText("<-",cfg),0.5));
+            _S.pinAbove(D,L,offY);
+            L.x -= D.width/2+offY/2;
+            self.insert(_S.opacity(_I.makeHotspot(L),alpha));
+            //////
+            U= _S.rect(fw,fh,grey,grey,lw);
+            _S.anchorXY(U,0.5);
+            U.addChild(_S.anchorXY(_S.bmpText("++",cfg),0.5));
+            _S.pinAbove(D,U,L.height+offY*2);
+            self.insert(_S.opacity(_I.makeHotspot(U),alpha));
+            //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+            R.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
+            L.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
+            U.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
+            D.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
+          }
+        });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initHotspots();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initLevel=()=>{
-          //center the scene!!!!!
-          let sy= int((Mojo.height-PROJECTIONHEIGHT)/2);
-          let sx= int((Mojo.width-PROJECTIONWIDTH)/2);
-          this.cvars={ i_x:0, i_y:0,
-                       distX:0, distY:0,
-                       vtGrid:0, hzGrid:0 };
-          _.inject(_G,{
-            prev:{x:Infinity,y:Infinity,dir:Infinity},
-            playerHeight: WALL_HEIGHT/2,
-            playerSpeed: 16,
-            textureUsed:true,
-            skyUsed:true,
-            arena:{ x1:sx, y1:sy, x2: sx+PROJECTIONWIDTH, y2: sy+PROJECTIONHEIGHT }
-          });
-          initPlayerPos(FMAP);
-          this.g.box=_S.container();
-          this.g.gfx=_S.graphics();
-          this.insert( _V.set(this.g.box,sx,sy));
-          return this.insert(_S.opacity(this.g.gfx2=_S.graphics(), 1));
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.drawBg=()=>{
-          let sx,sy;
-          let r,step=1,c=255;
-          let width=PROJRATIO*BASEW;
-          let height=PROJRATIO*step;
-          //scene is already centered, so start point = 0,0
-          sx=0;
-          sy=0;
-          for(r=0; r<BASEH/2; r+=step){//sky
-            if(!_G.skyUsed){
-              this.g.gfx.beginFill(_S.color3(c, 125, 225));
-              this.g.gfx.drawRect(sx,sy+(r*height),width,height);
-              this.g.gfx.endFill();
+        let self=this,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          initLevel(){
+            //center the scene!!!!!
+            let sy= _M.ndiv(Mojo.height-PROJECTIONHEIGHT,2),
+              sx= _M.ndiv(Mojo.width-PROJECTIONWIDTH,2);
+            self.cvars={ i_x:0, i_y:0,
+                         distX:0, distY:0,
+                         vtGrid:0, hzGrid:0 };
+            _.inject(_G,{
+              prev:{x:Infinity,y:Infinity,dir:Infinity},
+              playerHeight: WALL_HEIGHT/2,
+              playerSpeed: 16,
+              textureUsed:true,
+              skyUsed:true,
+              arena:{ x1:sx, y1:sy, x2: sx+PROJECTIONWIDTH, y2: sy+PROJECTIONHEIGHT }
+            });
+            initPlayerPos(FMAP);
+            this.box=_S.container();
+            this.gfx=_S.graphics();
+            self.insert( _V.set(this.box,sx,sy));
+            return self.insert(_S.opacity(this.gfx2=_S.graphics(), 1));
+          },
+          drawBg(){
+            let width=PROJRATIO*BASEW,
+              height=PROJRATIO, r,sx=0,sy=0,step=1,c=255;
+            //scene is already centered, so start = 0,0
+            for(r=0; r<BASEH/2; r+=step){//sky
+              if(!_G.skyUsed){
+                this.gfx.beginFill(_S.color3(c, 125, 225));
+                this.gfx.drawRect(sx,sy+(r*height),width,height);
+                this.gfx.endFill();
+              }
+              --c;
             }
-            --c;
-          }
-          for(c=0, r=BASEH/2; r<BASEH; r+=step){//floor
-            this.g.gfx.beginFill(_S.color3(65, c, 65));
-            this.g.gfx.drawRect(sx,sy+(r*height),width, height);
-            this.g.gfx.endFill();
-            ++c;
-          }
-        };
-        this.g.drawSky=()=>{
-          if(_G.skyUsed){
-            let sx=0,sy=0;
-            let sky= _S.sprite("bg.jpg");
-            let width = sky.width * (BASEH  / sky.height) * 2;
-            let left = (_G.playerArc / ANGLE360) * -width;
-            sky.x=sx+left*PROJRATIO;
-            sky.y=sy;
-            sky.width=width*PROJRATIO;
-            sky.height=BASEH*PROJRATIO;
-            this.g.box.addChild(_S.extend(sky));
-            if(left < width - BASEW){
-              sky= _S.sprite("bg.jpg");
-              sky.x= sx+PROJRATIO*(left+width);
+            for(c=0, r=BASEH/2; r<BASEH; r+=step){//floor
+              this.gfx.beginFill(_S.color3(65, c, 65));
+              this.gfx.drawRect(sx,sy+(r*height),width, height);
+              this.gfx.endFill();
+              ++c;
+            }
+          },
+          drawSky(){
+            if(_G.skyUsed){
+              let sky= _S.sprite("sky.jpg"),
+                width = sky.width * (BASEH  / sky.height) * 2,
+                sx=0,sy=0, left = (_G.playerArc / ANGLE360) * -width;
+              sky.x=sx+left*PROJRATIO;
               sky.y=sy;
-              sky.width=PROJRATIO*width;
+              sky.width=width*PROJRATIO;
               sky.height=BASEH*PROJRATIO;
-              this.g.box.addChild(_S.extend(sky));
+              this.box.addChild(_S.extend(sky));
+              if(left < width-BASEW){
+                sky= _S.sprite("sky.jpg");
+                sky.x= sx+PROJRATIO*(left+width);
+                sky.y=sy;
+                sky.width=PROJRATIO*width;
+                sky.height=BASEH*PROJRATIO;
+                this.box.addChild(_S.extend(sky));
+              }
             }
+          },
+          initHUD(){
+            return this.hud=new HUD(self)
           }
-        };
+        });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initHUD=()=>{
-          return this.g.hud=new HUD(this)
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initLevel() && this.g.initHUD();
+        doBackDrop(this) && this.g.initLevel() && this.g.initHUD();
       },
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       //check algo from permadi...
@@ -477,12 +477,12 @@
         }
       },
       step(castArc,castCol,CV){
-        let dx,dy,gx,gy,idx,
-            vtStep, hzStep,self=this;
-        let tan_v= TABLES[tTAN][castArc];
-        let tan_i= TABLES[iTAN][castArc];
-        let sin_v= TABLES[iSIN][castArc];
-        let cos_v= TABLES[iCOS][castArc];
+        let self=this,
+          dx,dy,gx,gy,idx, vtStep, hzStep;
+        let tan_v= TABLES[tTAN][castArc],
+          tan_i= TABLES[iTAN][castArc],
+          sin_v= TABLES[iSIN][castArc],
+          cos_v= TABLES[iCOS][castArc];
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         //DEAL WITH HORZ LINES(Y), VERT LINES(X), find 1st intercept point
         (function horzIX(rDir){//face down or up
@@ -503,8 +503,8 @@
         CV.distY=
         CV.distX=Infinity;
         function probe(H){
-          gx = H ? int(CV.i_x/TILESZ) : int(CV.vtGrid/TILESZ);
-          gy = H ? int(CV.hzGrid/TILESZ) : int(CV.i_y/TILESZ);
+          gx = H ? _M.ndiv(CV.i_x,TILESZ) : _M.ndiv(CV.vtGrid,TILESZ);
+          gy = H ? _M.ndiv(CV.hzGrid,TILESZ) : _M.ndiv(CV.i_y,TILESZ);
           if(gx>=MAPWIDTH || gy>=MAPDEPTH || gx<0 || gy<0){
             H ? (CV.distY=Infinity)
               : (CV.distX=Infinity)
@@ -558,7 +558,8 @@
         if(color<20) color=20;
         color=int(color);
         if(_G.textureUsed){
-          drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, xOffset, color);// (vertHit?160:100)/dist)
+          drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, xOffset, color);
+          //TODO: uncomment to demo floor and ceiling, very slow though
           //drawFloor(this,castArc, castCol,bottomOfWall,1,color);
           //drawCeiling(this,castArc, castCol,topOfWall,1,color);
         }else{
@@ -579,9 +580,8 @@
           _G.playerArc+=ANGLE10;
           if(_G.playerArc>=ANGLE360) _G.playerArc-=ANGLE360;
         }
-        let playerXDir= TABLES[tCOS][_G.playerArc];
-        let playerYDir= TABLES[tSIN][_G.playerArc];
-        let dx=0,dy=0;
+        let playerXDir= TABLES[tCOS][_G.playerArc],
+          dx=0,dy=0, playerYDir= TABLES[tSIN][_G.playerArc];
         //move forward
         if(_I.keyDown(_I.UP)){
           dx=Math.round(playerXDir*_G.playerSpeed);
@@ -595,11 +595,11 @@
         _G.playerY+=dy;
         // CHECK COLLISION AGAINST WALLS
         // compute cell position
-        let playerXCell = int(_G.playerX/TILESZ);
-        let playerYCell = int(_G.playerY/TILESZ);
-        // compute position relative to cell (ie: how many pixel from edge of cell)
-        let playerXCellOffset = _G.playerX % TILESZ;
-        let playerYCellOffset = _G.playerY % TILESZ;
+        let playerXCell = _M.ndiv(_G.playerX,TILESZ),
+          playerYCell = _M.ndiv(_G.playerY,TILESZ),
+          // compute position relative to cell (ie: how many pixel from edge of cell)
+          playerXCellOffset = _G.playerX % TILESZ,
+          playerYCellOffset = _G.playerY % TILESZ;
         let minDistanceToWall=30;
         // make sure the player don't bump into walls
         if(dx>0){ // moving right
@@ -663,8 +663,8 @@
         xEnd+=_G.playerX;
         yEnd+=_G.playerY;
         // Get the tile intersected by ray:
-        let cellX = int(xEnd / TILESZ);
-        let cellY = int(yEnd / TILESZ);
+        let cellX = _M.ndiv(xEnd , TILESZ),
+          cellY = _M.ndiv(yEnd , TILESZ);
         if((cellX<MAPWIDTH) && (cellY<MAPDEPTH) && cellX>=0 && cellY>=0){
           // Find offset of tile and column in texture
           let ty = int(yEnd % TILESZ);
@@ -690,8 +690,8 @@
         xEnd += _G.playerX;
         yEnd += _G.playerY;
         // Get the tile intersected by ray:
-        let cellX = int(xEnd / TILESZ);
-        let cellY = int(yEnd / TILESZ);
+        let cellX = _M.ndiv(xEnd , TILESZ),
+          cellY = _M.ndiv(yEnd , TILESZ);
         if((cellX<MAPWIDTH) && (cellY<MAPDEPTH) && cellX>=0 && cellY>=0){
             // Find offset of tile and column in texture
           let tx = int(xEnd % TILESZ);
@@ -757,24 +757,22 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load and run with this config
+  window.addEventListener("load",()=> MojoH5({
+
     assetFiles: ["tile2.png","tile43.png",
                  "tile42.png","tile41.png",
-                 "wall64.png","floortile.png","bg.jpg", "click.mp3"],
+                 "wall64.png","floortile.png","bg.jpg","sky.jpg", "click.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
     fps:24,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

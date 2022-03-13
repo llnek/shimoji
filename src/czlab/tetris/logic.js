@@ -10,19 +10,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
-  /**/
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window["io.czlab.tetris.logic"]=function(Mojo){
 
     const int=Math.floor;
     const {Sprites:_S,
            Game:_G,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -46,15 +47,16 @@
       }
       return y < 911
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _draw(){
-      let k=0;
       _G.cur.cells.forEach((r,y)=> r.forEach((c,x)=>{
         if(c)
           _V.set(c,_G.vbox.x1+(_G.cur.col+x)*_G.tileW,
                    _G.vbox.y2-((_G.cur.row-y)+1)*_G.tileH)
       }));
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _lockShape(){
       //sprite position -> tile coordinate
@@ -62,32 +64,31 @@
       //but the actual array has row0 at top
       //we need to flip the row value
       function _xref(x,y){
-        let r=int(((y+ _G.tileH/2) - _G.vbox.y1)/_G.tileH),
-            c=int(((x+ _G.tileW/2) - _G.vbox.x1)/_G.tileW);
+        let r=_M.ndiv((y+ _G.tileH/2) - _G.vbox.y1,_G.tileH),
+            c=_M.ndiv((x+ _G.tileW/2) - _G.vbox.x1,_G.tileW);
         r= _G.rows - 1 - r;//doing the flip here
         if(r >=0 && r < _G.rows) return [r,c]
       }
-      let y=0;
-      for(let r,rc,p; y< _G.cur.cells.length; ++y){
+      let r,rc,p,y=0;
+      for(; y< _G.cur.cells.length; ++y){
         r=_G.cur.cells[y];
         for(let x=0;x<r.length;++x){
           if(p=r[x]){
             rc=_xref(p.x,p.y);
-            if(!rc){
+            if(rc){
+              _G.grid[rc[0]][rc[1]]=p;
+            }else{
               y=911;
               break;
-            }else{
-              _G.grid[rc[0]][rc[1]]=p;
             }
           }
         }
       }
       return y<911 ? (_G.cur.cells.length=0, true) : false
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _checkGrid(){
-      function _clear(row){
-        for(let i=0;i<row.length;++i) row[i]=_S.remove(row[i]) }
       function _sink(line){
         for(let s,y=line+1;y<=_G.rows;++y)
         for(let x=0;x<_G.cols;++x){
@@ -100,34 +101,39 @@
         for(let r,y=0;y<_G.rows;++y){
           r=_G.grid[y];
           if(r.every(c => !!c)){
-            _clear(r); _sink(y); return true; } } }
+            r.forEach(o=>_S.remove(o));
+            _sink(y);
+            return true;
+          }
+        }
+      }
       let cnt=0;
       while(_check()){ ++cnt }
       if(cnt>4){
         _G.score += 800;
-      }else if (cnt>0) {
+      }else if(cnt>0){
         _G.score += cnt*100;
       }
       if(cnt>0)
         Mojo.sound("line.mp3").play();
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _moveDown(){
-      let rc;
-      if(rc=_test(_G.cur.cells,_G.cur.row-1,_G.cur.col)){
+      let rc=_test(_G.cur.cells,_G.cur.row-1,_G.cur.col);
+      if(rc){
         _G.cur.row -= 1;
         _draw();
+      }else if(!_lockShape()){
+        _G.gameOver=true
       }else{
-        if(!_lockShape()){
-          _G.gameOver=true
-        }else{
-          _checkGrid();
-          _G.reifyNext();
-          _G.slowDown();
-        }
+        _checkGrid();
+        _G.reifyNext();
+        _G.slowDown();
       }
       return rc;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
       /** create the next piece */
@@ -136,9 +142,9 @@
         this.previewNext();
         //we hide the new piece above the top row
         //add the thickness of the piece
-        this.cur.cells.forEach(c=> { if(c) c.visible=true });
+        this.cur.cells.forEach(r=> r.forEach(c=> { if(c) c.visible=true }));
         this.cur.row= this.rows + this.cur.lines[2];
-        this.cur.col= int(this.cols/2);
+        this.cur.col= _M.ndiv(this.cols,2);
         _draw();
         return this.cur;
       },
@@ -161,13 +167,13 @@
         }
       },
       clrTO(){
-        if(this.timer !== undefined) clearTimeout(this.timer);
-        this.timer=undefined;
+        if(this.timer !== UNDEF) clearTimeout(this.timer);
+        this.timer=UNDEF;
       },
       slowDown(){
         this.clrTO();
         if(!this.gameOver && _moveDown())
-          this.timer= _.delay(80+700,()=> this.slowDown());
+          this.timer= _.delay(800,()=> this.slowDown());
       },
       dropDown(){
         this.clrTO();
@@ -178,7 +184,7 @@
         if(!this.gameOver) this.slowDown() },
       rotateCCW(){
         //no need to rotate a square
-        let ts=this.transposeCCW(this.cur.cells);
+        let ts=this.xposeCCW(this.cur.cells);
         if(_test(ts,this.cur.row,this.cur.col)){
           this.cur.cells=ts;
           _draw();
@@ -195,17 +201,13 @@
         }
         */
       },
-      //rotate the model counterclockwise,
-      //like flipping a matrix
-      transposeCCW(block){
-        let out=[];
+      //rotate the model counterclockwise, like flipping a matrix
+      xposeCCW(block){
+        let out= _.fill(block.length, ()=> []);
         for(let i=0;i<block.length;++i)
-          out.push([]);
-        for(let row,i=0;i<block.length;++i){
-          row=block[i];
-          for(let j=0;j<row.length;++j){
-            out[j][i]= row[row.length-1-j]
-          }
+        for(let row=block[i],
+                j=0; j<row.length; ++j){
+          out[j][i]= row[row.length-1-j]
         }
         return out;
       }

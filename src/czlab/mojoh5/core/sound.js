@@ -69,10 +69,10 @@
         get volume(){ return _vol },
         set volume(v){ _vol=v },
         play(){
-          if(!Mojo.Sound.sfx()){return}
           const now = _.now();
           const s= this.name;
-          if(!_debounce(s,now)){
+          if(Mojo.Sound.sfx()&&
+             !_debounce(s,now)){
             let sid = _sndCnt++,
                 w=this.buffer.duration*1000,
                 g=_A.ctx.createGain(),
@@ -92,10 +92,12 @@
             src.start(0);
             this.sids.set(sid,src);
           }
+          return this;
         },
         stop(){
           this.sids.forEach(s=> s.stop(0));
           this.sids.length=0;
+          return this;
         }
       };
       return SoundFiles[name]=s;

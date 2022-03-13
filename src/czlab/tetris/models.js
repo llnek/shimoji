@@ -10,30 +10,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window["io.czlab.tetris.models"]=function(Mojo){
 
     const {Sprites:_S,
            Game:_G,
            ute:_, is}=Mojo;
 
-    const D_GREEN= "#1B8463";
-    const L_GREEN= "#26AE88";
-    const D_RED= "#B02722";
-    const L_RED="#DC352E";
-    const D_YELLOW= "#C1971F";
-    const L_YELLOW= "#EBBA16";
-    const D_PURPLE= "#75348B";
-    const L_PURPLE= "#7F4491";
-    const D_BLUE= "#1F436D";
-    const L_BLUE= "#366BB3";
-    const D_ORANGE= "#D8681C";
-    const L_ORANGE= "#EC8918";
+    const D_GREEN= "#1B8463",
+      L_GREEN= "#26AE88",
+      D_RED= "#B02722",
+      L_RED="#DC352E",
+      D_YELLOW= "#C1971F",
+      L_YELLOW= "#EBBA16",
+      D_PURPLE= "#75348B",
+      L_PURPLE= "#7F4491",
+      D_BLUE= "#1F436D",
+      L_BLUE= "#366BB3",
+      D_ORANGE= "#D8681C",
+      L_ORANGE= "#EC8918";
 
     const COLORS=[
       [L_GREEN, D_GREEN],
@@ -49,18 +50,13 @@
     });
 
     /**/
-    function _sp(c){
-      return _S.tint(_S.sprite("tile.png"),c)
-    }
+    const _sp=(c)=> _S.tint(_S.sprite("tile.png"),c);
 
     /** abstract base class */
     class BModel{
-      constructor(ln){
-        this._lines=ln
-      }
-      lines(){
-        return this._lines
-      }
+      //lines= [startline,endline,totallines]
+      constructor(ln){ this._lines=ln }
+      lines(){ return this._lines }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -74,9 +70,8 @@
         */
       }
       clone(){
-        let n,c=_.randItem(COLORS);
-        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
-        n=null;
+        let c=_.randItem(COLORS);
+        if(_.randSign()>0){_.swap(c,0,1)}
         return [[_sp(c[0]),_sp(c[1])],
                 [_sp(c[1]),_sp(c[0])]]
       }
@@ -94,7 +89,7 @@
       }
       clone(){
         let n,c=_.randItem(COLORS);
-        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        if(_.randSign()>0){_.swap(c,0,1)}
         n=null;
         return [[n,      n,      _sp(c[1])],
                 [_sp(c[0]),_sp(c[1]),_sp(c[0])],
@@ -114,7 +109,7 @@
       }
       clone(){
         let n,c=_.randItem(COLORS);
-        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        if(_.randSign()>0){_.swap(c,0,1)}
         n=null;
         return [[n,n,n],
                 [_sp(c[0]),_sp(c[1]),_sp(c[0])],
@@ -135,7 +130,7 @@
       }
       clone(){
         let n,c=_.randItem(COLORS);
-        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        if(_.randSign()>0){_.swap(c,0,1)}
         n=null;
         return [[n,n,n,n],
                 [_sp(c[0]),_sp(c[1]),_sp(c[0]),_sp(c[1])],
@@ -156,7 +151,7 @@
       }
       clone(){
         let n,c=_.randItem(COLORS);
-        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        if(_.randSign()>0){_.swap(c,0,1)}
         n=null;
         return [[n,n,n],
                 [n,      _sp(c[0]),n],
@@ -176,7 +171,7 @@
       }
       clone(){
         let n,c=_.randItem(COLORS);
-        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        if(_.randSign()>0){_.swap(c,0,1)}
         n=null;
         return [[n,      _sp(c[0]),_sp(c[1])],
                 [_sp(c[0]),_sp(c[1]),n],
@@ -196,7 +191,7 @@
       }
       clone(){
         let n,c=_.randItem(COLORS);
-        if(_.randSign()>0){n=c[0];c[0]=c[1];c[1]=n}
+        if(_.randSign()>0){_.swap(c,0,1)}
         n=null;
         return [[n,n,n],
                 [_sp(c[0]),_sp(c[1]),n],

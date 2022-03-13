@@ -66,7 +66,6 @@
       fps: 60
     });
 
-
     //const _height=()=> document.documentElement.clientHeight;
     //const _width=()=> document.documentElement.clientWidth;
     const _height=()=> gscope.innerHeight;
@@ -113,26 +112,25 @@
       const {Sprites}=Mojo;
       return {
         init(){
-          let logo=Sprites.sprite("boot/ZotohLab_x1240.png");
-          let pbar=Sprites.sprite("boot/preloader_bar.png");
-          let [w,h]=Mojo.scaleXY([logo.width,logo.height],
-                                 [Mojo.width,Mojo.height]);
-          let K=Mojo.getScaleFactor();
-          let k= w>h?h:w;
+          let logo=Sprites.sprite("boot/ZotohLab_x1240.png"),
+            pbar=Sprites.sprite("boot/preloader_bar.png"),
+            [w,h]=Mojo.scaleXY([logo.width,logo.height],
+                               [Mojo.width,Mojo.height]),
+            K=Mojo.getScaleFactor(),
+            k= w>h?h:w;
           k *= 0.2;
           Sprites.scaleXY(pbar,k,k);
           Sprites.scaleXY(logo,k,k);
           Sprites.pinCenter(this,logo);
-          Sprites.pinBottom(logo,pbar,4*K);
-          pbar.visible=false;
+          Sprites.pinBelow(logo,pbar,4*K);
+          Sprites.hide(pbar);
           this.g.pbar=pbar;
           this.g.pbar_width=pbar.width;
           this.insert(logo);
           this.insert(pbar);
         },
         update(file,progress){
-          if(!this.g.pbar.visible)
-            this.g.pbar.visible=true
+          this.g.pbar.visible?0:Sprites.show(this.g.pbar);
           this.g.pbar.width = this.g.pbar_width*(progress/100);
         }
       };
@@ -163,7 +161,7 @@
         if(ldrObj)
           Mojo.delBgTask(ldrObj);
         _.delay(0,()=>{
-          Mojo.Scenes.removeScene(scene);
+          Mojo.Scenes.remove(scene);
           if(!error)
             Mojo.u.start(Mojo);
           else
@@ -289,14 +287,13 @@
     const _ScrSize={width:0,height:0};
     const _Size11={width:1,height:1};
 
-    /**Set some global CSS. */
-    function _configCSS(){
-      const style= dom.newElm("style");
-      dom.conj(style,dom.newTxt(_CT));
-      dom.conj(document.head,style);
-    }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _configCanvas(arg){
+      const style= dom.newElm("style");
+      dom.conj(document.body, Mojo.canvas);
+      dom.conj(style, dom.newTxt(_CT));
+      dom.conj(document.head,style);
+
       let p= { "outline":"none" };
       //p["image-rendering"]= arg.rendering || "pixelated";
       //p["image-rendering"]= arg.rendering || "crisp-edges";
@@ -313,7 +310,8 @@
       _.assert(box,"design resolution req'd.");
 
       //want canvas max screen
-      if(cmdArg.scaleToWindow=="max"){
+      if(cmdArg.scaleToWindow=="max"||
+         cmdArg.scaleToWindow===true){
         maxed=true;
         box= {width: _width(),
               height: _height()};
@@ -341,7 +339,7 @@
 
       //install modules
       ["Sprites","Input","Scenes",
-       "Sound","FX","D2","Tiles","Touch"].forEach(s=>{
+       "Sound","FX","Arcade","Tiles","Touch"].forEach(s=>{
          CON.log(`installing module ${s}...`);
          let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
          if(m.assets)
@@ -351,9 +349,6 @@
       //register these background tasks
       _BgTasks.push(Mojo.FX, Mojo.Input);
 
-      //css
-      dom.conj(document.body, Mojo.canvas);
-      _configCSS();
       _configCanvas(cmdArg);
 
       if(_.has(cmdArg,"border"))
@@ -865,6 +860,13 @@
       tcached(x){
         return _.inst(this.PXTexture,x)?x
           :(is.str(x)? PIXI.utils.TextureCache[x] || PIXI.utils.TextureCache[this.assetPath(x)] : UNDEF)
+      },
+      /**Click to play message.
+       * @memberof module:mojoh5/Mojo
+       * @return {string}
+       */
+      clickPlayMsg(){
+        return `${this.touchDevice?"Tap":"Click"} to Play!`
       },
       /**Converts the position into a [col, row] for grid oriented processing.
        * @memberof module:mojoh5/Mojo

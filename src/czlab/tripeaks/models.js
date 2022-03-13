@@ -10,29 +10,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(global,UNDEF){
 
   "use strict";
 
-  /**/
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   global["io/czlab/tripeaks/models"]=function(Mojo){
-    const SYMBOLS = "?A23456789TJQK";
+
     //Ace = 1, K = 13
-    const MAX_VALUE = 13;
-    const MIN_VALUE = 1;
-    const DIAMONDS=1;
-    const CLUBS=2;
-    const HEARTS=3;
-    const SPADES=4;
-    const JOKER=5;
+    const MAX_VALUE = 13,
+      MIN_VALUE = 1,
+      DIAMONDS=1,
+      CLUBS=2,
+      HEARTS=3,
+      SPADES=4,
+      JOKER=5,
+      SYMBOLS = "?A23456789TJQK";
+
     const int=Math.floor;
     const {Sprites:_S,
            Input:_I,
            Game:_G,
+           v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
-    /**/
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const SUITS = [DIAMONDS, CLUBS, HEARTS, SPADES];
     const CARD_SUITS=(function(obj){
       obj[DIAMONDS]="Diamonds";
@@ -53,9 +58,7 @@
     }
 
     /**A card has been dropped */
-    function dropDrawCard(c){
-      Mojo.emit(["flip.draw",c.parent])
-    }
+    const dropDrawCard=(c)=> Mojo.emit(["flip.draw",c.parent]);
 
     /**Get rid of this card */
     function snuffOut(c){
@@ -67,14 +70,14 @@
     /**Rules to decide how many points to be added */
     function _calcScore(a,b){
       let bonus=0,n=10,x=1;
-      if(a.g.value===13 && b.g.value===13){
+      if(a.g.value==13 && b.g.value==13){
         n=100;
         x *= 5;
       }
-      if(b.g.suit===a.g.suit){
+      if(b.g.suit==a.g.suit){
         x *=3;
       }
-      if(a.g.row===0){
+      if(a.g.row==0){
         bonus=5000;
         _G.peaks +=1;
       }
@@ -84,8 +87,8 @@
     /**/
     function _checkDropped(s){
       let found,
-          es=_G.model.getExposed(),
-          dc=_G.model.getDrawCard();
+        es=_G.model.getExposed(),
+        dc=_G.model.getDrawCard();
       if(dc)
         es.push(dc);
       for(let c,i=0;i<es.length;++i){
@@ -113,8 +116,7 @@
         Mojo.sound("slide.mp3").play();
       }else{
         //move card back
-        s.x=s.g.x;
-        s.y=s.g.y;
+        _V.copy(s,s.g);
         Mojo.sound("error.mp3").play();
       }
     }
@@ -123,11 +125,11 @@
     function Card(suit,value){
       _.assert(value >= MIN_VALUE &&
                value <= MAX_VALUE, `Bad Value ${value}`);
-      const symbol = value===10?"10":SYMBOLS[value];
-      const K=Mojo.getScaleFactor();
-      const cs=CARD_SUITS[suit];
-      const s= _S.spriteFrom(`${Mojo.u.stockPile}.png`,
-                             `card${cs}${symbol}.png`); //front and back
+      const symbol = value==10?"10":SYMBOLS[value],
+        K=Mojo.getScaleFactor(),
+        cs=CARD_SUITS[suit],
+        s= _S.spriteFrom(`${Mojo.u.stockPile}.png`,
+                         `card${cs}${symbol}.png`); //front and back
       //scale the card,make it nice and even
       if(!_G.iconSize){
         let w,h;
@@ -141,7 +143,7 @@
       s.g.value=value;
       s.g.suit=suit;
       s.g.symbol=symbol;
-      s.m5.onDragDropped=()=>{ _checkDropped(s) };
+      s.m5.onDragDropped=()=>_checkDropped(s);
       return _S.sizeXY(s, _G.iconSize[0], _G.iconSize[1]);
     }
 
@@ -175,7 +177,7 @@
         const lastPeak=this.numPeaks-1;
         for(let left=0, p=0; p < this.numPeaks; ++p){
           if(p>0){ left += shift }
-          this._initPeak(left,numRows,deck,p===lastPeak)
+          this._initPeak(left,numRows,deck,p==lastPeak)
         }
       }
 
@@ -238,19 +240,19 @@
 
       /**Adding the 2 cards equals 13 */
       checkRule2(a, b){
-        return a && b && (a.g.value + b.g.value) === MAX_VALUE
+        return a && b && (a.g.value + b.g.value) == MAX_VALUE
       }
 
       /**The card is a King */
       checkRule1(a){
-        return a && a.g.value === MAX_VALUE
+        return a && a.g.value == MAX_VALUE
       }
 
       /**/
       checkRules(a,b){
         //2 kings or a+b=13
-        return (a.g.value + b.g.value) === MAX_VALUE ||
-               (a.g.value===b.g.value && a.g.value===MAX_VALUE)
+        return (a.g.value + b.g.value) == MAX_VALUE ||
+               (a.g.value===b.g.value && a.g.value==MAX_VALUE)
       }
 
       /**/
@@ -330,7 +332,7 @@
           let left = card;
           let right = card + 1;
           //last row is always exposed, quick exit
-          rc= row === this.lastRowIndex() ||
+          rc= row == this.lastRowIndex() ||
               (this.validXY(below,right) &&
                this.noCardAt(below,left) && this.noCardAt(below,right))
         }
@@ -366,7 +368,7 @@
 
       /**/
       isPileEmpty(){
-        return this.stockPile.length===0
+        return this.stockPile.length==0
       }
 
       /**/
@@ -377,7 +379,7 @@
         }
         //get all exposed cards and then check them
         let c,remains=this.getExposed();
-        if(remains.length===0){
+        if(remains.length==0){
           // note: this should never happen actually
           // no cards to play with, can't continue
           return true

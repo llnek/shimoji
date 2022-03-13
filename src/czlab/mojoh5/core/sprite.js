@@ -308,8 +308,8 @@
 
     const _PT=_V.vec();
     const _$={
-      SomeColors,
-      BtnColors,
+      SomeColors:{},
+      BtnColors:{},
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
                "boot/trail.png","boot/star.png",
                "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
@@ -393,6 +393,19 @@
        */
       halfSize(s){
         return {width: _M.ndiv(s.width,2), height: _M.ndiv(s.height,2)} },
+      /**Set the anchor.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite} s
+       */
+      anchorXY(s,x,y){
+        _.assert(s.anchor,"sprite has no anchor object");
+        s.anchor.x=x;
+        s.anchor.y= _.nor(y,x);
+        return s;
+      },
       /**Set sprite's anchor to be at it's center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -815,13 +828,18 @@
        * @return {Sprite} s
        */
       tint(s,color){ s.tint=color; return s },
+      /**Unset a sprite's visibility.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      hide(s){s.visible=false;return s},
       /**Set a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
-       * @param {boolean} t
        * @return {Sprite} s
        */
-      manifest(s,t=true){ s.visible=t; return s },
+      show(s){s.visible=true;return s},
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -848,8 +866,15 @@
       container(cb){
         let s= new Mojo.PXContainer();
         s= this.extend(s);
-        cb && cb(s);
+        if(cb){
+          cb(s)
+        }
         return s;
+      },
+      group(...cs){
+        let C= this.container();
+        cs.forEach(c=> C.addChild(c));
+        return C;
       },
       /**Create a sprite.
        * @memberof module:mojoh5/Sprites
@@ -1045,12 +1070,20 @@
        * @param {number} y
        * @return {BitmapText}
        */
-      bitmapText(msg,fstyle,x=0,y=0){
+      bitmapText(msg,name,size){
         //in pixi, no fontSize, defaults to 26, left-align
+        let fstyle;
+        if(is.str(name)){
+          fstyle={fontName:name};
+          if(is.num(size)) fstyle.fontSize=size;
+        }else{
+          fstyle=name;
+        }
         if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
         if(!fstyle.fontName) fstyle.fontName="unscii";
         if(!fstyle.align) fstyle.align="center";
-        return _V.set(this.extend(new Mojo.PXBText(msg,fstyle)),x,y) },
+        return this.extend(new Mojo.PXBText(msg,fstyle));
+      },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
@@ -1572,7 +1605,7 @@
        * @param {number} padY
        * @param {number} alignX
        */
-      pinTop(C,b,padY=10,alignX=0.5){
+      pinAbove(C,b,padY=10,alignX=0.5){
         let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
         let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
         let y=boxA.y1-padY-(boxB.y2-boxB.y1);
@@ -1590,7 +1623,7 @@
        * @param {number} padY
        * @param {number} alignX
        */
-      pinBottom(C,b,padY=10,alignX=0.5){
+      pinBelow(C,b,padY=10,alignX=0.5){
         let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
         let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
         let y=boxA.y2+padY;
@@ -1835,7 +1868,8 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //aliases
     _$.bmpText=_$.bitmapText;
-
+    _.doseq(SomeColors,(v,k)=>{ _$.SomeColors[k]= _$.color(v) });
+    _.doseq(BtnColors,(v,k)=>{ _$.BtnColors[k]= _$.color(v) });
     return (Mojo.Sprites= _$);
   }
 
