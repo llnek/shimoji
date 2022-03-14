@@ -17413,8 +17413,6 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
-      Mojo.mouse= Mojo.Input.pointer();
-
       if(Mojo.touchDevice){
         Mojo.scroll()
       }
@@ -17661,6 +17659,7 @@
       PXLR:PIXI.LoaderResource,
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
+      get mouse(){ return Mojo.Input.pointer() },
       accel(v,a,dt){ return v+a*dt },
       on(...args){
         return EBus.sub(...args)
@@ -17830,14 +17829,14 @@
        * @param {function} cb
        */
       stageCS(cb){
-        Mojo.stage.children.forEach(s=>{
-          if(s instanceof Mojo.Scenes.SceneWrapper){
-            s=s.children[0]
-          }
-          if(s instanceof PIXI.SimpleRope){}else{
-            cb(s)
-          }
-        })
+        if(this.inModal){
+          cb( _.last(this.stage.children))
+        }else{
+          this.stage.children.forEach(s=>{
+            if(s instanceof Mojo.Scenes.SceneWrapper){ s=s.children[0] }
+            if(s instanceof PIXI.SimpleRope){}else{ cb(s) }
+          })
+        }
       },
       scroll(x,y){
         gscope.scrollTo(x||0, y||1) },
@@ -20720,10 +20719,15 @@
               o.m5.button && i.undoButton(o); }
             o.children.length>0 && o.children.forEach(c=> _c(c)); }
         }
+        this.m5.dead=true;
         Mojo.off(this);
         _c(this);
-        this.m5.dead=true;
         this.removeChildren();
+        if(Mojo.modalScene===this){
+          Mojo.modalScene=UNDEF;
+          i.restore();
+          Mojo.CON.log(`removed the current modal scene`);
+        }
       }
       _tick(r,dt){
         r.forEach(c=>{
@@ -21018,6 +21022,16 @@
           this.run(a[0],a[1],a[2]);
         });
       },
+      /**Run as a modal dialog.
+       * @memberof module:mojoh5/Scenes
+       * @param {string} name
+       * @param {object} [options]
+       * @return {Scene}
+       */
+      modal(name,options){
+        Mojo.Input.save();
+        return Mojo.modalScene= this.run(name,null,options);
+      },
       /**Run this scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
@@ -21027,6 +21041,8 @@
        */
       run(name,num,options){
         let py, y, s0,_s = ScenesDict[name];
+        if(Mojo.modalScene)
+          throw `Fatal: modal scene is running`;
         if(!_s)
           throw `Fatal: unknown scene: ${name}`;
         if(is.obj(num)){
@@ -21035,7 +21051,7 @@
         }
         options = _.inject({},_s[1],options);
         s0=_.inject({},_s[0]);
-        if(is.undef(num))
+        if(_.nichts(num))
           num= options["slot"] || -1;
         //before we run a new scene
         //Mojo.mouse.reset();
@@ -21415,6 +21431,8 @@
         }
       });
 
+      L.pointer();
+
       if(!Mojo.touchDevice)
         //keep tracks of keyboard presses
         _.addEvent([["keyup", window, _uh, false],
@@ -21531,28 +21549,23 @@
           return {x: this.x, y: this.y}
         },
         _press(){
-          let i=0,
-            top=_Z.topMost(),
-            s, z=this.Buttons.length;
-          for(;i<z;++i){
+          let i, s, found,z=this.Buttons.length;
+          for(i=0;i<z;++i){
             s=this.Buttons[i];
-            if(s.m5.gui || s.m5.root === top)
+            if(s.m5.gui && s.m5.press && this.hitTest(s)){
+              s.m5.press(s);
+              found=true;
+              break;
+            }
+          }
+          if(!found)
+            for(i=0;i<z;++i){
+              s=this.Buttons[i];
               if(s.m5.press && this.hitTest(s)){
                 s.m5.press(s);
                 break;
               }
-          }
-        },
-        _press(){
-          for(let s,i=0,z=this.Buttons.length;i<z;++i){
-            s=this.Buttons[i];
-            if((!L.pauseInput || s.m5.gui) &&
-               s.m5.press &&
-               this.hitTest(s)){
-              s.m5.press(s);
-              break;
             }
-          }
         },
         _doMDown(b){
           let found,self=P;
@@ -21895,9 +21908,6 @@
       return P;
     }
 
-    function xxx(mouse){
-    }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
@@ -22036,16 +22046,16 @@
         return cur().pointer()
       },
       dispose(){
-        Layers.forEach(a => a.dispose())
+        Layers.forEach(a => a.dispose());
+        Layers.length=0;
       },
-      pop(){
+      restore(){
         if(Layers.length>1){
           Layers.shift().dispose()
           cur().pauseInput=false;
         }
       },
-      push(){
-        Layers[0].pauseInput=true;
+      save(){
         Layers.unshift(mkLayer());
       }
     };
@@ -25701,8 +25711,8 @@
           _G.gameOver=true;
           Mojo.sound(snd).play();
           _.delay(CLICK_DELAY,
-            ()=> _Z.run("EndGame",
-                        {msg,padding:40*K,fit:60*K,bg:C_BG,opacity:1}));
+            ()=> _Z.modal("EndGame",
+                          {msg,padding:40*K,fit:60*K,bg:C_BG,opacity:1}));
         }
       }
     });

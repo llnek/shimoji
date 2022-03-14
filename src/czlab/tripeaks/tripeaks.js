@@ -270,8 +270,8 @@
           _G.gameOver=true;
           Mojo.sound(snd).play();
           _.delay(CLICK_DELAY,
-            ()=> _Z.run("EndGame",
-                        {msg,padding:40*K,fit:60*K,bg:C_BG,opacity:1}));
+            ()=> _Z.modal("EndGame",
+                          {msg,padding:40*K,fit:60*K,bg:C_BG,opacity:1}));
         }
       }
     });

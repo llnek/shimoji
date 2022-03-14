@@ -229,10 +229,15 @@
               o.m5.button && i.undoButton(o); }
             o.children.length>0 && o.children.forEach(c=> _c(c)); }
         }
+        this.m5.dead=true;
         Mojo.off(this);
         _c(this);
-        this.m5.dead=true;
         this.removeChildren();
+        if(Mojo.modalScene===this){
+          Mojo.modalScene=UNDEF;
+          i.restore();
+          Mojo.CON.log(`removed the current modal scene`);
+        }
       }
       _tick(r,dt){
         r.forEach(c=>{
@@ -527,6 +532,16 @@
           this.run(a[0],a[1],a[2]);
         });
       },
+      /**Run as a modal dialog.
+       * @memberof module:mojoh5/Scenes
+       * @param {string} name
+       * @param {object} [options]
+       * @return {Scene}
+       */
+      modal(name,options){
+        Mojo.Input.save();
+        return Mojo.modalScene= this.run(name,null,options);
+      },
       /**Run this scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
@@ -536,6 +551,8 @@
        */
       run(name,num,options){
         let py, y, s0,_s = ScenesDict[name];
+        if(Mojo.modalScene)
+          throw `Fatal: modal scene is running`;
         if(!_s)
           throw `Fatal: unknown scene: ${name}`;
         if(is.obj(num)){
@@ -544,7 +561,7 @@
         }
         options = _.inject({},_s[1],options);
         s0=_.inject({},_s[0]);
-        if(is.undef(num))
+        if(_.nichts(num))
           num= options["slot"] || -1;
         //before we run a new scene
         //Mojo.mouse.reset();

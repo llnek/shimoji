@@ -123,6 +123,8 @@
         }
       });
 
+      L.pointer();
+
       if(!Mojo.touchDevice)
         //keep tracks of keyboard presses
         _.addEvent([["keyup", window, _uh, false],
@@ -239,28 +241,23 @@
           return {x: this.x, y: this.y}
         },
         _press(){
-          let i=0,
-            top=_Z.topMost(),
-            s, z=this.Buttons.length;
-          for(;i<z;++i){
+          let i, s, found,z=this.Buttons.length;
+          for(i=0;i<z;++i){
             s=this.Buttons[i];
-            if(s.m5.gui || s.m5.root === top)
+            if(s.m5.gui && s.m5.press && this.hitTest(s)){
+              s.m5.press(s);
+              found=true;
+              break;
+            }
+          }
+          if(!found)
+            for(i=0;i<z;++i){
+              s=this.Buttons[i];
               if(s.m5.press && this.hitTest(s)){
                 s.m5.press(s);
                 break;
               }
-          }
-        },
-        _press(){
-          for(let s,i=0,z=this.Buttons.length;i<z;++i){
-            s=this.Buttons[i];
-            if((!L.pauseInput || s.m5.gui) &&
-               s.m5.press &&
-               this.hitTest(s)){
-              s.m5.press(s);
-              break;
             }
-          }
         },
         _doMDown(b){
           let found,self=P;
@@ -603,9 +600,6 @@
       return P;
     }
 
-    function xxx(mouse){
-    }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
@@ -744,16 +738,16 @@
         return cur().pointer()
       },
       dispose(){
-        Layers.forEach(a => a.dispose())
+        Layers.forEach(a => a.dispose());
+        Layers.length=0;
       },
-      pop(){
+      restore(){
         if(Layers.length>1){
           Layers.shift().dispose()
           cur().pauseInput=false;
         }
       },
-      push(){
-        Layers[0].pauseInput=true;
+      save(){
         Layers.unshift(mkLayer());
       }
     };

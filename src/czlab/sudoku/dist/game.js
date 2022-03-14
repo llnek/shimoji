@@ -25007,105 +25007,283 @@
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  window["io/czlab/sudoku/model"]=function(Mojo){
+
+		const {math:_M,Game:_G,is,ute:_}=Mojo;
+		const int=Math.floor;
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const DIM=9, D3=3, DIMCNT=81;
+    const NUMSTR= "123456789",
+			NUMS= NUMSTR.split(/(\d{1})/).filter(s=>s.length), NUMINTS=NUMS.map(n=> +n);
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		const randBlock=()=> _.shuffle(_.shuffle(_.shuffle(NUMINTS.slice())));
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function isInRow(game,y,value){
+			for(let x=0,r= game[y]; x<r.length;++x) if(r[x]==value) return true;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function isInCol(game,col,value){
+			for(let y=0,z= game.length; y<z;++y) if(game[y][col]==value) return true;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function isInBlock(game,y,x,value){
+			let r= _M.ndiv(y,D3) *D3;
+			let c= _M.ndiv(x,D3) *D3;
+			for(let i=r;i<(r+D3);++i)
+				for(let j=c;j<(c+D3);++j)
+					if(game[i][j] == value) return true;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function checkCell(game,y,x,value){
+			return isInCol(game,x,value) ||
+						 isInRow(game, y,value) || isInBlock(game,y,x,value)?false:true
+		}
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function findEmpty(game){
+			for(let y=0;y<DIM;++y)
+      for(let x=0;x<DIM;++x) if(game[y][x]==0) return true
+		}
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function countEmpty(game){
+			let sum=0;
+			for(let y=0;y<DIM;++y)
+      for(let x=0;x<DIM;++x) if(game[y][x]==0) ++sum;
+			return sum;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function gen(game){
+			let x,y,nums=NUMINTS.slice();
+			for(let i=0;i<DIMCNT;++i){
+				y=_M.ndiv(i,DIM);
+				x= i % DIM;
+				if(game[y][x]==0){
+					_.shuffle(_.shuffle(_.shuffle(nums)));
+					for(let j=0;j<nums.length;++j){
+						if(checkCell(game,y,x,nums[j])){
+							game[y][x]=nums[j];
+							if(!findEmpty(game) || gen(game)) return game;
+						}
+					}
+					break;
+				}
+			}
+			return game[y][x]=0;
+    }
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function reduction(game, rounds=3){
+			//Mojo.CON.log("reduction rounds = "+rounds);
+			let nonEmpty= (function(out){
+				for(let y=0;y<DIM;++y)
+				for(let x=0;x<DIM;++x)
+					if(game[y][x] != 0) out.push([y,x]);
+				return out.length>2 ? _.shuffle(out) : out;
+			})([]);
+			let res,nonEmptyCnt = nonEmpty.length;
+			while(rounds > 0 && nonEmptyCnt >= 17){
+				//there should be at least 17 clues
+				let removed,copy,
+						[y,x] = nonEmpty.pop();
+				nonEmptyCnt -= 1;
+				//might need to put the square value back if there is more than one solution
+				removed = game[y][x];
+				game[y][x]=0;
+				//make a copy of the grid to solve
+				copy = _.deepCopyArray(game);
+				resolve(copy,res=solverCtx());
+				//console.log(`orund=${rounds}, solns=${res.solutions}, cnt=${nonEmptyCnt}`);
+				//if there is more than one solution, put the last removed cell back into the grid
+				if(res.solutions != 1){
+					nonEmptyCnt += 1;
+					rounds -=1;
+					game[y][x]=removed;
+				}
+			}
+			//Mojo.CON.log(`rounds= ${rounds}, nonEmptyCnt=${nonEmptyCnt}, soln= ${res.solutions}`);
+			return game;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function resolve(game,ctx){
+			//Mojo.CON.log("resolve: holes= " +countEmpty(game));
+			let x,y;
+			for(let i=0;i<DIMCNT;++i){
+				y= _M.ndiv(i,DIM);
+				x= i%DIM;
+				if(game[y][x]==0){
+					for(let n,j=0;j<DIM;++j){
+						n=NUMINTS[j];
+						//check that the number hasn't been used in the row/col/subgrid
+						if(checkCell(game,y,x,n)){
+							game[y][x]=n;
+							if(!findEmpty(game)){
+								ctx.solutions+=1;
+								break;
+							}
+							if(resolve(game,ctx)) return game;
+						}
+					}
+					break;
+				}
+			}
+			return game[y][x]=0;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		const blankGame=()=> _.fill(DIM,()=> _.fill(DIM,0));
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		const solverCtx=()=> ({solutions: 0});
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		//can prefill diagonal blocks since no dependencies in rows or cols
+		function seedBlock(game,block,seed){
+			let c= (block%D3) * D3,
+				k=0, r= _M.ndiv(block,D3) * D3;
+			for(let y=r; y<(r+3); ++y)
+				for(let x=c; x<(c+3); ++x)
+					game[y][x]=seed[k++];
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function seedGame(){
+			let s= [randBlock(), randBlock(), randBlock()];
+			let d= _.randSign()>0?[0,4,8]:[2,4,6]; d=[2,4,6];
+			let g= blankGame();
+			d.forEach((b,i) => seedBlock(g,b,s[i]));
+			return g;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function validateBlock(game,block){
+			let r= _M.ndiv(block,D3) * D3;
+			let c= block%D3 * D3;
+			let out=[];
+			for(let i=r;i<(r+D3);++i)
+				for(let j=c;j<(c+D3);++j) out.push(game[i][j]);
+			return out.sort().join("")==NUMSTR;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function checkDone(game){
+			_.assert(game.length==DIM,"Bad game");
+			_.assert(game[0].length==DIM, "Bad game");
+			for(let y=0;y<DIM;++y){
+				if(game[y].slice().sort().join("") != NUMSTR) return false;
+			}
+			for(let out=[],x=0;x<DIM;++x){
+				out.length=0;
+				for(let y=0;y<DIM;++y) out.push(game[y][x]);
+				if(out.sort().join("") != NUMSTR) return false;
+			}
+			for(let i=0;i<DIM;++i){
+				if(!validateBlock(game,i)) return false;
+			}
+			return true;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function Sudoku(){
+			return{
+				generate(level){
+					return reduction(gen(seedGame()), level<0?1:(level>0?6:3))
+				},
+				solve(game){
+					return resolve(game, solverCtx()) && game
+				},
+				validate(game){
+					return checkDone(game)
+				},
+				validateCell(game,y,x,value){
+					return checkCell(game,y,x,value)
+				}
+			}
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _.inject(_G,{
+			Sudoku:Sudoku()
+    })
+
+  }
+
+})(this);
+
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+
+;(function(window,UNDEF){
+
+  "use strict";
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
-    const int=Math.floor;
-    const {Scenes:_Z,
-           Sprites:_S,
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    window["io/czlab/sudoku/model"](Mojo);
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const {Sprites:_S,
+           Scenes:_Z,
            Input:_I,
+           Game:_G,
            FX:_F,
            v2:_V,
            math:_M,
-           Game:_G,
-           ute:_, is}=Mojo;
+           ute:_,is}=Mojo;
 
-    const C_TITLE=_S.color("#fff20f"),
-      TITLE_FONT= "Big Shout Bob",
-      UI_FONT= "Doki Lowercase",
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const int=Math.floor, ceil=Math.ceil, abs=Math.abs;
+    const sin=Math.sin, cos=Math.cos;
+    const CLICK_DELAY=343;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#e4ea1c"),
       C_BG=_S.color("#169706"),
       C_TEXT=_S.color("#fff20f"),
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
-    const DIM=3,
-      TILES=DIM*DIM,
-      CLICK_DELAY=343;
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const doBackDrop=(scene)=> scene.insert(_S.fillMax(_S.sprite("bg.jpg")));
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.opacity(_S.sprite("bg.jpg"),1)));
     const playClick=()=> Mojo.sound("click.mp3").play();
-    const playSlide=()=> Mojo.sound("slide.mp3").play();
-    const zix=(p)=> p.indexOf(0);
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //deal with [row,col]
-    function validMoves(p){
-      let i=zix(p), x= i % DIM, y= _M.ndiv(i,DIM);
-      let top= y-1, down=y+1, left=x-1, right=x+1;
-      let v=[[top,x],[down,x]];
-      let h=[[y,left],[y,right]];
-      if(y==0){ //no top
-        v.shift();
-      }else if(y==DIM-1){ //no down
-        v.pop();
-      }
-      if(x==0){ //no left
-        h.shift();
-      }else if(x==DIM-1){ //no right
-        h.pop();
-      }
-      return v.concat(h);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function makeMove(p,move){
-      let z=zix(p),
-          m= move[0]*DIM + move[1], v= p[m];
-      p[z]=v;
-      p[m]=0;
-      //Mojo.CON.log("makemove====> "+ p.join(","));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function dbgShow(p){
-      for(let s,y=0;y<DIM;++y){
-        s="";
-        for(let x=0;x<DIM;++x){
-          s+= (""+p[y*DIM+x]);
-          s+=",";
-        }
-        Mojo.CON.log(s);
-      }
-      return p;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function genPuzzle(dim){
-      let g,p=_.fill(dim*dim,(i)=> i+1)
-      //set the blank piece
-      p[p.length-1]=0;
-      g=p.slice();
-      //randomize the grid
-      for(let m,i=0;i<3*TILES;++i){
-        m= validMoves(p);
-        makeMove(p, _.randItem(m));
-      }
-      //dbgShow(p);
-      return [g,p];
-    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("Splash",{
       setup(){
-        const self=this,
-          K= Mojo.getScaleFactor();
+        let self=this,
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           doTitle(s){
-            s=_S.bmpText("Sliding Tiles", TITLE_FONT, 120*K);
-            _S.tint(_S.anchorXY(s,0.5), C_TITLE);
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
+            s=_S.bmpText("Sudoku",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
           },
-          doPlayBtn(s,t){
+          doNext(s,t){
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
             t=_F.throb(s,0.747,0.747);
             function cb(){
@@ -25113,136 +25291,400 @@
               _F.remove(t);
               _S.tint(s,C_ORANGE);
               playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+              _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
             }
             Mojo.on(["single.tap"],cb);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
+            _V.set(s,W2,Mojo.height*0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }
         });
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _.inject(_G,{
+      DIM:9,
+      D3:3,
+      DIMCNT:81,
+      NUMS: "123456789".split(/(\d{1})/).filter(s=>s.length)
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _.inject(_G,{
+      NUMINTS: _G.NUMS.map(n=> +n),
+      NUMSTR: _G.NUMS.join("")
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const FONTCFG={fontName:UI_FONT,fontSize:196*Mojo.getScaleFactor()};
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function initCache(w,h,cache){
+      const cfg= FONTCFG,
+        K=Mojo.getScaleFactor();
+      _G.NUMS.forEach(n=>{
+        let out=[],z=_G.NUMS.length+1;
+        for(let c,s,i=0;i<z;++i){
+          s=_S.anchorXY(_S.sprite("cell.png"),0.5);
+          c=_S.anchorXY(_S.bmpText(n,cfg),0.5);
+          s.addChild(c);
+          out.push(_S.sizeXY(s,w,h));
+        }
+        cache[+n]=out;
+      });
+      return cache;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function deselect(){
+      if(_G.curMarked){
+        _G.curMarked.g.marked=false;
+        whichColor(_G.curMarked);
+        _G.curMarked=UNDEF;
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function select(s){
+      if(_G.curMarked!==s){
+        _G.curMarked=s;
+        s.g.marked=true;
+        s.tint=_S.color("black");//"#d2f22e"
+      }
+      return s;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function erase(){
+      let s= _G.curMarked;
+      if(s && s.g.value !=0){
+        _G.prevAction=new Deletion(s);
+        delNum(s);
+        s.g.value=0;
+        _G.sudoku[s.g.row][s.g.col]=0;
+        idleColor(s);
+        _G.curMarked=UNDEF;
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function idleColor(s){
+      s.g.value=0;
+      return whichColor(s);
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function assign(v){
+      let s=_G.curMarked;
+      if(s){
+        if(!_G.Sudoku.validateCell(_G.sudoku,s.g.row,s.g.col,v)){
+          Mojo.sound("error.mp3").play();
+          s=UNDEF;
+        }
+      }
+      if(s){
+        _G.prevAction=new Assignment(s,v);
+        s.g.marked=false;
+        s.g.value=v;
+        addNum(s,v);
+        whichColor(s);
+        _G.sudoku[s.g.row][s.g.col]=v;
+        _G.curMarked=UNDEF;
+        Mojo.sound("click.mp3").play();
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function whichColor(s){
+      if(s.g.value != 0){
+        s.tint=_S.color("#f1ad2e");
+      }else{
+        s.tint=_S.color("#e6e83b");
+      }
+      return s;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function addNum(s,v){
+      s.removeChildren();
+      s.addChild(_S.anchorXY(_S.bmpText(""+v,FONTCFG),0.5));
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const delNum=(s)=> s.removeChildren();
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function undoMarked(s){
+      s.g.marked=false;
+      if(_G.curMarked){
+        _G.curMarked.g.marked=false;
+        _G.curMarked=UNDEF;
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class Action{
+      constructor(){ }
+      postUndo(s){
+        _G.sudoku[s.g.row][s.g.col]=this.prevValue;
+        if(this.prevValue==0)
+          delNum(s);
+        else
+          addNum(s,this.prevValue);
+        undoMarked(s);
+        whichColor(s);
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class Assignment extends Action{
+      constructor(s,v){
+        super();
+        this.cell=s;
+        this.prevValue=s.g.value;
+      }
+      undo(){
+        this.cell.g.value=this.prevValue;
+        this.postUndo(this.cell);
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class Deletion extends Action{
+      constructor(s){
+        super()
+        this.cell=s;
+        this.prevValue=s.g.value;
+      }
+      undo(){
+        this.cell.g.value=this.prevValue;
+        this.postUndo(this.cell);
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("MainMenu",{
+      setup(){
+        const self=this,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doChoices(){
+            let cfg={fontSize:64*K,fontName:UI_FONT},
+              space=()=> _S.opacity(_S.bmpText("I", cfg),0),
+              b1=_I.mkBtn(_S.uuid(_S.bmpText("Easy",cfg),"#easy")),
+              b2= _I.mkBtn(_S.uuid(_S.bmpText("Normal",cfg),"#normal")),
+              b3=_I.mkBtn(_S.uuid(_S.bmpText("Hard",cfg),"#hard"));
+            function cb(b){
+              let mode= b.m5.uuid=="#easy"?-1:(b.m5.uuid=="#hard"?1:0);
+              playClick();
+              b.tint=C_ORANGE;
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame",{mode}));
+            }
+            b1.m5.press=
+            b2.m5.press= b3.m5.press = cb;
+            self.insert(_Z.layoutY([b1, space(), b2, space(), b3], {bg:"#cccccc"}));
+          }
+        });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doPlayBtn();
+        doBackDrop(this) && this.g.doChoices();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("PlayGame",{
+      setup(options){
+        const self=this,
+          K=Mojo.getScaleFactor(),
+          lw=Math.max(2,int(2*K));
+        _.inject(this.g,{
+          drawGrid(grid,gfx){
+            let h= grid.length,
+              w= grid[0].length;
+            gfx.lineStyle(lw,_S.SomeColors.white);
+            //horz lines
+            gfx.moveTo(grid[2][0].x1,grid[2][0].y2);
+            gfx.lineTo(grid[2][w-1].x2,grid[2][w-1].y2);
+            gfx.moveTo(grid[5][0].x1,grid[5][0].y2);
+            gfx.lineTo(grid[5][w-1].x2,grid[5][w-1].y2);
+            //vert lines
+            gfx.moveTo(grid[0][2].x2,grid[0][2].y1);
+            gfx.lineTo(grid[h-1][2].x2,grid[h-1][2].y2);
+            gfx.moveTo(grid[0][5].x2,grid[0][5].y1);
+            gfx.lineTo(grid[h-1][5].x2,grid[h-1][5].y2);
+            return gfx;
+          },
+          initLevel(){
+            let out={},
+              grid= _S.gridSQ(9,0.9,out),
+              c= grid[0][0],
+              w= c.x2-c.x1,
+              h= c.y2-c.y1,
+              gfx=self.insert(_S.drawGridBox(out,lw,"white"));
+            this.drawGrid(grid,gfx);
+            _.inject(_G,{
+              tileW:w,
+              tileH:h,
+              grid,
+              prevAction:UNDEF,
+              cache: initCache(w,h,{}),
+              sudoku: _G.Sudoku.generate(options.mode)
+            });
+            return this;
+          },
+          initGame(){
+            for(let r,game=_G.sudoku, y=0;y<_G.DIM;++y){
+              r=_G.grid[y];
+              for(let cx,cy,v,s,g,x=0;x<_G.DIM;++x){
+                g=r[x];
+                cx=_M.ndiv(g.x1+g.x2,2);
+                cy=_M.ndiv(g.y1+g.y2,2);
+                if((v=game[y][x]) != 0){
+                  s= _G.cache[v].pop();
+                  s.tint=_S.color("#f27c2e");
+                  s.g.value=v;
+                  self.insert(_V.set(s,cx,cy));
+                }else{
+                  s=_S.sprite("cell.png");
+                  s.g.value=0;
+                  s.g.cell=true;
+                  idleColor(s);
+                  _V.set(_S.anchorXY(s,0.5),cx,cy);
+                  s.m5.press=()=>{
+                    if(_G.curMarked===s){
+                      deselect();
+                    }else{
+                      select(s);
+                    }
+                  }
+                  self.insert(_S.sizeXY(_I.mkBtn(s),_G.tileW,_G.tileH));
+                }
+                s.g.row=y;
+                s.g.col=x;
+              }
+            }
+            return this;
+          },
+          initSel(){
+            let K=Mojo.getScaleFactor(),
+              pad= 8 *K,
+              g=_G.grid[0][0],
+              w=g.x2-g.x1,
+              p,h=g.y2-g.y1,
+              W=_S.SomeColors.white,
+              C=_S.color("#56d5ef");
+            for(let n,i=0;i<_G.NUMINTS.length;++i){
+              n=_G.NUMINTS[i];
+              let s= _G.cache[n].pop();
+              s.children[0].tint=W;
+              s.g.value=n;
+              s.tint=C;
+              if(n==1){
+                s.y= _M.ndiv(g.y1+g.y2,2);
+                s.x= _M.ndiv(g.x1+g.x2,2) - s.width - pad;
+                p= self.insert(_I.mkBtn(s));
+              }else{
+                _S.pinBelow(p,s,0);
+                p=self.insert(_I.mkBtn(s));
+              }
+              s.m5.press=()=> assign(s.g.value);
+            }
+            return this;
+          },
+          initHUD(){
+            let p,s=_S.sizeXY(_S.sprite("cell.png"),_G.tileW,_G.tileH),
+              g=_G.grid[0][_G.grid[0].length-1],
+              K=Mojo.getScaleFactor(),
+              cy= _M.ndiv(g.y1 +g.y2,2),
+              cx= int(g.x2 + 8*K + s.width/2);
+            _V.set(_S.anchorXY(s,0.5),cx,cy);
+            s.addChild(_S.anchorXY(_S.bmpText("U",FONTCFG),0.5));
+            s.m5.press=()=>{
+              if(_G.prevAction){
+                _G.prevAction.undo();
+                _G.prevAction=UNDEF;
+              }
+            }
+            s.tint=_S.color("magenta");
+            this.undoBtn=s;
+            p=self.insert(_I.mkBtn(s));
+            ///
+            let s2=_S.sizeXY(_S.sprite("cell.png"),_G.tileW,_G.tileH);
+            _S.anchorXY(s2,0.5);
+            s2.addChild(_S.anchorXY(_S.bmpText("X",FONTCFG),0.5));
+            s2.m5.press=()=> erase();
+            s2.tint=_S.color("red");
+            this.eraseBtn=s2;
+            _S.pinBelow(p,s2,0);
+            return self.insert(_I.mkBtn(s2));
+          }
+        });
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.initLevel() &&
+          this.g.initGame() && this.g.initSel() && this.g.initHUD();
+        _Z.run("AudioIcon",{
+          xScale:1.36*K, yScale:1.36*K,
+          xOffset: -10*K, yOffset:0
+        });
+      },
+      postUpdate(dt){
+        if(this.g.undoBtn){
+          this.g.undoBtn.alpha= _G.prevAction?1:0.4;
+        }
+        if(this.g.eraseBtn){
+          let found;
+          for(let s,i=0; i<this.children.length;++i){
+            s=this.children[i];
+            if(s.g && s.g.cell && s.g.value != 0){
+              found=1;
+              break;
+            }
+          }
+          this.g.eraseBtn.alpha= found?1:0.4;
+        }
+        let c= _G.Sudoku.validate(_G.sudoku);
+        if(c){
+          this.m5.dead=true;
+          _Z.modal("EndGame",{msg:"You Win!"});
+        }
+        if(_I.keyDown(_I.SPACE)){
+          //Mojo.CON.log("==> " + JSON.stringify(_G.sudoku));
+        }
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("EndGame",{
       setup(options){
-        let snd="game_over.mp3",
-          os={fontName:UI_FONT,
-              fontSize: 72*Mojo.getScaleFactor()},
-          space=(s)=> _S.opacity(_S.bmpText("I",os),0),
+        let os={fontName:UI_FONT,
+                fontSize: 72*Mojo.getScaleFactor()},
+          snd="game_over.mp3",
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
           s1=_S.bmpText("Game Over", os),
           s2=_S.bmpText(options.msg||"You Lose!", os),
           s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
           s5=_S.bmpText(" or ",os),
           s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx("PlayGame");
-        s6.m5.press=()=>_Z.runEx("Splash");
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
         if(options.msg) snd="game_win.mp3";
         Mojo.sound(snd).play();
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("PlayGame",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor(),
-          [goal,puz]= genPuzzle(DIM);
-        _.inject(this.g,{
-          initLevel(){
-            let out={},
-              grid= _S.gridSQ(DIM, 0.95,out),
-              v,n,t,os={fontName:UI_FONT, fontSize: 72*K};
-            grid.forEach((row,y)=> row.forEach((c,x)=>{
-              let R=0.98,s=_S.sprite("tile.png");
-              s.tint=_S.color("#bb3b58");
-              _S.sizeXY(s, R*(c.x2-c.x1), R*(c.y2-c.y1));
-              _S.anchorXY(_V.set(s, _M.ndiv(c.x1+c.x2,2),_M.ndiv(c.y1+c.y2,2)),0.5);
-              n=y*DIM+x;
-              v=puz[n];
-              s.g.value=v;
-              s.g.row=y;
-              s.g.col=x;
-              if(v==0){
-                s.alpha=0.3;
-              }else{
-                t=_S.anchorXY(_S.bmpText(`${v}`,os),0.5);
-                s.addChild(t);
-                s.m5.press=(b)=> this.onClick(b);
-              }
-              c.tile= self.insert(s);
-            }));
-            return _.inject(_G,{ puz,grid,goal })
-          },
-          onClick(b){
-            let {row,col}=b.g,
-              bx=b.x, by=b.y, z,zc, zr, g=_G.grid;
-            g.forEach((row,y)=> row.forEach((c,x)=>{
-              if(c.tile.g.value==0){
-                zc=x; zr=y; z=c.tile;
-              }else{
-                c.tile.alpha=1;
-              }
-              _I.undoBtn(c.tile);
-            }));
-            //swap the blank and the `clicked`
-            g[zr][zc].tile=b;
-            b.g.row=zr;
-            b.g.col=zc;
-            b.x=z.x;
-            b.y=z.y;
-            ///
-            g[row][col].tile=z;
-            z.g.row=row;
-            z.g.col=col;
-            z.x=bx;
-            z.y=by;
-            ///
-            makeMove(_G.puz, [row,col]);
-            playSlide();
-            !this.checkFinz() && this.showMoves();
-          },
-          checkFinz(){
-            return goal.join(",") == puz.join(",")
-          },
-          showMoves(){
-            let g=_G.grid,
-              moves= validMoves(puz);
-            moves.forEach(m=>{
-              _I.mkBtn(_S.opacity(g[m[0]][m[1]].tile,0.7))
-            });
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.initLevel() && this.g.showMoves();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        _Z.run("AudioIcon",{
-          xScale:K, yScale:K,
-          xOffset: -10*K, yOffset:0
-        });
-      },
-      postUpdate(){
-        if(this.g.checkFinz()){
-          this.m5.dead=true;
-          Mojo.CON.log("You Win!");
-          _Z.modal("EndGame",{msg:"You Win!"});
-        }
-      }
-    });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load", ()=>MojoH5({
+  //load & run
+  window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["tile.png","bg.jpg","audioOff.png","audioOn.png",
-                 "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
-    arena: {width:768,height:768},
-    scaleToWindow: "max",
-    scaleFit: "y",
+    assetFiles: ["bg.jpg","cell.png",
+                 "audioOn.png","audioOff.png",
+                 "game_over.mp3","game_win.mp3","click.mp3","error.mp3"],
+    arena: {width: 1680, height: 1050},
+    scaleToWindow:"max",
+    scaleFit:"y",
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.run("Splash");

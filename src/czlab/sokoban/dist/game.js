@@ -25019,94 +25019,170 @@
            Game:_G,
            ute:_, is}=Mojo;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const C_TITLE=_S.color("#fff20f"),
-      TITLE_FONT= "Big Shout Bob",
-      UI_FONT= "Doki Lowercase",
       C_BG=_S.color("#169706"),
       C_TEXT=_S.color("#fff20f"),
       C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const DIM=3,
-      TILES=DIM*DIM,
-      CLICK_DELAY=343;
+      C_ORANGE=_S.color("#f4d52b"),
+      TITLE_FONT= "Big Shout Bob",
+      UI_FONT= "Doki Lowercase";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const doBackDrop=(scene)=> scene.insert(_S.fillMax(_S.sprite("bg.jpg")));
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
-    const playSlide=()=> Mojo.sound("slide.mp3").play();
-    const zix=(p)=> p.indexOf(0);
+    const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //deal with [row,col]
-    function validMoves(p){
-      let i=zix(p), x= i % DIM, y= _M.ndiv(i,DIM);
-      let top= y-1, down=y+1, left=x-1, right=x+1;
-      let v=[[top,x],[down,x]];
-      let h=[[y,left],[y,right]];
-      if(y==0){ //no top
-        v.shift();
-      }else if(y==DIM-1){ //no down
-        v.pop();
-      }
-      if(x==0){ //no left
-        h.shift();
-      }else if(x==DIM-1){ //no right
-        h.pop();
-      }
-      return v.concat(h);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function makeMove(p,move){
-      let z=zix(p),
-          m= move[0]*DIM + move[1], v= p[m];
-      p[z]=v;
-      p[m]=0;
-      //Mojo.CON.log("makemove====> "+ p.join(","));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function dbgShow(p){
-      for(let s,y=0;y<DIM;++y){
-        s="";
-        for(let x=0;x<DIM;++x){
-          s+= (""+p[y*DIM+x]);
-          s+=",";
+    function doCheckPt(){
+      let m={};
+      for(let o,i=0;i<_G.items.length;++i){
+        o=_G.items[i];
+        if(o.g.value==3){
+          m[o.m5.uuid]= [o.g.row,o.g.col];
         }
-        Mojo.CON.log(s);
       }
-      return p;
+      m[_G.player.m5.uuid]=[_G.player.g.row,_G.player.g.col];
+      _G.history.push(m);
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function genPuzzle(dim){
-      let g,p=_.fill(dim*dim,(i)=> i+1)
-      //set the blank piece
-      p[p.length-1]=0;
-      g=p.slice();
-      //randomize the grid
-      for(let m,i=0;i<3*TILES;++i){
-        m= validMoves(p);
-        makeMove(p, _.randItem(m));
-      }
-      //dbgShow(p);
-      return [g,p];
+    function getItem(y,x){
+      for(let o,i=0;i<_G.items.length;++i){
+        o=_G.items[i]; if(o.g.row==y && o.g.col==x) return o; }
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function findCrate(y,x){
+      for(let o,i=0;i<_G.items.length;++i){
+        o=_G.items[i]; if(o.g.row==y && o.g.col==x && o.g.value==3) return o; }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const emptySlot=(y,x)=> _G.level[y][x]==0 || _G.level[y][x]==2;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function holesFilled(){
+      let goals=0,found=0;
+      for(let o,i=0;i<_G.items.length;++i){
+        o=_G.items[i];
+        if(o.g.value==2){
+          ++goals;
+          if(findCrate(o.g.row,o.g.col)){ ++found }else{ break }
+        }
+      }
+      return goals>0 && goals==found;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //floor,wall,hole,box,player
+    function testMove(y,x,dirY,dirX){
+      let hit= findCrate(y,x);
+      if(hit){
+        let r=hit.g.row,
+          c=hit.g.col,
+          o=findCrate(r+dirY,c+dirX);
+        if(o)
+          return false;
+        o= getItem(r+dirY, c+dirX);
+        return o? (o.g.value==3?false: o.g.value==2) : emptySlot(r+dirY,c+dirX)
+      }else{
+        return emptySlot(y,x)
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function doMove(y,x,dirY,dirX){
+      //update history
+      doCheckPt();
+      let z,o= findCrate(y,x);
+      if(o){
+        let r=o.g.row,
+          c=o.g.col;
+        o.g.row=r+dirY;
+        o.g.col=c+dirX;
+        //o.x += dirX * o.width;
+        //o.y += dirY * o.height;
+        _F.tweenXY(o,_F.SMOOTH,  o.x + dirX * o.width, o.y + dirY * o.height);
+      }
+      _G.player.g.row=y;
+      _G.player.g.col=x;
+      //_G.player.x += dirX * _G.player.width;
+      //_G.player.y += dirY * _G.player.height;
+      z=_F.tweenXY(_G.player,_F.SMOOTH, _G.player.x + dirX * _G.player.width, _G.player.y + dirY * _G.player.height);
+      z.onComplete=()=> _G.player.m5.showFrame(0);
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function undoMove(){
+      if(!_G.history.length>0){return}
+      let pos,c,s,m= _G.history.pop();
+      _.keys(m).forEach(k=>{
+        pos=m[k];
+        s=_G.gameScene.getChildById(k);
+        s.g.row=pos[0];
+        s.g.col=pos[1];
+        c=_G.grid[s.g.row][s.g.col];
+        s.y=c.y1;
+        s.x=c.x1;
+      })
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _.inject(_G,{
+      swipeRight(){
+        let {row,col}= _G.player.g;
+        let c=col+1;
+        if(c>=_G.level[0].length){return}
+        if(testMove(row,c,0,1)){
+          _G.player.m5.showFrame(3)
+          doMove(row,c,0,1);
+        }
+      },
+      swipeLeft(){
+        let {row,col}= _G.player.g;
+        let c=col-1;
+        if(c<=0){return}
+        if(testMove(row,c,0,-1)){
+          _G.player.m5.showFrame(2);
+          doMove(row,c,0,-1);
+        }
+      },
+      swipeUp(){
+        let {row,col}= _G.player.g;
+        let r=row-1;
+        if(r<=0){return}
+        if(testMove(r,col,-1,0)){
+          _G.player.m5.showFrame(1);
+          doMove(r,col,-1,0);
+        }
+      },
+      swipeDown(){
+        let {row,col}= _G.player.g;
+        let r=row+1;
+        if(r>=_G.level.length){return}
+        if(testMove(r,col,1,0)){
+          _G.player.m5.showFrame(0);
+          doMove(r,col,1,0);
+        }
+      }
+    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("Splash",{
       setup(){
-        const self=this,
-          K= Mojo.getScaleFactor();
+        let self=this,
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           doTitle(s){
-            s=_S.bmpText("Sliding Tiles", TITLE_FONT, 120*K);
-            _S.tint(_S.anchorXY(s,0.5), C_TITLE);
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
+            s=_S.bmpText("Sokoban",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
           },
-          doPlayBtn(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,84*K);
             t=_F.throb(s,0.747,0.747);
             function cb(){
               Mojo.off(["single.tap"],cb);
@@ -25116,12 +25192,12 @@
               _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
             }
             Mojo.on(["single.tap"],cb);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
+            _V.set(s,W2,Mojo.height*0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }
         });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doPlayBtn();
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
@@ -25131,14 +25207,14 @@
         let snd="game_over.mp3",
           os={fontName:UI_FONT,
               fontSize: 72*Mojo.getScaleFactor()},
-          space=(s)=> _S.opacity(_S.bmpText("I",os),0),
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
           s1=_S.bmpText("Game Over", os),
           s2=_S.bmpText(options.msg||"You Lose!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s4=_I.makeButton(_S.bmpText("Play Again?",os)),
           s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx("PlayGame");
-        s6.m5.press=()=>_Z.runEx("Splash");
+          s6=_I.makeButton(_S.bmpText("Quit",os));
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
         if(options.msg) snd="game_win.mp3";
         Mojo.sound(snd).play();
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
@@ -25146,90 +25222,181 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const GLYPH=" #.ox";//floor,wall,hole,box,player
+    const MAP1= "########,"+
+                "#####x.#,"+
+                "####.oo#,"+
+                "#### o #,"+
+                "### .# #,"+
+                "###    #,"+
+                "###  ###,"+
+                "########";
+    function mapToLevel(m){
+      let row,grid=[];
+      m.split(",").filter(x=>x.length).forEach(s=>{
+        row=[];
+        s.split("").forEach(c=>{
+          c=GLYPH.indexOf(c);
+          _.assert(c>=0,"bad map");
+          row.push(c);
+        });
+        grid.push(row);
+      });
+      for(let i=1;i<grid.length;++i)
+        _.assert(grid[i-1].length==grid[i].length,"uneven mp(width)");
+      //_.assert(grid.length==grid[0].length,"uneven mp(height)");
+      return grid;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
         const self=this,
-          K=Mojo.getScaleFactor(),
-          [goal,puz]= genPuzzle(DIM);
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           initLevel(){
-            let out={},
-              grid= _S.gridSQ(DIM, 0.95,out),
-              v,n,t,os={fontName:UI_FONT, fontSize: 72*K};
-            grid.forEach((row,y)=> row.forEach((c,x)=>{
-              let R=0.98,s=_S.sprite("tile.png");
-              s.tint=_S.color("#bb3b58");
-              _S.sizeXY(s, R*(c.x2-c.x1), R*(c.y2-c.y1));
-              _S.anchorXY(_V.set(s, _M.ndiv(c.x1+c.x2,2),_M.ndiv(c.y1+c.y2,2)),0.5);
-              n=y*DIM+x;
-              v=puz[n];
-              s.g.value=v;
+            let level= mapToLevel(MAP1),
+              out={},
+              items=[],
+              h=level.length,
+              w= level[0].length,
+              player,grid=_S.gridXY([w,h],0.9,0.9,out);
+            let c=grid[0][0],
+              W=c.x2-c.x1, H=c.y2-c.y1;
+            function cs(y,x,[n,value]){
+              let s;
+              if(value==4){
+                s=_S.spriteFrom("down.png","up.png","left.png","right.png");
+              }else{
+                s=_S.sprite(n);
+              }
+              s=_S.sizeXY(s,W,H);
               s.g.row=y;
               s.g.col=x;
-              if(v==0){
-                s.alpha=0.3;
+              s.g.value=value;
+              _V.set(s,grid[y][x].x1,grid[y][x].y1);
+              return self.insert(s);
+            }
+            //floor,wall,water,hole,box,player
+            //do wall & floor first
+            for(let s,r,x,y=0;y<level.length;++y)
+            for(r=level[y], x=0; x<r.length; ++x){
+              if(r[x]==1){
+                cs(y,x,["wall.png",1]);
               }else{
-                t=_S.anchorXY(_S.bmpText(`${v}`,os),0.5);
-                s.addChild(t);
-                s.m5.press=(b)=> this.onClick(b);
+                cs(y,x, ["water.png",0]);
               }
-              c.tile= self.insert(s);
-            }));
-            return _.inject(_G,{ puz,grid,goal })
-          },
-          onClick(b){
-            let {row,col}=b.g,
-              bx=b.x, by=b.y, z,zc, zr, g=_G.grid;
-            g.forEach((row,y)=> row.forEach((c,x)=>{
-              if(c.tile.g.value==0){
-                zc=x; zr=y; z=c.tile;
-              }else{
-                c.tile.alpha=1;
+              if(r[x]==2){
+                level[y][x]=0;
+                items.push(cs(y,x,["hole.png",2]));
               }
-              _I.undoBtn(c.tile);
-            }));
-            //swap the blank and the `clicked`
-            g[zr][zc].tile=b;
-            b.g.row=zr;
-            b.g.col=zc;
-            b.x=z.x;
-            b.y=z.y;
-            ///
-            g[row][col].tile=z;
-            z.g.row=row;
-            z.g.col=col;
-            z.x=bx;
-            z.y=by;
-            ///
-            makeMove(_G.puz, [row,col]);
-            playSlide();
-            !this.checkFinz() && this.showMoves();
-          },
-          checkFinz(){
-            return goal.join(",") == puz.join(",")
-          },
-          showMoves(){
-            let g=_G.grid,
-              moves= validMoves(puz);
-            moves.forEach(m=>{
-              _I.mkBtn(_S.opacity(g[m[0]][m[1]].tile,0.7))
+            }
+            for(let v,s,r,x,y=0;y<level.length;++y)
+            for(r=level[y], x=0; x<r.length; ++x){
+              if(r[x]==3){
+                level[y][x]=0;
+                items.push(cs(y,x,["crate.png",3]));
+              }
+              if(r[x]==4){
+                level[y][x]=0;
+                items.push(player=cs(y,x,["",4]));
+              }
+            }
+            //put holes in front
+            items.sort((a,b)=>{
+              return a.g.value==2?-1:1
             });
+            let dirRight= _I.keybd(_I.RIGHT),
+                dirLeft= _I.keybd(_I.LEFT),
+                dirUp= _I.keybd(_I.UP),
+                dirDown= _I.keybd(_I.DOWN);
+            _.inject(_G,{
+              level,grid,tileW:W,tileH:H,
+              history:[],
+              gameScene:self,
+              items,player,dirRight, dirLeft, dirUp, dirDown
+            });
+            Mojo.on(["swipe.down"],"swipeDown",_G);
+            Mojo.on(["swipe.up"],"swipeUp",_G);
+            Mojo.on(["swipe.left"],"swipeLeft",_G);
+            Mojo.on(["swipe.right"],"swipeRight",_G);
+            dirRight.press= ()=>_G.swipeRight();
+            dirLeft.press= ()=>_G.swipeLeft();
+            dirUp.press= ()=>_G.swipeUp();
+            dirDown.press= ()=>_G.swipeDown();
+            //init history
+            //doCheckPt();
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.initLevel() && this.g.showMoves();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        _Z.run("AudioIcon",{
-          xScale:K, yScale:K,
-          xOffset: -10*K, yOffset:0
-        });
+        doBackDrop(this)&&this.g.initLevel();
+        _Z.run("HUD");
       },
-      postUpdate(){
-        if(this.g.checkFinz()){
+      dispose(){
+        Mojo.off(_G);
+      },
+      postUpdate(dt){
+        if(holesFilled()){
           this.m5.dead=true;
-          Mojo.CON.log("You Win!");
-          _Z.modal("EndGame",{msg:"You Win!"});
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg: "You Win!"}));
         }
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("HUD",{
+      setup(){
+        let K=Mojo.getScaleFactor(),
+          g=_G.grid[_G.grid.length-1][_G.grid[0].length-1],
+          c,p,s,pad=5*K;
+        for(let i=0;i<4;++i){
+          s= _I.mkBtn(_S.anchorXY(_S.sprite("button.png"),0.5));
+          _S.sizeXY(s,_G.tileW,_G.tileH);
+          if(i==3){
+            c=_S.anchorXY(_S.sprite("arrowLeft.png"),0.5);
+            _S.uuid(s,"#<-");
+          }
+          if(i==2){
+            c=_S.anchorXY(_S.sprite("arrowRight.png"),0.5);
+            _S.uuid(s,"#->");
+          }
+          if(i==1){
+            c=_S.anchorXY(_S.sprite("arrowUp.png"),0.5);
+            _S.uuid(s,"#^^");
+          }
+          if(i==0){
+            c=_S.anchorXY(_S.sprite("arrowDown.png"),0.5);
+            _S.uuid(s,"#vv");
+          }
+          c.height= s.height;
+          c.width= s.width;
+          c.tint=_S.color("orange");
+          s.addChild(c);
+          s.m5.press=(b)=>{
+            switch(b.m5.uuid){
+              case "#<-": _G.swipeLeft(); break;
+              case "#->": _G.swipeRight(); break;
+              case "#^^": _G.swipeUp(); break;
+              case "#vv": _G.swipeDown(); break;
+            }
+          };
+          if(!p){
+            _V.set(s,g.x2+pad+s.width/2, g.y1+s.height/2);
+          }else{
+            _S.pinAbove(p,s,pad);
+          }
+          p=this.insert(s);
+        }
+        //////
+        g=_G.grid[0][_G.grid[0].length-1];
+        s= _I.mkBtn(_S.anchorXY(_S.sprite("button.png"),0.5));
+        _S.sizeXY(s,_G.tileW,_G.tileH);
+        _V.set(s,g.x2+pad+s.width/2, g.y1+s.height/2);
+        c=_S.anchorXY(_S.sprite("undo.png"),0.5);
+        c.tint=_S.SomeColors.orange;
+        s.addChild(c);
+        s.m5.press=()=>undoMove();
+        this.insert(s);
       }
     });
   }
@@ -25237,10 +25404,11 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load", ()=>MojoH5({
-
-    assetFiles: ["tile.png","bg.jpg","audioOff.png","audioOn.png",
-                 "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
-    arena: {width:768,height:768},
+    assetFiles: ["click.mp3","game_over.mp3","game_win.mp3",
+      "button.png","arrowUp.png","arrowDown.png","arrowLeft.png","arrowRight.png",
+      "left.png","right.png","up.png","down.png","undo.png",
+                 "wall.png","hole.png","grass.png","water.png","crate.png"],
+    arena: {width:1680,height:1050},
     scaleToWindow: "max",
     scaleFit: "y",
     start(Mojo){

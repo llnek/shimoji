@@ -104,6 +104,7 @@
           _Z.run("HUD");
         };
         s6.m5.press=()=> _Z.runEx("Splash");
+        Mojo.sound("game_over.mp3").play();
         this.insert(_Z.layoutY([s1,space(),space(),space(),s4,s5,s6],options));
       }
     });
@@ -140,11 +141,7 @@
       postUpdate(){
         if(_G.gameOver){
           this.m5.dead=true;
-          _.delay(100, ()=> {
-            Mojo.sound("game_over.mp3").play();
-            _I.resetAll();
-            _Z.run("EndGame");
-          });
+          _.delay(100, ()=> _Z.modal("EndGame"));
         }else{
           let sx=_G.vbox.x1,
               sy=_G.vbox.y1,

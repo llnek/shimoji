@@ -368,8 +368,6 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
-      Mojo.mouse= Mojo.Input.pointer();
-
       if(Mojo.touchDevice){
         Mojo.scroll()
       }
@@ -616,6 +614,7 @@
       PXLR:PIXI.LoaderResource,
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
+      get mouse(){ return Mojo.Input.pointer() },
       accel(v,a,dt){ return v+a*dt },
       on(...args){
         return EBus.sub(...args)
@@ -785,14 +784,14 @@
        * @param {function} cb
        */
       stageCS(cb){
-        Mojo.stage.children.forEach(s=>{
-          if(s instanceof Mojo.Scenes.SceneWrapper){
-            s=s.children[0]
-          }
-          if(s instanceof PIXI.SimpleRope){}else{
-            cb(s)
-          }
-        })
+        if(this.inModal){
+          cb( _.last(this.stage.children))
+        }else{
+          this.stage.children.forEach(s=>{
+            if(s instanceof Mojo.Scenes.SceneWrapper){ s=s.children[0] }
+            if(s instanceof PIXI.SimpleRope){}else{ cb(s) }
+          })
+        }
       },
       scroll(x,y){
         gscope.scrollTo(x||0, y||1) },

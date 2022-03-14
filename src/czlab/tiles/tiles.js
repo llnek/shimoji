@@ -238,7 +238,7 @@
         if(this.g.checkFinz()){
           this.m5.dead=true;
           Mojo.CON.log("You Win!");
-          _Z.run("EndGame",{msg:"You Win!"});
+          _Z.modal("EndGame",{msg:"You Win!"});
         }
       }
     });

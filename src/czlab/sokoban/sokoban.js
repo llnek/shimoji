@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -25,23 +25,23 @@
            Input:_I,
            FX:_F,
            v2:_V,
+           math:_M,
            Game:_G,
            ute:_, is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const C_TITLE=_S.color("#fff20f");
-    const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const CLICK_DELAY=343;
-    const TITLE_FONT= "Big Shout Bob";
-    const UI_FONT= "Doki Lowercase";
+    const C_TITLE=_S.color("#fff20f"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b"),
+      TITLE_FONT= "Big Shout Bob",
+      UI_FONT= "Doki Lowercase";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){
-      Mojo.sound("click.mp3").play()
-    }
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
+    const playClick=()=> Mojo.sound("click.mp3").play();
+    const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function doCheckPt(){
@@ -57,13 +57,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){return 1;
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height);
-      scene.insert(_G.backDropSprite);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function getItem(y,x){
       for(let o,i=0;i<_G.items.length;++i){
         o=_G.items[i]; if(o.g.row==y && o.g.col==x) return o; }
@@ -76,9 +69,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function emptySlot(y,x){
-      return _G.level[y][x]==0 || _G.level[y][x]==2
-    }
+    const emptySlot=(y,x)=> _G.level[y][x]==0 || _G.level[y][x]==2;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function holesFilled(){
@@ -94,12 +85,16 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //floor,wall,hole,box,player
     function testMove(y,x,dirY,dirX){
       let hit= findCrate(y,x);
       if(hit){
-        let r=hit.g.row;
-        let c=hit.g.col;
-        let o= getItem(r+dirY, c+dirX);
+        let r=hit.g.row,
+          c=hit.g.col,
+          o=findCrate(r+dirY,c+dirX);
+        if(o)
+          return false;
+        o= getItem(r+dirY, c+dirX);
         return o? (o.g.value==3?false: o.g.value==2) : emptySlot(r+dirY,c+dirX)
       }else{
         return emptySlot(y,x)
@@ -110,10 +105,10 @@
     function doMove(y,x,dirY,dirX){
       //update history
       doCheckPt();
-      let o= findCrate(y,x);
+      let z,o= findCrate(y,x);
       if(o){
-        let r=o.g.row;
-        let c=o.g.col;
+        let r=o.g.row,
+          c=o.g.col;
         o.g.row=r+dirY;
         o.g.col=c+dirX;
         //o.x += dirX * o.width;
@@ -124,12 +119,9 @@
       _G.player.g.col=x;
       //_G.player.x += dirX * _G.player.width;
       //_G.player.y += dirY * _G.player.height;
-      let z=_F.tweenXY(_G.player,_F.SMOOTH, _G.player.x + dirX * _G.player.width, _G.player.y + dirY * _G.player.height);
-      z.onComplete=()=>{
-        _G.player.m5.showFrame(0);
-      };
+      z=_F.tweenXY(_G.player,_F.SMOOTH, _G.player.x + dirX * _G.player.width, _G.player.y + dirY * _G.player.height);
+      z.onComplete=()=> _G.player.m5.showFrame(0);
     }
-
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function undoMove(){
@@ -187,63 +179,59 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            W2=Mojo.width/2,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Sokoban",{fontName:TITLE_FONT,fontSize:84*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,W2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:32*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
-              _Z.runScene("HUD");
-            });
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Sokoban",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,84*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              Mojo.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+            }
+            Mojo.on(["single.tap"],cb);
+            _V.set(s,W2,Mojo.height*0.7);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,W2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
+        });
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("EndGame",{
+    _Z.scene("EndGame",{
       setup(options){
-        let s1,s2,
-            snd="game_over.mp3",
-            s4,s5,s6,os={fontName:UI_FONT,
-                         fontSize: 72*Mojo.getScaleFactor()};
-        function space(s){ return _S.opacity(_S.bmpText("I",os),0) }
+        let snd="game_over.mp3",
+          os={fontName:UI_FONT,
+              fontSize: 72*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"You Lose!", os),
+          s4=_I.makeButton(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.makeButton(_S.bmpText("Quit",os));
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
         if(options.msg) snd="game_win.mp3";
-        s1=_S.bmpText("Game Over", os);
-        s2=_S.bmpText(options.msg||"You Lose!", os);
-        s4=_I.makeButton(_S.bmpText("Play Again?",os));
-        s5=_S.bmpText(" or ",os);
-        s6=_I.makeButton(_S.bmpText("Quit",os));
-        s4.m5.press=()=>{ _Z.runSceneEx("PlayGame") };
-        s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
         Mojo.sound(snd).play();
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const GLYPH=" #.ox";//floor,wall,hole,box,player
     const MAP1= "########,"+
                 "#####x.#,"+
@@ -269,23 +257,22 @@
       //_.assert(grid.length==grid[0].length,"uneven mp(height)");
       return grid;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           initLevel(){
-            let level= mapToLevel(MAP1);
-            let out={},
-                items=[],
-                h=level.length,
-                w= level[0].length,
-                grid=_S.gridXY([w,h],0.9,0.9,out);
-            let player;
+            let level= mapToLevel(MAP1),
+              out={},
+              items=[],
+              h=level.length,
+              w= level[0].length,
+              player,grid=_S.gridXY([w,h],0.9,0.9,out);
             let c=grid[0][0],
-                W=c.x2-c.x1, H=c.y2-c.y1;
+              W=c.x2-c.x1, H=c.y2-c.y1;
             function cs(y,x,[n,value]){
               let s;
               if(value==4){
@@ -353,6 +340,7 @@
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this)&&this.g.initLevel();
+        _Z.run("HUD");
       },
       dispose(){
         Mojo.off(_G);
@@ -360,36 +348,34 @@
       postUpdate(dt){
         if(holesFilled()){
           this.m5.dead=true;
-          _.delay(CLICK_DELAY,()=>{
-            _Z.runScene("EndGame",{msg: "You Win!"})
-          })
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg: "You Win!"}));
         }
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("HUD",{
+    _Z.scene("HUD",{
       setup(){
-        let g=_G.grid[_G.grid.length-1][_G.grid[0].length-1];
-        let K=Mojo.getScaleFactor();
-        let c,p,s,pad=5*K;
+        let K=Mojo.getScaleFactor(),
+          g=_G.grid[_G.grid.length-1][_G.grid[0].length-1],
+          c,p,s,pad=5*K;
         for(let i=0;i<4;++i){
-          s= _I.mkBtn(_S.centerAnchor(_S.sprite("button.png")));
+          s= _I.mkBtn(_S.anchorXY(_S.sprite("button.png"),0.5));
           _S.sizeXY(s,_G.tileW,_G.tileH);
           if(i==3){
-            c=_S.centerAnchor(_S.sprite("arrowLeft.png"));
+            c=_S.anchorXY(_S.sprite("arrowLeft.png"),0.5);
             _S.uuid(s,"#<-");
           }
           if(i==2){
-            c=_S.centerAnchor(_S.sprite("arrowRight.png"));
+            c=_S.anchorXY(_S.sprite("arrowRight.png"),0.5);
             _S.uuid(s,"#->");
           }
           if(i==1){
-            c=_S.centerAnchor(_S.sprite("arrowUp.png"));
+            c=_S.anchorXY(_S.sprite("arrowUp.png"),0.5);
             _S.uuid(s,"#^^");
           }
           if(i==0){
-            c=_S.centerAnchor(_S.sprite("arrowDown.png"));
+            c=_S.anchorXY(_S.sprite("arrowDown.png"),0.5);
             _S.uuid(s,"#vv");
           }
           c.height= s.height;
@@ -407,29 +393,27 @@
           if(!p){
             _V.set(s,g.x2+pad+s.width/2, g.y1+s.height/2);
           }else{
-            _S.pinTop(p,s,pad);
+            _S.pinAbove(p,s,pad);
           }
           p=this.insert(s);
         }
         //////
         g=_G.grid[0][_G.grid[0].length-1];
-        s= _I.mkBtn(_S.centerAnchor(_S.sprite("button.png")));
+        s= _I.mkBtn(_S.anchorXY(_S.sprite("button.png"),0.5));
         _S.sizeXY(s,_G.tileW,_G.tileH);
         _V.set(s,g.x2+pad+s.width/2, g.y1+s.height/2);
-        c=_S.centerAnchor(_S.sprite("undo.png"));
-        c.tint=_S.color("orange");
+        c=_S.anchorXY(_S.sprite("undo.png"),0.5);
+        c.tint=_S.SomeColors.orange;
         s.addChild(c);
-        s.m5.press=()=>{
-          undoMove()
-        };
+        s.m5.press=()=>undoMove();
         this.insert(s);
       }
     });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load and run
+  window.addEventListener("load", ()=>MojoH5({
     assetFiles: ["click.mp3","game_over.mp3","game_win.mp3",
       "button.png","arrowUp.png","arrowDown.png","arrowLeft.png","arrowRight.png",
       "left.png","right.png","up.png","down.png","undo.png",
@@ -439,13 +423,10 @@
     scaleFit: "y",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load", ()=>MojoH5(_$));
+  }));
 
 })(this);
 

@@ -151,7 +151,6 @@
         b1.m5.press=()=> playClick() && _Z.runEx("MainMenu");
         b2.m5.press=()=> playClick() && _Z.runEx("Splash");
 
-        _I.resume();
         Mojo.sound("game_over.mp3").play();
         this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2]))
       }
@@ -357,12 +356,13 @@
 
     _G.endOfGame=function(s){
       s= s||_G.scene;
-      s.children.forEach(c=>{
-        if(c.m5 && (""+c.m5.uuid).startsWith("tile,")){
-          _I.undoButton(c);
-        }
-      });
-      _Z.run("EndGame");
+      if(0)
+        s.children.forEach(c=>{
+          if(c.m5 && (""+c.m5.uuid).startsWith("tile,")){
+            _I.undoButton(c);
+          }
+        });
+      _Z.modal("EndGame");
     }
   }
 
