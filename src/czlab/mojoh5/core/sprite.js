@@ -1140,13 +1140,11 @@
        * @param {number|string} fillStyle
        * @param {number|string} strokeStyle
        * @param {number} lineWidth
-       * @param {number} x
-       * @param {number} y
        * @return {Sprite}
        */
       rect(width, height,
            fillStyle = 0xffffff,
-           strokeStyle = 0xffffff, lineWidth=0, x=0, y=0){
+           strokeStyle = 0xffffff, lineWidth=0){
         let a,g=this.graphics();
         if(fillStyle !== false){
           if(is.vec(fillStyle)){
@@ -1164,8 +1162,7 @@
           g.endFill()
         }
         let s= new Mojo.PXSprite(this.genTexture(g));
-        s=this.extend(s);
-        return _V.set(s,x,y);
+        return this.extend(s);
       },
       /**Create a sprite by applying a drawing routine to the graphics object.
        * @memberof module:mojoh5/Sprites
@@ -1183,13 +1180,9 @@
        * @param {number|string} fillStyle
        * @param {number|string} strokeStyle
        * @param {number} lineWidth
-       * @param {number} x
-       * @param {number} y
        * @return {Sprite}
        */
-      circle(radius,
-             fillStyle=0xffffff,
-             strokeStyle=0xffffff, lineWidth=0, x=0, y=0){
+      circle(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
         let a,g = this.graphics();
         if(fillStyle !== false){
           if(is.vec(fillStyle)){
@@ -1207,7 +1200,6 @@
           g.endFill();
         let s=new Mojo.PXSprite(this.genTexture(g));
         s=this.extend(s);
-        _V.set(s,x,y);
         return (s.m5.circle=true) && this.centerAnchor(s) },
       /**Create a line sprite.
        * @memberof module:mojoh5/Sprites

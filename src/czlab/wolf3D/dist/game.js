@@ -17413,8 +17413,6 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
-      Mojo.mouse= Mojo.Input.pointer();
-
       if(Mojo.touchDevice){
         Mojo.scroll()
       }
@@ -17661,6 +17659,7 @@
       PXLR:PIXI.LoaderResource,
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
+      get mouse(){ return Mojo.Input.pointer() },
       accel(v,a,dt){ return v+a*dt },
       on(...args){
         return EBus.sub(...args)
@@ -17830,14 +17829,14 @@
        * @param {function} cb
        */
       stageCS(cb){
-        Mojo.stage.children.forEach(s=>{
-          if(s instanceof Mojo.Scenes.SceneWrapper){
-            s=s.children[0]
-          }
-          if(s instanceof PIXI.SimpleRope){}else{
-            cb(s)
-          }
-        })
+        if(this.inModal){
+          cb( _.last(this.stage.children))
+        }else{
+          this.stage.children.forEach(s=>{
+            if(s instanceof Mojo.Scenes.SceneWrapper){ s=s.children[0] }
+            if(s instanceof PIXI.SimpleRope){}else{ cb(s) }
+          })
+        }
       },
       scroll(x,y){
         gscope.scrollTo(x||0, y||1) },
@@ -20720,10 +20719,15 @@
               o.m5.button && i.undoButton(o); }
             o.children.length>0 && o.children.forEach(c=> _c(c)); }
         }
+        this.m5.dead=true;
         Mojo.off(this);
         _c(this);
-        this.m5.dead=true;
         this.removeChildren();
+        if(Mojo.modalScene===this){
+          Mojo.modalScene=UNDEF;
+          i.restore();
+          Mojo.CON.log(`removed the current modal scene`);
+        }
       }
       _tick(r,dt){
         r.forEach(c=>{
@@ -20804,13 +20808,13 @@
       p=items[P];
       for(let s,i=P-1;i>=0;--i){
         s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinTop":"pinLeft"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinAbove":"pinLeft"](p,s,pad);
         p=s;
       }
       p=items[P];
       for(let s,i=P+1;i<items.length; ++i){
         s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinBottom":"pinRight"](p,s,pad);
+        Mojo.Sprites[dir==Mojo.DOWN?"pinBelow":"pinRight"](p,s,pad);
         p=s;
       }
     }
@@ -21018,6 +21022,16 @@
           this.run(a[0],a[1],a[2]);
         });
       },
+      /**Run as a modal dialog.
+       * @memberof module:mojoh5/Scenes
+       * @param {string} name
+       * @param {object} [options]
+       * @return {Scene}
+       */
+      modal(name,options){
+        Mojo.Input.save();
+        return Mojo.modalScene= this.run(name,null,options);
+      },
       /**Run this scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
@@ -21027,6 +21041,8 @@
        */
       run(name,num,options){
         let py, y, s0,_s = ScenesDict[name];
+        if(Mojo.modalScene)
+          throw `Fatal: modal scene is running`;
         if(!_s)
           throw `Fatal: unknown scene: ${name}`;
         if(is.obj(num)){
@@ -21035,7 +21051,7 @@
         }
         options = _.inject({},_s[1],options);
         s0=_.inject({},_s[0]);
-        if(is.undef(num))
+        if(_.nichts(num))
           num= options["slot"] || -1;
         //before we run a new scene
         //Mojo.mouse.reset();
@@ -21322,20 +21338,25 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkLayer(L={}){
       function _uh(e){
-        L.keyInputs.set(e.keyCode,false);
-        L.shiftKey=e.shiftKey;
-        L.ctrlKey=e.ctrlKey;
-        L.altKey=e.altKey;
-        e.preventDefault();
+        if(L===cur()){
+          L.keyInputs.set(e.keyCode,false);
+          L.shiftKey=e.shiftKey;
+          L.ctrlKey=e.ctrlKey;
+          L.altKey=e.altKey;
+          e.preventDefault();
+        }
       }
       function _dh(e){
-        L.keyInputs.set(e.keyCode,true);
-        L.ctrlKey= false;
-        L.altKey= false;
-        L.shiftKey=false;
-        e.preventDefault();
+        if(L===cur()){
+          L.keyInputs.set(e.keyCode,true);
+          L.ctrlKey= false;
+          L.altKey= false;
+          L.shiftKey=false;
+          e.preventDefault();
+        }
       }
       _.inject(L,{
+        yid: `yid#${_.nextId()}`,
         keyInputs: _.jsMap(),
         pauseInput:false,
         ctrlKey:false,
@@ -21364,24 +21385,28 @@
                      ctrl:false, alt:false, shift:false};
           key.code= is.vec(_key)?_key:[_key];
           function _down(e){
-            e.preventDefault();
-            if(key.code.includes(e.keyCode)){
-              key.ctrl=e.ctrlKey;
-              key.alt=e.altKey;
-              key.shift=e.shiftKey;
-              if(!self.pauseInput && key.isUp)
-                key.press && key.press(key.alt,key.ctrl,key.shift);
-              key.isUp=false;
-              key.isDown=true;
+            if(L===cur()){
+              e.preventDefault();
+              if(key.code.includes(e.keyCode)){
+                key.ctrl=e.ctrlKey;
+                key.alt=e.altKey;
+                key.shift=e.shiftKey;
+                if(!self.pauseInput && key.isUp)
+                  key.press && key.press(key.alt,key.ctrl,key.shift);
+                key.isUp=false;
+                key.isDown=true;
+              }
             }
           }
           function _up(e){
-            e.preventDefault();
-            if(key.code.includes(e.keyCode)){
-              if(!self.pauseInput)
-                key.isDown && key.release && key.release();
-              key.isUp=true; key.isDown=false;
-              key.ctrl=false; key.alt=false; key.shift=false;
+            if(L===cur()){
+              e.preventDefault();
+              if(key.code.includes(e.keyCode)){
+                if(!self.pauseInput)
+                  key.isDown && key.release && key.release();
+                key.isUp=true; key.isDown=false;
+                key.ctrl=false; key.alt=false; key.shift=false;
+              }
             }
           }
           if(!Mojo.touchDevice)
@@ -21414,6 +21439,8 @@
           console.log(`Mouse pointer = ${this.ptr}`);
         }
       });
+
+      L.pointer();
 
       if(!Mojo.touchDevice)
         //keep tracks of keyboard presses
@@ -21531,30 +21558,27 @@
           return {x: this.x, y: this.y}
         },
         _press(){
-          let i=0,
-            top=_Z.topMost(),
-            s, z=this.Buttons.length;
-          for(;i<z;++i){
+          if(L!==cur()){return}
+          let i, s, found,z=this.Buttons.length;
+          for(i=0;i<z;++i){
             s=this.Buttons[i];
-            if(s.m5.gui || s.m5.root === top)
+            if(s.m5.gui && s.m5.press && this.hitTest(s)){
+              s.m5.press(s);
+              found=true;
+              break;
+            }
+          }
+          if(!found)
+            for(i=0;i<z;++i){
+              s=this.Buttons[i];
               if(s.m5.press && this.hitTest(s)){
                 s.m5.press(s);
                 break;
               }
-          }
-        },
-        _press(){
-          for(let s,i=0,z=this.Buttons.length;i<z;++i){
-            s=this.Buttons[i];
-            if((!L.pauseInput || s.m5.gui) &&
-               s.m5.press &&
-               this.hitTest(s)){
-              s.m5.press(s);
-              break;
             }
-          }
         },
         _doMDown(b){
+          if(L!==cur()){return}
           let found,self=P;
           for(let s,i=0;i<self.Hotspots.length;++i){
             s=self.Hotspots[i];
@@ -21567,6 +21591,7 @@
           return found;
         },
         mouseDown(e){
+          if(L!==cur()){return}
           let self=P, nn=_.now();
           //left click only
           if(e.button==0){
@@ -21580,21 +21605,23 @@
             self.downAt[1]=self._y;
             Mojo.Sound.init();
             if(!L.pauseInput){
-              Mojo.emit(["mousedown"]);
+              Mojo.emit([`${L.yid}/mousedown`]);
               self._doMDown(true);
             }
             //console.log(`mouse x= ${self.x}, y = ${self.y}`);
           }
         },
         mouseMove(e){
+          if(L!==cur()){return}
           let self=P;
           self._x = e.pageX - e.target.offsetLeft;
           self._y = e.pageY - e.target.offsetTop;
           //e.preventDefault();
           if(!L.pauseInput)
-            Mojo.emit(["mousemove"]);
+            Mojo.emit([`${L.yid}/mousemove`]);
         },
         mouseUp(e){
+          if(L!==cur()){return}
           let self=P,nn=_.now();
           if(e.button==0){
             e.preventDefault();
@@ -21603,13 +21630,13 @@
             self._y = e.pageY - e.target.offsetTop;
             _.setVec(self.state,false,true);
             if(!L.pauseInput){
-              Mojo.emit(["mouseup"]);
+              Mojo.emit([`${L.yid}/mouseup`]);
               if(!self._doMDown(false)){
                 let v= _V.vecAB(self.downAt,self);
                 let z= _V.len2(v);
                 //small distance and fast then a click
                 if(z<400 && self.elapsedTime<200){
-                  Mojo.emit(["single.tap"]);
+                  Mojo.emit([`${L.yid}/single.tap`]);
                   self._press();
                 }else{
                   self._swipeMotion(v,z,self.elapsedTime);
@@ -21619,6 +21646,7 @@
           }
         },
         _swipeMotion(v,dd,dt,arg){
+          if(L!==cur()){return}
           let n= _V.unit$(_V.normal(v));
           let rc;
           //up->down n(1,0)
@@ -21641,9 +21669,10 @@
             }
           }
           if(rc)
-            Mojo.emit([rc], arg)
+            Mojo.emit([`${L.yid}/${rc}`], arg)
         },
         _doMTouch(ts,flag){
+          if(L!==cur()){return}
           let self=P,
               found=_.jsMap();
           for(let a,i=0; i<ts.length; ++i){
@@ -21660,6 +21689,7 @@
           return found;
         },
         _doMDrag(ts,found){
+          if(L!==cur()){return}
           let self=P;
           for(let p,a,i=0; i<ts.length;++i){
             a=ts[i];
@@ -21676,10 +21706,12 @@
           return found;
         },
         touchCancel(e){
+          if(L!==cur()){return}
           console.warn("received touchCancel event!");
           this.freeTouches();
         },
         touchStart(e){
+          if(L!==cur()){return}
           let self=P,
               t= e.target,
               out=[],
@@ -21710,11 +21742,12 @@
           }
           Mojo.Sound.init();
           if(!L.pauseInput){
-            Mojo.emit(["touchstart"],out);
+            Mojo.emit([`${L.yid}/touchstart`],out);
             self._doMTouch(out,true);
           }
         },
         touchMove(e){
+          if(L!==cur()){return}
           let out=[],
               self=P,
               t = e.target,
@@ -21738,9 +21771,10 @@
             }
           }
           if(!L.pauseInput)
-            Mojo.emit(["touchmove"],out);
+            Mojo.emit([`${L.yid}/touchmove`],out);
         },
         touchEnd(e){
+          if(L!==cur()){return}
           let self=P,
               out=[],
               T = e.targetTouches,
@@ -21771,13 +21805,14 @@
             }
           }
           if(!L.pauseInput){
-            Mojo.emit(["touchend"],out);
+            Mojo.emit([`${L.yid}/touchend`],out);
             let found= self._doMTouch(out,false);
             self._doMDrag(out,found);
             self._onMultiTouches(out,found);
           }
         },
         _onMultiTouches(ts,found){
+          if(L!==cur()){return}
           let self=P;
           for(let a,v,z,j=0; j<ts.length; ++j){
             a=ts[j];
@@ -21785,7 +21820,7 @@
             v= _V.vecAB(a.downAt,a);
             z= _V.len2(v);
             if(z<400 && a.elapsedTime<200){
-              Mojo.emit(["single.tap"],a);
+              Mojo.emit([`${L.yid}/single.tap`],a);
               for(let s,i=0,n=self.Buttons.length;i<n;++i){
                 s=self.Buttons[i];
                 if(s.m5.press && self._test(s, a.x, a.y)){
@@ -21893,9 +21928,6 @@
       };
       //////
       return P;
-    }
-
-    function xxx(mouse){
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -22036,17 +22068,27 @@
         return cur().pointer()
       },
       dispose(){
-        Layers.forEach(a => a.dispose())
+        Layers.forEach(a => a.dispose());
+        Layers.length=0;
       },
-      pop(){
+      restore(){
         if(Layers.length>1){
           Layers.shift().dispose()
           cur().pauseInput=false;
         }
       },
-      push(){
-        Layers[0].pauseInput=true;
+      save(){
         Layers.unshift(mkLayer());
+      },
+      on(...args){
+        _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.on()");
+        args[0][0]=`${cur().yid}/${args[0][0]}`;
+        return Mojo.on(...args);
+      },
+      off(...args){
+        _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.off()");
+        args[0][0]=`${cur().yid}/${args[0][0]}`;
+        return Mojo.off(...args);
       }
     };
 
@@ -25125,7 +25167,7 @@
                "#.....###.####.....#"+
                "#............#.....#"+
                "#.....#......#.....#"+
-               "#.....#......#.....#"+
+               "#.....#...X..#.....#"+
                "#.....#............#"+
                "#.....###.####.....#"+
                "#.......#.#........#"+
@@ -25152,6 +25194,9 @@
       }
       return s;
     })("");
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const vspace=(c)=> FMAP.charAt(c) == "." || FMAP.charAt(c) == "X";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //you can tweak this by pointing to a different map
@@ -25299,18 +25344,13 @@
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
             t=_F.throb(s,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _F.remove(t);
               _S.tint(s,C_ORANGE);
               playClick();
-              _.delay(CLICK_DELAY,()=>{
-                _Z.runEx("PlayGame");
-                //put a mat around the arena to hide overflows
-                _Z.run("PhotoMat", _.inject({color:"black"},_G.arena));
-                Mojo.touchDevice? _Z.run("Ctrl"):0;
-              });
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             _V.set(s,Mojo.width/2,Mojo.height*0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }
@@ -25329,34 +25369,27 @@
           initHotspots(){
             let cfg={fontName:UI_FONT,fontSize:48*K},
               alpha=0.2,grey=_S.SomeColors.grey,
-              L,U,R,D,offX, offY, fw=132*K,fh=84*K,lw=4*K;
+              L,U,R,D,offX, offY, fw=132*K,fh=42*K,lw=4*K;
             //////
-            D= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(D,0.5);
-            D.addChild(_S.anchorXY(_S.bmpText("--",cfg),0.5));
-            offY=D.height/4;
-            _V.set(D, _G.arena.x2+(Mojo.width-_G.arena.x2)/2, (_G.arena.y2-D.height/2));
+            D= _S.circle(fh,grey,grey,lw);
+            D.addChild(_S.anchorXY(_S.bmpText("-",cfg),0.5));
+            _V.set(D, _G.arena.x1-D.width, _G.arena.y2-D.height/2);
             self.insert(_S.opacity(_I.makeHotspot(D),alpha));
-            /////
-            R= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(R,0.5);
-            R.addChild(_S.anchorXY(_S.bmpText("->",cfg),0.5));
-            _S.pinAbove(D,R,offY);
-            R.x += D.width/2+offY/2;
-            self.insert(_S.opacity(_I.makeHotspot(R),alpha));
             //////
-            L= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(L,0.5);
-            L.addChild(_S.anchorXY(_S.bmpText("<-",cfg),0.5));
-            _S.pinAbove(D,L,offY);
-            L.x -= D.width/2+offY/2;
-            self.insert(_S.opacity(_I.makeHotspot(L),alpha));
-            //////
-            U= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(U,0.5);
-            U.addChild(_S.anchorXY(_S.bmpText("++",cfg),0.5));
-            _S.pinAbove(D,U,L.height+offY*2);
+            U= _S.circle(fh,grey,grey,lw);
+            U.addChild(_S.anchorXY(_S.bmpText("+",cfg),0.5));
+            _S.pinAbove(D,U,D.height/4);
             self.insert(_S.opacity(_I.makeHotspot(U),alpha));
+            //////lateral movements
+            R= _S.circle(fh,grey,grey,lw);
+            R.addChild(_S.anchorXY(_S.bmpText(">",cfg),0.5));
+            _V.set(R, _G.arena.x2+R.width, _G.arena.y2 - R.height/2);
+            self.insert(_S.opacity(_I.makeHotspot(R),alpha));
+            /////
+            L= _S.circle(fh,grey,grey,lw);
+            L.addChild(_S.anchorXY(_S.bmpText("<",cfg),0.5));
+            _S.pinAbove(R,L,R.height/4);
+            self.insert(_S.opacity(_I.makeHotspot(L),alpha));
             //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             R.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
             L.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
@@ -25366,6 +25399,24 @@
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initHotspots();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let os={fontName:UI_FONT,
+                fontSize: 72*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"You Win!", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
+        Mojo.sound("game_win.mp3").play();
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
 
@@ -25441,6 +25492,9 @@
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.initHUD();
+        //put a mat around the arena to hide overflows
+        _Z.run("PhotoMat", _.inject({color:"black"},_G.arena));
+        _Z.run("Ctrl");
       },
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       //check algo from permadi...
@@ -25488,7 +25542,7 @@
           if(gx>=MAPWIDTH || gy>=MAPDEPTH || gx<0 || gy<0){
             H ? (CV.distY=Infinity)
               : (CV.distX=Infinity)
-          }else if(FMAP.charAt(int(gy*MAPWIDTH+gx))!="."){
+          }else if(!vspace(int(gy*MAPWIDTH+gx))){
             H ? (CV.distY= cos_v * (CV.i_x-_G.playerX))
               : (CV.distX= sin_v * (CV.i_y-_G.playerY))
           }else{
@@ -25539,6 +25593,7 @@
         color=int(color);
         if(_G.textureUsed){
           drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, xOffset, color);
+          drawGoal(this,castArc, castCol,bottomOfWall,1,color);
           //TODO: uncomment to demo floor and ceiling, very slow though
           //drawFloor(this,castArc, castCol,bottomOfWall,1,color);
           //drawCeiling(this,castArc, castCol,topOfWall,1,color);
@@ -25573,7 +25628,7 @@
         }
         _G.playerX+=dx;
         _G.playerY+=dy;
-        // CHECK COLLISION AGAINST WALLS
+        // CHECK COLLISIONS
         // compute cell position
         let playerXCell = _M.ndiv(_G.playerX,TILESZ),
           playerYCell = _M.ndiv(_G.playerY,TILESZ),
@@ -25581,27 +25636,35 @@
           playerXCellOffset = _G.playerX % TILESZ,
           playerYCellOffset = _G.playerY % TILESZ;
         let minDistanceToWall=30;
+
+        //check if found goal
+        if(FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell)=="X"){
+          this.m5.dead=true;
+          _.delay(100,()=> _Z.modal("EndGame"));
+          return;
+        }
+
         // make sure the player don't bump into walls
         if(dx>0){ // moving right
-          if((FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell+1)!=".")&&
+          if((!vspace((playerYCell*MAPWIDTH)+playerXCell+1))&&
              (playerXCellOffset > (TILESZ-minDistanceToWall))){
             // back player up
             _G.playerX -= (playerXCellOffset-(TILESZ-minDistanceToWall));
           }
         }else{ // moving left
-          if((FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell-1)!=".")&&
+          if((!vspace((playerYCell*MAPWIDTH)+playerXCell-1))&&
              (playerXCellOffset < (minDistanceToWall))){
             // back player up
             _G.playerX += (minDistanceToWall-playerXCellOffset);
           }
         }
         if(dy<0){ // moving up
-          if((FMAP.charAt(((playerYCell-1)*MAPWIDTH)+playerXCell)!=".")&&
+          if((!vspace(((playerYCell-1)*MAPWIDTH)+playerXCell))&&
              (playerYCellOffset < (minDistanceToWall))){
             _G.playerY += (minDistanceToWall-playerYCellOffset);
           }
         }else{ // moving down
-          if((FMAP.charAt(((playerYCell+1)*MAPWIDTH)+playerXCell)!=".")&&
+          if((!vspace(((playerYCell+1)*MAPWIDTH)+playerXCell))&&
              (playerYCellOffset > (TILESZ-minDistanceToWall))){
             _G.playerY -= (playerYCellOffset-(TILESZ-minDistanceToWall ));
           }
@@ -25658,6 +25721,7 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawFloor(scene, castArc, castCol, bottomOfWall, width, tint){
       let B=Mojo.tcached("floortile.png");
@@ -25682,6 +25746,30 @@
           s.x=castCol*PROJRATIO;
           s.y=row*PROJRATIO;
           scene.g.box.addChild(s);
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function drawGoal(scene, castArc, castCol, bottomOfWall, width, tint){
+      for(let row=int(bottomOfWall); row<BASEH; ++row){
+        let ratio=_G.playerHeight/(row-PROJPLANE_MIDY);
+        let diagDist= int(PLAYERDIST_PROJPLANE*ratio*TABLES[tFISH][castCol]);
+        let yEnd = int(diagDist * TABLES[tSIN][castArc]);
+        let xEnd = int(diagDist * TABLES[tCOS][castArc]);
+        // Translate relative to viewer coordinates:
+        xEnd += _G.playerX;
+        yEnd += _G.playerY;
+        let cellX = _M.ndiv(xEnd , TILESZ),
+          cellY = _M.ndiv(yEnd , TILESZ);
+        if((cellX<MAPWIDTH) && (cellY<MAPDEPTH) && cellX>=0 && cellY>=0){
+          if(FMAP.charAt(cellY*MAPWIDTH+cellX)=="X"){
+            let sx=castCol*PROJRATIO;
+            let sy=row*PROJRATIO;
+            scene.g.gfx.beginFill(_S.SomeColors.red);
+            scene.g.gfx.drawRect(sx,sy,width*PROJRATIO, PROJRATIO);
+            scene.g.gfx.endFill();
+          }
         }
       }
     }
@@ -25722,15 +25810,16 @@
       };
       this.drawMap=(dt)=>{
         for(let css,r=0; r<MAPDEPTH; ++r){
-          for(let c=0;c<MAPWIDTH; ++c){
-            css=FMAP.charAt(r*MAPWIDTH+c)=="#"? "white":"black";
+          for(let s,c=0;c<MAPWIDTH; ++c){
+            s=FMAP.charAt(r*MAPWIDTH+c);
+            css=s=="#"? "white":(s=="X"?"red":"black");
             paintRect(scene.g.gfx2, this.LEFT+(c*this.fMinimapWidth),
                       _G.arena.y1+(r*this.fMinimapWidth), this.fMinimapWidth, this.fMinimapWidth, css);
           }
         }
         this.playerMapX=this.LEFT+((_G.playerX/TILESZ) * this.fMinimapWidth);
         this.playerMapY= _G.arena.y1+ ((_G.playerY/TILESZ) * this.fMinimapWidth);
-        this.drawPlayerPOV();
+        //this.drawPlayerPOV();
       };
     }
 
@@ -25742,7 +25831,8 @@
 
     assetFiles: ["tile2.png","tile43.png",
                  "tile42.png","tile41.png",
-                 "wall64.png","floortile.png","bg.jpg","sky.jpg", "click.mp3"],
+                 "wall64.png","floortile.png",
+                 "bg.jpg","sky.jpg", "game_win.mp3","click.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",

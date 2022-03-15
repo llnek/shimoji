@@ -145,7 +145,7 @@
                "#.....###.####.....#"+
                "#............#.....#"+
                "#.....#......#.....#"+
-               "#.....#......#.....#"+
+               "#.....#...X..#.....#"+
                "#.....#............#"+
                "#.....###.####.....#"+
                "#.......#.#........#"+
@@ -172,6 +172,9 @@
       }
       return s;
     })("");
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const vspace=(c)=> FMAP.charAt(c) == "." || FMAP.charAt(c) == "X";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //you can tweak this by pointing to a different map
@@ -319,18 +322,13 @@
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
             t=_F.throb(s,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _F.remove(t);
               _S.tint(s,C_ORANGE);
               playClick();
-              _.delay(CLICK_DELAY,()=>{
-                _Z.runEx("PlayGame");
-                //put a mat around the arena to hide overflows
-                _Z.run("PhotoMat", _.inject({color:"black"},_G.arena));
-                Mojo.touchDevice? _Z.run("Ctrl"):0;
-              });
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             _V.set(s,Mojo.width/2,Mojo.height*0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }
@@ -349,34 +347,27 @@
           initHotspots(){
             let cfg={fontName:UI_FONT,fontSize:48*K},
               alpha=0.2,grey=_S.SomeColors.grey,
-              L,U,R,D,offX, offY, fw=132*K,fh=84*K,lw=4*K;
+              L,U,R,D,offX, offY, fw=132*K,fh=42*K,lw=4*K;
             //////
-            D= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(D,0.5);
-            D.addChild(_S.anchorXY(_S.bmpText("--",cfg),0.5));
-            offY=D.height/4;
-            _V.set(D, _G.arena.x2+(Mojo.width-_G.arena.x2)/2, (_G.arena.y2-D.height/2));
+            D= _S.circle(fh,grey,grey,lw);
+            D.addChild(_S.anchorXY(_S.bmpText("-",cfg),0.5));
+            _V.set(D, _G.arena.x1-D.width, _G.arena.y2-D.height/2);
             self.insert(_S.opacity(_I.makeHotspot(D),alpha));
-            /////
-            R= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(R,0.5);
-            R.addChild(_S.anchorXY(_S.bmpText("->",cfg),0.5));
-            _S.pinAbove(D,R,offY);
-            R.x += D.width/2+offY/2;
-            self.insert(_S.opacity(_I.makeHotspot(R),alpha));
             //////
-            L= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(L,0.5);
-            L.addChild(_S.anchorXY(_S.bmpText("<-",cfg),0.5));
-            _S.pinAbove(D,L,offY);
-            L.x -= D.width/2+offY/2;
-            self.insert(_S.opacity(_I.makeHotspot(L),alpha));
-            //////
-            U= _S.rect(fw,fh,grey,grey,lw);
-            _S.anchorXY(U,0.5);
-            U.addChild(_S.anchorXY(_S.bmpText("++",cfg),0.5));
-            _S.pinAbove(D,U,L.height+offY*2);
+            U= _S.circle(fh,grey,grey,lw);
+            U.addChild(_S.anchorXY(_S.bmpText("+",cfg),0.5));
+            _S.pinAbove(D,U,D.height/4);
             self.insert(_S.opacity(_I.makeHotspot(U),alpha));
+            //////lateral movements
+            R= _S.circle(fh,grey,grey,lw);
+            R.addChild(_S.anchorXY(_S.bmpText(">",cfg),0.5));
+            _V.set(R, _G.arena.x2+R.width, _G.arena.y2 - R.height/2);
+            self.insert(_S.opacity(_I.makeHotspot(R),alpha));
+            /////
+            L= _S.circle(fh,grey,grey,lw);
+            L.addChild(_S.anchorXY(_S.bmpText("<",cfg),0.5));
+            _S.pinAbove(R,L,R.height/4);
+            self.insert(_S.opacity(_I.makeHotspot(L),alpha));
             //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             R.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
             L.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
@@ -386,6 +377,24 @@
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initHotspots();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let os={fontName:UI_FONT,
+                fontSize: 72*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"You Win!", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
+        Mojo.sound("game_win.mp3").play();
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
 
@@ -461,6 +470,9 @@
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel() && this.g.initHUD();
+        //put a mat around the arena to hide overflows
+        _Z.run("PhotoMat", _.inject({color:"black"},_G.arena));
+        _Z.run("Ctrl");
       },
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       //check algo from permadi...
@@ -508,7 +520,7 @@
           if(gx>=MAPWIDTH || gy>=MAPDEPTH || gx<0 || gy<0){
             H ? (CV.distY=Infinity)
               : (CV.distX=Infinity)
-          }else if(FMAP.charAt(int(gy*MAPWIDTH+gx))!="."){
+          }else if(!vspace(int(gy*MAPWIDTH+gx))){
             H ? (CV.distY= cos_v * (CV.i_x-_G.playerX))
               : (CV.distX= sin_v * (CV.i_y-_G.playerY))
           }else{
@@ -559,6 +571,7 @@
         color=int(color);
         if(_G.textureUsed){
           drawWallSlice(this, castCol, topOfWall, 1, (bottomOfWall-topOfWall)+1, xOffset, color);
+          drawGoal(this,castArc, castCol,bottomOfWall,1,color);
           //TODO: uncomment to demo floor and ceiling, very slow though
           //drawFloor(this,castArc, castCol,bottomOfWall,1,color);
           //drawCeiling(this,castArc, castCol,topOfWall,1,color);
@@ -593,7 +606,7 @@
         }
         _G.playerX+=dx;
         _G.playerY+=dy;
-        // CHECK COLLISION AGAINST WALLS
+        // CHECK COLLISIONS
         // compute cell position
         let playerXCell = _M.ndiv(_G.playerX,TILESZ),
           playerYCell = _M.ndiv(_G.playerY,TILESZ),
@@ -601,27 +614,35 @@
           playerXCellOffset = _G.playerX % TILESZ,
           playerYCellOffset = _G.playerY % TILESZ;
         let minDistanceToWall=30;
+
+        //check if found goal
+        if(FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell)=="X"){
+          this.m5.dead=true;
+          _.delay(100,()=> _Z.modal("EndGame"));
+          return;
+        }
+
         // make sure the player don't bump into walls
         if(dx>0){ // moving right
-          if((FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell+1)!=".")&&
+          if((!vspace((playerYCell*MAPWIDTH)+playerXCell+1))&&
              (playerXCellOffset > (TILESZ-minDistanceToWall))){
             // back player up
             _G.playerX -= (playerXCellOffset-(TILESZ-minDistanceToWall));
           }
         }else{ // moving left
-          if((FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell-1)!=".")&&
+          if((!vspace((playerYCell*MAPWIDTH)+playerXCell-1))&&
              (playerXCellOffset < (minDistanceToWall))){
             // back player up
             _G.playerX += (minDistanceToWall-playerXCellOffset);
           }
         }
         if(dy<0){ // moving up
-          if((FMAP.charAt(((playerYCell-1)*MAPWIDTH)+playerXCell)!=".")&&
+          if((!vspace(((playerYCell-1)*MAPWIDTH)+playerXCell))&&
              (playerYCellOffset < (minDistanceToWall))){
             _G.playerY += (minDistanceToWall-playerYCellOffset);
           }
         }else{ // moving down
-          if((FMAP.charAt(((playerYCell+1)*MAPWIDTH)+playerXCell)!=".")&&
+          if((!vspace(((playerYCell+1)*MAPWIDTH)+playerXCell))&&
              (playerYCellOffset > (TILESZ-minDistanceToWall))){
             _G.playerY -= (playerYCellOffset-(TILESZ-minDistanceToWall ));
           }
@@ -678,6 +699,7 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawFloor(scene, castArc, castCol, bottomOfWall, width, tint){
       let B=Mojo.tcached("floortile.png");
@@ -702,6 +724,30 @@
           s.x=castCol*PROJRATIO;
           s.y=row*PROJRATIO;
           scene.g.box.addChild(s);
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function drawGoal(scene, castArc, castCol, bottomOfWall, width, tint){
+      for(let row=int(bottomOfWall); row<BASEH; ++row){
+        let ratio=_G.playerHeight/(row-PROJPLANE_MIDY);
+        let diagDist= int(PLAYERDIST_PROJPLANE*ratio*TABLES[tFISH][castCol]);
+        let yEnd = int(diagDist * TABLES[tSIN][castArc]);
+        let xEnd = int(diagDist * TABLES[tCOS][castArc]);
+        // Translate relative to viewer coordinates:
+        xEnd += _G.playerX;
+        yEnd += _G.playerY;
+        let cellX = _M.ndiv(xEnd , TILESZ),
+          cellY = _M.ndiv(yEnd , TILESZ);
+        if((cellX<MAPWIDTH) && (cellY<MAPDEPTH) && cellX>=0 && cellY>=0){
+          if(FMAP.charAt(cellY*MAPWIDTH+cellX)=="X"){
+            let sx=castCol*PROJRATIO;
+            let sy=row*PROJRATIO;
+            scene.g.gfx.beginFill(_S.SomeColors.red);
+            scene.g.gfx.drawRect(sx,sy,width*PROJRATIO, PROJRATIO);
+            scene.g.gfx.endFill();
+          }
         }
       }
     }
@@ -742,15 +788,16 @@
       };
       this.drawMap=(dt)=>{
         for(let css,r=0; r<MAPDEPTH; ++r){
-          for(let c=0;c<MAPWIDTH; ++c){
-            css=FMAP.charAt(r*MAPWIDTH+c)=="#"? "white":"black";
+          for(let s,c=0;c<MAPWIDTH; ++c){
+            s=FMAP.charAt(r*MAPWIDTH+c);
+            css=s=="#"? "white":(s=="X"?"red":"black");
             paintRect(scene.g.gfx2, this.LEFT+(c*this.fMinimapWidth),
                       _G.arena.y1+(r*this.fMinimapWidth), this.fMinimapWidth, this.fMinimapWidth, css);
           }
         }
         this.playerMapX=this.LEFT+((_G.playerX/TILESZ) * this.fMinimapWidth);
         this.playerMapY= _G.arena.y1+ ((_G.playerY/TILESZ) * this.fMinimapWidth);
-        this.drawPlayerPOV();
+        //this.drawPlayerPOV();
       };
     }
 
@@ -762,7 +809,8 @@
 
     assetFiles: ["tile2.png","tile43.png",
                  "tile42.png","tile41.png",
-                 "wall64.png","floortile.png","bg.jpg","sky.jpg", "click.mp3"],
+                 "wall64.png","floortile.png",
+                 "bg.jpg","sky.jpg", "game_win.mp3","click.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",

@@ -67,13 +67,13 @@
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
             t=_F.throb(s,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _F.remove(t);
               _S.tint(s,C_ORANGE);
               playClick();
               _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             _V.set(s,W2,Mojo.height*0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }

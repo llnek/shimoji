@@ -21338,20 +21338,25 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkLayer(L={}){
       function _uh(e){
-        L.keyInputs.set(e.keyCode,false);
-        L.shiftKey=e.shiftKey;
-        L.ctrlKey=e.ctrlKey;
-        L.altKey=e.altKey;
-        e.preventDefault();
+        if(L===cur()){
+          L.keyInputs.set(e.keyCode,false);
+          L.shiftKey=e.shiftKey;
+          L.ctrlKey=e.ctrlKey;
+          L.altKey=e.altKey;
+          e.preventDefault();
+        }
       }
       function _dh(e){
-        L.keyInputs.set(e.keyCode,true);
-        L.ctrlKey= false;
-        L.altKey= false;
-        L.shiftKey=false;
-        e.preventDefault();
+        if(L===cur()){
+          L.keyInputs.set(e.keyCode,true);
+          L.ctrlKey= false;
+          L.altKey= false;
+          L.shiftKey=false;
+          e.preventDefault();
+        }
       }
       _.inject(L,{
+        yid: `yid#${_.nextId()}`,
         keyInputs: _.jsMap(),
         pauseInput:false,
         ctrlKey:false,
@@ -21380,24 +21385,28 @@
                      ctrl:false, alt:false, shift:false};
           key.code= is.vec(_key)?_key:[_key];
           function _down(e){
-            e.preventDefault();
-            if(key.code.includes(e.keyCode)){
-              key.ctrl=e.ctrlKey;
-              key.alt=e.altKey;
-              key.shift=e.shiftKey;
-              if(!self.pauseInput && key.isUp)
-                key.press && key.press(key.alt,key.ctrl,key.shift);
-              key.isUp=false;
-              key.isDown=true;
+            if(L===cur()){
+              e.preventDefault();
+              if(key.code.includes(e.keyCode)){
+                key.ctrl=e.ctrlKey;
+                key.alt=e.altKey;
+                key.shift=e.shiftKey;
+                if(!self.pauseInput && key.isUp)
+                  key.press && key.press(key.alt,key.ctrl,key.shift);
+                key.isUp=false;
+                key.isDown=true;
+              }
             }
           }
           function _up(e){
-            e.preventDefault();
-            if(key.code.includes(e.keyCode)){
-              if(!self.pauseInput)
-                key.isDown && key.release && key.release();
-              key.isUp=true; key.isDown=false;
-              key.ctrl=false; key.alt=false; key.shift=false;
+            if(L===cur()){
+              e.preventDefault();
+              if(key.code.includes(e.keyCode)){
+                if(!self.pauseInput)
+                  key.isDown && key.release && key.release();
+                key.isUp=true; key.isDown=false;
+                key.ctrl=false; key.alt=false; key.shift=false;
+              }
             }
           }
           if(!Mojo.touchDevice)
@@ -21549,6 +21558,7 @@
           return {x: this.x, y: this.y}
         },
         _press(){
+          if(L!==cur()){return}
           let i, s, found,z=this.Buttons.length;
           for(i=0;i<z;++i){
             s=this.Buttons[i];
@@ -21568,6 +21578,7 @@
             }
         },
         _doMDown(b){
+          if(L!==cur()){return}
           let found,self=P;
           for(let s,i=0;i<self.Hotspots.length;++i){
             s=self.Hotspots[i];
@@ -21580,6 +21591,7 @@
           return found;
         },
         mouseDown(e){
+          if(L!==cur()){return}
           let self=P, nn=_.now();
           //left click only
           if(e.button==0){
@@ -21593,21 +21605,23 @@
             self.downAt[1]=self._y;
             Mojo.Sound.init();
             if(!L.pauseInput){
-              Mojo.emit(["mousedown"]);
+              Mojo.emit([`${L.yid}/mousedown`]);
               self._doMDown(true);
             }
             //console.log(`mouse x= ${self.x}, y = ${self.y}`);
           }
         },
         mouseMove(e){
+          if(L!==cur()){return}
           let self=P;
           self._x = e.pageX - e.target.offsetLeft;
           self._y = e.pageY - e.target.offsetTop;
           //e.preventDefault();
           if(!L.pauseInput)
-            Mojo.emit(["mousemove"]);
+            Mojo.emit([`${L.yid}/mousemove`]);
         },
         mouseUp(e){
+          if(L!==cur()){return}
           let self=P,nn=_.now();
           if(e.button==0){
             e.preventDefault();
@@ -21616,13 +21630,13 @@
             self._y = e.pageY - e.target.offsetTop;
             _.setVec(self.state,false,true);
             if(!L.pauseInput){
-              Mojo.emit(["mouseup"]);
+              Mojo.emit([`${L.yid}/mouseup`]);
               if(!self._doMDown(false)){
                 let v= _V.vecAB(self.downAt,self);
                 let z= _V.len2(v);
                 //small distance and fast then a click
                 if(z<400 && self.elapsedTime<200){
-                  Mojo.emit(["single.tap"]);
+                  Mojo.emit([`${L.yid}/single.tap`]);
                   self._press();
                 }else{
                   self._swipeMotion(v,z,self.elapsedTime);
@@ -21632,6 +21646,7 @@
           }
         },
         _swipeMotion(v,dd,dt,arg){
+          if(L!==cur()){return}
           let n= _V.unit$(_V.normal(v));
           let rc;
           //up->down n(1,0)
@@ -21654,9 +21669,10 @@
             }
           }
           if(rc)
-            Mojo.emit([rc], arg)
+            Mojo.emit([`${L.yid}/${rc}`], arg)
         },
         _doMTouch(ts,flag){
+          if(L!==cur()){return}
           let self=P,
               found=_.jsMap();
           for(let a,i=0; i<ts.length; ++i){
@@ -21673,6 +21689,7 @@
           return found;
         },
         _doMDrag(ts,found){
+          if(L!==cur()){return}
           let self=P;
           for(let p,a,i=0; i<ts.length;++i){
             a=ts[i];
@@ -21689,10 +21706,12 @@
           return found;
         },
         touchCancel(e){
+          if(L!==cur()){return}
           console.warn("received touchCancel event!");
           this.freeTouches();
         },
         touchStart(e){
+          if(L!==cur()){return}
           let self=P,
               t= e.target,
               out=[],
@@ -21723,11 +21742,12 @@
           }
           Mojo.Sound.init();
           if(!L.pauseInput){
-            Mojo.emit(["touchstart"],out);
+            Mojo.emit([`${L.yid}/touchstart`],out);
             self._doMTouch(out,true);
           }
         },
         touchMove(e){
+          if(L!==cur()){return}
           let out=[],
               self=P,
               t = e.target,
@@ -21751,9 +21771,10 @@
             }
           }
           if(!L.pauseInput)
-            Mojo.emit(["touchmove"],out);
+            Mojo.emit([`${L.yid}/touchmove`],out);
         },
         touchEnd(e){
+          if(L!==cur()){return}
           let self=P,
               out=[],
               T = e.targetTouches,
@@ -21784,13 +21805,14 @@
             }
           }
           if(!L.pauseInput){
-            Mojo.emit(["touchend"],out);
+            Mojo.emit([`${L.yid}/touchend`],out);
             let found= self._doMTouch(out,false);
             self._doMDrag(out,found);
             self._onMultiTouches(out,found);
           }
         },
         _onMultiTouches(ts,found){
+          if(L!==cur()){return}
           let self=P;
           for(let a,v,z,j=0; j<ts.length; ++j){
             a=ts[j];
@@ -21798,7 +21820,7 @@
             v= _V.vecAB(a.downAt,a);
             z= _V.len2(v);
             if(z<400 && a.elapsedTime<200){
-              Mojo.emit(["single.tap"],a);
+              Mojo.emit([`${L.yid}/single.tap`],a);
               for(let s,i=0,n=self.Buttons.length;i<n;++i){
                 s=self.Buttons[i];
                 if(s.m5.press && self._test(s, a.x, a.y)){
@@ -22057,6 +22079,16 @@
       },
       save(){
         Layers.unshift(mkLayer());
+      },
+      on(...args){
+        _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.on()");
+        args[0][0]=`${cur().yid}/${args[0][0]}`;
+        return Mojo.on(...args);
+      },
+      off(...args){
+        _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.off()");
+        args[0][0]=`${cur().yid}/${args[0][0]}`;
+        return Mojo.off(...args);
       }
     };
 
@@ -25287,13 +25319,13 @@
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
             t=_F.throb(s,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _F.remove(t);
               _S.tint(s,C_ORANGE);
               playClick();
               _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             _V.set(s,W2,Mojo.height*0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }

@@ -221,21 +221,17 @@
       /**Clean up.
       */
       dispose(){
-        const i=Mojo["Input"];
         function _c(o){
           if(o){
-            if(o.m5){
-              o.m5.drag && i.undoDrag(o);
-              o.m5.button && i.undoButton(o); }
-            o.children.length>0 && o.children.forEach(c=> _c(c)); }
-        }
+            Mojo.Input.undoXXX(o);
+            o.children.forEach(c=> _c(c)); } }
         this.m5.dead=true;
         Mojo.off(this);
         _c(this);
         this.removeChildren();
         if(Mojo.modalScene===this){
           Mojo.modalScene=UNDEF;
-          i.restore();
+          Mojo.Input.restore();
           Mojo.CON.log(`removed the current modal scene`);
         }
       }

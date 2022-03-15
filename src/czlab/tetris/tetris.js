@@ -70,7 +70,7 @@
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 72*K);
             t=_T.throb(s,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _S.tint(s, C_ORANGE);
               _T.remove(t);
               playClick();
@@ -79,7 +79,7 @@
                 _Z.run("HUD");
               });
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             _V.set(s,Mojo.width/2,Mojo.height * 0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }
@@ -111,6 +111,8 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
+      postUpdate(dt){
+      },
       onPtrDown(){
         if(_G.cur){
           _G.dragMode=true;
@@ -160,6 +162,25 @@
           }
         }
       },
+      dispose(){
+        let self=this;
+        _G.rightMotion.dispose();
+        _G.leftMotion.dispose();
+        _G.upMotion.dispose();
+        _G.downMotion.dispose();
+        _G.dropMotion.dispose();
+        if(Mojo.touchDevice){
+          _I.off(["touchstart"],"onPtrDown",self);
+          _I.off(["touchend"],"onPtrUp",self);
+          _I.off(["touchmove"],"onPtrMove",self);
+        }else{
+          _I.off(["mouseup"],"onPtrUp",self);
+          _I.off(["mousedown"],"onPtrDown",self);
+          _I.off(["mousemove"],"onPtrMove",self);
+        }
+        _I.off(["swipe.down"],"onSwipeDown",self);
+        _I.off(["single.tap"],"single_tap_cb",self);
+      },
       setup(){
         let self=this,
           H=Mojo.u.rows,
@@ -203,15 +224,15 @@
             _G.downMotion.press=()=> _G.shiftDown();
             _G.dropMotion.press=()=> _G.dropDown();
             if(Mojo.touchDevice){
-              Mojo.on(["touchstart"],"onPtrDown",self);
-              Mojo.on(["touchend"],"onPtrUp",self);
-              Mojo.on(["touchmove"],"onPtrMove",self);
+              _I.on(["touchstart"],"onPtrDown",self);
+              _I.on(["touchend"],"onPtrUp",self);
+              _I.on(["touchmove"],"onPtrMove",self);
             }else{
-              Mojo.on(["mouseup"],"onPtrUp",self);
-              Mojo.on(["mousedown"],"onPtrDown",self);
-              Mojo.on(["mousemove"],"onPtrMove",self);
+              _I.on(["mouseup"],"onPtrUp",self);
+              _I.on(["mousedown"],"onPtrDown",self);
+              _I.on(["mousemove"],"onPtrMove",self);
             }
-            Mojo.on(["swipe.down"],"onSwipeDown",self);
+            _I.on(["swipe.down"],"onSwipeDown",self);
             return this;
           }
         });
@@ -220,12 +241,13 @@
         this.g.initLevel() && this.g.initInput();
         this.insert(_G.gfx= _S.graphics());
         this.futureX(()=>{ _.shuffle(_G.ModelList) },500);
-        Mojo.on(["single.tap"],_.debounce(()=>{
+        this.single_tap_cb=_.debounce(()=>{
           if(Mojo.mouse.x >= _G.vbox.x1 && Mojo.mouse.x <= _G.vbox.x2 &&
              Mojo.mouse.y >= _G.vbox.y1 && Mojo.mouse.y <= _G.vbox.y2 &&
              _G.cur)
             _G.rotateCCW();
-        },150));
+        },150);
+        _I.on(["single.tap"],"single_tap_cb",this);
       }
     });
 
