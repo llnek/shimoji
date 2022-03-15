@@ -2695,13 +2695,11 @@
        * @param {number|string} fillStyle
        * @param {number|string} strokeStyle
        * @param {number} lineWidth
-       * @param {number} x
-       * @param {number} y
        * @return {Sprite}
        */
       rect(width, height,
            fillStyle = 0xffffff,
-           strokeStyle = 0xffffff, lineWidth=0, x=0, y=0){
+           strokeStyle = 0xffffff, lineWidth=0){
         let a,g=this.graphics();
         if(fillStyle !== false){
           if(is.vec(fillStyle)){
@@ -2719,8 +2717,7 @@
           g.endFill()
         }
         let s= new Mojo.PXSprite(this.genTexture(g));
-        s=this.extend(s);
-        return _V.set(s,x,y);
+        return this.extend(s);
       },
       /**Create a sprite by applying a drawing routine to the graphics object.
        * @memberof module:mojoh5/Sprites
@@ -2738,13 +2735,9 @@
        * @param {number|string} fillStyle
        * @param {number|string} strokeStyle
        * @param {number} lineWidth
-       * @param {number} x
-       * @param {number} y
        * @return {Sprite}
        */
-      circle(radius,
-             fillStyle=0xffffff,
-             strokeStyle=0xffffff, lineWidth=0, x=0, y=0){
+      circle(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
         let a,g = this.graphics();
         if(fillStyle !== false){
           if(is.vec(fillStyle)){
@@ -2762,7 +2755,6 @@
           g.endFill();
         let s=new Mojo.PXSprite(this.genTexture(g));
         s=this.extend(s);
-        _V.set(s,x,y);
         return (s.m5.circle=true) && this.centerAnchor(s) },
       /**Create a line sprite.
        * @memberof module:mojoh5/Sprites
@@ -3666,21 +3658,17 @@
       /**Clean up.
       */
       dispose(){
-        const i=Mojo["Input"];
         function _c(o){
           if(o){
-            if(o.m5){
-              o.m5.drag && i.undoDrag(o);
-              o.m5.button && i.undoButton(o); }
-            o.children.length>0 && o.children.forEach(c=> _c(c)); }
-        }
+            Mojo.Input.undoXXX(o);
+            o.children.forEach(c=> _c(c)); } }
         this.m5.dead=true;
         Mojo.off(this);
         _c(this);
         this.removeChildren();
         if(Mojo.modalScene===this){
           Mojo.modalScene=UNDEF;
-          i.restore();
+          Mojo.Input.restore();
           Mojo.CON.log(`removed the current modal scene`);
         }
       }
@@ -4975,6 +4963,13 @@
         _.conj(cur().ptr.Hotspots,b);
         b.m5.hotspot=true;
         return b;
+      },
+      undoXXX(o){
+        if(o && o.m5){
+          o.m5.drag && this.undoDrag(o);
+          o.m5.button && this.undoButton(o);
+          o.m5.hotspot && this.undoHotspot(o);
+        }
       },
       /** @ignore */
       update(dt){

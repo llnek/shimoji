@@ -76,13 +76,13 @@
             msg.tint=_S.color("#ffffff");
             t=_T.throb(msg,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _T.remove(t);
               _S.tint(msg,C_ORANGE);
               playClick();
               _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             _V.set(msg,Mojo.width/2, Mojo.height * 0.7);
             return self.insert( _S.anchorXY(msg,0.5));
           }
