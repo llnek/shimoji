@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -23,6 +23,7 @@
            Input:_I,
            Game:_G,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -31,45 +32,41 @@
     window["io/czlab/reversi/AI"](Mojo);
     window["io/czlab/reversi/Scenes"](Mojo);
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //identify all relative cells to check
-    const _Dirs=
-    (function(out){
+    const _Dirs= (function(out){
       [-1,0,1].forEach(r=>{
         [-1,0,1].forEach(c=>{
-          if(r !== 0 || c !==0) out.push([r,c]) }) });
+          if(r != 0 || c != 0) out.push([r,c]) }) });
       return out;
     })([]);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
-      scores:[null,null,null],
+      scores: _.fill(3,UNDEF),
       points:[0,0,0],
       gridLineWidth:4,
-      cells:null,
+      cells:UNDEF,
       aiTime:500,
       DIM:8,
       X:1,//black
       O:2,//white
       reset(){
         this.points=[0,0,0];
-        this.cells=null;
+        this.cells=UNDEF;
       },
       playSnd(snd){
         let s;
-        if(this.pcur===this.X) s="x.mp3";
-        if(this.pcur===this.O) s="o.mp3";
+        if(this.pcur==this.X) s="x.mp3";
+        if(this.pcur==this.O) s="o.mp3";
         if(snd){s=snd}
         if(s) Mojo.sound(s).play()
-      },
-      playClick(){
-        Mojo.sound("click.mp3").play()
       },
       search(cells, pos, cur, other){
         //search in all directions and count
         //how many of their pieces can flip
         //stop when the piece is yours
-        let total=[],
-            len=cells.length;
+        let total=[], len=cells.length;
         for(let tmp,d,r,c,i=0;i<_Dirs.length;++i){
           d=_Dirs[i];
           tmp=[];
@@ -92,13 +89,13 @@
         return total;
       },
       isGameOver(pv){
-        const other= pv=== this.X ? this.O : this.X;
+        const other= pv== this.X ? this.O : this.X;
         const pos=[0,0];
         let y=0;
         for(let t,r; y< this.cells.length; ++y){
           r=this.cells[y];
           for(let x=0;x<r.length;++x){
-            if(r[x]===0){
+            if(r[x]==0){
               pos[0]=y;
               pos[1]=x;
               t=this.search(this.cells,pos,pv,other);
@@ -112,41 +109,30 @@
         return y<911;
       },
       getIcon(v){
-        if(v===this.O || v==="O") return 2;//"o.png";
-        if(v===this.X || v==="X") return 1;//"x.png";
+        if(v==this.O || v=="O") return 2;//"o.png";
+        if(v==this.X || v=="X") return 1;//"x.png";
         return 0;//"z.png";
-      },
-      getIconValue(v){
-        if(v===this.O) return this.O;
-        if(v===this.X) return this.X;
-      },
-      getIconImage(v){
-        if(v===this.O) return "O";
-        if(v===this.X) return "X";
       },
       switchPlayer(){
         const {cells,pcur,ai}= this;
         let px=0,po=0;
 
         this.cells.forEach(r=> r.forEach(a=>{
-          if(a=== this.X) ++px;
-          if(a=== this.O) ++po;
+          if(a== this.X) ++px;
+          if(a== this.O) ++po;
         }));
         this.scores[this.X].text=_.prettyNumber(px,2);
         this.scores[this.O].text=_.prettyNumber(po,2);
         this.points[this.X]=px;
         this.points[this.O]=po;
 
-        if(pcur===this.X) this.pcur= this.O;
-        if(pcur===this.O) this.pcur= this.X;
+        if(pcur==this.X) this.pcur= this.O;
+        if(pcur==this.O) this.pcur= this.X;
 
         if(this.isGameOver(this.pcur)){
           this.gameOver=true;
-          _.delay(343,()=>{
-            _I.resetAll();
-            _Z.runScene("EndGame");
-          });
-        }else if(ai && ai.pnum !== pcur){
+          _.delay(343,()=> _Z.modal("EndGame"));
+        }else if(ai && ai.pnum != pcur){
           Mojo.emit(["ai.move",ai]);
         }
       },
@@ -155,27 +141,28 @@
         return this.search(this.cells,
                             gpos,
                             this.pcur,
-                            this.pcur=== this.X? this.O: this.X)
+                            this.pcur== this.X? this.O: this.X)
       }
     });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
-    assetFiles:["bggreen.jpg","icons.png","x.mp3","o.mp3","click.mp3","game_over.mp3","game_win.mp3"],
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
+
+    assetFiles:["bggreen.jpg","icons.png",
+                "x.mp3","o.mp3",
+                "audioOn.png","audioOff.png",
+                "click.mp3","game_over.mp3","game_win.mp3"],
     arena:{width:960, height:960},
     scaleToWindow:"max",
     scaleFit:"y",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

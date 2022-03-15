@@ -9,7 +9,7 @@ const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
   "vendor/mcfud.js","public/shimoji.js",
-  "models.js", "snake.js"
+  "ai.js","sprites.js","scenes.js","reversi.js"
 ];
 
 var destDir = 'dist'; //or any folder inside your public asset folder

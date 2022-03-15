@@ -25034,121 +25034,312 @@
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  function scenes(Mojo){
+  window["io.czlab.snake.models"]=function(Mojo){
+    const {Sprites:_S,
+           Game:_G,
+           v2:_V,
+           math:_M,
+           ute:_,is}=Mojo;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.snakeEatItem=function(){
+      let head, s= _G.item;
+      if(s){
+        head=_G.snake[0];
+        return head.g.row==s.g.row && head.g.col==s.g.col;
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.snakeEatSelf=function(){
+      let s= _G.snake;
+      for(let head=s[0],t,i=1;i<s.length;++i){
+        t=s[i];
+        if(head.g.row==t.g.row &&
+           head.g.col==t.g.col){
+          _S.hide(t);
+          return _G.snakeBite=true;
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.snakeMoveRight=function(scene){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.col==_G.COLS-1){
+        head.m5.dead=true;
+        return false;
+      }
+      for(let n,i=last;i>0;--i){
+        n=s[i-1];
+        s[i].g.row=n.g.row;
+        s[i].g.col=n.g.col;
+        s[i].x=n.x;
+        s[i].y=n.y;
+      }
+      head.g.col += 1;
+      head.x += _G.tileW;
+      head.angle=0;
+      return _G.snakeDir=Mojo.RIGHT;
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.snakeMoveLeft=function(scene){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.col==0){
+        head.m5.dead=true;
+        return false;
+      }
+      for(let n,i=last;i>0;--i){
+        n=s[i-1];
+        s[i].g.row=n.g.row;
+        s[i].g.col=n.g.col;
+        s[i].x=n.x;
+        s[i].y=n.y;
+      }
+      head.g.col -= 1;
+      head.x -= _G.tileW;
+      head.angle= 180;
+      return _G.snakeDir=Mojo.LEFT;
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.snakeMoveUp=function(scene){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.row==0){
+        head.m5.dead=true;
+        return false;
+      }
+      for(let n,i=last;i>0;--i){
+        n=s[i-1];
+        s[i].g.row=n.g.row;
+        s[i].g.col=n.g.col;
+        s[i].x=n.x;
+        s[i].y=n.y;
+      }
+      head.g.row -= 1;
+      head.y -= _G.tileH;
+      head.angle=-90;
+      return _G.snakeDir=Mojo.UP;
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.snakeMoveDown=function(scene){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.row==_G.ROWS-1){
+        head.m5.dead=true;
+        return false;
+      }
+      for(let n,i=last;i>0;--i){
+        n=s[i-1];
+        s[i].g.row=n.g.row;
+        s[i].g.col=n.g.col;
+        s[i].x=n.x;
+        s[i].y=n.y;
+      }
+      head.g.row += 1;
+      head.y += _G.tileH;
+      head.angle=90;
+      return _G.snakeDir=Mojo.DOWN;
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.growSnake=function(scene){
+      let n=_G.snake.length,
+        last=_G.snake[n-1],
+        last2=_G.snake[n-2],
+        g,t, col=last.g.col, row=last.g.row;
+      if(last.g.col==last2.g.col){
+        //-1 grow up 1 down
+        row += (last2.g.row>last.g.row?-1:1)
+      }else if(last.g.row==last2.g.row){
+        //-1 grow left 1 right
+        col += (last2.g.col>last.g.col?-1:1)
+      }
+      if(row<0||col<0|| row>=_G.ROWS||col>=_G.COLS){
+        _G.snake[0].m5.dead=true;
+        _.clear(_G.timerid);
+        _G.timerid=UNDEF;
+      }else{
+        t= _S.sprite("snake.png");
+        t.g.row=row;
+        t.g.col=col;
+        _S.anchorXY(t,0.5);
+        _S.scaleXY(t,_G.scaleX, _G.scaleY);
+        g=_G.grid[t.g.row][t.g.col];
+        _V.copy(t,_S.bboxCenter(g));
+        _G.snake.push( scene.insert(t));
+      }
+      return !!t;
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.Item=function(scene){
+      let x=0,y=0,ok;
+      while(!ok){
+        x=_.randInt(_G.COLS);
+        y=_.randInt(_G.ROWS);
+        ok=true;
+        for(let s,i=0;i<_G.snake.length;++i){
+          s=_G.snake[i];
+          if(s.g.row==y && s.g.col==x){
+            ok=false;
+            break;
+          }
+        }
+      }
+      let m=_S.sprite("apple_00.png"),
+        g= _G.grid[y][x],
+        K=Mojo.scaleXY([m.width,m.height],
+                       [_G.tileW, _G.tileH]);
+      _S.scaleXY(m,K[0],K[1]);
+      _V.set(m,g.x1,g.y1);
+      m.g.row=y;
+      m.g.col=x;
+      return scene.insert(_G.item=m);
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _G.Snake=function(scene,col,row,dir=Mojo.RIGHT){
+      let o= _G.snake=_.fill(2,UNDEF),
+        h= _S.sprite("head.png"),
+        s= _S.sprite("snake.png"),
+        g= _G.grid[row][col],
+        K=Mojo.scaleXY([h.width,h.height],
+                       [_G.tileW, _G.tileH]);
+
+      _S.anchorXY(h,0.5);
+      _S.anchorXY(s,0.5);
+
+      _G.snakeDir=dir;
+      _G.scaleX=K[0];
+      _G.scaleY=K[1];
+
+      o[0]=h;
+      _S.scaleXY(h,K[0],K[1]);
+      _V.copy(h,_S.bboxCenter(g));
+      h.g.row=row;
+      h.g.col=col;
+      scene.insert(h);
+
+      switch(dir){
+        case Mojo.RIGHT:
+          --col;
+          break;
+        case Mojo.LEFT:
+          ++col;
+          break;
+        case Mojo.UP:
+          --row;
+          break;
+        case Mojo.DOWN:
+          ++row;
+          break;
+      }
+      g=_G.grid[row][col];
+      o[1]=s;
+      s.g.row=row;
+      s.g.col=col;
+      _S.scaleXY(s,K[0],K[1]);
+      _V.copy(s,_S.bboxCenter(g));
+      scene.insert(s);
+
+      //grow the rest of the snake
+      for(let i=2;i<Mojo.u.snakeLength;++i){
+        _G.growSnake(scene)
+      }
+
+      return o;
+    };
+
+  };
+
+})(this);
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+
+;(function(window,UNDEF){
+
+  "use strict";
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  function scenes(Mojo){
     const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
            FX:_F,
+           Game:_G,
            v2:_V,
            math:_M,
-           Game:_G,
-           ute:_, is}=Mojo;
+           ute:_,is}=Mojo;
 
-    const C_TITLE=_S.color("#fff20f"),
-      TITLE_FONT= "Big Shout Bob",
-      UI_FONT= "Doki Lowercase",
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //set up some globals
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#fff20f"),
       C_BG=_S.color("#169706"),
       C_TEXT=_S.color("#fff20f"),
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
-    const DIM=3,
-      TILES=DIM*DIM,
-      CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const doBackDrop=(scene)=> scene.insert(_S.fillMax(_S.sprite("bg.jpg")));
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
-    const playSlide=()=> Mojo.sound("slide.mp3").play();
-    const zix=(p)=> p.indexOf(0);
+    const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //deal with [row,col]
-    function validMoves(p){
-      let i=zix(p), x= i % DIM, y= _M.ndiv(i,DIM);
-      let top= y-1, down=y+1, left=x-1, right=x+1;
-      let v=[[top,x],[down,x]];
-      let h=[[y,left],[y,right]];
-      if(y==0){ //no top
-        v.shift();
-      }else if(y==DIM-1){ //no down
-        v.pop();
-      }
-      if(x==0){ //no left
-        h.shift();
-      }else if(x==DIM-1){ //no right
-        h.pop();
-      }
-      return v.concat(h);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function makeMove(p,move){
-      let z=zix(p),
-          m= move[0]*DIM + move[1], v= p[m];
-      p[z]=v;
-      p[m]=0;
-      //Mojo.CON.log("makemove====> "+ p.join(","));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function dbgShow(p){
-      for(let s,y=0;y<DIM;++y){
-        s="";
-        for(let x=0;x<DIM;++x){
-          s+= (""+p[y*DIM+x]);
-          s+=",";
-        }
-        Mojo.CON.log(s);
-      }
-      return p;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function genPuzzle(dim){
-      let g,p=_.fill(dim*dim,(i)=> i+1)
-      //set the blank piece
-      p[p.length-1]=0;
-      g=p.slice();
-      //randomize the grid
-      for(let m,i=0;i<3*TILES;++i){
-        m= validMoves(p);
-        makeMove(p, _.randItem(m));
-      }
-      //dbgShow(p);
-      return [g,p];
-    }
+    //load in dependencies
+    window["io.czlab.snake.models"](Mojo);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("Splash",{
       setup(){
-        const self=this,
-          K= Mojo.getScaleFactor();
+        let self=this,
+          t,c1,c2, b, s, msg,
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           doTitle(s){
-            s=_S.bmpText("Sliding Tiles", TITLE_FONT, 120*K);
-            _S.tint(_S.anchorXY(s,0.5), C_TITLE);
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
+            s=_S.bmpText("Snake", TITLE_FONT, 100*K);
+            s.tint=C_TITLE;
+            _V.set(s,Mojo.width/2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
           },
-          doPlayBtn(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
+          doNext(msg,t){
+            msg=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 36*K);
+            t=_F.throb(msg,0.747,0.747);
             function cb(){
               _I.off(["single.tap"],cb);
               _F.remove(t);
-              _S.tint(s,C_ORANGE);
+              msg.tint=C_ORANGE;
               playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+              _.delay(CLICK_DELAY, ()=>_Z.runEx("PlayGame"));
             }
-            _I.on(["single.tap"],cb);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
+            _I.on(["single.tap"],cb)
+            _V.set(msg,Mojo.width/2, Mojo.height * 0.7);
+            return self.insert( _S.anchorXY(msg,0.5));
           }
         });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doPlayBtn();
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
@@ -25157,16 +25348,16 @@
       setup(options){
         let snd="game_over.mp3",
           os={fontName:UI_FONT,
-              fontSize: 72*Mojo.getScaleFactor()},
-          space=(s)=> _S.opacity(_S.bmpText("I",os),0),
+              fontSize: 24*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
           s1=_S.bmpText("Game Over", os),
           s2=_S.bmpText(options.msg||"You Lose!", os),
           s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
           s5=_S.bmpText(" or ",os),
           s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx("PlayGame");
-        s6.m5.press=()=>_Z.runEx("Splash");
-        if(options.msg) snd="game_win.mp3";
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
+        if(options.msg)snd="game_win.mp3";
         Mojo.sound(snd).play();
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
@@ -25174,108 +25365,129 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor(),
-          [goal,puz]= genPuzzle(DIM);
-        _.inject(this.g,{
-          initLevel(){
-            let out={},
-              grid= _S.gridSQ(DIM, 0.95,out),
-              v,n,t,os={fontName:UI_FONT, fontSize: 72*K};
-            grid.forEach((row,y)=> row.forEach((c,x)=>{
-              let R=0.98,s=_S.sprite("tile.png");
-              s.tint=_S.color("#bb3b58");
-              _S.sizeXY(s, R*(c.x2-c.x1), R*(c.y2-c.y1));
-              _S.anchorXY(_V.set(s, _M.ndiv(c.x1+c.x2,2),_M.ndiv(c.y1+c.y2,2)),0.5);
-              n=y*DIM+x;
-              v=puz[n];
-              s.g.value=v;
-              s.g.row=y;
-              s.g.col=x;
-              if(v==0){
-                s.alpha=0.3;
-              }else{
-                t=_S.anchorXY(_S.bmpText(`${v}`,os),0.5);
-                s.addChild(t);
-                s.m5.press=(b)=> this.onClick(b);
-              }
-              c.tile= self.insert(s);
-            }));
-            return _.inject(_G,{ puz,grid,goal })
-          },
-          onClick(b){
-            let {row,col}=b.g,
-              bx=b.x, by=b.y, z,zc, zr, g=_G.grid;
-            g.forEach((row,y)=> row.forEach((c,x)=>{
-              if(c.tile.g.value==0){
-                zc=x; zr=y; z=c.tile;
-              }else{
-                c.tile.alpha=1;
-              }
-              _I.undoBtn(c.tile);
-            }));
-            //swap the blank and the `clicked`
-            g[zr][zc].tile=b;
-            b.g.row=zr;
-            b.g.col=zc;
-            b.x=z.x;
-            b.y=z.y;
-            ///
-            g[row][col].tile=z;
-            z.g.row=row;
-            z.g.col=col;
-            z.x=bx;
-            z.y=by;
-            ///
-            makeMove(_G.puz, [row,col]);
-            playSlide();
-            !this.checkFinz() && this.showMoves();
-          },
-          checkFinz(){
-            return goal.join(",") == puz.join(",")
-          },
-          showMoves(){
-            let g=_G.grid,
-              moves= validMoves(puz);
-            moves.forEach(m=>{
-              _I.mkBtn(_S.opacity(g[m[0]][m[1]].tile,0.7))
-            });
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.initLevel() && this.g.showMoves();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        _Z.run("AudioIcon",{
-          xScale:K, yScale:K,
-          xOffset: -10*K, yOffset:0
-        });
+      _initGrid(){
+        let g= _G.grid = _S.gridSQ(18,0.95);
+        let t=g[0][0];
+        _G.tileW=t.x2-t.x1;
+        _G.tileH=t.y2-t.y1;
+        _G.ROWS=g.length;
+        _G.COLS=g[0].length;
+        return g;
       },
-      postUpdate(){
-        if(this.g.checkFinz()){
-          this.m5.dead=true;
-          Mojo.CON.log("You Win!");
-          _Z.modal("EndGame",{msg:"You Win!"});
+      _drawGrid(){
+        let K=Mojo.getScaleFactor(),
+          b= _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2*K,"#aad751");
+        //let n= _S.drawGridLines(0,0,_G.grid,2,"#aad751");
+        //n.alpha=0.1;
+        //b.alpha=0.7;
+        //this.insert(n);
+        this.insert(b);
+      },
+      setup(){
+        let self=this,
+          K=Mojo.getScaleFactor();
+        doBackDrop(this);
+        _G.timerid=-1;
+        _G.score=0;
+        _G.item=UNDEF;
+        this._initGrid();
+        this._drawGrid();
+        this._makeSnake();
+        this.grow();
+        this._makeItem();
+        this.g.score=_S.bmpText("0",UI_FONT,24*K);
+        this.g.score.tint=C_ORANGE;
+        self.insert(this.g.score);
+        Mojo.on(["recalc",this],"recalc");
+        _.delay(Mojo.u.frameDelay,()=>this.recalc());
+      },
+      grow(){
+        _G.timerid=_.delay(Mojo.u.growthInterval,()=>{
+          if(_G.growSnake(this)) this.grow()
+        })
+      },
+      _makeItem(){
+        _G.Item(this);
+      },
+      _makeSnake(){
+        _G.Snake(this, _M.ndiv(_G.grid[0].length,2),
+                       _M.ndiv(_G.grid.length,2));
+      },
+      recalc(){
+        let c=_G.snakeDir;
+        if(_I.keyDown(_I.RIGHT)){
+          if(c != Mojo.LEFT)
+            _G.snakeMoveRight(this);
+        } else if(_I.keyDown(_I.LEFT)){
+          if(c != Mojo.RIGHT)
+            _G.snakeMoveLeft(this);
+        } else if(_I.keyDown(_I.UP)){
+          if(c != Mojo.DOWN)
+            _G.snakeMoveUp(this);
+        } else if(_I.keyDown(_I.DOWN)){
+          if(c != Mojo.UP)
+            _G.snakeMoveDown(this);
+        } else if(c==Mojo.RIGHT){
+          _G.snakeMoveRight(this);
+        } else if(c==Mojo.LEFT){
+          _G.snakeMoveLeft(this);
+        } else if(c==Mojo.UP){
+          _G.snakeMoveUp(this);
+        } else if(c==Mojo.DOWN){
+          _G.snakeMoveDown(this);
         }
+
+        if(_G.snakeEatSelf()){
+          Mojo.sound("eat.mp3").play();
+          _G.snake[0].m5.dead=true;
+        }else if(_G.snakeEatItem()){
+          Mojo.sound("apple.mp3").play();
+          _S.remove(_G.item);
+          _G.item=UNDEF;
+          ++_G.score;
+          _.delay(Mojo.u.itemInterval,()=>{
+            _G.Item(this)
+          })
+        }
+
+        if(_G.snake[0].m5.dead){
+          if(!_G.snakeBite)
+            Mojo.sound("boing1.mp3").play();
+          _.clear(_G.timerid);
+          _G.timerid=-1;
+          _.delay(343,()=> _Z.modal("EndGame"));
+        }else{
+          _.delay(Mojo.u.frameDelay,()=> this.recalc());
+        }
+      },
+      postUpdate(dt){
+        this.g.score.text=`Score: ${_G.score}`;
       }
     });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
-  window.addEventListener("load", ()=>MojoH5({
+  window.addEventListener("load", ()=> MojoH5({
 
-    assetFiles: ["tile.png","bg.jpg","audioOff.png","audioOn.png",
-                 "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
-    arena: {width:768,height:768},
+    assetFiles:["bg.jpg","head.png","snake.png","tail.png","apple_00.png",
+                "boing1.mp3","apple.mp3","eat.mp3","click.mp3","game_over.mp3","game_win.mp3"],
+    arena: {width:640,height:480},
     scaleToWindow: "max",
-    scaleFit: "y",
+    //bgColor: 0x51b2ee,
+    //bgColor:0x239920,
+    //bgColor:0x99CC46,
+    //bgColor:0xAAD751,
+    frameDelay:500,
+    itemInterval:6000,
+    growthInterval:3000,
+    snakeLength:8,
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.run("Splash");
     }
-
   }));
+
 
 })(this);
 

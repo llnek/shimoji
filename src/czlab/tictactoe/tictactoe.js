@@ -115,13 +115,13 @@
             _S.tint(_S.anchorXY(s,0.5),_S.SomeColors.white);
             t=_T.throb(s,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _S.tint(s,C_ORANGE);
               _T.remove(t);
               playClick();
               _.delay(CLICK_DELAY, ()=>_Z.runEx("MainMenu"));
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             return self.insert(_V.set(s,Mojo.width/2, Mojo.height * 0.7));
           }
         });

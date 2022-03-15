@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -40,7 +40,7 @@
       for(let f,row,r=0;r<cells.length;++r){
         row=cells[r];
         for(let c=0;c<row.length;++c){
-          if(row[c]===0){
+          if(row[c]==0){
             pos[0]=r;
             pos[1]=c;
             if(_G.search(cells,pos,cur,other).length>0) moves.push([r,c])
@@ -49,6 +49,7 @@
       }
       return moves;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class CZ extends Nega.GameBoard{
       constructor(p1v,p2v){
@@ -58,7 +59,7 @@
         this.depth=8;
       }
       getStateCopier(){
-        return (state)=>{ return _.deepCopyArray(state) }
+        return (s)=> _.deepCopyArray(s)
       }
       /*
       getFirstMove(snap){
@@ -115,17 +116,17 @@
         for(let row,r=0;r<snap.state.length;++r){
           row=snap.state[r];
           for(let c=0;c<row.length;++c){
-            if(row[c]===0){
+            if(row[c]==0){
               ++e;
               break;
             }
           }
         }
-        return e===0 || this.isStalemate(snap);
+        return e==0 || this.isStalemate(snap);
       }
       isStalemate(snap){
-        return _possibleMoves(snap.state,snap.cur,snap.other).length===0 &&
-               _possibleMoves(snap.state,snap.other,snap.cur).length===0;
+        return _possibleMoves(snap.state,snap.cur,snap.other).length==0 &&
+               _possibleMoves(snap.state,snap.other,snap.cur).length==0;
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

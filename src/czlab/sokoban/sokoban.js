@@ -105,7 +105,8 @@
     function doMove(y,x,dirY,dirX){
       //update history
       doCheckPt();
-      let z,o= findCrate(y,x);
+      let cnt=1,z,o= findCrate(y,x);
+      _G.tweenCnt=0;
       if(o){
         let r=o.g.row,
           c=o.g.col;
@@ -113,19 +114,28 @@
         o.g.col=c+dirX;
         //o.x += dirX * o.width;
         //o.y += dirY * o.height;
-        _F.tweenXY(o,_F.SMOOTH,  o.x + dirX * o.width, o.y + dirY * o.height);
+        z=_F.tweenXY(o,_F.SMOOTH,  o.x + dirX * o.width, o.y + dirY * o.height);
+        z.onComplete=()=>{
+          --_G.tweenCnt
+        };
+        ++cnt;
       }
       _G.player.g.row=y;
       _G.player.g.col=x;
       //_G.player.x += dirX * _G.player.width;
       //_G.player.y += dirY * _G.player.height;
       z=_F.tweenXY(_G.player,_F.SMOOTH, _G.player.x + dirX * _G.player.width, _G.player.y + dirY * _G.player.height);
-      z.onComplete=()=> _G.player.m5.showFrame(0);
+      z.onComplete=()=>{
+        --_G.tweenCnt;
+        _G.player.m5.showFrame(0);
+      }
+      _G.tweenCnt=cnt;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function undoMove(){
       if(!_G.history.length>0){return}
+      if(_G.tweenCnt!=0){return}
       let pos,c,s,m= _G.history.pop();
       _.keys(m).forEach(k=>{
         pos=m[k];
@@ -141,6 +151,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
       swipeRight(){
+        if(_G.tweenCnt!=0){return}
         let {row,col}= _G.player.g;
         let c=col+1;
         if(c>=_G.level[0].length){return}
@@ -150,6 +161,7 @@
         }
       },
       swipeLeft(){
+        if(_G.tweenCnt!=0){return}
         let {row,col}= _G.player.g;
         let c=col-1;
         if(c<=0){return}
@@ -159,6 +171,7 @@
         }
       },
       swipeUp(){
+        if(_G.tweenCnt!=0){return}
         let {row,col}= _G.player.g;
         let r=row-1;
         if(r<=0){return}
@@ -168,6 +181,7 @@
         }
       },
       swipeDown(){
+        if(_G.tweenCnt!=0){return}
         let {row,col}= _G.player.g;
         let r=row+1;
         if(r>=_G.level.length){return}
@@ -195,13 +209,13 @@
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,84*K);
             t=_F.throb(s,0.747,0.747);
             function cb(){
-              Mojo.off(["single.tap"],cb);
+              _I.off(["single.tap"],cb);
               _F.remove(t);
               _S.tint(s,C_ORANGE);
               playClick();
               _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
             }
-            Mojo.on(["single.tap"],cb);
+            _I.on(["single.tap"],cb);
             _V.set(s,W2,Mojo.height*0.7);
             return self.insert(_S.anchorXY(s,0.5));
           }
@@ -323,13 +337,14 @@
             _.inject(_G,{
               level,grid,tileW:W,tileH:H,
               history:[],
+              tweenCnt:0,
               gameScene:self,
               items,player,dirRight, dirLeft, dirUp, dirDown
             });
-            Mojo.on(["swipe.down"],"swipeDown",_G);
-            Mojo.on(["swipe.up"],"swipeUp",_G);
-            Mojo.on(["swipe.left"],"swipeLeft",_G);
-            Mojo.on(["swipe.right"],"swipeRight",_G);
+            _I.on(["swipe.down"],"swipeDown",_G);
+            _I.on(["swipe.up"],"swipeUp",_G);
+            _I.on(["swipe.left"],"swipeLeft",_G);
+            _I.on(["swipe.right"],"swipeRight",_G);
             dirRight.press= ()=>_G.swipeRight();
             dirLeft.press= ()=>_G.swipeLeft();
             dirUp.press= ()=>_G.swipeUp();

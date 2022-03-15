@@ -25034,113 +25034,321 @@
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  function scenes(Mojo){
+  window["io/czlab/reversi/AI"]=function(Mojo){
+    const Nega= window["io/czlab/mcfud/negamax"]();
+    const {Game:_G,
+           ute:_,is} = Mojo;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //used by the AI to give more importance to the border
+    const BOARD_SCORE = [[9,4,4,4,4,4,4,9],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [4,1,1,1,1,1,1,4],
+                         [9,4,4,4,4,4,4,9]];
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**/
+    function _possibleMoves(cells,cur,other){
+      const moves=[],
+            pos=[0,0];
+      for(let f,row,r=0;r<cells.length;++r){
+        row=cells[r];
+        for(let c=0;c<row.length;++c){
+          if(row[c]==0){
+            pos[0]=r;
+            pos[1]=c;
+            if(_G.search(cells,pos,cur,other).length>0) moves.push([r,c])
+          }
+        }
+      }
+      return moves;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class CZ extends Nega.GameBoard{
+      constructor(p1v,p2v){
+        super();
+        this.actors= [0, p1v, p2v];
+        this.cells=[];
+        this.depth=8;
+      }
+      getStateCopier(){
+        return (s)=> _.deepCopyArray(s)
+      }
+      /*
+      getFirstMove(snap){
+        let moves=_possibleMoves(snap.state,snap.cur,snap.other);
+        return moves.length>0?moves[0]:null;
+      }
+      */
+      syncState(seed, p){
+        this.cells.length=0;
+        this.actors[0] =p;
+        seed.forEach(s=> this.cells.push(s.slice()))
+      }
+      getNextMoves(snap){
+        return _possibleMoves(snap.state,snap.cur,snap.other)
+      }
+      doMove(snap, move){
+        _.assert(move[1] >= 0 && move[1] < snap.state[0].length);//col
+        _.assert(move[0] >= 0 && move[0] < snap.state.length);//row
+        let f= _G.search(snap.state,move, snap.cur,snap.other);
+        _.assert(f.length>0,"nothing flipped!!!!");
+        f.forEach(p=>{ snap.state[p[0]][p[1]]=snap.cur });
+        snap.state[move[0]][move[1]]=snap.cur;
+      }
+      getOtherPlayer(pv){
+        if(pv === this.actors[1]) return this.actors[2];
+        if(pv === this.actors[2]) return this.actors[1];
+      }
+      takeGFrame(){
+        const ff = new Nega.GFrame();
+        ff.other= this.getOtherPlayer(this.actors[0]);
+        ff.state=_.deepCopyArray(this.cells);
+        ff.cur= this.actors[0];
+        ff.lastBestMove= null;
+        return ff;
+      }
+      evalScore(snap){
+        let c_cnt=0, c_sum=0, o_cnt=0, o_sum=0, e_cnt=0;
+        snap.state.forEach((row,r) => row.forEach((v,c) => {
+          if(v===snap.cur){
+            ++c_cnt;
+            c_sum += BOARD_SCORE[r][c];
+          }else if(v===snap.other){
+            ++o_cnt;
+            o_sum += BOARD_SCORE[r][c];
+          }else{
+            ++e_cnt;
+          }
+        }));
+        //less than half the board is full
+        return e_cnt>32 ? (c_sum-o_sum) : (c_cnt-o_cnt);
+      }
+      isOver(snap){
+        let e=0;
+        for(let row,r=0;r<snap.state.length;++r){
+          row=snap.state[r];
+          for(let c=0;c<row.length;++c){
+            if(row[c]==0){
+              ++e;
+              break;
+            }
+          }
+        }
+        return e==0 || this.isStalemate(snap);
+      }
+      isStalemate(snap){
+        return _possibleMoves(snap.state,snap.cur,snap.other).length==0 &&
+               _possibleMoves(snap.state,snap.other,snap.cur).length==0;
+      }
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _.inject(_G,{
+      Reversi(p1v,p2v){
+        return new CZ(p1v,p2v)
+      }
+    });
+  };
+
+})(this);
+
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+
+;(function(window,UNDEF){
+
+  "use strict";
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  window["io/czlab/reversi/Sprites"]= function(Mojo){
+
+    const _N=window["io/czlab/mcfud/negamax"]();
     const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           FX:_F,
+           Game:_G,
            v2:_V,
            math:_M,
-           Game:_G,
-           ute:_, is}=Mojo;
-
-    const C_TITLE=_S.color("#fff20f"),
-      TITLE_FONT= "Big Shout Bob",
-      UI_FONT= "Doki Lowercase",
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const DIM=3,
-      TILES=DIM*DIM,
-      CLICK_DELAY=343;
+           ute:_,is} = Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const doBackDrop=(scene)=> scene.insert(_S.fillMax(_S.sprite("bg.jpg")));
-    const playClick=()=> Mojo.sound("click.mp3").play();
-    const playSlide=()=> Mojo.sound("slide.mp3").play();
-    const zix=(p)=> p.indexOf(0);
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //deal with [row,col]
-    function validMoves(p){
-      let i=zix(p), x= i % DIM, y= _M.ndiv(i,DIM);
-      let top= y-1, down=y+1, left=x-1, right=x+1;
-      let v=[[top,x],[down,x]];
-      let h=[[y,left],[y,right]];
-      if(y==0){ //no top
-        v.shift();
-      }else if(y==DIM-1){ //no down
-        v.pop();
-      }
-      if(x==0){ //no left
-        h.shift();
-      }else if(x==DIM-1){ //no right
-        h.pop();
-      }
-      return v.concat(h);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function makeMove(p,move){
-      let z=zix(p),
-          m= move[0]*DIM + move[1], v= p[m];
-      p[z]=v;
-      p[m]=0;
-      //Mojo.CON.log("makemove====> "+ p.join(","));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function dbgShow(p){
-      for(let s,y=0;y<DIM;++y){
-        s="";
-        for(let x=0;x<DIM;++x){
-          s+= (""+p[y*DIM+x]);
-          s+=",";
+    _.inject(_G,{
+      AI(scene,v){
+        const self=this;
+        const o={
+          pnum:v,
+          board: self.Reversi(self.X, self.O),
+          aiMove(){ _.delay(500,()=> o.makeMove()) },
+          makeMove(){
+            let pos,rc;
+            this.board.syncState(self.cells, this.pnum);
+            pos= _N.evalNegaMax(this.board);
+            if(pos)
+              rc= self.checkState(pos);
+            if(rc && rc.length>0){
+              rc.forEach(c=>{
+                self.flip(scene,c);
+                self.cells[c[0]][c[1]]=v;
+              });
+              self.flip(scene,pos,v);
+              self.cells[pos[0]][pos[1]]=v;
+              _G.playSnd();
+              self.switchPlayer();
+            }else{
+            }
+          }
+        };
+        return (Mojo.on(["ai.move",o], "aiMove",o),o);
+      },
+      flip(s,pos,V){
+        for(let v,p,c,i=0,z=s.children.length;i<z;++i){
+          c=s.children[i];
+          if(c && c.g.gpos){
+            p=c.g.gpos;
+            if(p[0]==pos[0] && p[1]==pos[1]){
+              if(V===undefined){
+                _.assert(c.m5.enabled===false);
+                v= c.g.gval==this.X?this.O:this.X;
+              }else{
+                //_.assert(c.m5.enabled===true);
+                v=V;
+              }
+              c.m5.showFrame(v);
+              c.g.gval=v;
+              c.m5.enabled=false;
+              c.m5.marked=true;
+              break;
+            }
+          }
         }
-        Mojo.CON.log(s);
+      },
+      Tile(id,x,y,tileX,tileY,props){
+        const self=this;
+        let s= _S.sprite(_S.frames("icons.png",tileX,tileY));
+        _S.scaleXY(s,self.iconScale[0],self.iconScale[1]);
+        _V.set(_S.uuid(s,id),x,y);
+        _.inject(s.g,props);
+        _I.mkBtn(_S.anchorXY(s,0.5));
+        if(props.gval != 0){
+          s.m5.enabled=false
+        }
+        s.m5.showFrame(self.getIcon(props.gval));
+        s.g.aiMoved=function(){
+          s.m5.enabled=false;
+          s.m5.marked=true;
+        };
+        s.m5.press=function(){
+          //if end or AI is thinking, back off
+          //if cell already marked, go away
+          if(self.gameOver ||
+             (self.ai && self.pcur==self.ai.pnum) || s.m5.marked) {return}
+          if(self.cells[s.g.gpos[0]]
+                       [s.g.gpos[1]] != 0)
+            throw "Fatal: cell marked already!!!!";
+          let rc= self.checkState(s.g.gpos);
+          if(rc.length>0){
+            rc.forEach(c=>{
+              self.flip(s.parent,c);
+              self.cells[c[0]][c[1]]=self.pcur;
+            });
+            self.flip(s.parent,s.g.gpos,self.pcur);
+            self.cells[s.g.gpos[0]][s.g.gpos[1]]= self.pcur;
+            _G.playSnd();
+            self.switchPlayer();
+          }else{
+          }
+        }
+        return (Mojo.on(["ai.moved",s],"aiMoved",s.g),s);
       }
-      return p;
-    }
+    });
+  }
+
+})(this);
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+
+;(function(window,UNDEF){
+
+  "use strict";
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  window["io/czlab/reversi/Scenes"]=function(Mojo){
+
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           FX:_X,
+           Game:_G,
+           v2:_V,
+           math:_M,
+           ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function genPuzzle(dim){
-      let g,p=_.fill(dim*dim,(i)=> i+1)
-      //set the blank piece
-      p[p.length-1]=0;
-      g=p.slice();
-      //randomize the grid
-      for(let m,i=0;i<3*TILES;++i){
-        m= validMoves(p);
-        makeMove(p, _.randItem(m));
-      }
-      //dbgShow(p);
-      return [g,p];
-    }
+    const TITLE_FONT= "Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_ORANGE=_S.color("#f4d52b"),
+      C_GREEN=_S.color("#7da633"),
+      C_TITLE=_S.color("#fff20f"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f");
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bggreen.jpg")));
+    const playClick=()=> Mojo.sound("click.mp3").play();
+    const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("Splash",{
       setup(){
         const self=this,
-          K= Mojo.getScaleFactor();
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           doTitle(s){
-            s=_S.bmpText("Sliding Tiles", TITLE_FONT, 120*K);
-            _S.tint(_S.anchorXY(s,0.5), C_TITLE);
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
+            s=_S.bmpText("Reversi",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,Mojo.width/2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
           },
-          doPlayBtn(s,t){
+          doNext(s,t){
             s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
+            t=_X.throb(s,0.747,0.747);
             function cb(){
               _I.off(["single.tap"],cb);
-              _F.remove(t);
               _S.tint(s,C_ORANGE);
+              _X.remove(t);
               playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+              _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
             }
             _I.on(["single.tap"],cb);
             _V.set(s,Mojo.width/2,Mojo.height*0.7);
@@ -25148,128 +25356,361 @@
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doPlayBtn();
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("MainMenu",{
+      setup(){
+        const self=this,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doMenu(){
+            const cfg={fontSize: 64*K, fontName:UI_FONT},
+              space=()=> _S.opacity(_S.bmpText("I",cfg),0),
+              gap=_S.bmpText("or", cfg),
+              b1=_S.uuid(_I.mkBtn(_S.bmpText("One Player", cfg)),"p1"),
+              b2=_S.uuid(_I.mkBtn(_S.bmpText("Two Player", cfg)),"p2");
+            b1.m5.press=
+            b2.m5.press=(b)=>{
+              b.tint=C_ORANGE;
+              playClick();
+              _.delay(CLICK_DELAY,()=>_Z.runEx("StartMenu", {mode: b.m5.uuid == "p1"?1:2}))
+            };
+            return self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"transparent"}));
+          }
+        });
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.doMenu();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("StartMenu",{
+      setup(options){
+        const self=this,
+          K=Mojo.getScaleFactor(),
+          cfg={fontName: UI_FONT, fontSize: 64*K},
+          gap=_S.bmpText(" / ", cfg),
+          b1=_I.mkBtn(_S.bmpText("Yes", cfg)),
+          b2=_I.mkBtn(_S.bmpText("No", cfg)),
+          s= _S.bmpText("Player 1 (Black) Starts? ", cfg);
+        b1.m5.press=
+        b2.m5.press=(b)=>{
+          options.startsWith= b===b1?1:2;
+          _S.tint(b,C_ORANGE);
+          playClick();
+          _.delay(CLICK_DELAY, ()=> _Z.runEx("PlayGame", options));
+        };
+        doBackDrop(this);
+        self.insert(_Z.layoutX([s, b1, gap, b2],{bg:"transparent"}));
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("EndGame",{
-      setup(options){
-        let snd="game_over.mp3",
-          os={fontName:UI_FONT,
-              fontSize: 72*Mojo.getScaleFactor()},
-          space=(s)=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"You Lose!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx("PlayGame");
-        s6.m5.press=()=>_Z.runEx("Splash");
-        if(options.msg) snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      setup(){
+        let w= _G.lastWin,
+          mode = _G.mode,
+          msg="No Winner!",
+          snd="game_over.mp3",
+          K=Mojo.getScaleFactor(),
+          cfg={fontName:UI_FONT, fontSize:64*K};
+        if(_G.points[_G.X]>_G.points[_G.O]){
+          msg= mode==1 ? "You win !" : "Player 1 (Black) wins !";
+          snd="game_win.mp3";
+        }else if(_G.points[_G.X]<_G.points[_G.O]){
+          msg= mode==1 ? "You lose !" : "Player 2 (White) wins !";
+        }
+        let b1=_I.mkBtn(_S.bmpText("Play Again?", cfg)),
+          b2=_I.mkBtn(_S.bmpText("Quit", cfg)),
+          m1=_S.bmpText("Game Over", cfg),
+          m2=_S.bmpText(msg, cfg),
+          gap=_S.bmpText("or", cfg),
+          space=()=> _S.opacity(_S.bmpText("I",cfg),0);
+        b1.m5.press=()=> playClick() && _Z.runEx("MainMenu");
+        b2.m5.press=()=> playClick() && _Z.runEx("Splash");
+        _G.playSnd(snd);
+        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2]));
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
-      setup(){
-        const self=this,
+      setup(options){
+        let self=this,
+          mode=options.mode,
           K=Mojo.getScaleFactor(),
-          [goal,puz]= genPuzzle(DIM);
+          LT,RT, startsWith=options.startsWith;
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        const _seeder=()=> _.fill(_G.DIM).map(x=> _.fill(_G.DIM,0));
+        function _drawGrid(ctx){
+          const bx=_S.gridBBox(0,0,_G.grid);
+          _S.drawGridBox(bx,4*K,"white",ctx);
+          _S.drawGridLines(0,0,_G.grid,4*K,"white",ctx);
+        }
         _.inject(this.g,{
           initLevel(){
-            let out={},
-              grid= _S.gridSQ(DIM, 0.95,out),
-              v,n,t,os={fontName:UI_FONT, fontSize: 72*K};
-            grid.forEach((row,y)=> row.forEach((c,x)=>{
-              let R=0.98,s=_S.sprite("tile.png");
-              s.tint=_S.color("#bb3b58");
-              _S.sizeXY(s, R*(c.x2-c.x1), R*(c.y2-c.y1));
-              _S.anchorXY(_V.set(s, _M.ndiv(c.x1+c.x2,2),_M.ndiv(c.y1+c.y2,2)),0.5);
-              n=y*DIM+x;
-              v=puz[n];
-              s.g.value=v;
-              s.g.row=y;
-              s.g.col=x;
-              if(v==0){
-                s.alpha=0.3;
-              }else{
-                t=_S.anchorXY(_S.bmpText(`${v}`,os),0.5);
-                s.addChild(t);
-                s.m5.press=(b)=> this.onClick(b);
-              }
-              c.tile= self.insert(s);
-            }));
-            return _.inject(_G,{ puz,grid,goal })
-          },
-          onClick(b){
-            let {row,col}=b.g,
-              bx=b.x, by=b.y, z,zc, zr, g=_G.grid;
-            g.forEach((row,y)=> row.forEach((c,x)=>{
-              if(c.tile.g.value==0){
-                zc=x; zr=y; z=c.tile;
-              }else{
-                c.tile.alpha=1;
-              }
-              _I.undoBtn(c.tile);
-            }));
-            //swap the blank and the `clicked`
-            g[zr][zc].tile=b;
-            b.g.row=zr;
-            b.g.col=zc;
-            b.x=z.x;
-            b.y=z.y;
-            ///
-            g[row][col].tile=z;
-            z.g.row=row;
-            z.g.col=col;
-            z.x=bx;
-            z.y=by;
-            ///
-            makeMove(_G.puz, [row,col]);
-            playSlide();
-            !this.checkFinz() && this.showMoves();
-          },
-          checkFinz(){
-            return goal.join(",") == puz.join(",")
-          },
-          showMoves(){
-            let g=_G.grid,
-              moves= validMoves(puz);
-            moves.forEach(m=>{
-              _I.mkBtn(_S.opacity(g[m[0]][m[1]].tile,0.7))
+            let z=_S.sprite("icons.png"),
+              g=_S.gridSQ(_G.DIM,0.9),
+              c=g[0][0],
+              k=(c.y2-c.y1)/z.height;
+            _.inject(_G,{lastWin: 0,
+                         mode,
+                         ai:UNDEF,
+                         grid: g,
+                         pnum: _G.X,
+                         gameOver:false,
+                         cells: _seeder(),
+                         iconScale:[k,k],
+                         iconSize:[z.height, z.height],
+                         pcur: startsWith==1?_G.X:_G.O,
+                         players: _.fill(3,UNDEF)
             });
+            const box=_S.group(_S.drawBody(_drawGrid));
+            _V.set(box,_G.grid[0][0].x1,_G.grid[0][0].y1);
+            return self.insert(box);
+          },
+          initArena(){
+            _G.grid.forEach((g,r)=> g.forEach((a,c)=>{
+              let v=0,
+                id= `${r}:${c}`,
+                b=_S.bboxCenter(a);
+              //starting 4 pieces
+              if(r==3){
+                if(c==3)v=1;
+                if(c==4)v=2;
+              }
+              if(r==4){
+                if(c==3)v=2;
+                if(c==4)v=1;
+              }
+              let s=_G.Tile(id, b[0],b[1],
+                            _G.iconSize[0],_G.iconSize[1], {gpos: [r,c], gval: v});
+              self.insert(s);
+              if(r==0){
+                if(c==0) LT=s;
+                if(c==a.length-1) RT=s;
+              }
+            }));
+            _G.cells[3][3]=1;//black
+            _G.cells[3][4]=2;
+            _G.cells[4][3]=2;
+            _G.cells[4][4]=1;
+            return this;
+          },
+          initUI(){
+            let s,g,t= _S.bmpText("Score",UI_FONT, 36*K);
+            self.insert(t);
+            _S.pinLeft(LT,t,32,0);
+            g=_S.sprite(_S.frames("icons.png",_G.iconSize[0],_G.iconSize[1]));
+            _S.scaleXY(g, _G.iconScale[0],_G.iconScale[1]);
+            g.m5.showFrame(_G.X);
+            self.insert(g);
+            _S.pinBelow(t,g);
+            s= _S.bmpText("00",UI_FONT,36*K);
+            self.insert(s);
+            _S.pinBelow(g,s);
+            _G.scores[_G.X]=s;
+            t=s;
+            g=_S.sprite(_S.frames("icons.png",_G.iconSize[0],_G.iconSize[1]));
+            _S.scaleXY(g,_G.iconScale[0],_G.iconScale[1]);
+            g.m5.showFrame(_G.O);
+            self.insert(g);
+            _S.pinBelow(t,g);
+            s= _S.bmpText("00",UI_FONT,36*K);
+            self.insert(s);
+            _S.pinBelow(g,s);
+            _G.scores[_G.O]=s;
+            return this;
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.initLevel() && this.g.showMoves();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        doBackDrop(this) && this.g.initLevel() && this.g.initArena() && this.g.initUI();
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        //decide who plays X and who starts
+        if(mode==1){
+          let a= _G.ai= _G.AI(this,_G.O);
+          a.scene=this;
+          //ai starts?
+          if(_G.pcur==_G.O)
+            _.delay(100, ()=> Mojo.emit(["ai.move", a]));
+        }
         _Z.run("AudioIcon",{
-          xScale:K, yScale:K,
+          xScale:1.2*K, yScale:1.2*K,
           xOffset: -10*K, yOffset:0
         });
       },
       postUpdate(){
-        if(this.g.checkFinz()){
-          this.m5.dead=true;
-          Mojo.CON.log("You Win!");
-          _Z.modal("EndGame",{msg:"You Win!"});
+        if(_G.gameOver) this.m5.dead=true;
+      }
+    });
+  };
+
+})(this);
+
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+
+;(function(window,UNDEF){
+
+  "use strict";
+
+  /**/
+  function scenes(Mojo){
+    const {Scenes:_Z,
+           Sprites:_S,
+           Input:_I,
+           Game:_G,
+           v2:_V,
+           math:_M,
+           ute:_,is}=Mojo;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //load in game modules
+    window["io/czlab/reversi/Sprites"](Mojo);
+    window["io/czlab/reversi/AI"](Mojo);
+    window["io/czlab/reversi/Scenes"](Mojo);
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //identify all relative cells to check
+    const _Dirs= (function(out){
+      [-1,0,1].forEach(r=>{
+        [-1,0,1].forEach(c=>{
+          if(r != 0 || c != 0) out.push([r,c]) }) });
+      return out;
+    })([]);
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _.inject(_G,{
+      scores: _.fill(3,UNDEF),
+      points:[0,0,0],
+      gridLineWidth:4,
+      cells:UNDEF,
+      aiTime:500,
+      DIM:8,
+      X:1,//black
+      O:2,//white
+      reset(){
+        this.points=[0,0,0];
+        this.cells=UNDEF;
+      },
+      playSnd(snd){
+        let s;
+        if(this.pcur==this.X) s="x.mp3";
+        if(this.pcur==this.O) s="o.mp3";
+        if(snd){s=snd}
+        if(s) Mojo.sound(s).play()
+      },
+      search(cells, pos, cur, other){
+        //search in all directions and count
+        //how many of their pieces can flip
+        //stop when the piece is yours
+        let total=[], len=cells.length;
+        for(let tmp,d,r,c,i=0;i<_Dirs.length;++i){
+          d=_Dirs[i];
+          tmp=[];
+          r=pos[0]+d[0];
+          c=pos[1]+d[1];
+          while(r>=0 && r<len && c>=0 && c<len){
+            if(cells[r][c] === other){
+              //grab opponent piece
+              tmp.push([r,c])
+            }else{
+              //ooops, better stop now
+              if(cells[r][c] === cur)
+                total=total.concat(tmp);
+              break;
+            }
+            r+=d[0];
+            c+=d[1];
+          }
         }
+        return total;
+      },
+      isGameOver(pv){
+        const other= pv== this.X ? this.O : this.X;
+        const pos=[0,0];
+        let y=0;
+        for(let t,r; y< this.cells.length; ++y){
+          r=this.cells[y];
+          for(let x=0;x<r.length;++x){
+            if(r[x]==0){
+              pos[0]=y;
+              pos[1]=x;
+              t=this.search(this.cells,pos,pv,other);
+              if(t.length>0){
+                y=911;
+                break;
+              }
+            }
+          }
+        }
+        return y<911;
+      },
+      getIcon(v){
+        if(v==this.O || v=="O") return 2;//"o.png";
+        if(v==this.X || v=="X") return 1;//"x.png";
+        return 0;//"z.png";
+      },
+      switchPlayer(){
+        const {cells,pcur,ai}= this;
+        let px=0,po=0;
+
+        this.cells.forEach(r=> r.forEach(a=>{
+          if(a== this.X) ++px;
+          if(a== this.O) ++po;
+        }));
+        this.scores[this.X].text=_.prettyNumber(px,2);
+        this.scores[this.O].text=_.prettyNumber(po,2);
+        this.points[this.X]=px;
+        this.points[this.O]=po;
+
+        if(pcur==this.X) this.pcur= this.O;
+        if(pcur==this.O) this.pcur= this.X;
+
+        if(this.isGameOver(this.pcur)){
+          this.gameOver=true;
+          _.delay(343,()=> _Z.modal("EndGame"));
+        }else if(ai && ai.pnum != pcur){
+          Mojo.emit(["ai.move",ai]);
+        }
+      },
+      checkState(gpos){
+        //0=>ok,1=>win,-1=>draw
+        return this.search(this.cells,
+                            gpos,
+                            this.pcur,
+                            this.pcur== this.X? this.O: this.X)
       }
     });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
-  window.addEventListener("load", ()=>MojoH5({
+  window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["tile.png","bg.jpg","audioOff.png","audioOn.png",
-                 "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
-    arena: {width:768,height:768},
-    scaleToWindow: "max",
-    scaleFit: "y",
+    assetFiles:["bggreen.jpg","icons.png",
+                "x.mp3","o.mp3",
+                "audioOn.png","audioOff.png",
+                "click.mp3","game_over.mp3","game_win.mp3"],
+    arena:{width:960, height:960},
+    scaleToWindow:"max",
+    scaleFit:"y",
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.run("Splash");
@@ -25278,5 +25719,8 @@
   }));
 
 })(this);
+
+
+
 
 

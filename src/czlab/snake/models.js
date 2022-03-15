@@ -10,53 +10,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window["io.czlab.snake.models"]=function(Mojo){
     const {Sprites:_S,
            Game:_G,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.snakeEatItem=function(){
-      let s= _G.item;
-      let head=_G.snake[0];
+      let head, s= _G.item;
       if(s){
-        if(head.g.row===s.g.row &&
-           head.g.col===s.g.col)
-          return true;
+        head=_G.snake[0];
+        return head.g.row==s.g.row && head.g.col==s.g.col;
       }
-      return false;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.snakeEatSelf=function(){
       let s= _G.snake;
-      let head=s[0];
-      let z=s.length;
-      for(let t,i=1;i<z;++i){
+      for(let head=s[0],t,i=1;i<s.length;++i){
         t=s[i];
-        if(head.g.row===t.g.row &&
-          head.g.col===t.g.col){
-          t.visible=false;
+        if(head.g.row==t.g.row &&
+           head.g.col==t.g.col){
+          _S.hide(t);
           return _G.snakeBite=true;
         }
       }
-      return false;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.snakeMoveRight=function(scene){
-      let s= _G.snake;
-      let head=s[0];
-      let z=s.length;
-      let last=z-1;
-      if(head.g.col===_G.COLS-1){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.col==_G.COLS-1){
         head.m5.dead=true;
         return false;
       }
@@ -73,13 +67,11 @@
       return _G.snakeDir=Mojo.RIGHT;
     };
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.snakeMoveLeft=function(scene){
-      let s= _G.snake;
-      let head=s[0];
-      let z=s.length;
-      let last=z-1;
-      if(head.g.col===0){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.col==0){
         head.m5.dead=true;
         return false;
       }
@@ -96,13 +88,11 @@
       return _G.snakeDir=Mojo.LEFT;
     };
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.snakeMoveUp=function(scene){
-      let s= _G.snake;
-      let head=s[0];
-      let z=s.length;
-      let last=z-1;
-      if(head.g.row===0){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.row==0){
         head.m5.dead=true;
         return false;
       }
@@ -119,13 +109,11 @@
       return _G.snakeDir=Mojo.UP;
     };
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.snakeMoveDown=function(scene){
-      let s= _G.snake;
-      let head=s[0];
-      let z=s.length;
-      let last=z-1;
-      if(head.g.row===_G.ROWS-1){
+      let s= _G.snake,
+        head=s[0], last=s.length-1;
+      if(head.g.row==_G.ROWS-1){
         head.m5.dead=true;
         return false;
       }
@@ -142,89 +130,73 @@
       return _G.snakeDir=Mojo.DOWN;
     };
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.growSnake=function(scene){
-      let n=_G.snake.length;
-      let last=_G.snake[n-1];
-      let last2=_G.snake[n-2];
-      let t= _S.sprite("snake.png");
-      _S.centerAnchor(t);
-      _S.scaleXY(t,_G.scaleX, _G.scaleY);
-      if(last.g.col===last2.g.col){
-        t.g.col=last.g.col;
-        if(last2.g.row>last.g.row){
-          //grow up
-          t.g.row=last.g.row-1;
-        }else{
-          //grow down
-          t.g.row=last.g.row+1;
-        }
+      let n=_G.snake.length,
+        last=_G.snake[n-1],
+        last2=_G.snake[n-2],
+        g,t, col=last.g.col, row=last.g.row;
+      if(last.g.col==last2.g.col){
+        //-1 grow up 1 down
+        row += (last2.g.row>last.g.row?-1:1)
+      }else if(last.g.row==last2.g.row){
+        //-1 grow left 1 right
+        col += (last2.g.col>last.g.col?-1:1)
       }
-      else
-      if(last.g.row===last2.g.row){
-        t.g.row=last.g.row;
-        if(last2.g.col>last.g.col){
-          //grow left
-          t.g.col=last.g.col-1;
-        }else{
-          //grow right
-          t.g.col=last.g.col+1;
-        }
-      }
-      let g=_G.grid[t.g.row][t.g.col];
-      let ok=true;
-      if(t.g.row<0||t.g.col<0||
-         t.g.row>=_G.ROWS||t.g.col>=_G.COLS){
+      if(row<0||col<0|| row>=_G.ROWS||col>=_G.COLS){
         _G.snake[0].m5.dead=true;
         _.clear(_G.timerid);
-        _G.timerid=-1;
-        ok=false;
+        _G.timerid=UNDEF;
       }else{
+        t= _S.sprite("snake.png");
+        t.g.row=row;
+        t.g.col=col;
+        _S.anchorXY(t,0.5);
+        _S.scaleXY(t,_G.scaleX, _G.scaleY);
+        g=_G.grid[t.g.row][t.g.col];
         _V.copy(t,_S.bboxCenter(g));
-        scene.insert(t);
-        _G.snake.push(t);
+        _G.snake.push( scene.insert(t));
       }
-      return ok;
+      return !!t;
     };
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.Item=function(scene){
       let x=0,y=0,ok;
-      while(true){
+      while(!ok){
         x=_.randInt(_G.COLS);
         y=_.randInt(_G.ROWS);
         ok=true;
         for(let s,i=0;i<_G.snake.length;++i){
           s=_G.snake[i];
-          if(s.g.row===y && s.g.col===x){
+          if(s.g.row==y && s.g.col==x){
             ok=false;
             break;
           }
         }
-        if(ok){break}
       }
-      let m=_S.sprite("apple_00.png");
-      let K=Mojo.scaleXY([m.width,m.height],
-                         [_G.tileW, _G.tileH]);
-      let g= _G.grid[y][x];
+      let m=_S.sprite("apple_00.png"),
+        g= _G.grid[y][x],
+        K=Mojo.scaleXY([m.width,m.height],
+                       [_G.tileW, _G.tileH]);
       _S.scaleXY(m,K[0],K[1]);
       _V.set(m,g.x1,g.y1);
       m.g.row=y;
       m.g.col=x;
-      scene.insert(_G.item=m);
+      return scene.insert(_G.item=m);
     };
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.Snake=function(scene,col,row,dir=Mojo.RIGHT){
-      let o= _G.snake=[null,null];
-      let h= _S.sprite("head.png");
-      let s= _S.sprite("snake.png");
-      let K=Mojo.scaleXY([h.width,h.height],
-                         [_G.tileW, _G.tileH]);
-      let g= _G.grid[row][col];
+      let o= _G.snake=_.fill(2,UNDEF),
+        h= _S.sprite("head.png"),
+        s= _S.sprite("snake.png"),
+        g= _G.grid[row][col],
+        K=Mojo.scaleXY([h.width,h.height],
+                       [_G.tileW, _G.tileH]);
 
-      _S.centerAnchor(h);
-      _S.centerAnchor(s);
+      _S.anchorXY(h,0.5);
+      _S.anchorXY(s,0.5);
 
       _G.snakeDir=dir;
       _G.scaleX=K[0];

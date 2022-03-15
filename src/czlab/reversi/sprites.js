@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -20,12 +20,13 @@
   window["io/czlab/reversi/Sprites"]= function(Mojo){
 
     const _N=window["io/czlab/mcfud/negamax"]();
-    const MFL=Math.floor;
+    const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
            Game:_G,
            v2:_V,
+           math:_M,
            ute:_,is} = Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -62,12 +63,12 @@
           c=s.children[i];
           if(c && c.g.gpos){
             p=c.g.gpos;
-            if(p[0]===pos[0] && p[1]===pos[1]){
+            if(p[0]==pos[0] && p[1]==pos[1]){
               if(V===undefined){
                 _.assert(c.m5.enabled===false);
-                v= c.g.gval===this.X?this.O:this.X;
+                v= c.g.gval==this.X?this.O:this.X;
               }else{
-                _.assert(c.m5.enabled===true);
+                //_.assert(c.m5.enabled===true);
                 v=V;
               }
               c.m5.showFrame(v);
@@ -85,8 +86,8 @@
         _S.scaleXY(s,self.iconScale[0],self.iconScale[1]);
         _V.set(_S.uuid(s,id),x,y);
         _.inject(s.g,props);
-        _I.mkBtn(_S.centerAnchor(s));
-        if(props.gval !== 0){
+        _I.mkBtn(_S.anchorXY(s,0.5));
+        if(props.gval != 0){
           s.m5.enabled=false
         }
         s.m5.showFrame(self.getIcon(props.gval));
@@ -98,9 +99,9 @@
           //if end or AI is thinking, back off
           //if cell already marked, go away
           if(self.gameOver ||
-             (self.ai && self.pcur===self.ai.pnum) || s.m5.marked) {return}
+             (self.ai && self.pcur==self.ai.pnum) || s.m5.marked) {return}
           if(self.cells[s.g.gpos[0]]
-                       [s.g.gpos[1]] !== 0)
+                       [s.g.gpos[1]] != 0)
             throw "Fatal: cell marked already!!!!";
           let rc= self.checkState(s.g.gpos);
           if(rc.length>0){
