@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -27,7 +27,7 @@
            FX:T,
            Input:_I,
            Game:_G,
-           "2d":_2d,
+           Arcade:_2d,
            math:_M,
            v2:_V,
            ute:_,is}=Mojo;
@@ -80,10 +80,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
+          K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           gfx: _S.graphics(),
@@ -186,7 +186,7 @@
         let b=0,dv= 0.7*dt*(1-_G.speed/2);
         if(_I.keyDown(_I.LEFT)){ b=-1 }
         if(_I.keyDown(_I.RIGHT)){ b=1 }
-        if(b !== 0){
+        if(b != 0){
           _G.playerArc= b*30;
           _G.playerCurvature += b*dv;
         }
@@ -209,21 +209,18 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load & run
+  window.addEventListener("load",()=> MojoH5({
+
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
     //fps:30,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.run("level1");
     }
-  };
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load & run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

@@ -3541,7 +3541,7 @@
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--curCol==0){break}
+              if(--repeat==0){break}
             }
           }
         }

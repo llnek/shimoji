@@ -1,4 +1,4 @@
-(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -9,7 +9,7 @@
            FX:T,
            Input:_I,
            Game:_G,
-           "2d":_2d,
+           Arcade:_2d,
            v2:_V,
            ute:_,is}=Mojo;
 
@@ -20,7 +20,7 @@
     const GREY=_S.color("grey");
     const RED=_S.color("red");
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       __init(){
         //let road= 0.6; //width of road, 60% of screen width
         _G.middle=0.5;
@@ -80,19 +80,18 @@
     },{});
   }
 
-  const _$={
-    //assetFiles: [],
+  window.addEventListener("load",()=> MojoH5({
+
     arena: {width: 640, height: 320},
     scaleToWindow:"max",
     scaleFit:"x",
     //fps:30,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.run("level1");
     }
-  };
 
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

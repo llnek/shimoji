@@ -9,7 +9,7 @@
            FX:T,
            Input:_I,
            Game:_G,
-           "2d":_2d,
+           Arcade:_2d,
            v2:_V,
            ute:_,is}=Mojo;
 
@@ -18,7 +18,7 @@
     const sin=Math.sin,
           cos=Math.cos;
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       _initLevel(){
         _G.road=[
          {ct:10,tu:0},
@@ -162,19 +162,18 @@
     },{centerStage:true});
   }
 
-  const _$={
-    //assetFiles: [],
+  window.addEventListener("load",()=> MojoH5({
+
     arena: {width: 640, height: 320},
     scaleToWindow:"max",
     scaleFit:"x",
     fps:30,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.run("level1");
     }
-  };
 
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

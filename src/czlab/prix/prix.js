@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -32,63 +32,50 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const int=Math.floor, ceil=Math.ceil, abs=Math.abs;
     const sin=Math.sin, cos=Math.cos;
-
     const E_CAR=1;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
-    //const C_TITLE=_S.color("#ea2152");//red
-    //const C_TITLE=_S.color("#1eb7e6");//blue
-    const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#e4ea1c"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bgblack.jpg")));
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){ Mojo.sound("click.mp3").play() }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,0.148));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            W2=Mojo.width/2,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Grand Prix",{fontName:TITLE_FONT,fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,W2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
-              _Z.runScene("HUD");
-            });
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Grand Prix",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+            }
+            _I.on(["single.tap"],cb);
+            _V.set(s,W2,Mojo.height*0.7);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,W2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
+        });
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
@@ -97,45 +84,38 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _objF= {};
 
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _touches(scene){
-      let K=Mojo.getScaleFactor(true);
-      let cfg={fontName:UI_FONT,fontSize:64*K};
-      let alpha=0.2,grey=_S.color("#cccccc");
-      let L,R,F,offX, offY;
-      R= _S.rect(120,72,grey,grey,4);
-      _S.centerAnchor(R);
-      R.addChild(_S.centerAnchor(_S.bmpText("->",cfg)));
-      offY=K*R.height/2;
-      offX=offY;
-      _V.set(R, Mojo.width-offX-R.width/2, Mojo.height-offY-R.height/2);
-      scene.insert(_S.opacity(_I.makeHotspot(R),alpha));
-      //////
-      //////
-      L= _S.rect(120,72,grey,grey,4);
-      _S.centerAnchor(L);
-      L.addChild(_S.centerAnchor(_S.bmpText("<-",cfg)));
-      _S.pinLeft(R,L,offX/2);
-      scene.insert(_S.opacity(_I.makeHotspot(L),alpha));
-      //////
-      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
-      L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("HUD",{
+    _Z.scene("HUD",{
       setup(){
-        if(1||Mojo.touchDevice) _touches(this);
+        let K=Mojo.getScaleFactor(true);
+        let cfg={fontName:UI_FONT,fontSize:64*K};
+        let alpha=0.5,grey=_S.color("#cccccc");
+        let L,R,F,offX, offY,r=32*K;
+        //////
+        R= _S.circle(r,grey,grey,4);
+        R.addChild(_S.anchorXY(_S.bmpText(">",cfg),0.5));
+        offY=K*R.height/2;
+        offX=offY;
+        _V.set(R, Mojo.width-offX-R.width/2, Mojo.height-offY-R.height/2);
+        this.insert(_S.opacity(_I.makeHotspot(R),alpha));
+        //////
+        L= _S.circle(r,grey,grey,4);
+        L.addChild(_S.anchorXY(_S.bmpText("<",cfg),0.5));
+        _S.pinLeft(R,L,offX/2);
+        this.insert(_S.opacity(_I.makeHotspot(L),alpha));
+        //////
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
+        L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor(),
-              {tiledWidth,tiledHeight, tilesInX,tilesInY,tileW,tileH}=self.tiled;
+          K=Mojo.getScaleFactor(),
+          {tiledWidth,tiledHeight, tilesInX,tilesInY,tileW,tileH}=self.tiled;
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           initLevel(){
@@ -149,7 +129,7 @@
             x=column*tileW+s.width/2;
             y=row*tileH+s.height/2;
             p=_S.sprite("start.png");
-            _S.centerAnchor(p);
+            _S.anchorXY(p,0.5);
             p.angle=90;
             p.x=x+tileW+2;
             p.y=y;
@@ -157,12 +137,10 @@
             ////////
             s.x=x;
             s.y=y;
-            s.m5.maxSpeed=400;
+            s.m5.maxSpeed=200;
             s.m5.speed=s.m5.maxSpeed;
-            s.m5.tick=(dt)=>{
-              s["2d"].onTick(dt)
-            };
-            self.insert(Mojo.addMixin(s,"2d"),true);
+            s.m5.tick=(dt)=> s.arcade.onTick(dt) ;
+            self.insert(Mojo.addMixin(s,"arcade"),true);
             let p1=this.cfgCar(this.mkCar("green"),cps);
             let p2=this.cfgCar(this.mkCar("orange"),cps);
             return _.inject(_G,{
@@ -172,8 +150,8 @@
           },
           mkCar(color){
             let K=Mojo.getScaleFactor(),
-                s=_S.sprite(`${color}.png`);
-            _S.centerAnchor(_S.scaleBy(s,0.08*K,0.08*K));
+              s=_S.sprite(`${color}.png`);
+            _S.anchorXY(_S.scaleBy(s,0.08*K,0.08*K),0.5);
             s.m5.type=E_CAR;
             s.m5.cmask=E_CAR;
             s.m5.maxSpeed=280*K;
@@ -183,7 +161,7 @@
           },
           cfgCar(p1,cps){
             let K=Mojo.getScaleFactor(),
-                A=0.05*K,r,R=K*p1.width*2.2;
+              A=0.05*K,r,R=K*p1.width*2.2;
             p1.g.cps=cps.slice();
             p1.g.cpn=0;
             while(1){
@@ -206,14 +184,15 @@
                 p1.rotation += p1.m5.angVel;
                 p1.m5.vel[0]=cos(p1.rotation)*p1.m5.speed;
                 p1.m5.vel[1]=sin(p1.rotation)*p1.m5.speed;
-                p1["2d"].onTick(dt)
+                p1.arcade.onTick(dt)
               }
             };
-            return self.insert(Mojo.addMixin(p1,"2d"),true);
+            return self.insert(Mojo.addMixin(p1,"arcade"),true);
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
+        _Z.run("HUD");
         Mojo.addMixin(this,"camera2d", tiledWidth, tiledHeight,Mojo.canvas);
       },
       postUpdate(dt){
@@ -225,7 +204,6 @@
         }
         _G.car.m5.vel[0] = cos(_G.car.rotation)*_G.car.m5.speed;
         _G.car.m5.vel[1] = sin(_G.car.rotation)*_G.car.m5.speed;
-
         for(let a,i=_G.racers.length-1;i>=0;--i){
           a=_G.racers[i];
           this.searchSGrid(a).forEach(o=>{
@@ -240,24 +218,22 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load & run
+  window.addEventListener("load",()=> MojoH5({
+
     assetFiles: ["roadTextures_tilesheet.png",
                  "towerDefense_tilesheet.png",
                  "red.png","green.png","orange.png",
-                 "start.png","bg.png","racing.json","click.mp3"],
+                 "start.png","bgblack.jpg","racing.json","click.mp3"],
     arena: {width: 1680, height: 1050, scale:1},
     scaleToWindow:"max",
     scaleFit:"x",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load & run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -46,47 +46,50 @@
     const C_LIGHT={ road: _S.color("#6B6B6B"), grass: _S.color("#10AA10"),
                     rumble: _S.color("#555555"), lane: _S.color("#CCCCCC")  };
     const C_DARK={ road: _S.color("#696969"), grass: _S.color("#009A00"), rumble: _S.color("#bbbbbb") };
-    const C_START= { road: _S.color("white"),   grass: _S.color("white"),   rumble: _S.color("white") };
-    const C_FINISH= { road: _S.color("black"),   grass: _S.color("black"),   rumble: _S.color("yellow") };
+    const C_START= { road: _S.SomeColors.white,   grass: _S.SomeColors.white,   rumble: _S.SomeColors.white };
+    const C_FINISH= { road: _S.SomeColors.black,   grass: _S.SomeColors.black,   rumble: _S.SomeColors.yellow };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function lastY(){ return _G.lines.length == 0 ? 0 : _G.lines[_G.lines.length-1].p2.world.y }
-    function easeInOut(a,b,perc){ return a + (b-a)*((-Math.cos(perc*Math.PI)/2) + 0.5) }
-    function easeIn(a,b,perc){ return a + (b-a)*Math.pow(perc,2) }
+    const easeInOut=(a,b,perc)=> a + (b-a)*((-Math.cos(perc*Math.PI)/2) + 0.5);
+    const easeIn=(a,b,perc)=> a + (b-a)*Math.pow(perc,2);
+    const lastY=()=> _G.lines.length == 0 ? 0 : _.last(_G.lines).p2.world.y;
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function addRoad(n=ROAD.M){ addStretch(n,0, 0) }
-    function addHill(n=ROAD.M, height=HILL.M){ addStretch(n,0, height) }
-    function addBend(n=ROAD.M, curve=BEND.M, height=0){ addStretch(n, curve, height) }
+    const addBend=(n=ROAD.M, curve=BEND.M, height=0)=> addStretch(n, curve, height);
+    const addHill=(n=ROAD.M, height=HILL.M)=> addStretch(n,0, height);
+    const addRoad=(n=ROAD.M)=> addStretch(n,0, 0);
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function addLowRollingHills(n=ROAD.E, height=HILL.E){
-      addStretch(n, 0, height/2);
-      addStretch(n, 0, -height);
-      addStretch(n, BEND.E,  height);
-      addStretch(n, 0, 0);
-      addStretch(n, -BEND.E,  height/2);
-      addStretch(n, 0, 0);
-    }
+    const addLowRollingHills=(n=ROAD.E, height=HILL.E)=>
+      [[n, 0, height/2],
+       [n, 0, -height],
+       [n, BEND.E,  height],
+       [n, 0, 0],
+       [n, -BEND.E,  height/2],
+       [n, 0, 0]].forEach(a=>addStretch(...a));
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function addSBends(){
-      addStretch(ROAD.M, -BEND.E, 0);
-      addStretch(ROAD.M, BEND.M, HILL.M);
-      addStretch(ROAD.M, BEND.E, -HILL.E);
-      addStretch(ROAD.M, -BEND.E, HILL.M);
-      addStretch(ROAD.M, -BEND.M, -HILL.M);
-    }
+    const addSBends=()=>
+      [[ROAD.M, -BEND.E, 0],
+       [ROAD.M, BEND.M, HILL.M],
+       [ROAD.M, BEND.E, -HILL.E],
+       [ROAD.M, -BEND.E, HILL.M],
+       [ROAD.M, -BEND.M, -HILL.M]].forEach(a=>addStretch(...a));
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function addBumps(){
-      addStretch(10, 0,  5);
-      addStretch(10, 0, -2);
-      addStretch(10, 0, -5);
-      addStretch(10, 0,  8);
-      addStretch(10, 0,  5);
-      addStretch(10, 0, -7);
-      addStretch(10, 0,  5);
-      addStretch(10, 0, -2);
-    }
+    const addBumps=()=>
+      [[10, 0,  5],
+       [10, 0, -2],
+       [10, 0, -5],
+       [10, 0,  8],
+       [10, 0,  5],
+       [10, 0, -7],
+       [10, 0,  5],
+       [10, 0, -2]].forEach(a=>addStretch(...a));
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function addDownhillToEnd(n=200){ addStretch(n, -BEND.E, - lastY()/SEGLEN) }
+    const addDownhillToEnd=(n=200)=> addStretch(n, -BEND.E, - lastY()/SEGLEN);
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function addStretch(enter, curve, y){
       function newSeg(curve,Y){
@@ -98,14 +101,14 @@
           curve,
           sprites: [],
           cars: [],
-          color: int(n/_G.rumbles)%2 ? C_DARK : C_LIGHT
+          color: _M.ndiv(n,_G.rumbles)%2 ? C_DARK : C_LIGHT
         });
       }
       let hold=enter,
-          leave=enter,
-          startY= lastY(),
-          total = enter + hold + leave,
-          n, endY= startY + (_.toNum(y, 0) * SEGLEN);
+        leave=enter,
+        startY= lastY(),
+        total = enter + hold + leave,
+        n,endY= startY + (_.toNum(y, 0) * SEGLEN);
       for(n = 0 ; n < enter ; ++n)
         newSeg(easeIn(0, curve, n/enter), easeInOut(startY, endY, n/total));
       for(n = 0 ; n < hold  ; ++n)
@@ -113,11 +116,11 @@
       for(n = 0 ; n < leave ; ++n)
         newSeg(easeInOut(curve, 0, n/leave), easeInOut(startY, endY, (enter+hold+n)/total));
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function addTrees(){
       function add(n, sprite, offset){
-        _G.lines[n].sprites.push({
-          source: sprite, offset, w: Mojo.tcached(sprite).width })
+        _G.lines[n].sprites.push({source: sprite, offset, w: Mojo.tcached(sprite).width })
       }
       let n, side, sprite, offset;
       for(n = 10; n < 200; n += 4 + int(n/100)){
@@ -150,6 +153,7 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function addCars(){
       let t,n, car, segment, offset, z, sprite, speed;
@@ -164,6 +168,7 @@
         _G.cars.push(car);
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _G.initTrack=function(){
       _G.lines.length=0;

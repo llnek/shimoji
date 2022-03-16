@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -36,33 +36,25 @@
     const SEGLEN=Mojo.u.SEGLEN;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
-    //const C_TITLE=_S.color("#ea2152");//red
-    //const C_TITLE=_S.color("#1eb7e6");//blue
-    const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){ Mojo.sound("click.mp3").play() }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,0.148));
-    }
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#e4ea1c"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     window["io/czlab/racer/track"](Mojo,SEGLEN);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function getLine(z){ return _G.lines[int(z/SEGLEN) % _G.lines.length] }
+    const getLine=(z)=> _G.lines[_M.ndiv(z,SEGLEN) % _G.lines.length];
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.png")));
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const mspeed= Mojo.u.fps * SEGLEN;
+    const CLICK_DELAY=343;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.merge(_G, {
       getLine,
       lines: [],
@@ -90,8 +82,15 @@
       W:Mojo.width,
       H:Mojo.height,
       W2:Mojo.width/2,
-      H2:Mojo.height/2
+      H2:Mojo.height/2,
+      skySpeed: 0.001, // background sky layer scroll speed when going around curve (or up hill)
+      hillSpeed: 0.002, // background hill layer scroll speed when going around curve (or up hill)
+      treeSpeed: 0.003, // background tree layer scroll speed when going around curve (or up hill)
+      skyOffset: 0,    // current sky scroll offset
+      hillOffset: 0,   // current hill scroll offset
+      treeOffset: 0    // current tree scroll offset
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function increase(start, increment, max){
       let r= start + increment;
@@ -99,6 +98,7 @@
       while(r < 0) r += max;
       return r;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function overlap(x1, w1, x2, w2, percent){
       let half = (percent||1)/2,
@@ -108,15 +108,15 @@
           max2 = x2 + w2*half;
       return ! (max1 < min2 || min1 > max2);
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function updateCars(seg,dt){
-      function updateCarOffset(car, carSeg, playerSeg){
+      function _updateCarOffset(car, carSeg, playerSeg){
         let dir,other,otherW,
-            carW = scaleToRefWidth(car.w);
-        if((carSeg.index - playerSeg.index) > _G.drawRange){
-          return 0; //ignore when 'out of sight' of the player
-        }
-        for(let seg, j, i = 1 ; i < _G.lookAhead ; ++i){
+          carW = scaleToRefWidth(car.w);
+        //ignore when 'out of sight' of the player
+        if((carSeg.index - playerSeg.index) > _G.drawRange){ return 0 }
+        for(let seg, j, i=1 ; i < _G.lookAhead ; ++i){
           seg = _G.lines[(carSeg.index+i)%_G.SEGN];
           if(seg == playerSeg &&
              car.speed > _G.speed &&
@@ -128,7 +128,7 @@
             //the greated the speed ratio, the larger the offset
             return dir * 1/i * (car.speed-_G.speed)/_G.maxSpeed;
           }
-          for(j = 0 ; j < seg.cars.length ; ++j){
+          for(j=0 ; j < seg.cars.length ; ++j){
             other= seg.cars[j];
             otherW = scaleToRefWidth(other.w);
             if(car.speed > other.speed &&
@@ -147,7 +147,7 @@
       for(let s1,s2,car,i=0;i<_G.cars.length;++i){
         car=_G.cars[i];
         s1= getLine(car.z);
-        car.offset  += updateCarOffset(car, s1, seg);
+        car.offset += _updateCarOffset(car, s1, seg);
         car.z= increase(car.z, dt * car.speed, _G.trackLength);
         car.percent = (car.z%SEGLEN)/SEGLEN; //for interpolation
         s2 = getLine(car.z);
@@ -157,53 +157,65 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function drawPolygon(g, x1, y1, x2, y2, x3, y3, x4, y4, color){
+    const _polys=[{},{},{},{}];
+    function drawPoly(g, x1, y1, x2, y2, x3, y3, x4, y4, color){
       g.beginFill(color);
-      g.drawPolygon({x:x1,y:y1},{x:x2,y:y2},{x:x3,y:y3},{x:x4,y:y4});
+      _polys[0].x=x1;
+      _polys[0].y=y1;
+      _polys[1].x=x2;
+      _polys[1].y=y2;
+      _polys[2].x=x3;
+      _polys[2].y=y3;
+      _polys[3].x=x4;
+      _polys[3].y=y4;
+      g.drawPolygon(_polys[0],_polys[1],_polys[2],_polys[3]);
       g.endFill();
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawSegment(gfx, lanes, p1, p2, color){
-      function laneMarkerWidth(road, lanes){ return road/Math.max(32, 8*lanes) }
-      function rumbleWidth(road, lanes){ return road/Math.max(6,  2*lanes) }
+      const laneMarkerWidth=(road, lanes)=> road/Math.max(32, 8*lanes);
+      const rumbleWidth=(road, lanes)=> road/Math.max(6,  2*lanes);
       let r1 = rumbleWidth(p1.w, lanes),
-          r2 = rumbleWidth(p2.w, lanes),
-          l1 = laneMarkerWidth(p1.w, lanes),
-          l2 = laneMarkerWidth(p2.w, lanes);
+        r2 = rumbleWidth(p2.w, lanes),
+        l1 = laneMarkerWidth(p1.w, lanes),
+        l2 = laneMarkerWidth(p2.w, lanes);
       gfx.beginFill(color.grass);
       gfx.drawRect(0, p2.y, _G.W, p1.y - p2.y);
       gfx.endFill();
-      drawPolygon(gfx, p1.x-p1.w-r1, p1.y,
-                       p1.x-p1.w, p1.y,
-                       p2.x-p2.w, p2.y,
-                       p2.x-p2.w-r2, p2.y, color.rumble);
-      drawPolygon(gfx, p1.x+p1.w+r1, p1.y,
-                       p1.x+p1.w, p1.y,
-                       p2.x+p2.w, p2.y,
-                       p2.x+p2.w+r2, p2.y, color.rumble);
-      drawPolygon(gfx, p1.x-p1.w, p1.y,
-                       p1.x+p1.w, p1.y,
-                       p2.x+p2.w, p2.y,
-                       p2.x-p2.w,p2.y, color.road);
+      drawPoly(gfx, p1.x-p1.w-r1, p1.y,
+                    p1.x-p1.w, p1.y,
+                    p2.x-p2.w, p2.y,
+                    p2.x-p2.w-r2, p2.y, color.rumble);
+      drawPoly(gfx, p1.x+p1.w+r1, p1.y,
+                    p1.x+p1.w, p1.y,
+                    p2.x+p2.w, p2.y,
+                    p2.x+p2.w+r2, p2.y, color.rumble);
+      drawPoly(gfx, p1.x-p1.w, p1.y,
+                    p1.x+p1.w, p1.y,
+                    p2.x+p2.w, p2.y,
+                    p2.x-p2.w,p2.y, color.road);
       if(color.lane){
         let lanew1 = p1.w*2/lanes,
-            lanew2 = p2.w*2/lanes,
-            lanex1 = p1.x - p1.w + lanew1,
-            lanex2 = p2.x - p2.w + lanew2;
+          lanew2 = p2.w*2/lanes,
+          lanex1 = p1.x - p1.w + lanew1,
+          lanex2 = p2.x - p2.w + lanew2;
         for(let lane = 1 ; lane < lanes ; lanex1 += lanew1, lanex2 += lanew2, ++lane)
-          drawPolygon(gfx, lanex1 - l1/2, p1.y,
-                           lanex1 + l1/2, p1.y,
-                           lanex2 + l2/2, p2.y,
-                           lanex2 - l2/2, p2.y, color.lane);
+          drawPoly(gfx, lanex1 - l1/2, p1.y,
+                        lanex1 + l1/2, p1.y,
+                        lanex2 + l2/2, p2.y,
+                        lanex2 - l2/2, p2.y, color.lane);
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawSprite(scene, sprite, scale, destX, destY, offsetX, offsetY, clipY){
       let t= Mojo.tcached(sprite),
-          K=ratioToRoadWidth(),
-          destW  = (t.width * scale * _G.W2) * K,
-          destH  = (t.height * scale * _G.W2) * K;
+        K=ratioToRoadWidth(),
+        destW  = (t.width * scale * _G.W2) * K,
+        destH  = (t.height * scale * _G.W2) * K;
 
       destX += (destW * (offsetX || 0));
       destY += (destH * (offsetY || 0));
@@ -218,12 +230,14 @@
         scene.insert(s);
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function drawPlayer(scene, speedPercent, scale, destX, destY, steer, updown){
       let resolution= _G.H/480,
-          bounce = 1.5 * _.rand() * speedPercent * resolution * _.randSign();
+        bounce = 1.5 * _.rand() * speedPercent * resolution * _.randSign();
       drawSprite(scene, "player.png", scale, destX, destY + bounce, -0.5, -1);
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function project(p, camX, camY, camZ, camDepth){
       p.camera.x     = (p.world.x || 0) - camX;
@@ -234,58 +248,82 @@
       p.screen.x     = Math.round(_G.W2  + p.screen.scale * p.camera.x  * _G.W2);
       p.screen.y     = Math.round(_G.H2 - p.screen.scale * p.camera.y  * _G.H2);
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    function doBackground(ctx, playerY){
+      function _bg(bg, rotation, offset){
+        rotation = rotation || 0;
+        offset   = offset   || 0;
+        let imageW = bg.width/2;
+        let imageH = bg.height;
+        let sx = Math.floor(bg.width * rotation);
+        let sy = 0;
+        let sw = Math.min(imageW, bg.width-sx);
+        let sh = imageH;
+        let destX = 0;
+        let destY = offset;
+        let destW = Math.floor(_G.W * (sw/imageW));
+        let destH = _G.H;
+        let s= new PIXI.Texture(bg,new PIXI.Rectangle(sx,sy,sw,sh));
+        ctx.beginTextureFill({texture:s});
+        ctx.drawRect(destX, destY, destW, destH);
+        ctx.endFill();
+        if(sw < imageW){
+          s= new PIXI.Texture(bg,new PIXI.Rectangle(0,sy,imageW-sw,sh));
+          ctx.beginTextureFill({texture:s});
+          ctx.drawRect(destW-1, destY, _G.W-destW, destH);
+          ctx.endFill();
+        }
+      }
+      let resolution=_G.H/480;
+      _bg(Mojo.tcached("sky.png"),_G.skyOffset, resolution*_G.skySpeed*playerY);
+      _bg(Mojo.tcached("hills.png"),_G.hillOffset, resolution*_G.hillSpeed*playerY);
+      _bg(Mojo.tcached("trees.png"),_G.treeOffset, resolution*_G.treeSpeed*playerY);
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            W2=Mojo.width/2,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Retro Racer",{fontName:TITLE_FONT,fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,W2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=> _Z.runSceneEx("PlayGame"));
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Retro Racer",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+            }
+            _I.on(["single.tap"],cb);
+            _V.set(s,W2,Mojo.height*0.7);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,W2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
+        });
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function scaleToRefWidth(sw){
-      return sw * _G.SPRITES_SCALE
-    }
+    const ratioToRoadWidth=()=> _G.roadWidth * _G.SPRITES_SCALE;
+    const scaleToRefWidth=(sw)=> sw * _G.SPRITES_SCALE;
+    const perc=(a,b)=> (a%b)/b;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function ratioToRoadWidth(){
-      return _G.roadWidth * _G.SPRITES_SCALE
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        function perc(a,b){ return (a%b)/b }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           hills: _S.fillMax(_S.sprite("hills.png")),
           trees: _S.fillMax(_S.sprite("trees.png")),
@@ -293,9 +331,9 @@
           gfx: _S.graphics(),
           initLevel(){
              let r= 1/_G.lanes,
-                 camH=1000,
-                 camD= 1/Math.tan(_G.fov / 2),
-                 w= Mojo.tcached("player.png").width;
+               camH=1000,
+               camD= 1/Math.tan(_G.fov / 2),
+               w= Mojo.tcached("player.png").width;
             _.merge(_G,{
               //the way to scale sprites by using the player's car
               //as the reference.  the player is logically as wide
@@ -310,6 +348,7 @@
               player: {w: r, x:0, y:0, z: camH * camD }
             });
             _G.initTrack();
+            return this;
           },
           resetGfx(){
             self.insert(this.sky);
@@ -319,14 +358,18 @@
           },
           draw(){
             let baseLine = getLine(_G.pos),
-                basePerc= perc(_G.pos,SEGLEN),
-                x = 0,
-                maxY = _G.H,
-                dx = - (baseLine.curve * basePerc),
-                playerSeg= getLine(_G.pos+_G.player.z),
-                playerPerc= perc(_G.pos+_G.player.z,SEGLEN);
+              basePerc= perc(_G.pos,SEGLEN),
+              x = 0,
+              maxY = _G.H,
+              dx = - (baseLine.curve * basePerc),
+              playerSeg= getLine(_G.pos+_G.player.z),
+              playerPerc= perc(_G.pos+_G.player.z,SEGLEN);
+
             _G.player.y = _M.lerp(playerSeg.p1.world.y, playerSeg.p2.world.y, playerPerc);
             this.resetGfx();
+
+            //doBackground(this.gfx, _G.player.y);
+
             for(let cx,cy, cz, seg,n = 0; n < _G.drawRange; ++n){
               seg= _G.lines[(baseLine.index + n) % _G.SEGN];
               seg.clip = maxY;
@@ -418,6 +461,10 @@
             _G.player.x = _M.clamp(-3,3,_G.player.x);// dont ever let it go too far out of bounds
             _G.speed = _M.clamp(0, _G.maxSpeed,_G.speed); // or exceed maxSpeed
 
+            _G.skyOffset  = increase(_G.skyOffset,  _G.skySpeed  * playerSeg.curve * (_G.pos-startPos)/SEGLEN, 1);
+            _G.hillOffset = increase(_G.hillOffset, _G.hillSpeed * playerSeg.curve * (_G.pos-startPos)/SEGLEN, 1);
+            _G.treeOffset = increase(_G.treeOffset, _G.treeSpeed * playerSeg.curve * (_G.pos-startPos)/SEGLEN, 1);
+
             if(_G.pos > _G.player.z){
               if(_G.lapTime && (startPos< _G.player.z)){
                 //_G.lastLapTime= _G.lapTime;
@@ -429,8 +476,8 @@
 
           }
         });
-        this.g.initLevel();
-        _Z.runScene("HUD");
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.initLevel() && _Z.run("HUD");
       },
       postUpdate(dt){
         this.removeChildren();
@@ -440,46 +487,42 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("HUD",{
+    _Z.scene("HUD",{
       setup(){
         let self=this,
-            K=Mojo.getScaleFactor(),
-            s= _S.bmpText("0",{fontName:"unscii",fontSize:36*K});
-        _V.set(s, 0,0);
+          K=Mojo.getScaleFactor(),
+          s= _S.bmpText("0","unscii",36*K);
         this.insert(this.g.lapTime=s);
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initHotspots=()=>{
-          let cfg={fontName:UI_FONT,fontSize:48*K};
-          let alpha=0.2,grey=_S.color("#cccccc");
-          let fw=132*K,fh=84*K,lw=4*K;
-          let L,U,R,D,offX, offY;
-          /////
-          R= _S.rect(fw,fh,grey,grey,lw);
-          offX= R.width/4;
-          offY=offX;
-          _S.centerAnchor(R);
-          R.addChild(_S.centerAnchor(_S.bmpText("->",cfg)));
-          _V.set(R, Mojo.width-R.width/2-offX,Mojo.height-R.height/2-offY);
-          self.insert(_S.opacity(_I.makeHotspot(R),alpha));
-          //////
-          L= _S.rect(fw,fh,grey,grey,lw);
-          _S.centerAnchor(L);
-          L.addChild(_S.centerAnchor(_S.bmpText("<-",cfg)));
-          _S.pinLeft(R,L,offX);
-          self.insert(_S.opacity(_I.makeHotspot(L),alpha));
-          //////
-          U= _S.rect(fw,fh,grey,grey,lw);
-          _S.centerAnchor(U);
-          U.addChild(_S.centerAnchor(_S.bmpText("++",cfg)));
-          _V.set(U,offX+U.width/2,Mojo.height-U.height/2-offY);
-          self.insert(_S.opacity(_I.makeHotspot(U),alpha));
-          //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
-          L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
-          U.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE) }
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        if(Mojo.touchDevice) this.g.initHotspots();
+        _.inject(this.g,{
+          initHotspots(){
+            let cfg={fontName:UI_FONT,fontSize:48*K};
+            let alpha=0.2,grey=_S.color("#cccccc");
+            let fw=132*K,fh=36*K,lw=4*K;
+            let L,U,R,D,offX, offY;
+            /////
+            R= _S.circle(fh,grey,grey,lw);
+            offX= R.width/4;
+            offY=offX;
+            R.addChild(_S.anchorXY(_S.bmpText(">",cfg),0.5));
+            _V.set(R, Mojo.width-R.width/2-offX,Mojo.height-R.height/2-offY);
+            self.insert(_S.opacity(_I.makeHotspot(R),alpha));
+            //////
+            L= _S.circle(fh,grey,grey,lw);
+            L.addChild(_S.anchorXY(_S.bmpText("<",cfg),0.5));
+            _S.pinLeft(R,L,offX);
+            self.insert(_S.opacity(_I.makeHotspot(L),alpha));
+            //////
+            U= _S.circle(fh,grey,grey,lw);
+            U.addChild(_S.anchorXY(_S.bmpText("+",cfg),0.5));
+            _V.set(U,offX+U.width/2,Mojo.height-U.height/2-offY);
+            self.insert(_S.opacity(_I.makeHotspot(U),alpha));
+            //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+            R.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT) }
+            L.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT) }
+            U.m5.touch=(o,t)=>{ t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE) }
+          }
+        });
+        this.g.initHotspots();
       },
       postUpdate(){
         this.g.lapTime.text=`Lap Time: ${Number(_G.lapTime).toFixed(3)}`;
@@ -488,9 +531,11 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
-    assetFiles: ["bg.png","player.png","click.mp3","sky.png","hills.png","trees.png", "tiles.png","images/tiles.json"],
+  //load & run
+  window.addEventListener("load",()=> MojoH5({
+
+    assetFiles: ["bg.png","player.png","click.mp3", "sky.png",
+                 "hills.png","trees.png", "tiles.png","images/tiles.json"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"x",
@@ -498,13 +543,9 @@
     //fps:30,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load & run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 
