@@ -51,7 +51,7 @@
           K=Mojo.getScaleFactor();
         _.inject(this.g,{
           doTitle(s){
-            s=_S.bmpText("Pink Astro",TITLE_FONT,120*K);
+            s=_S.bmpText("Zario",TITLE_FONT,120*K);
             _S.tint(s,C_TITLE);
             _V.set(s,W2,Mojo.height*0.3);
             return self.insert(_S.anchorXY(s,0.5));
