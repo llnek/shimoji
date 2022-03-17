@@ -740,7 +740,7 @@
        * @param {string} name
        * @param {function} body
        */
-      defMixin(name,body){
+      mixin(name,body){
         if(_.has(_mixins,name))
           throw `MixinError: "${name}" already defined.`;
         _.assert(is.fun(body),"mixin must be a function");
@@ -5462,6 +5462,50 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("HotKeys",{
+      setup(options){
+        let {fontName,fontSize,cb,radius,alpha,color}=options;
+        let {char_down,char_up,char_left,char_right}=options;
+        let bs,U,D,L,R;
+        _.assert(is.num(fontSize),"expected fontsize");
+        _.assert(is.num(radius),"expected radius");
+        _.assert(is.fun(cb),"expected callback");
+        fontName=fontName||"Doki Lowercase";
+        alpha=alpha || 0.2;
+        color=_.nor(color,"grey");
+        char_down=char_down||"-";
+        char_up=char_up||"+";
+        char_left=char_left||"<";
+        char_right=char_right||">";
+        D= _S.opacity(_S.circle(radius,color),alpha);
+        D.addChild(_S.anchorXY(_S.bmpText(char_down,fontName,fontSize),0.5));
+        U= _S.opacity(_S.circle(radius,color),alpha);
+        U.addChild(_S.anchorXY(_S.bmpText(char_up,fontName,fontSize),0.5));
+        L= _S.opacity(_S.circle(radius,color),alpha);
+        L.addChild(_S.anchorXY(_S.bmpText(char_left,fontName,fontSize),0.5));
+        R= _S.opacity(_S.circle(radius,color),alpha);
+        R.addChild(_S.anchorXY(_S.bmpText(char_right,fontName,fontSize),0.5));
+        bs=cb({left:L,right:R,down:D,up:U});
+        if(bs.right){
+          this.insert(_I.makeHotspot(bs.right));
+          bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
+        }
+        if(bs.left){
+          this.insert(_I.makeHotspot(bs.left));
+          bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
+        }
+        if(bs.up){
+          this.insert(_I.makeHotspot(bs.up));
+          bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
+        }
+        if(bs.down){
+          this.insert(_I.makeHotspot(bs.down));
+          bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
+        }
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("AudioIcon",{
       setup(arg){
         let {xOffset,yOffset,xScale,yScale}=arg;
@@ -5582,7 +5626,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Define a mixin object. */
-    Mojo.defMixin("arcade",function(e, ...minors){
+    Mojo.mixin("arcade",function(e, ...minors){
       const {Sprites}= Mojo,
             subs=[],
             sigs=[],
@@ -5655,7 +5699,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Define mixin `camera`. */
-    Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
+    Mojo.mixin("camera2d", function(e,worldWidth,worldHeight,canvas){
       let _x=0;
       let _y=0;
       const _height= canvas?canvas.height:worldHeight,

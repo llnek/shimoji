@@ -740,7 +740,7 @@
        * @param {string} name
        * @param {function} body
        */
-      defMixin(name,body){
+      mixin(name,body){
         if(_.has(_mixins,name))
           throw `MixinError: "${name}" already defined.`;
         _.assert(is.fun(body),"mixin must be a function");
