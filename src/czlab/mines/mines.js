@@ -9,9 +9,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-(function(window){
+(function(window,UNDEF){
 
   "use strict";
 
@@ -23,57 +23,45 @@
            Game:_G,
            FX:_X,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
-    const C_WHITE=_S.color("#ffffff");
-    const C_BG= _S.color("#25A65B");
-    const C_TITLE=_S.color("#fff20f");
-      //"#ff9f0f"
-      //"#f75539"
-      //"#eef838"
-    const LINE_COLOR=_S.color("#2abb67");//"#bb8044"
-    const TEXT_COLOR=_S.color("#2abb67");
-    const C_NUM=_S.color("#24a159");
-    const C_BOX=_S.color("#e1fc7e"); //"#fcf97e"
-
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const CLICK_DELAY=343;
     const int=Math.floor;
 
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_WHITE=_S.color("#ffffff"),
+      C_BG= _S.color("#25A65B"),
+      C_TITLE=_S.color("#fff20f"),
+      LINE_COLOR=_S.color("#2abb67"),
+      TEXT_COLOR=_S.color("#2abb67"),
+      C_NUM=_S.color("#24a159"),
+      C_BOX=_S.color("#e1fc7e"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const isValid=(row,col)=> row>=0 && col>=0 && row<_G.grid.length && col<_G.grid[0].length;
+    const playClick=()=> Mojo.sound("click.mp3").play();
+    const gameOver=()=> _Z.modal("EndGame");
+    const CLICK_DELAY=343;
     const V_MINE=9;
     const V_MARKER=99;
 
-    /**/
-    function playClick(){
-      Mojo.sound("click.mp3").play()
-    }
-
-    /**/
-    function isValid(row,col){
-      return row>=0 && col>=0 && row<_G.grid.length && col<_G.grid[0].length }
-
-    /**/
-    function gameOver(){
-      _I.resetAll();
-      _Z.runScene("EndGame");
-    }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Show the mine, then play the animation of explosion. */
     function boom(scene,cell){
-      let x,y,s= _S.centerAnchor(_S.sprite("mine.png"));
+      let x,y,s= _S.anchorXY(_S.sprite("mine.png"),0.5);
       [x,y]=_S.centerXY(cell.sprite);
       s.x=x; s.y=y;
       _S.sizeXY(s,cell.sprite.width, cell.sprite.height);
       _S.scaleBy(s,0.8, 0.8);
-      cell.sprite.visible=false;
+      _S.hide(cell.sprite);
       //show the mine
       scene.insert(s);
       //play the explosion animation
       s= _S.spriteFrom("boom0.png","boom1.png","boom2.png",
                        "boom3.png","boom4.png","boom5.png","boom6.png");
-      _S.centerAnchor(s);
+      _S.anchorXY(s,0.5);
       s.x=x; s.y=y;
       //animate once only
       s.loop=false;
@@ -82,16 +70,16 @@
       s.onComplete=()=>{
         _.delay(100,()=>{
           _S.remove(s);//clear the explosion
-          _.delay(100,gameOver);//show the gameover scene
-        });
+          _.delay(100,()=> _Z.modal("EndGame"));//show the gameover scene
+        })
       };
       //start the animation
       s.m5.playFrames();
       _G.gameOver=true;
-      //boom!
       Mojo.sound("boom.mp3").play();
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**when the flag is dropped onto a cell */
     function onDropped(scene,B){
       let found,
@@ -101,7 +89,7 @@
         for(let s,cell,x=0; x<cols; ++x){
           cell= _G.grid[y][x];
           if(Mojo.mouse.hitTest(cell.sprite)){
-            if(!cell.opened && B.g.value===V_MARKER){
+            if(!cell.opened && B.g.value==V_MARKER){
               if(cell.marker){
                 //already flagged so clear the flag
                 cell.marker=_S.remove(cell.marker)
@@ -109,7 +97,7 @@
               }else{
                 if(_G.minesCount>0) --_G.minesCount;
                 //place a flag on the cell
-                s=_S.centerAnchor(_S.sprite("rflag.png"));
+                s=_S.anchorXY(_S.sprite("rflag.png"),0.5);
                 _S.sizeXY(s,cell.sprite.width,cell.sprite.height);
                 _S.scaleBy(s, 0.5, 0.5);
                 [s.x,s.y]= _S.centerXY(cell.sprite);
@@ -135,6 +123,7 @@
       */
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**/
     function initLevel(scene,cols,rows,target){
       //top left corner
@@ -157,7 +146,7 @@
             if(!_G.timerStarted) _.delay(0,updateTimer);
             if(cell.marker){return}
             _I.undoButton(s);
-            if(cell.value===V_MINE){
+            if(cell.value==V_MINE){
               boom(scene,cell)
             }else{
               if(expand(scene,cell.row,cell.col)>3){
@@ -167,14 +156,14 @@
             }
           };
           //make cell clickable
-          scene.insert(_I.makeButton(s));
+          scene.insert(_I.mkBtn(s));
         }
       }
       _G.timerStarted=false;
       _G.gameOver=false;
     }
 
-    /**/
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function showAll(scene){
       let rows=_G.grid.length,
           cols=_G.grid[0].length;
@@ -183,9 +172,9 @@
           cell=_G.grid[y][x];
           if(!cell.opened){
             n= cell.value==9? "mine.png": `${cell.value}.png`;
-            s=_S.centerAnchor(_S.sprite(n));
+            s=_S.anchorXY(_S.sprite(n),0.5);
             _S.sizeXY(s,cell.sprite.width, cell.sprite.height);
-            if(cell.value===9){
+            if(cell.value==9){
               _S.scaleBy(s, 0.8,0.8);
             }else{
               _S.scaleBy(s, 0.5, 0.5);
@@ -201,56 +190,56 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**If all the mines are correctly marked? */
     function checkEnd(scene){
       let opened=0,
-          found=0,
-          pending=[],
-          rows=_G.grid.length,
-          cols=_G.grid[0].length;
+        found=0,
+        pending=[],
+        rows=_G.grid.length,
+        cols=_G.grid[0].length;
       for(let y=0;y<rows;++y){
         for(let cell,x=0;x<cols;++x){
           cell=_G.grid[y][x];
           if(cell.opened) ++opened;
-          else if(cell.marker && cell.value=== V_MINE) ++found;
+          else if(cell.marker && cell.value== V_MINE) ++found;
           else pending.push(cell);
         }
       }
-      if(found===Mojo.u.dimXY[2] ||
-         pending.filter(c=> c.value=== V_MINE).length===pending.length){
+      if(found==Mojo.u.dimXY[2] ||
+         pending.filter(c=> c.value== V_MINE).length==pending.length){
         _G.gameOver=true;
         _G.lastWin=1;
         showAll(scene);
-        _.delay(100, gameOver);
+        _.delay(100, ()=>_Z.modal("EndGame"));
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Randomly place mines around */
     function placeBombs(rows,cols,target){
-      let n=rows*cols,
-          x,y,p,t=0;
+      let n=rows*cols, x,y,p,t=0;
       while(t<target){
         p=_.randInt2(0,n-1);
-        y=int(p/cols);
+        y=_M.ndiv(p,cols);
         x=p%cols;
-        if(_G.grid[y][x].value !== V_MINE){
+        if(_G.grid[y][x].value != V_MINE){
           ++t;
           _G.grid[y][x].value=V_MINE;
         }
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Indicates how many mines are around this cell */
     function calcBombs(){
       let rows=_G.grid.length,
-          cols=_G.grid[0].length,
-          calc=(r,c)=>{
-            return isValid(r,c) && _G.grid[r][c].value==V_MINE ?1:0 };
-
+        cols=_G.grid[0].length,
+        calc=(r,c)=> isValid(r,c) && _G.grid[r][c].value==V_MINE ?1:0;
       for(let y=0; y<rows; ++y){
         for(let t,x=0; x<cols; ++x){
           t=0;
-          if(_G.grid[y][x].value !== V_MINE){
+          if(_G.grid[y][x].value != V_MINE){
             //neighbours
             _G.grid[y][x].value = calc(y+1,x) +
                                   calc(y,x+1) +
@@ -265,18 +254,18 @@
       }
     }
 
-    /**/
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function expand(scene,row,col){
       if(!isValid(row,col)){return 0}
       let sum=0,
-          x,y,s,
-          cell= _G.grid[row][col];
-      if(!cell.opened && cell.value!==V_MINE && cell.value !== V_MARKER){
-        cell.sprite.visible=false;
+        x,y,s,
+        cell= _G.grid[row][col];
+      if(!cell.opened && cell.value!=V_MINE && cell.value != V_MARKER){
+        _S.hide(cell.sprite);
         cell.opened=true;
         sum=1;
         if(cell.value!=0){
-          s=_S.centerAnchor(_S.sprite(`${cell.value}.png`));
+          s=_S.anchorXY(_S.sprite(`${cell.value}.png`),0.5);
           _S.sizeXY(s,cell.sprite.width, cell.sprite.height);
           _S.scaleBy(s, 0.5, 0.5);
           s.tint=_S.color("#e2e55c");
@@ -297,19 +286,17 @@
       return sum;
     }
 
-    /**/
-    function initBg(scene){
-      _S.repeatSprite("grass.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s))
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const initBg=(s)=> _S.repeatSprite("grass.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s));
 
-    /**/
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function initHud(scene){
       let s1,s2,c,s,
-          gap=10,
-          fz=Mojo.getScaleFactor() * 36;
+        gap=10,
+        fz=Mojo.getScaleFactor() * 36;
       s= _G.flag=_S.sprite("box.png");
       s.addChild(c= _S.sprite("rflag.png"));
-      _S.centerAnchor(c);
+      _S.anchorXY(c,0.5);
       [c.x,c.y]= _S.centerXY(s);
       _S.sizeXY(s,_G.CELLW, _G.CELLH);
       _S.scaleBy(c,0.5,0.5);
@@ -318,7 +305,7 @@
         onDropped(scene, _G.flag);
         if(!_G.timerStarted) _.delay(1000,updateTimer);
       };
-      _S.pinTop(_G.bg,s);
+      _S.pinAbove(_G.bg,s);
       //save the pos so that we know where to move back
       s.g.oldx=s.x;
       s.g.oldy=s.y;
@@ -326,9 +313,9 @@
       scene.insert(_G.flag);
       //indicate how many mines are hidden
       _G.minesCount=Mojo.u.dimXY[2];
-      s= _G.minesText= _S.bitmapText(`${_G.minesCount}`,{fontSize:fz});
+      s= _G.minesText= _S.bmpText(`${_G.minesCount}`,{fontSize:fz});
       s.tint=C_TITLE;
-      _S.pinTop(_G.bg,s,gap,0);
+      _S.pinAbove(_G.bg,s,gap,0);
       scene.insert(s);
       s1=_S.sprite("mine.png");
       _S.sizeXY(s1,_G.CELLW, _G.CELLH);
@@ -339,7 +326,7 @@
       //show the timer
       s=_S.bitmapText(`000`,{fontSize:fz});
       s.tint=C_TITLE;
-      _S.pinTop(_G.bg,s,gap,1);
+      _S.pinAbove(_G.bg,s,gap,1);
       scene.insert(s);
       s1=_S.sprite("clock.png");
       _S.sizeXY(s1,_G.CELLW, _G.CELLH);
@@ -351,7 +338,7 @@
       _G.timerSecs=0;
     }
 
-    /**/
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function updateTimer(){
       let msg= _.prettyNumber(++_G.timerSecs,3);
       _G.timerText.text=`${msg}`;
@@ -360,60 +347,57 @@
         _.delay(1000, updateTimer);
     }
 
-    /**/
-    function doBackDrop(scene){
-      _S.repeatSprite("grass.png",true,true,Mojo.width,Mojo.height).forEach(s=>scene.insert(s))
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const doBackDrop=(s)=>{
+      _S.repeatSprite("grass.png",true,true,Mojo.width,Mojo.height).forEach(p=>s.insert(p));
+      return s;
     }
 
-    /**/
-    _Z.defScene("Splash",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("Splash",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor(),
-              verb = Mojo.touchDevice ? "Tap": "Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText(`Minesweeper`, {fontName:TITLE_FONT, fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,Mojo.width/2, Mojo.height*0.3);
-          self.insert( _S.centerAnchor(s));
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,b,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`, {fontName:UI_FONT, fontSize:72*K});
-          b=_I.mkBtn( _S.tint(s,_S.color("#ffffff")));
-          t=_X.throb(b);
-          b.m5.press= ()=> {
-            _X.remove(t);
-            _S.tint(b, C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY, ()=> _Z.replaceScene(self,"MainMenu"));
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText(`Minesweeper`, TITLE_FONT, 120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,Mojo.width/2, Mojo.height*0.3);
+            return self.insert( _S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 72*K);
+            _S.tint(s,_S.color("#ffffff"));
+            t=_X.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _X.remove(t);
+              _S.tint(s, C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
+            }
+            _I.on(["single.tap"],cb);
+            _V.set(s,Mojo.width/2, Mojo.height * 0.7);
+            return self.insert( _S.anchorXY(s,0.5));
           }
-          _V.set(b,Mojo.width/2, Mojo.height * 0.7);
-          self.insert( _S.centerAnchor(b));
-        };
-
-        doBackDrop(this);
-        this.g.doTitle();
-        this.g.doNext();
+        });
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
-    /**/
-    _Z.defScene("MainMenu",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("MainMenu",{
       setup(){
-        const self=this,
-              K=Mojo.getScaleFactor();
-        let s,b1,b2,b3,gap,fz=K*64;
-
-        s=_S.bmpText("Easy",{fontName:UI_FONT,fontSize:fz});
+        let self=this,
+          K=Mojo.getScaleFactor(),
+          s,b1,b2,b3,gap,pad,fz=K*64;
+        s=_S.bmpText("Easy",UI_FONT,fz);
         b1=_I.mkBtn(_S.uuid(s,"#easy"));
-        s=_S.bmpText("Medium",{fontName:UI_FONT, fontSize:fz});
+        s=_S.bmpText("Medium",UI_FONT, fz);
         b2=_I.mkBtn(_S.uuid(s,"#medium"));
-        s=_S.bmpText("Hard",{fontName:UI_FONT, fontSize:fz});
+        s=_S.bmpText("Hard",UI_FONT, fz);
         b3=_I.mkBtn(_S.uuid(s,"#hard"));
-
-        let pad=int(b3.height);
+        pad=int(b3.height);
         b1.m5.press=
         b2.m5.press=
         b3.m5.press=(btn)=>{
@@ -426,36 +410,33 @@
           Mojo.u.dimXY= Mojo.u.levels[i];
           _S.tint(btn,C_ORANGE);
           playClick();
-          _.delay(CLICK_DELAY, ()=>_Z.replaceScene(self,"GamePlay"));
+          _.delay(CLICK_DELAY, ()=>_Z.runEx("GamePlay"));
         };
-
         doBackDrop(self);
         this.insert(_Z.layoutY([b1,b2,b3],{bg:"#cccccc", opacity:0.3, padding:pad}));
       }
     });
 
-    /**/
-    _Z.defScene("EndGame",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor(), fz=K * 36;
-
-        let msg= `You ${_G.lastWin>0 ? "win":"lose"}!`;
-        let space=()=>{ return _S.opacity(_S.bmpText("I", {fontName:UI_FONT,fontSize:fz}),0) };
-
-        let b1=_I.mkBtn(_S.bmpText("Play Again?", {fontName:UI_FONT, fontSize:fz}));
-        let b2=_I.mkBtn(_S.bmpText("Quit", {fontName:UI_FONT, fontSize:fz}));
-        let m1=_S.bmpText("Game Over",{fontName:UI_FONT, fontSize:fz});
-        let m2=_S.bmpText(msg,{fontName:UI_FONT, fontSize:fz});
-        let gap=_S.bmpText("or",{fontName:UI_FONT, fontSize:fz});
-
+          K=Mojo.getScaleFactor(),
+          fz=K * 36,
+          msg= `You ${_G.lastWin>0 ? "win":"lose"}!`,
+          space=()=> _S.opacity(_S.bmpText("I", UI_FONT,fz),0),
+          b1=_I.mkBtn(_S.bmpText("Play Again?", UI_FONT, fz)),
+          b2=_I.mkBtn(_S.bmpText("Quit", UI_FONT, fz)),
+          m1=_S.bmpText("Game Over",UI_FONT, fz),
+          m2=_S.bmpText(msg,UI_FONT, fz),
+          gap=_S.bmpText("or",UI_FONT, fz);
         b1.m5.press=(btn)=>{
           _S.tint(btn,C_ORANGE);
-          _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("MainMenu"));
+          _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
         };
         b2.m5.press=(btn)=>{
           _S.tint(btn,C_ORANGE);
-          _.delay(CLICK_DELAY, ()=> _Z.runSceneEx("Splash"));
+          _.delay(CLICK_DELAY, ()=> _Z.runEx("Splash"));
         };
 
         Mojo.sound(_G.lastWin>0?"game_win.mp3":"game_over.mp3").play();
@@ -463,39 +444,33 @@
       }
     });
 
-    /**/
-    _Z.defScene("GamePlay",{
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("GamePlay",{
       setup(options){
         const self=this,
-              K=Mojo.getScaleFactor();
+          K=Mojo.getScaleFactor();
         let s,w,h,bb,dim=Mojo.u.dimXY;
 
         doBackDrop(self);
-
         //arena is the area containing the cells
         _G.grid= _S.gridXY([dim[0],dim[1]],0.9,0.7,_G.arena={x:0,y:0});
         _G.gfx=_S.graphics();
-
         //figure out size of a cell
         s=_G.grid[0][0];
         _G.CELLW=s.x2-s.x1;
         _G.CELLH=s.y2-s.y1;
-
         //draw the grid
         bb=_S.gridBBox(_G.arena.x,_G.arena.y,_G.grid);
         _S.drawGridLines(_G.arena.x, _G.arena.y,_G.grid,1,C_NUM,_G.gfx);
         _S.drawGridBox(bb,1,C_NUM,_G.gfx);
-
         //use this to easily pin other widgets
         _G.bg=_S.rect(_G.arena.width,_G.arena.height,false,C_NUM,1);
         _G.bg.x=_G.arena.x;
         _G.bg.y=_G.arena.y;
         this.insert(_G.bg);
-
         //level initialization
         initLevel(this,dim[0],dim[1],dim[2]);
         this.insert(_G.gfx);
-
         //show other UI stuff
         initHud(this);
       }
@@ -503,8 +478,9 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //one small step for...
+  window.addEventListener("load",()=> MojoH5({
+
     assetFiles: ["clock.png", "audioOn.png","audioOff.png",
                  "click.mp3", "boom.mp3","expand.mp3",
                  "drop.mp3","game_over.mp3","game_win.mp3","tiles.png","images/tiles.json"],
@@ -521,13 +497,9 @@
     //fps:30,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //one small step for...
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 
