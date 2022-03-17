@@ -92,7 +92,7 @@
         if(s)
           this.m5.setup=s.bind(this);
       }
-      _hitObjects(grid,obj,found,repeat=3){
+      _hitObjects(grid,obj,found,repeat=1){
         for(let m,b,i=0,cur=repeat;i<found.length;++i){
           b=found[i];
           if(obj !== b &&
