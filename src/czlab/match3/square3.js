@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -29,6 +29,7 @@
            Game:_G,
            FX:_F,
            v2:_V,
+           math:_M,
            ute:_,is} = Mojo;
 
     //static data
@@ -39,21 +40,19 @@
     })();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
-    //const C_TITLE=_S.color("#ea2152");//red
-    //const C_TITLE=_S.color("#1eb7e6");//blue
-    const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#e4ea1c"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
+
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const doBackDrop=(s,a=1)=> s.insert(_S.opacity(_S.fillMax(_S.sprite("bg.png")),a));
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){ Mojo.sound("click.mp3").play() }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TILES_X=6;
     const TILES_Y=8;
 
@@ -63,92 +62,78 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene,alpha=1){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      _G.backDropSprite.alpha=alpha;
-      return scene.insert(_G.backDropSprite);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            W2=Mojo.width/2,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Match 3",{fontName:TITLE_FONT,fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,W2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
-              _Z.runScene("hud");
-            });
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Match 3",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+            }
+            _I.on(["single.tap"],cb);
+            _V.set(s,W2,Mojo.height*0.7);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,W2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
+        });
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this,0.2) && this.g.doTitle() && this.g.doNext();
+        this.insert(_S.rect(Mojo.width,Mojo.height,"#f15982"));
+        this.g.doTitle() && this.g.doNext();
       }
     });
 
-    //hud
-    _Z.defScene("hud",{
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("HUD",{
       setup(){
         let K=Mojo.getScaleFactor();
         let s=_S.bboxFrame(_G.arena,int(24*K),"#f05680");
         this.insert(s);
-        this.msg=_S.bitmapText("0",{fontName:"unscii",fontSize:36,tint:0xffffff});
-      },
-      postUpdate(){
+        this.msg=_S.bmpText("0",{fontName:"unscii",fontSize:36,tint:0xffffff});
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor(),
-              grid= _S.gridXY([TILES_X,TILES_Y]);
+          K=Mojo.getScaleFactor(),
+          grid= _S.gridXY([TILES_X,TILES_Y]);
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           backdrop(){
             let rE=_.tail(grid),
-                r1=_.head(grid),
-                n=r1.length,
-                f=r1[0],
-                e=rE[n-1],
-                bg=self.getChildById("bg"),
-                s=_S.rect(e.x2-f.x1,
-                          e.y2-f.y1,
-                          0xaaaaaa,0xaaaaaa, 0,f.x1,f.y1);
-            if(!bg){
+              r1=_.head(grid),
+              n=r1.length,
+              f=r1[0],
+              e=rE[n-1],
+              bg=self.getChildById("bg"),
+              s=_S.rect(e.x2-f.x1, e.y2-f.y1, 0xaaaaaa);
+            _V.set(s,f.x1,f.y1);
+            if(!bg)
               bg=self.insert(_S.uuid(_S.container(),"bg"))
-            }
             bg.removeChildren();
             bg.addChild(s);
             return this;
           },
           initLevel(){
             let z=grid[0][0],
-                match3= new Match3({rows: TILES_Y,
-                                    columns: TILES_X,
-                                    items: IMAGEFILES.length });
+              match3= new Match3({rows: TILES_Y,
+                                  columns: TILES_X,
+                                  items: IMAGEFILES.length });
             _.inject(_G,{
               arena: _S.gridBBox(0,0,grid),
               tilesInY: TILES_Y,
@@ -176,7 +161,7 @@
             let s=_S.sprite(_G.icons[color]);
             s.iconColor=color;
             _S.sizeXY(s,_G.tileW, _G.tileH);
-            return self.insert(_S.centerAnchor(s));
+            return self.insert(_S.anchorXY(s,0.5));
           },
           onClick(){
             if(!_G.selecting){return}else{_G.dragging=true}
@@ -238,7 +223,7 @@
                           t.x + _G.tileW  * move.deltaColumn,
                           t.y + _G.tileH * move.deltaRow, 10);
               e.onComplete=()=>{
-                if(--cnt===0){
+                if(--cnt==0){
                   if(!_G.match3.matchInBoard()){
                     if(swapBack){
                       this.swap2(row, col, row2, col2, false);
@@ -261,7 +246,7 @@
               e.onComplete=()=>{
                 _G.match3.setCustomData(m.row,m.column,null);
                 _S.remove(t);
-                if(--cnt===0)
+                if(--cnt==0)
                   this.dropTiles();
               };
             });
@@ -278,7 +263,7 @@
                          t.x,
                          t.y + move.deltaRow * _G.tileH,10);
               e.onComplete=()=>{
-                if(--moved===0)
+                if(--moved==0)
                   this.endMove();
               };
             });
@@ -288,13 +273,13 @@
               t= this.createTile(_G.match3.valueAt(move.row, move.column));
               _G.match3.setCustomData(move.row,move.column,t);
               g= _G.grid[move.row][move.column];
-              t.x=int((g.x1+g.x2)/2);
-              t.y= TL.y1+_G.tileH * (move.row - move.deltaRow + 1) - int(_G.tileH/2);
+              t.x=_M.ndiv(g.x1+g.x2,2);
+              t.y= TL.y1+_G.tileH * (move.row - move.deltaRow + 1) - _M.ndiv(_G.tileH,2);
               e=_F.slide(t,_F.BOUNCE_OUT,
                          t.x,
-                         TL.y1 + _G.tileH * move.row + int(_G.tileH/2), 10*move.deltaRow);
+                         TL.y1 + _G.tileH * move.row + _M.ndiv(_G.tileH,2), 10*move.deltaRow);
               e.onComplete=()=>{
-                if(--moved===0)
+                if(--moved==0)
                   this.endMove();
               };
             });
@@ -308,10 +293,11 @@
           }
         });
         doBackDrop(this) && this.g.backdrop() && this.g.initLevel();
-        Mojo.on(["single.tap"],"onClick",this.g);
+        _I.on(["single.tap"],"onClick",this.g);
+        _Z.run("HUD");
       },
       dispose(){
-        Mojo.off(["single.tap"],"onClick",this.g)
+        _I.off(["single.tap"],"onClick",this.g)
       },
       _onMouseMove(){
       },
@@ -321,21 +307,19 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load and run
+  window.addEventListener("load", ()=> MojoH5({
+
     assetFiles: ["bg.png","candy.png","click.mp3"],
     arena: {width:480,height:800},
     scaleToWindow: "max",
     scaleFit:"y",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load", ()=> MojoH5(_$));
+  }));
 
 })(this);
 

@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -21,97 +21,86 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
+
     const {Sprites:_S,
            Scenes:_Z,
            FX:_F,
            Input:_I,
            Game:_G,
-           "2d":_2d,
+           Arcade:_2d,
+           math:_M,
            v2:_V,
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#e4ea1c"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b"),
+      C_BG=_S.color("#1e1e1e");
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
-    //const C_TITLE=_S.color("#ea2152");//red
-    //const C_TITLE=_S.color("#1eb7e6");//blue
-    //const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const C_BG=_S.color("#1e1e1e");
+    const doBackDrop=(s)=> 1;//s.insert(_S.fillMax(_S.sprite("bg.png")));
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
     const ICON_WIDTH=64;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){ Mojo.sound("click.mp3").play() }
+    const E_PLAYER=1,
+      E_CAR=2,
+      E_LOG=4,
+      E_COIN=8;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene,alpha=1){return 1;
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,alpha));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const E_PLAYER=1;
-    const E_CAR=2;
-    const E_LOG=4;
-    const E_COIN=8;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            W2=Mojo.width/2,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Frogger",{fontName:TITLE_FONT,fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,W2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
-            });
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Frogger",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+            }
+            _I.on(["single.tap"],cb);
+            _V.set(s,W2,Mojo.height*0.7);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,W2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
+        });
+        this.insert(_S.rect(Mojo.width,Mojo.height,"#2cc46c"));
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this,0.2) && this.g.doTitle() && this.g.doNext();
+        this.g.doTitle() && this.g.doNext();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const BANDS=["home","water","water","water","grass","road","road","road","grass"].map(x=> `${x}.png`);
-    const BAND_CNT=BANDS.length, ROAD=3, RIVER=3;
-    const CARS=["bus1","bus2","car1","car2","car3","fire_truck","police","taxi"].map(x=> `${x}.png`);
-    const CARGRP={3:[], 4:[], 5:[], 6:[]};
-    const CARLEN=[4,5,3,3,3,6,4,4];
-    const CARMAP={};
+    const BANDS=["home","water","water","water","grass","road","road","road","grass"].map(x=> `${x}.png`),
+      BAND_CNT=BANDS.length, ROAD=3, RIVER=3,
+      CARS=["bus1","bus2","car1","car2","car3","fire_truck","police","taxi"].map(x=> `${x}.png`),
+      CARGRP={3:[], 4:[], 5:[], 6:[]},
+      CARLEN=[4,5,3,3,3,6,4,4],
+      CARMAP={};
 
     CARS.forEach((s,i)=>{
       CARMAP[s]=CARLEN[i];
       CARGRP[CARLEN[i]].push(s);
-    })
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    });
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TRACKLEN = 64;
     const TRACKS = [
       [0,    "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", "e"],
@@ -153,7 +142,7 @@
       let g=grid[band][0];
       s.m5.mask=E_LOG;
       s.height= 0.8 * tileH;
-      s.y=int((g.y1+g.y2)/2 - s.height/2);
+      s.y=_M.ndiv(g.y1+g.y2 - s.height,2);
       s.m5.vel[0]=dir;
       s.m5.tick=(dt)=>{
         _S.move(s,dt);
@@ -179,10 +168,11 @@
       return s;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkFlowRight(s){
       if(s.x>Mojo.width){
         _.assert(s===s.g.river[0], "bad right pop");
-        let e=s.g.river[s.g.river.length-1];
+        let e= _.last(s.g.river);
         let {tileW}=_G;
         s.g.river.shift();
         s.g.river.push(s);
@@ -190,10 +180,11 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkFlowLeft(s){
       if((s.x+s.width)<0){
         _.assert(s===s.g.river[0], "bad left pop");
-        let e=s.g.river[s.g.river.length-1];
+        let e=_.last(s.g.river);
         let {tileW}=_G;
         s.g.river.shift();
         s.g.river.push(s);
@@ -201,10 +192,11 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkGoRight(s){
       if(s.x>Mojo.width){
         _.assert(s===s.g.track[0], "bad right pop");
-        let e=s.g.track[s.g.track.length-1];
+        let e=_.last(s.g.track);
         let {tileW}=_G;
         s.g.track.shift();
         s.g.track.push(s);
@@ -212,10 +204,11 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkGoLeft(s){
       if((s.x+s.width)<0){
         _.assert(s===s.g.track[0], "bad left pop");
-        let e=s.g.track[s.g.track.length-1];
+        let e=_.last(s.g.track);
         let {tileW}=_G;
         s.g.track.shift();
         s.g.track.push(s);
@@ -223,14 +216,17 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildTrack(t,band){
       return t[0]>0?buildTrackRight(t,band):buildTrackLeft(t,band)
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildRiver(t,band){
       return t[0]>0?buildRiverRight(t,band):buildRiverLeft(t,band)
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildRiverLeft(t,band){
       let p,v,gap=0, out=[];
       let cells=t[1];
@@ -260,6 +256,7 @@
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildRiverRight(t,band){
       let out=[],cells= t[1];
       let {tileW}=_G;
@@ -289,6 +286,7 @@
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildTrackRight(t,band){
       let out=[],cells= t[1];
       let {tileW}=_G;
@@ -319,6 +317,7 @@
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildTrackLeft(t,band){
       let p,v,gap=0, out=[];
       let cells=t[1];
@@ -372,18 +371,18 @@
       return row;
     }
 
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
+          K=Mojo.getScaleFactor(),
+          W=Mojo.width,H=Mojo.height;
         randStart();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           initLevel(){
             let sx=0,sy=0,grid=[],
-                K,r,h= int(Mojo.height/BAND_CNT);
+              K,r,h= _M.ndiv(Mojo.height,BAND_CNT);
             _G.tileH=h;
             _G.tileW=h;
             _G.logs=[];
@@ -419,11 +418,11 @@
                   s=_S.sprite("coin.png");
                   s.m5.type=E_COIN;
                   _S.sizeXY(s,tileW*0.5,tileH*0.5);
-                  s.x=int((g.x1+g.x2)/2);
-                  s.y=int((g.y1+g.y2)/2);
+                  s.x=_M.ndiv(g.x1+g.x2,2);
+                  s.y=_M.ndiv(g.y1+g.y2,2);
                   g.blocked=false;
                   _G.coins.push(s);
-                  self.insert(_S.centerAnchor(s),true);
+                  self.insert(_S.anchorXY(s,0.5),true);
                 }
               }
             });
@@ -434,20 +433,20 @@
             let cEnd=grid[0].length-1;
             let gEnd=grid.length-1;
             let last=grid[gEnd];
-            let gMid=int(last.length/2)-1;
+            let gMid=_M.ndiv(last.length,2)-1;
             let m= last[gMid];
-            _S.centerAnchor(s);
+            _S.anchorXY(s,0.5);
             _S.sizeXY(s,int(0.8*tileW),int(0.8*tileH));
-            s.y= int((last[0].y1+last[0].y2)/2);
-            s.x= int((m.x1+m.x2)/2);
+            s.y= _M.ndiv(last[0].y1+last[0].y2,2);
+            s.x= _M.ndiv(m.x1+m.x2,2);
             s.m5.type=E_PLAYER;
             s.m5.cmask=E_CAR|E_LOG|E_COIN;
             s.g.row=gEnd;
             s.g.col=gMid;
             s.m5.dispose=()=>{ Mojo.off(s); };
             s.g.reset=()=>{
-              s.y= int((last[0].y1+last[0].y2)/2);
-              s.x= int((m.x1+m.x2)/2);
+              s.y= _M.ndiv(last[0].y1+last[0].y2,2);
+              s.x= _M.ndiv(m.x1+m.x2,2);
               s.g.row=gEnd;
               s.g.col=gMid;
               s.m5.vel[0]=0;
@@ -482,17 +481,21 @@
               }
             };
             s.m5.onHit=(col)=>{
-              if(col.B.m5.type===E_CAR){
+              if(col.B.m5.type==E_CAR){
                 s.g.reset();
               }else if (col.B.m5.type==E_COIN){
                 _.disj(_G.coins,col.B);
                 _S.remove(col.B);
+                if(_G.coins.length==0){
+                  _G.gameOver= self.m5.dead=true;
+                  _.delay(CLICK_DELAY,()=>_Z.modal("EndGame",{msg:"You Win!"}));
+                }
               }
             };
             Mojo.on(["hit",s],"onHit",s.m5);
             _G.player=self.insert(s,true);
             /////////
-            _I.keybd(_I.LEFT,()=>{
+            _G.goLeft=()=>{
               if((s.g.col-1)>=0){
                 s.x -= tileW;
                 s.g.col-=1;
@@ -507,8 +510,9 @@
                   s.m5.vel[0]=0;
                 }
               }
-            });
-            _I.keybd(_I.RIGHT,()=>{
+            };
+            _I.keybd(_I.LEFT,_G.goLeft);
+            _G.goRight=()=>{
               if((s.g.col+1)<= cEnd){
                 if((s.x+tileW+s.width)<Mojo.width){
                   s.x += tileW;
@@ -525,8 +529,9 @@
                   }
                 }
               }
-            });
-            _I.keybd(_I.UP,()=>{
+            };
+            _I.keybd(_I.RIGHT,_G.goRight);
+            _G.goUp=()=>{
               if((s.g.row-1)>=0){
                 s.y -= tileH;
                 s.g.row-=1;
@@ -548,8 +553,9 @@
                   }
                 }
               }
-            });
-            _I.keybd(_I.DOWN,()=>{
+            };
+            _I.keybd(_I.UP,_G.goUp);
+            _G.goDown=()=>{
               if((s.g.row+1)<=gEnd){
                 s.y += tileH;
                 s.g.row+=1;
@@ -564,15 +570,32 @@
                   }
                 }
               }
-            });
-
+            };
+            _I.keybd(_I.DOWN,_G.goDown);
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this)&&this.g.initLevel();
+        this.g.initLevel();
         this.g.initBands();
         this.g.initHoles();
         this.g.initPlayer();
+        _Z.run("HotKeys",{
+          fontSize: 48*K,
+          radius: 32*K,
+          alpha:0.5,
+          buttons:true,
+          cb(obj){
+            _V.set(obj.right,W-obj.right.width,H-obj.right.height);
+            _S.pinLeft(obj.right,obj.left,obj.right.width/4);
+            _V.set(obj.up,obj.up.width,H-obj.up.height);
+            _S.pinRight(obj.up,obj.down,obj.up.width/4);
+            obj.up.m5.press=()=> _G.goUp();
+            obj.down.m5.press=()=> _G.goDown();
+            obj.left.m5.press=()=> _G.goLeft();
+            obj.right.m5.press=()=> _G.goRight();
+            return obj;
+          }
+        });
       },
       postUpdate(dt){
         this.searchSGrid(_G.player).forEach(o=>{
@@ -580,11 +603,33 @@
         });
       }
     });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let os={fontName:UI_FONT,
+                fontSize: 72*Mojo.getScaleFactor()},
+          snd="game_over.mp3",
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"You Lose!", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        s4.m5.press=()=>_Z.runEx("PlayGame");
+        s6.m5.press=()=>_Z.runEx("Splash");
+        if(options.msg) snd="game_win.mp3";
+        Mojo.sound(snd).play();
+        options.bg="#999999";
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
+
     assetFiles: ["click.mp3","game_over.mp3","game_win.mp3",
                  "log2.png","log3.png","log4.png","home.png","coin.png","block.png",
                  "items.png","grass.png","water.png","dirt.png","bush.png","froggy.png","images/items.json"],
@@ -593,13 +638,9 @@
     scaleFit:"y",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 
