@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -28,6 +28,7 @@
            Game:_G,
            FX:_F,
            v2:_V,
+           math:_M,
            ute:_, is}= Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -36,41 +37,34 @@
            Local,Mediator}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#fff20f");
-    const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#fff20f"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const playSnd=(team)=> Mojo.sound(team=="w"?"x.mp3":"o.mp3").play();
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){
-      Mojo.sound("click.mp3").play();
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playSnd(team){
-      Mojo.sound(team=="w"?"x.mp3":"o.mp3").play();
-    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const F_COLPOSMAP={a:7,b:6,c:5,d:4,e:3,f:2,g:1,h:0};
     const COLPOSMAP={a:0,b:1,c:2,d:3,e:4,f:5,g:6,h:7};
 
-    const F_COLPOS="hgfedcba";
-    const COLPOS="abcdefgh";
-    const ROWPOS=[null,7,6,5,4,3,2,1,0];
-    const RPOS=[8,7,6,5,4,3,2,1];
-
-    const VZERO="0".charCodeAt(0);
-    const VNINE="9".charCodeAt(0);
+    const ROWPOS=[null,7,6,5,4,3,2,1,0],
+      RPOS=[8,7,6,5,4,3,2,1],
+      F_COLPOS="hgfedcba",
+      COLPOS="abcdefgh",
+      VZERO="0".charCodeAt(0),
+      VNINE="9".charCodeAt(0);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function toLocal(pos){
       let M=_G.mediator,
-          row, col,team=M.cur().uuid();
+        row, col,team=M.cur().uuid();
       if(pos=="O-O-O" || pos=="O-O"){
         row= team=="w"? 1 : 8;
         col= pos.length>3 ? 2 : 6;
@@ -84,7 +78,6 @@
           }
         }
       }
-
       return M.flipped() ? [row-1, col] : [ ROWPOS[row], col];
     }
 
@@ -100,7 +93,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkEnd(){
       let M=_G.mediator,
-          msg,e,w,S=M.gameState();
+        msg,e,w,S=M.gameState();
       if(S.in_draw() || S.in_stalemate()){
         e=M.gameOver();
       }else if(S.in_checkmate()){
@@ -110,12 +103,11 @@
         msg="No Winner!";
         if(w=M.winner()){
           if(w.stateValue()==_G.X)
-            msg= _G.mode===1? "You Win!" : "Player 1 Win!";
+            msg= _G.mode==1? "You Win!" : "Player 1 Win!";
           else
-            msg= _G.mode===1? "You Lose!" : "Player 2 Win!";
+            msg= _G.mode==1? "You Lose!" : "Player 2 Win!";
         }
-        _I.resetAll();
-        _.delay(CLICK_DELAY,()=> _Z.runScene("EndGame",{msg}));
+        _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg}));
       }
       return e;
     }
@@ -142,11 +134,12 @@
         //console.log("aiMove=======");
         //console.log(JSON.stringify(moves));
         if(moves && moves.length>0){
-          move= moves.length===1?moves[0]: this.ai.run(S, this)
+          move= moves.length==1?moves[0]: this.ai.run(S, this)
         }
         _G.mediator.updateMove(this,move);
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** @class */
     class CHHuman extends Local{
@@ -209,27 +202,30 @@
       _.delay(100,()=>_G.mediator.takeTurn());
     }
 
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const COLS=8;
+    const ROWS=8;
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
-      COLS:8,
-      ROWS:8,
       X:88,
       O:79,
       hideCheckMsg(){
-        this.checkMsg.visible=false;
+        _S.hide(this.checkMsg)
       },
       showCheckMsg(){
         let c= this.mediator.other().uuid()=="w"?WCOLOR:BCOLOR;
         _S.tint(this.checkMsg, c);
-        this.checkMsg.visible=true;
+        _S.show(this.checkMsg);
       },
       hidePromotion(){
-        this.promoteMenu.visible=false;
+        _S.hide(this.promoteMenu);
         this.promoteMenu.children.forEach(c=> _I.undoBtn(c));
         return this.promoteMenu;
       },
       showPromotion(){
-        this.promoteMenu.visible=true;
+        _S.show(this.promoteMenu);
         this.promoteMenu.children.forEach(c=> _I.mkBtn(c));
         return this.promoteMenu;
       }
@@ -246,59 +242,54 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.sizeXY(_S.sprite("bggreen.jpg"), Mojo.width, Mojo.height);
-      return scene.insert(_G.backDropSprite);
-    }
+    const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bggreen.jpg")));
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Chess",{fontName:TITLE_FONT, fontSize: 180*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s, Mojo.width/2, Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(b,s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize: 64*K});
-          _V.set(s, Mojo.width/2, Mojo.height*0.7);
-          b=_I.mkBtn(s);
-          t=_F.throb(b,0.99);
-          b.m5.press=(btn)=>{
-            _F.remove(t);
-            _S.tint(btn,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=> _Z.runSceneEx("MainMenu"));
-          };
-          self.insert(_S.centerAnchor(s));
-        };
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Chess",TITLE_FONT, 180*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s, Mojo.width/2, Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 84*K);
+            _V.set(s, Mojo.width/2, Mojo.height*0.7);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
+            };
+            _I.on(["single.tap"],cb);
+            return self.insert(_S.anchorXY(s,0.5));
+          }
+        });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("EndGame",{
+    _Z.scene("EndGame",{
       setup(options){
-        let s1,s2,
-            snd="game_over.mp3",
-            s4,s5,s6,os={fontName:UI_FONT,
-                         fontSize: 72*Mojo.getScaleFactor()};
-        let space=(s)=>{ s=_S.bmpText("I",os); s.alpha=0; return s; };
-        s1=_S.bmpText("Game Over", os);
-        s2=_S.bmpText(options.msg||"No Winner!", os);
-        s4=_I.mkBtn(_S.bmpText("Play Again?",os));
-        s5=_S.bmpText(" or ",os);
-        s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>{ _Z.runSceneEx("MainMenu") };
-        s6.m5.press=()=>{ _Z.runSceneEx("Splash") };
+        let snd="game_over.mp3",
+          os={fontName:UI_FONT,
+              fontSize: 72*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"No Winner!", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        s4.m5.press=()=> _Z.runEx("MainMenu");
+        s6.m5.press=()=> _Z.runEx("Splash");
         if(options.msg) snd="game_win.mp3";
         Mojo.sound(snd).play();
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
@@ -306,22 +297,22 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("MainMenu",{
+    _Z.scene("MainMenu",{
       setup(){
         let self=this,
-            mode=1,
-            K=Mojo.getScaleFactor(),
-            cfg={fontName:UI_FONT,fontSize:72*K};
-        function space(){return _S.opacity(_S.bmpText("I",cfg),0)}
-        let b1= _S.uuid(_I.mkBtn(_S.bmpText("1 PLAYER",cfg)),"#p1");
-        let gap=_S.bmpText("or",cfg);
-        let b2= _S.uuid(_I.mkBtn(_S.bmpText("2 PLAYER",cfg)),"#p2");
+          mode=1,
+          K=Mojo.getScaleFactor(),
+          cfg={fontName:UI_FONT,fontSize:72*K},
+          space=()=>_S.opacity(_S.bmpText("I",cfg),0),
+          b1= _S.uuid(_I.mkBtn(_S.bmpText("1 PLAYER",cfg)),"#p1"),
+          gap=_S.bmpText("or",cfg),
+          b2= _S.uuid(_I.mkBtn(_S.bmpText("2 PLAYER",cfg)),"#p2");
         b1.m5.press=
         b2.m5.press=(btn)=>{
           if(btn.m5.uuid=="#p2")mode=2;
           _S.tint(btn,C_ORANGE);
           playClick();
-          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("StartMenu",{mode}));
+          _.delay(CLICK_DELAY,()=>_Z.runEx("StartMenu",{mode}));
         };
         doBackDrop(this);
         self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"#cccccc",fit: 80,opacity:0.3}));
@@ -329,23 +320,23 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("StartMenu",{
+    _Z.scene("StartMenu",{
       setup(options){
         let self=this,
-            K=Mojo.getScaleFactor(),
-            cfg={fontName:UI_FONT,fontSize:72*K};
+          K=Mojo.getScaleFactor(),
+          cfg={fontName:UI_FONT,fontSize:72*K};
         options.startsWith=1;
-        function space(){return _S.opacity(_S.bmpText("I",cfg),0)}
-        let msg= _S.bmpText("Player 1 starts? ",cfg);
-        let b1= _I.mkBtn(_S.uuid(_S.bmpText("Yes",cfg),"#p1"));
-        let gap= _S.bmpText(" / ",cfg);
-        let b2= _I.mkBtn(_S.uuid(_S.bmpText("No",cfg), "#p2"));
+        let space=()=> _S.opacity(_S.bmpText("I",cfg),0),
+          msg= _S.bmpText("Player 1 starts? ",cfg),
+          b1= _I.mkBtn(_S.uuid(_S.bmpText("Yes",cfg),"#p1")),
+          gap= _S.bmpText(" / ",cfg),
+          b2= _I.mkBtn(_S.uuid(_S.bmpText("No",cfg), "#p2"));
         b1.m5.press=
         b2.m5.press=(btn)=>{
           if(btn.m5.uuid=="#p2") options.startsWith=2;
           _S.tint(btn,C_ORANGE);
           playClick();
-          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame", options));
+          _.delay(CLICK_DELAY,()=>_Z.runEx("PlayGame", options));
         };
         self.insert(_Z.layoutX([msg,space(), b1, gap, b2],{bg:"transparent"}));
       }
@@ -363,7 +354,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function dropTarget(t){
       let {row,col}=t.g;
-      t.visible=false;
+      _S.hide(t);
       _G.targets.push(t)
       _I.undoBtn( _G.board[row][col] );
     }
@@ -371,18 +362,17 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function getTarget(){
       let s;
-      if(_G.targets.length===0){
+      if(_G.targets.length==0){
         s=_S.sprite("target.png");
         _S.tint(s,C_ORANGE);
-        s.visible=false;
-        _S.centerAnchor(s);
+        _S.hide(s);
+        _S.anchorXY(s,0.5);
         _S.sizeXY(s,_G.selector.width,_G.selector.height);
         _G.targets.push(s);
         _G.selector.parent.insert(s);
       }
       s=_G.targets.pop();
-      s.visible=true;
-      return s;
+      return _S.show(s);
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -414,18 +404,18 @@
             let r=_G.curSel.g.row;
             let c= _G.curSel.g.col;
             if((_G.curSel.g.icon=="k" || _G.curSel.g.icon=="K") &&
-               r===row && (r===0 || r===_G.ROWS-1) && Math.abs(c-col)==2){
+               r==row && (r==0 || r==ROWS-1) && Math.abs(c-col)==2){
               let rb, rc;
               if(c>col){//o-o-o
                 rc=col+1;
                 rb=0;
               }else{
                 rc=col-1;
-                rb=_G.COLS-1;
+                rb=COLS-1;
               }
               castle={ rook: rb, col:rc, row: row };
             }
-            if((_G.curSel.g.icon=="p"||_G.curSel.g.icon=="P") && (row===0 || row===_G.ROWS-1)){
+            if((_G.curSel.g.icon=="p"||_G.curSel.g.icon=="P") && (row==0 || row==ROWS-1)){
               p= _G.promoteMenu.getSelectedChoice()[1];
             }
             cfg= {to: toCPos(row,col),from: toCPos(r,c)};
@@ -439,7 +429,7 @@
             playSnd(_G.curSel.g.team);
             clsTargets(M);
             repaint();
-            _G.selector.visible=false;
+            _S.hide(_G.selector);
             _G.curSel=null;
             _G.hidePromotion();
             M.takeTurn();
@@ -453,7 +443,7 @@
                 skip=true;
               }
               else if(_G.curSel===s){
-                _G.selector.visible=false;
+                _S.hide(_G.selector);
                 _G.curSel=null;
                 skip=true;
               }else{
@@ -468,7 +458,7 @@
               if(!_G.curSel){
                 clsTargets(M);
                 _G.hidePromotion();
-                _G.selector.visible=false;
+                _S.hide(_G.selector);
               }
             }
             if(!_G.curSel && !skip){
@@ -483,7 +473,7 @@
                 //valid moves
                 _G.curSel=s;
                 _V.copy(_G.selector,s);
-                _G.selector.visible=true;
+                _S.show(_G.selector);
                 moves.forEach(m=>{
                   if(m.san){m=m.san}
                   let [row,col]= toLocal(m);
@@ -511,7 +501,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //kenl
     const _PIECES="rRnNbBqQkKpP";
     const _NUMS="12345678";
     function PNG(piece){
@@ -542,10 +531,11 @@
       _.dotimes(2, ()=> CACHE.k.push(scene.insert(makeIcon("k"))));
       CACHE.scene=scene;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function makeIcon(piece, uid){
       let s= _S.sprite(PNG(piece));
-      s.visible=false;
+      _S.hide(s);
       s.g.icon=piece;
       s.g.team="";
       s.g.row=0;
@@ -553,7 +543,7 @@
       if(uid){
         _S.uuid(s, uid);
       }else{
-        _S.centerAnchor(s);
+        _S.anchorXY(s,0.5);
         s.m5.press=function(){
           !_G.mediator.isGameOver() &&
             _onClick(_G.gameScene, s, _G.mediator) };
@@ -563,13 +553,13 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function makeTiles(){
-      return _.fill(_G.ROWS,()=> _.fill(_G.COLS,null))
+      return _.fill(ROWS,()=> _.fill(COLS,null))
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function dropTile(t){
       if(t){
-        t.visible=false;
+        _S.hide(t);
         t.x=0;
         t.y=0;
         _I.undoBtn(t);
@@ -619,8 +609,8 @@
     function flipMask(S){
       let t,w,r,T= clearTiles();
       let board=S.board();
-      for(let row=0,y=_G.ROWS-1;y>=0;--y){
-        for(let col=0,c,x=_G.COLS-1;x>=0;--x){
+      for(let row=0,y=ROWS-1;y>=0;--y){
+        for(let col=0,c,x=COLS-1;x>=0;--x){
           if(c=board[y][x]){
             t=getTile(c.type);
             _V.copy(t,_G.board[row][col]);
@@ -628,7 +618,7 @@
             t.g.icon= w? c.type.toUpperCase() : c.type;
             t.g.row=row;
             t.g.col=col;
-            t.visible=true;
+            _S.show(t);
             t.g.team=w?"w":"b";
             _S.tint(t,w?WCOLOR:BCOLOR);
             _G.tiles[row][col]=_I.mkBtn(t);
@@ -651,7 +641,7 @@
           t.g.icon= w? c.type.toUpperCase() : c.type;
           t.g.row=y;
           t.g.col=x;
-          t.visible=true;
+          _S.show(t);
           t.g.team=w?"w":"b";
           _S.tint(t,w?WCOLOR:BCOLOR);
           _G.tiles[y][x]=_I.mkBtn(t);
@@ -665,12 +655,12 @@
     const WCOLOR=_S.color("#ffffff"); //WC="orange";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(options){
         let self=this,
-            p1,p2,
-            team=[0,"w","b"],
-            M,K=Mojo.getScaleFactor();
+          p1,p2,
+          team=[0,"w","b"],
+          M,K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel=()=>{
           M= _G.mediator= new CHMediator();
@@ -682,11 +672,11 @@
           _G.blackScore=0;
           _G.gameScene=self;
           _G.tiles= makeTiles();
-          if(options.startsWith===2){
+          if(options.startsWith==2){
             team[1]="b";team[2]="w";
           }
           p1= new CHHuman(team[1],_G.X);
-          if(options.mode===1){
+          if(options.mode==1){
             p2=new CHBot(team[2],_G.O);
             p2.ai= _G.AI(p1,p2);
           }else{
@@ -696,40 +686,39 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initBoard=()=>{
-          let z,g= _G.grid= _S.gridXY([_G.COLS,_G.ROWS],0.9,0.75);
+          let z,g= _G.grid= _S.gridXY([COLS,ROWS],0.9,0.75);
           _G.arena= _S.gridBBox(0,0,g);
-          for(let t,y=0;y<_G.ROWS;++y){
+          for(let t,y=0;y<ROWS;++y){
             _G.board.push(t=[]);
-            for(let s,c,x=0;x<_G.COLS;++x){
+            for(let s,c,x=0;x<COLS;++x){
               c=_G.grid[y][x];
               s= _S.spriteFrom((_.isEven(y)&&_.isEven(x))||
                                (!_.isEven(y)&&!_.isEven(x))
                                ? ["light.png","light1.png"] : ["dark.png","dark1.png"]);
-              t.push( _S.centerAnchor(s));
+              t.push( _S.anchorXY(s,0.5));
               s.g.row=y; s.g.col=x;
               z=c.x2-c.x1;
               s.m5.press=()=>{ _onClick(self, s,M) };
               _S.sizeXY(_S.uuid(s,`c:${y},${x}`),z,z);
-              self.insert( _V.set(s, int((c.x1+c.x2)/2),
-                                     int((c.y1+c.y2)/2)));
-              if(!_G.pieceSize){
+              self.insert( _V.set(s, _M.ndiv(c.x1+c.x2,2),
+                                     _M.ndiv(c.y1+c.y2,2)));
+              if(!_G.pieceSize)
                 _G.pieceSize= _.evenN(z*0.85,1);
-              }
             }
           }
           cacheIcons(self);
           let sel= _G.selector= _S.sprite("select.png");
-          sel.visible=false;
+          _S.hide(sel);
           _S.uuid(sel,"selector");
-          self.insert( _S.sizeXY(_S.centerAnchor(sel),z,z));
+          self.insert( _S.sizeXY(_S.anchorXY(sel,0.5),z,z));
           //scene.insert(_S.bboxFrame(_G.arena,16,"#b2b2b2"));//"#4d4d4d"));//"#7f98a6"));
           return self.insert(_G.frame= _S.bboxFrame(_G.arena,16,"#4d4d4d"));//"#7f98a6"));
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initMarks=()=>{
           let M=_G.mediator,
-              cfg={fontName:UI_FONT,fontSize:36*K};
-          let s,color,rows,cols,row=_G.ROWS-1;
+            cfg={fontName:UI_FONT,fontSize:36*K};
+          let s,color,rows,cols,row=ROWS-1;
           if(M.flipped()){
             rows= RPOS.reverse();
             cols= F_COLPOS;
@@ -741,7 +730,7 @@
           }
           cols.split("").forEach((c,x)=>{
             s= _S.tint(_S.bmpText(c,cfg),color);
-            _S.pinBottom(_G.board[row][x],s,24,0.5);
+            _S.pinBelow(_G.board[row][x],s,24,0.5);
             self.insert(s);
           });
           rows.forEach((c,x)=>{
@@ -762,7 +751,7 @@
           let out=[makeIcon("q","#queen"),
                    makeIcon("b","#bishop"),
                    makeIcon("n","#night"),makeIcon("r","#rook")];
-          out.forEach(c=> _S.manifest(_S.tint(c,C_ORANGE)));
+          out.forEach(c=> _S.show(_S.tint(c,C_ORANGE)));
           _G.promoteMenu= _Z.choiceMenuY(out,cfg);
           _S.pinRight(_G.frame, _G.promoteMenu,10,0);
           self.insert(_G.promoteMenu);
@@ -770,10 +759,9 @@
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initMsgs=(s)=>{
-          let cfg={fontName: UI_FONT, fontSize: 48*K};
-          s= _G.checkMsg=_S.bmpText("Check!",cfg);
+          s= _G.checkMsg=_S.bmpText("Check!",UI_FONT, 48*K);
           _S.pinRight(_G.frame, s, 10);
-          s.visible=false;
+          _S.hide(s);
           self.insert(s);
         };
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -800,14 +788,14 @@
           _S.pinLeft(_G.frame,s, 100,0);
           s.x=x;
           s.y += s.height/2;
-          _S.centerAnchor(_S.tint(s,c2));
+          _S.anchorXY(_S.tint(s,c2),0.5);
           self.insert(s);
           prev=s;
           out=p2moves;
           _.dotimes(5,()=>{
             m=_S.bmpText("AAA",xxx);
             _S.tint(m,c2);
-            _S.pinBottom(prev,m,16,0);
+            _S.pinBelow(prev,m,16,0);
             out.push(self.insert(m));
             prev=m;
           });
@@ -817,14 +805,14 @@
           _S.pinLeft(_G.frame,s, 100,1);
           s.x=x;
           s.y += s.height/2;
-          _S.centerAnchor(_S.tint(s,c1));
+          _S.anchorXY(_S.tint(s,c1),0.5);
           self.insert(s);
           prev=s;
           out=p1moves;
           _.dotimes(5,()=>{
             m=_S.bmpText("AAA",xxx);
             _S.tint(m,c1);
-            _S.pinTop(prev,m,16,0);
+            _S.pinAbove(prev,m,16,0);
             out.push(self.insert(m));
             prev=m;
           });
@@ -832,7 +820,7 @@
         };
         this.g.initMisc=(s)=>{
           s= _S.spriteFrom("audioOn.png","audioOff.png");
-          _I.mkBtn(_S.scaleXY(s,K,K));
+          _I.mkBtn(_S.scaleXY(s,1.2*K,1.2*K));
           s.anchor.x=1;
           s.anchor.y=0;
           s.alpha=0.5;
@@ -855,11 +843,12 @@
         this.g.initInfo();
         this.g.initMisc();
         repaint();
-        M.start(options.startsWith===1?p1:p2);
+        M.start(options.startsWith==1?p1:p2);
       },
       postUpdate(){
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function pieceName(piece){
       switch(piece){
@@ -871,6 +860,7 @@
         case "k": return "king";
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function updateInfo(move){
       let {color,from,to,piece}= move;
@@ -894,8 +884,9 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
+
     assetFiles: ["images/tiles.json", "bggreen.jpg",
                  "audioOff.png","audioOn.png",
                  "click.mp3", "x.mp3","o.mp3","game_over.mp3","game_win.mp3"],
@@ -907,13 +898,10 @@
     scaleToWindow:"max",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

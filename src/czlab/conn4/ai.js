@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -59,7 +59,7 @@
       undoMove(snap, move){
         snap.state[move[0]][move[1]]=0 }
       doMove(snap, move){
-        if(snap.state[move[0]][move[1]]===0)
+        if(snap.state[move[0]][move[1]]==0)
           snap.state[move[0]][move[1]] = snap.cur.stateValue();
         else
           throw `Error: cell [${move[0]},${move[1]}] is not free`

@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -25,6 +25,7 @@
            FX:_X,
            Game:_G,
            v2:_V,
+           math:_M,
            ute:_, is}= Mojo;
 
     const SEEDS = {
@@ -41,10 +42,12 @@
         [0, 1, 0],
         [0, 1, 0],
         [0, 1, 0]],
+      /*
       Boat: [
         [1, 1, 0],
         [1, 0, 1],
         [0, 1, 0]],
+        */
       "R-Pentomino": [
         [0, 1, 1],
         [1, 1, 0],
@@ -132,69 +135,59 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //neighbors
-    const NBS= [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-    const _DELAY=300;
+    const NBS= [[-1,-1],[-1,0],[-1,1],[0,-1],
+      [0,1],[1,-1],[1,0],[1,1]],
+      _DELAY=300,
+      TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#fff20f"),
+      C_BLACK=_S.color("#000000"),
+      C_WHITE=_S.color("#ffffff"),
+      C_GREEN=_S.color("#7da633"),
+      C_TILE=_S.color("#b7d150"),
+      C_ORANGE=_S.color("#f4d52b");
 
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#fff20f");
-    const C_BLACK=_S.color("#000000");
-    const C_WHITE=_S.color("#ffffff");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const C_TILE=_S.color("#b7d150");
-    //const C_TILE=_S.color("#59bdda");//blue
-    //const C_TILE=_S.color("#db605a");//red
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.jpg")));
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){
-      Mojo.sound("click.mp3").play()
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.sizeXY(_S.sprite("bg.jpg"),Mojo.width,Mojo.height);
-      return scene.insert(_G.backDropSprite);
-    }
-
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor(),
-              verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Conway's Game Of Life",{fontName:TITLE_FONT,fontSize:84*K});
-          _V.set(_S.tint(s,C_TITLE),Mojo.width/2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        };
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,b,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT, fontSize:48*K});
-          _V.set(s,Mojo.width/2,Mojo.height*0.7);
-          b=_I.mkBtn(s);
-          t=_X.throb(b,0.99);
-          b.m5.press=(btn)=>{
-            _X.remove(t);
-            _S.tint(btn,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=>_Z.runSceneEx("MainMenu"));
-          };
-          return self.insert(_S.centerAnchor(s));
-        };
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Conway's Game Of Life",TITLE_FONT,84*K);
+            _V.set(_S.tint(s,C_TITLE),Mojo.width/2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 64*K);
+            _V.set(s,Mojo.width/2,Mojo.height*0.7);
+            t=_X.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _X.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=>_Z.runEx("MainMenu"));
+            }
+            _I.on(["single.tap"],cb);
+            return self.insert(_S.anchorXY(s,0.5));
+          }
+        });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("MainMenu",{
+    _Z.scene("MainMenu",{
       setup(){
         const self=this,
-              btns=[],
-              K=Mojo.getScaleFactor();
+          btns=[], K=Mojo.getScaleFactor();
         if(!_G.curPattern)
           _G.curPattern=Mojo.u.defPattern;
         doBackDrop(this);
@@ -204,7 +197,7 @@
           playClick();
         }
         _.keys(SEEDS).forEach(k=> {
-          btns.push(s=_S.bmpText(k,cfg));
+          btns.push(s=_I.mkBtn(_S.bmpText(k,cfg)));
           _S.uuid(s,k);
         });
         m=_Z.choiceMenuY(btns, {bg:"#cccccc",
@@ -215,21 +208,20 @@
           onClick: doClicked});
         this.insert(m);
         //////
-        s=_S.bmpText("Run simulation with this pattern", {fontName:UI_FONT,fontSize:36*K});
+        s=_S.bmpText("Run simulation with this pattern", UI_FONT,36*K);
         _I.mkBtn(s).m5.press=(btn)=>{
           playClick();
           btn.tint=C_ORANGE;
-          _I.resetAll();
-          _.delay(CLICK_DELAY,()=>_Z.runSceneEx("PlayGame"));
+          _.delay(CLICK_DELAY,()=>_Z.runEx("PlayGame"));
         };
-        _S.centerAnchor(s);
-        _S.pinBottom(m,s,20);
+        _S.anchorXY(s,0.5);
+        _S.pinBelow(m,s,20);
         this.insert(s);
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       _tile(){
         let s= _S.sprite(_S.frames("tiles.png",
                                    _G.iconSize[0],_G.iconSize[1]));
@@ -265,9 +257,7 @@
         }
       },
       _cntNbrs(row,col,R,C,cs){
-        let sum=0;
-        let r;
-        let c;
+        let c,r,sum=0;
         NBS.forEach(pos=>{
           r=row+pos[0];
           c=col+pos[1];
@@ -297,7 +287,7 @@
                 //stay same
                 rc.nextAlive=true;
               }
-            }else if(n===3){
+            }else if(n==3){
               //come alive
               rc.nextAlive=true;
             }
@@ -313,10 +303,7 @@
             rc.alive=rc.nextAlive;
             rc.nextAlive=false;
             rc.icon.m5.showFrame(rc.alive?1:0);
-            if(rc.alive)
-              rc.icon.tint=C_TILE;
-            else
-              rc.icon.tint=_G.tint;
+            rc.icon.tint= rc.alive? C_TILE : _G.tint;
           }
         }
       },
@@ -327,12 +314,12 @@
         let w=-Infinity;
         data.forEach(r=> {
           if(r.length>w)w=r.length; });
-        let y=_.max(0,_.floor((cells.length-h)/2));
-        let x=_.max(0,_.floor((cells[0].length-w)/2));
+        let y=_.max(0,_M.ndiv(cells.length-h,2));
+        let x=_.max(0,_M.ndiv(cells[0].length-w,2));
         let o;
         data.forEach((r,i)=>{
           r.forEach((c,j)=>{
-            if(c!==0){
+            if(c!=0){
               o=cells[y+i][x+j];
               o.alive=true;
               o.icon.m5.showFrame(1);
@@ -363,13 +350,9 @@
         s.alpha=0.5;
         s.m5.press=(btn)=>{
           btn.tint=C_ORANGE;
-          _.delay(343,()=>{
-            _I.resetAll();
-            _Z.runSceneEx("MainMenu");
-          });
+          _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
         };
         this.insert(s);
-
         this._seed(_G.curPattern);
         _.delay(_DELAY,()=> this.onFrame());
       }
@@ -378,8 +361,9 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
+
     assetFiles:["tiles.png","click.mp3","bg.jpg","menu.png"],
     arena:{width:1200, height:960},
     gridLineWidth:1,
@@ -388,13 +372,10 @@
     scaleToWindow:"max",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
