@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -24,40 +24,43 @@
     const {Scenes:_Z,
 			     Sprites:_S,
 			     v2:_V,
+			     math:_M,
 			     Game:_G,ute:_,is}=Mojo;
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
       setup(){
 				let K=Mojo.getScaleFactor(),
-				    H=int(Mojo.height*0.8),
-						W=int(Mojo.width*0.8),
-						top=int((Mojo.height-H)/2),
-						left=int((Mojo.width-W)/2), right=left+W, bottom=top+H;
-				//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-				this.g.initLevel=()=>{
-					_G.arena= {x1:left,x2:right,y1:top,y2:bottom};
-					_G.qt= Q.quadtree({left,right,top,bottom});
-					_G.items=[];
-					let a=6*K,z=24*K; //dim of boxes
-					for(let s,i=0;i<Mojo.u.items;++i){
-						s={x: _.randInt2(left, right-z),
-							 y: _.randInt2(top, bottom-z),
-							 width : _.randInt2(a, z),
-							 height : _.randInt2(a, z)};
-						_G.items.push(_S.extend(s));
-						s.g.checked=false;
-						s.getBBox=()=>{
-							return {x1:s.x,y1:s.y,
-											x2:s.x+s.width,y2:s.y+s.height}
-						};
-						_V.set(s.m5.vel,_.randFloat(-0.5*K,0.5*K),
-														_.randFloat(-0.5*K,0.5*K));
+					H=int(Mojo.height*0.8),
+					W=int(Mojo.width*0.8),
+					top=_M.ndiv(Mojo.height-H,2),
+					left=_M.ndiv(Mojo.width-W,2), right=left+W, bottom=top+H;
+				_.inject(this.g,{
+					initLevel(){
+						_G.arena= {x1:left,x2:right,y1:top,y2:bottom};
+						_G.qt= Q.quadtree(_G.arena);
+						_G.items=[];
+						let a=6*K,z=24*K; //dim of boxes
+						for(let s,i=0;i<Mojo.u.items;++i){
+							s={x: _.randInt2(left, right-z),
+								 y: _.randInt2(top, bottom-z),
+								 width : _.randInt2(a, z),
+								 height : _.randInt2(a, z)};
+							_G.items.push(_S.extend(s));
+							s.g.checked=false;
+							s.getBBox=()=>{
+								return {x1:s.x,y1:s.y,
+												x2:s.x+s.width,y2:s.y+s.height}
+							};
+							_V.set(s.m5.vel,_.randFloat2(-0.5*K,0.5*K),
+															_.randFloat2(-0.5*K,0.5*K));
+						}
 					}
-				};
+				});
 				//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.insert(this.g.gfx=_S.graphics());
 				this.g.initLevel();
+				_Z.run("HUD");
       },
       _drawTree(node){
 				let K=Mojo.getScaleFactor();
@@ -65,7 +68,7 @@
 				let g=this.g.gfx;
 				if(!cs){
           b=node.boundingBox();
-					g.lineStyle(2*K, _S.color("red"),0.2);
+					g.lineStyle(2*K, _S.SomeColors.red,0.2);
 					g.drawRect(b.x1, b.y1, b.x2-b.x1,b.y2-b.y1);
 				}else{
           cs.forEach(c=> this._drawTree(c))
@@ -124,10 +127,10 @@
 				this._drawItems();
       },
       _collide(r1, r2){
-				let r1w = int(r1.width/2),
-					  r2w = int(r2.width/2),
-					  r1h = int(r1.height/2),
-					  r2h = int(r2.height/2);
+				let r1w = _M.ndiv(r1.width,2),
+					r2w = _M.ndiv(r2.width,2),
+					r1h = _M.ndiv(r1.height,2),
+					r2h = _M.ndiv(r2.height,2);
 				let diffX = (r1.x + r1w) - (r2.x + r2w);
 				let diffY = (r1.y + r1h) - (r2.y + r2h);
 				if(Math.abs(diffX) < r1w + r2w &&
@@ -135,15 +138,15 @@
 					return {
 						dx: (r1w+r2w) - Math.abs(diffX),
 						dy: (r1h+r2h) - Math.abs(diffY),
-						dir: [(diffX===0 ? 0 : diffX < 0 ? -1 : 1),
-						      (diffY===0 ? 0 : diffY < 0 ? -1 : 1)]
+						dir: [(diffX==0 ? 0 : diffX < 0 ? -1 : 1),
+						      (diffY==0 ? 0 : diffY < 0 ? -1 : 1)]
 					}
 				}
       }
     });
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		_Z.defScene("HUD",{
+		_Z.scene("HUD",{
 			setup(){
 				let K=Mojo.getScaleFactor(),
 				    s= _S.bboxFrame(_G.arena,12*K);
@@ -166,20 +169,18 @@
   }
 
 	//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	//game config
-  const _$={
+  //load and run
+	window.addEventListener("load",()=> MojoH5({
+
     arena:{width:1680, height:1050},
     scaleToWindow:"max",
     items:800,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runSceneSeq(["PlayGame"],["HUD"]);
+      Mojo.Scenes.run("PlayGame");
     }
-  };
 
-	//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+	}));
 
 })(this);
 

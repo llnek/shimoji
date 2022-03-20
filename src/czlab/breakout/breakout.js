@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -24,13 +24,15 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
+
     const {Sprites:_S,
            Scenes:_Z,
            FX:_F,
            Input:_I,
            Game:_G,
-           "2d":_2d,
+           Arcade:_2d,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -53,100 +55,108 @@
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
-    //const C_TITLE=_S.color("#ea2152");//red
-    //const C_TITLE=_S.color("#1eb7e6");//blue
-    //const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const C_BG=_S.color("#1e1e1e");
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#e4ea1c"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b"),
+      C_BG=_S.color("#1e1e1e");
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
+    const playClick=()=>Mojo.sound("click.mp3").play() ;
+    const bounce=Mojo.sound("coin.mp3");
     const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){ Mojo.sound("click.mp3").play() }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene,alpha=1){
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,alpha));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
-      bounce:Mojo.sound("coin.mp3"),
       //gridCols:9,
       //gridRows:20//16
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
       setup(){
         let self=this,
-            W2=Mojo.width/2,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("BreakOut",{fontName:TITLE_FONT,fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,W2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=>{
-              _Z.runSceneEx("PlayGame");
-            });
+          W2=Mojo.width/2,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("BreakOut",TITLE_FONT,120*K);
+            _S.tint(s,C_TITLE);
+            _V.set(s,W2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(s,t){
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
+            t=_F.throb(s,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _F.remove(t);
+              _S.tint(s,C_ORANGE);
+              playClick();
+              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
+            }
+            _I.on(["single.tap"],cb);
+            _V.set(s,W2,Mojo.height*0.8);
+            return self.insert(_S.anchorXY(s,0.5));
           }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,W2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
+        });
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this,0.2) && this.g.doTitle() && this.g.doNext();
+        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
       }
     });
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("EndGame",{
-      setup(){
-        const K=Mojo.getScaleFactor();
-        let msg="You Lose!",
-            snd="game_over.mp3",
-            cfg={fontName:UI_FONT, fontSize:64*K};
 
-        if(_G.blockCount===0){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let K=Mojo.getScaleFactor(),
+          msg="You Lose!",
+          snd="game_over.mp3",
+          cfg={fontName:UI_FONT, fontSize:64*K};
+        if(_G.blockCount==0){
           msg= "You win !";
           snd="game_win.mp3";
         }
-
-        function space(){ return _S.opacity(_S.bmpText("I",cfg),0) }
-        let b1=_I.mkBtn(_S.bmpText("Play Again?", cfg));
-        let b2=_I.mkBtn(_S.bmpText("Quit", cfg));
-        let m1=_S.bmpText("Game Over", cfg);
-        let m2=_S.bmpText(msg, cfg);
-        let gap=_S.bmpText("or", cfg);
-        b1.m5.press=()=>{ playClick(); _Z.runSceneEx("PlayGame") };
-        b2.m5.press=()=>{ playClick(); _Z.runSceneEx("Splash") };
+        let space=()=> _S.opacity(_S.bmpText("I",cfg),0),
+          b1=_I.mkBtn(_S.bmpText("Play Again?", cfg)),
+          b2=_I.mkBtn(_S.bmpText("Quit", cfg)),
+          m1=_S.bmpText("Game Over", cfg),
+          m2=_S.bmpText(msg, cfg),
+          gap=_S.bmpText("or", cfg);
+        b1.m5.press=()=> playClick() && _Z.runEx("PlayGame");
+        b2.m5.press=()=> playClick() && _Z.runEx("Splash");
         Mojo.sound(snd).play();
         this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2]));
       }
     });
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("PlayGame",{
+    _Z.scene("PlayGame",{
+      doCntDown(){
+        this.g.cntDownMsg.text="1";
+        _G.cntDownOn=true;
+        _S.hide(_G.ball);
+        _S.show(this.g.cntDownMsg);
+        _.delay(1000,()=>{
+          this.g.cntDownMsg.text="2";
+          _.delay(1000,()=>{
+            this.g.cntDownMsg.text="3";
+            _.delay(1000,()=>{
+              this.g.cntDownMsg.text="Go!";
+              _.delay(1000,()=>{
+                _S.hide(this.g.cntDownMsg);
+                _S.show(_G.ball);
+                _G.cntDownOn=false;
+              });
+            })
+          })
+        });
+      },
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
+          K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
           init(n){
@@ -172,18 +182,18 @@
               line: "white",
               fill: _S.BtnColors.green
             });
-            _S.pinTop(f,b.sprite,2*K,1);
+            _S.pinAbove(f,b.sprite,2*K,1);
             self.insert(b.sprite);
             _G.health=b;
             return this;
           },
           initLevel(level){
             let offsetY=-1,
-                data=_ASSETS[`level${level}`];
+              data=_ASSETS[`level${level}`];
             for(let g,r,y=0;y<data.length;++y){
               g=_G.grid[y];
               r=data[y];
-              _.assert(r.length===COLS,"bad level width");
+              _.assert(r.length==COLS,"bad level width");
               for(let s,p,x=0;x<r.length;++x){
                 if(!r[x]){continue}
                 p=g[x];
@@ -207,21 +217,22 @@
             _S.pinCenter(_G.box,ball);
             _V.set(ball.m5.vel, 320*K, 320*K);
             ball.m5.tick=(dt)=>{
-              _S.move(ball,dt)
+              _G.cntDownOn?0: _S.move(ball,dt)
             };
             self.insert(ball,true);
             let bw=ball.width;
             let paddle=_S.sprite("paddle.png");
             paddle.m5.static=true;
-            _S.centerAnchor(paddle);
+            _S.anchorXY(paddle,0.5);
             paddle.m5.type=E_PADDLE;
             _S.scaleXY(paddle,K,K);
             paddle.width=5*bw;
-            _V.set(paddle,_G.arena.x1+int(_G.arena.width/2), _G.arena.y2 - 1.5*paddle.height);
+            _V.set(paddle,_G.arena.x1+_M.ndiv(_G.arena.width,2),
+                          _G.arena.y2 - 1.5*paddle.height);
             let pY=paddle.y;
             paddle.m5.speed=10;
             paddle.m5.tick=()=>{
-              if(Mojo.touchDevice){
+              if(1){
                 paddle.x = Mojo.mouse.x;
               }else{
                 _S.move(paddle);
@@ -252,9 +263,21 @@
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        return doBackDrop(this)&&this.g.init(1)&&this.g.ctrl();
+        doBackDrop(this)&&this.g.init(1)&&this.g.ctrl();
+        this.g.score=_S.bmpText(" 0 ",UI_FONT,48*K);
+        self.insert(this.g.score);
+        _Z.run("AudioIcon",{
+          xScale:1.2*K, yScale:1.2*K,
+          xOffset: -10*K, yOffset:0
+        });
+        this.g.cntDownMsg=_S.bmpText("1",UI_FONT,96*K);
+        _S.anchorXY(this.g.cntDownMsg,0.5);
+        _V.set(this.g.cntDownMsg,Mojo.width/2,Mojo.height/2);
+        this.insert(this.g.cntDownMsg);
+        this.doCntDown();
       },
       postUpdate(dt){
+        this.g.score.text=`${_G.score}`;
         let objs,col;
         _S.clamp(_G.ball, [_G.arena,{bottom:false}],true);
         if(_G.ball.y > _G.arena.y2){
@@ -262,11 +285,11 @@
             return this.g.resetNextPt();
           }
           this.m5.dead=true;
-          _.delay(CLICK_DELAY,()=>{ _Z.runScene("EndGame") });
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame"));
         }
         this.searchSGrid(_G.ball).forEach(o=>{
           if(_G.ball !== o && _S.collide(_G.ball, o)){
-            _G.bounce.play();
+            bounce.play();
             switch(o.m5.type){
               case E_PADDLE:
                 break;
@@ -286,32 +309,30 @@
             }
           }
         });
-        //this.msg.text=`Score: ${_G.score}`;
-        if(_G.blockCount===0){
+        if(_G.blockCount==0){
           this.m5.dead=true;
-          _.delay(CLICK_DELAY,()=>{ _Z.runScene("EndGame") });
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg:"You Win!"}));
         }
       }
     });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
-    assetFiles: ["bg.png","star.png","tiles.json",
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
+
+    assetFiles: ["bg.jpg","star.png","tiles.png","images/tiles.json",
+                 "audioOn.png","audioOff.png",
                  "coin.mp3","click.mp3","game_over.mp3","game_win.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"x",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 

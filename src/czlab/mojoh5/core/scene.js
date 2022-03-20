@@ -156,6 +156,8 @@
             Mojo.Input.undoDrag(c);
           if(c.m5.button)
             Mojo.Input.undoButton(c);
+          if(c.m5.hotspot)
+            Mojo.Input.undoHotspot(c);
           Mojo.off(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
       }

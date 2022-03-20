@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -21,89 +21,48 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "2d":_2d,
+           Arcade:_2d,
            FX:_F,
            v2:_V,
+           math:_M,
            Game:_G,
            ute:_,is}=Mojo;
     const QT= window["io/czlab/mcfud/qtree"]();
     const int=Math.floor;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
-    //const C_TITLE=_S.color("#ea2152");//red
-    //const C_TITLE=_S.color("#1eb7e6");//blue
-    const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_TITLE=_S.color("#e4ea1c"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
+
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.png")));
+    const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function playClick(){ Mojo.sound("click.mp3").play() }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function doBackDrop(scene){return 1;
-      if(!_G.backDropSprite)
-        _G.backDropSprite=_S.fillMax(_S.sprite("bg.png"));
-      return scene.insert(_S.opacity(_G.backDropSprite,0.148));
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
-      setup(){
-        let self=this,
-            W2=Mojo.width/2,
-            K=Mojo.getScaleFactor(),
-            verb=Mojo.touchDevice?"Tap":"Click";
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle=(s)=>{
-          s=_S.bmpText("Bouncy Balls",{fontName:TITLE_FONT,fontSize:120*K});
-          _S.tint(s,C_TITLE);
-          _V.set(s,W2,Mojo.height*0.3);
-          return self.insert(_S.centerAnchor(s));
-        }
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doNext=(s,t)=>{
-          s=_S.bmpText(`${verb} to PLAY!`,{fontName:UI_FONT,fontSize:64*K});
-          t=_F.throb(s,0.747,0.747);
-          function cb(){
-            Mojo.off(["single.tap"],cb);
-            _F.remove(t);
-            _S.tint(s,C_ORANGE);
-            playClick();
-            _.delay(CLICK_DELAY,()=> _Z.runSceneEx("PlayGame"));
-          }
-          Mojo.on(["single.tap"],cb);
-          _V.set(s,W2,Mojo.height*0.7);
-          return self.insert(_S.centerAnchor(s));
-        }
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-
-
-
     function _onCaptured(self){
       if(_G.capturedMarble){
         //draw the sling between the mouse and the captured marble
         let c=_S.centerXY(_G.capturedMarble);
-        _G.sling.visible = true;
+        _S.show(_G.sling);
         _G.sling.m5.ptA(c[0],c[1]);
         _G.sling.m5.ptB(Mojo.mouse.x-self.x,Mojo.mouse.y-self.y);
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //Shoot the marble when mouse is released
     function _offCaptured(self){
       if(Mojo.mouse.isUp){
         let s=_G.sling,
             K=Mojo.getScaleFactor();
-        s.visible = false;
+        _S.hide(s);
         if(_G.capturedMarble){
           let c=_S.centerXY(_G.capturedMarble),
               m=_V.vec(Mojo.mouse.x-self.x,Mojo.mouse.y-self.y);
@@ -117,6 +76,7 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _moveCircle(self,m,dt){
       if(Mojo.mouse.isDown && !_G.capturedMarble){
         if(Mojo.mouse.hitTest(m)){
@@ -129,6 +89,7 @@
       _S.clamp(m,_G.arena,true);
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _hitCircles(s,objs){
       objs.forEach(o=>{
         if(o !== s)
@@ -138,10 +99,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //use default spatial grid
-    _Z.defScene("PlayGame",{
+    _Z.scene("Splash",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
           initLevel(){
             let SIZES = [8, 12, 16, 20, 24, 28, 32,64].map(x=> x*K);
@@ -156,9 +117,9 @@
                 m= _S.animation("balls.png", 166, 166);
                 m.m5.showFrame(_.randInt2(0,5));
                 m.m5.circle=true;
-                _S.centerAnchor(m);
-                _V.set(m,int((g.x1+g.x2)/2),
-                         int((g.y1+g.y2)/2));
+                _S.anchorXY(m,0.5);
+                _V.set(m,_M.ndiv(g.x1+g.x2,2),
+                         _M.ndiv(g.y1+g.y2,2));
                 _S.sizeXY(m, rr=SIZES[_.randInt2(0, 7)],rr);
                 _V.set(m.m5.vel, _.randInt2(-400, 400),
                                  _.randInt2(-400, 400));
@@ -170,19 +131,20 @@
             _G.capturedMarble = null;
             _G.arena=Mojo.mockStage(out);
             _V.set(_G.arena,0,0);
-            //Create the "sling", a line that will connect the mouse to the marbles
+            //make a line that will connect the mouse to the marbles
             _G.sling= _S.line("Yellow",4*K, [0,0],[32,32]);
-            _G.sling.visible = false;
+            _S.hide(_G.sling);
             self.insert(_G.sling);
-            self.insert(_S.drawGridBox(pbox));
+            //self.insert(_S.drawGridBox(pbox));
+            self.insert(_S.bboxFrame(pbox));
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         doBackDrop(this) && this.g.initLevel();
       },
       postUpdate(dt){
-        let K=Mojo.getScaleFactor();
-        let self=this;
+        let self=this,
+          K=Mojo.getScaleFactor();
         _onCaptured(this);
         _offCaptured(this);
         this.children.forEach(m=>{
@@ -198,17 +160,18 @@
       }
     },{centerStage:true});
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //use quadtree
-    _Z.defScene("quadtree",{
+    _Z.scene("quadtree",{
       setup(){
         _init(this);
-        _G.qtree=QT.quadtree({left:0,top:0,
-                              right:_G.arena.width,
-                              bottom:_G.arena.height});
+        _G.qtree=QT.quadtree({x1:0,y1:0,
+                              x2:_G.arena.width,
+                              y2:_G.arena.height});
       },
       postUpdate(dt){
-        let K=Mojo.getScaleFactor();
-        let self=this;
+        let self=this,
+          K=Mojo.getScaleFactor();
         _onCaptured(this);
         _offCaptured(this);
         _G.qtree.reset();
@@ -227,20 +190,17 @@
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
+  //load & run
+  window.addEventListener("load",()=> MojoH5({
+
     assetFiles: ["balls.png","click.mp3"],
     arena: {width:1860, height:1050},
     scaleToWindow:"max",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load & run
-  window.addEventListener("load",()=> MojoH5(_$) );
+  }));
 
 })(this);
 

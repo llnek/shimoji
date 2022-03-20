@@ -1770,7 +1770,7 @@
     /** @ignore */
     function _pininfo(X,o,p=null){
       let par,box;
-      if(o.m5.stage){
+      if(o && o.m5 && o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
         par=o.parent;
@@ -2213,6 +2213,8 @@
        * @return {object} {x1,x2,y1,y2}
        */
       getAABB(s){
+        if(s.x1 !== undefined && s.y2 !== undefined){ return s }
+        _.assert(s.m5, "bad sprite for getAABB");
         let {x1,y1,x2,y2}=s.m5.getImageOffsets();
         let l= this.leftSide(s),
             t= this.topSide(s),

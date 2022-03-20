@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window){
 
@@ -85,11 +85,11 @@
         let bt= b[0]+b[1];
         let rt= r[0]+r[1];
         if(snap.other.team==_G.TEAM_BLACK){
-          if(rt===0 && bt>0) return -1000; // black won!
+          if(rt==0 && bt>0) return -1000; // black won!
           if(b[1]>r[1]) return -500; // more black kings
           if(b[0]>r[0]) return -100; // more black pawns
         }else{
-          if(bt===0 && rt>0) return 1000; // red won!
+          if(bt==0 && rt>0) return 1000; // red won!
           if(r[1]>b[1]) return 500; // more red kings
           if(r[0]>b[0]) return 100; // more black pawns
         }
