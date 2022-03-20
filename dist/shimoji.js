@@ -2025,6 +2025,20 @@
         }
         return s;
       },
+      /**Clear spatial data.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      clrSpatial(s){
+        if(s && s.m5 && s.m5.sgrid){
+          s.m5.sgrid.x1=UNDEF;
+          s.m5.sgrid.x2=UNDEF;
+          s.m5.sgrid.y1=UNDEF;
+          s.m5.sgrid.y2=UNDEF;
+        }
+        return s;
+      },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -3595,6 +3609,8 @@
             Mojo.Input.undoDrag(c);
           if(c.m5.button)
             Mojo.Input.undoButton(c);
+          if(c.m5.hotspot)
+            Mojo.Input.undoHotspot(c);
           Mojo.off(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
       }

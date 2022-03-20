@@ -19070,6 +19070,20 @@
         }
         return s;
       },
+      /**Clear spatial data.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      clrSpatial(s){
+        if(s && s.m5 && s.m5.sgrid){
+          s.m5.sgrid.x1=UNDEF;
+          s.m5.sgrid.x2=UNDEF;
+          s.m5.sgrid.y1=UNDEF;
+          s.m5.sgrid.y2=UNDEF;
+        }
+        return s;
+      },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -20640,6 +20654,8 @@
             Mojo.Input.undoDrag(c);
           if(c.m5.button)
             Mojo.Input.undoButton(c);
+          if(c.m5.hotspot)
+            Mojo.Input.undoHotspot(c);
           Mojo.off(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
       }
@@ -25280,6 +25296,7 @@
         console.log("got 3 from cache");
         o=_G.as3.pop();
       }
+      o.m5.dead=false;
       Mojo.on(["hit",o],"onHit",o.g);
       _G.astros.push(o);
       return _S.show(o);
@@ -25360,6 +25377,7 @@
       a.g.onHit=(col)=>{
         if(col.B.m5.type==E_LASER){
           a.g.explode(col.B);
+        }else{
         }
       };
       return _S.tint(a,_S.SomeColors.orange);
@@ -25393,6 +25411,7 @@
           }
         });
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        _Z.run("StarfieldBg",{static:true});
         this.g.doTitle() && this.g.doNext();
       }
     });
@@ -25454,6 +25473,7 @@
             return self.insert(s);
           }
         });
+        _Z.run("StarfieldBg",{static:true});
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel() &&
           this.g.initAstros() &&
@@ -25491,16 +25511,19 @@
       postUpdate(dt){
         for(let a,i=_G.astros.length-1;i>=0;--i){
           a=_G.astros[i];
-          this.searchSGrid(a).forEach(o=>{
-            if(a.m5.type==E_ASTRO && o.m5.type==E_SHIP){
-              if(!o.g.shield){
+          if(!a.m5.dead)
+            this.searchSGrid(a).forEach(o=>{
+              if(a.m5.type==E_ASTRO && o.m5.type==E_SHIP){
+                if(!o.g.shield){
+                  _S.hit(a,o);
+                }
+              }else{
                 _S.hit(a,o);
               }
-            }else{
-              _S.hit(a,o);
-            }
-          });
+            });
         }
+        let x=_G.astros.filter(a=> !a.m5.dead);
+        _.append(_G.astros,x,true);
         this.g.scoreText.text=`${_G.score}`;
       }
     });
@@ -25519,7 +25542,6 @@
     scaleToWindow: "max",
     start(Mojo){
       scenes(Mojo);
-      //Mojo.Scenes.runScene("StarfieldBg");
       Mojo.Scenes.run("Splash");
     }
   }));
