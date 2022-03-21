@@ -17785,7 +17785,7 @@
        * @param {string} name
        * @param {function} body
        */
-      defMixin(name,body){
+      mixin(name,body){
         if(_.has(_mixins,name))
           throw `MixinError: "${name}" already defined.`;
         _.assert(is.fun(body),"mixin must be a function");
@@ -18815,7 +18815,7 @@
     /** @ignore */
     function _pininfo(X,o,p=null){
       let par,box;
-      if(o.m5.stage){
+      if(o && o.m5 && o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
         par=o.parent;
@@ -19070,6 +19070,20 @@
         }
         return s;
       },
+      /**Clear spatial data.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      clrSpatial(s){
+        if(s && s.m5 && s.m5.sgrid){
+          s.m5.sgrid.x1=UNDEF;
+          s.m5.sgrid.x2=UNDEF;
+          s.m5.sgrid.y1=UNDEF;
+          s.m5.sgrid.y2=UNDEF;
+        }
+        return s;
+      },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -19258,6 +19272,8 @@
        * @return {object} {x1,x2,y1,y2}
        */
       getAABB(s){
+        if(s.x1 !== undefined && s.y2 !== undefined){ return s }
+        _.assert(s.m5, "bad sprite for getAABB");
         let {x1,y1,x2,y2}=s.m5.getImageOffsets();
         let l= this.leftSide(s),
             t= this.topSide(s),
@@ -20574,7 +20590,7 @@
         if(s)
           this.m5.setup=s.bind(this);
       }
-      _hitObjects(grid,obj,found,repeat=3){
+      _hitObjects(grid,obj,found,repeat=1){
         for(let m,b,i=0,cur=repeat;i<found.length;++i){
           b=found[i];
           if(obj !== b &&
@@ -20586,7 +20602,7 @@
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--curCol==0){break}
+              if(--repeat==0){break}
             }
           }
         }
@@ -20638,6 +20654,8 @@
             Mojo.Input.undoDrag(c);
           if(c.m5.button)
             Mojo.Input.undoButton(c);
+          if(c.m5.hotspot)
+            Mojo.Input.undoHotspot(c);
           Mojo.off(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
       }
@@ -22507,6 +22525,59 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("HotKeys",{
+      setup(options){
+        let {fontName,fontSize,cb,radius,alpha,color}=options;
+        let {char_down,char_up,char_left,char_right}=options;
+        let bs,U,D,L,R;
+        let opstr= options.buttons?"makeButton":"makeHotspot";
+
+        _.assert(is.num(fontSize),"expected fontsize");
+        _.assert(is.num(radius),"expected radius");
+        _.assert(is.fun(cb),"expected callback");
+
+        fontName=fontName||"Doki Lowercase";
+        alpha=alpha || 0.2;
+        color=_.nor(color,"grey");
+        char_down=char_down||"-";
+        char_up=char_up||"+";
+        char_left=char_left||"<";
+        char_right=char_right||">";
+        D= _S.opacity(_S.circle(radius,color),alpha);
+        D.addChild(_S.anchorXY(_S.bmpText(char_down,fontName,fontSize),0.5));
+        U= _S.opacity(_S.circle(radius,color),alpha);
+        U.addChild(_S.anchorXY(_S.bmpText(char_up,fontName,fontSize),0.5));
+        L= _S.opacity(_S.circle(radius,color),alpha);
+        L.addChild(_S.anchorXY(_S.bmpText(char_left,fontName,fontSize),0.5));
+        R= _S.opacity(_S.circle(radius,color),alpha);
+        R.addChild(_S.anchorXY(_S.bmpText(char_right,fontName,fontSize),0.5));
+        bs=cb({left:L,right:R,down:D,up:U});
+        if(bs.right){
+          this.insert(_I[opstr](bs.right));
+          if(bs.right.m5.hotspot)
+            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
+        }
+        if(bs.left){
+          this.insert(_I[opstr](bs.left));
+          if(bs.left.m5.hotspot)
+            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
+        }
+        if(bs.up){
+          this.insert(_I[opstr](bs.up));
+          if(bs.up.m5.hotspot)
+            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
+        }
+        if(bs.down){
+          this.insert(_I[opstr](bs.down));
+          if(bs.down.m5.hotspot)
+            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
+        }
+        if(options.extra)
+          options.extra(this);
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("AudioIcon",{
       setup(arg){
         let {xOffset,yOffset,xScale,yScale}=arg;
@@ -22627,7 +22698,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Define a mixin object. */
-    Mojo.defMixin("arcade",function(e, ...minors){
+    Mojo.mixin("arcade",function(e, ...minors){
       const {Sprites}= Mojo,
             subs=[],
             sigs=[],
@@ -22700,7 +22771,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Define mixin `camera`. */
-    Mojo.defMixin("camera2d", function(e,worldWidth,worldHeight,canvas){
+    Mojo.mixin("camera2d", function(e,worldWidth,worldHeight,canvas){
       let _x=0;
       let _y=0;
       const _height= canvas?canvas.height:worldHeight,
@@ -25042,223 +25113,177 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.snakeEatItem=function(){
-      let head, s= _G.item;
-      if(s){
-        head=_G.snake[0];
-        return head.g.row==s.g.row && head.g.col==s.g.col;
-      }
+    const TAIL={};
+    function captureTail(s){
+      let e= _.last(s);
+      TAIL.row=e.g.row;
+      TAIL.col=e.g.col;
+      TAIL.x=e.x;
+      TAIL.y=e.y;
+      return TAIL;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.snakeEatSelf=function(){
-      let s= _G.snake;
-      for(let head=s[0],t,i=1;i<s.length;++i){
-        t=s[i];
-        if(head.g.row==t.g.row &&
-           head.g.col==t.g.col){
-          _S.hide(t);
-          return _G.snakeBite=true;
+    _.inject(_G,{
+      cloneBody(scene){
+        const mkOneCell=(row,col,x,y)=>{
+          let s= _S.sprite("snake.png");
+          _S.anchorXY(s,0.5);
+          s.g.row=row;
+          s.g.col=col;
+          _S.scaleXY(s,this.scaleX, this.scaleY);
+          s.x=x;
+          s.y=y;
+          return scene.insert(s);
+        };
+        if(this.growTime) captureTail(this.snake);
+        for(let n,i=this.snake.length-1; i>0; --i){
+          n=this.snake[i-1];
+          this.snake[i].g.row=n.g.row;
+          this.snake[i].g.col=n.g.col;
+          this.snake[i].x=n.x;
+          this.snake[i].y=n.y;
         }
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.snakeMoveRight=function(scene){
-      let s= _G.snake,
-        head=s[0], last=s.length-1;
-      if(head.g.col==_G.COLS-1){
-        head.m5.dead=true;
-        return false;
-      }
-      for(let n,i=last;i>0;--i){
-        n=s[i-1];
-        s[i].g.row=n.g.row;
-        s[i].g.col=n.g.col;
-        s[i].x=n.x;
-        s[i].y=n.y;
-      }
-      head.g.col += 1;
-      head.x += _G.tileW;
-      head.angle=0;
-      return _G.snakeDir=Mojo.RIGHT;
-    };
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.snakeMoveLeft=function(scene){
-      let s= _G.snake,
-        head=s[0], last=s.length-1;
-      if(head.g.col==0){
-        head.m5.dead=true;
-        return false;
-      }
-      for(let n,i=last;i>0;--i){
-        n=s[i-1];
-        s[i].g.row=n.g.row;
-        s[i].g.col=n.g.col;
-        s[i].x=n.x;
-        s[i].y=n.y;
-      }
-      head.g.col -= 1;
-      head.x -= _G.tileW;
-      head.angle= 180;
-      return _G.snakeDir=Mojo.LEFT;
-    };
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.snakeMoveUp=function(scene){
-      let s= _G.snake,
-        head=s[0], last=s.length-1;
-      if(head.g.row==0){
-        head.m5.dead=true;
-        return false;
-      }
-      for(let n,i=last;i>0;--i){
-        n=s[i-1];
-        s[i].g.row=n.g.row;
-        s[i].g.col=n.g.col;
-        s[i].x=n.x;
-        s[i].y=n.y;
-      }
-      head.g.row -= 1;
-      head.y -= _G.tileH;
-      head.angle=-90;
-      return _G.snakeDir=Mojo.UP;
-    };
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.snakeMoveDown=function(scene){
-      let s= _G.snake,
-        head=s[0], last=s.length-1;
-      if(head.g.row==_G.ROWS-1){
-        head.m5.dead=true;
-        return false;
-      }
-      for(let n,i=last;i>0;--i){
-        n=s[i-1];
-        s[i].g.row=n.g.row;
-        s[i].g.col=n.g.col;
-        s[i].x=n.x;
-        s[i].y=n.y;
-      }
-      head.g.row += 1;
-      head.y += _G.tileH;
-      head.angle=90;
-      return _G.snakeDir=Mojo.DOWN;
-    };
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.growSnake=function(scene){
-      let n=_G.snake.length,
-        last=_G.snake[n-1],
-        last2=_G.snake[n-2],
-        g,t, col=last.g.col, row=last.g.row;
-      if(last.g.col==last2.g.col){
-        //-1 grow up 1 down
-        row += (last2.g.row>last.g.row?-1:1)
-      }else if(last.g.row==last2.g.row){
-        //-1 grow left 1 right
-        col += (last2.g.col>last.g.col?-1:1)
-      }
-      if(row<0||col<0|| row>=_G.ROWS||col>=_G.COLS){
-        _G.snake[0].m5.dead=true;
-        _.clear(_G.timerid);
-        _G.timerid=UNDEF;
-      }else{
-        t= _S.sprite("snake.png");
-        t.g.row=row;
-        t.g.col=col;
-        _S.anchorXY(t,0.5);
-        _S.scaleXY(t,_G.scaleX, _G.scaleY);
-        g=_G.grid[t.g.row][t.g.col];
-        _V.copy(t,_S.bboxCenter(g));
-        _G.snake.push( scene.insert(t));
-      }
-      return !!t;
-    };
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.Item=function(scene){
-      let x=0,y=0,ok;
-      while(!ok){
-        x=_.randInt(_G.COLS);
-        y=_.randInt(_G.ROWS);
-        ok=true;
-        for(let s,i=0;i<_G.snake.length;++i){
-          s=_G.snake[i];
-          if(s.g.row==y && s.g.col==x){
-            ok=false;
-            break;
+        if(this.growTime){
+          this.growTime=false;
+          this.snake.push(mkOneCell(scene,TAIL.row,TAIL.col,TAIL.x,TAIL.y));
+        }
+      },
+      snakeEatItem(){
+        let s= this.item, head=this.snake[0];
+        if(s)
+          return head.g.row==s.g.row && head.g.col==s.g.col;
+      },
+      snakeEatSelf(){
+        for(let head=this.snake[0],t,i=1;i< this.snake.length;++i){
+          t= this.snake[i];
+          if(head.g.row==t.g.row &&
+             head.g.col==t.g.col){
+            _S.hide(t);
+            return this.snakeBite=true;
           }
         }
+      },
+      snakeMoveRight(scene){
+        let head=this.snake[0];
+        if(head.g.col==this.COLS-1){
+          head.m5.dead=true;
+        }else{
+          this.cloneBody(scene);
+          head.g.col += 1;
+          head.x += this.tileW;
+          head.angle=0;
+          this.snakeDir=Mojo.RIGHT;
+        }
+      },
+      snakeMoveLeft(scene){
+        let head=this.snake[0];
+        if(head.g.col==0){
+          head.m5.dead=true;
+        }else{
+          this.cloneBody(scene);
+          head.g.col -= 1;
+          head.x -= this.tileW;
+          head.angle= 180;
+          this.snakeDir=Mojo.LEFT;
+        }
+      },
+      snakeMoveUp(scene){
+        let head= this.snake[0];
+        if(head.g.row==0){
+          head.m5.dead=true;
+        }else{
+          this.cloneBody(scene);
+          head.g.row -= 1;
+          head.y -= this.tileH;
+          head.angle=-90;
+          _G.snakeDir=Mojo.UP;
+        }
+      },
+      snakeMoveDown(scene){
+        let head= this.snake[0];
+        if(head.g.row==_G.ROWS-1){
+          head.m5.dead=true;
+        }else{
+          this.cloneBody(scene);
+          head.g.row += 1;
+          head.y += this.tileH;
+          head.angle=90;
+          this.snakeDir=Mojo.DOWN;
+        }
+      },
+      Item(scene){
+        let x=0,y=0,ok;
+        while(!ok){
+          x=_.randInt(this.COLS);
+          y=_.randInt(this.ROWS);
+          ok=true;
+          for(let s,i=0;i<this.snake.length;++i){
+            s=this.snake[i];
+            if(s.g.row==y && s.g.col==x){
+              ok=false;
+              break;
+            }
+          }
+        }
+        let m=_S.sprite("apple_00.png"),
+          g= this.grid[y][x],
+          K=Mojo.scaleXY([m.width,m.height],
+                         [this.tileW, this.tileH]);
+        _S.scaleXY(m,K[0],K[1]);
+        _V.set(m,g.x1,g.y1);
+        m.g.row=y;
+        m.g.col=x;
+        return scene.insert(this.item=m);
+      },
+      Snake(scene,col,row){
+        let o= _.fill(2,UNDEF),
+          h= _S.sprite("head.png"),
+          s= _S.sprite("snake.png"),
+          K=Mojo.scaleXY([h.width,h.height],
+                         [this.tileW, this.tileH]),
+          dir=_.randItem([Mojo.UP,Mojo.LEFT,Mojo.DOWN,Mojo.RIGHT]);
+
+        _S.anchorXY(h,0.5);
+        _S.anchorXY(s,0.5);
+
+        this.snakeMove={};
+        this.snakeDir=dir;
+        this.snake=o;
+        this.scaleX=K[0];
+        this.scaleY=K[1];
+        this.snakeMove[Mojo.RIGHT]="snakeMoveRight";
+        this.snakeMove[Mojo.DOWN]="snakeMoveDown";
+        this.snakeMove[Mojo.LEFT]="snakeMoveLeft";
+        this.snakeMove[Mojo.UP]="snakeMoveUp";
+
+        //head
+        _V.copy(h,_S.bboxCenter(this.grid[row][col]));
+        _S.scaleXY(h,K[0],K[1]);
+        h.g.row=row;
+        h.g.col=col;
+        scene.insert(o[0]=h);
+        //tail
+        dir==Mojo.RIGHT?(--col):dir==Mojo.LEFT?(++col):dir==Mojo.UP?(--row):dir==Mojo.DOWN?(++row):UNDEF;
+        _V.copy(s,_S.bboxCenter(this.grid[row][col]));
+        _S.scaleXY(s,K[0],K[1]);
+        s.g.row=row;
+        s.g.col=col;
+        scene.insert(o[1]=s);
+        //force growth for the rest of the snake
+        for(let op=this.snakeMove[dir],i=2;i<Mojo.u.snakeLength;++i){
+          this.growTime=true;
+          this[op](scene);
+        }
+        this.growTime=false;
+        return o;
       }
-      let m=_S.sprite("apple_00.png"),
-        g= _G.grid[y][x],
-        K=Mojo.scaleXY([m.width,m.height],
-                       [_G.tileW, _G.tileH]);
-      _S.scaleXY(m,K[0],K[1]);
-      _V.set(m,g.x1,g.y1);
-      m.g.row=y;
-      m.g.col=x;
-      return scene.insert(_G.item=m);
-    };
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _G.Snake=function(scene,col,row,dir=Mojo.RIGHT){
-      let o= _G.snake=_.fill(2,UNDEF),
-        h= _S.sprite("head.png"),
-        s= _S.sprite("snake.png"),
-        g= _G.grid[row][col],
-        K=Mojo.scaleXY([h.width,h.height],
-                       [_G.tileW, _G.tileH]);
-
-      _S.anchorXY(h,0.5);
-      _S.anchorXY(s,0.5);
-
-      _G.snakeDir=dir;
-      _G.scaleX=K[0];
-      _G.scaleY=K[1];
-
-      o[0]=h;
-      _S.scaleXY(h,K[0],K[1]);
-      _V.copy(h,_S.bboxCenter(g));
-      h.g.row=row;
-      h.g.col=col;
-      scene.insert(h);
-
-      switch(dir){
-        case Mojo.RIGHT:
-          --col;
-          break;
-        case Mojo.LEFT:
-          ++col;
-          break;
-        case Mojo.UP:
-          --row;
-          break;
-        case Mojo.DOWN:
-          ++row;
-          break;
-      }
-      g=_G.grid[row][col];
-      o[1]=s;
-      s.g.row=row;
-      s.g.col=col;
-      _S.scaleXY(s,K[0],K[1]);
-      _V.copy(s,_S.bboxCenter(g));
-      scene.insert(s);
-
-      //grow the rest of the snake
-      for(let i=2;i<Mojo.u.snakeLength;++i){
-        _G.growSnake(scene)
-      }
-
-      return o;
-    };
+    });
 
   };
 
 })(this);
+
 
 
 /* Licensed under the Apache License, Version 2.0 (the "License");
@@ -25375,13 +25400,8 @@
         return g;
       },
       _drawGrid(){
-        let K=Mojo.getScaleFactor(),
-          b= _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2*K,"#aad751");
-        //let n= _S.drawGridLines(0,0,_G.grid,2,"#aad751");
-        //n.alpha=0.1;
-        //b.alpha=0.7;
-        //this.insert(n);
-        this.insert(b);
+        let K=Mojo.getScaleFactor();
+        return this.insert( _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2*K,"#aad751"))
       },
       setup(){
         let self=this,
@@ -25393,7 +25413,6 @@
         this._initGrid();
         this._drawGrid();
         this._makeSnake();
-        this.grow();
         this._makeItem();
         this.g.score=_S.bmpText("0",UI_FONT,24*K);
         this.g.score.tint=C_ORANGE;
@@ -25403,7 +25422,9 @@
       },
       grow(){
         _G.timerid=_.delay(Mojo.u.growthInterval,()=>{
-          if(_G.growSnake(this)) this.grow()
+          _G.growTime=true;
+          this.grow();
+          //console.log("GRoW!");
         })
       },
       _makeItem(){
@@ -25412,29 +25433,20 @@
       _makeSnake(){
         _G.Snake(this, _M.ndiv(_G.grid[0].length,2),
                        _M.ndiv(_G.grid.length,2));
+        this.grow();
       },
       recalc(){
-        let c=_G.snakeDir;
+
         if(_I.keyDown(_I.RIGHT)){
-          if(c != Mojo.LEFT)
-            _G.snakeMoveRight(this);
-        } else if(_I.keyDown(_I.LEFT)){
-          if(c != Mojo.RIGHT)
-            _G.snakeMoveLeft(this);
-        } else if(_I.keyDown(_I.UP)){
-          if(c != Mojo.DOWN)
-            _G.snakeMoveUp(this);
-        } else if(_I.keyDown(_I.DOWN)){
-          if(c != Mojo.UP)
-            _G.snakeMoveDown(this);
-        } else if(c==Mojo.RIGHT){
-          _G.snakeMoveRight(this);
-        } else if(c==Mojo.LEFT){
-          _G.snakeMoveLeft(this);
-        } else if(c==Mojo.UP){
-          _G.snakeMoveUp(this);
-        } else if(c==Mojo.DOWN){
-          _G.snakeMoveDown(this);
+          (_G.snakeDir != Mojo.LEFT) && _G.snakeMoveRight(this)
+        }else if(_I.keyDown(_I.LEFT)){
+          (_G.snakeDir != Mojo.RIGHT) && _G.snakeMoveLeft(this)
+        }else if(_I.keyDown(_I.UP)){
+          (_G.snakeDir != Mojo.DOWN) && _G.snakeMoveUp(this)
+        }else if(_I.keyDown(_I.DOWN)){
+          (_G.snakeDir != Mojo.UP) && _G.snakeMoveDown(this)
+        }else{
+          _G[_G.snakeMove[_G.snakeDir]](this);
         }
 
         if(_G.snakeEatSelf()){
@@ -25445,9 +25457,7 @@
           _S.remove(_G.item);
           _G.item=UNDEF;
           ++_G.score;
-          _.delay(Mojo.u.itemInterval,()=>{
-            _G.Item(this)
-          })
+          _.delay(Mojo.u.itemInterval,()=> _G.Item(this))
         }
 
         if(_G.snake[0].m5.dead){
@@ -25455,7 +25465,7 @@
             Mojo.sound("boing1.mp3").play();
           _.clear(_G.timerid);
           _G.timerid=-1;
-          _.delay(343,()=> _Z.modal("EndGame"));
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame"));
         }else{
           _.delay(Mojo.u.frameDelay,()=> this.recalc());
         }
@@ -25480,8 +25490,8 @@
     //bgColor:0xAAD751,
     frameDelay:500,
     itemInterval:6000,
-    growthInterval:3000,
-    snakeLength:8,
+    growthInterval:5000,
+    snakeLength:5,
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.run("Splash");

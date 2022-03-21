@@ -112,13 +112,8 @@
         return g;
       },
       _drawGrid(){
-        let K=Mojo.getScaleFactor(),
-          b= _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2*K,"#aad751");
-        //let n= _S.drawGridLines(0,0,_G.grid,2,"#aad751");
-        //n.alpha=0.1;
-        //b.alpha=0.7;
-        //this.insert(n);
-        this.insert(b);
+        let K=Mojo.getScaleFactor();
+        return this.insert( _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2*K,"#aad751"))
       },
       setup(){
         let self=this,
@@ -130,7 +125,6 @@
         this._initGrid();
         this._drawGrid();
         this._makeSnake();
-        this.grow();
         this._makeItem();
         this.g.score=_S.bmpText("0",UI_FONT,24*K);
         this.g.score.tint=C_ORANGE;
@@ -140,7 +134,9 @@
       },
       grow(){
         _G.timerid=_.delay(Mojo.u.growthInterval,()=>{
-          if(_G.growSnake(this)) this.grow()
+          _G.growTime=true;
+          this.grow();
+          //console.log("GRoW!");
         })
       },
       _makeItem(){
@@ -149,29 +145,20 @@
       _makeSnake(){
         _G.Snake(this, _M.ndiv(_G.grid[0].length,2),
                        _M.ndiv(_G.grid.length,2));
+        this.grow();
       },
       recalc(){
-        let c=_G.snakeDir;
+
         if(_I.keyDown(_I.RIGHT)){
-          if(c != Mojo.LEFT)
-            _G.snakeMoveRight(this);
-        } else if(_I.keyDown(_I.LEFT)){
-          if(c != Mojo.RIGHT)
-            _G.snakeMoveLeft(this);
-        } else if(_I.keyDown(_I.UP)){
-          if(c != Mojo.DOWN)
-            _G.snakeMoveUp(this);
-        } else if(_I.keyDown(_I.DOWN)){
-          if(c != Mojo.UP)
-            _G.snakeMoveDown(this);
-        } else if(c==Mojo.RIGHT){
-          _G.snakeMoveRight(this);
-        } else if(c==Mojo.LEFT){
-          _G.snakeMoveLeft(this);
-        } else if(c==Mojo.UP){
-          _G.snakeMoveUp(this);
-        } else if(c==Mojo.DOWN){
-          _G.snakeMoveDown(this);
+          (_G.snakeDir != Mojo.LEFT) && _G.snakeMoveRight(this)
+        }else if(_I.keyDown(_I.LEFT)){
+          (_G.snakeDir != Mojo.RIGHT) && _G.snakeMoveLeft(this)
+        }else if(_I.keyDown(_I.UP)){
+          (_G.snakeDir != Mojo.DOWN) && _G.snakeMoveUp(this)
+        }else if(_I.keyDown(_I.DOWN)){
+          (_G.snakeDir != Mojo.UP) && _G.snakeMoveDown(this)
+        }else{
+          _G[_G.snakeMove[_G.snakeDir]](this);
         }
 
         if(_G.snakeEatSelf()){
@@ -182,9 +169,7 @@
           _S.remove(_G.item);
           _G.item=UNDEF;
           ++_G.score;
-          _.delay(Mojo.u.itemInterval,()=>{
-            _G.Item(this)
-          })
+          _.delay(Mojo.u.itemInterval,()=> _G.Item(this))
         }
 
         if(_G.snake[0].m5.dead){
@@ -192,7 +177,7 @@
             Mojo.sound("boing1.mp3").play();
           _.clear(_G.timerid);
           _G.timerid=-1;
-          _.delay(343,()=> _Z.modal("EndGame"));
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame"));
         }else{
           _.delay(Mojo.u.frameDelay,()=> this.recalc());
         }
@@ -217,8 +202,8 @@
     //bgColor:0xAAD751,
     frameDelay:500,
     itemInterval:6000,
-    growthInterval:3000,
-    snakeLength:8,
+    growthInterval:5000,
+    snakeLength:5,
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.run("Splash");
