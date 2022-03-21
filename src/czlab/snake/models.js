@@ -58,7 +58,8 @@
         }
         if(this.growTime){
           this.growTime=false;
-          this.snake.push(mkOneCell(scene,TAIL.row,TAIL.col,TAIL.x,TAIL.y));
+          this.snake.push(mkOneCell(TAIL.row,TAIL.col,TAIL.x,TAIL.y));
+          this.growSnake(scene);
         }
       },
       snakeEatItem(){
@@ -109,7 +110,7 @@
           head.g.row -= 1;
           head.y -= this.tileH;
           head.angle=-90;
-          _G.snakeDir=Mojo.UP;
+          this.snakeDir=Mojo.UP;
         }
       },
       snakeMoveDown(scene){
@@ -147,6 +148,11 @@
         m.g.row=y;
         m.g.col=x;
         return scene.insert(this.item=m);
+      },
+      growSnake(scene){
+        scene.future(()=>{
+          this.growTime=true;
+        },Mojo.u.growthInterval);
       },
       Snake(scene,col,row){
         let o= _.fill(2,UNDEF),

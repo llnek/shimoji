@@ -81,39 +81,17 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let snd="game_over.mp3",
-          os={fontName:UI_FONT,
-              fontSize: 24*Mojo.getScaleFactor()},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"You Lose!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=> _Z.runEx("PlayGame");
-        s6.m5.press=()=> _Z.runEx("Splash");
-        if(options.msg)snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       _initGrid(){
-        let g= _G.grid = _S.gridSQ(18,0.95);
+        let out={};
+        let g= _G.grid = _S.gridSQ(18,0.8,out);
         let t=g[0][0];
         _G.tileW=t.x2-t.x1;
         _G.tileH=t.y2-t.y1;
         _G.ROWS=g.length;
         _G.COLS=g[0].length;
+        _G.arena=out;
         return g;
-      },
-      _drawGrid(){
-        let K=Mojo.getScaleFactor();
-        return this.insert( _S.drawGridBox(_S.gridBBox(0,0,_G.grid),2*K,"#aad751"))
       },
       setup(){
         let self=this,
@@ -123,29 +101,42 @@
         _G.score=0;
         _G.item=UNDEF;
         this._initGrid();
-        this._drawGrid();
-        this._makeSnake();
-        this._makeItem();
+        _G.Snake(this, _M.ndiv(_G.grid[0].length,2), _M.ndiv(_G.grid.length,2));
+        _G.Item(this);
         this.g.score=_S.bmpText("0",UI_FONT,24*K);
         this.g.score.tint=C_ORANGE;
         self.insert(this.g.score);
-        Mojo.on(["recalc",this],"recalc");
-        _.delay(Mojo.u.frameDelay,()=>this.recalc());
+        if(1){
+          let s= _S.bboxFrame(_G.arena,16*K);
+          s.alpha=0.5;
+          self.insert(s);
+        }
+        ///
+        _Z.run("AudioIcon",{
+          xScale:0.6*K, yScale:0.6*K,
+          xOffset: -10*K, yOffset:0
+        });
+        ////
+        _Z.run("HotKeys",{
+          fontSize:32*K,
+          radius:24*K,
+          alpha:0.5,
+          cb(obj){
+            _V.set(obj.right,Mojo.width-obj.right.width,Mojo.height-obj.right.height);
+            _S.pinLeft(obj.right,obj.left,obj.right.width/4);
+            _V.set(obj.up,obj.up.width,Mojo.height-obj.up.height);
+            _S.pinRight(obj.up,obj.down,obj.up.width/4);
+            return obj;
+          }
+        });
+        ////
+        this.doMove();
+        _G.growSnake(this);
       },
-      grow(){
-        _G.timerid=_.delay(Mojo.u.growthInterval,()=>{
-          _G.growTime=true;
-          this.grow();
-          //console.log("GRoW!");
-        })
-      },
-      _makeItem(){
-        _G.Item(this);
-      },
-      _makeSnake(){
-        _G.Snake(this, _M.ndiv(_G.grid[0].length,2),
-                       _M.ndiv(_G.grid.length,2));
-        this.grow();
+      doMove(){
+        this.future(()=>{
+          this.recalc();
+        }, Mojo.u.frameDelay);
       },
       recalc(){
 
@@ -169,17 +160,21 @@
           _S.remove(_G.item);
           _G.item=UNDEF;
           ++_G.score;
-          _.delay(Mojo.u.itemInterval,()=> _G.Item(this))
+          this.future(()=> _G.Item(this) ,Mojo.u.itemInterval);
         }
 
         if(_G.snake[0].m5.dead){
           if(!_G.snakeBite)
             Mojo.sound("boing1.mp3").play();
           _.clear(_G.timerid);
-          _G.timerid=-1;
-          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame"));
+          _G.timerid=UNDEF;
+          this.m5.dead=true;
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{
+            msg:"You Lose!",
+            fontSize: 24*Mojo.getScaleFactor()
+          }));
         }else{
-          _.delay(Mojo.u.frameDelay,()=> this.recalc());
+          this.doMove();
         }
       },
       postUpdate(dt){
@@ -193,7 +188,9 @@
   window.addEventListener("load", ()=> MojoH5({
 
     assetFiles:["bg.jpg","head.png","snake.png","tail.png","apple_00.png",
-                "boing1.mp3","apple.mp3","eat.mp3","click.mp3","game_over.mp3","game_win.mp3"],
+                "boing1.mp3","apple.mp3",
+                "audioOn.png","audioOff.png",
+                "eat.mp3","click.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:640,height:480},
     scaleToWindow: "max",
     //bgColor: 0x51b2ee,

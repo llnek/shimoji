@@ -102,6 +102,31 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let {action1,action2,scene1,scene2}=options;
+        let {fontName,fontSize,msg}= options;
+        fontName= fontName|| "Doki Lowercase";
+        action1=action1||"Play Again?";
+        action2=action2||"Quit";
+        scene1=scene1||"PlayGame";
+        scene2=scene2||"Splash";
+        msg=msg||" ";
+        _.assert(fontSize,"expected font size");
+        let os={fontName,fontSize},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(msg, os),
+          s4=_I.mkBtn(_S.bmpText(action1,os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText(action2,os));
+        s4.m5.press=()=> _Z.runEx(scene1);
+        s6.m5.press=()=> _Z.runEx(scene2);
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PhotoMat",{
       setup(arg){
         if(arg.cb){ arg.cb(this) }else{
