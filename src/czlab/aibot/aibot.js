@@ -354,41 +354,42 @@
                 tw=g.x2-g.x1,
                 th=g.y2-g.y1;
 
+            let color="#b1c92c";//"#c4db44";//"#dbb744";
             //square
-            b= _S.rect(5*tw,5*th,"white");
+            b= _S.rect(5*tw,5*th,color);
             _S.uuid(b,"o-square");
             g=grid[ROWS-6-3][COLS-6-3];
             _V.set(b,g.x1,g.y1);
             out.push(self.insert(b));
 
             // 2 rects
-            b= _S.rect(4*tw,8*th,"white");
+            b= _S.rect(4*tw,8*th,color);
             _S.uuid(b,"o-vrect");
             g=grid[2][3];
             _V.set(b,g.x1,g.y1);
             out.push(self.insert(b));
 
-            b= _S.rect(6*tw,3*th,"white");
+            b= _S.rect(6*tw,3*th,color);
             _S.uuid(b,"o-hrect");
             g=grid[2][3];
             _V.set(b,g.x1,g.y1);
             out.push(self.insert(b));
 
             //iso-tri
-            b= _S.triangle(5*tw,4*th,0.5,"white","white");
+            b= _S.triangle(5*tw,4*th,0.5,color,color);
             _S.uuid(b,"isotrig");
             g=grid[3][COLS-7];
             _V.set(b,g.x1,g.y1);
             out.push(self.insert(b));
 
             //2 tri
-            b= _S.triangle(5*tw,2*th,0,"white","white");
+            b= _S.triangle(5*tw,2*th,0,color,color);
             _S.uuid(b, "rangtri-up");
             g=grid[ROWS-6][0];
             _V.set(b,g.x1,g.y1);
             out.push(self.insert(b));
             //flipped
-            b= _S.triangle(5*tw,-2*th,0,"white","white");
+            b= _S.triangle(5*tw,-2*th,0,color,color);
             _S.uuid(b, "rangtri-down");
             g=grid[ROWS-4][0];
             _V.set(b,g.x1,g.y1);
@@ -402,7 +403,7 @@
                 grid=_S.gridXY([ROWS,COLS],0.9,0.9,out);
             let g0= grid[0][0];
             _S.drawGridBox(out,1,"white",gfx);
-            _S.drawGridLines(0,0,grid,1,"white",gfx);
+            _S.drawGridLines(0,0,grid,1,"grey",gfx);
             self.insert(gfx);
             this.initBlocks(grid);
             _.inject(_G,{
@@ -428,18 +429,28 @@
                 vecSweepers[i].g.reset();
               });
               ticks = 0;
+              //best are up front
+              for(let i=0;i<10;++i){
+                vecSweepers[i].tint=_S.SomeColors.magenta;
+              }
             }
+            ///
+            self.insert(_S.bboxFrame(out));
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        this.g.menu= _S.sprite("menu.png");
+        this.g.menu.anchor.x=1;
+        this.g.menu.m5.press=()=>{
+          _Z.runEx("Splash")
+        };
+        _V.set(this.g.menu, Mojo.width,0);
+        this.insert(_I.mkBtn(this.g.menu));
       },
       postUpdate(dt){
         this.g.dbg.clear();
-        //let s=this.getChildById("o-square");
-        //let p= _S.toPolygon(s);
-        //let vs=geo.Polygon.translateCalcPoints(p);
-        //let res= geo.hitTestLinePolygon([800,500], [900,600],p);
         if(++ticks<NumTicks){
           this.g.letThemRoam()
         }else{
@@ -454,7 +465,7 @@
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["tank.png","click.mp3"],
+    assetFiles: ["tank.png","menu.png","click.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",

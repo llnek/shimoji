@@ -107,13 +107,13 @@
           K=Mojo.getScaleFactor();
         _.inject(this.g,{
           doTitle(s){
-            s=_S.bmpText("Neural Flappy Bird", TITLE_FONT,64*K);
+            s=_S.bmpText("Neural Flappy Bird", TITLE_FONT,48*K);
             _S.tint(s,C_TITLE);
             _V.set(s, Mojo.width/2, Mojo.height*0.3);
             return self.insert(_S.anchorXY(s,0.5));
           },
           doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,48*K);
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,32*K);
             _V.set(s,Mojo.width/2,Mojo.height*0.7);
             t=_F.throb(s,0.747,0.747);
             function cb(){
@@ -233,6 +233,13 @@
         this.g.initLevel();
         this.g.genText=_S.bmpText("",UI_FONT,24*K);
         this.insert(this.g.genText);
+        this.g.menu= _S.sprite("menu.png");
+        this.g.menu.anchor.x=1;
+        this.g.menu.m5.press=()=>{
+          _Z.runEx("Splash")
+        };
+        _V.set(this.g.menu, Mojo.width,0);
+        this.insert(_I.mkBtn(this.g.menu));
       },
       postUpdate(dt){
         this.g.bgs.forEach((s,i)=>{
@@ -250,7 +257,8 @@
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["bird.png","pipetop.png","pipebottom.png","background.png","click.mp3"],
+    assetFiles: ["bird.png","pipetop.png","pipebottom.png",
+                 "menu.png","background.png","click.mp3"],
     arena: {width: 500, height: 512},
     scaleToWindow:"max",
     scaleFit:"y",
