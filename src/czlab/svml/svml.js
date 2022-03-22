@@ -12,7 +12,7 @@
  *
  * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
@@ -21,38 +21,44 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
+
     const {Sprites:_S,
            Scenes:_Z,
            FX:_F,
            Input:_I,
            Game:_G,
-           "2d":_2d,
+           math:_M,
            v2:_V,
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Core= window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/algo/NNetGA"](Core);
+    const Core= window["io/czlab/mcfud/core"](),
+      GA= window["io/czlab/mcfud/algo/NNetGA"](Core);
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const NOT_READY  = 0,
-          TRAINING = 1,
-          ACTIVE   = 2,
-          LEARNING = 3,
-          NUM_INPUTS=12,
-          NUM_OUTPUTS=11,
-          NEURONS_PER_HIDDEN=6;
+    const READY  = 4,
+      TRAINING = 1,
+      ACTIVE   = 2,
+      LEARNING = 3,
+      NUM_INPUTS=12,
+      NUM_OUTPUTS=11,
+      NEURONS_PER_HIDDEN=6;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const playClick=()=> Mojo.sound("click.mp3").play();
+    const CLICK_DELAY=343;
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob";
-    const UI_FONT="Doki Lowercase";
-    const C_TITLE=_S.color("#e4ea1c");//"#e8eb21";//"#fff20f";//yelloe
-    //const C_TITLE=_S.color("#ea2152");//red
-    //const C_TITLE=_S.color("#1eb7e6");//blue
-    //const C_BG=_S.color("#169706");
-    const C_TEXT=_S.color("#fff20f");
-    const C_GREEN=_S.color("#7da633");
-    const C_ORANGE=_S.color("#f4d52b");
-    const C_BG=_S.color("#1e1e1e");
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_BG=_S.color("#1e1e1e"),
+      C_TITLE=_S.color("#e4ea1c"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#7da633"),
+      C_ORANGE=_S.color("#f4d52b");
+
+    const VECNAMES= ["Right", "Left", "Down", "Up",
+					           "CW Square", "CCW Square",
+								     "Right Arrow", "Left Arrow", "South West", "South East", "Zorro"];
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function CData(){
@@ -75,9 +81,7 @@
 				setIn, //11x12,
 				setOut,//11x11
 				numPatterns,
-				vecNames: ["Right", "Left", "Down", "Up",
-					         "Clockwise Square", "Anti-Clockwise Square",
-								   "Right Arrow", "Left Arrow", "South West", "Sout East", "Zorro"],
+				vecNames: VECNAMES,
 				patternName(i){
 					try{
 						return this.vecNames[i]
@@ -88,6 +92,7 @@
 			};
 		}
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function networkTrainingCycle(nnet, learnRate, setIn, setOut){
       nnet.errorSum = 0;
       for(let err,outputs,vec=0;vec<setIn.length;++vec){
@@ -122,6 +127,7 @@
       return true;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function train(nnet,learnRate,data,async){
       let {setIn,setOut} = data;
       _.assert(setIn.length == setOut.length &&
@@ -135,18 +141,21 @@
         u.weights=_.fill(u.numInputs, ()=> _.randMinus1To1())
       }));
       //
-      async.run((count=100)=>{
+      async.run((count=100,extra=null)=>{
+        let s;
         for(let i=0;i<count && !nnet.trained; ++i){
           let ok= networkTrainingCycle(nnet, learnRate,setIn, setOut);
           if(!ok){
-            console.log(`Ooopss..... bad training`);
+            Mojo.CON.log(`Ooopss..... bad training`);
           }
           nnet.trainCycles += 1;
-          console.log(`Epoch: ${nnet.trainCycles}, ErrorSum: ${nnet.errorSum}`);
+          s=`Epoch: ${nnet.trainCycles}, ErrorSum: ${nnet.errorSum}`;
+          Mojo.CON.log(s);
           if(nnet.errorSum>0.003){}else{
-            console.log(`trained-ok`);
+            Mojo.CON.log(`trained-ok`);
             nnet.trained=true;
           }
+          extra.text=s;
         }
         return nnet.trained;
       });
@@ -159,60 +168,89 @@
       }
     }
 
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.defScene("Splash",{
+    _Z.scene("Splash",{
+      setup(){
+        let self=this,
+          t,c1,c2, b, s, msg,
+          K=Mojo.getScaleFactor();
+        _.inject(this.g,{
+          doTitle(s){
+            s=_S.bmpText("Supervised Learning", TITLE_FONT, 84*K);
+            s.tint=C_TITLE;
+            _V.set(s,Mojo.width/2,Mojo.height*0.3);
+            return self.insert(_S.anchorXY(s,0.5));
+          },
+          doNext(msg,t){
+            msg=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 64*K);
+            t=_F.throb(msg,0.747,0.747);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _F.remove(t);
+              msg.tint=C_ORANGE;
+              playClick();
+              _.delay(CLICK_DELAY, ()=>_Z.runEx("PlayGame"));
+            }
+            _I.on(["single.tap"],cb)
+            _V.set(msg,Mojo.width/2, Mojo.height * 0.7);
+            return self.insert( _S.anchorXY(msg,0.5));
+          }
+        });
+        this.g.doTitle() && this.g.doNext();
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("PlayGame",{
       setup(){
         const self=this,
-              K=Mojo.getScaleFactor();
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          K=Mojo.getScaleFactor();
         _.inject(this.g,{
-          initHUD(){
-            let cfg={fontName:UI_FONT, fontSize: K*64};
-            let b,s= _S.bmpText("Train",cfg);
-            s.m5.press=()=>{
-              self.g.trainNetwork();
-              self.g.gfx.clear();
-              self.g.msgText.text="Training...";
-            };
-            b=_Z.layoutY([_I.mkBtn(s)],{bg:"#cccccc"});
-            _V.set(b,0,0);
-            self.insert(b);
-            ////////////
-            s=_S.bmpText("Press to train",cfg);
-            _S.pinRight(b,s,10,1);
-            self.insert(s);
-            this.msgText=s;
+          showTitle(){
+            let s=_S.bmpText("AI is trained :)",UI_FONT,32*K);
+            _S.pinAbove(_G.arena,s,s.height);
+            self.insert(this.title=s);
+            this.gfx= self.insert(_S.graphics());
           },
           initLevel(){
-            this.data = CData();
-            this.nnet = new GA.NeuralNet(2*NUM_INPUTS, NUM_OUTPUTS, 1,NEURONS_PER_HIDDEN);
+            let s,verb= Mojo.touchDevice?"Tap":"Click";
+            _G.data = CData();
+            _G.pmap={};
+            _G.nnet = new GA.NeuralNet(2*NUM_INPUTS, NUM_OUTPUTS, 1,NEURONS_PER_HIDDEN);
             this.numSmoothPoints = NUM_INPUTS+1;
-
-            this.mode = NOT_READY;
             this.highestOutput = 0;
             this.bestMatch = 0;
             this.match = -1;
             this.drawing = false;
-
             this.clear();
-            this.gfx= self.insert(_S.graphics());
+            s=_S.bmpText(`${verb} to train the AI...`,UI_FONT,32*K);
+            _S.anchorXY(s,0.5);
+            _V.set(s,Mojo.width/2,Mojo.height/2);
+            self.insert(s);
+            function cb(){
+              _I.off(["single.tap"],cb);
+              _S.hide(s);
+              playClick();
+              _.delay(0,()=> _Z.modal("Trainer"),{
+              });
+            }
+            _I.on(["single.tap"],cb);
+            /////
+            let m=this.msgText=_S.bmpText(" ",UI_FONT,32*K);
+            _S.pinBelow(_G.arena,m,-m.height*2);
+            _S.anchorXY(m,0.5);
+            _S.hide( self.insert(m));
           },
           clear(){
             this.vectors = [];
             this.path = [];
             this.smoothPath = [];
           },
-          trainNetwork(){
-            if(this.mode==TRAINING){return}
-            let cb;
-            train(this.nnet, 0.5, this.data,{ run(c){ cb=c } });
-            this.trainingFunc=cb;
-            this.mode = TRAINING;
-          },
           testForMatch(){
-            let outputs = this.nnet.update(this.vectors);
+            let outputs = _G.nnet.update(this.vectors);
             if(outputs.length == 0){
-              console.log("Error in with ANN output");
+              Mojo.CON.log("Error in with ANN output");
               return false;
             }
             this.highestOutput = 0;
@@ -226,7 +264,7 @@
                   this.match = this.bestMatch;
               }
             }
-            console.log(`highest=${this.highestOutput}, best=${this.bestMatch}, match= ${this.match}`);
+            Mojo.CON.log(`highest=${this.highestOutput}, best=${this.bestMatch}, match= ${this.match}`);
             return true;
           },
           createVectors(){
@@ -241,7 +279,7 @@
           },
           smooth(){
             if(this.path.length < this.numSmoothPoints){
-              console.log(`Length of Path not correct: ${this.path.length}, expected: ${this.numSmoothPoints}`);
+              Mojo.CON.log(`Length of Path not correct: ${this.path.length}, expected: ${this.numSmoothPoints}`);
               return false;
             }
 
@@ -275,9 +313,11 @@
             return this.drawing;
           },
           setDrawing(val){
-            console.log(`setdraw called = ${val}, mode=${this.mode}`);
+            Mojo.CON.log(`setdraw called = ${val}, mode=${_G.mode}`);
             if(val === true){
+              _.doseq(_G.pmap,v=>v.tint=_S.SomeColors.white);
               this.clear();
+              this.playedSound=false;
               this.drawing = true;
               this.msgText.text="";
             }else{
@@ -286,32 +326,38 @@
                 if(this.smooth()){
                   this.createVectors();
                   if(!this.testForMatch())
-                    console.log( "Error when test for match");
+                    Mojo.CON.log( "Error when test for match");
                 }else{
-                  console.log(`NOT SMOOTH???????`);
+                  Mojo.CON.log(`NOT SMOOTH???????`);
                 }
               }catch(e){
-                console.log(e.toString());
+                Mojo.CON.log(e.toString());
               }
             }
           },
           paint(){
             if(!this.isDrawing()){
               if(this.highestOutput > 0){
-                if(this.smoothPath.length > 1 && this.mode != LEARNING){
-                  if(this.highestOutput < 0.96){ //#MATCH_TOLERANCE
-                    this.msgText.text=`Gesture = ${this.data.patternName(this.bestMatch)}?`;
-                  }else{
-                    this.msgText.text= `Gesture = ${this.data.patternName(this.match)}`;
+                if(this.smoothPath.length > 1 && _G.mode != LEARNING){
+                  let guess= _G.data.patternName(this.highestOutput<0.96?this.bestMatch:this.match);
+                  _G.pmap[guess].tint=_S.BtnColors.green;
+                  if(!this.playedSound){
+                    Mojo.sound("coin.mp3").play();
+                    this.playedSound=true;
                   }
-                }else if(this.mode != LEARNING){
-                  console.log(`Not enough points drawn - plz try again`);
+                  if(this.highestOutput < 0.96){ //#MATCH_TOLERANCE
+                    //this.msgText.text=`Gesture = ${_G.data.patternName(this.bestMatch)}?`;
+                  }else{
+                    //this.msgText.text= `Gesture = ${_G.data.patternName(this.match)}`;
+                  }
+                }else if(_G.mode != LEARNING){
+                  Mojo.CON.log(`Not enough points drawn - plz try again`);
                 }
               }
             }
             if(this.path.length < 2){return}
             this.gfx.clear();
-            this.gfx.lineStyle(1,_S.color("white"));
+            this.gfx.lineStyle(1,_S.SomeColors.white);
             for(let p,i=0,z=this.path.length; i<z;++i){
               p=this.path[i];
               this.gfx.moveTo(p[0],p[1]);
@@ -321,6 +367,7 @@
               this.gfx.lineTo(p[0],p[1]);
             }
             if(!this.isDrawing() && this.smoothPath.length>0){
+              this.gfx.lineStyle(1,_S.BtnColors.red);
               for(let p,i=0;i<this.smoothPath.length;++i){
                 p=this.smoothPath[i];
                 this.gfx.drawCircle(p[0],p[1],5);
@@ -328,65 +375,144 @@
             }
           },
           onMouseDown(){
-            if(self.g.mode==ACTIVE) self.g.setDrawing(true);
+            if(_G.mode==ACTIVE) self.g.setDrawing(true);
           },
           onMouseUp(){
-            if(self.g.mode==ACTIVE) self.g.setDrawing(false);
+            if(_G.mode==ACTIVE) self.g.setDrawing(false);
           },
           onMouseMove(){
-            if(self.g.mode==ACTIVE &&
+            if(_G.mode==ACTIVE &&
                self.g.isDrawing()){
               self.g.addPoint([ Mojo.mouse.x, Mojo.mouse.y])
             }
           }
         });
         _G.params= GA.config({});
+        if(1){
+          let b,s,out={};
+          _S.gridSQ(10,0.8,out);
+          _G.arena=out;
+          self.insert(_S.bboxFrame(out));
+        }
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
-        this.g.initHUD();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        Mojo.on(["mousedown"], "onMouseDown", this.g);
-        Mojo.on(["mouseup"], "onMouseUp", this.g);
-        Mojo.on(["mousemove"], "onMouseMove", this.g);
+        if(1){
+          let p,s;
+          VECNAMES.forEach(n=>{
+            s=_S.bmpText(n,{fontName:UI_FONT, fontSize:24*K,align:"left"});
+            _G.pmap[n]=s;
+            if(!p){
+              _S.pinAbove(_G.arena,s,-40*K,0);
+              s.x += 10*K;
+            }else{
+              _S.pinBelow(p,s,24*K,0);
+            }
+            p=self.insert(s);
+            _S.hide(p);
+          });
+        }
       },
       dispose(){
-        Mojo.off(["mousedown"], "onMouseDown", this.g);
-        Mojo.off(["mouseup"], "onMouseUp", this.g);
-        Mojo.off(["mousemove"], "onMouseMove", this.g);
+        if(Mojo.touchDevice){
+          _I.off(["touchstart"], "onMouseDown", this.g);
+          _I.off(["touchend"], "onMouseUp", this.g);
+          _I.off(["touchmove"], "onMouseMove", this.g);
+        }else{
+          _I.off(["mousedown"], "onMouseDown", this.g);
+          _I.off(["mouseup"], "onMouseUp", this.g);
+          _I.off(["mousemove"], "onMouseMove", this.g);
+        }
       },
       postUpdate(dt){
-        if(this.g.trainingFunc){
-          console.log("Training in progress.......................");
-          if(this.g.trainingFunc()){
-            this.g.trainingFunc=null;
-            this.g.mode=ACTIVE;
-            this.g.msgText.text="Ready!";
+        if(_G.mode==READY){
+          _S.show(this.g.msgText);
+          this.g.showTitle();
+          _G.mode=ACTIVE;
+          _.doseq(_G.pmap,v=>_S.show(v));
+          if(Mojo.touchDevice){
+            _I.on(["touchstart"], "onMouseDown", this.g);
+            _I.on(["touchend"], "onMouseUp", this.g);
+            _I.on(["touchmove"], "onMouseMove", this.g);
+          }else{
+            _I.on(["mousedown"], "onMouseDown", this.g);
+            _I.on(["mouseup"], "onMouseUp", this.g);
+            _I.on(["mousemove"], "onMouseMove", this.g);
           }
         }
-        if(this.g.mode == ACTIVE){
+        else
+        if(_G.mode==ACTIVE){
           this.g.paint();
         }
       }
     });
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("Trainer",{
+      setup(){
+        let self=this,
+          K=Mojo.getScaleFactor(),
+          os={fontName:UI_FONT,fontSize:24*K},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Training in progress", os),
+          s2=_S.bmpText("Please wait...", os),
+          s4=_S.bmpText(" ",os),
+          s5=_S.bmpText(" ",os),
+          s6=_S.bmpText("ready!",os);
+        let y;
+        this.insert(y=_Z.layoutY([s1,s2,space(),s4,s6],{bg:"transparent"}));
+        s6.tint=_S.BtnColors.green;
+        _S.hide(s6);
+        this.g.readyBtn=s6;
+        _S.anchorXY(s5,0.5);
+        _S.pinBelow(y,s5,s5.height);
+        self.insert(this.g.status=s5);
+      },
+      postUpdate(){
+        let self=this;
+        if(this.g.mode === UNDEF){
+          _.delay(0,()=>{
+            let cb=0;
+            train(_G.nnet, 0.5, _G.data,{ run(c){ cb=c } });
+            this.g.trainingFunc=cb;
+            this.g.mode =TRAINING;
+          })
+        }
+        if(this.g.trainingFunc){
+          Mojo.CON.log("Training in progress.......................");
+          let ok=this.g.trainingFunc(100,this.g.status);
+          function cb(){
+            _I.off(["single.tap"],cb);
+            _Z.remove(self);
+            playClick();
+            _G.mode=READY;
+          }
+          if(ok){
+            this.g.trainingFunc=UNDEF;
+            this.g.mode=ACTIVE;
+            _S.hide(this.g.status);
+            _S.show(this.g.readyBtn);
+            _I.on(["single.tap"],cb);
+          }
+        }
+      }
+    });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //game config
-  const _$={
-    //assetFiles: ["wall.png","ground.png","green.png","water.png"],
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
+
+    assetFiles: ["click.mp3","coin.mp3"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
     scaleFit:"y",
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("Splash");
+      Mojo.Scenes.run("Splash");
     }
-  };
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 
