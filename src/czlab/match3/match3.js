@@ -12,6 +12,35 @@ class Match3{
         this.items = obj.items;
     }
 
+    hasAvailableMoves(){
+      let dirs=[[0, -1], [1, 0], [0, 1], [-1, 0]];
+      let cellAt=(row, column)=>{
+        if(this.validPick(row, column))
+          return this.gameArray[row][column];
+      };
+      for(let ok,a,b,i=0; i<this.rows; ++i){
+        for(let j=0; j<this.columns; ++j){
+          a= cellAt(i,j);
+          if(!a || a.isEmpty){continue}
+          for(let x,y,k=0; k<dirs.length; ++k){
+            y=i+dirs[k][0];
+            x=j+dirs[k][1];
+            b = cellAt(y,x);
+            if(b && !b.isEmpty){
+              //swap
+              this.gameArray[i][j]=b;
+              this.gameArray[y][x]=a;
+              ok = this.matchInBoard();
+              //put back
+              this.gameArray[i][j]=a;
+              this.gameArray[y][x]=b;
+              if(ok) return true;
+            }
+          }
+        }
+      }
+    }
+
     // generates the game field
     generateField(){
         this.gameArray = [];

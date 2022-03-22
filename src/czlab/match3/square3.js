@@ -107,6 +107,24 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let os={fontName:UI_FONT,
+                fontSize: 72*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"You Lose!", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        Mojo.sound("game_over.mp3").play();
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
         const self=this,
@@ -268,6 +286,8 @@
               };
             });
             shifts = _G.match3.replenishBoard();
+            if(shifts.length>0)
+              Mojo.sound("chimes.mp3").play();
             shifts.forEach(move=>{
               ++moved;
               t= this.createTile(_G.match3.valueAt(move.row, move.column));
@@ -286,9 +306,16 @@
           },
           endMove(){
             if(_G.match3.matchInBoard()){
-              _.delay(250, ()=>this.doMatches());
+              self.future(()=>this.doMatches(),250)
             }else{
-              _G.selecting = true;
+              self.future(()=>{
+                if(!_G.match3.hasAvailableMoves()){
+                  self.m5.dead=true;
+                  _.delay(100,()=> _Z.modal("EndGame"))
+                }else{
+                  _G.selecting = true;
+                }
+              },100);
             }
           }
         });
@@ -310,7 +337,8 @@
   //load and run
   window.addEventListener("load", ()=> MojoH5({
 
-    assetFiles: ["bg.png","candy.png","click.mp3"],
+    assetFiles: ["bg.png","candy.png","click.mp3",
+                 "chimes.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:480,height:800},
     scaleToWindow: "max",
     scaleFit:"y",

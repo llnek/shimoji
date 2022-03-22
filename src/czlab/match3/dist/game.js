@@ -5424,6 +5424,10 @@
                       _.dissoc(X,item.getGuid())
               }
             }
+            g.x1=UNDEF;
+            g.x2=UNDEF;
+            g.y1=UNDEF;
+            g.y2=UNDEF;
           }
         }
       }
@@ -13679,15 +13683,16 @@
 						out.push(new NeuronLayer(neuronsPerHidden, inputs));
 						for(let i=0; i<numHidden-1; ++i)
 							out.push(new NeuronLayer(neuronsPerHidden,neuronsPerHidden));
-						inputs= neuronsPerHidden;
 					}
-					return _.conj(out,new NeuronLayer(outputs, inputs));
+					return _.conj(out,new NeuronLayer(outputs, numHidden>0?neuronsPerHidden:inputs));
 				})([]);
+
 				this.numOfWeights=this.layers.reduce((sum,y)=>{
 					return sum + y.neurons.reduce((acc,u)=>{
 						return acc+u.weights.length
 					},0)
 				},0);
+
 				this.numOutputs=outputs;
 				this.numInputs=inputs;
 				this.numHidden=numHidden;
@@ -18815,7 +18820,7 @@
     /** @ignore */
     function _pininfo(X,o,p=null){
       let par,box;
-      if(o.m5.stage){
+      if(o && o.m5 && o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
         par=o.parent;
@@ -19070,6 +19075,20 @@
         }
         return s;
       },
+      /**Clear spatial data.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      clrSpatial(s){
+        if(s && s.m5 && s.m5.sgrid){
+          s.m5.sgrid.x1=UNDEF;
+          s.m5.sgrid.x2=UNDEF;
+          s.m5.sgrid.y1=UNDEF;
+          s.m5.sgrid.y2=UNDEF;
+        }
+        return s;
+      },
       /**Extend a sprite with extra methods.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -19258,6 +19277,8 @@
        * @return {object} {x1,x2,y1,y2}
        */
       getAABB(s){
+        if(s.x1 !== undefined && s.y2 !== undefined){ return s }
+        _.assert(s.m5, "bad sprite for getAABB");
         let {x1,y1,x2,y2}=s.m5.getImageOffsets();
         let l= this.leftSide(s),
             t= this.topSide(s),
@@ -20638,6 +20659,8 @@
             Mojo.Input.undoDrag(c);
           if(c.m5.button)
             Mojo.Input.undoButton(c);
+          if(c.m5.hotspot)
+            Mojo.Input.undoHotspot(c);
           Mojo.off(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
       }
@@ -22485,6 +22508,31 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let {action1,action2,scene1,scene2}=options;
+        let {fontName,fontSize,msg}= options;
+        fontName= fontName|| "Doki Lowercase";
+        action1=action1||"Play Again?";
+        action2=action2||"Quit";
+        scene1=scene1||"PlayGame";
+        scene2=scene2||"Splash";
+        msg=msg||" ";
+        _.assert(fontSize,"expected font size");
+        let os={fontName,fontSize},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(msg, os),
+          s4=_I.mkBtn(_S.bmpText(action1,os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText(action2,os));
+        s4.m5.press=()=> _Z.runEx(scene1);
+        s6.m5.press=()=> _Z.runEx(scene2);
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PhotoMat",{
       setup(arg){
         if(arg.cb){ arg.cb(this) }else{
@@ -22512,9 +22560,12 @@
         let {fontName,fontSize,cb,radius,alpha,color}=options;
         let {char_down,char_up,char_left,char_right}=options;
         let bs,U,D,L,R;
+        let opstr= options.buttons?"makeButton":"makeHotspot";
+
         _.assert(is.num(fontSize),"expected fontsize");
         _.assert(is.num(radius),"expected radius");
         _.assert(is.fun(cb),"expected callback");
+
         fontName=fontName||"Doki Lowercase";
         alpha=alpha || 0.2;
         color=_.nor(color,"grey");
@@ -22532,21 +22583,27 @@
         R.addChild(_S.anchorXY(_S.bmpText(char_right,fontName,fontSize),0.5));
         bs=cb({left:L,right:R,down:D,up:U});
         if(bs.right){
-          this.insert(_I.makeHotspot(bs.right));
-          bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
+          this.insert(_I[opstr](bs.right));
+          if(bs.right.m5.hotspot)
+            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
         }
         if(bs.left){
-          this.insert(_I.makeHotspot(bs.left));
-          bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
+          this.insert(_I[opstr](bs.left));
+          if(bs.left.m5.hotspot)
+            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
         }
         if(bs.up){
-          this.insert(_I.makeHotspot(bs.up));
-          bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
+          this.insert(_I[opstr](bs.up));
+          if(bs.up.m5.hotspot)
+            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
         }
         if(bs.down){
-          this.insert(_I.makeHotspot(bs.down));
-          bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
+          this.insert(_I[opstr](bs.down));
+          if(bs.down.m5.hotspot)
+            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
         }
+        if(options.extra)
+          options.extra(this);
       }
     });
 
@@ -25073,6 +25130,35 @@ class Match3{
         this.items = obj.items;
     }
 
+    hasAvailableMoves(){
+      let dirs=[[0, -1], [1, 0], [0, 1], [-1, 0]];
+      let cellAt=(row, column)=>{
+        if(this.validPick(row, column))
+          return this.gameArray[row][column];
+      };
+      for(let ok,a,b,i=0; i<this.rows; ++i){
+        for(let j=0; j<this.columns; ++j){
+          a= cellAt(i,j);
+          if(!a || a.isEmpty){continue}
+          for(let x,y,k=0; k<dirs.length; ++k){
+            y=i+dirs[k][0];
+            x=j+dirs[k][1];
+            b = cellAt(y,x);
+            if(b && !b.isEmpty){
+              //swap
+              this.gameArray[i][j]=b;
+              this.gameArray[y][x]=a;
+              ok = this.matchInBoard();
+              //put back
+              this.gameArray[i][j]=a;
+              this.gameArray[y][x]=b;
+              if(ok) return true;
+            }
+          }
+        }
+      }
+    }
+
     // generates the game field
     generateField(){
         this.gameArray = [];
@@ -25409,6 +25495,24 @@ global.Match3=Match3;
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let os={fontName:UI_FONT,
+                fontSize: 72*Mojo.getScaleFactor()},
+          space=()=> _S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(options.msg||"You Lose!", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        Mojo.sound("game_over.mp3").play();
+        s4.m5.press=()=> _Z.runEx("PlayGame");
+        s6.m5.press=()=> _Z.runEx("Splash");
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
         const self=this,
@@ -25570,6 +25674,8 @@ global.Match3=Match3;
               };
             });
             shifts = _G.match3.replenishBoard();
+            if(shifts.length>0)
+              Mojo.sound("chimes.mp3").play();
             shifts.forEach(move=>{
               ++moved;
               t= this.createTile(_G.match3.valueAt(move.row, move.column));
@@ -25588,9 +25694,16 @@ global.Match3=Match3;
           },
           endMove(){
             if(_G.match3.matchInBoard()){
-              _.delay(250, ()=>this.doMatches());
+              self.future(()=>this.doMatches(),250)
             }else{
-              _G.selecting = true;
+              self.future(()=>{
+                if(!_G.match3.hasAvailableMoves()){
+                  self.m5.dead=true;
+                  _.delay(100,()=> _Z.modal("EndGame"))
+                }else{
+                  _G.selecting = true;
+                }
+              },100);
             }
           }
         });
@@ -25612,7 +25725,8 @@ global.Match3=Match3;
   //load and run
   window.addEventListener("load", ()=> MojoH5({
 
-    assetFiles: ["bg.png","candy.png","click.mp3"],
+    assetFiles: ["bg.png","candy.png","click.mp3",
+                 "chimes.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:480,height:800},
     scaleToWindow: "max",
     scaleFit:"y",
