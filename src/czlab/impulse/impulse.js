@@ -10,27 +10,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(window){
+;(function(window,UNDEF){
 
   "use strict";
 
   function scenes(Mojo){
+
     const IE=window["io/czlab/impulse_engine/core"]();
     const _2d=window["io/czlab/mcfud/geo2d"]();
-    const _M=window["io/czlab/mcfud/math"]();
-    const _V=window["io/czlab/mcfud/vec2"]();
     const {Mat2}=IE;
     const MFL=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
-           Input:I,
+           Input:_I,
            Game:_G,
-           ute:_,is,EventBus}=Mojo;
+           math:_M,
+           v2:_V,
+           ute:_,is}=Mojo;
 
-
-    _Z.defScene("level1", {
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("level1", {
       _initLevel(){
         let g= _S.gridXY([2,2],0.5,0.9);
         let K=Mojo.getScaleFactor();
@@ -60,7 +61,7 @@
         let K=Mojo.getScaleFactor();
         let b;
         if(++_G.btn%2){
-          let e= _.randInt2(50*K, 100*K);
+          let e= _.randInt2(30*K, 60*K);
           let z= _.randInt2(3,12);
           let vs=[];
           let p= new IE.Polygon();
@@ -69,7 +70,7 @@
           p.set(vs);
           b=_G.world.add(p, Mojo.mouse.x, Mojo.mouse.y);
           b.rgb="yellow";
-          b.setOrient(_.randFloat(-Math.PI,Math.PI));
+          b.setOrient(_.randFloat2(-Math.PI,Math.PI));
         }else{
           b=new IE.Circle(4*K+_.randInt(20*K));
           b.rgb="red";
@@ -83,7 +84,7 @@
         let g= this.g.gfx=_S.graphics();
         this.insert(g);
         this._initLevel();
-        EventBus.sub(["mouseup"],"onClick",this);
+        _I.on(["mouseup"],"onClick",this);
       },
       _drawPolygon(ctx,b,K){
         ctx.lineStyle(1*K,_S.color(b.rgb));
@@ -138,19 +139,19 @@
 
   }
 
-  const _$={
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //load and run
+  window.addEventListener("load",()=> MojoH5({
+
     arena: {width: 800, height: 640},
     scaleToWindow: "max",
     scaleFit:"y",
     iterations:10,
     start(Mojo){
       scenes(Mojo);
-      Mojo.Scenes.runScene("level1");
+      Mojo.Scenes.run("level1");
     }
-  };
-
-  //load and run
-  window.addEventListener("load",()=> MojoH5(_$));
+  }));
 
 })(this);
 
