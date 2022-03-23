@@ -910,16 +910,15 @@
       /**Create a TilingSprite.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
-       * @param {number} x
-       * @param {number} y
+       * @param {number} width
+       * @param {number} height
        * @return {Sprite}
        */
-      tilingSprite(src, center=false,x=0,y=0){
-        let s= _sprite(src,o=> new Mojo.PXTSprite(o,o.width,o.height));
-        s=this.extend(s);
-        if(center)
-          this.centerAnchor(s);
-        return _V.set(s,x,y);
+      tilingSprite(src, width,height){
+        let s= _sprite(src,o=>{
+          return new Mojo.PXTSprite(o,width||o.width,height||o.height)
+        });
+        return this.extend(s);
       },
       /**Tile sprite repeatingly in x and/or y axis.
        * @memberof module:mojoh5/Sprites
