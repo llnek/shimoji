@@ -45,7 +45,6 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Player(scene){
       let s= _S.spriteFrom("walk1.png","walk2.png","stand.png","hurt.png","jump.png","duck.png");
-      //let s= _S.sprite(_S.frames("player.png",72,97,0,0,0,1));
       let K=Mojo.getScaleFactor();
       let floor=_G.bgFloor;
       _V.set(s.m5.gravity,0,2000*K);
@@ -56,41 +55,37 @@
       s.m5.cmask=E_BOX;
       _V.set(s, 40, _G.floorY-_M.ndiv(s.height,2));
       s.x=Mojo.width/3;
-      s._mode=null;
+      s.g._mode=null;
       s.g.oldX=s.x;
       scene.insert(s,true);
       let speed= 500*K;
       let jump= -700*K;
       let landed=1;
-      let upArrow = _I.keybd(_I.UP, ()=>{
-        if(landed>0) { _V.setY(s.m5.vel, jump) }
+      _G.upArrow =()=>{
+        if(landed>0){ _V.setY(s.m5.vel, jump) }
         landed=0;
         s.m5.showFrame(PStates.jump_right);
-        s._mode=PStates.jump_right;
-      }, ()=>{
-        s._mode=null;
-      });
-      let downArrow = _I.keybd(_I.DOWN, ()=>{
+        s.g._mode=PStates.jump_right;
+      };
+      _G.downArrow =()=>{
         s.m5.showFrame(PStates.duck_right);
-        s._mode=PStates.duck_right;
-      }, ()=>{
-        s._mode=null;
-      });
+        s.g._mode=PStates.duck_right;
+      };
 
       cfgContacts(K);
       Mojo.addMixin(s,"arcade");
       s.m5.getContactPoints=function(){
-        return s._mode==PStates.duck_right ? _G.Duck: _G.Walk;
+        return s.g._mode==PStates.duck_right ? _G.Duck: _G.Walk;
       };
       s.m5.bumped=(col)=>{
         Mojo.sound("boing2.mp3").play();
         _V.sub$(s, col.overlapV);
         _G.bumped=true;
         s.m5.showFrame(PStates.hurt);
-        s._mode=PStates.hurt;
-        scene.futureX(()=>{ _
+        s.g._mode=PStates.hurt;
+        scene.futureX(()=>{
           s.m5.playFrames(PStates.walk_right);
-          s._mode=PStates.walk_right;
+          s.g._mode=PStates.walk_right;
           _G.bumped=false;
         },10);
       };
@@ -103,9 +98,9 @@
           landed = 1;
           _V.setY(s.m5.vel,0);
         }
-        if(landed && s._mode === null){
+        if(landed && s.g._mode === null){
           s.m5.playFrames(PStates.walk_right);
-          s._mode=PStates.walk_right;
+          s.g._mode=PStates.walk_right;
         }
         s.m5.vel[0]=0;
         s.x=s.g.oldX;
@@ -144,7 +139,6 @@
         if(!_.feq(b.y,base)){
           b.rotation += theta * dt;
         }
-        //if(b.y > _G.floorY || b.x < scene["camera2d"].x)
         if(b.y > Mojo.height){
           b.m5.dead=true;
           _S.remove(b);
@@ -179,7 +173,6 @@
 
         this.g.bgs=_.fill(2, ()=> _S.sprite("background-wall.jpg"));
         this.g.bgs.forEach(s=>{
-          //s.alpha=0.3;
           _S.scaleToCanvas(self.insert(s))
         });
 
@@ -223,34 +216,6 @@
       }
     });
 
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("bg2",{
-      setup(){
-        let K=Mojo.getScaleFactor(),
-          wall = _G.bgWall = _S.tilingSprite("background-wall.jpg"),
-          floor = _G.bgFloor = _S.tilingSprite("background-floor.jpg");
-        wall.width=Mojo.width;
-        wall.height=Mojo.height;
-        floor.width=Mojo.width;
-        floor.height *= K;
-        floor.y=Mojo.height-floor.height;
-        this.insert(wall);
-        this.insert(floor);
-      },
-      postUpdate(dt){
-        let K=Mojo.getScaleFactor();
-        _G.bgWall.tilePosition.y =0;
-        if(_G.bumped){
-          _G.bgWall.tilePosition.x -= 4*K;
-          _G.bgFloor.tilePosition.x -= 6*K;
-        }else{
-          _G.bgWall.tilePosition.x -= 6*K;
-          _G.bgFloor.tilePosition.x -= 10*K;
-        }
-      }
-    });
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
@@ -262,7 +227,6 @@
           xOffset: -10*K, yOffset:0
         });
         _Z.run("HotKeys",{
-          buttons:true,
           radius:48*K,
           fontSize:48*K,
           alpha:0.8,
@@ -276,21 +240,24 @@
         });
       },
       postUpdate(dt){
-        //this["camera2d"].centerOver(this.player.x+300);
+        if(_I.keyDown(_I.UP)){
+          _G.upArrow();
+        }else if(_I.keyDown(_I.DOWN)){
+          _G.downArrow();
+        }else if(_G.bumped){
+        }else if(this.player.g._mode != PStates.walk_right){
+          this.player.m5.playFrames(PStates.walk_right);
+          this.player.g._mode=PStates.walk_right;
+        }
       }
-    },{centerStage:true});
+    });
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window.addEventListener("load",()=>{
     MojoH5({
-
       assetFiles: ["click.mp3", "boing2.mp3","background-wall.jpg",
                    "background-floor.jpg", "tiles.png","images/tiles.json"],
-      XXassetFiles: ["click.mp3", "boing2.mp3","background-wall.jpg",
-        "audioOn.png","audioOff.png",
-        "stand.png","walk1.png","walk2.png","jump.png","hurt.png","duck.png",
-                   "background-floor.jpg", "box1.png","box2.png","rock.png"],
       arena: {width:1680,height:1050},
       scaleToWindow:"max",
       start(Mojo){
