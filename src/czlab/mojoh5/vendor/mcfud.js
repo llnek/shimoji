@@ -2092,6 +2092,16 @@
         if(n==3) return a*a*a;
         return Math.pow(a,n);
       },
+      /**Find the closest power of 2 value for this number.
+       * e.g. pow2(33)= 64
+       * @memberof module:mcfud/math
+       * @param {number} n
+       * @return {number} power of 2 value
+       */
+      pow2(x){
+        let a=2;
+        while (x>a){ a *= 2 } return a;
+      },
       /**Limit the value to within these 2 numbers.
        * @memberof module:mcfud/math
        * @param {number} min

@@ -1,0 +1,104 @@
+{"frames": {
+
+"audioOff.png":
+{
+	"frame": {"x":1,"y":291,"w":68,"h":67},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":2,"w":68,"h":67},
+	"sourceSize": {"w":72,"h":72}
+},
+"audioOn.png":
+{
+	"frame": {"x":75,"y":1,"w":66,"h":67},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":3,"y":2,"w":66,"h":67},
+	"sourceSize": {"w":72,"h":72}
+},
+"box1.png":
+{
+	"frame": {"x":75,"y":70,"w":32,"h":32},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":32,"h":32},
+	"sourceSize": {"w":32,"h":32}
+},
+"box2.png":
+{
+	"frame": {"x":109,"y":70,"w":32,"h":32},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":32,"h":32},
+	"sourceSize": {"w":32,"h":32}
+},
+"duck.png":
+{
+	"frame": {"x":71,"y":295,"w":71,"h":72},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":26,"w":71,"h":72},
+	"sourceSize": {"w":72,"h":98}
+},
+"hurt.png":
+{
+	"frame": {"x":1,"y":100,"w":71,"h":93},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":5,"w":71,"h":93},
+	"sourceSize": {"w":72,"h":98}
+},
+"jump.png":
+{
+	"frame": {"x":73,"y":199,"w":69,"h":94},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":4,"w":69,"h":94},
+	"sourceSize": {"w":72,"h":98}
+},
+"rock.png":
+{
+	"frame": {"x":1,"y":360,"w":32,"h":32},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":32,"h":32},
+	"sourceSize": {"w":32,"h":32}
+},
+"stand.png":
+{
+	"frame": {"x":74,"y":104,"w":68,"h":93},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":2,"y":5,"w":68,"h":93},
+	"sourceSize": {"w":72,"h":98}
+},
+"walk1.png":
+{
+	"frame": {"x":1,"y":195,"w":70,"h":94},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":1,"y":4,"w":70,"h":94},
+	"sourceSize": {"w":72,"h":98}
+},
+"walk2.png":
+{
+	"frame": {"x":1,"y":1,"w":72,"h":97},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":0,"y":1,"w":72,"h":97},
+	"sourceSize": {"w":72,"h":98}
+}},
+"animations": {
+	"box": ["box1.png","box2.png"],
+	"walk": ["walk1.png","walk2.png"]
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "tiles.png",
+	"format": "RGBA8888",
+	"size": {"w":143,"h":393},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:327ac1635a87b4c0f50fe32f7860ad04:fcdc4b3a206a74ee643eafcb100d09a4:accbe1e7e294ded8391337fc1c446319$"
+}
+}

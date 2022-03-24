@@ -18,8 +18,8 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
-
-    const PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
+    //const PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
+    const PStates={ walk_right: [0,2], hurt:3, jump_right: 4, duck_right: 5 };
     const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
@@ -34,17 +34,18 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function cfgContacts(K){
-      _G.Duck=[[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]].map(a=>{
+      _G.Duck=[[-36,49],[-36,-13],[-25,-27],[25,-27],[32,-13],[36,49]].map(a=>{
         return [a[0]*K,a[1]*K]
       });
-      _G.Walk=[[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]].map(a=>{
+      _G.Walk=[[-25,49], [-35,-21], [-35,45], [0,46], [23,39], [34,2],[27,-49]].map(a=>{
         return [a[0]*K,a[1]*K]
       });
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Player(scene){
-      let s= _S.sprite(_S.frames("player.png",72,97,0,0,0,1));
+      let s= _S.spriteFrom("walk1.png","walk2.png","stand.png","hurt.png","jump.png","duck.png");
+      //let s= _S.sprite(_S.frames("player.png",72,97,0,0,0,1));
       let K=Mojo.getScaleFactor();
       let floor=_G.bgFloor;
       _V.set(s.m5.gravity,0,2000*K);
@@ -54,7 +55,9 @@
       s.m5.type=E_PLAYER;
       s.m5.cmask=E_BOX;
       _V.set(s, 40, _G.floorY-_M.ndiv(s.height,2));
+      s.x=Mojo.width/3;
       s._mode=null;
+      s.g.oldX=s.x;
       scene.insert(s,true);
       let speed= 500*K;
       let jump= -700*K;
@@ -80,11 +83,19 @@
         return s._mode==PStates.duck_right ? _G.Duck: _G.Walk;
       };
       s.m5.bumped=(col)=>{
+        Mojo.sound("boing2.mp3").play();
         _V.sub$(s, col.overlapV);
         _G.bumped=true;
-        scene.futureX(()=>{ _G.bumped=false; },10);
+        s.m5.showFrame(PStates.hurt);
+        s._mode=PStates.hurt;
+        scene.futureX(()=>{ _
+          s.m5.playFrames(PStates.walk_right);
+          s._mode=PStates.walk_right;
+          _G.bumped=false;
+        },10);
       };
       s.m5.tick=(dt)=>{
+        //if(_G.bumped)return;
         s["arcade"].onTick(dt);
         s.m5.vel[0] += (speed - s.m5.vel[0])/4;
         if(s.m5.vel[1]>0 && _S.bottomSide(s) > _G.floorY){
@@ -96,26 +107,28 @@
           s.m5.playFrames(PStates.walk_right);
           s._mode=PStates.walk_right;
         }
+        s.m5.vel[0]=0;
+        s.x=s.g.oldX;
       };
       Mojo.on(["bump",s],"bumped",s.m5);
       return s;
     }
 
-    const levels = [ 0,25,75,100 ].map(a=>a *Mojo.getScaleFactor());
+    const levels = [ 0,25,80,120 ].map(a=>a *Mojo.getScaleFactor());
     const tRatio=Mojo.PI_360/360;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Box(scene,player){
-      let frames=_S.frames("crates.png",32,32,0,0,0,0);
+      let b=_S.spriteFrom("rock.png","box1.png","box2.png");
       let theta= _.randSign()*(300*tRatio*_.rand() + 200*tRatio);
       let floor=_G.bgFloor;
+      let offset=levels[_.randInt(4)];
       let K=Mojo.getScaleFactor();
-      let b=_S.sprite(frames[_.rand() < 0.5 ? 1 : 0]);
+      b.m5.showFrame(offset==0?0:(_.randSign()>0?1:2));
       _V.set(b.scale,2.8*K,2.8*K);
       _S.anchorXY(b,0.5);
       b.m5.type=E_BOX;
-      _V.set(b,player.x + Mojo.width + 50*K,
-               _G.floorY - levels[int(_.rand()*4)] - _M.ndiv(b.height,2));
+      _V.set(b,player.x + Mojo.width + 50*K, _G.floorY - offset - _M.ndiv(b.height,2));
       _V.set(b.m5.vel, -1200*K + 200*K*_.rand(),0);
       _V.setY(b.m5.acc,0);
       let base=_G.floorY- _M.ndiv(b.height,2);
@@ -131,8 +144,8 @@
         if(!_.feq(b.y,base)){
           b.rotation += theta * dt;
         }
-        if(b.y > _G.floorY ||
-           b.x < scene["camera2d"].x){
+        //if(b.y > _G.floorY || b.x < scene["camera2d"].x)
+        if(b.y > Mojo.height){
           b.m5.dead=true;
           _S.remove(b);
         }
@@ -158,12 +171,6 @@
       Mojo.addBgTask(b);
     }
 
-    function pow2(x){
-      let a=2;
-      while (x>a){ a *= 2; }
-      return a;
-    }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("bg",{
       setup(){
@@ -172,7 +179,7 @@
 
         this.g.bgs=_.fill(2, ()=> _S.sprite("background-wall.jpg"));
         this.g.bgs.forEach(s=>{
-          s.alpha=0.3;
+          //s.alpha=0.3;
           _S.scaleToCanvas(self.insert(s))
         });
 
@@ -247,13 +254,29 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
+        let K=Mojo.getScaleFactor();
         let p= this.player= Player(this);
         BoxThrower(this,p);
-        let stage=Mojo.mockStage();
-        Mojo.addMixin(this,"camera2d",stage.width,stage.height);
+        _Z.run("AudioIcon",{
+          xScale:1.2*K, yScale:1.2*K,
+          xOffset: -10*K, yOffset:0
+        });
+        _Z.run("HotKeys",{
+          buttons:true,
+          radius:48*K,
+          fontSize:48*K,
+          alpha:0.8,
+          cb(obj){
+            _V.set(obj.down,Mojo.width-obj.down.width,Mojo.height-obj.down.height);
+            _S.pinLeft(obj.down,obj.up,obj.down.height/4);
+            delete obj.right;
+            delete obj.left;
+            return obj;
+          }
+        });
       },
       postUpdate(dt){
-        this["camera2d"].centerOver(this.player.x+300);
+        //this["camera2d"].centerOver(this.player.x+300);
       }
     },{centerStage:true});
   }
@@ -261,8 +284,13 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: ["player.png", "background-wall.jpg",
-                   "background-floor.jpg", "crates.png"],
+
+      assetFiles: ["click.mp3", "boing2.mp3","background-wall.jpg",
+                   "background-floor.jpg", "tiles.png","images/tiles.json"],
+      XXassetFiles: ["click.mp3", "boing2.mp3","background-wall.jpg",
+        "audioOn.png","audioOff.png",
+        "stand.png","walk1.png","walk2.png","jump.png","hurt.png","duck.png",
+                   "background-floor.jpg", "box1.png","box2.png","rock.png"],
       arena: {width:1680,height:1050},
       scaleToWindow:"max",
       start(Mojo){
