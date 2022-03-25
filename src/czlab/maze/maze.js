@@ -27,6 +27,8 @@
            v2:_V,
            ute:_,is}=Mojo;
 
+    const AlgoS= window["io/czlab/mcfud/algo/search"]();
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase",
@@ -38,16 +40,19 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // Replace a character at index in a string
-    function replaceAt(str, index, replacement) {
-      if(index > str.length - 1) { return str }
-      return str.substr(0, index) + replacement + str.substr(index + 1);
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function stringVal(str, index) {
-	    // Get the number value at a specific index in a string (0 or 1)
-	    return parseInt(str.charAt(index), 10);
+    function replaceAt(s, i, r){
+      return (i> s.length-1)?s :`${s.substr(0,i)}${r}${s.substr(i+1)}`
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function stringVal(s, i){
+      // Get the number value at a specific index in a string (0 or 1)
+      return +s.charAt(i);
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //original source
+    //https://github.com/keesiemeijer/maze-generator
     class Maze{
       /**
        * @param {number} rows
@@ -66,17 +71,16 @@
         this.entryNodes = this.getEntryNodes(entryType);
       }
       generate(){
-        this.getMatrix(this.parseMaze(this.genNodes()));
+        this.getMatrix(this.parseMaze(
+          //[visited, nswe]
+          _.fill(this.COLS*this.ROWS, ()=> "01111")
+        ));
         this.removeMazeWalls();
         return this.matrix;
       }
-      genNodes(){
-        //[visited, nswe]
-        return _.fill(this.COLS*this.ROWS, ()=> "01111")
-      }
       parseMaze(nodes){
-        const positionIndex = { 'n': 1, 's': 2, 'w': 3, 'e': 4, };
-        const oppositeIndex = { 'n': 2, 's': 1, 'w': 4, 'e': 3 };
+        const Position = { n: 1, s: 2, w: 3, e: 4, };
+        const Opposite= { n: 2, s: 1, w: 4, e: 3 };
         let max = 0,
           visited = 0,
           moveNodes = [],
@@ -86,9 +90,9 @@
           pos= _.randInt(nodes.length);
         if(this.bias){
           if("H" == this.bias){
-            biasFactor = (1 <= (this.COLS/100)) ? _M.ndiv(this.COLS,100) + 2 : 3
+            biasFactor = (this.COLS/100)>=1 ? _M.ndiv(this.COLS,100) + 2 : 3
           }else if("V" == this.bias){
-            biasFactor = (1 <= (this.ROWS/100)) ? _M.ndiv(this.ROWS,100) + 2 : 3
+            biasFactor = (this.ROWS/100)>=1 ? _M.ndiv(this.ROWS,100) + 2 : 3
           }
         }
         // Set start node visited.
@@ -98,9 +102,8 @@
           ++biasCount;
           ++max;
           next = this.getNeighbours(pos);
-          dirs = Object.keys(next).filter(function(key) {
-            return (-1 != next[key]) && !stringVal(this[next[key]], 0);
-          }, nodes);
+          dirs = Object.keys(next).filter(k=>
+            -1 != next[k] && !stringVal(nodes[next[k]], 0));
           if(this.bias && (biasCount != biasFactor)){
             dirs = this.biasDirections(dirs);
           }else{
@@ -112,14 +115,14 @@
               moveNodes.push(pos);
             dir= dirs[_.randInt(dirs.length)];
             // Update current position
-            nodes[pos] = replaceAt(nodes[pos], positionIndex[dir], 0);
+            nodes[pos] = replaceAt(nodes[pos], Position[dir], 0);
             // Set new position
             pos = next[dir];
             // Update next position
-            nodes[pos] = replaceAt(nodes[pos], oppositeIndex[dir], 0);
+            nodes[pos] = replaceAt(nodes[pos], Opposite[dir], 0);
             nodes[pos] = replaceAt(nodes[pos], 0, 1);
           }else{
-            if(!moveNodes.length){ break }
+            if(moveNodes.length==0){ break }
             pos= moveNodes.pop();
           }
         }
@@ -130,20 +133,16 @@
         let row1="",
           row2="",
           N = this.COLS* this.ROWS;
-        if(nodes.length != N){ return }
-        for(let i = 0; i < N; ++i){
+        _.assert(nodes.length == N,"invalid nodes");
+        for(let i=0; i<N; ++i){
           row1 += row1.length==0 ? "1" : "";
           row2 += row2.length==0 ? "1" : "";
           if(stringVal(nodes[i], 1)){
             row1 += "11";
-            if(stringVal(nodes[i], 4)){
-              row2 += "01";
-            }else{
-              row2 += "00";
-            }
+            row2 += stringVal(nodes[i], 4)? "01" : "00";
           }else{
-            let hasAbove = nodes.hasOwnProperty(i - this.COLS);
-            let above = hasAbove && stringVal(nodes[i - this.COLS], 4);
+            let hasAbove = nodes.hasOwnProperty(i-this.COLS);
+            let above = hasAbove && stringVal(nodes[i-this.COLS], 4);
             let hasNext = nodes.hasOwnProperty(i+1);
             let next = hasNext && stringVal(nodes[i+1], 1);
             if(stringVal(nodes[i], 4)){
@@ -157,7 +156,7 @@
               row2 += "00";
             }
           }
-          if((i+1) % this.COLS==0){
+          if((i+1) % this.COLS == 0){
             this.matrix.push(row1,row2);
             row1 = "";
             row2 = "";
@@ -172,7 +171,7 @@
           x = ((this.COLS * 2) + 1) - 2;
         if("D" == access){
           entryNodes.start = { x: 1, y: 1, gate: { x: 0, y: 1 } };
-          entryNodes.end = { x: x, y: y, gate: { x: x + 1, y: y } };
+          entryNodes.end = { x, y, gate: { x: x + 1, y } };
         }
         if("H" == access || "V" == access){
           let xy = ("H" == access) ? y : x;
@@ -191,14 +190,12 @@
         return entryNodes;
       }
       biasDirections(dirs){
-        let horizontal = dirs.indexOf("w") != -1 || dirs.indexOf("e") != -1,
-          vertical = dirs.indexOf("n") != -1 || dirs.indexOf("s") != -1;
-        if("H" == this.bias && horizontal){
-          dirs = dirs.filter(key=> "w" == key || "e" == key);
-        }else if("V" == this.bias && vertical){
-          dirs = dirs.filter(key=> "n" == key || "s" == key);
-        }
-        return dirs;
+        let hz = dirs.indexOf("w") != -1 || dirs.indexOf("e") != -1,
+          vt = dirs.indexOf("n") != -1 || dirs.indexOf("s") != -1;
+        return ("H" == this.bias && hz)?
+          dirs.filter(k=> "w" == k || "e" == k)
+          : ("V" == this.bias && vt)?
+          dirs.filter(k=> "n" == k || "s" == k) : dirs;
       }
       getNeighbours(pos){
         return {
@@ -263,7 +260,8 @@
         }
       }
       removeMazeWalls(){
-        if(!this.removeWalls || !this.matrix.length){ return }
+        if(this.removeWalls==0 ||
+           this.matrix.length==0){ return }
         let min = 1,
           tries = 0,
           max = this.matrix.length - 1,
@@ -273,7 +271,7 @@
           // Did we reached the goal
           if(this.wallsRemoved >= this.removeWalls){ break }
           // Get random row from matrix
-          let y = int(_.rand() * (max - min + 1)) + min;
+          let y =_.randInt2(min,max);
           y = (y == max) ? y - 1 : y;
           walls = [];
           row = this.matrix[y];
@@ -294,44 +292,7 @@
           }
         }
       }
-      draw(){
-        /*
-        if(!this.isValidSize()){
-          this.matrix = [];
-          _.assert(false,'Please use smaller maze dimensions');
-        }
-        canvas.width = ((this.width * 2) + 1) * this.wallSize;;
-        canvas.height = ((this.height * 2) + 1) * this.wallSize;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Add background
-        ctx.fillStyle = this.backgroundColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // Set maze collor
-        ctx.fillStyle = this.color;
-        const row_count = this.matrix.length;
-        const gateEntry = getEntryNode(this.entryNodes, 'start', true);
-        const gateExit = getEntryNode(this.entryNodes, 'end', true);
-        for(let i = 0; i < row_count; i++){
-          let row_length = this.matrix[i].length;
-          for(let j = 0; j < row_length; j++){
-            if(gateEntry && gateExit){
-              if ((j === gateEntry.x) && (i === gateEntry.y)) {
-                continue;
-              }
-              if ((j === gateExit.x) && (i === gateExit.y)) {
-                continue;
-              }
-            }
-            let pixel = parseInt(this.matrix[i].charAt(j), 10);
-            if(pixel)
-              ctx.fillRect((j * this.wallSize), (i * this.wallSize), this.wallSize, this.wallSize);
-          }
-        }
-        */
-      }
     }
-
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
@@ -344,18 +305,26 @@
               s=_S.bmpText(`${verb} to generate maze`,UI_FONT,36*K);
             function cb(){
               _I.off(["single.tap"],cb);
-              _S.remove(s);
-              _.delay(0,()=> self.g.genMaze());
+              _.delay(100,()=>{
+                s.text="Please wait...";
+                _.delay(100,(m)=>{
+                  m=new Maze(20,20);
+                  m.generate();
+                  _.delay(100,()=>{
+                    _S.remove(s);
+                    self.g.showMaze(m);
+                  });
+                });
+              });
             }
             _V.set(s,Mojo.width/2,Mojo.height/2);
             self.insert(_S.anchorXY(s,0.5));
             _I.on(["single.tap"],cb);
           },
-          genMaze(){
-            let m= new Maze(20,20),
-              mmap=m.generate(),
+          showMaze(m){
+            let mmap=m.matrix,
               h=mmap.length,
-              g,gfx,out={}, w=mmap[0].length;
+              tb,tw,g,gfx,out={}, w=mmap[0].length;
             _.assert(h==w,"bad maze matrix");
             g=_S.gridSQ(w,0.8,out);
             gfx=_S.drawGridLines(0,0,g,1,"grey");
@@ -377,7 +346,11 @@
                 c="white";
                 v=0;
               }
-              let s= _S.rect(col.x2-col.x1,col.y2-col.y1,c);
+              if(!tw){
+                tw= _S.rectTexture(col.x2-col.x1,col.y2-col.y1,"white");
+                tb= _S.rectTexture(col.x2-col.x1,col.y2-col.y1,"black");
+              }
+              let s= _S.rectEx(c=="white"?tw:tb);
               s.x=col.x1;
               s.y=col.y1;
               self.insert(s);
@@ -385,8 +358,45 @@
               col.value=v;
             }));
             _.inject(_G,{
+              arena:out,
               grid:g,
               maze:m
+            });
+            ////
+            Mojo.CON.log(`maze size= [${h},${w}]`);
+            _.delay(100,()=> self.g.postShowMaze());
+          },
+          postShowMaze(){
+            let s= _S.bmpText("Solve",UI_FONT, 36*K);
+            _S.pinAbove(_G.arena,s, s.height);
+            s.m5.press=()=>{
+              self.g.solveMaze()
+              _S.remove(s);
+            };
+            self.insert(_I.mkBtn(s));
+          },
+          solveMaze(){
+            let g=_.fill(_G.grid.length,()=> []);
+            _G.grid.forEach((row,y)=> row.forEach((col,x)=>{
+              g[y][x]=col.value
+            }));
+            const E = _G.maze.entryNodes.start.gate;
+            const X = _G.maze.entryNodes.end.gate;
+            let ctx={
+              wantDiagonal:false,
+              compare(a,b){ return a.f-b.f },
+              cost(){ return 1 },
+              blocked(n){ return g[n[1]][n[0]] != 0 },
+              calcHeuristic(a,g){
+                return AlgoS.AStarGrid.euclidean(a,g);
+              }
+            };
+            //console.log(JSON.stringify(g))
+            let p=new AlgoS.AStarGrid(g).pathTo([E.x,E.y],[X.x,X.y],ctx);
+            //console.log(p.length);
+            //console.log(JSON.stringify(p))
+            p.forEach(c=>{
+              _G.grid[c[1]][c[0]].sprite.tint=_S.color("green");
             });
           }
         });
