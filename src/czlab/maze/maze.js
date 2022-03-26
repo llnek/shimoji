@@ -1,42 +1,33 @@
-/* Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(window,UNDEF){
+;(function(gscope,UNDEF){
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  function scenes(Mojo){
-    const int=Math.floor;
-    const {Scenes:_Z,
-           Sprites:_S,
-           Input:_I,
-           Game:_G,
-           math:_M,
-           v2:_V,
-           ute:_,is}=Mojo;
+  /**Create the module.
+   */
+  function _module(Core,_M){
 
-    const AlgoS= window["io/czlab/mcfud/algo/search"]();
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
-      UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
+    const {is,u:_}= Core;
+
+    /**
+     * @module mcfud/algo_maze
+     */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // Replace a character at index in a string
@@ -53,7 +44,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //original source
     //https://github.com/keesiemeijer/maze-generator
-    class Maze{
+    class Maze1{
       /**
        * @param {number} rows
        * @param {number} cols
@@ -76,7 +67,25 @@
           _.fill(this.COLS*this.ROWS, ()=> "01111")
         ));
         this.removeMazeWalls();
-        return this.matrix;
+      }
+      toAscii(){
+        return ""
+      }
+      getIO(){
+        let X = this.entryNodes.end.gate,
+          E= this.entryNodes.start.gate;
+        return {start: [E.x, E.y], end: [X.x, X.y]};
+      }
+      toGrid(){
+        let r,out=[];
+        this.matrix.forEach((row,y)=> {
+          r=[];
+          for(let i=0;i<row.length;++i){
+            r[i]= row.charAt(i)=="1"?1:0
+          }
+          out.push(r);
+        });
+        return out;
       }
       parseMaze(nodes){
         const Position = { n: 1, s: 2, w: 3, e: 4, };
@@ -295,135 +304,153 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("PlayGame",{
-      setup(){
-        let self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          initLevel(){
-            let verb= Mojo.touchDevice?"Tap":"Click",
-              s=_S.bmpText(`${verb} to generate maze`,UI_FONT,36*K);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _.delay(100,()=>{
-                s.text="Please wait...";
-                _.delay(100,(m)=>{
-                  m=new Maze(20,20);
-                  m.generate();
-                  _.delay(100,()=>{
-                    _S.remove(s);
-                    self.g.showMaze(m);
-                  });
-                });
-              });
+    //original
+    //https://weblog.jamisbuck.org/2010/12/27/maze-generation-recursive-backtracking
+    class Maze2{
+      static DV={n:1,s:2,e:4,w:8};
+      static DX = { e: 1, w: -1, n: 0, s: 0 };
+      static DY = { e:0, w: 0, n: -1, s: 1 };
+      static OPPOSITE= { e: "w", w:"e", n:"s",s:"n" };
+
+      /**
+       * @param {number} width
+       * @param {number} height
+       */
+      constructor(width,height){
+        this.COLS=width;
+        this.ROWS=height;
+        this._getEntryNodes();
+      }
+      _getEntryNodes(){
+        let nodes = {},
+          y = ((this.ROWS * 2) + 1) - 2,
+          x = ((this.COLS * 2) + 1) - 2;
+        nodes.start = { x: 1, y: 1, gate: { x: 0, y: 1 } };
+        nodes.end = { x, y, gate: { x: x + 1, y } };
+        this.entryNodes=nodes;
+      }
+      getIO(){
+        let X = this.entryNodes.end.gate,
+          E= this.entryNodes.start.gate;
+        return {start: [E.x, E.y], end: [X.x, X.y]};
+      }
+      _ioY(){
+        for(let r,y=this.grid.length-1; y>=0; --y){
+          r=this.grid[y];
+          for(let x=r.length-1; x>=0; --x){
+            if(r[x]==0){
+              this.entryNodes.end.gate.x=x;
+              this.entryNodes.end.gate.y=y;
+              return;
             }
-            _V.set(s,Mojo.width/2,Mojo.height/2);
-            self.insert(_S.anchorXY(s,0.5));
-            _I.on(["single.tap"],cb);
-          },
-          showMaze(m){
-            let mmap=m.matrix,
-              h=mmap.length,
-              tb,tw,g,gfx,out={}, w=mmap[0].length;
-            _.assert(h==w,"bad maze matrix");
-            g=_S.gridSQ(w,0.8,out);
-            gfx=_S.drawGridLines(0,0,g,1,"grey");
-            self.insert(gfx);
-            self.insert(_S.bboxFrame(out));
-            const gateEntry = m.entryNodes.start.gate;
-            const gateExit = m.entryNodes.end.gate;
-            g.forEach((row,y)=> row.forEach((col,x)=>{
-              let skip;
-              if(gateEntry && gateExit){
-                if(((x == gateEntry.x) && (y == gateEntry.y)) ||
-                   ((x == gateExit.x) && (y == gateExit.y))){
-                  skip=true;
-                }
-              }
-              let v= mmap[y].charAt(x)==1 ? 1 :0;
-              let c=v==1?"black":"white";
-              if(skip) {
-                c="white";
-                v=0;
-              }
-              if(!tw){
-                tw= _S.rectTexture(col.x2-col.x1,col.y2-col.y1,"white");
-                tb= _S.rectTexture(col.x2-col.x1,col.y2-col.y1,"black");
-              }
-              let s= _S.rectEx(c=="white"?tw:tb);
-              s.x=col.x1;
-              s.y=col.y1;
-              self.insert(s);
-              col.sprite=s;
-              col.value=v;
-            }));
-            _.inject(_G,{
-              arena:out,
-              grid:g,
-              maze:m
-            });
-            ////
-            Mojo.CON.log(`maze size= [${h},${w}]`);
-            _.delay(100,()=> self.g.postShowMaze());
-          },
-          postShowMaze(){
-            let s= _S.bmpText("Solve",UI_FONT, 36*K);
-            _S.pinAbove(_G.arena,s, s.height);
-            s.m5.press=()=>{
-              self.g.solveMaze()
-              _S.remove(s);
-            };
-            self.insert(_I.mkBtn(s));
-          },
-          solveMaze(){
-            let g=_.fill(_G.grid.length,()=> []);
-            _G.grid.forEach((row,y)=> row.forEach((col,x)=>{
-              g[y][x]=col.value
-            }));
-            const E = _G.maze.entryNodes.start.gate;
-            const X = _G.maze.entryNodes.end.gate;
-            let ctx={
-              wantDiagonal:false,
-              compare(a,b){ return a.f-b.f },
-              cost(){ return 1 },
-              blocked(n){ return g[n[1]][n[0]] != 0 },
-              calcHeuristic(a,g){
-                return AlgoS.AStarGrid.euclidean(a,g);
-              }
-            };
-            //console.log(JSON.stringify(g))
-            let p=new AlgoS.AStarGrid(g).pathTo([E.x,E.y],[X.x,X.y],ctx);
-            //console.log(p.length);
-            //console.log(JSON.stringify(p))
-            p.forEach(c=>{
-              _G.grid[c[1]][c[0]].sprite.tint=_S.color("green");
-            });
+          }
+        }
+      }
+      _ioX(){
+        for(let r,y=0;y<this.grid.length;++y){
+          r=this.grid[y];
+          for(let x=0;x<r.length;++x){
+            if(r[x]==0){
+              this.entryNodes.start.gate.x=x;
+              this.entryNodes.start.gate.y=y;
+              return;
+            }
+          }
+        }
+      }
+      generate(){
+        this.grid=this._walk(0, 0, _.fill(this.ROWS, ()=> _.fill(this.COLS, 0)))
+      }
+      canSouth(v){
+        return (v & Maze2.DV["s"]) != 0
+      }
+      canEast(v){
+        return (v & Maze2.DV["e"]) != 0
+      }
+      toAscii(){
+        let g=this.grid,
+          height= g.length,
+          out=[], width= g[0].length;
+        for(let s, y=0;y<height;++y){
+          s="|";
+          for(let x=0;x<width;++x){
+            s+= this.canSouth(g[y][x]) ? " " : "_";
+            if(this.canEast(g[y][x])){
+              s+= this.canSouth(g[y][x] | g[y][x+1]) ? " " : "_";
+            }else{
+              s+= "|";
+            }
+          }
+          out.push(s);
+        }
+        out.unshift("_".repeat(out[0].length));
+        return out.join("\n");
+      }
+      _walk(cx, cy, grid){
+        let nx,ny,dirs = _.shuffle(["n","s","e","w"]);
+        dirs.forEach(d=>{
+          nx = cx + Maze2.DX[d];
+          ny = cy + Maze2.DY[d];
+
+          if(ny>=0&&ny<grid.length &&
+             nx>=0&&nx<grid[ny].length && grid[ny][nx]==0){
+            grid[cy][cx] |= Maze2.DV[d];
+            grid[ny][nx] |= Maze2.DV[Maze2.OPPOSITE[d]];
+            this._walk(nx, ny, grid);
           }
         });
-        this.g.initLevel();
-      },
-      postUpdate(dt){
-
-        dt=dt;
-        //console.log("ppp");
-
-
+        return grid;
       }
-    });
+      toGrid(){
+        let g=this.grid,
+          height=g.length,
+          r1,r2,out=[], width=g[0].length;
+        for(let k,s, y=0;y<height;++y){
+          r1=[];
+          r2=[];
+          k=0;
+          r1[k]=1;
+          r2[k]=1;
+          for(let x=0;x<width;++x){
+            ++k;
+            if(this.canSouth(g[y][x])){
+              r1[k]=0;
+              r2[k]=0;
+            }else{
+              r1[k]=0;
+              r2[k]=1;
+            }
+            ++k;
+            if(this.canEast(g[y][x])){
+              r1[k]=0;
+              r2[k]=1;
+            }else{
+              r1[k]=1;
+              r2[k]=1;
+            }
+          }
+          out.push(r1,r2);
+        }
+        out.unshift(_.fill(out[0].length, 1));
+        return out;
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _$={
+      Maze1, Maze2
+    };
+
+    return _$;
   }
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  window.addEventListener("load",()=>{
-    MojoH5({
-      assetFiles: [],
-      arena: {width:1680,height:1050},
-      scaleToWindow:"max",
-      start(Mojo){
-        scenes(Mojo);
-        Mojo.Scenes.run("PlayGame");
-      }
-    });
-  });
+  //export--------------------------------------------------------------------
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("../main/core"),
+                           require("../main/math"));
+  }else{
+    gscope["io/czlab/mcfud/algo/maze"]=_module
+  }
 
 })(this);
 
