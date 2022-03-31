@@ -19,7 +19,7 @@
   function scenes(Mojo){
     const {Scenes:_Z,
            Sprites:_S,
-           "2d":_2d,
+           Ute2D:_U,
            Input:_I,
            Game:G,
            v2:_V,
@@ -27,7 +27,7 @@
 
     const E_GEO=1;
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let out={x:0,y:0};
         _S.gridXY([2,2],0.5,0.95,out);
@@ -110,7 +110,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

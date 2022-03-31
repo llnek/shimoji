@@ -24,7 +24,7 @@
            Game:_G,
            Tiles: _T,
            v2:_V,
-           "D2":_2d,
+           Ute2D:_U,
            ute:_,is,EventBus}=Mojo;
 
     const E_PLAYER=1,
@@ -38,20 +38,24 @@
           s.m5.heading=Mojo.RIGHT;
           s.m5.type=E_PLAYER;
           s.m5.cmask=E_ITEM;
-          s.m5.speed=4*K;
+          s.m5.speed=200*K;
           _S.centerAnchor(s);
           _V.add$(s, [_M.ndiv(s.width,2),
                       _M.ndiv(s.height,2)]);
           s.m5.uuid="player";
-          s.m5.tick=()=>{ s["arcade"].onTick() };
+          s.g.arcade=_U.Meander(s);
+          s.g.maze=_U.MazeRunner(s);
+          s.m5.tick=(dt)=>{
+            s.g.maze(dt, s.g.arcade(dt));
+          };
           _V.set(s.m5.vel, s.m5.speed, s.m5.speed);
-          return Mojo.addMixin(s,"arcade",[_2d.MazeRunner]);
+          return s;
         }
       },
       Monster:{
         s(){},
         c(scene,s,ts,ps,os){
-          const e= [["2d.sensor",s],"onSensor",s.m5];
+          const e= [["bump.sensor",s],"onSensor",s.m5];
           s.m5.sensor=true;
           s.m5.type=E_ITEM;
           s.m5.onSensor=()=> _S.remove(s);
@@ -62,7 +66,7 @@
       }
     };
 
-    _Z.defScene("level1", {
+    _Z.scene("level1", {
       setup(){
       }
     },{centerStage:true,tiled:{name:"monsterMaze.json",factory:_objF}});
@@ -75,7 +79,7 @@
       scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

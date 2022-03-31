@@ -17,9 +17,6 @@
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  const int=Math.floor;
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
     const geo=window["io/czlab/mcfud/geo2d"]();
@@ -29,49 +26,48 @@
            Input:_I,
            Game:_G,
            v2:_V,
+           math:_M,
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Core= window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/algo/NEAT"](Core);
+    const GA= window["io/czlab/mcfud/algo/NEAT"](
+    window["io/czlab/mcfud/core"]()
+    );
     const NumFIT= GA.NumFitness;
+    const int=Math.floor;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
+      //C_TITLE=_S.color("#fff20f"),
+      C_BLUE=_S.color("#3e9ad1"),
+      C_TITLE=_S.color("#e5e61e"),//"#c93d74"),//"#d1753e"),
       C_BG=_S.color("#169706"),
       C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
+      C_GREEN=_S.color("#bde61e"),
       C_ORANGE=_S.color("#f4d52b");
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const NUM_INPUTS=10+1,//5,
           NUM_OUTPUTS=2,
-          NUM_ELITES=6,
-          NUM_HIDDEN=1,
-          NEURONS_HIDDENLAYER=10;
-
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const CrossOverRate = 0.7,
-          MutationRate  = 0.1,
-          MineScale     = 12,
-          NumTicks      = 1500;
-
+          NUM_ELITES=10;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const NumSecs= 25,
+          NumTicks=1500;
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const HALF_PI = Math.PI/2,
           QUAD_PI = Math.PI/4,
           PI2  = Math.PI*2,
-          StartEnergy = 0,//20,
           MaxTurnRate = 0.2;
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const ROWS=20, COLS=20;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //sensors to detect obstacles
     function mkSensors(s){
       let c=[s.x,s.y];
-      //let L=[s.g.H2,s.g.D2,s.g.W2,s.g.D2,s.g.H2];
       return [s.rotation - HALF_PI,
               s.rotation - QUAD_PI,
               s.rotation,
@@ -99,6 +95,7 @@
       }
       return s;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function randPos(s){
       let g,n=_.randInt2(0,3);
@@ -113,39 +110,36 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function mkSWP(brain, scene){
+    function mkBot(brain, scene){
       let s= _S.spriteFrom("tank.png");
-      _S.centerAnchor(s);
+      _S.anchorXY(s,0.5);
       _S.sizeXY(s,_.evenN(_G.tileW*0.9),_.evenN(_G.tileH*0.9));
-      let h2=s.height/2;
-      let w2=s.width/2;
-      let d=Math.sqrt(w2*w2+h2*h2);
-
-      s.rotation= 0;//_.rand() * PI2;
+      let h2=s.height/2,
+        w2=s.width/2,
+        d=Math.sqrt(w2*w2+h2*h2);
+      s.rotation= 0;
       s.g.diag= d * 1.2;
       s.g.diagRatio= d/s.g.diag;
       randPos(s);
-
+      s.m5.heading= {x:Math.cos(s.rotation),
+                     y: Math.sin(s.rotation)};
       _.inject(s.g,{
         collided:false,
         W2:w2,
         H2:h2,
-        lTrack: 0,//0.16,
-        rTrack: 0,//0.16,
+        lTrack: 0,
+        rTrack: 0,
         fitness: NumFIT(0),
-        lookAt: {x:Math.cos(s.rotation),
-                 y: Math.sin(s.rotation)},
-        cmap: CMapper(),
+        mmap: MapMemory(),
         spinBonus: 0,
         collisionBonus: 0,
         nnet:brain,
         reset(){
           this.fitness = NumFIT(0);
-          s.rotation= 0;//_.rand() * PI2;
+          s.rotation= 0;
           randPos(s);
-          this.lookAt.x= Math.cos(s.rotation);
-          this.lookAt.y= Math.sin(s.rotation);
-          this.cmap.reset();
+          _V.set(s.m5.heading,Math.cos(s.rotation), Math.sin(s.rotation));
+          this.mmap.reset();
           this.spinBonus = 0;
           this.collisionBonus = 0;
         },
@@ -154,7 +148,6 @@
           for(let res,w,ss=mkSensors(s),i=0;i<ss.length;++i){
             w=ss[i];
             res=null;
-            if(1)
             for(let o,p,j=0;j<_G.obstacles.length;++j){
               o=_G.obstacles[j];
               p=geo.bodyWrap(_S.toPolygon(o),o.x,o.y);
@@ -173,7 +166,7 @@
             }else{
               input.push(-1);
             }
-            let v= this.cmap.ticksLingered(w[1][0],w[1][1]);
+            let v= this.mmap.ticksLingered(w[1][0],w[1][1]);
             //console.log("v===="+v);
             if(v==0){
               input.push(-1)
@@ -196,7 +189,7 @@
           return input;
         },
         endOfRunCalc(){
-          this.fitness = NumFIT(this.fitness.score()+ this.cmap.numCellsVisited());// + this.spinBonus + this.collisionBonus
+          this.fitness = NumFIT(this.fitness.score()+ this.mmap.numCellsVisited());
         },
         update(){
           let rotForce,output = this.nnet.update(this.testSensors([]));
@@ -208,12 +201,11 @@
           rotForce = rotForce < -MaxTurnRate ? -MaxTurnRate : (rotForce > MaxTurnRate?MaxTurnRate : rotForce);
           s.rotation += rotForce;
 
-          this.lookAt.x = Math.cos(s.rotation);
-          this.lookAt.y = Math.sin(s.rotation);
+          _V.set(s.m5.heading, Math.cos(s.rotation), Math.sin(s.rotation));
 
           if(!this.collided){
             s.m5.speed = this.lTrack + this.rTrack;
-            _V.add$(s, _V.mul(this.lookAt, s.m5.speed));
+            _V.add$(s, _V.mul(s.m5.heading, s.m5.speed));
           }
 
           let rotationTolerance = 0.03;
@@ -226,15 +218,13 @@
           else
             s.rotation += _.randSign()* _.rand()* QUAD_PI;
 
-          //s.x > _G.arena.x2? respawn(s): (s.x < _G.arena.x1? respawn(s): null);
-          //s.y > _G.arena.y2? respawn(s): (s.y < _G.arena.y1? respawn(s): null);
+          s.x > _G.arena.x2? s.x=_G.arena.x2 : (s.x<_G.arena.x1? s.x=_G.arena.x1 : 0);
+          s.y > _G.arena.y2? s.y=_G.arena.y2 : (s.y<_G.arena.y1? s.y=_G.arena.y1 : 0);
 
-          s.x > _G.arena.x2? s.x=_G.arena.x2 : (s.x<_G.arena.x1? s.x=_G.arena.x1 : null);
-          s.y > _G.arena.y2? s.y=_G.arena.y2 : (s.y<_G.arena.y1? s.y=_G.arena.y1 : null);
+          this.mmap.update(s.x,s.y);
+          //console.log("numcells=="+this.mmap.numCellsVisited());
 
-          this.cmap.update(s.x,s.y);
-          //console.log("numcells=="+this.cmap.numCellsVisited());
-
+          //debug show sensors
           if(0){
             scene.g.dbg.lineStyle(1, _S.color("red"));
             mkSensors(s).forEach(p=>{
@@ -250,7 +240,7 @@
       return s;
     }
 
-    const NumSweepers=50;
+    const NumBots=50;
     let ticks;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -258,7 +248,7 @@
     function randY(){ return _.randInt2(_G.arena.y1,_G.arena.y2) }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function CMapper(){
+    function MapMemory(){
       let grid= JSON.parse(JSON.stringify(_G.grid));
       let bbox=_S.gridBBox(0,0,grid);
       let {tileW,tileH}=_G;
@@ -266,8 +256,8 @@
       grid.forEach(r=>r.forEach(c=> c.visits=0));
       /////
       function toCell(x,y){
-        let cy=int((y-bbox.y1)/tileH);
-        let cx=int((x-bbox.x1)/tileW);
+        let cy=_M.ndiv(y-bbox.y1,tileH);
+        let cx=_M.ndiv(x-bbox.x1,tileW);
         if(cy<0)
           cy=0;
         else if(cy>=grid.length) cy=grid.length-1;
@@ -302,8 +292,6 @@
       }
     }
 
-    const ROWS=20, COLS=20;
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("Splash",{
       setup(){
@@ -311,23 +299,22 @@
           K=Mojo.getScaleFactor();
         _.inject(this.g,{
           doTitle(s){
-            s=_S.bmpText("NEAT AiBot", TITLE_FONT,100*K);
+            s=_S.bmpText("NEAT/Smart Bot", TITLE_FONT,84*K);
             _S.tint(s,C_TITLE);
             _V.set(s, Mojo.width/2, Mojo.height*0.3);
             return self.insert(_S.anchorXY(s,0.5));
           },
           doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
+            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,56*K);
+            _V.set(s,Mojo.width/2,Mojo.height*0.5);
             t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
+            _S.oneOffClick("click.mp3",()=>{
+              _S.tint(s,C_GREEN);
               _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY, ()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
+              _F.tweenScale(self,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{
+                _Z.runEx("PlayGame")
+              };
+            });
             return self.insert(_S.anchorXY(s,0.5));
           }
         });
@@ -350,11 +337,11 @@
         _.inject(this.g,{
           initBlocks(grid){
             let g= grid[0][0],
-                b, out=[],
-                tw=g.x2-g.x1,
-                th=g.y2-g.y1;
-
-            let color="#b1c92c";//"#c4db44";//"#dbb744";
+              b, out=[],
+              tw=g.x2-g.x1,
+              th=g.y2-g.y1;
+            //let color="#b1c92c";//"#c4db44";//"#dbb744";
+            let color="#737350";
             //square
             b= _S.rect(5*tw,5*th,color);
             _S.uuid(b,"o-square");
@@ -400,7 +387,7 @@
           initLevel(){
             let out={},
                 g,gfx=_S.graphics(),
-                grid=_S.gridXY([ROWS,COLS],0.9,0.9,out);
+                grid=_S.gridXY([ROWS,COLS],0.8,0.8,out);
             let g0= grid[0][0];
             _S.drawGridBox(out,1,"white",gfx);
             _S.drawGridLines(0,0,grid,1,"grey",gfx);
@@ -408,49 +395,63 @@
             this.initBlocks(grid);
             _.inject(_G,{
               arena:out,
+              gen:1,
               grid,
               tileW: g0.x2-g0.x1,
               tileH: g0.y2-g0.y1
             });
             //////
-            gaPop= new GA.NeatGA(NumSweepers, NUM_INPUTS, NUM_OUTPUTS);
-            let vecSweepers= gaPop.createPhenotypes().map(b=> mkSWP(b,self));
-            _.assert(vecSweepers.length==NumSweepers, "Bad pop size");
-            vecSweepers.forEach(s=> self.insert(s));
+            gaPop= new GA.NeatGA(NumBots, NUM_INPUTS, NUM_OUTPUTS);
+            let vecBots= gaPop.createPhenotypes().map(b=> mkBot(b,self));
+            _.assert(vecBots.length==NumBots, "Bad pop size");
+            vecBots.forEach(s=> self.insert(s));
             this.dbg= self.insert(_S.graphics());
             ticks= 0;
-            this.letThemRoam=()=>{
-              vecSweepers.forEach(v=> v.g.update())
-            };
+            this.letThemRoam=()=> vecBots.forEach(v=> v.g.update());
             this.reGen=()=>{
-              vecSweepers.forEach(v=> v.g.endOfRunCalc());
-              gaPop.epoch(vecSweepers.map(v=> v.g.fitness.score())).forEach((b,i)=>{
-                vecSweepers[i].g.nnet=b;
-                vecSweepers[i].g.reset();
+              vecBots.forEach(v=> v.g.endOfRunCalc());
+              gaPop.epoch(vecBots.map(v=> v.g.fitness.score())).forEach((b,i)=>{
+                vecBots[i].g.nnet=b;
+                vecBots[i].g.reset();
               });
+              _G.gen+=1;
               ticks = 0;
               //best are up front
-              for(let i=0;i<10;++i){
-                vecSweepers[i].tint=_S.SomeColors.magenta;
+              for(let i=0;i<NUM_ELITES;++i){
+                vecBots[i].tint=_S.BtnColors.magenta;
               }
             }
             ///
-            self.insert(_S.bboxFrame(out));
+            return self.insert(_S.bboxFrame(out));
+          },
+          initHud(){
+            if(1){
+              let s = _S.scaleBy(_S.sprite("menu.png"), 0.8*K,0.8*K);
+              s.anchor.x=1;
+              s.m5.press=_S.btnPress(s, _S.BtnColors.green,"white","click.mp3",()=>{
+                _Z.runEx("Splash")
+              });
+              self.insert(_I.mkBtn( _V.set(s, Mojo.width,0)));
+            }
+            if(1){
+              let s=_S.bmpText("0",UI_FONT,24*K);
+              this.genMsg=self.insert(s);
+              s=_S.bmpText("0",UI_FONT,24*K);
+              _S.anchorXY(s,0.5);
+              _S.pinAbove(_G.arena,s,s.height*1.5);
+              return this.timeMsg=self.insert(s);
+            }
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.initLevel();
+        this.g.initLevel() && this.g.initHud();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.menu= _S.sprite("menu.png");
-        this.g.menu.anchor.x=1;
-        this.g.menu.m5.press=()=>{
-          _Z.runEx("Splash")
-        };
-        _V.set(this.g.menu, Mojo.width,0);
-        this.insert(_I.mkBtn(this.g.menu));
       },
       postUpdate(dt){
+        this.g.genMsg.text=`Generation: ${_G.gen}`;
         this.g.dbg.clear();
+        ++ticks;
+        this.g.timeMsg.text= `Learning: ${int(100*ticks/NumTicks)}%`;
         if(++ticks<NumTicks){
           this.g.letThemRoam()
         }else{
@@ -466,9 +467,9 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["tank.png","menu.png","click.mp3"],
-    arena: {width: 1680, height: 1050},
+    arena: {width: 1344, height: 840},
     scaleToWindow:"max",
-    scaleFit:"y",
+    scaleFit:"x",
     start(Mojo){
       scenes(Mojo);
       Mojo.Scenes.run("Splash");

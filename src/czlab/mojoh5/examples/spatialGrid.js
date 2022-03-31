@@ -111,7 +111,7 @@
     }
 
     //use default spatial grid
-    _Z.defScene("spatial",{
+    _Z.scene("spatial",{
       setup(){
         _init(this);
       },
@@ -134,7 +134,7 @@
     },{centerStage:true});
 
     //use quadtree
-    _Z.defScene("quadtree",{
+    _Z.scene("quadtree",{
       setup(){
         _init(this);
         _G.qtree=QT.quadtree({x1:0,y1:0,
@@ -168,8 +168,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("quadtree");
-        //Mojo.Scenes.runScene("spatial");
+        Mojo.Scenes.run("quadtree");
+        //Mojo.Scenes.run("spatial");
       }
     })
   });

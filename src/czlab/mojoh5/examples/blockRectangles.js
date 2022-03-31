@@ -24,7 +24,7 @@
            Game:G,
            ute:_,is}=Mojo;
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let K=Mojo.getScaleFactor();
         let red = G.red= _S.rect(32*K, 32*K, "red");
@@ -38,7 +38,7 @@
 
         red.angle=45;
         _S.centerAnchor(red);
-        _S.pinTop(this,red,-60*K);
+        _S.pinAbove(this,red,-60*K);
         _I.makeDrag(red);
         this.insert(red,true);
 
@@ -66,7 +66,7 @@
       scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

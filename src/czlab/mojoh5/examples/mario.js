@@ -21,7 +21,7 @@
            Sprites:_S,
            Input:_I,
            Tiles:_T,
-           "D2":_2d,
+           Ute2D:_U,
            v2:_V,
            Game:G,
            ute:_,is}=Mojo;
@@ -39,7 +39,7 @@
     const Collectable={
       s(){},
       c(scene,s,ts,ps,os){
-        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        let sigs=[["bump.sensor",s],"onSensor",s.m5];
         s.m5.uuid= `Coin#${_.nextId()}`;
         s.m5.type=E_ITEM;
         s.m5.sensor=true;
@@ -58,7 +58,7 @@
     const Door={
       s(){},
       c(scene,s,ts,ps,os){
-        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        let sigs=[["bump.sensor",s],"onSensor",s.m5];
         s.m5.uuid= os.id;
         s.m5.type=E_DOOR;
         s.m5.sensor=true;
@@ -84,7 +84,8 @@
       _S.centerAnchor(s);
       _V.add$(s, [Math.floor(s.width/2),
                   Math.floor(s.height/2)]);
-      Mojo.addMixin(s,"arcade",[_2d.Patrol,true,false]);
+
+
       s.m5.heading=Mojo.LEFT;
       s.m5.speed= 150;
       s.m5.vel[0]= -150;
@@ -107,11 +108,14 @@
           Mojo.sound("hit.mp3").play();
         }
       };
+
+      s.g.arcade=_U.Meander(s);
+      s.g.pat=_U.Patrol(s,true,false);
+
       s.m5.tick=(dt)=>{
-        s["arcade"] && s["arcade"].onTick(dt);
+        s.g.arcade(dt);
         if(s.m5.dead){
-          s["arcade"] && s["arcade"].Patrol.dispose();
-          s["arcade"]=null;
+          s.g.pat.dispose();
           ++s.m5.deadTimer;
           if(s.m5.deadTimer > 24){
             // Dead for 24 frames, remove it.
@@ -176,7 +180,6 @@
         p.m5.speed= 300;
         p.m5.score= 0;
         _S.centerAnchor(p);
-        Mojo.addMixin(p,"arcade",[_2d.Platformer]);
         p.m5.showFrame(1);
         //p["2d"].Platformer.jumpSpeed= -500;
         p.m5.heading= Mojo.RIGHT;
@@ -264,8 +267,10 @@
           }
         };
 
+        p.g.arcade=_U.Meander(p);
+        p.g.plat=_U.Platformer(p);
         p.m5.tick=function(dt){
-          p["arcade"].onTick(dt);
+          p.g.plat(p.g.arcade(dt));
           if(p.m5.vel[0]==0 && p.m5.vel[1]==0){
             if(!p.g.onLadder && !_I.keyDown(_I.DOWN)) p.m5.showFrame(1);
           }
@@ -286,10 +291,10 @@
       }
     };
 
-    _Z.defScene("hud",{
+    _Z.scene("hud",{
       setup(){
         let K=Mojo.getScaleFactor();
-        let t= this.score = _S.bitmapText("",{fontName:"unscii",fontSize:64*K, fill:"white"});
+        let t= this.score = _S.bitmapText("",{fontName:"unscii",fontSize:32*K, fill:"white"});
         this.insert(t);
       },
       postUpdate(){
@@ -301,20 +306,20 @@
       Player,Collectable,Heart,Slime,Fly,Door,Snail
     };
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
-        Mojo.addMixin(this,"camera2d",this.tiled.tiledWidth,this.tiled.tiledHeight,Mojo.canvas);
-        this["camera2d"].centerOver(this.tiled.tileW*5, this.tiled.tileH*10);
+        this.g.cam=_U.Camera(this,this.tiled.tiledWidth,this.tiled.tiledHeight,Mojo.canvas);
+        this.g.cam.centerOver(this.tiled.tileW*5, this.tiled.tileH*10);
       },
       postUpdate(){
         if(false && G.player && G.player.y > 2000){
         }else{
-          this["camera2d"].follow(G.player);
+          this.g.cam.follow(G.player);
         }
       }
-    },{tiled:{name:"mario.json",factory:_objF}});
+    },{centerStage:true, tiled:{name:"mario.json",factory:_objF}});
 
-    _Z.defScene("bg",{
+    _Z.scene("bg",{
       setup(){
         let bg=_S.tilingSprite("bg.png");
         _S.sizeXY(bg,Mojo.width,Mojo.height);
@@ -329,27 +334,16 @@
          "fire.mp3", "jump.mp3", "heart.mp3", "hit.mp3", "coin.mp3",
          "bg.png","bg_castle.png","collectables.png","doors.png","enemies.png","blocks.png", "player.png"],
       scaleToWindow:"max",
-      arena: {},
+      arena: {width:1680,height:1050,scale:1},
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("bg");
-        Mojo.Scenes.runScene("level1");
-        Mojo.Scenes.runScene("hud");
+        Mojo.Scenes.run("bg");
+        Mojo.Scenes.run("level1");
+        Mojo.Scenes.run("hud");
       }
     })
   });
 
 })(this);
 
-/*
-      walk_right: { frames: [0,1,2,3,4,5,6,7,8,9,10], rate: 1/15, flip: false, loop: true },
-      walk_left: { frames:  [0,1,2,3,4,5,6,7,8,9,10], rate: 1/15, flip:"x", loop: true },
-      jump_right: { frames: [13], rate: 1/10, flip: false },
-      jump_left: { frames:  [13], rate: 1/10, flip: "x" },
-      stand_right: { frames:[14], rate: 1/10, flip: false },
-      stand_left: { frames: [14], rate: 1/10, flip:"x" },
-      duck_right: { frames: [15], rate: 1/10, flip: false },
-      duck_left: { frames:  [15], rate: 1/10, flip: "x" },
-      climb: { frames:  [16, 17], rate: 1/3, flip: false }
-      */
 

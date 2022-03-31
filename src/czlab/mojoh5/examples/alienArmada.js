@@ -29,7 +29,7 @@
            is,
            v2:_V,
            Sprites:S,
-      "D2":_2d}=Mojo;
+      Ute2D:_U}=Mojo;
 
     G.boomSound = Mojo.sound("explosion.mp3");
     G.shootSound = Mojo.sound("shoot.mp3");
@@ -46,7 +46,7 @@
       G.cannon=null;
     }
 
-    Z.defScene("level1",{
+    Z.scene("level1",{
       setup(){
         let scene=this,
             K=Mojo.getScaleFactor(),
@@ -62,7 +62,7 @@
         S.scaleContent(cannon);
         S.scaleToCanvas(bg);
 
-        S.pinBottom(this,cannon,-cannon.height-10*K);
+        S.pinBelow(this,cannon,-cannon.height-10*K);
         cannon.m5.type=E_PLAYER;
         cannon.m5.uuid="player";
         let pY=cannon.y;
@@ -109,7 +109,7 @@
         }
 
         const fireFunc=()=>{
-          let b= _2d.shoot(cannon, -Mojo.PI_90,
+          let b= _U.shoot(cannon, -Mojo.PI_90,
                          7*K, ctor, MFL(cannon.width/2), 0);
           scene.insert(b,true);
           G.shootSound.play();
@@ -136,7 +136,7 @@
         alien.m5.type=E_ENEMY;
         alien.m5.uuid=`alien${_.nextId()}`;
         S.scaleContent(alien);
-        S.pinTop(this,alien);
+        S.pinAbove(this,alien);
         alien.x = _.randInt2(0,Mojo.width-alien.width);
         _V.set(alien.m5.vel,0,1*K);
         this.insert(alien,true);
@@ -215,17 +215,16 @@
 
         function reset(){
           resetLevel();
-          Z.removeScenes();
-          Z.runScene("level1");
-          Z.runScene("hud");
-          //Z.runScene("ctrl");
+          Z.runEx("level1");
+          Z.run("hud");
+          //Z.run("ctrl");
         }
 
-        this.future(() => reset(), 120);
+        this.futureX(() => reset(), 120);
       }
     });
 
-    Z.defScene("hud", {
+    Z.scene("hud", {
       setup(){
         let K=Mojo.getScaleFactor();
         let score= S.bitmapText("0", {fontName: "unscii",
@@ -235,7 +234,7 @@
       }
     });
 
-    Z.defScene("ctrl", {
+    Z.scene("ctrl", {
       setup(){
         let K=Mojo.getScaleFactor();
         let j=Mojo.Touch.joystick({
@@ -264,8 +263,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        //["level1","ctrl","hud"].forEach(s=> Mojo.Scenes.runScene(s));
-        ["level1","hud"].forEach(s=> Mojo.Scenes.runScene(s));
+        //["level1","ctrl","hud"].forEach(s=> Mojo.Scenes.run(s));
+        ["level1","hud"].forEach(s=> Mojo.Scenes.run(s));
       }
     })
   );

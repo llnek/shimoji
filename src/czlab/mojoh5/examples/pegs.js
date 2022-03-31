@@ -27,7 +27,7 @@
     const E_PLAYER=1;
     const E_PEG=2;
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let colors = [ "#FFABAB", "#FFDAAB", "#DDFFAB", "#ABE4FF", "#D9ABFF" ];
         let out={x:0,y:0};
@@ -89,7 +89,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

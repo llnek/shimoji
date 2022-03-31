@@ -24,7 +24,7 @@
            v2:_V,
            ute:_,is}=Mojo;
 
-    _Z.defScene("level1", {
+    _Z.scene("level1", {
       setup(){
         let A=_S.rect(Mojo.width/2,Mojo.height/2,0xaa4455);
         let C=_S.rect(Mojo.width/2,Mojo.height/2);
@@ -69,7 +69,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

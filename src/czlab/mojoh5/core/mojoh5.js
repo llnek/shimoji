@@ -299,6 +299,7 @@
       //p["image-rendering"]= arg.rendering || "crisp-edges";
       dom.css(Mojo.canvas,p);
       dom.attrs(Mojo.canvas,"tabindex","0");
+      dom.css(document.body,{"background":"black"});
     }
 
     /** Main */
@@ -339,7 +340,7 @@
 
       //install modules
       ["Sprites","Input","Scenes",
-       "Sound","FX","Arcade","Tiles","Touch"].forEach(s=>{
+       "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
          CON.log(`installing module ${s}...`);
          let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
          if(m.assets)

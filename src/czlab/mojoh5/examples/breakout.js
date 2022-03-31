@@ -36,7 +36,7 @@
     G.gridCols=8;
     G.gridRows=16;
 
-    Z.defScene("splash",{
+    Z.scene("splash",{
       setup(){
         let out={x:0,y:0},
             K=Mojo.getScaleFactor();
@@ -51,13 +51,13 @@
         this.insert(title);
 
         _V.set(play.scale,K,K);
-        S.pinBottom(title,play,-play.height*1.2);
+        S.pinBelow(title,play,-play.height*1.2);
 
         _V.setX(play, S.rightSide(title)-play.width*1.2);
         I.makeButton(play);
         play.m5.press=()=>{
           T.fadeOut(this).onComplete=()=>{
-            Z.replaceScene(this.name,"level1");
+            Z.replace(this.name,"level1");
           }
           I.undoButton(play);
         };
@@ -69,7 +69,7 @@
       }
     },{centerStage:true});
 
-    Z.defScene("level1",{
+    Z.scene("level1",{
       setup(){
         let colors = [ "blue.png", "green.png", "orange.png", "red.png", "violet.png" ];
         let K=Mojo.getScaleFactor();
@@ -181,7 +181,7 @@
         if(G.blockCount==0){
           Mojo.pause();
           _.timer(()=>{
-            Z.replaceScene("level1","splash");
+            Z.replace("level1","splash");
             Mojo.resume();
           },300);
         }
@@ -196,7 +196,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("splash");
+        Mojo.Scenes.run("splash");
       }
     });
   });

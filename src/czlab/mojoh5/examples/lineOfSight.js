@@ -19,14 +19,14 @@
   function scenes(Mojo){
     const {Scenes:_Z,
            Sprites:_S,
-           D2:_D,
+           Ute2D:_U,
            Input:_I,
            Game:G,
            math:_M,
            v2:_V,
            ute:_,is,EventBus}=Mojo;
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let player = G.player= _S.sprite("alien.png");
         let K=Mojo.getScaleFactor();
@@ -87,7 +87,7 @@
         G.line.m5.ptA(m[0], m[1]);
         G.line.m5.ptB(a[0], a[1]);
 
-        let hit = _D.lineOfSight(G.monster,G.player,G.boxes);
+        let hit = _U.lineOfSight(G.monster,G.player,G.boxes);
         if(hit){
           G.monster.m5.showFrame(1);
           G.line.alpha = 1;
@@ -106,7 +106,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

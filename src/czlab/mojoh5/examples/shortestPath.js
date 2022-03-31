@@ -34,7 +34,7 @@
       }
     };
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let self=this,
             offX=this.parent.x,
@@ -68,7 +68,7 @@
             G.pathSprites.push(s);
           });
         };
-        Mojo.on(["mouseup"],_mouseup);
+        _I.on(["mouseup"],_mouseup);
       }
     },{centerStage:true,tiled:{name:"astar.json",factory:_objF}});
   }
@@ -80,7 +80,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

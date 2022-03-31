@@ -18,7 +18,7 @@
 
   function scenes(Mojo){
     let _S=Mojo.Sprites;
-    Mojo.Scenes.defScene("level1",{
+    Mojo.Scenes.scene("level1",{
       setup(){
         let box = this.box= _S.tilingSprite("tile.png");
         this.insert(_S.sizeXY(box,Mojo.width,Mojo.height));
@@ -38,7 +38,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     });
   });

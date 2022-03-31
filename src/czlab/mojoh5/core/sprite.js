@@ -23,6 +23,9 @@
     red:"#eb2224",
     orange:"#f48917",
     grey:"#848685",
+    cyan:"#1ee5e6",
+    lime:"#e5e61e",
+    magenta:"#e61ee5",
     purple:"#a6499a"
   };
   const SomeColors={
@@ -327,6 +330,41 @@
        */
       empty(s){
         return s.children.length == 0 },
+      /**Emulate a button press
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} b
+       * @param {number|string} clickedColor
+       * @param {number|string} oldColor
+       * @param {string} snd
+       * @param {function} cb
+       * @return {function}
+       */
+      btnPress(b,c1,c0,snd,cb){
+        let self=this;
+        return function(arg){
+          arg.tint=self.color(c1);
+          if(snd) Mojo.sound(snd).play();
+          _.delay(343,()=>{
+            arg.tint=self.color(c0);
+            cb(arg);
+          });
+        }
+      },
+      /**React to a one off click on canvas.
+       * @memberof module:mojoh5/Sprites
+       * @param {string} snd
+       * @param {function} cb
+       * @return {function}
+       */
+      oneOffClick(snd,cb){
+        let sub= function(){
+          Mojo.Input.off(["single.tap"],sub);
+          if(snd) Mojo.sound(snd).play();
+          cb();
+        };
+        Mojo.Input.on(["single.tap"],sub);
+        return sub;
+      },
       /**Change size of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -621,7 +659,13 @@
        * @return {Sprite} s
        */
       move(s,dt){
-        dt=_.nor(dt,1);
+        if(dt){
+          _V.add$(s.m5.vel,_V.mul(s.m5.gravity,dt));
+          _V.add$(s.m5.vel,_V.mul(s.m5.acc,dt));
+          _V.mul$(s.m5.vel, s.m5.friction);
+        }else{
+          dt=1;
+        }
         if(s.m5.maxSpeed !== undefined)
           _V.clamp$(s.m5.vel,0, s.m5.maxSpeed);
         return _V.add$(s,_V.mul(s.m5.vel,dt));

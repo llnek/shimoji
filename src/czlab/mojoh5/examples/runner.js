@@ -26,6 +26,7 @@
            Sprites:_S,
            Input:_I,
            Game:_G,
+      Ute2D:_U,
            v2:_V,
            ute:_,is}=Mojo;
 
@@ -58,7 +59,6 @@
         s._mode=null;
       });
 
-      Mojo.addMixin(s,"arcade");
       s.m5.getContactPoints=function(){
         return s._mode==PStates.duck_right ? [[-16,44], [-23,35], [-23,-10], [23,-10], [23,35], [16,44]]
                                            : [[-16,44], [-23,35], [-23,-48], [23,-48], [23,35], [16,44]]
@@ -70,8 +70,9 @@
           _G.bumped=false;
         },5);
       };
+      s.g.arcade=_U.Meander(s);
       s.m5.tick=(dt)=>{
-        s["arcade"].onTick(dt);
+        s.g.arcade(dt);
         s.m5.vel[0] += (speed - s.m5.vel[0])/4;
         if(s.m5.vel[1]>0 && _S.bottomSide(s) > floor.y){
           _V.setY(s, floor.y - MFL(s.height/2));
@@ -116,7 +117,7 @@
           b.rotation += theta * dt;
         }
         if(b.y > floor.y ||
-           b.x < scene["camera2d"].x){
+           b.x < scene.g.cam.x){
           b.m5.dead=true;
           _S.remove(b);
         }
@@ -141,7 +142,7 @@
       Mojo.addBgTask(b);
     }
 
-    _Z.defScene("bg",{
+    _Z.scene("bg",{
       setup(){
         let floor = _G.bgFloor = _S.tilingSprite("background-floor.png");
         let wall = _G.bgWall = _S.tilingSprite("background-wall.png");
@@ -162,15 +163,15 @@
       }
     });
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let p= this.player= Player(this);
         BoxThrower(this,p);
         let stage=Mojo.mockStage();
-        Mojo.addMixin(this,"camera2d",stage.width,stage.height);
+        this.g.cam=_U.Camera(this,stage.width,stage.height);
       },
       postUpdate(dt){
-        this["camera2d"].centerOver(this.player.x+300);
+        this.g.cam.centerOver(this.player.x+300);
       }
     },{centerStage:true});
   }
@@ -183,8 +184,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("bg");
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("bg");
+        Mojo.Scenes.run("level1");
       }
     });
   });

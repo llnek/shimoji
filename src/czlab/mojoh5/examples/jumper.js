@@ -25,7 +25,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "D2":_2d,
+           Ute2D:_U,
            Game:G,
            v2:_V,
            ute:_,is}=Mojo;
@@ -79,16 +79,18 @@
       p.y= -180*K;
       _S.centerAnchor(p);
       scene.insert(p,true);
-      Mojo.addMixin(p,"arcade",[_2d.Platformer]);
       _V.set(p.m5.gravity,0,200 * K);
       p.m5.speed=200 * K;
-      p["arcade"].Platformer.jumpSpeed *= K;
+
+      p.g.platformer= _U.Platformer(p, -200*K);
+      p.g.arcade=_U.Meander(p);
+
       p.m5.tick=function(dt){
         if(p.y > scene.b5.y+scene.b5.height*3*K){
           _S.remove(p);
-          _Z.runScene("endGame",{msg: "You Fell!"});
+          _Z.modal("endGame",{msg: "You Fell!"});
         }else{
-          p["arcade"].onTick(dt);
+          p.g.platformer(dt,p.g.arcade(dt));
         }
       };
       return p;
@@ -101,17 +103,17 @@
       t.m5.uuid="tower";
       t.m5.type=E_TOWER;
       t.m5.sensor=true;
-      t.m5.onSensor=()=>{ _Z.runScene("endGame",{ msg: "You Won!" }); };
-      Mojo.on(["2d.sensor",t],"onSensor",t.m5);
+      t.m5.onSensor=()=>{
+        Mojo.off(["bump.sensor",t],"onSensor",t.m5);
+        _Z.modal("endGame",{ msg: "You Won!" });
+      };
+      Mojo.on(["bump.sensor",t],"onSensor",t.m5);
       _V.copy(t,_V.sub(b5, [MFL(t.width/2),
                             MFL(b5.height/2) + t.height]));
       return scene.insert(t,true);
     }
 
-    _Z.defScene("endGame",{
-      dispose(){
-        this.btns.forEach(b => _I.undoButton(b))
-      },
+    _Z.scene("endGame",{
       setup(options){
         let s1=_S.text("Game Over", {fill:"white",align:"center"});
         let s2=_S.text(options.msg, {fill:"white",align:"center"});
@@ -123,23 +125,22 @@
         this.btns= [s4,s6];
         this.insert(g);
         s4.m5.press=function(){
-          _Z.removeScenes();
-          _.delay(0,()=>{
-            _Z.runScene("bg");
-            _Z.runScene("level1");
+          _.delay(100,()=>{
+            _Z.runEx("bg");
+            _Z.run("level1");
           })
         }
       }
     });
 
-    _Z.defScene("bg",{
+    _Z.scene("bg",{
       setup(){
         let w= this.wall= _S.tilingSprite("background-wall.png");
         this.insert(_S.sizeXY(w,Mojo.width,Mojo.height));
       }
     });
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let K=Mojo.getScaleFactor();
         let Y=MFL(Mojo.height/2);
@@ -171,8 +172,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("bg");
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("bg");
+        Mojo.Scenes.run("level1");
       }
     })
   });

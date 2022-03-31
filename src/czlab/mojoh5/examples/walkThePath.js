@@ -40,7 +40,7 @@
       }
     };
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let offX=this.parent.x;
         let offY=this.parent.y;
@@ -52,7 +52,7 @@
           G.destinationY = Mojo.mouse.y-offY;
           G.calculateNewPath = true;
         };
-        Mojo.on(["mouseup"],G.onMouseUp);
+        _I.on(["mouseup"],G.onMouseUp);
       },
       postUpdate(dt){
         let K=Mojo.getScaleFactor();
@@ -108,7 +108,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

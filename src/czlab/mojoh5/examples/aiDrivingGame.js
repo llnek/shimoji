@@ -50,7 +50,7 @@
       _V.add$(car,car.m5.vel);
     }
 
-    Z.defScene("level1",{
+    Z.scene("level1",{
       setup(){
         let car=G.aiCar,
             K=this.getScaleFactor();
@@ -102,7 +102,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

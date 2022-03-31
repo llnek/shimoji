@@ -20,12 +20,12 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "2d":_2d,
+           Ute2D:_U,
            v2:_V,
            Game:G,
            ute:_,is}=Mojo;
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let K=Mojo.getScaleFactor();
         let _64=64*K;
@@ -44,11 +44,11 @@
 
         let hedgehog = G.hedgehog=  _S.sprite("hedgehog.png");
         this.insert(hedgehog);
-        _S.pinTop(box,hedgehog);
+        _S.pinAbove(box,hedgehog);
 
         let rocket = G.rocket= _S.sprite("rocket.png");
         this.insert(rocket);
-        _S.pinBottom(box,rocket);
+        _S.pinBelow(box,rocket);
 
         let star = G.star= _S.sprite("star.png");
         star.alpha=0.5;
@@ -63,10 +63,10 @@
         _S.pinLeft(box,b1,-b1.width);
         b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
-        _S.pinTop(box,b1,-b1.height);
+        _S.pinAbove(box,b1,-b1.height);
         b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
-        _S.pinBottom(box,b1,-b1.height);
+        _S.pinBelow(box,b1,-b1.height);
         b1 = _S.rect(_10, _10, "white");
         box.addChild(b1);
         _S.pinCenter(box,b1);
@@ -82,7 +82,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

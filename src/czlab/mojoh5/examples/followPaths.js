@@ -21,13 +21,13 @@
            Sprites:_S,
            Input:_I,
            FX:_W,
-           "2d":_2d,
+           Ute2D:_U,
            v2:_V,
            Tiles:_T,
            Game:G,
            ute:_,is,EventBus}=Mojo;
 
-    _Z.defScene("level1",function(){
+    _Z.scene("level1",function(){
       let cat = G.cat= _S.sprite("cat.png",32,32);
       let K=Mojo.getScaleFactor();
       const _scale=(arr)=> arr.map(p=> _V.mul$(p,K));
@@ -52,7 +52,7 @@
       scaleToWindow: "max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

@@ -21,7 +21,7 @@
            Sprites:_S,
            Tiles:_T,
            Input:_I,
-           "D2":_2d,
+           Ute2D:_U,
            Game:_G,
            v2:_V,
            ute:_,is}=Mojo;
@@ -32,7 +32,7 @@
     const E_COIN=4;
     const E_TOWER=8;
 
-    Mojo.defMixin("enemyAI", function(e){
+    function enemyAI(e){
       e.m5.heading=Mojo.LEFT;
       //e.m5.speed=100;
       e.m5.reroute=2;
@@ -53,25 +53,24 @@
           }
         }
       }
+      Mojo.on(["hit",e],changeDir);
       let self={
         dispose(){
           Mojo.off(["hit",e],changeDir)
-        },
-        onTick(dt){
-          if(_.rand() < e.m5.reroute/100){
-            tryDir()
-          }
-          switch(e.m5.heading){
-            case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
-            case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
-            case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
-            case Mojo.DOWN: e.m5.vel[1] = e.m5.speed; break;
-          }
         }
       };
-      Mojo.on(["hit",e],changeDir);
-      return self;
-    });
+      return function(dt){
+        if(_.rand() < e.m5.reroute/100){
+          tryDir()
+        }
+        switch(e.m5.heading){
+          case Mojo.LEFT: e.m5.vel[0] = -e.m5.speed; break;
+          case Mojo.RIGHT: e.m5.vel[0] = e.m5.speed; break;
+          case Mojo.UP:   e.m5.vel[1] = -e.m5.speed; break;
+          case Mojo.DOWN: e.m5.vel[1] = e.m5.speed; break;
+        }
+      };
+    }
 
     const Tower={
       s(){},
@@ -82,9 +81,9 @@
           scene.removeTile("Tiles", t)
         };
         t.m5.dispose=()=>{
-          Mojo.off(["2d.sensor",t],"onSensor",t.m5)
+          Mojo.off(["bump.sensor",t],"onSensor",t.m5)
         };
-        Mojo.on(["2d.sensor",t],"onSensor",t.m5);
+        Mojo.on(["bump.sensor",t],"onSensor",t.m5);
         return t;
       }
     };
@@ -103,9 +102,9 @@
           if(scene.dotCount==0){}
         };
         s.m5.dispose=()=>{
-          Mojo.off(["2d.sensor",s],"onSensor",s.m5)
+          Mojo.off(["bump.sensor",s],"onSensor",s.m5)
         };
-        Mojo.on(["2d.sensor",s],"onSensor",s.m5);
+        Mojo.on(["bump.sensor",s],"onSensor",s.m5);
         return s;
       }
     };
@@ -128,9 +127,12 @@
         frames[Mojo.DOWN]=1;
         frames[Mojo.RIGHT]=2;
         frames[Mojo.LEFT]=3;
-        Mojo.addMixin(p,"arcade",[_2d.MazeRunner,frames]);
+
+        p.g.arcade=_U.Meander(p);
+        p.g.maze=_U.MazeRunner(p,frames);
+
         p.m5.tick=function(dt){
-          p["arcade"].onTick(dt);
+          p.g.maze(dt,p.g.arcade(dt));
         };
         return p;
       }
@@ -147,18 +149,19 @@
         _S.centerAnchor(s);
         s.m5.speed= 150 * scene.getScaleFactor();
         _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
-        Mojo.addMixin(s,"arcade");
-        Mojo.addMixin(s,"enemyAI");
+
+        s.g.arcade=_U.Meander(s);
+        s.g.ai=enemyAI(s);
+
         s.m5.boom=function(col){
           if(col.B.m5.uuid=="player"){
             Mojo.pause();
           }
         };
         s.m5.tick=function(dt){
-          s["arcade"].onTick(dt);
-          s["enemyAI"].onTick(dt);
+          s.g.ai(dt, s.g.arcade(dt))
         };
-        Mojo.on(["bump",s],"boom",s.m5);
+        Mojo.on(["bump.*",s],"boom",s.m5);
         return s;
       }
     };
@@ -167,7 +170,7 @@
       Player, Enemy, Dot, Tower
     };
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(options){
       }
     },{sgridX:128,sgridY:128,centerStage:true,
@@ -183,7 +186,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

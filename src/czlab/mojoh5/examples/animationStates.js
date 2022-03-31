@@ -20,14 +20,14 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "2d":_2d,
+           Ute2D:_U,
            Game:G,
            v2:_V,
            math:_M,
            ute:_,is}=Mojo;
     const int=Math.floor;
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
         let K=Mojo.getScaleFactor(),
             forest= G.forest= _S.sprite("forest.png"),
@@ -114,7 +114,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     });
   });

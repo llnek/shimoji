@@ -290,3 +290,78 @@
 })(this);
 
 
+function postUpdate(e,dt){
+
+  if(_I.keyDown(_I.LEFT)){
+    e.m5.vel[0] += (bPlayerOnGround ? -25 : -15) * dt;
+    heading=Mojo.LEFT;
+  }
+  else if(_I.keyDown(_I.RIGHT)){
+    e.m5.vel[0] += (bPlayerOnGround ? 25 : 15) * dt;
+    heading=Mojo.RIGHT;
+  }
+
+  if(_I.keyDown(_I.SPACE)){
+    if(_.feq0(e.m5.vel[1])){
+      e.m5.vel[1]= -12; //JUMP SPEED
+      heading=Mojo.UP;
+    }
+  }
+
+  // Gravity
+  e.m5.vel[1]+= e.m5.gravity[1] * dt;
+
+  // Drag
+  if(bPlayerOnGround){
+    e.m5.vel[0] += e.m4.friction[0] * _e.m5.vel[0] * dt;
+    if(Math.abs(e.m5.vel[0]) < 0.01) e.m5.vel[0] = 0;
+  }
+
+  // Clamp velocities
+  if(e.m5.maxSpeed !== undefined){
+    //if(_G.player.m5.vel[0]> 10) _G.player.m5.vel[0]= 10;
+    //if(_G.player.m5.vel[0] < -10) _G.player.m5.vel[0]= -10;
+    //if(_G.player.m5.vel[1]> 100) _G.player.m5.vel[1]= 100;
+    //if(_G.player.m5.vel[1]< -100) _G.player.m5.vel[1]= -100;
+  }
+
+  // Calculate potential new position
+  let newPosX = e.x + e.m5.vel[0] * dt;
+  let newPosY = e.y+ e.m5.vel[1]* dt;
+
+  // Check for Collision
+  if(e.m5.vel[0]< 0){// Moving Left
+    if(this.getTile(newPosX, _G.player.y) != "." ||
+       this.getTile(newPosX, _G.player.y+ 0.9) != "."){
+      newPosX = int(newPosX) + 1;
+      _G.player.m5.vel[0]= 0;
+    }
+  }else{// Moving Right
+    if(this.getTile(newPosX + 1, _G.player.y) != "." ||
+       this.getTile(newPosX + 1, _G.player.y+ 0.9) != "."){
+      newPosX = int(newPosX);
+      _G.player.m5.vel[0]= 0;
+    }
+  }
+
+  bPlayerOnGround = false;
+  if(e.m5.vel[1]<= 0){// Moving Up
+    if(this.getTile(newPosX , newPosY) != "." ||
+       this.getTile(newPosX + 0.9, newPosY) != "."){
+      newPosY = int(newPosY) + 1;
+      _G.player.m5.vel[1]= 0;
+    }
+  }else{// Moving Down
+    if(this.getTile(newPosX , newPosY + 1) != "." ||
+       this.getTile(newPosX + 0.9, newPosY + 1) != "."){
+      newPosY = int(newPosY);
+      _G.player.m5.vel[1]= 0;
+      _G.bPlayerOnGround = true; // Player has a solid surface underfoot
+      _G.nDirModX = 0;
+    }
+  }
+
+
+}
+
+

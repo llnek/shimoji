@@ -21,7 +21,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           "D2":_2d,
+           Ute2D:_U,
            Tiles:_T,
            v2:_V,
            Game:G,
@@ -30,7 +30,7 @@
     const E_PLAYER=1,
           E_ITEM=2;
 
-    Mojo.defMixin("ai", function(e){
+    function ai(e){
       e.m5.heading=Mojo.LEFT;
       e.m5.reroute=15/100;
       function tryDir(){
@@ -49,36 +49,39 @@
 
       const s= [["hit",e],changeDir];
       Mojo.on(...s);
-      return{
+      let self={
         dispose(){
-          Mojo.off(...s) },
-        onTick(dt){
-          if(_.rand() < e.m5.reroute){ tryDir() }
-          switch(e.m5.heading){
-            case Mojo.LEFT: _V.set(e.m5.vel,-e.m5.speed,0); break;
-            case Mojo.RIGHT: _V.set(e.m5.vel, e.m5.speed,0); break;
-            case Mojo.UP:   _V.set(e.m5.vel,0, -e.m5.speed); break;
-            case Mojo.DOWN: _V.set(e.m5.vel,0, e.m5.speed); break;
-          }
+          Mojo.off(...s)
         }
       };
-    });
+
+      return function(dt,col){
+        if(_.rand() < e.m5.reroute){ tryDir() }
+        switch(e.m5.heading){
+          case Mojo.LEFT: _V.set(e.m5.vel,-e.m5.speed,0); break;
+          case Mojo.RIGHT: _V.set(e.m5.vel, e.m5.speed,0); break;
+          case Mojo.UP:   _V.set(e.m5.vel,0, -e.m5.speed); break;
+          case Mojo.DOWN: _V.set(e.m5.vel,0, e.m5.speed); break;
+        }
+      }
+    }
 
     const _objF={
       Player:{
         c(scene,s,ts,ps,os){
           let K=scene.getScaleFactor();
-          Mojo.addMixin(s,"arcade",[_2d.MazeRunner]);
           s.m5.heading=Mojo.RIGHT;
           s.m5.type=E_PLAYER;
           s.m5.uuid="player";
-          s.m5.speed=4*K;
+          s.m5.speed=250*K;
           _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
           _V.add$(s, [_M.ndiv(s.width,2),
                       _M.ndiv(s.height,2)]);
           _S.centerAnchor(s);
-          s.m5.tick=()=>{
-            s["arcade"].onTick();
+          s.g.arcade=_U.Meander(s);
+          s.g.maze=_U.MazeRunner(s);
+          s.m5.tick=(dt)=>{
+            s.g.maze(dt,s.g.arcade(dt));
           };
           return G.player=s;
         },
@@ -97,18 +100,17 @@
           _V.add$(s,[_M.ndiv(s.width,2),
                      _M.ndiv(s.height,2)]);
           s.m5.heading = Mojo.NONE;
-          s.m5.speed = 4*K;
+          s.m5.speed = 200*K;
           _S.centerAnchor(s);
           _V.set(s.m5.vel,s.m5.speed, s.m5.speed);
-          Mojo.addMixin(s,"arcade");
-          Mojo.addMixin(s,"ai");
+          s.g.arcade=_U.Meander(s);
+          s.g.ai=ai(s);
           s.m5.boom=(col)=>{
             if(col.B.m5.uuid=="player")
               Mojo.pause();
           };
           s.m5.tick=(dt)=>{
-            s["arcade"].onTick();
-            s["ai"].onTick();
+            s.g.ai(dt, s.g.arcade(dt));
             let ca= _S.centerXY(G.player);
             let cm= _S.centerXY(s);
             let d2=_V.len2(_V.sub$(ca,cm));
@@ -120,7 +122,7 @@
       }
     };
 
-    _Z.defScene("level1",{
+    _Z.scene("level1",{
       setup(){
       }
     },{sgridX:180,sgridX:180,
@@ -134,7 +136,7 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("level1");
       }
     })
   });

@@ -24,11 +24,12 @@
            Sprites:S,
            Input:I,
            Game:G,
+      Ute2D:_U,
            v2:_V,
            Tiles:T,
            ute:_,is} =Mojo;
 
-    Z.defScene("hud",{
+    Z.scene("hud",{
       setup(){
         let K=Mojo.getScaleFactor();
         this.message = S.text("No items found",
@@ -61,7 +62,7 @@
         S.scaleXY(p,K,K);
         _V.set(p,mapcol * s.width, maprow * s.height);
         G.elf=p;
-        Mojo.addMixin(p,"arcade");
+
         p.m5.getImageOffsets=function(){
           return {x1:p.scale.x*18,x2: p.scale.x*16,
                   y1:p.scale.y*10,y2:p.scale.y*4}
@@ -84,8 +85,9 @@
           walkRight: [28, 35]
         };
         p.m5.showFrame(p.g.states.right);
+        p.g.arcade=_U.Meander(p);
         p.m5.tick=(dt)=>{
-          p["arcade"].onTick(dt)
+          p.g.arcade(dt);
         }
         scene.leftArrow = I.keybd(I.LEFT, ()=>{
           G.elf.m5.playFrames(G.elf.g.states.walkLeft);
@@ -132,14 +134,14 @@
       s.m5.uuid=id;
       s.m5.sensor=true;
       s.m5.dispose=()=>{
-        Mojo.off(["2d.sensor",s],"onSensor",s.m5)
+        Mojo.off(["bump.sensor",s],"onSensor",s.m5)
       };
       s.m5.onSensor=()=>{
-        let hud=Z.findScene("hud");
+        let hud=Z.find("hud");
         S.remove(s);
         Mojo.emit(["sync.ui", hud], `You found a ${id}`);
       };
-      Mojo.on(["2d.sensor",s],"onSensor",s.m5);
+      Mojo.on(["bump.sensor",s],"onSensor",s.m5);
       return s;
     }
 
@@ -167,12 +169,12 @@
     const _objFactory={
       Elf:Player,Heart,Marmot,Skull };
 
-    Z.defScene("level1",{
+    Z.scene("level1",{
       setup(){
-        Mojo.addMixin(this,"camera2d", this.tiled.tiledWidth, this.tiled.tiledHeight);
+        this.g.cam= _U.Camera(this, this.tiled.tiledWidth, this.tiled.tiledHeight);
       },
       postUpdate:function(dt){
-        this["camera2d"].follow(G.elf);
+        this.g.cam.follow(G.elf);
       }
     },{sgridX:128,sgridY:128,centerStage:true,
        tiled:{name:"fantasy.json",factory:_objFactory}});
@@ -181,12 +183,12 @@
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: [ "fantasy.png", "walkcycle.png", "fantasy.json"],
-      arena: {width:512, height:512},
+      arena: {width:512, height:512,scale:1},
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("level1");
-        Mojo.Scenes.runScene("hud");
+        Mojo.Scenes.run("level1");
+        Mojo.Scenes.run("hud");
       }
     });
 

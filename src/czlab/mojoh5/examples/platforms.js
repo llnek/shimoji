@@ -20,7 +20,7 @@
     const {Scenes:Z,
            Sprites:S,
            Input:I,
-           "D2":_2d,
+           Ute2D:_U,
            Tiles:_T,
            v2:_V,
            Game:G,
@@ -121,7 +121,7 @@
                        name:scene.tiled.tiledMap});
     }
 
-    Z.defScene("hud", {
+    Z.scene("hud", {
       setup() {
         let K=Mojo.getScaleFactor();
         this.output = S.bitmapText("score: ",
@@ -136,7 +136,7 @@
     const Player={
       s(){},
       c(scene,p,ts,ps,os){
-        Mojo.addMixin(p,"arcade",[_2d.Platformer]);
+
         p.m5.static=false;
         p.m5.uuid="player";
         p.m5.type=E_PLAYER;
@@ -149,9 +149,12 @@
         p.height -=2;
         p.x++;
         p.y++;
-        p["arcade"].Platformer.jumpSpeed=-500;
+
+        p.g.arcade=_U.Meander(p);
+        p.g.plat=_U.Platformer(p,-500);
+
         p.m5.tick=(dt)=>{
-          p["arcade"].onTick(dt);
+          p.g.plat(dt,p.g.arcade(dt));
         }
         return p;
       }
@@ -192,7 +195,7 @@
     const Treasure={
       s(){},
       c(scene,t){
-        const e=[["2d.sensor",t],"onSensor",t.m5];
+        const e=[["bump.sensor",t],"onSensor",t.m5];
         t.m5.uuid="treasure"+_.nextId();
         t.m5.type=E_ITEM;
         t.m5.sensor=true;
@@ -211,7 +214,7 @@
       Player,Ground,Sky,Border,Grass,Treasure
     }
 
-    Z.defScene("level1", {
+    Z.scene("level1", {
       setup(){
         G.score=0;
         _cfgWorld(this);
@@ -228,8 +231,8 @@
       scaleToWindow:"max",
       start(Mojo){
         scenes(Mojo);
-        Mojo.Scenes.runScene("hud");
-        Mojo.Scenes.runScene("level1");
+        Mojo.Scenes.run("hud");
+        Mojo.Scenes.run("level1");
       }
     })
   });
