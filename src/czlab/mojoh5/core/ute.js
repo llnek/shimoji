@@ -151,9 +151,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("HotKeys",{
       setup(options){
+        let {char_fire, char_down,char_up,char_left,char_right}=options;
         let {fontName,fontSize,cb,radius,alpha,color}=options;
-        let {char_down,char_up,char_left,char_right}=options;
-        let bs,U,D,L,R;
+        let bs,F,U,D,L,R;
         let opstr= options.buttons?"makeButton":"makeHotspot";
 
         _.assert(is.num(fontSize),"expected fontsize");
@@ -163,10 +163,13 @@
         fontName=fontName||"Doki Lowercase";
         alpha=alpha || 0.2;
         color=_.nor(color,"grey");
+
         char_down=char_down||"-";
         char_up=char_up||"+";
         char_left=char_left||"<";
         char_right=char_right||">";
+        char_fire=char_fire||"^";
+
         D= _S.opacity(_S.circle(radius,color),alpha);
         D.addChild(_S.anchorXY(_S.bmpText(char_down,fontName,fontSize),0.5));
         U= _S.opacity(_S.circle(radius,color),alpha);
@@ -175,7 +178,11 @@
         L.addChild(_S.anchorXY(_S.bmpText(char_left,fontName,fontSize),0.5));
         R= _S.opacity(_S.circle(radius,color),alpha);
         R.addChild(_S.anchorXY(_S.bmpText(char_right,fontName,fontSize),0.5));
-        bs=cb({left:L,right:R,down:D,up:U});
+        if(options.fire){
+          F= _S.opacity(_S.circle(radius,color),alpha);
+          F.addChild(_S.anchorXY(_S.bmpText(char_fire,fontName,fontSize),0.5));
+        }
+        bs=cb(F?{left:L,right:R,down:D,up:U,fire:F}:{left:L,right:R,down:D,up:U});
         if(bs.right){
           this.insert(_I[opstr](bs.right));
           if(bs.right.m5.hotspot)
@@ -195,6 +202,11 @@
           this.insert(_I[opstr](bs.down));
           if(bs.down.m5.hotspot)
             bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
+        }
+        if(bs.fire){
+          this.insert(_I[opstr](bs.fire));
+          if(bs.fire.m5.hotspot)
+            bs.fire.m5.touch=(o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE);
         }
         if(options.extra)
           options.extra(this);
@@ -444,7 +456,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function Platformer(e,jumpSpeed,jumpKey){
+    function Jitter(e,jumpSpeed,jumpKey){
 
       jumpKey= _.nor(jumpKey, Mojo.Input.UP);
       jumpSpeed= _.nor(jumpSpeed,-300);
@@ -625,7 +637,7 @@
       Meander,
       Camera,
       Patrol,
-      Platformer,
+      Jitter,
       MazeRunner,
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       //steering stuff

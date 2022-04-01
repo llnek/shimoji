@@ -292,17 +292,17 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** use it for collision */
-    const _contactObj = Mojo.Sprites.extend({width: 0,
-                                             height: 0,
-                                             parent:null,
-                                             x:0, y:0,
-                                             rotation:0,
-                                             tiled:{},
-                                             anchor: {x:0,y:0},
-                                             getGlobalPosition(){
-                                               return{
-                                                 x:this.x+this.parent.x,
-                                                 y:this.y+this.parent.y} }});
+    const _contactObj = Mojo.Sprites.lift({width: 0,
+                                           height: 0,
+                                           parent:null,
+                                           x:0, y:0,
+                                           rotation:0,
+                                           tiled:{},
+                                           anchor: {x:0,y:0},
+                                           getGlobalPosition(){
+                                             return{
+                                               x:this.x+this.parent.x,
+                                               y:this.y+this.parent.y} }});
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**

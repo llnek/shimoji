@@ -106,7 +106,7 @@
         case 2: g=_G.grid[14][7];break;
         default: g=_G.grid[15][7];break;
       }
-      return _V.set(s,int((g.x1+g.x2)/2), int((g.y1+g.y2)/2));
+      return _V.set(s,_M.ndiv(g.x1+g.x2,2), _M.ndiv(g.y1+g.y2,2));
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -451,7 +451,7 @@
         this.g.genMsg.text=`Generation: ${_G.gen}`;
         this.g.dbg.clear();
         ++ticks;
-        this.g.timeMsg.text= `Learning: ${int(100*ticks/NumTicks)}%`;
+        this.g.timeMsg.text= `Training: ${int(100*ticks/NumTicks)}%`;
         if(++ticks<NumTicks){
           this.g.letThemRoam()
         }else{

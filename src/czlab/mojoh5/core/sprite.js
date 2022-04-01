@@ -527,7 +527,7 @@
        * @param {Sprite} s
        * @return {Sprite} s
        */
-      extend(s){
+      lift(s){
         if(!s.m5){
           let self=this;
           s.g={};
@@ -568,6 +568,35 @@
           s.getBBox=function(){
             return _.feq0(s.angle)?self.getAABB(s):self.boundingBox(s) };
         }
+        return s;
+      },
+      /**Keep rotation in the range 0 - 2pi
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite}
+       */
+      clamp2Pi(s){
+        if(s.rotation > PI2){ s.rotation -= PI2 }
+        if(s.rotation < 0) { s.rotation += PI2 }
+        return s;
+      },
+      /**Convert polar to cartesian
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {array} [cos,sin]
+       */
+      getHeading(s){
+        return [Math.cos(s.rotation),Math.sin(s.rotation)]
+      },
+      /**Set the rotation value
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} v
+       * @param {boolean} deg [false]
+       * @return {Sprite} s
+       */
+      setOrient(s,v,deg=false){
+        deg ? s.angle=v : s.rotation=v;
         return s;
       },
       /**Convert sprite to a polygonal shape.
@@ -652,6 +681,24 @@
        */
       angle(s1, s2){
         return _V.angle(this.centerXY(s1), this.centerXY(s2)) },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      die(s){
+        if(s) s.m5.dead=true;
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      undie(s){
+        if(s) s.m5.dead=false;
+        return s;
+      },
       /**Move a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -925,7 +972,7 @@
        */
       container(cb){
         let s= new Mojo.PXContainer();
-        s= this.extend(s);
+        s= this.lift(s);
         if(cb){
           cb(s)
         }
@@ -946,7 +993,7 @@
        */
       sprite(src, center=false,x=0,y=0){
         let s= _sprite(src, o=> new Mojo.PXSprite(o));
-        s=this.extend(s);
+        s=this.lift(s);
         _V.set(s,x,y);
         if(center)
           this.centerAnchor(s);
@@ -962,7 +1009,7 @@
         let s= _sprite(src,o=>{
           return new Mojo.PXTSprite(o,width||o.width,height||o.height)
         });
-        return this.extend(s);
+        return this.lift(s);
       },
       /**Tile sprite repeatingly in x and/or y axis.
        * @memberof module:mojoh5/Sprites
@@ -975,7 +1022,7 @@
        */
       repeatSprite(src,rx=true,ry=true,width=UNDEF,height=UNDEF){
         let xx= ()=>{
-          let s= this.extend(_sprite(src, o=> new Mojo.PXSprite(o)));
+          let s= this.lift(_sprite(src, o=> new Mojo.PXSprite(o)));
           let K=Mojo.getScaleFactor();K=1;
           s.width *= K;
           s.height *= K;
@@ -1120,7 +1167,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        return _V.set(this.extend(new Mojo.PXText(msg,fspec)),x,y) },
+        return _V.set(this.lift(new Mojo.PXText(msg,fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -1141,7 +1188,7 @@
         if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
         if(!fstyle.fontName) fstyle.fontName="unscii";
         if(!fstyle.align) fstyle.align="center";
-        return this.extend(new Mojo.PXBText(msg,fstyle));
+        return this.lift(new Mojo.PXBText(msg,fstyle));
       },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
@@ -1177,7 +1224,7 @@
           g.endFill()
         }
         let s= new Mojo.PXSprite(this.genTexture(g));
-        s=this.extend(s);
+        s=this.lift(s);
 
         if(true){
           if(height<0){
@@ -1228,7 +1275,7 @@
         return this.genTexture(g)
       },
       rectEx(t){
-        return this.extend( new Mojo.PXSprite(t))
+        return this.lift( new Mojo.PXSprite(t))
       },
       /**Create a sprite by applying a drawing routine to the graphics object.
        * @memberof module:mojoh5/Sprites
@@ -1239,7 +1286,7 @@
       drawBody(cb,...args){
         let g = this.graphics();
         cb.apply(this, [g].concat(args));
-        return this.extend(new Mojo.PXSprite(this.genTexture(g))) },
+        return this.lift(new Mojo.PXSprite(this.genTexture(g))) },
       /**Create a circular sprite by generating a texture.
        * @memberof module:mojoh5/Sprites
        * @param {number} radius
@@ -1271,7 +1318,7 @@
       },
       circleEx(t){
         let s=new Mojo.PXSprite(t);
-        s=this.extend(s);
+        s=this.lift(s);
         return (s.m5.circle=true) && this.centerAnchor(s)
       },
       /**Create a line sprite.
@@ -1294,7 +1341,7 @@
           g.lineTo(_b[0], _b[1]);
         }
         _draw();
-        let s=this.extend(g);
+        let s=this.lift(g);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
             _a[0] = x;
@@ -1558,7 +1605,7 @@
         if(obj.anchor.x<0.3){
           obj.x -= obj.width/2;
           obj.y -= obj.height/2;
-        }else if(obj.anchor<0.7){
+        }else if(obj.anchor.x<0.7){
         }else{
           _.assert(false, "bad anchor to center");
         }

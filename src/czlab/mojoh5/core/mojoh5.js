@@ -616,6 +616,7 @@
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
       get mouse(){ return Mojo.Input.pointer() },
+      playSfx(snd){ return this.sound(snd).play() },
       accel(v,a,dt){ return v+a*dt },
       on(...args){
         return EBus.sub(...args)
