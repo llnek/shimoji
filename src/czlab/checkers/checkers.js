@@ -23,12 +23,11 @@
     //load dependencies
     window["io/czlab/checkers/AI"](Mojo);
 
-    const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
            Game:_G,
-           FX:_X,
+           FX:_F,
            v2:_V,
            math:_M,
            ute:_, is}= Mojo;
@@ -36,8 +35,19 @@
     const {Bot,
            Local,Mediator}=Mojo;
 
+
+    const int=Math.floor;
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
+    const
+      COLS=8,
+      ROWS=8,
+      DELAY=343,
+      TEAM_RED="red",
+      TEAM_BLACK="black";
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const
+      TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase",
       C_TITLE=_S.color("#fff20f"),
       C_BG=_S.color("#169706"),
@@ -46,12 +56,60 @@
       C_ORANGE=_S.color("#f4d52b");
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const playClick=()=> Mojo.sound("click.mp3").play();
-    const COLS=8,
-      ROWS=8,
-      CLICK_DELAY=343,
-      TEAM_RED="red",
-      TEAM_BLACK="black";
+    const SplashCfg= {
+      title:"Checkers",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize:96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function checkStatus(s){
+      let out={}, R=0, B=0, RK=0, BK=0;
+      for(let r,y=0; y< s.length; ++y){
+        r=s[y];
+        for(let c,x=0; x < r.length; ++x){
+          if(c=r[x]){
+            if(c.team==TEAM_BLACK){
+              if(c.king) ++BK; else ++B;
+            }
+            if(c.team==TEAM_RED){
+              if(c.king) ++RK; else ++R;
+            }
+          }
+        }
+      }
+      out[TEAM_BLACK]=[B,BK];
+      out[TEAM_RED]=[R,RK];
+      return out;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function isWon(s){
+      let R=0, B=0;
+      for(let r,y=0; y< s.length; ++y){
+        r=s[y];
+        for(let x=0; x < r.length; ++x){
+          if(r[x]){
+            if(r[x].team==TEAM_BLACK) ++B;
+            if(r[x].team==TEAM_RED) ++R;
+          }
+        }
+      }
+      return R==0&&B>0 ? TEAM_BLACK : (B==0&&R>0? TEAM_RED : "")
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function isTie(s){
+      return _calcNextMoves(TEAM_RED,s)[2]==0 ||
+             _calcNextMoves(TEAM_BLACK,s)[2]==0
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
@@ -59,60 +117,38 @@
       TEAM_BLACK,
       X:88,
       O:79,
-      checkStatus(s){
-        let out={}, R=0, B=0, RK=0, BK=0;
-        for(let r,y=0; y< s.length; ++y){
-          r=s[y];
-          for(let c,x=0; x < r.length; ++x){
-            if(c=r[x]){
-              if(c.team==TEAM_BLACK){
-                if(c.king) ++BK; else ++B;
-              }
-              if(c.team==TEAM_RED){
-                if(c.king) ++RK; else ++R;
-              }
-            }
-          }
-        }
-        out[TEAM_BLACK]=[B,BK];
-        out[TEAM_RED]=[R,RK];
-        return out;
-      },
-      isWon(s){
-        let R=0, B=0;
-        for(let r,y=0; y< s.length; ++y){
-          r=s[y];
-          for(let x=0; x < r.length; ++x){
-            if(r[x]){
-              if(r[x].team==TEAM_BLACK) ++B;
-              if(r[x].team==TEAM_RED) ++R;
-            }
-          }
-        }
-        return R==0&&B>0 ? TEAM_BLACK : (B==0&&R>0? TEAM_RED : "")
-      },
-      isTie(s){
-        return _calcNextMoves(TEAM_RED,s)[2]==0 &&
-               _calcNextMoves(TEAM_BLACK,s)[2]==0
-      }
+      isWon,
+      isTie,
+      checkStatus
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkEnd(){
-      let S= _G.mediator.gameState();
-      let msg,c,o,w= _G.isWon(S);
-      if(w || _G.isTie(S)){
+      let
+        S= _G.mediator.gameState(),
+        msg,c,o,w= isWon(S);
+
+      if(w || isTie(S)){
         o=_G.mediator.other();
         c=_G.mediator.cur();
         msg="No Winner!";
-        if(w==TEAM_RED)
+        if(w==TEAM_RED || _G.redScore>_G.blackScore)
           msg=_G.mode==1?"You Lose!": "Player 2 (red) Wins";
-        if(w==TEAM_BLACK)
+        if(w==TEAM_BLACK || _G.blackScore>_G.redScore)
           msg=_G.mode==1?"You Win!":"Player 1 (black) Wins";
-        w= c.uuid()==w ? c : ( o.uuid()==w ? o : null);
+        w= c.uuid()==w ? c : ( o.uuid()==w ? o : UNDEF);
         _G.mediator.gameOver(w);
-        _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg}));
+        _.delay(DELAY,()=> _Z.modal("EndGame",{
+
+          fontSize: 72*Mojo.getScaleFactor(),
+          winner: msg.includes("Win"),
+          msg,
+          replay: {name:"MainMenu"},
+          quit: {name:"Splash",cfg: SplashCfg}
+
+        }));
       }
+
       return msg;
     }
 
@@ -131,7 +167,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _boardJumpOn(team,row,col,dy,dx,M,S){
       //make target cell clickable
-      let r2,k1, s=_posOK(row,col)?S[row][col]:null;
+      let
+        r2,k1,
+        s=_posOK(row,col)?S[row][col]:UNDEF;
       if(s && s.team != team){
         r2=row+dy;
         k1=col+dx;
@@ -142,8 +180,9 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _boardShowTargets(sel,M,S){
-      let {row,col,dirY,dirX}= sel;
-      let e,r1,r2,c1,c2;
+      let
+        e,r1,r2,c1,c2,
+        {row,col,dirY,dirX}= sel;
       _resetBoard();
       for(let t,s,c,y=0;y<ROWS;++y){
         for(let x=0;x<COLS;++x){
@@ -152,7 +191,7 @@
           c=M[y][x];
           if(!s || c==0 || !(y==row&&x==col)){
             if(s){
-              _.assert(t,"Bad cell");
+              _.assert(t,`bad cell[${y},${x}]`);
               t.m5.showFrame(s.king?3:0);
             }
             continue;
@@ -173,15 +212,16 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //find all the possible cells that can move
     function _calcSteps(row,col,S){
-      let {dirX,dirY}= S[row][col];
-      let r,c,out=[];
+      let
+        r,c,out=[],
+        {dirX,dirY}= S[row][col];
       dirY.forEach(dy=>{
         r=row+dy;
         dirX.forEach(dx=>{
           c=col+dx;
           if(_posOK(r,c) && !S[r][c]){
-            out.push([r,c,"S"]);
-            out.push([row,col,"s"]);
+            out.push([r,c,"S"],
+                     [row,col,"s"]);
           }
         });
       });
@@ -213,27 +253,25 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _calcNextMoves(team,S){
-      let jumps=[],
+      let
+        jumps=[],
         steps=[],
         dict={},
-        tmp,
-        total=0,
-        mask=_new8x8();
+        tmp, total=0, mask=_new8x8();
       S.forEach((r,y)=>{
         r.forEach((s,x)=>{
-          tmp=null;
           if(s && s.team==team){
             if(tmp=_calcJumps(y,x,S)){
-              tmp.forEach(o=>jumps.push(o));
+              tmp.forEach(o=>jumps.push(o))
             }else if(tmp= _calcSteps(y,x,S)){
-              tmp.forEach(o=>steps.push(o));
+              tmp.forEach(o=>steps.push(o))
             }
           }
         });
       })
       _.assert(_.isEven(jumps.length),"Bad jumps");
       _.assert(_.isEven(steps.length),"Bad steps");
-      tmp=null;
+      tmp=UNDEF;
       if(jumps.length>0){
         tmp=jumps
       }else if(steps.length>0){
@@ -277,16 +315,17 @@
         this.pvalue=v;
       }
       checkMoreJumps(move,S){
-        let ok,t,f,out,
-            [row,col,act]=move[2];
+        let
+          ok,t,f,out,
+          [row,col,act]=move[2];
         if(act=="J")
           out= _calcJumps(row,col,S);
         if(out && out.length>0){
-          t=out[0];//[r2,c2,"J"]
-          f=out[1];//[row,col,"j"]
+          t=out[0];
+          f=out[1];
           //fake the next move
           move=[f[0],f[1], t];
-          _.delay(584, ()=>{
+          _.delay(584, ()=> {
             this.owner.updateMove(this, move)
           });
           ok=true;
@@ -297,8 +336,8 @@
         return this.pvalue;
       }
       onPoke(){
-        _.delay(888,()=>{
-          let move=this.ai.run(_G.mediator.gameState(), this);
+        _.delay(888,(move)=>{
+          move=this.ai.run(_G.mediator.gameState(), this);
           if(move) _G.mediator.updateMove(this,move);
         })
       }
@@ -315,8 +354,9 @@
         return this.pvalue;
       }
       onPoke(){
-        const S= _G.mediator.gameState(),
-              mask= _calcNextMoves(this.team,S)[0];
+        const
+          S= _G.mediator.gameState(),
+          mask= _calcNextMoves(this.team,S)[0];
         _G.mask=mask;
         for(let s,t,y=0;y<ROWS;++y)
         for(let x=0;x<COLS;++x){
@@ -344,29 +384,28 @@
         this.state=_new8x8();
       }
       updateSound(actor){
-        Mojo.sound(actor.team==TEAM_BLACK?"x.mp3":"o.mp3").play()
+        Mojo.playSfx(actor.team==TEAM_BLACK?"x.mp3":"o.mp3")
       }
       updateState(from,move){
-        let [r,c,target]=move;
-        let [row,col,act]=target;
-        let S= this.gameState();
-        let cur=S[r][c];
-        let des=S[row][col];
-        let er,ec,t;
+        let
+          [r,c,target]=move,
+          [row,col,act]=target,
+          S= this.gameState(),
+          cur=S[r][c],
+          er,ec,t, des=S[row][col];
         switch(act){
           case "J":
             er= row>r? row-1 : row+1;
             ec= col>c? col-1 : col+1;
             t=_G.tiles[er][ec];
             _S.remove(_I.undoBtn(t));
-            S[er][ec]=null;
-            _G.tiles[er][ec]=null;
+            S[er][ec]=UNDEF;
+            _G.tiles[er][ec]=UNDEF;
             _chgScore(from.team==TEAM_RED?TEAM_BLACK:TEAM_RED);
             break;
-          case "S":
-            break;
+          //case "S": break;
         }
-        _moveTo(r,c, row,col,null,S);
+        _moveTo(r,c, row,col,UNDEF,S);
       }
       postMove(from,move){
         let S= this.gameState();
@@ -402,17 +441,18 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //move to target row/col
     function _moveTo(r,c, row,col,M,S){
-      let s=S[r][c],
-          t=_G.tiles[r][c]; //cur
+      let
+        s=S[r][c],
+        t=_G.tiles[r][c]; //cur
       _.assert(t, "Bad move, current sprite null");
       //move to new cell position
-      S[r][c]=null;
+      S[r][c]=UNDEF;
       s.row=row;
       s.col=col;
       S[row][col]=s;
       //move the actual sprite
       _G.tiles[row][col]=t;
-      _G.tiles[r][c]=null;
+      _G.tiles[r][c]=UNDEF;
       t.g.row=row;
       t.g.col=col;
       _V.copy(t,_G.board[row][col]);
@@ -423,13 +463,13 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _eatPiece(r,c, row,col,M,S){
-      let er=row>r? row-1 : row+1;
-      let ec=col>c? col-1 : col+1;
-      let t=_G.tiles[er][ec];
-      let s=S[er][ec];
+      let
+        er=row>r? row-1 : row+1,
+        ec=col>c? col-1 : col+1,
+        s=S[er][ec], t=_G.tiles[er][ec];
       //reset cells
-      _G.tiles[er][ec]=null;
-      S[er][ec]=null;
+      _G.tiles[er][ec]=UNDEF;
+      S[er][ec]=UNDEF;
       _.assert(t&&s, "Bad piece to eat");
       _S.remove(_I.undoBtn(t));
       _chgScore(s.team);
@@ -465,17 +505,17 @@
     function _nextToPlay(){
       if(checkEnd()){
       }else{
-        _G.curSel=null;
+        _G.curSel=UNDEF;
         _.delay(100,()=>_G.mediator.takeTurn());
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _onClick(t){
-      let S=_G.mediator.gameState();
-      let M=_G.mask;
-      let {row,col}=t.g;
-      let out, s=S[row][col];
+      let
+        S=_G.mediator.gameState(),
+        M=_G.mask,
+        {row,col}=t.g, out, s=S[row][col];
       switch(M[row][col]){
         case "S":
           if(_G.curSel){
@@ -501,7 +541,7 @@
             let undo=false;
             if(_G.curSel){
               if(_G.curSel===s){
-                _G.curSel=null;
+                _G.curSel=UNDEF;
                 undo=true;
               }
             }
@@ -521,41 +561,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Checkers",TITLE_FONT, 100*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 48*K);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            t=_X.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _X.remove(t);
-              s.tint=C_ORANGE;
-              playClick();
-              _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
-            };
-            _I.on(["single.tap"],cb);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      },
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("MainMenu",{
       setup(){
-        let self=this,
+        let
+          self=this,
           mode=1,
           K=Mojo.getScaleFactor(),
           cfg={fontName:UI_FONT, fontSize: 72*K},
@@ -567,8 +576,8 @@
         b2.m5.press=(btn)=>{
           if(btn.m5.uuid=="#p2") mode=2;
           _S.tint(btn,C_ORANGE);
-          playClick();
-          _.delay(CLICK_DELAY,()=> _Z.runEx("StartMenu",{mode}));
+          Mojo.playSfx("click.mp3");
+          _.delay(DELAY,()=> _Z.runEx("StartMenu",{mode}));
         };
         doBackDrop(this);
         this.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"transparent"}));
@@ -578,7 +587,8 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("StartMenu",{
       setup(options){
-        let self=this,
+        let
+          self=this,
           startsWith=1,
           K=Mojo.getScaleFactor(),
           cfg={fontName: UI_FONT, fontSize: 72*K},
@@ -590,10 +600,10 @@
         b1.m5.press=
         b2.m5.press=(btn)=>{
           _S.tint(btn,C_ORANGE);
-          playClick();
+          Mojo.playSfx("click.mp3");
           if(btn.m5.uuid=="#no") startsWith=2;
           options.startsWith=startsWith;
-          _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame",options));
+          _.delay(DELAY,()=> _Z.runEx("PlayGame",options));
         };
         doBackDrop(this);
         this.insert(_Z.layoutX([msg,space(),b1, gap, b2],{bg:"transparent"}));
@@ -601,31 +611,12 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let snd="game_over.mp3",
-          os={fontName:UI_FONT,
-              fontSize: 72*Mojo.getScaleFactor()},
-          space=()=>_S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"No Winner!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx("MainMenu");
-        s6.m5.press=()=>_Z.runEx("Splash");
-        if(options.msg) snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(options){
-        const self=this,
+        let
+          self=this,
+          p1,p2,M,
           K=Mojo.getScaleFactor();
-        let p1,p2,M;
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _G.calcNextMoves=_calcNextMoves;
         _G.mode=options.mode;
@@ -712,10 +703,6 @@
             return self.insert(_S.bboxFrame(_G.arena,16*K,"#7f98a6"));
           },
           initHud(){
-            //let b=_S.bmpText("BLACK",UI_FONT,48*K);
-            //let r= _S.bmpText("RED",UI_FONT,48*K);
-            //_S.pinLeft(_G.arena,r,24*K,0);
-            //_S.pinRight(_G.arena,b,24*K,0);
             let r2= this.red=_S.bmpText("00",UI_FONT,48*K);
             let b2=this.black=_S.bmpText("00",UI_FONT,48*K);
             r2.tint=_S.SomeColors.red;
@@ -724,10 +711,6 @@
             b2.alpha=0.7;
             _S.pinLeft(_G.arena,r2,24*K,0);
             _S.pinRight(_G.arena,b2,24*K,0);
-            //_S.pinBelow(r,r2,24*K);
-            //_S.pinBelow(b,b2,24*K);
-            //self.insert(r);
-            //self.insert(b);
             self.insert(r2);
             self.insert(b2);
             return this;
@@ -749,6 +732,8 @@
       }
     });
 
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -756,17 +741,14 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["bggreen.jpg","base.png","reds.png","blacks.png",
-                 "audioOn.png","audioOff.png",
+                 "audioOn.png","audioOff.png","splash.jpg",
                  "images/base.json", "images/reds.json","images/blacks.json",
                  "x.mp3", "o.mp3", "click.mp3","game_win.mp3","game_over.mp3"],
-    arena:{width:1024, height:768},
+    arena: {width: 1344, height: 840},
     iconSize: 96,
     scaleFit:"y",
     scaleToWindow:"max",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
   }));
 
 })(this);

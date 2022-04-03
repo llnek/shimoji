@@ -45,10 +45,24 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Chess",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize:96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playSnd=(team)=> Mojo.sound(team=="w"?"x.mp3":"o.mp3").play();
     const playClick=()=> Mojo.sound("click.mp3").play();
-    const CLICK_DELAY=343;
+    const DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const F_COLPOSMAP={a:7,b:6,c:5,d:4,e:3,f:2,g:1,h:0};
@@ -107,7 +121,15 @@
           else
             msg= _G.mode==1? "You Lose!" : "Player 2 Win!";
         }
-        _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg}));
+        _.delay(DELAY,()=> _Z.modal("EndGame",{
+
+          fontSize:64*Mojo.getScaleFactor(),
+          replay:{name:"MainMenu"},
+          quit:{name:"Splash", cfg:SplashCfg},
+          msg,
+          winner: msg.includes("Win")
+
+        }));
       }
       return e;
     }
@@ -245,58 +267,6 @@
     const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bggreen.jpg")));
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Chess",TITLE_FONT, 180*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s, Mojo.width/2, Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 84*K);
-            _V.set(s, Mojo.width/2, Mojo.height*0.7);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
-            };
-            _I.on(["single.tap"],cb);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let snd="game_over.mp3",
-          os={fontName:UI_FONT,
-              fontSize: 72*Mojo.getScaleFactor()},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"No Winner!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=> _Z.runEx("MainMenu");
-        s6.m5.press=()=> _Z.runEx("Splash");
-        if(options.msg) snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("MainMenu",{
       setup(){
         let self=this,
@@ -312,7 +282,7 @@
           if(btn.m5.uuid=="#p2")mode=2;
           _S.tint(btn,C_ORANGE);
           playClick();
-          _.delay(CLICK_DELAY,()=>_Z.runEx("StartMenu",{mode}));
+          _.delay(DELAY,()=>_Z.runEx("StartMenu",{mode}));
         };
         doBackDrop(this);
         self.insert(_Z.layoutY([b1,space(),gap,space(),b2],{bg:"#cccccc",fit: 80,opacity:0.3}));
@@ -336,7 +306,7 @@
           if(btn.m5.uuid=="#p2") options.startsWith=2;
           _S.tint(btn,C_ORANGE);
           playClick();
-          _.delay(CLICK_DELAY,()=>_Z.runEx("PlayGame", options));
+          _.delay(DELAY,()=>_Z.runEx("PlayGame", options));
         };
         self.insert(_Z.layoutX([msg,space(), b1, gap, b2],{bg:"transparent"}));
       }
@@ -664,6 +634,7 @@
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel=()=>{
           M= _G.mediator= new CHMediator();
+          _G.dispInfo=(Mojo.width> 1100 && Mojo.height > 740);
           _G.curTargets=[];
           _G.targets=[];
           _G.board=[];
@@ -840,12 +811,14 @@
         M.flipped(p1.uuid()=="b");
         this.g.initMarks();
         this.g.initMsgs();
-        this.g.initInfo();
+        if(_G.dispInfo)
+          this.g.initInfo();
         this.g.initMisc();
         repaint();
         M.start(options.startsWith==1?p1:p2);
       },
       postUpdate(){
+        console.log("ddd")
       }
     });
 
@@ -863,6 +836,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function updateInfo(move){
+      if(!_G.dispInfo){ return }
       let {color,from,to,piece}= move;
       let moves= _G.moves[color];
       let m,i,
@@ -881,6 +855,9 @@
       }
       moves[sz-1].text=fmt;
     }
+
+
+    Mojo.Scenes.run("Splash",SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -888,18 +865,13 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["images/tiles.json", "bggreen.jpg",
-                 "audioOff.png","audioOn.png",
+                 "audioOff.png","audioOn.png","splash.jpg",
                  "click.mp3", "x.mp3","o.mp3","game_over.mp3","game_win.mp3"],
-    //arena:{width:1024, height:768},
-    arena:{width:1680, height:1260}, //4:3
+    arena:{width:1344, height:840},
     iconSize: 96,
-    rendering:false,//"crisp-edges",
-    scaleFit:"y",
+    scaleFit:"x",
     scaleToWindow:"max",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 

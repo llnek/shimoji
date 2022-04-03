@@ -121,6 +121,8 @@
           k *= 0.2;
           Sprites.scaleXY(pbar,k,k);
           Sprites.scaleXY(logo,k,k);
+          //Sprites.anchorXY(logo,0.5);
+          //_V.set(logo, Mojo.width/2,Mojo.height*0.3);
           Sprites.pinCenter(this,logo);
           Sprites.pinBelow(logo,pbar,4*K);
           Sprites.hide(pbar);

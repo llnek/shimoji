@@ -54,6 +54,20 @@
     const MAX_TURN= 333;
     const TURN_RANGE= 666;
 
+    const SplashCfg= {
+      title:"Asteroids",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize:96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function fireLaser(){
       let
@@ -132,8 +146,16 @@
           if(b){
             mkShield(scene, scene.engrid(_S.show(_S.centerObj(s))))
           }else{
-            Mojo.off(s.g);
-            _S.die(scene) && _.delay(DELAY, ()=> _Z.modal("EndGame"));
+            Mojo.off(["hit",s],"onHit",s.g);
+            _S.die(scene) && _.delay(DELAY, ()=> _Z.modal("EndGame",{
+
+              fontSize:64*Mojo.getScaleFactor(),
+              replay:{name:"PlayGame"},
+              quit:{name:"Splash",cfg:SplashCfg},
+              msg:"You Lose!",
+              winner:0
+
+            }));
           }
         }
       };
@@ -292,60 +314,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let
-          self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Asteroids",TITLE_FONT,96*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
-            _S.oneOffClick("click.mp3",()=>{
-              _S.tint(s,C_ORANGE);
-              _F.remove(t);
-              _F.tweenScale(self,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{
-                _Z.runEx("PlayGame")
-              };
-            });
-            _V.set(s,Mojo.width/2,Mojo.height*0.5);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        _Z.run("StarfieldBg",{static:true});
-        this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let
-          snd="game_over.mp3",
-          K=Mojo.getScaleFactor(),
-          cfg={fontName:UI_FONT, fontSize:64*K},
-          gap=_S.bmpText("or", cfg),
-          space=()=> _S.opacity(_S.bmpText("I",cfg),0),
-          b1=_I.mkBtn(_S.bmpText("Play Again?", cfg)),
-          b2=_I.mkBtn(_S.bmpText("Quit", cfg)),
-          m1=_S.bmpText("Game Over", cfg),
-          m2=_S.bmpText(options.win?"You Win!":"You Lose!", cfg);
-        b1.m5.press=()=> Mojo.playSfx("click.mp3") && _Z.runEx("PlayGame");
-        b2.m5.press=()=> Mojo.playSfx("click.mp3") && _Z.runEx("Splash");
-        if(options.win)snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2]));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame", {
       setup(){
         let
@@ -470,10 +438,18 @@
         if(a.length==0){
           Mojo.off(_G.ship.g);
           _S.die(this) &&
-            _.delay(DELAY, ()=> _Z.modal("EndGame",{win:1}));
+            _.delay(DELAY, ()=> _Z.modal("EndGame",{
+              fontSize:64*Mojo.getScaleFactor(),
+              replay:{name:"PlayGame"},
+              quit:{name: "Splash", cfg:SplashCfg},
+              msg:"You Win!",
+              winner:1
+            }));
         }
       }
     });
+
+    _Z.run("Splash",SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -483,14 +459,11 @@
     assetFiles: ["shoot.mp3","explosion.mp3",
                  "audioOn.png","audioOff.png",
                  "astro.png","rocket.png","laser.png",
-                 "click.mp3","game_over.mp3","game_win.mp3"],
+                 "splash.jpg","click.mp3","game_over.mp3","game_win.mp3"],
     arena: {width: 1344, height: 840},
     scaleToWindow: "max",
     scaleFit:"x",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
   }));
 
 })(this);

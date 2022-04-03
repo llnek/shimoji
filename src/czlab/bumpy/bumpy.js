@@ -23,14 +23,40 @@
     const int=Math.floor;
     const {Scenes:_Z,
 			     Sprites:_S,
+					 FX:_F,
 			     v2:_V,
 			     math:_M,
 			     Game:_G,ute:_,is}=Mojo;
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_BLUE=_S.color("#3e9ad1"),
+      C_TITLE=_S.color("#e5e61e"),
+      C_BG=_S.color("#169706"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#bde61e"),
+      C_ORANGE=_S.color("#f4d52b");
+
+		const SplashCfg= {
+      title:"Jittery Blocks",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize:96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
-				let K=Mojo.getScaleFactor(),
+				let
+				  K=Mojo.getScaleFactor(),
 					H=int(Mojo.height*0.8),
 					W=int(Mojo.width*0.8),
 					top=_M.ndiv(Mojo.height-H,2),
@@ -46,7 +72,7 @@
 								 y: _.randInt2(top, bottom-z),
 								 width : _.randInt2(a, z),
 								 height : _.randInt2(a, z)};
-							_G.items.push(_S.extend(s));
+							_G.items.push(_S.lift(s));
 							s.g.checked=false;
 							s.getBBox=()=>{
 								return {x1:s.x,y1:s.y,
@@ -63,9 +89,10 @@
 				_Z.run("HUD");
       },
       _drawTree(node){
-				let K=Mojo.getScaleFactor();
-				let b,cs = node.subTrees();
-				let g=this.g.gfx;
+				let
+				  g=this.g.gfx,
+				  cs = node.subTrees(),
+				  b,K=Mojo.getScaleFactor();
 				if(!cs){
           b=node.boundingBox();
 					g.lineStyle(2*K, _S.SomeColors.red,0.2);
@@ -75,8 +102,9 @@
 				}
 			},
       _drawItems(){
-				let K=Mojo.getScaleFactor();
-				let g=this.g.gfx;
+				let
+				  g=this.g.gfx,
+					K=Mojo.getScaleFactor();
         _G.items.forEach(o=>{
 					if(o.g.checked) {
 						g.lineStyle(1*K,_S.color("rgb(48,255,48)"),0.5);
@@ -127,12 +155,13 @@
 				this._drawItems();
       },
       _collide(r1, r2){
-				let r1w = _M.ndiv(r1.width,2),
+				let
+				  r1w = _M.ndiv(r1.width,2),
 					r2w = _M.ndiv(r2.width,2),
 					r1h = _M.ndiv(r1.height,2),
-					r2h = _M.ndiv(r2.height,2);
-				let diffX = (r1.x + r1w) - (r2.x + r2w);
-				let diffY = (r1.y + r1h) - (r2.y + r2h);
+					r2h = _M.ndiv(r2.height,2),
+				  diffX = (r1.x + r1w) - (r2.x + r2w),
+				  diffY = (r1.y + r1h) - (r2.y + r2h);
 				if(Math.abs(diffX) < r1w + r2w &&
            Math.abs(diffY) < r1h + r2h){
 					return {
@@ -148,11 +177,11 @@
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		_Z.scene("HUD",{
 			setup(){
-				let K=Mojo.getScaleFactor(),
-				    s= _S.bboxFrame(_G.arena,12*K);
+				let
+				  K=Mojo.getScaleFactor(),
+					s= _S.bboxFrame(_G.arena,12*K);
 				this.insert(s);
-				s=_S.bitmapText("",{fontSize:24,
-					                  fill:"#d4e64a"});
+				s=_S.bitmapText("0",{ fontSize:24, fill:"#d4e64a"});
 				this.g.count=0;
 				this.msg=s;
 				this.insert(s);
@@ -166,19 +195,20 @@
 					this.msg.y=_G.arena.y1 - 2 * this.msg.height; } }
 		});
 
+		_Z.run("Splash", SplashCfg);
   }
 
 	//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
 	window.addEventListener("load",()=> MojoH5({
 
-    arena:{width:1680, height:1050},
+		assetFiles: ["splash.jpg","click.mp3"],
+    xxxarena:{width:1680, height:1050},
+		arena: {width: 1344, height: 840},
     scaleToWindow:"max",
+		scaleFit:"x",
     items:800,
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("PlayGame");
-    }
+    start(...args){ scenes(...args) }
 
 	}));
 

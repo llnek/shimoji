@@ -21,7 +21,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           Arcade:_2d,
+           Ute2D:_U,
            FX:_F,
            v2:_V,
            math:_M,
@@ -33,23 +33,29 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#e4ea1c"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
+      C_TITLE=_S.color("#e5e61e"),
+      C_GREEN=_S.color("#bde61e"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Bouncy Balls",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize:96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.png")));
-    const playClick=()=> Mojo.sound("click.mp3").play();
-    const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _onCaptured(self){
-      if(_G.capturedMarble){
-        //draw the sling between the mouse and the captured marble
-        let c=_S.centerXY(_G.capturedMarble);
+    function _onSelected(self){
+      if(_G.selectedBall){
+        //draw the rubberband between the mouse and the marble
+        let c=_S.centerXY(_G.selectedBall);
         _S.show(_G.sling);
         _G.sling.m5.ptA(c[0],c[1]);
         _G.sling.m5.ptB(Mojo.mouse.x-self.x,Mojo.mouse.y-self.y);
@@ -57,32 +63,29 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //Shoot the marble when mouse is released
-    function _offCaptured(self){
+    function _offSelected(self){
       if(Mojo.mouse.isUp){
-        let s=_G.sling,
-            K=Mojo.getScaleFactor();
-        _S.hide(s);
-        if(_G.capturedMarble){
-          let c=_S.centerXY(_G.capturedMarble),
-              m=_V.vec(Mojo.mouse.x-self.x,Mojo.mouse.y-self.y);
-          let mc=_V.sub(c,m),
-              u=_V.unit(mc),
-              len=_V.len(mc);
-          _V.set(_G.capturedMarble.m5.vel, len*u[0]*32*K,
-                                           len*u[1]*32*K);
-          _G.capturedMarble = null;
+        let K=Mojo.getScaleFactor();
+        _S.hide(_G.sling);
+        if(_G.selectedBall){
+          let
+            c=_S.centerXY(_G.selectedBall),
+            mc=_V.sub(c, [Mojo.mouse.x-self.x,
+                          Mojo.mouse.y-self.y]),
+            len=_V.len(mc),
+            u=_V.unit$(mc);
+          _V.set(_G.selectedBall.m5.vel, len*u[0]*32*K,
+                                         len*u[1]*32*K);
+          _G.selectedBall = UNDEF;
         }
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _moveCircle(self,m,dt){
-      if(Mojo.mouse.isDown && !_G.capturedMarble){
-        if(Mojo.mouse.hitTest(m)){
-          _V.set(m.m5.vel,0,0);
-          _G.capturedMarble = m;
-        }
+    function _moveXY(self,m,dt){
+      if(Mojo.mouse.isDown && !_G.selectedBall && Mojo.mouse.hitTest(m)){
+        _V.set(m.m5.vel,0,0);
+        _G.selectedBall = m;
       }
       _V.mul$(m.m5.vel,m.m5.friction);
       _S.move(m,dt);
@@ -90,7 +93,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _hitCircles(s,objs){
+    function _hitAll(s,objs){
       objs.forEach(o=>{
         if(o !== s)
           _S.collide(s, o)
@@ -99,16 +102,18 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //use default spatial grid
-    _Z.scene("Splash",{
+    _Z.scene("PlayGame",{
       setup(){
-        const self=this,
+        let
+          self=this,
           K=Mojo.getScaleFactor();
         _.inject(this.g,{
           initLevel(){
-            let SIZES = [8, 12, 16, 20, 24, 28, 32,64].map(x=> x*K);
-            let out={x:0,y:0};
-            let grid=_S.gridSQ(8,0.8,out);
-            let pbox=_S.gridBBox(0,0,grid);
+            let
+              out={x:0,y:0},
+              grid=_S.gridSQ(8,0.8,out),
+              pbox=_S.gridBBox(0,0,grid),
+              SIZES = [8, 12, 16, 20, 24, 28, 32, 64].map(x=> x*K);
             _V.copy(self,out);
             for(let rr,r,y=0;y<grid.length;++y){
               r=grid[y];
@@ -123,46 +128,51 @@
                 _S.sizeXY(m, rr=SIZES[_.randInt2(0, 7)],rr);
                 _V.set(m.m5.vel, _.randInt2(-400, 400),
                                  _.randInt2(-400, 400));
-                _V.set(m.m5.friction, 0.99,0.99);
+                _V.set(m.m5.friction, 0.995,0.995);
                 m.m5.mass = 0.75 + m.width/2/32;
                 self.insert(m,true);
               }
             }
-            _G.capturedMarble = null;
+            if(1){
+              let s= _S.bmpText("Grab a ball and pull!",UI_FONT,24*K);
+              _S.anchorXY(s,0.5);
+              _S.pinAbove(pbox,s,s.height);
+              self.insert(s);
+            }
+            _G.selectedBall = UNDEF;
             _G.arena=Mojo.mockStage(out);
             _V.set(_G.arena,0,0);
             //make a line that will connect the mouse to the marbles
-            _G.sling= _S.line("Yellow",4*K, [0,0],[32,32]);
-            _S.hide(_G.sling);
-            self.insert(_G.sling);
-            //self.insert(_S.drawGridBox(pbox));
+            _G.sling= _S.line("yellow",4*K, [0,0],[32,32]);
+            self.insert(_S.hide(_G.sling));
             self.insert(_S.bboxFrame(pbox));
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.initLevel();
+        this.g.initLevel();
       },
       postUpdate(dt){
-        let self=this,
+        let
+          self=this,
           K=Mojo.getScaleFactor();
-        _onCaptured(this);
-        _offCaptured(this);
+        _onSelected(this);
+        _offSelected(this);
         this.children.forEach(m=>{
           if(m.m5 && m.m5.circle){
-            _moveCircle(self,m,dt);
+            _moveXY(self,m,dt);
             this.m5.sgrid.engrid(m);
           }
         });
         this.children.forEach(s=>{
           if(s.m5 && s.m5.circle)
-            _hitCircles(s, this.searchSGrid(s))
+            _hitAll(s, this.searchSGrid(s))
         });
       }
     },{centerStage:true});
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //use quadtree
-    _Z.scene("quadtree",{
+    _Z.scene("QuadTree",{
       setup(){
         _init(this);
         _G.qtree=QT.quadtree({x1:0,y1:0,
@@ -170,36 +180,38 @@
                               y2:_G.arena.height});
       },
       postUpdate(dt){
-        let self=this,
+        let
+          self=this,
           K=Mojo.getScaleFactor();
-        _onCaptured(this);
-        _offCaptured(this);
+        _onSelected(this);
+        _offSelected(this);
         _G.qtree.reset();
         this.children.forEach(m=>{
           if(m.m5 && m.m5.circle){
-            _moveCircle(this,m,dt);
+            _moveXY(this,m,dt);
             _G.qtree.insert(m)
           }
         });
         this.children.forEach(s=>{
           if(s.m5 && s.m5.circle)
-            _hitCircles(s, _G.qtree.search(s))
+            _hitAll(s, _G.qtree.search(s))
         });
       }
     },{centerStage:true});
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load & run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["balls.png","click.mp3"],
-    arena: {width:1860, height:1050},
+    assetFiles: ["balls.png","click.mp3","splash.jpg"],
+    arena: {width:1344, height:840},
     scaleToWindow:"max",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"y",
+    start(...args){ scenes(...args) }
+
   }));
 
 })(this);

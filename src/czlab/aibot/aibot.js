@@ -47,9 +47,20 @@
       C_GREEN=_S.color("#bde61e"),
       C_ORANGE=_S.color("#f4d52b");
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const playClick=()=> Mojo.sound("click.mp3").play();
-    const CLICK_DELAY=343;
+    const SplashCfg= {
+      title:"NEAT/Smart Bots",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize:84*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:56*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const NUM_INPUTS=10+1,//5,
           NUM_OUTPUTS=2,
@@ -293,37 +304,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("NEAT/Smart Bot", TITLE_FONT,84*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s, Mojo.width/2, Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,56*K);
-            _V.set(s,Mojo.width/2,Mojo.height*0.5);
-            t=_F.throb(s,0.747,0.747);
-            _S.oneOffClick("click.mp3",()=>{
-              _S.tint(s,C_GREEN);
-              _F.remove(t);
-              _F.tweenScale(self,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{
-                _Z.runEx("PlayGame")
-              };
-            });
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
         const self=this,
@@ -429,7 +409,7 @@
               let s = _S.scaleBy(_S.sprite("menu.png"), 0.8*K,0.8*K);
               s.anchor.x=1;
               s.m5.press=_S.btnPress(s, _S.BtnColors.green,"white","click.mp3",()=>{
-                _Z.runEx("Splash")
+                _Z.runEx("Splash", SplashCfg)
               });
               self.insert(_I.mkBtn( _V.set(s, Mojo.width,0)));
             }
@@ -460,20 +440,18 @@
       }
     });
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["tank.png","menu.png","click.mp3"],
+    assetFiles: ["tank.png","menu.png","click.mp3","splash.jpg"],
     arena: {width: 1344, height: 840},
     scaleToWindow:"max",
     scaleFit:"x",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 

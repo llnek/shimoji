@@ -17,12 +17,6 @@
   "use strict";
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  const int=Math.floor;
-  const E_PADDLE=1;
-  const E_BLOCK=2;
-  const E_BALL=4;
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
 
     const {Sprites:_S,
@@ -30,7 +24,7 @@
            FX:_F,
            Input:_I,
            Game:_G,
-           Arcade:_2d,
+           Ute2D:_U,
            v2:_V,
            math:_M,
            ute:_,is}=Mojo;
@@ -41,7 +35,7 @@
     const ROWS=20;
     const COLS=14;//20
     const _ASSETS={
-      xxxlevel1: [ [0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0],
+      level2: [ [0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0],
                 [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
                 [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
                 [0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0]
@@ -51,85 +45,44 @@
                 [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
                 [0,1,1,1,1,1,1,1,1,1,1,1,1,0]
               ]
-
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#e4ea1c"),
+      C_BLUE=_S.color("#3e9ad1"),
+      C_TITLE=_S.color("#e5e61e"),
+      C_BG=_S.color("#000000"),
       C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b"),
-      C_BG=_S.color("#1e1e1e");
+      C_GREEN=_S.color("#bde61e"),
+      C_ORANGE=_S.color("#f4d52b");
+
+    const SplashCfg= {
+      title:"Breakout",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
-    const playClick=()=>Mojo.sound("click.mp3").play() ;
     const bounce=Mojo.sound("coin.mp3");
-    const CLICK_DELAY=343;
+    const DELAY=343;
+
+    const int=Math.floor;
+    const E_PADDLE=1;
+    const E_BLOCK=2;
+    const E_BALL=4;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
       //gridCols:9,
       //gridRows:20//16
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          W2=Mojo.width/2,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("BreakOut",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,W2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,W2,Mojo.height*0.8);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let K=Mojo.getScaleFactor(),
-          msg="You Lose!",
-          snd="game_over.mp3",
-          cfg={fontName:UI_FONT, fontSize:64*K};
-        if(_G.blockCount==0){
-          msg= "You win !";
-          snd="game_win.mp3";
-        }
-        let space=()=> _S.opacity(_S.bmpText("I",cfg),0),
-          b1=_I.mkBtn(_S.bmpText("Play Again?", cfg)),
-          b2=_I.mkBtn(_S.bmpText("Quit", cfg)),
-          m1=_S.bmpText("Game Over", cfg),
-          m2=_S.bmpText(msg, cfg),
-          gap=_S.bmpText("or", cfg);
-        b1.m5.press=()=> playClick() && _Z.runEx("PlayGame");
-        b2.m5.press=()=> playClick() && _Z.runEx("Splash");
-        Mojo.sound(snd).play();
-        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2]));
-      }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -173,7 +126,7 @@
               blockCount:0 });
             this.initLevel(n);
             f=self.insert(_S.bboxFrame(out));
-            b=_2d.healthBar({
+            b=_U.healthBar({
               width:out.width/3,
               height:h/2,
               borderWidth:2,
@@ -263,7 +216,7 @@
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this)&&this.g.init(1)&&this.g.ctrl();
+        this.g.init(1)&&this.g.ctrl();
         this.g.score=_S.bmpText(" 0 ",UI_FONT,48*K);
         self.insert(this.g.score);
         _Z.run("AudioIcon",{
@@ -285,7 +238,15 @@
             return this.g.resetNextPt();
           }
           this.m5.dead=true;
-          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame"));
+          _.delay(DELAY,()=> _Z.modal("EndGame",{
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay:{name:"PlayGame"},
+            quit:{name:"Splash", cfg:SplashCfg},
+            msg:"You Lose!",
+            winner:0
+
+          }));
         }
         this.searchSGrid(_G.ball).forEach(o=>{
           if(_G.ball !== o && _S.collide(_G.ball, o)){
@@ -310,27 +271,36 @@
           }
         });
         if(_G.blockCount==0){
-          this.m5.dead=true;
-          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg:"You Win!"}));
+          _S.die(this);
+          _.delay(DELAY,()=> _Z.modal("EndGame",{
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay: {name:"PlayGame"},
+            quit: {name: "Splash",cfg:SplashCfg},
+            msg:"You Win!",
+            winner:1
+
+          }));
         }
       }
     });
+
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["bg.jpg","star.png","tiles.png","images/tiles.json",
-                 "audioOn.png","audioOff.png",
+    assetFiles: ["star.png","tiles.png","images/tiles.json",
+                 "audioOn.png","audioOff.png","splash.jpg",
                  "coin.mp3","click.mp3","game_over.mp3","game_win.mp3"],
-    arena: {width: 1680, height: 1050},
+
+    arena: {width: 1344, height: 840},
     scaleToWindow:"max",
     scaleFit:"x",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 
