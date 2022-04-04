@@ -29,14 +29,15 @@
            FX:_F,
            Input:_I,
            Game:_G,
-           Arcade:_2d,
+           Ute2D:_U,
            math:_M,
            v2:_V,
            ute:_,is}=Mojo;
 
-    const Core= window["io/czlab/mcfud/core"]();
-    const GA= window["io/czlab/mcfud/algo/NEAT"](Core);
     //const GA= window["io/czlab/mcfud/algo/NEAT2"](Core);
+    const GA= window["io/czlab/mcfud/algo/NEAT"](
+    window["io/czlab/mcfud/core"]()
+    );
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TITLE_FONT="Big Shout Bob",
@@ -47,13 +48,28 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"NEAT/Flappy Bird",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 48*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:24*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Pipes(K,[x1,y1,h1],[x2,y2,h2]){
-      let st= _S.sprite("pipetop.png"),
+      let
+        st= _S.sprite("pipetop.png"),
         sb= _S.sprite("pipebottom.png");
       _S.scaleXY(st,K,K);
       _S.scaleXY(sb,K,K);
@@ -101,41 +117,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Neural Flappy Bird", TITLE_FONT,48*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s, Mojo.width/2, Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,32*K);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY, ()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
-        const self=this,
+        let
+          self=this,
           K=Mojo.getScaleFactor();
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         _.inject(this.g,{
@@ -231,12 +216,13 @@
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
-        this.g.genText=_S.bmpText("",UI_FONT,24*K);
+        this.g.genText=_S.bmpText("",UI_FONT,12*K);
         this.insert(this.g.genText);
         this.g.menu= _S.sprite("menu.png");
+        _S.scaleBy(this.g.menu, 0.6*K,0.6*K);
         this.g.menu.anchor.x=1;
         this.g.menu.m5.press=()=>{
-          _Z.runEx("Splash")
+          _Z.runEx("Splash",SplashCfg)
         };
         _V.set(this.g.menu, Mojo.width,0);
         this.insert(_I.mkBtn(this.g.menu));
@@ -251,6 +237,7 @@
       }
     });
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -259,13 +246,11 @@
 
     assetFiles: ["bird.png","pipetop.png","pipebottom.png",
                  "menu.png","background.png","click.mp3"],
-    arena: {width: 500, height: 512},
+    xarena: {width: 500, height: 512},
+    arena: {width: 640, height: 640},
     scaleToWindow:"max",
-    scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    start(...args){ scenes(...args) }
   }));
 
 })(this);

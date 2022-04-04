@@ -24,6 +24,7 @@
            Input:_I,
            FX:_F,
            Game:_G,
+           Ute2D:_U,
            v2:_V,
            math:_M,
            ute:_,is}=Mojo;
@@ -38,6 +39,20 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Snake",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 72*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:32*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
@@ -47,38 +62,6 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //load in dependencies
     window["io.czlab.snake.models"](Mojo);
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          t,c1,c2, b, s, msg,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Snake", TITLE_FONT, 100*K);
-            s.tint=C_TITLE;
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(msg,t){
-            msg=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 36*K);
-            t=_F.throb(msg,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              msg.tint=C_ORANGE;
-              playClick();
-              _.delay(CLICK_DELAY, ()=>_Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb)
-            _V.set(msg,Mojo.width/2, Mojo.height * 0.7);
-            return self.insert( _S.anchorXY(msg,0.5));
-          }
-        });
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
@@ -170,8 +153,13 @@
           _G.timerid=UNDEF;
           this.m5.dead=true;
           _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{
+
+            fontSize:32*Mojo.getScaleFactor(),
+            replay:{name:"PlayGame"},
+            quit:{name:"Splash", cfg:SplashCfg},
             msg:"You Lose!",
-            fontSize: 24*Mojo.getScaleFactor()
+            winner:0
+
           }));
         }else{
           this.doMove();
@@ -181,6 +169,8 @@
         this.g.score.text=`Score: ${_G.score}`;
       }
     });
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -190,9 +180,10 @@
     assetFiles:["bg.jpg","head.png","snake.png","tail.png","apple_00.png",
                 "boing1.mp3","apple.mp3",
                 "audioOn.png","audioOff.png",
-                "eat.mp3","click.mp3","game_over.mp3","game_win.mp3"],
+                "splash.jpg", "eat.mp3","click.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:640,height:480},
     scaleToWindow: "max",
+    scaleFit:"x",
     //bgColor: 0x51b2ee,
     //bgColor:0x239920,
     //bgColor:0x99CC46,
@@ -201,10 +192,8 @@
     itemInterval:6000,
     growthInterval:5000,
     snakeLength:5,
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
+
   }));
 
 

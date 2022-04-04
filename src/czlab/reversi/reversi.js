@@ -21,6 +21,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           Ute2D:_U,
            Game:_G,
            v2:_V,
            math:_M,
@@ -115,7 +116,7 @@
       },
       switchPlayer(){
         const {cells,pcur,ai}= this;
-        let px=0,po=0;
+        let msg, px=0,po=0;
 
         this.cells.forEach(r=> r.forEach(a=>{
           if(a== this.X) ++px;
@@ -130,8 +131,23 @@
         if(pcur==this.O) this.pcur= this.X;
 
         if(this.isGameOver(this.pcur)){
+          msg="No Winner";
+          if(_G.points[_G.X]>_G.points[_G.O]){
+            msg= _G.mode==1 ? "You win !" : "Player 1 (Black) wins !";
+          }
+          if(_G.points[_G.X]<_G.points[_G.O]){
+            msg= _G.mode==1 ? "You lose !" : "Player 2 (White) wins !";
+          }
           this.gameOver=true;
-          _.delay(343,()=> _Z.modal("EndGame"));
+          _.delay(343,()=> _Z.modal("EndGame",{
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay:{name:"MainMenu"},
+            quit:{name:"Splash", cfg:_G.SplashCfg},
+            msg,
+            winner: msg.includes("win")
+
+          }));
         }else if(ai && ai.pnum != pcur){
           Mojo.emit(["ai.move",ai]);
         }
@@ -144,6 +160,8 @@
                             this.pcur== this.X? this.O: this.X)
       }
     });
+
+    _Z.run("Splash", _G.SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -153,14 +171,11 @@
     assetFiles:["bggreen.jpg","icons.png",
                 "x.mp3","o.mp3",
                 "audioOn.png","audioOff.png",
-                "click.mp3","game_over.mp3","game_win.mp3"],
+                "splash.jpg", "click.mp3","game_over.mp3","game_win.mp3"],
     arena:{width:960, height:960},
     scaleToWindow:"max",
     scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 

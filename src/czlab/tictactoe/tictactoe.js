@@ -24,6 +24,7 @@
            Input:_I,
            FX:_T,
            Game:_G,
+           Ute2D:_U,
            v2:_V,
            math:_M,
            ute:_,is}=Mojo;
@@ -36,6 +37,20 @@
       C_TEXT=_S.color("#fff20f"),
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
+
+    const SplashCfg= {
+      title:"Tic Tac Toe",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
     const DIM=3, X=88, O=79;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -101,37 +116,7 @@
     const int=Math.floor;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        const self=this, K= Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Tic Tac Toe", TITLE_FONT, 120*K);
-            _S.tint(_S.anchorXY(s,0.5),C_TITLE);
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
-          },
-          doPlayBtn(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(), UI_FONT,72*K);
-            _S.tint(_S.anchorXY(s,0.5),_S.SomeColors.white);
-            t=_T.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _S.tint(s,C_ORANGE);
-              _T.remove(t);
-              playClick();
-              _.delay(CLICK_DELAY, ()=>_Z.runEx("MainMenu"));
-            }
-            _I.on(["single.tap"],cb);
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height * 0.7));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doPlayBtn();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
+    _Z.scene("xxEndGame",{
       setup(){
         let msg="No Winner!",
           {lastWin,mode}=_G,
@@ -362,8 +347,23 @@
             _I.undoButton(c);
           }
         });
-      _Z.modal("EndGame");
+
+      let msg="No Winner";
+      if(_G.lastWin==_G.O) msg= _G.mode==1 ? "You lose !" : "O wins !";
+      if(_G.lastWin==_G.X) msg= _G.mode==1 ? "You win !" : "X wins !";
+
+      _Z.modal("EndGame",{
+
+        fontSize:64*Mojo.getScaleFactor(),
+        replay:{name:"MainMenu"},
+        quit:{name:"Splash", cfg:SplashCfg},
+        msg,
+        winner:msg.includes("win")
+
+      });
     }
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -371,13 +371,11 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles:["bgblack.jpg", "icons.png","audioOn.png","audioOff.png",
-                "click.mp3","x.mp3","o.mp3","game_win.mp3","game_over.mp3"],
-    arena:{width:1600, height:900},
+                "splash.jpg", "click.mp3","x.mp3","o.mp3","game_win.mp3","game_over.mp3"],
+    arena:{width:1344, height:840},
     scaleToWindow:"max",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    start(...args){ scenes(...args) }
 
   }));
 

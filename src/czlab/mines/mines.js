@@ -21,6 +21,7 @@
            Scenes:_Z,
            Input:_I,
            Game:_G,
+           Ute2D:_U,
            FX:_X,
            v2:_V,
            math:_M,
@@ -39,10 +40,23 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Minesweeper",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const isValid=(row,col)=> row>=0 && col>=0 && row<_G.grid.length && col<_G.grid[0].length;
     const playClick=()=> Mojo.sound("click.mp3").play();
-    const gameOver=()=> _Z.modal("EndGame");
     const CLICK_DELAY=343;
     const V_MINE=9;
     const V_MARKER=99;
@@ -70,7 +84,14 @@
       s.onComplete=()=>{
         _.delay(100,()=>{
           _S.remove(s);//clear the explosion
-          _.delay(100,()=> _Z.modal("EndGame"));//show the gameover scene
+          _.delay(100,()=> _Z.modal("EndGame",{
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay:{name:"MainMenu"},
+            quit:{name:"Splash", cfg:SplashCfg},
+            msg:"You Lose!",
+            winner:0
+          }));//show the gameover scene
         })
       };
       //start the animation
@@ -211,7 +232,15 @@
         _G.gameOver=true;
         _G.lastWin=1;
         showAll(scene);
-        _.delay(100, ()=>_Z.modal("EndGame"));
+        _.delay(100, ()=>_Z.modal("EndGame",{
+
+          fontSize:64*Mojo.getScaleFactor(),
+          replay:{name:"MainMenu"},
+          quit:{name:"Splash", cfg:SplashCfg},
+          msg:"You Win!",
+          winner:1
+
+        }));
       }
     }
 
@@ -354,38 +383,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText(`Minesweeper`, TITLE_FONT, 120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,Mojo.width/2, Mojo.height*0.3);
-            return self.insert( _S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 72*K);
-            _S.tint(s,_S.color("#ffffff"));
-            t=_X.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _X.remove(t);
-              _S.tint(s, C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,Mojo.width/2, Mojo.height * 0.7);
-            return self.insert( _S.anchorXY(s,0.5));
-          }
-        });
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("MainMenu",{
       setup(){
         let self=this,
@@ -414,33 +411,6 @@
         };
         doBackDrop(self);
         this.insert(_Z.layoutY([b1,b2,b3],{bg:"#cccccc", opacity:0.3, padding:pad}));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor(),
-          fz=K * 36,
-          msg= `You ${_G.lastWin>0 ? "win":"lose"}!`,
-          space=()=> _S.opacity(_S.bmpText("I", UI_FONT,fz),0),
-          b1=_I.mkBtn(_S.bmpText("Play Again?", UI_FONT, fz)),
-          b2=_I.mkBtn(_S.bmpText("Quit", UI_FONT, fz)),
-          m1=_S.bmpText("Game Over",UI_FONT, fz),
-          m2=_S.bmpText(msg,UI_FONT, fz),
-          gap=_S.bmpText("or",UI_FONT, fz);
-        b1.m5.press=(btn)=>{
-          _S.tint(btn,C_ORANGE);
-          _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
-        };
-        b2.m5.press=(btn)=>{
-          _S.tint(btn,C_ORANGE);
-          _.delay(CLICK_DELAY, ()=> _Z.runEx("Splash"));
-        };
-
-        Mojo.sound(_G.lastWin>0?"game_win.mp3":"game_over.mp3").play();
-        this.insert(_Z.layoutY([m1, m2, space(), space(), space(),b1, gap, b2],{bg:C_BG,opacity:1}));
       }
     });
 
@@ -475,6 +445,8 @@
         initHud(this);
       }
     });
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -495,10 +467,7 @@
     },
     dimXY: null,
     //fps:30,
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
   }));
 
 })(this);

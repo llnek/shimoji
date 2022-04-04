@@ -44,6 +44,21 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Retro Racer",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     window["io/czlab/racer/track"](Mojo,SEGLEN);
 
@@ -282,39 +297,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          W2=Mojo.width/2,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Retro Racer",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,W2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,W2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const ratioToRoadWidth=()=> _G.roadWidth * _G.SPRITES_SCALE;
     const scaleToRefWidth=(sw)=> sw * _G.SPRITES_SCALE;
     const perc=(a,b)=> (a%b)/b;
@@ -528,6 +510,8 @@
         this.g.lapTime.text=`Lap Time: ${Number(_G.lapTime).toFixed(3)}`;
       }
     });
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -535,16 +519,14 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["bg.png","player.png","click.mp3", "sky.png",
-                 "hills.png","trees.png", "tiles.png","images/tiles.json"],
-    arena: {width: 1680, height: 1050},
+                 "splash.jpg", "hills.png","trees.png", "tiles.png","images/tiles.json"],
+    arena: {width: 1344, height: 840},
     scaleToWindow:"max",
     scaleFit:"x",
     SEGLEN:200,
     //fps:30,
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
+
   }));
 
 })(this);

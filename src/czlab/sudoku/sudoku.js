@@ -27,6 +27,7 @@
            Scenes:_Z,
            Input:_I,
            Game:_G,
+           Ute2D:_U,
            FX:_F,
            v2:_V,
            math:_M,
@@ -46,42 +47,24 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Sodoku",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert(_S.fillMax(_S.opacity(_S.sprite("bg.jpg"),1)));
     const playClick=()=> Mojo.sound("click.mp3").play();
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          W2=Mojo.width/2,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Sudoku",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,W2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,W2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(_G,{
@@ -453,6 +436,8 @@
         this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -462,13 +447,10 @@
     assetFiles: ["bg.jpg","cell.png",
                  "audioOn.png","audioOff.png",
                  "game_over.mp3","game_win.mp3","click.mp3","error.mp3"],
-    arena: {width: 1680, height: 1050},
+    arena: {width: 1344, height: 840},
     scaleToWindow:"max",
     scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 

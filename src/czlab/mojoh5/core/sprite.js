@@ -1588,10 +1588,9 @@
             else
               s.parent.removeChild(s);
           }
-          Mojo.off(s);
-          if(s.m5.dispose)
-            s.m5.dispose();
           Mojo.emit(["post.remove",s]);
+          Mojo.off(s);
+          if(s.m5.dispose) s.m5.dispose();
         });
       },
       /**Center this object on the screen.

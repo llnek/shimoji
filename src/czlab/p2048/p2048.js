@@ -24,6 +24,7 @@
            Sprites:_S,
            Input:_I,
            FX:_T,
+           Ute2D:_U,
            v2:_V,
            math:_M,
            Game:_G,
@@ -36,6 +37,21 @@
       C_TEXT=_S.color("#fff20f"),
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
+
+    const SplashCfg= {
+      title:"2048",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _loadTiles=()=> [0,2,4,8,16, 32,64, 256,1024].map(n=> Mojo.tcached(`${n}.png`));
@@ -102,7 +118,15 @@
         s.addChild(t);
       }
       if(num==2048)
-        _.delay(CLICK_DELAY, ()=> _Z.run("EndGame", {msg:"You Win!"}));
+        _.delay(CLICK_DELAY, ()=> _Z.run("EndGame", {
+
+          fontSize:64*Mojo.getScaleFactor(),
+          replay:{name:"PlayGame"},
+          quit:{name:"Splash", cfg:SplashCfg},
+          msg:"You Win!",
+          winner:1
+
+        }));
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -130,7 +154,15 @@
         let r=out[p];
         setNumber(r[0],r[1],_.rand()>0.5?4:2)
       }else{
-        _.delay(CLICK_DELAY, ()=> _Z.modal("EndGame"));
+        _.delay(CLICK_DELAY, ()=> _Z.modal("EndGame",{
+
+          fontSize:64*Mojo.getScaleFactor(),
+          replay:{name:"PlayGame"},
+          quit:{name:"Splash", cfg:SplashCfg},
+          msg:"You Lose!",
+          winner:0
+
+        }));
       }
     }
 
@@ -214,58 +246,6 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        const self=this,
-          K= Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("2048",TITLE_FONT, 120*K);
-            _S.anchorXY(s,0.5);
-            s.tint=C_TITLE;
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height*0.3));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(), UI_FONT,72*K);
-            _S.anchorXY(s,0.5);
-            t=_T.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _T.remove(t);
-              s.tint=C_ORANGE;
-              playClick();
-              _.delay(CLICK_DELAY, ()=>_Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            return self.insert(_V.set(s,Mojo.width/2, Mojo.height * 0.7));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let snd="game_over.mp3",
-          os={fontName:UI_FONT,
-              fontSize: 72*Mojo.getScaleFactor()},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"You Lose!", os),
-          s4=_I.makeButton(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.makeButton(_S.bmpText("Quit",os));
-        s4.m5.press=()=> _Z.runEx("PlayGame");
-        s6.m5.press=()=> _Z.runEx("Splash");
-        if(options.msg) snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       dispose(){
         _I.off(["swipe.down"],"swipeDown",_G);
@@ -316,6 +296,8 @@
         this.g.initLevel();
       }
     });
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -325,14 +307,12 @@
     assetFiles: ["0.png","2.png","4.png",
                  "8.png", "16.png","32.png",
                  "64.png", "256.png","1024.png","bg.jpg",
-                 "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
+                 "splash.jpg", "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:768,height:768},
     scaleToWindow: "max",
     scaleFit: "y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
+
   }));
 
 })(this);

@@ -25,6 +25,7 @@
     const {Sprites:_S,
            Scenes:_Z,
            FX:_F,
+           Ute2D:_U,
            Input:_I,
            Game:_G,
            math:_M,
@@ -55,6 +56,21 @@
       C_TEXT=_S.color("#fff20f"),
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
+
+
+    const SplashCfg= {
+      title:"Supervised Learning",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 72*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:48*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
 
     const VECNAMES= ["Right", "Left", "Down", "Up",
 					           "CW Square", "CCW Square",
@@ -168,38 +184,6 @@
       }
     }
 
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          t,c1,c2, b, s, msg,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Supervised Learning", TITLE_FONT, 84*K);
-            s.tint=C_TITLE;
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(msg,t){
-            msg=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 64*K);
-            t=_F.throb(msg,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              msg.tint=C_ORANGE;
-              playClick();
-              _.delay(CLICK_DELAY, ()=>_Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb)
-            _V.set(msg,Mojo.width/2, Mojo.height * 0.7);
-            return self.insert( _S.anchorXY(msg,0.5));
-          }
-        });
-        this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
@@ -497,20 +481,20 @@
         }
       }
     });
+
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["click.mp3","coin.mp3"],
-    arena: {width: 1680, height: 1050},
+    assetFiles: ["splash.jpg","click.mp3","coin.mp3"],
+    arena: {width: 1344, height: 840},
     scaleToWindow:"max",
-    scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    start(...args){ scenes(...args) }
 
   }));
 

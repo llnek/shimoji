@@ -25,6 +25,7 @@
            Scenes:_Z,
            Input:_I,
            Game:_G,
+           Ute2D:_U,
            FX: _F,
            v2:_V,
            math:_M,
@@ -39,9 +40,24 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Wolf3D",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
+    const FPSSUM= 24/60;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const int = Math.floor;
@@ -307,38 +323,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Wolf 3D",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("Ctrl",{
       setup(){
         let self=this,
@@ -381,29 +365,12 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let os={fontName:UI_FONT,
-                fontSize: 72*Mojo.getScaleFactor()},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"You Win!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=> _Z.runEx("PlayGame");
-        s6.m5.press=()=> _Z.runEx("Splash");
-        Mojo.sound("game_win.mp3").play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
         let self=this,
           K=Mojo.getScaleFactor();
         _.inject(this.g,{
+          fps:0,
           initLevel(){
             //center the scene!!!!!
             let sy= _M.ndiv(Mojo.height-PROJECTIONHEIGHT,2),
@@ -453,14 +420,14 @@
               sky.y=sy;
               sky.width=width*PROJRATIO;
               sky.height=BASEH*PROJRATIO;
-              this.box.addChild(_S.extend(sky));
+              this.box.addChild(_S.lift(sky));
               if(left < width-BASEW){
                 sky= _S.sprite("sky.jpg");
                 sky.x= sx+PROJRATIO*(left+width);
                 sky.y=sy;
                 sky.width=PROJRATIO*width;
                 sky.height=BASEH*PROJRATIO;
-                this.box.addChild(_S.extend(sky));
+                this.box.addChild(_S.lift(sky));
               }
             }
           },
@@ -472,7 +439,23 @@
         doBackDrop(this) && this.g.initLevel() && this.g.initHUD();
         //put a mat around the arena to hide overflows
         _Z.run("PhotoMat", _.inject({color:"black"},_G.arena));
-        _Z.run("Ctrl");
+        if(1){
+          let
+            alpha=0.5,
+            color="grey",
+            radius= 42*K,
+            fontName=UI_FONT,fontSize= 48*K;
+          _Z.run("HotKeys",{
+            color,alpha,radius,fontName,fontSize,
+            cb(obj){
+              _V.set(obj.right, Mojo.width-obj.right.width,Mojo.height-obj.right.height);
+              _S.pinLeft(obj.right,obj.left,obj.right.width/3);
+              _V.set(obj.up, obj.up.width,Mojo.height-obj.up.height);
+              _S.pinRight(obj.up,obj.down,obj.up.width/3);
+              return obj;
+            }
+          });
+        }
       },
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       //check algo from permadi...
@@ -617,8 +600,16 @@
 
         //check if found goal
         if(FMAP.charAt((playerYCell*MAPWIDTH)+playerXCell)=="X"){
-          this.m5.dead=true;
-          _.delay(100,()=> _Z.modal("EndGame"));
+          _S.die(this);
+          _.delay(100,()=> _Z.modal("EndGame",{
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay:{name:"PlayGame"},
+            quit:{name:"Splash", cfg:SplashCfg},
+            msg:"You Win!",
+            winner:1
+
+          }));
           return;
         }
 
@@ -801,6 +792,7 @@
       };
     }
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -810,15 +802,12 @@
     assetFiles: ["tile2.png","tile43.png",
                  "tile42.png","tile41.png",
                  "wall64.png","floortile.png",
-                 "bg.jpg","sky.jpg", "game_win.mp3","click.mp3"],
-    arena: {width: 1680, height: 1050},
+                 "splash.jpg","bg.jpg","sky.jpg", "game_win.mp3","click.mp3"],
+    arena: {width: 1344, height: 840},
     scaleToWindow:"max",
-    scaleFit:"y",
-    fps:24,
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    //fps:24,
+    start(...args){ scenes(...args) }
 
   }));
 

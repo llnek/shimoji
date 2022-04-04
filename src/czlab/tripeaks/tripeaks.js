@@ -31,6 +31,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           Ute2D:_U,
            FX: _T,
            Game:_G,
            v2:_V,
@@ -47,6 +48,21 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+
+    const SplashCfg= {
+      title:"TriPeaks",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const CLICK_DELAY=343;
     const int=Math.floor;
@@ -57,56 +73,6 @@
 
     const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          K=Mojo.getScaleFactor(),
-          t,c1,c2, b, s, msg, fz= K * 120;
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("TriPeaks 13", TITLE_FONT, 160*K);
-            s.tint=C_TITLE;
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(msg,t){
-            msg=_S.bmpText(Mojo.clickPlayMsg(), UI_FONT, 124*K);
-            msg.tint=_S.color("#ffffff");
-            t=_T.throb(msg,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _T.remove(t);
-              _S.tint(msg,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(msg,Mojo.width/2, Mojo.height * 0.7);
-            return self.insert( _S.anchorXY(msg,0.5));
-          }
-        });
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let os={fontName:UI_FONT,
-                fontSize: 72*Mojo.getScaleFactor()},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg, os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=> _Z.runEx("PlayGame");
-        s6.m5.press=()=> _Z.runEx("Splash");
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
@@ -255,12 +221,12 @@
         if(!_G.gameOver) this.checkEnd();
       },
       checkEnd(){
-        let snd="game_over.mp3",
-          msg,K= Mojo.getScaleFactor();
+        let
+          msg,
+          K= Mojo.getScaleFactor();
         this.g.scoreText.text= `Score: ${_G.score}`;
         if(_G.model.isPeakEmpty()){
           msg="You Win!";
-          snd="game_win.mp3";
         }else if(_G.checkEnd){
           if(_G.model.isGameStuck()){
             msg="You Lose!";
@@ -268,13 +234,21 @@
         }
         if(msg){
           _G.gameOver=true;
-          Mojo.sound(snd).play();
-          _.delay(CLICK_DELAY,
-            ()=> _Z.modal("EndGame",
-                          {msg,padding:40*K,fit:60*K,bg:C_BG,opacity:1}));
+          _.delay(CLICK_DELAY, ()=> _Z.modal("EndGame", {
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay:{name:"PlayGame"},
+            quit:{name:"Splash", cfg:SplashCfg},
+            msg,
+            winner:msg.includes("Win")
+
+          }));
         }
       }
     });
+
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -286,16 +260,13 @@
                 "slide.mp3","pick.mp3",
                 "click.mp3",
                 "game_over.mp3","game_win.mp3",
-                "bg.jpg","tiles.png","images/tiles.json"],
+                "splash.jpg", "bg.jpg","tiles.png","images/tiles.json"],
     //24x140, 10x190
     arena:{width:3360, height:1900},
     stockPile:"cardBack_red5",
     scaleToWindow:"max",
     scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 

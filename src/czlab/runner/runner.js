@@ -18,16 +18,42 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function scenes(Mojo){
-    //const PStates={ walk_right: [0,10], jump_right: 13, duck_right: 15 };
     const PStates={ walk_right: [0,2], hurt:3, jump_right: 4, duck_right: 5 };
     const int=Math.floor;
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           Ute2D:_U,
            Game:_G,
            math:_M,
            v2:_V,
            ute:_,is}=Mojo;
+
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TITLE_FONT="Big Shout Bob",
+      UI_FONT="Doki Lowercase",
+      C_BLUE=_S.color("#3e9ad1"),
+      C_TITLE=_S.color("#e5e61e"),
+      C_BG=_S.color("#000000"),
+      C_TEXT=_S.color("#fff20f"),
+      C_GREEN=_S.color("#bde61e"),
+      C_ORANGE=_S.color("#f4d52b");
+
+    const SplashCfg= {
+      title:"Runner",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
 
     const E_PLAYER=1,
     E_BOX=2;
@@ -73,7 +99,6 @@
       };
 
       cfgContacts(K);
-      Mojo.addMixin(s,"arcade");
       s.m5.getContactPoints=function(){
         return s.g._mode==PStates.duck_right ? _G.Duck: _G.Walk;
       };
@@ -89,9 +114,9 @@
           _G.bumped=false;
         },10);
       };
+      s.g.move=_U.Meander(s);
       s.m5.tick=(dt)=>{
-        //if(_G.bumped)return;
-        s["arcade"].onTick(dt);
+        s.g.move(dt);
         s.m5.vel[0] += (speed - s.m5.vel[0])/4;
         if(s.m5.vel[1]>0 && _S.bottomSide(s) > _G.floorY){
           _V.setY(s, _G.floorY - _M.ndiv(s.height,2));
@@ -105,7 +130,7 @@
         s.m5.vel[0]=0;
         s.x=s.g.oldX;
       };
-      Mojo.on(["bump",s],"bumped",s.m5);
+      Mojo.on(["bump.*",s],"bumped",s.m5);
       return s;
     }
 
@@ -166,7 +191,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("bg",{
+    _Z.scene("PlayGame",{
       setup(){
         let self=this;
         let K=Mojo.getScaleFactor();
@@ -191,6 +216,7 @@
         this.g.flSpeed = (6.9/1.3)*K;
         this.g.flX = 0;
 
+        _.delay(100,()=> _Z.run("PlayGame2"));
       },
       postUpdate(dt){
         let K=Mojo.getScaleFactor();
@@ -217,7 +243,7 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("PlayGame",{
+    _Z.scene("PlayGame2",{
       setup(){
         let K=Mojo.getScaleFactor();
         let p= this.player= Player(this);
@@ -251,21 +277,19 @@
         }
       }
     });
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window.addEventListener("load",()=>{
     MojoH5({
       assetFiles: ["click.mp3", "boing2.mp3","background-wall.jpg",
-                   "background-floor.jpg", "tiles.png","images/tiles.json"],
-      arena: {width:1680,height:1050},
+                   "splash.jpg", "background-floor.jpg", "tiles.png","images/tiles.json"],
+      arena: {width:1344,height:840},
       scaleToWindow:"max",
-      start(Mojo){
-        scenes(Mojo);
-        //Mojo.Scenes.run("Splash");
-        Mojo.Scenes.run("bg");
-        Mojo.Scenes.run("PlayGame");
-      }
+      scaleFit:"x",
+      start(...args){ scenes(...args) }
     });
   });
 

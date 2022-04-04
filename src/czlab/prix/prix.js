@@ -24,6 +24,7 @@
            Scenes:_Z,
            Input:_I,
            Game:_G,
+           Ute2D:_U,
            FX:_F,
            v2:_V,
            math:_M,
@@ -43,43 +44,24 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Grand Prix",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bgblack.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          W2=Mojo.width/2,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Grand Prix",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,W2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,W2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _objF= {};
@@ -139,8 +121,9 @@
             s.y=y;
             s.m5.maxSpeed=200;
             s.m5.speed=s.m5.maxSpeed;
-            s.m5.tick=(dt)=> s.arcade.onTick(dt) ;
-            self.insert(Mojo.addMixin(s,"arcade"),true);
+            s.g.move=_U.Meander(s);
+            s.m5.tick=(dt)=> s.g.move(dt) ;
+            self.insert(s,true);
             let p1=this.cfgCar(this.mkCar("green"),cps);
             let p2=this.cfgCar(this.mkCar("orange"),cps);
             return _.inject(_G,{
@@ -184,16 +167,17 @@
                 p1.rotation += p1.m5.angVel;
                 p1.m5.vel[0]=cos(p1.rotation)*p1.m5.speed;
                 p1.m5.vel[1]=sin(p1.rotation)*p1.m5.speed;
-                p1.arcade.onTick(dt)
+                p1.g.move(dt)
               }
             };
-            return self.insert(Mojo.addMixin(p1,"arcade"),true);
+            p1.g.move=_U.Meander(p1);
+            return self.insert(p1,true);
           }
         });
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         this.g.initLevel();
         _Z.run("HUD");
-        Mojo.addMixin(this,"camera2d", tiledWidth, tiledHeight,Mojo.canvas);
+        this.g.cam= _U.Camera(this, tiledWidth, tiledHeight,Mojo.canvas);
       },
       postUpdate(dt){
         if(_I.keyDown(_I.LEFT)){
@@ -211,10 +195,12 @@
           });
         }
 
-        this["camera2d"].follow(_G.car);
+        this.g.cam.follow(_G.car);
       }
     },{sgridX:128,sgridY:128,centerStage:true, tiled:{name:"racing.json",factory:_objF}});
 
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -224,14 +210,11 @@
     assetFiles: ["roadTextures_tilesheet.png",
                  "towerDefense_tilesheet.png",
                  "red.png","green.png","orange.png",
-                 "start.png","bgblack.jpg","racing.json","click.mp3"],
-    arena: {width: 1680, height: 1050, scale:1},
+                 "splash.jpg", "start.png","bgblack.jpg","racing.json","click.mp3"],
+    arena: {width: 1344, height: 840, scale:1},
     scaleToWindow:"max",
     scaleFit:"x",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 

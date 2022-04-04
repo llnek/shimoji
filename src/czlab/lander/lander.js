@@ -30,7 +30,7 @@
            FX:_F,
            Input:_I,
            Game:_G,
-           Arcade:_2d,
+           Ute2D:_U,
            v2:_V,
            math:_M,
            ute:_,is}=Mojo;
@@ -75,11 +75,26 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Moon Lander",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
+    _Z.scene("XXXSplash",{
       setup(){
         let self=this,
           K=Mojo.getScaleFactor();
@@ -112,7 +127,7 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
+    _Z.scene("XXXEndGame",{
       setup(options){
         let snd="game_over.mp3",
           os={fontName:UI_FONT,
@@ -282,7 +297,15 @@
             }
             this.m5.dead=true;
             _.delay(CLICK_DELAY,()=>{
-              ok? _Z.modal("EndGame",{msg:"You Win!"}): _Z.modal("EndGame");
+              _Z.modal("EndGame",{
+
+                fontSize:64*Mojo.getScaleFactor(),
+                replay:{name:"PlayGame"},
+                quit:{name:"Splash", cfg:SplashCfg},
+                msg: ok?"You Win!":"You Lose!",
+                winner:ok
+
+              })
             });
             break;
           }
@@ -290,6 +313,7 @@
       }
     });
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -297,14 +321,12 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["lander.png","click.mp3","fire.mp3",
-                 "explosion.mp3","game_over.mp3","game_win.mp3"],
-    arena: {width: 1680, height: 1050},
+                 "splash.jpg","explosion.mp3","game_over.mp3","game_win.mp3"],
+    arena: {width: 1344, height: 840},
     scaleToWindow:"max",
-    scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    start(...args){ scenes(...args) }
+
   }));
 
 })(this);

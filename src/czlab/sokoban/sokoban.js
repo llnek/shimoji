@@ -23,6 +23,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           Ute2D:_U,
            FX:_F,
            v2:_V,
            math:_M,
@@ -37,6 +38,20 @@
       C_ORANGE=_S.color("#f4d52b"),
       TITLE_FONT= "Big Shout Bob",
       UI_FONT= "Doki Lowercase";
+
+    const SplashCfg= {
+      title:"Sokoban",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
@@ -114,7 +129,7 @@
         o.g.col=c+dirX;
         //o.x += dirX * o.width;
         //o.y += dirY * o.height;
-        z=_F.tweenXY(o,_F.SMOOTH,  o.x + dirX * o.width, o.y + dirY * o.height);
+        z=_F.tweenXY(o,_F.SMOOTH,  o.x + dirX * o.width, o.y + dirY * o.height,30);
         z.onComplete=()=>{
           --_G.tweenCnt
         };
@@ -124,7 +139,7 @@
       _G.player.g.col=x;
       //_G.player.x += dirX * _G.player.width;
       //_G.player.y += dirY * _G.player.height;
-      z=_F.tweenXY(_G.player,_F.SMOOTH, _G.player.x + dirX * _G.player.width, _G.player.y + dirY * _G.player.height);
+      z=_F.tweenXY(_G.player,_F.SMOOTH, _G.player.x + dirX * _G.player.width, _G.player.y + dirY * _G.player.height,30);
       z.onComplete=()=>{
         --_G.tweenCnt;
         _G.player.m5.showFrame(0);
@@ -193,39 +208,6 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          W2=Mojo.width/2,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Sokoban",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,W2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,84*K);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,W2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("EndGame",{
       setup(options){
         let snd="game_over.mp3",
@@ -255,6 +237,17 @@
                 "###    #,"+
                 "###  ###,"+
                 "########";
+
+    const MAP2= "########,"+
+                "###   ##,"+
+                "#.xo  ##,"+
+                "### o.##,"+
+                "#.##o ##,"+
+                "# # . ##,"+
+                "#o ooo.#,"+
+                "#   .  #,"+
+                "########";
+
     function mapToLevel(m){
       let row,grid=[];
       m.split(",").filter(x=>x.length).forEach(s=>{
@@ -279,7 +272,7 @@
           K=Mojo.getScaleFactor();
         _.inject(this.g,{
           initLevel(){
-            let level= mapToLevel(MAP1),
+            let level= mapToLevel(MAP2),
               out={},
               items=[],
               h=level.length,
@@ -362,8 +355,16 @@
       },
       postUpdate(dt){
         if(holesFilled()){
-          this.m5.dead=true;
-          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg: "You Win!"}));
+          _S.die(this);
+          _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay:{name:"PlayGame"},
+            quit:{name:"Splash", cfg:SplashCfg},
+            msg:"You Win!",
+            winner:1
+
+          }));
         }
       }
     });
@@ -424,6 +425,9 @@
         this.insert(s);
       }
     });
+
+    _Z.run("Splash",SplashCfg);
+
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -433,13 +437,10 @@
       "button.png","arrowUp.png","arrowDown.png","arrowLeft.png","arrowRight.png",
       "left.png","right.png","up.png","down.png","undo.png",
                  "wall.png","hole.png","grass.png","water.png","crate.png"],
-    arena: {width:1680,height:1050},
+    arena: {width:1344,height:840},
     scaleToWindow: "max",
-    scaleFit: "y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit: "x",
+    start(...args){ scenes(...args) }
 
   }));
 

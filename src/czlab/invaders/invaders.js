@@ -28,7 +28,7 @@
            FX:_F,
            Game:_G,
            Input:_I,
-           Arcade:_2d,
+           Ute2D:_U,
            ute:_,
            is,
            v2:_V,
@@ -51,6 +51,19 @@
       C_TEXT=_S.color("#fff20f"),
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
+
+    const SplashCfg= {
+      title:"Space Invaders",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 84*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:52*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playClick=()=> Mojo.sound("click.mp3").play();
@@ -234,7 +247,7 @@
       _G.aliens.forEach((r,y)=> r.forEach((a,x)=>{
         r=_.rand();
         if(M>0 && a && ((r>0.4 && r<0.6))){
-          b= _2d.shoot(a, Mojo.PI_90, 7*K, takeBomb, _M.ndiv(a.width,2), 0);
+          b= _U.shoot(a, Mojo.PI_90, 7*K, takeBomb, _M.ndiv(a.width,2), 0);
           _G.gameScene.insert(b,true);
           --M;
         }
@@ -292,9 +305,15 @@
             return false;
         }
       }
-      _G.gameScene.m5.dead=true;
-      _I.reset();
-      _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg:"You Win!"}));
+      _S.die(_G.gameScene);
+      _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{
+
+        fontSize:64*Mojo.getScaleFactor(),
+        replay:{name:"PlayGame"},
+        quit:{name:"Splash", cfg:SplashCfg},
+        msg:"You Win!",
+        winner:1
+      }));
       return true;
     }
 
@@ -305,8 +324,15 @@
       _G.player=s;
       scene=_G.gameScene;
       if(!s){
-        scene.m5.dead=true;
-        _.delay(CLICK_DELAY,()=>_Z.modal("EndGame"));
+        _S.die(scene);
+        _.delay(CLICK_DELAY,()=>_Z.modal("EndGame",{
+
+          fontSize:64*Mojo.getScaleFactor(),
+          replay:{name:"PlayGame"},
+          quit:{name:"Splash", cfg:SplashCfg},
+          msg:"You Win!",
+          winner:0
+        }));
       }else{
         _S.uuid(_S.scaleBy(s,5/3,5/3),"player");
         _S.pinBelow(scene,s,-s.height*2*K);
@@ -354,63 +380,10 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function fireBullet(){
       let K=Mojo.getScaleFactor();
-      _2d.shoot(_G.player, -Mojo.PI_90,
+      _U.shoot(_G.player, -Mojo.PI_90,
                           7*K, takeBullet, _M.ndiv(_G.player.width,2), 0);
       Mojo.sound("fire.mp3").play();
     }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let snd="game_over.mp3",
-          os={fontName:UI_FONT,
-              fontSize: 72*Mojo.getScaleFactor()},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"You Lose!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=> _Z.runEx("PlayGame");
-        s6.m5.press=()=> _Z.runEx("Splash");
-        if(options.msg) snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Space Invaders", TITLE_FONT,160*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s, Mojo.width/2, Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,72*K);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY, ()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        _Z.run("StarfieldBg",{static:true});
-        this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function reclaimBullet(b){
@@ -582,6 +555,7 @@
       }
     });
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -591,14 +565,11 @@
     assetFiles: ["pics.png","images/pics.json",
                  "audioOn.png","audioOff.png",
                  "click.mp3", "game_over.mp3","game_win.mp3",
-                 "ufo.mp3", "march.mp3","explosion.mp3","fire.mp3"],
-    arena:{width:1680, height:1260}, //4:3
+                 "splash.jpg","ufo.mp3", "march.mp3","explosion.mp3","fire.mp3"],
+    arena:{width:1344, height:840}, //4:3
     scaleToWindow:"max",
-    scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    start(...args){ scenes(...args) }
 
   }));
 

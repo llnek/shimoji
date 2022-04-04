@@ -27,7 +27,7 @@
            FX:_F,
            Input:_I,
            Game:_G,
-           Arcade:_2d,
+           Ute2D:_U,
            math:_M,
            v2:_V,
            ute:_,is}=Mojo;
@@ -40,6 +40,20 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b"),
       C_BG=_S.color("#1e1e1e");
+
+    const SplashCfg= {
+      title:"Frogger",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> 1;//s.insert(_S.fillMax(_S.sprite("bg.png")));
@@ -54,7 +68,7 @@
       E_COIN=8;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
+    _Z.scene("XXSplash",{
       setup(){
         let self=this,
           W2=Mojo.width/2,
@@ -137,9 +151,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkLog(dir,band,size){
-      let s= _S.sprite(`log${size}.png`);
-      let {tileW,tileH,grid}= _G;
-      let g=grid[band][0];
+      let
+        {tileW,tileH,grid}= _G,
+        g=grid[band][0],
+        s= _S.sprite(`log${size}.png`);
       s.m5.mask=E_LOG;
       s.height= 0.8 * tileH;
       s.y=_M.ndiv(g.y1+g.y2 - s.height,2);
@@ -154,9 +169,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkCar(dir,band,png){
-      let s= _S.sprite(dir>0?png:`_${png}`);
-      let {tileW,tileH,grid}= _G;
-      let g=grid[band][0];
+      let
+        {tileW,tileH,grid}= _G,
+        g=grid[band][0],
+        s= _S.sprite(dir>0?png:`_${png}`);
       s.height= Math.min(s.height,tileH);
       s.y=g.y2-s.height;
       s.m5.type=E_CAR;
@@ -172,8 +188,9 @@
     function checkFlowRight(s){
       if(s.x>Mojo.width){
         _.assert(s===s.g.river[0], "bad right pop");
-        let e= _.last(s.g.river);
-        let {tileW}=_G;
+        let
+          {tileW}=_G,
+          e= _.last(s.g.river);
         s.g.river.shift();
         s.g.river.push(s);
         s.x = e.x - s.g.gap*tileW - s.width;
@@ -184,8 +201,9 @@
     function checkFlowLeft(s){
       if((s.x+s.width)<0){
         _.assert(s===s.g.river[0], "bad left pop");
-        let e=_.last(s.g.river);
-        let {tileW}=_G;
+        let
+          {tileW}=_G,
+          e=_.last(s.g.river);
         s.g.river.shift();
         s.g.river.push(s);
         s.x = e.x + e.width + s.g.gap*tileW;
@@ -196,8 +214,9 @@
     function checkGoRight(s){
       if(s.x>Mojo.width){
         _.assert(s===s.g.track[0], "bad right pop");
-        let e=_.last(s.g.track);
-        let {tileW}=_G;
+        let
+          {tileW}=_G,
+          e=_.last(s.g.track);
         s.g.track.shift();
         s.g.track.push(s);
         s.x = e.x - s.g.gap*tileW - s.width;
@@ -208,8 +227,9 @@
     function checkGoLeft(s){
       if((s.x+s.width)<0){
         _.assert(s===s.g.track[0], "bad left pop");
-        let e=_.last(s.g.track);
-        let {tileW}=_G;
+        let
+          {tileW}=_G,
+          e=_.last(s.g.track);
         s.g.track.shift();
         s.g.track.push(s);
         s.x = e.x + e.width + s.g.gap*tileW;
@@ -228,9 +248,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildRiverLeft(t,band){
-      let p,v,gap=0, out=[];
-      let cells=t[1];
-      let {tileW}=_G;
+      let
+        {tileW}=_G,
+        cells=t[1],
+        p,v,gap=0, out=[];
       for(let c,i=0;i<cells.length;++i){
         c=cells.charAt(i);
         if(c=="."){
@@ -258,9 +279,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildRiverRight(t,band){
-      let out=[],cells= t[1];
-      let {tileW}=_G;
-      let p,v,gap=0;
+      let
+        {tileW}=_G,
+        p,v,gap=0,
+        out=[],cells= t[1];
       for(let c,i=cells.length-1;i>=0;--i){
         c=cells.charAt(i);
         if(c=="."){
@@ -288,9 +310,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildTrackRight(t,band){
-      let out=[],cells= t[1];
-      let {tileW}=_G;
-      let p,v,gap=0;
+      let
+        {tileW}=_G,
+        p,v,gap=0,
+        out=[],cells= t[1];
       for(let c,i=cells.length-1;i>=0;--i){
         c=cells.charAt(i);
         if(c=="."){
@@ -319,9 +342,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function buildTrackLeft(t,band){
-      let p,v,gap=0, out=[];
-      let cells=t[1];
-      let {tileW}=_G;
+      let
+        {tileW}=_G,
+        cells=t[1],
+        p,v,gap=0, out=[];
       for(let c,i=0;i<cells.length;++i){
         c=cells.charAt(i);
         if(c=="."){
@@ -374,7 +398,8 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
-        const self=this,
+        let
+          self=this,
           K=Mojo.getScaleFactor(),
           W=Mojo.width,H=Mojo.height;
         randStart();
@@ -428,13 +453,14 @@
             });
           },
           initPlayer(){
-            let s= _S.sprite("froggy.png");
-            let {tileW,tileH,grid}=_G;
-            let cEnd=grid[0].length-1;
-            let gEnd=grid.length-1;
-            let last=grid[gEnd];
-            let gMid=_M.ndiv(last.length,2)-1;
-            let m= last[gMid];
+            let
+              {tileW,tileH,grid}=_G,
+              cEnd=grid[0].length-1,
+              gEnd=grid.length-1,
+              last=grid[gEnd],
+              gMid=_M.ndiv(last.length,2)-1,
+              m= last[gMid],
+              s= _S.sprite("froggy.png");
             _S.anchorXY(s,0.5);
             _S.sizeXY(s,int(0.8*tileW),int(0.8*tileH));
             s.y= _M.ndiv(last[0].y1+last[0].y2,2);
@@ -488,7 +514,15 @@
                 _S.remove(col.B);
                 if(_G.coins.length==0){
                   _G.gameOver= self.m5.dead=true;
-                  _.delay(CLICK_DELAY,()=>_Z.modal("EndGame",{msg:"You Win!"}));
+                  _.delay(CLICK_DELAY,()=>_Z.modal("EndGame",{
+
+                    fontSize:64*Mojo.getScaleFactor(),
+                    replay:{name:"PlayGame"},
+                    quit:{name:"Splash", cfg:SplashCfg},
+                    msg:"You Win!",
+                    winner:1
+
+                  }));
                 }
               }
             };
@@ -604,42 +638,21 @@
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let os={fontName:UI_FONT,
-                fontSize: 72*Mojo.getScaleFactor()},
-          snd="game_over.mp3",
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"You Lose!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx("PlayGame");
-        s6.m5.press=()=>_Z.runEx("Splash");
-        if(options.msg) snd="game_win.mp3";
-        Mojo.sound(snd).play();
-        options.bg="#999999";
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["click.mp3","game_over.mp3","game_win.mp3",
+    assetFiles: ["click.mp3","game_over.mp3","game_win.mp3","splash.jpg",
                  "log2.png","log3.png","log4.png","home.png","coin.png","block.png",
                  "items.png","grass.png","water.png","dirt.png","bush.png","froggy.png","images/items.json"],
     arena: {width: 1680, height: 1050},
     scaleToWindow:"max",
-    scaleFit:"y",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    start(...args){ scenes(...args) }
+
   }));
 
 })(this);

@@ -24,6 +24,7 @@
            Input: _I,
            FX:_X,
            Game:_G,
+           Ute2D:_U,
            v2:_V,
            math:_M,
            ute:_, is}= Mojo;
@@ -147,13 +148,27 @@
       C_TILE=_S.color("#b7d150"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"Game of Life",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
+    _Z.scene("XXSplash",{
       setup(){
         const self=this,
           K=Mojo.getScaleFactor();
@@ -186,8 +201,10 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("MainMenu",{
       setup(){
-        const self=this,
-          btns=[], K=Mojo.getScaleFactor();
+        let
+          self=this,
+          btns=[],
+          K=Mojo.getScaleFactor();
         if(!_G.curPattern)
           _G.curPattern=Mojo.u.defPattern;
         doBackDrop(this);
@@ -200,7 +217,8 @@
           btns.push(s=_I.mkBtn(_S.bmpText(k,cfg)));
           _S.uuid(s,k);
         });
-        m=_Z.choiceMenuY(btns, {bg:"#cccccc",
+        m=_Z.choiceMenuY(btns, {
+          bg:"#cccccc",
           defaultChoice: _G.curPattern,
           disabledColor:_S.color("#cccccc"),
           selectedColor:C_ORANGE,
@@ -229,11 +247,12 @@
         return s;
       },
       _initLevel(){
-        let g= _S.gridSQ(Mojo.u.DIM,0.9);
-        let z= _S.sprite("tiles.png");
-        let c=g[0][0];
-        let cells=[];
-        let K=(c.y2-c.y1)/z.height;
+        let
+          g= _S.gridSQ(Mojo.u.DIM,0.9),
+          z= _S.sprite("tiles.png"),
+          c=g[0][0],
+          cells=[],
+          K=(c.y2-c.y1)/z.height;
         _G.grid=g;
         _G.cells=cells;
         _G.iconScale=[K,K];
@@ -333,47 +352,43 @@
               K=Mojo.getScaleFactor();
         doBackDrop(this);
         this._initLevel();
-        let {grid}=_G;
-        let c0=grid[0][0];
-        let bx=_S.gridBBox(0,0,grid);
-        //let s=_S.group(_S.drawBody((ctx)=>{
-          //_S.drawGridBox(bx,1,"white",ctx);
-          //_S.drawGridLines(0,0,grid,1,"white",ctx);
-        //}));
+        let
+          {grid}=_G,
+          c0=grid[0][0],
+          s, bx=_S.gridBBox(0,0,grid);
         _G.arena=bx;
-
-        let s= _S.bboxFrame(_G.arena,32*K);
+        s= _S.bboxFrame(_G.arena,32*K);
         this.insert(s);
-        //
-        s=_I.mkBtn(_S.sprite("menu.png"));
-        _V.set(s,Mojo.width-s.width-10,0);
-        s.alpha=0.5;
-        s.m5.press=(btn)=>{
-          btn.tint=C_ORANGE;
-          _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
-        };
-        this.insert(s);
+        if(1){
+          let s=_I.mkBtn(_S.sprite("menu.png"));
+          _V.set(s,Mojo.width-s.width-10,0);
+          s.alpha=0.5;
+          s.m5.press=(btn)=>{
+            btn.tint=C_ORANGE;
+            _.delay(CLICK_DELAY,()=> _Z.runEx("MainMenu"));
+          };
+          this.insert(s);
+        }
         this._seed(_G.curPattern);
         _.delay(_DELAY,()=> this.onFrame());
       }
     });
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles:["tiles.png","click.mp3","bg.jpg","menu.png"],
-    arena:{width:1200, height:960},
+    assetFiles:["tiles.png","click.mp3","bg.jpg","splash.jpg","menu.png"],
+    arena:{width:1344, height:840},
     gridLineWidth:1,
     defPattern:"Acorn",
     DIM:40,
     scaleToWindow:"max",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    scaleFit:"x",
+    start(...args){ scenes(...args) }
 
   }));
 

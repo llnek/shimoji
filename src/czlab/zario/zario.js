@@ -21,7 +21,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
-           Arcade:_2d,
+           Ute2D:_U,
            FX:_F,
            v2:_V,
            math:_M,
@@ -38,43 +38,23 @@
       TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase";
 
+    const SplashCfg= {
+      title:"Zario",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bg.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        let self=this,
-          W2=Mojo.width/2,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Zario",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,W2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _F.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=> _Z.runEx("PlayGame"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,W2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     let MysteryCount=0;
@@ -103,7 +83,7 @@
     const Heart={
       s(){},
       c(scene,s,ts,ps,os){
-        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        let sigs=[["bump.sensor",s],"onSensor",s.m5];
         s.m5.uuid= `Heart#${_.nextId()}`;
         s.m5.type=E_ITEM;
         s.m5.sensor=true;
@@ -118,7 +98,15 @@
           }
           if(os.name=="white_heart" && col.g["red_heart"] && !_G.gameOver){
             _G.gameOver=true;
-            _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{msg:"You Win!"}))
+            _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{
+
+              fontSize:64*Mojo.getScaleFactor(),
+              replay:{name:"PlayGame"},
+              quit:{name:"Splash", cfg:SplashCfg},
+              msg:"You Win!",
+              winner:1
+
+            }))
           }
         };
         Mojo.on(...sigs);
@@ -130,7 +118,7 @@
     const Key={
       s(){},
       c(scene,s,ts,ps,os){
-        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        let sigs=[["bump.sensor",s],"onSensor",s.m5];
         s.m5.uuid= `Key#${_.nextId()}`;
         s.m5.type=E_ITEM;
         s.g.score=250;
@@ -151,7 +139,7 @@
     const Coin={
       s(){},
       c(scene,s,ts,ps,os){
-        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        let sigs=[["bump.sensor",s],"onSensor",s.m5];
         s.m5.uuid= `Coin#${_.nextId()}`;
         s.m5.type=E_ITEM;
         s.m5.sensor=true;
@@ -171,7 +159,7 @@
     const Spike={
       s(){},
       c(scene,s,ts,ps,os){
-        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        let sigs=[["bump.sensor",s],"onSensor",s.m5];
         s.m5.uuid= `Spike#${_.nextId()}`;
         s.m5.type=E_SPIKE;
         s.m5.sensor=true;
@@ -181,7 +169,14 @@
             //_S.remove(s);
             Mojo.off(...sigs);
             _G.gameOver=true;
-            _.delay(CLICK_DELAY,()=> _Z.modal("EndGame"));
+            _.delay(CLICK_DELAY,()=> _Z.modal("EndGame",{
+
+              fontSize:64*Mojo.getScaleFactor(),
+              replay:{name:"PlayGame"},
+              quit:{name:"Splash", cfg:SplashCfg},
+              msg:"You Lose!",
+              winner:0
+            }));
           }
         };
         Mojo.on(...sigs);
@@ -193,7 +188,7 @@
     const Door={
       s(){},
       c(scene,s,ts,ps,os){
-        let sigs=[["2d.sensor",s],"onSensor",s.m5];
+        let sigs=[["bump.sensor",s],"onSensor",s.m5];
         s.m5.uuid= os.door;
         s.m5.type=E_DOOR;
         s.m5.sensor=true;
@@ -247,7 +242,8 @@
       s.m5.speed= 300;
       s.m5.score= 0;
       _S.anchorXY(s,0.5);
-      Mojo.addMixin(s,"arcade",[_2d.Platformer]);
+      s.g.move=_U.Meander(s);
+      s.g.jump=_U.Jitter(s);
       s.m5.showFrame(0);
       s.m5.heading= Mojo.RIGHT;
       _S.remove(_p);
@@ -308,7 +304,7 @@
         }
       };
       s.m5.tick=function(dt){
-        s.arcade.onTick(dt);
+        s.g.jump(dt,s.g.move(dt));
         if(s.m5.vel[0]==0 && s.m5.vel[1]==0){
           if(!_I.keyDown(_I.DOWN)) s.m5.showFrame(1);
         }
@@ -322,9 +318,11 @@
     function Enemy(scene,s){
       let signals=[[["bump.top",s],"onKill",s.m5],
                    [["hit",s],"onHit",s.m5]];
-      Mojo.addMixin(s,"arcade",[_2d.Patrol,true,false]);
+
       _S.anchorXY(s,0.5);
 
+      s.g.pat=_U.Patrol(s,true,false);
+      s.g.move=_U.Meander(s);
       s.m5.heading=Mojo.LEFT;
       s.m5.type=E_ENEMY;
       s.m5.speed= 150;
@@ -347,15 +345,21 @@
         if(!s.m5.dead && col.B.m5.uuid=="player"){
           Mojo.sound("hit.mp3").play();
           _G.gameOver=true;
-          _.delay(CLICK_DELAY,()=>_Z.modal("EndGame"));
+          _.delay(CLICK_DELAY,()=>_Z.modal("EndGame",{
+
+            fontSize:64*Mojo.getScaleFactor(),
+            replay:{name:"PlayGame"},
+            quit:{name:"Splash", cfg:SplashCfg},
+            msg:"You Lose!",
+            winner:0
+          }));
         }
       };
 
       s.m5.tick=(dt)=>{
-        s.arcade && s.arcade.onTick(dt);
+        s.g.move && s.g.move(dt);
         if(s.m5.dead){
-          s.arcade && s.arcade.Patrol.dispose();
-          s.arcade=UNDEF;
+          s.g.pat.dispose();
           if(++s.m5.deadTimer > 25){ _S.remove(s) }
         }
       };
@@ -376,23 +380,6 @@
         scene.insert(Enemy(scene,_V.set(s,x,y)),true);
       });
     }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let os={fontName:UI_FONT,
-                fontSize: 72*Mojo.getScaleFactor()},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(options.msg||"You Lose!", os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=> _Z.runEx("PlayGame");
-        s6.m5.press=()=> _Z.runEx("Splash");
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
@@ -430,19 +417,20 @@
         _G.gameOver=false;
         this.insert(Player(this),true);
         makeEnemies(this);
-        Mojo.addMixin(this,"camera2d",this.tiled.tiledWidth,this.tiled.tiledHeight,Mojo.canvas);
+        this.g.cam= _U.Camera(this,this.tiled.tiledWidth,this.tiled.tiledHeight,Mojo.canvas);
       },
       postUpdate(dt){
         if(_G.gameOver){
-          this.m5.dead=true;
+          _S.die(this);
         }else{
-          this["camera2d"].follow(_G.player);
+          this.g.cam.follow(_G.player);
         }
       }
     },{sgridX:128,sgridY:128,centerStage:true,
       tiled:{name: "map.json",factory:_objFactory}
     });
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -451,15 +439,14 @@
 
     assetFiles: ["map.json","hit.mp3","click.mp3","coin.mp3","jump.mp3","bounce.mp3",
                  "pinkio.png","platformPack_tilesheet.png", "bg.jpg",
-                 "audioOn.png","audioOff.png",
+                 "audioOn.png","audioOff.png","splash.jpg",
+                 "game_over.mp3","game_win.mp3",
                  "bee0.png","bee1.png","worm0.png","worm1.png","snail0.png","snail1.png"],
-    arena: {width:1860, height:1050,scale:1},
+    arena: {width:1344, height:840,scale:1},
     scaleToWindow:"max",
     scaleFit:"x",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
+
   }));
 
 })(this);

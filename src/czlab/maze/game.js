@@ -39,10 +39,25 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+    const SplashCfg= {
+      title:"A* Maze",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"PlayGame"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(){
-        let self=this,
+        let
+          self=this,
           K=Mojo.getScaleFactor();
         _.inject(this.g,{
           initLevel(){
@@ -141,26 +156,21 @@
         this.g.initLevel();
       },
       postUpdate(dt){
-
         dt=dt;
-        //console.log("ppp");
-
-
       }
     });
 
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   window.addEventListener("load",()=>{
     MojoH5({
-      assetFiles: [],
-      arena: {width:1680,height:1050},
+      assetFiles: ["splash.jpg","click.mp3"],
+      arena: {width:1344,height:840},
       scaleToWindow:"max",
-      start(Mojo){
-        scenes(Mojo);
-        Mojo.Scenes.run("PlayGame");
-      }
+      scaleFit:"x",
+      start(...args){ scenes(...args) }
     });
   });
 

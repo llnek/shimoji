@@ -25,6 +25,7 @@
     const {Scenes:_Z,
            Sprites:_S,
            Input:_I,
+           Ute2D:_U,
            Game:_G,
            FX:_F,
            v2:_V,
@@ -43,6 +44,20 @@
       C_GREEN=_S.color("#7da633"),
       C_ORANGE=_S.color("#f4d52b");
 
+
+    const SplashCfg= {
+      title:"Connect/4",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE
+    };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.jpg")));
@@ -273,7 +288,7 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
+    _Z.scene("XXSplash",{
       setup(){
         const self=this,
           K=Mojo.getScaleFactor();
@@ -332,7 +347,7 @@
 
         Mojo.sound(snd).play();
         b1.m5.press=()=> playClick() && _Z.runEx("MainMenu");
-        b2.m5.press=()=> playClick() && _Z.runEx("Splash");
+        b2.m5.press=()=> playClick() && _Z.runEx("Splash", SplashCfg);
         this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2],{bg:"#cccccc"}))
       }
     });
@@ -414,6 +429,8 @@
         }
       }
     });
+
+    _Z.run("Splash", SplashCfg);
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -422,16 +439,13 @@
 
     assetFiles: ["bg.jpg", "base.png","tiles.png",
                  "images/base.json", "images/tiles.json",
-                 "audioOn.png","audioOff.png",
+                 "audioOn.png","audioOff.png","splash.jpg",
                  "click.mp3","game_over.mp3","game_win.mp3","x.mp3","o.mp3"],
-    arena:{width:1024, height:768},
+    arena:{width:1344, height:840},
     iconSize: 96,
-    scaleFit:"y",
+    scaleFit:"x",
     scaleToWindow:"max",
-    start(Mojo){
-      scenes(Mojo);
-      Mojo.Scenes.run("Splash");
-    }
+    start(...args){ scenes(...args) }
 
   }));
 

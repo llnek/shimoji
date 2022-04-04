@@ -23,6 +23,7 @@
            Sprites:_S,
            Input:_I,
            FX:_X,
+           Ute2D:_U,
            Game:_G,
            v2:_V,
            math:_M,
@@ -37,42 +38,24 @@
       C_BG=_S.color("#169706"),
       C_TEXT=_S.color("#fff20f");
 
+    _G.SplashCfg= {
+      title:"Reversi",
+      titleFont:TITLE_FONT,
+      titleColor:C_TITLE,
+      titleSize: 96*Mojo.getScaleFactor(),
+      action: {name:"MainMenu"},
+      clickSnd:"click.mp3",
+      bg:"splash.jpg",
+      playMsgFont:UI_FONT,
+      playMsgColor:"white",
+      playMsgSize:64*Mojo.getScaleFactor(),
+      playMsgColor2:C_ORANGE};
+
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert(_S.fillMax(_S.sprite("bggreen.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("Splash",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Reversi",TITLE_FONT,120*K);
-            _S.tint(s,C_TITLE);
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT,64*K);
-            t=_X.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _S.tint(s,C_ORANGE);
-              _X.remove(t);
-              playClick();
-              _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
-            }
-            _I.on(["single.tap"],cb);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("MainMenu",{
@@ -123,7 +106,7 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
+    _Z.scene("XXXEndGame",{
       setup(){
         let w= _G.lastWin,
           mode = _G.mode,
@@ -260,6 +243,7 @@
         if(_G.gameOver) this.m5.dead=true;
       }
     });
+
   };
 
 })(this);
