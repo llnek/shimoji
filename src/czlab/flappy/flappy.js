@@ -40,27 +40,15 @@
     );
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
+    const
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"NEAT/Flappy Bird",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 48*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:24*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      SplashCfg= {
+        title:"NEAT/Flappy Bird",
+        clickSnd:"click.mp3",
+        titleSize: 40*Mojo.getScaleFactor(),
+        playMsgSize: 32*Mojo.getScaleFactor(),
+        action: {name:"PlayGame"}
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playClick=()=> Mojo.sound("click.mp3").play();

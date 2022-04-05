@@ -37,27 +37,14 @@
            Local,Mediator}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
+    const
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"Chess",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize:96*Mojo.getScaleFactor(),
-      action: {name:"MainMenu"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      C_ORANGE=_S.color("#f4d52b"),
+      SplashCfg= {
+        title:"Chess",
+        clickSnd:"click.mp3",
+        action: {name:"MainMenu"}
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const playSnd=(team)=> Mojo.sound(team=="w"?"x.mp3":"o.mp3").play();
@@ -818,7 +805,6 @@
         M.start(options.startsWith==1?p1:p2);
       },
       postUpdate(){
-        console.log("ddd")
       }
     });
 
@@ -865,7 +851,7 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["images/tiles.json", "bggreen.jpg",
-                 "audioOff.png","audioOn.png","splash.jpg",
+                 "audioOff.png","audioOn.png",
                  "click.mp3", "x.mp3","o.mp3","game_over.mp3","game_win.mp3"],
     arena:{width:1344, height:840},
     iconSize: 96,

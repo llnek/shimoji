@@ -103,6 +103,7 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //internal use only
 		_Z.scene("Splash",{
       setup(options){
         let
@@ -114,9 +115,19 @@
           self=this,
           K=Mojo.getScaleFactor();
 
+        //ffc901 yellow
+        //fd5898 pink
+        //e04455 red
+        playMsgFont= playMsgFont || "Doki Lowercase";
+        titleFont= titleFont || "Big Shout Bob";
         playMsg=playMsg || Mojo.clickPlayMsg();
-        if(bg)
-          self.insert(_S.fillMax(_S.sprite(bg)));
+        playMsgColor= _.nor(playMsgColor, _S.color("white"));
+        playMsgColor2= _.nor(playMsgColor2, _S.color("#ffc901"));
+        titleColor= _.nor(titleColor, _S.color("#ffc901"));
+        titleSize= _.nor(titleSize, 96*K);
+        playMsgSize= _.nor(playMsgSize, 64*K);
+
+        self.insert(_S.fillMax( _S.sprite(bg?bg:"boot/splash.jpg")));
         C= self.insert(_S.container());
         if(1){
           let s=_S.bmpText(title, titleFont,titleSize);
@@ -130,9 +141,8 @@
           _S.oneOffClick(clickSnd,()=>{
             _S.tint(s,playMsgColor2);
             _F.remove(t);
-            _F.tweenScale(C,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{
-              _Z.runEx(action.name,action.cfg);
-            };
+            _F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
+            //_F.tweenScale(C,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
           });
           _V.set(s,Mojo.width/2,Mojo.height*0.5);
           C.addChild(_S.anchorXY(s,0.5));

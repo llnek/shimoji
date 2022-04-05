@@ -30,26 +30,15 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const C_TITLE=_S.color("#fff20f"),
-      TITLE_FONT= "Big Shout Bob",
-      UI_FONT= "Doki Lowercase",
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
+    const
 
-    const SplashCfg= {
-      title:"Tic Tac Toe",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"MainMenu"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE};
+      UI_FONT= "Doki Lowercase",
+      C_ORANGE=_S.color("#f4d52b"),
+      SplashCfg= {
+        title:"Tic Tac Toe",
+        clickSnd:"click.mp3",
+        action: {name:"MainMenu"}
+      };
 
     const DIM=3, X=88, O=79;
 
@@ -371,7 +360,7 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles:["bgblack.jpg", "icons.png","audioOn.png","audioOff.png",
-                "splash.jpg", "click.mp3","x.mp3","o.mp3","game_win.mp3","game_over.mp3"],
+                "click.mp3","x.mp3","o.mp3","game_win.mp3","game_over.mp3"],
     arena:{width:1344, height:840},
     scaleToWindow:"max",
     scaleFit:"x",

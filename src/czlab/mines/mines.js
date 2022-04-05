@@ -28,30 +28,16 @@
            ute:_,is}=Mojo;
     const int=Math.floor;
 
-    const TITLE_FONT="Big Shout Bob",
+    const
       UI_FONT="Doki Lowercase",
-      C_WHITE=_S.color("#ffffff"),
-      C_BG= _S.color("#25A65B"),
       C_TITLE=_S.color("#fff20f"),
-      LINE_COLOR=_S.color("#2abb67"),
-      TEXT_COLOR=_S.color("#2abb67"),
       C_NUM=_S.color("#24a159"),
-      C_BOX=_S.color("#e1fc7e"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"Minesweeper",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"MainMenu"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE};
+      C_ORANGE=_S.color("#f4d52b"),
+      SplashCfg= {
+        title:"Minesweeper",
+        clickSnd:"click.mp3",
+        action: {name:"MainMenu"}
+      };
 
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

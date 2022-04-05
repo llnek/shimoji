@@ -47,27 +47,13 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const
-      TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const SplashCfg= {
-      title:"Checkers",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize:96*Mojo.getScaleFactor(),
-      action: {name:"MainMenu"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE};
+      C_ORANGE=_S.color("#f4d52b"),
+      SplashCfg= {
+        title:"Checkers",
+        clickSnd:"click.mp3",
+        action: {name:"MainMenu"}
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function checkStatus(s){
@@ -741,7 +727,7 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["bggreen.jpg","base.png","reds.png","blacks.png",
-                 "audioOn.png","audioOff.png","splash.jpg",
+                 "audioOn.png","audioOff.png",
                  "images/base.json", "images/reds.json","images/blacks.json",
                  "x.mp3", "o.mp3", "click.mp3","game_win.mp3","game_over.mp3"],
     arena: {width: 1344, height: 840},

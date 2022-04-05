@@ -30,28 +30,13 @@
            Game:_G,
            ute:_, is}=Mojo;
 
-    const C_TITLE=_S.color("#fff20f"),
-      TITLE_FONT= "Big Shout Bob",
+    const
       UI_FONT= "Doki Lowercase",
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-
-    const SplashCfg= {
-      title:"8-Puzzles",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      SplashCfg= {
+        title:"8-Puzzles",
+        clickSnd:"click.mp3",
+        action: {name:"PlayGame"}
+      };
 
 
     const DIM=3,
@@ -225,7 +210,7 @@
   window.addEventListener("load", ()=>MojoH5({
 
     assetFiles: ["tile.png","bg.jpg","audioOff.png","audioOn.png",
-                 "splash.jpg", "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
+                 "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:768,height:768},
     scaleToWindow: "max",
     scaleFit: "y",

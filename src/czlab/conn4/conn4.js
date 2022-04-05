@@ -36,28 +36,14 @@
            Local,Mediator}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
+    const
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-
-    const SplashCfg= {
-      title:"Connect/4",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"MainMenu"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      C_ORANGE=_S.color("#f4d52b"),
+      SplashCfg= {
+        title:"Connect/4",
+        clickSnd:"click.mp3",
+        action: {name:"MainMenu"}
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.jpg")));
@@ -288,71 +274,6 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("XXSplash",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("CONNECT-4",TITLE_FONT, 120*K);
-            _S.tint(s, C_TITLE);
-            _V.set(s,Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 72*K);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            t=_F.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _S.tint(s,C_ORANGE);
-              _F.remove(t);
-              playClick();
-              _.delay(CLICK_DELAY, ()=> _Z.runEx("MainMenu"));
-            };
-            _I.on(["single.tap"],cb);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        const K=Mojo.getScaleFactor();
-        const mode = _G.mode;
-        const w= options.win;
-        let msg="No Winner!",
-          snd="game_over.mp3",
-          cfg={fontName:UI_FONT, fontSize:64*K};
-
-        if(w){
-          if(w.stateValue()==_G.X){
-            msg= mode==1 ? "You win !" : "Player 1 (Blue) wins !";
-            snd="game_win.mp3";
-          }else if(w.stateValue()==_G.O){
-            msg= mode==1 ? "You lose !" : "Player 2 (Red) wins !";
-          }
-        }
-
-        let space=()=> _S.opacity(_S.bmpText("I",cfg),0),
-          b1=_I.mkBtn(_S.bmpText("Play Again?", cfg)),
-          b2=_I.mkBtn(_S.bmpText("Quit", cfg)),
-          m1=_S.bmpText("Game Over", cfg),
-          m2=_S.bmpText(msg, cfg),
-          gap=_S.bmpText("or", cfg);
-
-        Mojo.sound(snd).play();
-        b1.m5.press=()=> playClick() && _Z.runEx("MainMenu");
-        b2.m5.press=()=> playClick() && _Z.runEx("Splash", SplashCfg);
-        this.insert( _Z.layoutY([m1, m2, space(), space(), b1, gap, b2],{bg:"#cccccc"}))
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("PlayGame",{
       setup(options){
         let m,p1,p2,K=Mojo.getScaleFactor();
@@ -439,7 +360,7 @@
 
     assetFiles: ["bg.jpg", "base.png","tiles.png",
                  "images/base.json", "images/tiles.json",
-                 "audioOn.png","audioOff.png","splash.jpg",
+                 "audioOn.png","audioOff.png",
                  "click.mp3","game_over.mp3","game_win.mp3","x.mp3","o.mp3"],
     arena:{width:1344, height:840},
     iconSize: 96,

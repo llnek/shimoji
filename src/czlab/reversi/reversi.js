@@ -171,7 +171,7 @@
     assetFiles:["bggreen.jpg","icons.png",
                 "x.mp3","o.mp3",
                 "audioOn.png","audioOff.png",
-                "splash.jpg", "click.mp3","game_over.mp3","game_win.mp3"],
+                "click.mp3","game_over.mp3","game_win.mp3"],
     arena:{width:960, height:960},
     scaleToWindow:"max",
     scaleFit:"y",

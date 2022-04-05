@@ -30,25 +30,13 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const C_TITLE=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b"),
-      TITLE_FONT="Big Shout Bob",
-      UI_FONT="Doki Lowercase";
-
-    const SplashCfg= {
-      title:"PONG",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+    const
+      UI_FONT="Doki Lowercase",
+      SplashCfg= {
+        title:"PONG",
+        clickSnd:"click.mp3",
+        action: {name:"PlayGame"}
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.jpg")));
@@ -233,7 +221,7 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["bg.jpg","ball.png", "paddle.png",
-                 "splash.jpg","click.mp3","game_over.mp3","game_win.mp3","pop.mp3"],
+                 "click.mp3","game_over.mp3","game_win.mp3","pop.mp3"],
     arena: {width: 1344, height: 840},
     scaleToWindow: "max",
     scaleFit:"x",

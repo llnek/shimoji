@@ -139,64 +139,19 @@
     const NBS= [[-1,-1],[-1,0],[-1,1],[0,-1],
       [0,1],[1,-1],[1,0],[1,1]],
       _DELAY=300,
-      TITLE_FONT="Big Shout Bob",
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BLACK=_S.color("#000000"),
-      C_WHITE=_S.color("#ffffff"),
-      C_GREEN=_S.color("#7da633"),
       C_TILE=_S.color("#b7d150"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"Game of Life",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"MainMenu"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      C_ORANGE=_S.color("#f4d52b"),
+      SplashCfg= {
+        title:"Game of Life",
+        clickSnd:"click.mp3",
+        action: {name:"MainMenu"}
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const doBackDrop=(s)=> s.insert( _S.fillMax(_S.sprite("bg.jpg")));
     const playClick=()=> Mojo.sound("click.mp3").play();
     const CLICK_DELAY=343;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("XXSplash",{
-      setup(){
-        const self=this,
-          K=Mojo.getScaleFactor();
-        _.inject(this.g,{
-          doTitle(s){
-            s=_S.bmpText("Conway's Game Of Life",TITLE_FONT,84*K);
-            _V.set(_S.tint(s,C_TITLE),Mojo.width/2,Mojo.height*0.3);
-            return self.insert(_S.anchorXY(s,0.5));
-          },
-          doNext(s,t){
-            s=_S.bmpText(Mojo.clickPlayMsg(),UI_FONT, 64*K);
-            _V.set(s,Mojo.width/2,Mojo.height*0.7);
-            t=_X.throb(s,0.747,0.747);
-            function cb(){
-              _I.off(["single.tap"],cb);
-              _X.remove(t);
-              _S.tint(s,C_ORANGE);
-              playClick();
-              _.delay(CLICK_DELAY,()=>_Z.runEx("MainMenu"));
-            }
-            _I.on(["single.tap"],cb);
-            return self.insert(_S.anchorXY(s,0.5));
-          }
-        });
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        doBackDrop(this) && this.g.doTitle() && this.g.doNext();
-      }
-    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("MainMenu",{
@@ -381,7 +336,7 @@
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles:["tiles.png","click.mp3","bg.jpg","splash.jpg","menu.png"],
+    assetFiles:["tiles.png","click.mp3","bg.jpg","menu.png"],
     arena:{width:1344, height:840},
     gridLineWidth:1,
     defPattern:"Acorn",

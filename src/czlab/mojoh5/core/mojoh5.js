@@ -337,7 +337,6 @@
       Mojo.canvas.id="mojo";
       Mojo.maxed=maxed;
       Mojo.scale=1;
-      Mojo.frame=1/cmdArg.fps;
       Mojo.scaledBgColor= "#5A0101";
 
       //install modules
@@ -547,6 +546,7 @@
       Bot,
       Local,
       Mediator,
+      frame:1/cmdArg.fps,
       /**Enum (1)
       * @memberof module:mojoh5/Mojo */
       EVERY:1,
@@ -628,6 +628,9 @@
       },
       off(...args){
         return EBus.unsub(...args)
+      },
+      frameRate(){
+        return this.frame;
       },
       /**Check if `d` is on the right hand side.
        * @memberof module:mojoh5/Mojo
@@ -1016,10 +1019,11 @@
       start(){
         let acc=0,
             last= _.now(),
-            diff=Mojo.frame,
             F=function(){
-              let cur= _.now(),
-                  dts= (cur-last)/1000;
+              let
+                cur= _.now(),
+                dts= (cur-last)/1000,
+                diff=Mojo.frameRate();
               //console.log(`frames per sec= ${Math.floor(1/dt)}`);
               //limit the time gap between calls
               if(dts>_DT15) dts= _DT15;

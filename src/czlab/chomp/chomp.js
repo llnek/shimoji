@@ -40,26 +40,10 @@
       E_KEY=8;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
-      UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#e4ea1c"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
     const SplashCfg= {
       title:"Chomp!",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize:96*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
       clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
+      action: {name:"PlayGame"}
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -304,7 +288,7 @@
   window.addEventListener("load",()=> MojoH5({
 
     assetFiles: ["ghosts.png", "chomp.json","pac.png", "click.mp3","coins.png",
-                 "game_win.mp3","game_over.mp3","splash.jpg",
+                 "game_win.mp3","game_over.mp3",
                  "platformPack_tilesheet.png","towerDefense_tilesheet.png","RPGpack_sheet.png"],
     arena: {width:1344,height:840},
     scaleToWindow:"max",

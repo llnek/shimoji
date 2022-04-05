@@ -31,25 +31,13 @@
     const int=Math.floor;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
+    const
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#e5e61e"),
-      C_GREEN=_S.color("#bde61e"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"Bouncy Balls",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize:96*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      SplashCfg= {
+        title:"Bouncy Balls",
+        action: {name:"PlayGame"},
+        clickSnd:"click.mp3",
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _onSelected(self){
@@ -206,7 +194,7 @@
   //load & run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["balls.png","click.mp3","splash.jpg"],
+    assetFiles: ["balls.png","click.mp3"],
     arena: {width:1344, height:840},
     scaleToWindow:"max",
     scaleFit:"y",

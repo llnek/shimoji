@@ -30,27 +30,13 @@
            Game:_G,
            ute:_, is}=Mojo;
 
-    const TITLE_FONT= "Big Shout Bob",
+    const
       UI_FONT= "Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"2048",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      SplashCfg= {
+        title:"2048",
+        clickSnd:"click.mp3",
+        action: {name:"PlayGame"}
+      };
 
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -307,7 +293,7 @@
     assetFiles: ["0.png","2.png","4.png",
                  "8.png", "16.png","32.png",
                  "64.png", "256.png","1024.png","bg.jpg",
-                 "splash.jpg", "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
+                 "click.mp3","slide.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:768,height:768},
     scaleToWindow: "max",
     scaleFit: "y",

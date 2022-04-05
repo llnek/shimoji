@@ -31,27 +31,16 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //set up some globals
-    const TITLE_FONT="Big Shout Bob",
+    const
       UI_FONT="Doki Lowercase",
-      C_TITLE=_S.color("#fff20f"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"Snake",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 72*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:32*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      C_ORANGE=_S.color("#f4d52b"),
+      SplashCfg= {
+        title:"Snake",
+        titleSize: 56*Mojo.getScaleFactor(),
+        action: {name:"PlayGame"},
+        clickSnd:"click.mp3",
+        playMsgSize:32*Mojo.getScaleFactor()
+      };
 
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -180,7 +169,7 @@
     assetFiles:["bg.jpg","head.png","snake.png","tail.png","apple_00.png",
                 "boing1.mp3","apple.mp3",
                 "audioOn.png","audioOff.png",
-                "splash.jpg", "eat.mp3","click.mp3","game_over.mp3","game_win.mp3"],
+                "eat.mp3","click.mp3","game_over.mp3","game_win.mp3"],
     arena: {width:640,height:480},
     scaleToWindow: "max",
     scaleFit:"x",

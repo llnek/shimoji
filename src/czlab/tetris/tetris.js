@@ -36,24 +36,13 @@
            ute:_, is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const C_TITLE=_S.color("#fff20f"),
-      C_GREEN=_S.color("#7da633"),
-      C_ORANGE=_S.color("#f4d52b"),
-      TITLE_FONT="Big Shout Bob",
-      UI_FONT="Doki Lowercase";
-
-    const SplashCfg= {
-      title:"Tetris",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize: 96*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE};
+    const
+      UI_FONT="Doki Lowercase",
+      SplashCfg= {
+        title:"Tetris",
+        clickSnd:"click.mp3",
+        action: {name:"PlayGame"}
+      };
 
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -280,7 +269,7 @@
   window.addEventListener("load",()=> MojoH5({
     assetFiles: ["click.mp3","line.mp3",
                  "audioOn.png","audioOff.png",
-                 "splash.jpg", "tile.png", "bg.jpg", "game_over.mp3"],
+                 "tile.png", "bg.jpg", "game_over.mp3"],
     arena: {width: 768, height: 1408},
     scaleToWindow:"max",
     scaleFit:"y",

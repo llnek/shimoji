@@ -37,29 +37,13 @@
     const int=Math.floor;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
+    const
       UI_FONT="Doki Lowercase",
-      //C_TITLE=_S.color("#fff20f"),
-      C_BLUE=_S.color("#3e9ad1"),
-      C_TITLE=_S.color("#e5e61e"),//"#c93d74"),//"#d1753e"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#bde61e"),
-      C_ORANGE=_S.color("#f4d52b");
-
-    const SplashCfg= {
-      title:"NEAT/Smart Bots",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize:84*Mojo.getScaleFactor(),
-      action: {name:"PlayGame"},
-      clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:56*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
-    };
+      SplashCfg= {
+        title:"NEAT/Smart Bots",
+        action: {name:"PlayGame"},
+        clickSnd:"click.mp3",
+      };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const NUM_INPUTS=10+1,//5,
@@ -447,7 +431,7 @@
   //load and run
   window.addEventListener("load",()=> MojoH5({
 
-    assetFiles: ["tank.png","menu.png","click.mp3","splash.jpg"],
+    assetFiles: ["tank.png","menu.png","click.mp3"],
     arena: {width: 1344, height: 840},
     scaleToWindow:"max",
     scaleFit:"x",

@@ -30,15 +30,7 @@
            ute:_,is}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const TITLE_FONT="Big Shout Bob",
-      UI_FONT="Doki Lowercase",
-      //C_TITLE=_S.color("#fff20f"),
-      C_BLUE=_S.color("#3e9ad1"),
-      C_TITLE=_S.color("#e5e61e"),//"#c93d74"),//"#d1753e"),
-      C_BG=_S.color("#169706"),
-      C_TEXT=_S.color("#fff20f"),
-      C_GREEN=_S.color("#bde61e"),
-      C_ORANGE=_S.color("#f4d52b");
+    const UI_FONT="Doki Lowercase";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const E_SHIP=1, E_ASTRO=2, E_LASER=4;
@@ -56,16 +48,8 @@
 
     const SplashCfg= {
       title:"Asteroids",
-      titleFont:TITLE_FONT,
-      titleColor:C_TITLE,
-      titleSize:96*Mojo.getScaleFactor(),
       action: {name:"PlayGame"},
       clickSnd:"click.mp3",
-      bg:"splash.jpg",
-      playMsgFont:UI_FONT,
-      playMsgColor:"white",
-      playMsgSize:64*Mojo.getScaleFactor(),
-      playMsgColor2:C_ORANGE
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -459,7 +443,7 @@
     assetFiles: ["shoot.mp3","explosion.mp3",
                  "audioOn.png","audioOff.png",
                  "astro.png","rocket.png","laser.png",
-                 "splash.jpg","click.mp3","game_over.mp3","game_win.mp3"],
+                 "click.mp3","game_over.mp3","game_win.mp3"],
     arena: {width: 1344, height: 840},
     scaleToWindow: "max",
     scaleFit:"x",
