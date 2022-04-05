@@ -8,15 +8,15 @@ const jsdoc=require("gulp-jsdoc3");
 const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
-  "src/czlab/mojoh5/core/mojoh5.js",
-  "src/czlab/mojoh5/core/sprite.js",
-  "src/czlab/mojoh5/core/scene.js",
-  "src/czlab/mojoh5/core/sound.js",
-  "src/czlab/mojoh5/core/input.js",
-  "src/czlab/mojoh5/core/touch.js",
-  "src/czlab/mojoh5/core/arcade.js",
-  "src/czlab/mojoh5/core/fx.js",
-  "src/czlab/mojoh5/core/tile.js"
+  "src/main/mojoh5.js",
+  "src/main/sprite.js",
+  "src/main/scene.js",
+  "src/main/fx.js",
+  "src/main/ute.js",
+  "src/main/sound.js",
+  "src/main/input.js",
+  "src/main/touch.js",
+  "src/main/tile.js"
 ];
 
 var destDir = 'dist'; //or any folder inside your public asset folder
@@ -31,7 +31,7 @@ gulp.task("bundleJS", function(){
 });
 
 gulp.task('doc', function (cb) {
-    gulp.src(['README.md', './src/czlab/mojoh5/core/**/*.js'], {read: false})
+    gulp.src(['README.md', './src/main/**/*.js'], {read: false})
         .pipe(jsdoc(cb));
 });
 

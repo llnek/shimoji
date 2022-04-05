@@ -121,6 +121,8 @@
           k *= 0.2;
           Sprites.scaleXY(pbar,k,k);
           Sprites.scaleXY(logo,k,k);
+          //Sprites.anchorXY(logo,0.5);
+          //_V.set(logo, Mojo.width/2,Mojo.height*0.3);
           Sprites.pinCenter(this,logo);
           Sprites.pinBelow(logo,pbar,4*K);
           Sprites.hide(pbar);
@@ -299,6 +301,7 @@
       //p["image-rendering"]= arg.rendering || "crisp-edges";
       dom.css(Mojo.canvas,p);
       dom.attrs(Mojo.canvas,"tabindex","0");
+      dom.css(document.body,{"background":"black"});
     }
 
     /** Main */
@@ -334,12 +337,11 @@
       Mojo.canvas.id="mojo";
       Mojo.maxed=maxed;
       Mojo.scale=1;
-      Mojo.frame=1/cmdArg.fps;
       Mojo.scaledBgColor= "#5A0101";
 
       //install modules
       ["Sprites","Input","Scenes",
-       "Sound","FX","Arcade","Tiles","Touch"].forEach(s=>{
+       "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
          CON.log(`installing module ${s}...`);
          let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
          if(m.assets)
@@ -544,6 +546,7 @@
       Bot,
       Local,
       Mediator,
+      frame:1/cmdArg.fps,
       /**Enum (1)
       * @memberof module:mojoh5/Mojo */
       EVERY:1,
@@ -615,6 +618,7 @@
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
       get mouse(){ return Mojo.Input.pointer() },
+      playSfx(snd){ return this.sound(snd).play() },
       accel(v,a,dt){ return v+a*dt },
       on(...args){
         return EBus.sub(...args)
@@ -624,6 +628,9 @@
       },
       off(...args){
         return EBus.unsub(...args)
+      },
+      frameRate(){
+        return this.frame;
       },
       /**Check if `d` is on the right hand side.
        * @memberof module:mojoh5/Mojo
@@ -1012,10 +1019,11 @@
       start(){
         let acc=0,
             last= _.now(),
-            diff=Mojo.frame,
             F=function(){
-              let cur= _.now(),
-                  dts= (cur-last)/1000;
+              let
+                cur= _.now(),
+                dts= (cur-last)/1000,
+                diff=Mojo.frameRate();
               //console.log(`frames per sec= ${Math.floor(1/dt)}`);
               //limit the time gap between calls
               if(dts>_DT15) dts= _DT15;
@@ -1062,497 +1070,6 @@
 
 
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
-
-;(function(gscope,UNDEF){
-
-  "use strict";
-
-  /**Create the module.
-   */
-  function _module(Mojo){
-    const {Stack,StdCompare:CMP}= gscope["io/czlab/mcfud/algo_basic"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {is, ute:_}=Mojo;
-    const int=Math.floor;
-
-    /**
-     * @module mojoh5/util
-     */
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    // stably merge a[lo .. mid] with a[mid+1 ..hi] using aux[lo .. hi]
-    // precondition: a[lo .. mid] and a[mid+1 .. hi] are sorted subarrays
-    function _merge(a, aux, lo, mid, hi){
-      for(let k = lo; k <= hi; ++k) _V.copy(aux[k], a[k]); // copy to aux[]
-      // merge back to a[]
-      let i = lo, j = mid+1;
-      for(let k = lo; k <= hi; ++k){
-        if(i > mid) _V.copy(a[k], aux[j++]);
-        else if(j > hi) _V.copy(a[k], aux[i++]);
-        else if(Point2D.compareTo(aux[j], aux[i])<0) _V.copy(a[k],aux[j++]);
-        else _V.copy(a[k], aux[i++]);
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**
-     * @memberof module:mojoh5/util
-     * @class
-     */
-    class Interval1D{
-      constructor(min, max){
-        _.assert(min<=max,"bad interval1D");
-        if(_.feq0(min)) min = 0;
-        if(_.feq0(max)) max = 0;
-        this.min = min;
-        this.max = max;
-      }
-      min(){ return this.min }
-      max(){ return this.max }
-      intersects(that){ return (this.max < that.min || that.max < this.min) ? false : true }
-      contains(x){ return (this.min <= x) && (x <= this.max) }
-      length(){ return this.max - this.min }
-      // ascending order of min endpoint, breaking ties by max endpoint
-      static MinEndpointComparator(a,b){
-        if(a.min < b.min) return -1;
-        if(a.min > b.min) return 1;
-        if(a.max < b.max) return -1;
-        if(a.max > b.max) return 1;
-        return  0;
-      }
-      // ascending order of max endpoint, breaking ties by min endpoint
-      static MaxEndpointComparator(a, b){
-        if(a.max < b.max) return -1;
-        if(a.max > b.max) return 1;
-        if(a.min < b.min) return -1;
-        if(a.min > b.min) return 1;
-        return  0;
-      }
-      // ascending order of length
-      static LengthComparator(a, b){
-        let alen = a.length(),
-            blen = b.length();
-        return alen < blen ? -1 : ( alen > blen ? 1 : 0);
-      }
-      static test(){
-        let ps = [new Interval1D(15.0, 33.0),
-                  new Interval1D(45.0, 60.0),
-                  new Interval1D(20.0, 70.0),
-                  new Interval1D(46.0, 55.0)];
-        console.log("Unsorted");
-        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
-        console.log("Sort by min endpoint");
-        ps.sort(Interval1D.MinEndpointComparator);
-        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
-        console.log("Sort by max endpoint");
-        ps.sort(Interval1D.MaxEndpointComparator);
-        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
-        console.log("Sort by length");
-        ps.sort(Interval1D.LengthComparator);
-        ps.forEach(p=> console.log(`min=${p.min}, max=${p.max}`));
-      }
-    }
-    //Interval1D.test();
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**
-     * @memberof module:mojoh5/util
-     * @class
-     */
-    class Interval2D{
-      constructor(x, y){
-        this.x = x;
-        this.y = y;
-      }
-      intersects(that){
-        if(!this.x.intersects(that.x)) return false;
-        if(!this.y.intersects(that.y)) return false;
-        return true;
-      }
-      contains(p){
-        return x.contains(p[0])  && y.contains(p[1]);
-      }
-      area(){
-        return x.length() * y.length();
-      }
-      static test(){
-      }
-    }
-
-    /**
-     * @memberof module:mojoh5/util
-     * @class
-     */
-    class Point2D{
-      /** Returns the angle of this point in polar coordinates.
-       * @return the angle (in radians) of this point in polar coordiantes (between –&pi; and &pi;)
-       */
-      static theta(p){
-        return Math.atan2(p[1], p[0]);
-      }
-      /**Returns the angle between this point and that point.
-       * @return the angle in radians (between –&pi; and &pi;) between this point and that point (0 if equal)
-       */
-      static angleTo(a,b){
-        return Math.atan2(b[1] - a[1], b[0] - a[0]);
-      }
-      /**Returns true if a-> b-> c is a counterclockwise turn.
-       * @param a first point
-       * @param b second point
-       * @param c third point
-       * @return {number} -1, 0, 1  if a-> b-> c is a { clockwise, collinear; counterclocwise } turn.
-       */
-      static ccw(a, b, c){
-        let area2 = (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
-        if(area2 < 0) return -1;
-        if(area2 > 0) return 1;
-        return  0;
-      }
-      /**Returns twice the signed area of the triangle a-b-c.
-       * @param a first point
-       * @param b second point
-       * @param c third point
-       * @return twice the signed area of the triangle a-b-c
-       */
-      static area2(a, b, c){
-        return (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
-      }
-      /**Returns the Euclidean distance between this point and that point.
-       * @param that the other point
-       * @return the Euclidean distance between this point and that point
-       */
-      static distanceTo(a,b){
-        let dx= a[0] - b[0],
-            dy= a[1] - b[1];
-        return Math.sqrt(dx*dx + dy*dy);
-      }
-      /**Returns the square of the Euclidean distance between this point and that point.
-       * @param that the other point
-       * @return the square of the Euclidean distance between this point and that point
-       */
-      static distanceSquaredTo(a,b){
-        let dx= a[0] - b[0],
-            dy= a[1] - b[1];
-        return dx*dx + dy*dy;
-      }
-      /**Compares two points by y-coordinate, breaking ties by x-coordinate.
-       * Formally, the invoking point (x0, y0) is less than the argument point (x1, y1)
-       * if and only if either {@code y0 < y1} or if {@code y0 == y1} and {@code x0 < x1}.
-       *
-       * @param  that the other point
-       * @return the value {@code 0} if this string is equal to the argument
-       *         string (precisely when {@code equals()} returns {@code true});
-       *         a negative integer if this point is less than the argument
-       *         point; and a positive integer if this point is greater than the
-       *         argument point
-       */
-      static compareTo(a,b){
-        if(a[1] < b[1]) return -1;
-        if(a[1] > b[1]) return 1;
-        if(a[0] < b[0]) return -1;
-        if(a[0] > b[0]) return 1;
-        return 0;
-      }
-      // compare points according to their x-coordinate
-      static XOrderComparator(p, q){
-        return p[0] < q[0] ? -1 : (p[0] > q[0] ? 1:0)
-      }
-      // compare points according to their y-coordinate
-      static YOrderComparator(p, q){
-        return p[1] < q[1] ? -1 : (p[1] > q[1] ? 1 : 0)
-      }
-      // compare points according to their polar radius
-      static ROrderComparator(p, q){
-        let delta = (p[0]*p[0] + p[1]*p[1]) - (q[0]*q[0] + q[1]*q[1]);
-        return delta < 0 ? -1 : (delta > 0 ? 1: 0)
-      }
-      // compare other points relative to atan2 angle (bewteen -pi/2 and pi/2) they make with this Point
-      static Atan2OrderComparator(q1, q2){
-        let angle1 = Point2D.angleTo(q1);
-        let angle2 = Point2D.angleTo(q2);
-        return angle1 < angle2 ? -1 : (angle1 > angle2 ? 1 : 0)
-      }
-      // compare other points relative to polar angle (between 0 and 2pi) they make with this Point
-      static PolarOrderComparator(q){
-        return (q1,q2)=>{
-          let dx1 = q1[0] - q[0];
-          let dy1 = q1[1] - q[1];
-          let dx2 = q2[0] - q[0];
-          let dy2 = q2[1] - q[1];
-          if(dy1 >= 0 && dy2 < 0) return -1;    // q1 above; q2 below
-          if(dy2 >= 0 && dy1 < 0) return 1;    // q1 below; q2 above
-          if(_.feq0(dy1) && _.feq0(dy2)){ // 3-collinear and horizontal
-            if(dx1 >= 0 && dx2 < 0) return -1;
-            if(dx2 >= 0 && dx1 < 0) return 1;
-            return  0;
-          }
-          return - Point2D.ccw(q, q1, q2);     // both above or below
-          // Note: ccw() recomputes dx1, dy1, dx2, and dy2
-        };
-      }
-      // compare points according to their distance to this point
-      static DistanceToOrderComparator(p, q){
-        let dist1 = Point2D.distanceSquaredTo(p);
-        let dist2 = Point2D.distanceSquaredTo(q);
-        return dist1 < dist2 ? -1 : (dist1 > dist2 ? 1 : 0)
-      }
-      static equals(a,b){
-        if(b === a) return true;
-        if(!b) return false;
-        return a[0]== b[0] && a[1] == b[1];
-      }
-      static farthestPair(points){
-        let best1=[0,0], best2=[0,0], bestDistance=0,bestDistSQ= -Infinity;
-        let m,H = Point2D.calcConvexHull(points);
-        // single point
-        if(H===false ||
-           points.length <= 1) return false;
-        // number of points on the hull
-        m = H.length;
-        // the hull, in counterclockwise order hull[1] to hull[m]
-        H.unshift(null);
-        // points are collinear
-        if(m == 2){
-          best1 = H[1];
-          best2 = H[2];
-          bestDistance= Point2D.distanceTo(best1,best2);
-        }else{
-          // k = farthest vertex from edge from hull[1] to hull[m]
-          let j,k = 2;
-          while(Point2D.area2(H[m], H[1], H[k+1]) > Point2D.area2(H[m], H[1], H[k])){ ++k }
-          j = k;
-          for(let d2,i = 1; i <= k && j <= m; ++i){
-            if(Point2D.distanceSquaredTo(H[i],H[j]) > bestDistSQ){
-              bestDistSQ= Point2D.distanceSquaredTo(H[i],H[j]);
-              _V.copy(best1,H[i]);
-              _V.copy(best2,H[j]);
-            }
-            while((j < m) &&
-                  Point2D.area2(H[i], H[i+1], H[j+1]) > Point2D.area2(H[i], H[i+1], H[j])){
-              ++j;
-              //console.log(`${H[i]} and ${H[j]} are antipodal`);
-              d2 = Point2D.distanceSquaredTo(H[i], H[j]);
-              if(d2 > bestDistSQ){
-                bestDistSQ= Point2D.distanceSquaredTo(H[i], H[j]);
-                _V.copy(best1, H[i]);
-                _V.copy(best2, H[j]);
-              }
-            }
-          }
-        }
-        return {best1,best2,bestDistance: Math.sqrt(bestDistSQ)};
-      }
-      static closestPair(points){
-        // sort by x-coordinate (breaking ties by y-coordinate via stability)
-        let best1=[0,0],best2=[0,0],bestDistance=Infinity;
-        let pointsByX = points.slice();
-        const n=points.length;
-        pointsByX.sort(Point2D.YOrderComparator);
-        pointsByX.sort(Point2D.XOrderComparator);
-        // check for coincident points
-        for(let i = 0; i < n-1; ++i){
-          if(Point2D.equals(pointsByX[i],pointsByX[i+1])){
-            _V.copy(best1, pointsByX[i]);
-            _V.copy(best2, pointsByX[i+1]);
-            return{ bestDistance:0, best1, best2 }
-          }
-        }
-        // sort by y-coordinate (but not yet sorted)
-        let pointsByY = pointsByX.slice();
-        let aux = _.fill(n,()=> [0,0]);
-        // find closest pair of points in pointsByX[lo..hi]
-        // precondition:  pointsByX[lo..hi] and pointsByY[lo..hi] are the same sequence of points
-        // precondition:  pointsByX[lo..hi] sorted by x-coordinate
-        // postcondition: pointsByY[lo..hi] sorted by y-coordinate
-        function _closest(pointsByX, pointsByY, aux, lo, hi){
-          if(hi <= lo) return Infinity;
-          let mid = lo + _M.ndiv(hi - lo, 2);
-          let median = pointsByX[mid];
-          // compute closest pair with both endpoints in left subarray or both in right subarray
-          let delta1 = _closest(pointsByX, pointsByY, aux, lo, mid);
-          let delta2 = _closest(pointsByX, pointsByY, aux, mid+1, hi);
-          let delta = Math.min(delta1, delta2);
-          // merge back so that pointsByY[lo..hi] are sorted by y-coordinate
-          _merge(pointsByY, aux, lo, mid, hi);
-          // aux[0..m-1] = sequence of points closer than delta, sorted by y-coordinate
-          let m = 0;
-          for(let i = lo; i <= hi; ++i)
-            if(Math.abs(pointsByY[i][0] - median[0]) < delta) _V.copy(aux[m++],pointsByY[i]);
-          // compare each point to its neighbors with y-coordinate closer than delta
-          for(let i = 0; i < m; ++i){
-            // a geometric packing argument shows that this loop iterates at most 7 times
-            for(let d,j = i+1; (j < m) && (aux[j][1] - aux[i][1] < delta); ++j){
-              d= Point2D.distanceTo(aux[i],aux[j]);
-              if(d< delta){
-                delta = d;
-                if(d< bestDistance){
-                  bestDistance = delta;
-                  _V.copy(best1, aux[i]);
-                  _V.copy(best2, aux[j]);
-                  //console.log(`better distance = ${delta} from ${best1} to ${best2}`);
-                }
-              }
-            }
-          }
-          return delta;
-        }
-        _closest(pointsByX, pointsByY, aux, 0, n-1);
-        return {bestDistance,best1,best2};
-      }
-      /**Computes the convex hull of the specified array of points.
-       *  The {@code GrahamScan} data type provides methods for computing the
-       *  convex hull of a set of <em>n</em> points in the plane.
-       *  <p>
-       *  The implementation uses the Graham-Scan convex hull algorithm.
-       *  It runs in O(<em>n</em> log <em>n</em>) time in the worst case
-       *  and uses O(<em>n</em>) extra memory.
-       * @param  points the array of points
-       */
-      static calcConvexHull(points){
-        _.assert(points && points.length>0, "invalid points");
-        let a0, n=points.length, a= _.deepCopyArray(points);
-        let hull=new Stack();
-        // preprocess so that a[0] has lowest y-coordinate; break ties by x-coordinate
-        // a[0] is an extreme point of the convex hull
-        // (alternatively, could do easily in linear time)
-        a.sort(Point2D.compareTo);
-        a0=a[0];
-        // sort by polar angle with respect to base point a[0],
-        // breaking ties by distance to a[0]
-        //Arrays.sort(a, 1, n, Point2D.polarOrder(a[0]));
-        a.shift();//pop head off
-        a.sort(Point2D.PolarOrderComparator(a0));
-        //put head back
-        a.unshift(a0);
-
-        // a[0] is first extreme point
-        hull.push(a[0]);
-        // find index k1 of first point not equal to a[0]
-        let k1;
-        for(k1 = 1; k1 < n; ++k1)
-          if(!Point2D.equals(a[0],a[k1])) break;
-        if(k1 == n) return false; // all points equal
-        // find index k2 of first point not collinear with a[0] and a[k1]
-        let k2;
-        for(k2 = k1+1; k2 < n; ++k2)
-          if(Point2D.ccw(a[0], a[k1], a[k2]) != 0) break;
-        // a[k2-1] is second extreme point
-        hull.push(a[k2-1]);
-        // Graham scan; note that a[n-1] is extreme point different from a[0]
-        for(let top,i = k2; i < n; ++i){
-          top = hull.pop();
-          while(Point2D.ccw(hull.peek(), top, a[i]) <= 0){
-            top = hull.pop();
-          }
-          hull.push(top);
-          hull.push(a[i]);
-        }
-        //Returns the extreme points on the convex hull in counterclockwise order.
-        let H = new Stack();
-        for(let p,it= hull.iterator();it.hasNext();) H.push(it.next());
-        //check if convex
-        n = H.size();
-        points = [];
-        for(let p,it= H.iterator();it.hasNext();){
-          points.push(_V.clone(it.next()));
-        }
-        if(n > 2){
-          for(let i = 0; i < n; ++i){
-            if(Point2D.ccw(points[i], points[(i+1) % n], points[(i+2) % n]) <= 0)
-            return false;
-          }
-        }
-        return points;
-      }
-      static test_convexHull(){
-        let D=`9230 13137 4096 24064 8192 26112 22016  9344 4440  8028 6505 31422 28462 32343 17152 19200 9561 11599
-               4096 20992 21538  2430 21903 23677 17152 16128 7168 25088 10162 18638 822 32301 16128 12032 18989  3797
-               8192 28160 16128 20224 14080 20224 26112  7296 20367 20436 7486   422 17835  2689 22016  3200 22016  5248
-               24650 16886 15104 20224 25866  4204 13056 15104 13662 10301 17152 20224 15104 12032 6144 20992 26112  3200
-               6144 29184 13056 12032 8128 20992 5076 19172 17152 17152 823 15895 25216  3200 6071 29161 5120 20992
-               10324 22176 29900  9390 27424  7945 4096 23040 12831 27971 29860 12437 28668  2061 1429 12561 29413   596
-               17152 18176 8192 27136 5120 29184 22016 11392 1444 10362 32011  3140 15731 32661 26112  4224 13120 20224
-               30950  2616 4096 22016 4096 25088 24064  3200 26112  5248 4862 30650 5570  8885 21784 18853 23164 32371
-               4160 29184 13056 13056 8192 29184 23040  7296 5120 25088 22016  7296 7168 29184 25216  7296 23040  3200
-               4718  4451 14080 16128 7168 20992 19546 17728 13056 16128 17947 17017 26112  6272 20658  1204 23553 13965
-               13056 14080 14080 12032 24064  7296 21377 26361 17088
-               12032 16128 16128 30875 28560 2542 26201 8192 25088 11444 16973`.split(/\s+/).map(n=>{return +n});
-        let p=[];
-        for(let i=0;i<D.length;i+=2){
-          p.push([D[i],D[i+1]])
-        }
-        p=[[5,15], [5,-20], [-60,10], [70,-10], [-60,-10], [70,10]];
-        //p=[[5,1], [5,-2], [-60,10], [70,-10], [-60,-10], [70,10]];//concave
-        let hull=Point2D.calcConvexHull(p);
-        if(hull===false || hull.length!=p.length){
-          console.log("not convex!");
-        }else{
-          hull.forEach(v=>{ console.log(`${v[0]}, ${v[1]}`) });
-        }
-      }
-      static test_closestPair(){
-        let D=`954 11163 1125 11331 1296 11499 1467 11667 1657 11796 1847 11925 2037 12054 2238 12207 2439 12360
-               2640 12513 2878 12523 3116 12533 3354 12543 3518 12493 3682 12443 3846 12393
-               8463 7794 8022 7527 7581 7260 7140 6993 6731 6624 6322 6255 5913 5886
-               5521 5494 5129 5102 4737 4710 4599 5158`.split(/\s+/).map(n=>{return +n});
-        let ps=[];
-        for(let i=0;i<D.length;i+=2){
-          ps.push([D[i],D[i+1]]);
-        }
-        let {bestDistance,best1, best2}= Point2D.closestPair(ps)
-        console.log(`bestDist=${bestDistance}, p1=${best1}, p2=${best2}`);
-      }
-      static test_farthestPair(){
-        let D=`9230 13137 4096 24064 8192 26112 22016  9344 4440  8028 6505 31422 28462 32343 17152 19200 9561 11599 4096 20992 21538  2430
-               21903 23677 17152 16128 7168 25088 10162 18638 822 32301 16128 12032 18989  3797 8192 28160 16128 20224 14080 20224 26112  7296
-               20367 20436 7486   422 17835  2689 22016  3200 22016  5248 24650 16886 15104 20224 25866  4204 13056 15104 13662 10301 17152 20224
-               15104 12032 6144 20992 26112  3200 6144 29184 13056 12032 8128 20992 5076 19172 17152 17152 823 15895 25216  3200 6071 29161
-               5120 20992 10324 22176 29900  9390 27424  7945 4096 23040 12831 27971 29860 12437 28668  2061 1429 12561 29413   596 17152 18176
-               8192 27136 5120 29184 22016 11392 1444 10362 32011  3140 15731 32661 26112  4224 13120 20224 30950  2616 4096 22016
-               4096 25088 24064  3200 26112  5248 4862 30650 5570  8885 21784 18853 23164 32371 4160 29184 13056 13056 8192 29184 23040  7296
-               5120 25088 22016  7296 7168 29184 25216  7296 23040  3200 4718  4451 14080 16128 7168 20992 19546 17728 13056 16128 17947 17017
-               26112  6272 20658  1204 23553 13965 13056 14080 14080 12032 24064  7296 21377 26361 17088 12032 16128 16128
-               30875 28560 2542 26201 8192 25088 11444 16973`.split(/\s+/).map(n=>{return +n});
-        let ps=[];
-        for(let i=0;i<D.length;i+=2){
-          ps.push([D[i],D[i+1]]);
-        }
-        let {bestDistance,best1, best2}= Point2D.farthestPair(ps)
-        console.log(`bestDist=${bestDistance}, p1=${best1}, p2=${best2}`);
-      }
-    }
-
-    const _$={
-      Point2D, Interval1D, Interval2D
-    };
-
-    return (Mojo["util"]= _$);
-  }
-
-  //export--------------------------------------------------------------------
-  if(typeof module=="object" && module.exports){
-    throw "Panic: browser only"
-  }else{
-    gscope["io/czlab/mojoh5/util"]=(M)=>{
-      return M["util"] ? M["util"] : _module(M) } }
-
-})(this);
-
-
-
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -1578,6 +1095,9 @@
     red:"#eb2224",
     orange:"#f48917",
     grey:"#848685",
+    cyan:"#1ee5e6",
+    lime:"#e5e61e",
+    magenta:"#e61ee5",
     purple:"#a6499a"
   };
   const SomeColors={
@@ -1866,7 +1386,7 @@
       SomeColors:{},
       BtnColors:{},
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
-               "boot/trail.png","boot/star.png",
+               "boot/splash.jpg", "boot/trail.png","boot/star.png",
                "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
@@ -1882,6 +1402,41 @@
        */
       empty(s){
         return s.children.length == 0 },
+      /**Emulate a button press
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} b
+       * @param {number|string} clickedColor
+       * @param {number|string} oldColor
+       * @param {string} snd
+       * @param {function} cb
+       * @return {function}
+       */
+      btnPress(b,c1,c0,snd,cb){
+        let self=this;
+        return function(arg){
+          arg.tint=self.color(c1);
+          if(snd) Mojo.sound(snd).play();
+          _.delay(343,()=>{
+            arg.tint=self.color(c0);
+            cb(arg);
+          });
+        }
+      },
+      /**React to a one off click on canvas.
+       * @memberof module:mojoh5/Sprites
+       * @param {string} snd
+       * @param {function} cb
+       * @return {function}
+       */
+      oneOffClick(snd,cb){
+        let sub= function(){
+          Mojo.Input.off(["single.tap"],sub);
+          if(snd) Mojo.sound(snd).play();
+          cb();
+        };
+        Mojo.Input.on(["single.tap"],sub);
+        return sub;
+      },
       /**Change size of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -2044,7 +1599,7 @@
        * @param {Sprite} s
        * @return {Sprite} s
        */
-      extend(s){
+      lift(s){
         if(!s.m5){
           let self=this;
           s.g={};
@@ -2085,6 +1640,35 @@
           s.getBBox=function(){
             return _.feq0(s.angle)?self.getAABB(s):self.boundingBox(s) };
         }
+        return s;
+      },
+      /**Keep rotation in the range 0 - 2pi
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite}
+       */
+      clamp2Pi(s){
+        if(s.rotation > PI2){ s.rotation -= PI2 }
+        if(s.rotation < 0) { s.rotation += PI2 }
+        return s;
+      },
+      /**Convert polar to cartesian
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {array} [cos,sin]
+       */
+      getHeading(s){
+        return [Math.cos(s.rotation),Math.sin(s.rotation)]
+      },
+      /**Set the rotation value
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} v
+       * @param {boolean} deg [false]
+       * @return {Sprite} s
+       */
+      setOrient(s,v,deg=false){
+        deg ? s.angle=v : s.rotation=v;
         return s;
       },
       /**Convert sprite to a polygonal shape.
@@ -2169,6 +1753,24 @@
        */
       angle(s1, s2){
         return _V.angle(this.centerXY(s1), this.centerXY(s2)) },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      die(s){
+        if(s) s.m5.dead=true;
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @return {Sprite} s
+       */
+      undie(s){
+        if(s) s.m5.dead=false;
+        return s;
+      },
       /**Move a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -2176,7 +1778,13 @@
        * @return {Sprite} s
        */
       move(s,dt){
-        dt=_.nor(dt,1);
+        if(dt){
+          _V.add$(s.m5.vel,_V.mul(s.m5.gravity,dt));
+          _V.add$(s.m5.vel,_V.mul(s.m5.acc,dt));
+          _V.mul$(s.m5.vel, s.m5.friction);
+        }else{
+          dt=1;
+        }
         if(s.m5.maxSpeed !== undefined)
           _V.clamp$(s.m5.vel,0, s.m5.maxSpeed);
         return _V.add$(s,_V.mul(s.m5.vel,dt));
@@ -2436,7 +2044,7 @@
        */
       container(cb){
         let s= new Mojo.PXContainer();
-        s= this.extend(s);
+        s= this.lift(s);
         if(cb){
           cb(s)
         }
@@ -2457,7 +2065,7 @@
        */
       sprite(src, center=false,x=0,y=0){
         let s= _sprite(src, o=> new Mojo.PXSprite(o));
-        s=this.extend(s);
+        s=this.lift(s);
         _V.set(s,x,y);
         if(center)
           this.centerAnchor(s);
@@ -2473,7 +2081,7 @@
         let s= _sprite(src,o=>{
           return new Mojo.PXTSprite(o,width||o.width,height||o.height)
         });
-        return this.extend(s);
+        return this.lift(s);
       },
       /**Tile sprite repeatingly in x and/or y axis.
        * @memberof module:mojoh5/Sprites
@@ -2486,7 +2094,7 @@
        */
       repeatSprite(src,rx=true,ry=true,width=UNDEF,height=UNDEF){
         let xx= ()=>{
-          let s= this.extend(_sprite(src, o=> new Mojo.PXSprite(o)));
+          let s= this.lift(_sprite(src, o=> new Mojo.PXSprite(o)));
           let K=Mojo.getScaleFactor();K=1;
           s.width *= K;
           s.height *= K;
@@ -2631,7 +2239,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        return _V.set(this.extend(new Mojo.PXText(msg,fspec)),x,y) },
+        return _V.set(this.lift(new Mojo.PXText(msg,fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -2652,7 +2260,7 @@
         if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
         if(!fstyle.fontName) fstyle.fontName="unscii";
         if(!fstyle.align) fstyle.align="center";
-        return this.extend(new Mojo.PXBText(msg,fstyle));
+        return this.lift(new Mojo.PXBText(msg,fstyle));
       },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
@@ -2688,7 +2296,7 @@
           g.endFill()
         }
         let s= new Mojo.PXSprite(this.genTexture(g));
-        s=this.extend(s);
+        s=this.lift(s);
 
         if(true){
           if(height<0){
@@ -2739,7 +2347,7 @@
         return this.genTexture(g)
       },
       rectEx(t){
-        return this.extend( new Mojo.PXSprite(t))
+        return this.lift( new Mojo.PXSprite(t))
       },
       /**Create a sprite by applying a drawing routine to the graphics object.
        * @memberof module:mojoh5/Sprites
@@ -2750,7 +2358,7 @@
       drawBody(cb,...args){
         let g = this.graphics();
         cb.apply(this, [g].concat(args));
-        return this.extend(new Mojo.PXSprite(this.genTexture(g))) },
+        return this.lift(new Mojo.PXSprite(this.genTexture(g))) },
       /**Create a circular sprite by generating a texture.
        * @memberof module:mojoh5/Sprites
        * @param {number} radius
@@ -2782,7 +2390,7 @@
       },
       circleEx(t){
         let s=new Mojo.PXSprite(t);
-        s=this.extend(s);
+        s=this.lift(s);
         return (s.m5.circle=true) && this.centerAnchor(s)
       },
       /**Create a line sprite.
@@ -2805,7 +2413,7 @@
           g.lineTo(_b[0], _b[1]);
         }
         _draw();
-        let s=this.extend(g);
+        let s=this.lift(g);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
             _a[0] = x;
@@ -3052,10 +2660,9 @@
             else
               s.parent.removeChild(s);
           }
-          Mojo.off(s);
-          if(s.m5.dispose)
-            s.m5.dispose();
           Mojo.emit(["post.remove",s]);
+          Mojo.off(s);
+          if(s.m5.dispose) s.m5.dispose();
         });
       },
       /**Center this object on the screen.
@@ -3069,7 +2676,7 @@
         if(obj.anchor.x<0.3){
           obj.x -= obj.width/2;
           obj.y -= obj.height/2;
-        }else if(obj.anchor<0.7){
+        }else if(obj.anchor.x<0.7){
         }else{
           _.assert(false, "bad anchor to center");
         }
@@ -4077,6 +3684,1934 @@
       return M.Scenes ? M.Scenes : _module(M, {})
     }
   }
+
+})(this);
+
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+
+;(function(gscope,UNDEF){
+
+  "use strict";
+
+  /**Create the module. */
+  function _module(Mojo, TweensQueue, DustBin){
+
+    const _M=gscope["io/czlab/mcfud/math"]();
+    const _V=gscope["io/czlab/mcfud/vec2"]();
+    const {ute:_, is}=Mojo;
+    const int=Math.floor,
+          P5=Math.PI*5,
+          PI_2= Math.PI/2,
+          TWO_PI= Math.PI*2;
+
+    /**
+     * @module mojoh5/FX
+     */
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function StarWarp(C){
+      const img = Mojo.tcached("boot/star.png");
+      const STAR_BASE_SZ= 0.05;
+      const STAR_STRETCH = 5;
+      const BASE_SPEED = 0.025;
+      const FOV = 20;
+      let cameraZ = 0,
+          speed = 0,
+          warpSpeed = 0;
+      const stars = _.fill(1000, i=>{
+        i={x:0,y:0,z:0, sprite: Mojo.Sprites.sprite(img) };
+        i.sprite.anchor.x = 0.5;
+        i.sprite.anchor.y = 0.7;
+        randStar(i, _.rand()*2000);
+        C.addChild(i.sprite);
+        return i;
+      });
+      function randStar(star, zpos){
+        const deg = _.rand() * TWO_PI,
+              distance = _.rand() * 50 + 1;
+        //calculate star positions with radial random coordinate so no star hits the camera.
+        star.z = _.nor(zpos, cameraZ + _.rand()*1000 + 2000);
+        star.x = Math.cos(deg) * distance;
+        star.y = Math.sin(deg) * distance;
+      }
+      let mark=_.now();
+      return{
+        dispose(){
+          stars.forEach(s=> Mojo.Sprites.remove(s.sprite));
+        },
+        update(dt){
+          let w2=Mojo.width/2,
+              z, h2=Mojo.height/2;
+          speed += (warpSpeed - speed) / 20;
+          cameraZ += dt * 10 * (speed + BASE_SPEED);
+          stars.forEach(s=>{
+            if(s.z < cameraZ) randStar(s);
+            // map star 3d position to 2d with simple projection
+            z = s.z - cameraZ;
+            s.sprite.x = s.x * (FOV/z) * Mojo.width + w2;
+            s.sprite.y = s.y * (FOV/z) * Mojo.width + h2;
+            //calculate star scale & rotation.
+            const dx= s.sprite.x - w2;
+            const dy= s.sprite.y - h2;
+            const d= Math.sqrt(dx* dx+ dy* dy);
+            const ds = Math.max(0, (2000 - z) / 2000);
+            s.sprite.scale.x = ds * STAR_BASE_SZ;
+            // Star is looking towards center so that y axis is towards center.
+            // Scale the star depending on how fast we are moving,
+            // what the stretchfactor is and depending on how far away it is from the center.
+            s.sprite.scale.y = ds * STAR_BASE_SZ + ds * speed * STAR_STRETCH * d / Mojo.width;
+            s.sprite.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+          });
+          let now=_.now();
+          if(now-mark>5000){
+            mark=now;
+            warpSpeed = warpSpeed > 0 ? 0 : 1;
+          }
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function Tween(sprite,easing,duration=60,loop=false,ext={}){
+      return _.inject({
+        duration,
+        sprite,
+        easing,
+        loop,
+        cur:0,
+        on:0,
+        onFrame(end,alpha){},
+        _run(){
+          this.cur=0;
+          this.on=1;
+          TweensQueue.push(this);
+        },
+        onTick(){
+          if(this.on){
+            if(this.cur<this.duration){
+              this.onFrame(false,
+                           this.easing(this.cur/this.duration));
+              this.cur += 1;
+            }else{
+              this.onFrame(true);
+              if(this.loop){
+                if(is.num(this.loop)){
+                  --this.loop
+                }
+                this.onLoopReset()
+                this.cur=0;
+              }else{
+                this.on=0;
+                this.onComplete &&
+                  _.delay(0,()=> this.onComplete());
+                this.dispose();
+              }
+            }
+          }
+        },
+        dispose(){
+          _.disj(TweensQueue,this);
+          Mojo.emit(["tween.disposed"],this);
+        }
+      },ext)
+    }
+
+    /** scale */
+    function TweenScale(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sx,ex,sy,ey){
+          this._x=is.num(ex)?[sx,ex]:null;
+          this._y=is.num(ey)?[sy,ey]:null;
+          this._run();
+        },
+        onLoopReset(){
+          //flip values
+          if(this._x)
+            _.swap(this._x,0,1);
+          if(this._y)
+            _.swap(this._y,0,1);
+        },
+        onFrame(end,dt){
+          if(this._x)
+            this.sprite.scale.x= end ? this._x[1]
+                                     : _M.lerp(this._x[0], this._x[1], dt);
+          if(this._y)
+            this.sprite.scale.y= end ? this._y[1]
+                                     : _M.lerp(this._y[0], this._y[1], dt);
+        }
+      })
+    }
+
+    /** rotation */
+    function TweenAngle(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sa,ea){
+          this._a= [sa,ea];
+          this._run();
+        },
+        onLoopReset(){
+          _.swap(this._a,0,1)
+        },
+        onFrame(end,alpha){
+          this.sprite.rotation= end ? this._a[1]
+                                    : _M.lerp(this._a[0], this._a[1], alpha)
+        }
+      })
+    }
+
+    /** alpha */
+    function TweenAlpha(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sa,ea){
+          this._a= [sa,ea];
+          this._run();
+        },
+        onLoopReset(){
+          _.swap(this._a,0,1)
+        },
+        onFrame(end,alpha){
+          this.sprite.alpha= end ? this._a[1]
+                                 : _M.lerp(this._a[0], this._a[1], alpha)
+        }
+      })
+    }
+
+    /** position */
+    function TweenXY(s,type,frames,loop){
+      return Tween(s,type,frames,loop,{
+        start(sx,ex,sy,ey){
+          this._x=is.num(ex)?[sx,ex]:null;
+          this._y=is.num(ey)?[sy,ey]:null;
+          this._run();
+        },
+        onLoopReset(){
+          //flip values
+          if(this._x)
+            _.swap(this._x,0,1);
+          if(this._y)
+            _.swap(this._y,0,1);
+        },
+        onFrame(end,dt){
+          if(this._x)
+            this.sprite.x= end ? this._x[1]
+                               : _M.lerp(this._x[0], this._x[1], dt);
+          if(this._y)
+            this.sprite.y= end ? this._y[1]
+                               : _M.lerp(this._y[0], this._y[1], dt);
+        }
+      })
+    }
+
+    /** sequence */
+    function BatchTweens(...ts){
+      const t= {
+        children:ts.slice(),
+        onTweenEnd(t){
+          for(let c,i=0;i<this.children.length;++i){
+            c=this.children[i];
+            if(c===t){
+              this.children.splice(i,1);
+              break;
+            }
+          }
+          if(this.children.length==0){
+            this.dispose();
+            this.onComplete &&
+              _.delay(0,()=>this.onComplete());
+          }
+        },
+        size(){
+          return this.children.length },
+        dispose(){
+          Mojo.off(["tween.disposed"],"onTweenEnd",this);
+          this.children.forEach(c=>c.dispose());
+          this.children.length=0;
+        }
+      };
+
+      Mojo.on(["tween.disposed"],"onTweenEnd",t);
+      return t;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _$={
+      /**Easing function: exponential-in.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  EXPO_IN(x){ return x==0 ? 0 : Math.pow(1024, x-1) },
+      /**Easing function: exponential-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  EXPO_OUT(x){ return x==1 ? 1 : 1-Math.pow(2, -10*x) },
+      /**Easing function: exponential-in-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  EXPO_INOUT(x){
+			  return x==0 ? 0
+                    : (x==1) ? 1
+                             : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
+                                          : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
+      /**Easing function: linear.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+	    LINEAR(x){ return x },
+      /**Easing function: smooth.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      SMOOTH(x){ return 3*x*x - 2*x*x*x },
+      /**Easing function: quadratic-smooth.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      SMOOTH_QUAD(x){let n= _$.SMOOTH(x); return n*n},
+      /**Easing function: cubic-smooth.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      SMOOTH_CUBIC(x){let n= _$.SMOOTH(x); return n*n*n},
+      /**Easing function: cubic-ease-in.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_IN_CUBIC(x){ return x*x*x },
+      /**Easing function: cubic-ease-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_OUT_CUBIC(x){ let n=1-x; return 1 - n*n*n },
+      /**Easing function: cubic-ease-in-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_INOUT_CUBIC(x){
+        if(x < 0.5){
+          return 4*x*x*x
+        }else{
+          let n= -2*x+2;
+          return 1- n*n*n/2 } },
+      /**Easing function: quadratic-ease-in.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_IN_QUAD(x){ return x*x },
+      /**Easing function: quadratic-ease-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_OUT_QUAD(x){ return 1 - (1-x) * (1-x) },
+      /**Easing function: quadratic-ease-in-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_INOUT_QUAD(x){
+        if(x < 0.5){
+          return 2*x*x
+        }else{
+          let n= -2*x+2;
+          return 1 - n*n/2 } },
+      /**Easing function: sinusoidal-ease-in.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_IN_SINE(x){ return 1 - Math.cos(x * PI_2) },
+      /**Easing function: sinusoidal-ease-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_OUT_SINE(x){ return Math.sin(x * PI_2) },
+      /**Easing function: sinusoidal-ease-in-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      EASE_INOUT_SINE(x){ return 0.5 - Math.cos(x * Math.PI)/2 },
+      /**Easing function: spline.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      SPLINE(t, a, b, c, d){
+        return (2*b + (c-a)*t +
+               (2*a - 5*b + 4*c - d)*t*t +
+               (-a + 3*b - 3*c + d)*t*t*t) / 2 },
+      /**Easing function: cubic-bezier.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      CUBIC_BEZIER(t, a, b, c, d){
+        return a*t*t*t +
+               3*b*t*t*(1-t) +
+               3*c*t*(1-t)*(1-t) +
+               d*(1-t)*(1-t)*(1-t) },
+      /**Easing function: elastic-in.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  ELASTIC_IN(x){
+        return x==0 ? 0
+                    : x==1 ? 1
+                           : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
+      /**Easing function: elastic-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  ELASTIC_OUT(x){
+        return x==0 ? 0
+                    : x==1 ? 1
+                           : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
+      /**Easing function: elastic-in-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  ELASTIC_INOUT(x){
+        switch(x){
+          case 0: return 0;
+          case 1: return 1;
+          default:
+            x *= 2;
+			      return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
+                       : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5); } },
+      /**Easing function: bounce-in.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+      BOUNCE_IN(x){ return 1 - _$.BOUNCE_OUT(1 - x) },
+      /**Easing function: bounce-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  BOUNCE_OUT(x){
+        if(x < 1/2.75){
+          return 7.5625 * x * x
+        }else if(x < 2/2.75){
+          return 7.5625 * (x -= 1.5/2.75) * x + 0.75
+        }else if(x < 2.5/2.75){
+          return 7.5625 * (x -= 2.25/2.75) * x + 0.9375
+        }else{
+          return 7.5625 * (x -= 2.625/2.75) * x + 0.984375 } },
+      /**Easing function: bounce-in-out.
+       * @memberof module:mojoh5/FX
+       * @param {number} x
+       * @return {number}
+       */
+		  BOUNCE_INOUT(x){
+			  return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
+                       : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5 },
+      /**Create a tween operating on sprite's alpha value.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {number|number[]} endA
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenAlpha}
+       */
+      tweenAlpha(s,type,endA,frames=60,loop=false){
+        const t= TweenAlpha(s,type,frames,loop);
+        let sa=s.alpha;
+        let ea=endA;
+        if(is.vec(endA)){
+          sa=endA[0];
+          ea=endA[1]
+        }
+        return t.start(sa,ea), t;
+      },
+      /**Create a tween operating on sprite's rotation value.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {number|number[]} endA
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenAngle}
+       */
+      tweenAngle(s,type,endA,frames=60,loop=false){
+        const t= TweenAngle(s,type,frames,loop);
+        let sa=s.rotation;
+        let ea=endA;
+        if(is.vec(endA)){
+          sa=endA[0];
+          ea=endA[1]
+        }
+        return t.start(sa,ea), t;
+      },
+      /**Create a tween operating on sprite's scale value.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {null|number|number[]} endX
+       * @param {null|number|number[]} endY
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenScale}
+       */
+      tweenScale(s,type,endX,endY,frames=60,loop=false){
+        const t= TweenScale(s,type,frames,loop);
+        let sx=s.scale.x;
+        let sy=s.scale.y;
+        let ex=endX;
+        let ey=endY;
+        if(is.vec(endX)){
+          sx=endX[0];
+          ex=endX[1]
+        }
+        if(is.vec(endY)){
+          sy=endY[0];
+          ey=endY[1]
+        }
+        if(!is.num(ex)){ sx=ex=null }
+        if(!is.num(ey)){ sy=ey=null }
+        return t.start(sx,ex,sy,ey), t;
+      },
+      /**Create a tween operating on sprite's position.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {number|number[]} endX
+       * @param {number|number[]} endY
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenXY}
+       */
+      tweenXY(s,type,endX,endY,frames=60,loop=false){
+        const t= TweenXY(s,type,frames,loop);
+        let sx=s.x;
+        let sy=s.y;
+        let ex=endX;
+        let ey=endY;
+        if(is.vec(endX)){
+          sx=endX[0];
+          ex=endX[1]
+        }
+        if(is.vec(endY)){
+          sy=endY[0];
+          ey=endY[1]
+        }
+        if(!is.num(ex)){sx=ex=null}
+        if(!is.num(ey)){sy=ey=null}
+        return t.start(sx,ex,sy,ey), t;
+      },
+      /**Slowly fade out this object.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {number} frames
+       * @return {}
+       */
+      fadeOut(s, frames=60){
+        return this.tweenAlpha(s,this.EASE_OUT_SINE,0,frames) },
+      /**Slowly fade in this object.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {number} frames
+       * @return {}
+       */
+      fadeIn(s, frames=60){
+        return this.tweenAlpha(s,this.EASE_OUT_SINE,1,frames) },
+      /**Fades the sprite in and out at a steady rate.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {number} min
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenAlpha}
+       */
+      pulse(s, min=0,frames=60,loop=true){
+        return this.tweenAlpha(s,this.SMOOTH,min,frames,loop) },
+      /**Slide this sprite into view.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {number|number[]} endX
+       * @param {number|number[]} endY
+       * @param {number} frames
+       * @return {TweenXY}
+       */
+      slide(s, type, endX, endY, frames=60){
+        return this.tweenXY(s,type,endX,endY,frames) },
+      /**
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {number|number[]} endX
+       * @param {number|number[]} endY
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenScale}
+       */
+      throb(s, endX=0.9, endY=0.9, frames=60,loop=true){
+        return this.tweenScale(s, this.SMOOTH_QUAD,endX,endY,frames,loop) },
+      /**Scale this sprite.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {number|number[]} endX
+       * @param {number|number[]} endY
+       * @param {number} [frames]
+       * @return {TweenScale}
+       */
+      scale(s, endX=0.5, endY=0.5, frames=60){
+        return this.tweenScale(s,this.SMOOTH,endX,endY,frames) },
+      /**Flashes this sprite.
+       * @memberof module:mojoh5/affects
+       * @param {Sprite} s
+       * @param {number|number[]} scale
+       * @param {number} start
+       * @param {number} end
+       * @param {number} [frames]
+       * @param {boolean} [loop]
+       * @return {TweenScale}
+       */
+      strobe(s, scale=1.3, start=10, end=20, frames=10,loop=true){
+        return this.tweenScale(s,
+                               (v)=> this.SPLINE(v,start,0,1,end), scale,scale,frames,loop) },
+      /**
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {object} bounds {x1,x2,y1,y2}
+       * @param {number} ex
+       * @param {number} ey
+       * @param {number} frames
+       * @param {boolean} [loop]
+       * @return {BatchTweens}
+       */
+      wobble(s, bounds, ex=1.2, ey=1.2, frames=10, loop=true){
+        let {x1,x2,y1,y2}= bounds;
+        return BatchTweens(this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
+                                                              _.or(x2,10)), ex, null, frames,loop),
+                           this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
+                                                              _.or(y2,-10)), null,ey, frames,loop)) },
+      /**
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {Vec2[]} path
+       * @param {number} frames
+       * @return {TweenXY}
+       */
+      followCurve(s, type, path, frames=60){
+        let t= TweenXY(s,type,frames);
+        t.start=function(){ this._run() };
+        t.onFrame=function(end,alpha){
+          if(!end)
+            _V.set(s, _$.CUBIC_BEZIER(alpha, path[0][0], path[1][0], path[2][0], path[3][0]),
+                      _$.CUBIC_BEZIER(alpha, path[0][1], path[1][1], path[2][1], path[3][1]))
+        };
+        return t.start(), t;
+      },
+      /**Make object walk in a path.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {Vec2[]} path
+       * @param {number} duration
+       * @return {TweenXY}
+       */
+      walkPath(s, type, path, duration=300){
+        return (function _calc(cur,frames){
+          let t= _$.tweenXY(s,type,[path[cur][0], path[cur+1][0]],
+                                   [path[cur][1], path[cur+1][1]],frames);
+          t.onComplete=()=>{
+            if(++cur < path.length-1)
+              _.delay(0,()=> _calc(cur,frames)) };
+          return t;
+        })(0, _M.ndiv(duration, path.length));
+      },
+      /**Make object appear to walk in a curved path.
+       * @memberof module:mojoh5/FX
+       * @param {Sprite} s
+       * @param {function} type
+       * @param {Vec2[]} path
+       * @param {number} duration
+       * @return {TweenXY}
+       */
+      walkCurve(s, type, path, duration=300){
+        return (function _calc(cur,frames){
+          let t=_$.followCurve(s, type, path[cur], frames);
+          t.onComplete=()=>{
+            if(++cur < path.length)
+              _.delay(0,()=> _calc(cur,frames)) };
+          return t;
+        })(0, _M.ndiv(duration,path.length));
+      },
+      /**Remove this tween object.
+       * @memberof module:mojoh5/FX
+       * @param {Tween} t
+       */
+      remove(t){
+        t && t.dispose() },
+      /** @ignore */
+      update(dt){
+        _.rseq(TweensQueue, t=> t.onTick(dt));
+        _.rseq(DustBin, p=> p.onTick(dt));
+      },
+      /**Create particles.
+       * @memberof module:mojoh5/FX
+       * @return {}
+       */
+      createParticles(x, y, spriteCtor, container, gravity, mins, maxs, random=true, count= 20){
+        mins= _.patch(mins,{angle:0, size:4, speed:0.3,
+                            scale:0.01, alpha:0.02, rotate:0.01});
+        maxs=_.patch(maxs,{angle:6.28, size:16, speed:3,
+                           scale:0.05, alpha:0.02, rotate:0.03 });
+        _.assert(count>1);
+        gravity[0]=0;
+        function _make(angle){
+          let size = _.randInt2(mins.size, maxs.size);
+          let p= spriteCtor();
+          DustBin.push(p);
+          container.addChild(p);
+          if(p.totalFrames)
+            p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
+          Mojo.Sprites.sizeXY(p, size,size);
+          _V.set(p,x,y);
+          Mojo.Sprites.centerAnchor(p);
+          p.m5.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
+          p.m5.alphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
+          p.m5.angVel = _.randFloat2(mins.rotate, maxs.rotate);
+          let speed = _.randFloat2(mins.speed, maxs.speed);
+          _V.set(p.m5.vel, speed * Math.cos(angle),
+                           speed * Math.sin(angle));
+          //the worker
+          p.onTick=function(){
+            _V.add$(p.m5.vel,gravity);
+            _V.add$(p,p.m5.vel);
+            if(p.scale.x - p.m5.scaleSpeed > 0){
+              p.scale.x -= p.m5.scaleSpeed;
+            }
+            if(p.scale.y - p.m5.scaleSpeed > 0){
+              p.scale.y -= p.m5.scaleSpeed;
+            }
+            p.rotation += p.m5.angVel;
+            p.alpha -= p.m5.alphaSpeed;
+            if(p.alpha <= 0){
+              _.disj(DustBin,p);
+              Mojo.Sprites.remove(p);
+            }
+          };
+        }
+        for(let gap= (maxs.angle-mins.angle)/(count-1),
+                a=mins.angle,i=0; i<count; ++i){
+          _make(random ? _.randFloat2(mins.angle, maxs.angle) : a);
+          a += gap;
+        }
+      },
+      /**Shake this sprite.
+       * @memberof module:mojoh5/FX
+       * @return {}
+       */
+      shake(s, magnitude=16, angular=false,loop=true){
+        let numberOfShakes=10,
+            wrapper={},
+            self = this,
+            counter=1,
+            startX = s.x,
+            startY = s.y,
+            startAngle = s.rotation,
+            startMagnitude= magnitude,
+            //Divide the magnitude into 10 units so that you can
+            //reduce the amount of shake by 10 percent each frame
+            magnitudeUnit = _M.ndiv(magnitude , numberOfShakes);
+        function _upAndDownShake(){
+          if(counter<numberOfShakes){
+            s.x = startX;
+            s.y = startY;
+            magnitude -= magnitudeUnit;
+            s.x += _.randInt2(-magnitude, magnitude);
+            s.y += _.randInt2(-magnitude, magnitude);
+            ++counter;
+          }else{
+            if(loop){
+              magnitude=startMagnitude;
+              counter=1;
+            }else{
+              _.disj(DustBin,wrapper);
+            }
+          }
+        }
+        let tiltAngle = 1;
+        function _angularShake(){
+          if(counter<numberOfShakes){
+            s.rotation = startAngle;
+            magnitude -= magnitudeUnit;
+            s.rotation = magnitude * tiltAngle;
+            ++counter;
+            //yoyo it
+            tiltAngle *= -1;
+          }else{
+            if(loop){
+              magnitude=startMagnitude;
+              counter=1;
+            }else{
+              _.disj(DustBin,wrapper);
+            }
+          }
+        }
+        wrapper.onTick=()=>{
+          return angular ? _angularShake(wrapper)
+                         : _upAndDownShake(wrapper)
+        };
+        DustBin.push(wrapper);
+      },
+      StarWarp
+    };
+
+    return (Mojo.FX= _$);
+  }
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module=="object" && module.exports){
+    throw "Panic: browser only"
+  }else{
+    gscope["io/czlab/mojoh5/FX"]=function(M){
+      return M.FX ? M.FX : _module(M, [], [])
+    }
+  }
+
+})(this);
+
+
+
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+
+;(function(gscope,UNDEF){
+
+  "use strict";
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  /**Create the module. */
+  function _module(Mojo){
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
+    const _V=gscope["io/czlab/mcfud/vec2"]();
+    const _M=gscope["io/czlab/mcfud/math"]();
+    const {Scenes:_Z,
+           Sprites:_S,
+           FX:_F,
+           Input:_I,
+           is, ute:_}=Mojo;
+    const abs=Math.abs,
+          cos=Math.cos,
+          sin=Math.sin,
+          int=Math.floor;
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const R=Math.PI/180,
+          CIRCLE=Math.PI*2;
+
+    /**
+     * @module mojoh5/Ute2D
+     */
+
+    /**
+     * @typedef {object} HealthBarConfig
+     * @property {number} scale scaling factor for drawing
+     * @property {number} width width of the widget
+     * @property {number} height height of the widget
+     * @property {number} lives  default is 3
+     * @property {number} borderWidth default is 4
+     * @property {number|string} line color used for line
+     * @property {number|string} fill color used for fill
+     */
+
+    /**
+     * @typedef {object} HealthBarObj
+     * @property {function} dec decrement live count
+     * @property {number} lives lives remaining
+     * @property {PIXI/Sprite} sprite the visual widget
+     */
+
+    /**
+     * @typedef {object} GaugeUIConfig
+     * @property {number} cx
+     * @property {number} cy
+     * @property {number} scale
+     * @property {number} radius
+     * @property {number} alpha
+     * @property {PIXI/Graphics} gfx
+     * @property {number|string} fill fill color
+     * @property {number|string} line line color
+     * @property {number|string} needle color of the needle
+     * @property {function} update return next value (e.g. speed)
+     */
+
+    /**
+     * @typedef {object} GaugeUIObj
+     * @property {PIXI/Graphics} gfx
+     * @property {function} draw draw the widget
+     */
+
+    /**
+     * @typedef {object} PatrolObj
+     * @property {function} goLeft
+     * @property {function} goRight
+     * @property {function} goUp
+     * @property {function} goDown
+     * @property {function} dispose
+     */
+
+    /**
+     * @typedef {object} PlatformerObj
+     * @property {function} dispose
+     * @property {function} onTick
+     * @property {number} jumpSpeed
+     * @property {number} jumpKey  default is UP key
+     */
+
+    /**
+     * @typedef {object} MazeRunnerObj
+     * @property {function} dispose
+     * @property {function} onTick
+     */
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //internal use only
+		_Z.scene("Splash",{
+      setup(options){
+        let
+          {title,titleFont,titleColor,titleSize}= options,
+          {action,clickSnd}=options,
+          {bg, playMsg,playMsgFont,playMsgColor,playMsgSize,playMsgColor2}= options;
+        let
+          C,
+          self=this,
+          K=Mojo.getScaleFactor();
+
+        //ffc901 yellow
+        //fd5898 pink
+        //e04455 red
+        playMsgFont= playMsgFont || "Doki Lowercase";
+        titleFont= titleFont || "Big Shout Bob";
+        playMsg=playMsg || Mojo.clickPlayMsg();
+        playMsgColor= _.nor(playMsgColor, _S.color("white"));
+        playMsgColor2= _.nor(playMsgColor2, _S.color("#ffc901"));
+        titleColor= _.nor(titleColor, _S.color("#ffc901"));
+        titleSize= _.nor(titleSize, 96*K);
+        playMsgSize= _.nor(playMsgSize, 64*K);
+
+        self.insert(_S.fillMax( _S.sprite(bg?bg:"boot/splash.jpg")));
+        C= self.insert(_S.container());
+        if(1){
+          let s=_S.bmpText(title, titleFont,titleSize);
+          if(titleColor) _S.tint(s,titleColor);
+          _V.set(s,Mojo.width/2,Mojo.height*0.3);
+          C.addChild(_S.anchorXY(s,0.5));
+        }
+        if(1){
+          let s=_S.bmpText(playMsg,playMsgFont,playMsgSize);
+          let t=_F.throb(s,0.747,0.747);
+          _S.oneOffClick(clickSnd,()=>{
+            _S.tint(s,playMsgColor2);
+            _F.remove(t);
+            _F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
+            //_F.tweenScale(C,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
+          });
+          _V.set(s,Mojo.width/2,Mojo.height*0.5);
+          C.addChild(_S.anchorXY(s,0.5));
+        }
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("EndGame",{
+      setup(options){
+        let {fontName,fontSize,msg,replay,quit}= options;
+        let {winner,snd}=options;
+
+        if(winner){
+          snd=snd||"game_win.mp3";
+        }else{
+          snd=snd||"game_over.mp3";
+        }
+
+        _.assert(fontSize, "expected fontSize");
+        fontName=fontName || "Doki Lowercase";
+
+        let
+          os={fontName, fontSize},
+          space=()=>_S.opacity(_S.bmpText("I",os),0),
+          s1=_S.bmpText("Game Over", os),
+          s2=_S.bmpText(msg||"", os),
+          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
+          s5=_S.bmpText(" or ",os),
+          s6=_I.mkBtn(_S.bmpText("Quit",os));
+        s4.m5.press=()=>_Z.runEx(replay.name,replay.cfg);
+        s6.m5.press=()=>_Z.runEx(quit.name,quit.cfg);
+        Mojo.sound(snd).play();
+        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("PhotoMat",{
+      setup(arg){
+        if(arg.cb){ arg.cb(this) }else{
+          let s= arg.image? Mojo.tcached(arg.image): UNDEF;
+          this.g.gfx=_S.graphics();
+          if(s)
+            this.g.gfx.beginTextureFill({texture:s});
+          else
+            this.g.gfx.beginFill(_S.color(arg.color));
+          //top,bottom
+          this.g.gfx.drawRect(0,0,Mojo.width,arg.y1);
+          this.g.gfx.drawRect(0,arg.y2,Mojo.width,Mojo.height-arg.y2);
+          //left,right
+          this.g.gfx.drawRect(0,0,arg.x1,Mojo.height);
+          this.g.gfx.drawRect(arg.x2,0,Mojo.width-arg.x2,Mojo.height);
+          this.g.gfx.endFill();
+          this.insert(this.g.gfx);
+        }
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("HotKeys",{
+      setup(options){
+        let {char_fire, char_down,char_up,char_left,char_right}=options;
+        let {fontName,fontSize,cb,radius,alpha,color}=options;
+        let bs,F,U,D,L,R;
+        let opstr= options.buttons?"makeButton":"makeHotspot";
+
+        _.assert(is.num(fontSize),"expected fontsize");
+        _.assert(is.num(radius),"expected radius");
+        _.assert(is.fun(cb),"expected callback");
+
+        fontName=fontName||"Doki Lowercase";
+        alpha=alpha || 0.2;
+        color=_.nor(color,"grey");
+
+        char_down=char_down||"-";
+        char_up=char_up||"+";
+        char_left=char_left||"<";
+        char_right=char_right||">";
+        char_fire=char_fire||"^";
+
+        D= _S.opacity(_S.circle(radius,color),alpha);
+        D.addChild(_S.anchorXY(_S.bmpText(char_down,fontName,fontSize),0.5));
+        U= _S.opacity(_S.circle(radius,color),alpha);
+        U.addChild(_S.anchorXY(_S.bmpText(char_up,fontName,fontSize),0.5));
+        L= _S.opacity(_S.circle(radius,color),alpha);
+        L.addChild(_S.anchorXY(_S.bmpText(char_left,fontName,fontSize),0.5));
+        R= _S.opacity(_S.circle(radius,color),alpha);
+        R.addChild(_S.anchorXY(_S.bmpText(char_right,fontName,fontSize),0.5));
+        if(options.fire){
+          F= _S.opacity(_S.circle(radius,color),alpha);
+          F.addChild(_S.anchorXY(_S.bmpText(char_fire,fontName,fontSize),0.5));
+        }
+        bs=cb(F?{left:L,right:R,down:D,up:U,fire:F}:{left:L,right:R,down:D,up:U});
+        if(bs.right){
+          this.insert(_I[opstr](bs.right));
+          if(bs.right.m5.hotspot)
+            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
+        }
+        if(bs.left){
+          this.insert(_I[opstr](bs.left));
+          if(bs.left.m5.hotspot)
+            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
+        }
+        if(bs.up){
+          this.insert(_I[opstr](bs.up));
+          if(bs.up.m5.hotspot)
+            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
+        }
+        if(bs.down){
+          this.insert(_I[opstr](bs.down));
+          if(bs.down.m5.hotspot)
+            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
+        }
+        if(bs.fire){
+          this.insert(_I[opstr](bs.fire));
+          if(bs.fire.m5.hotspot)
+            bs.fire.m5.touch=(o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE);
+        }
+        if(options.extra)
+          options.extra(this);
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    _Z.scene("AudioIcon",{
+      setup(arg){
+        let {xOffset,yOffset,xScale,yScale}=arg;
+        let {cb,iconOn,iconOff}= arg;
+        let {Sound}=Mojo;
+        let K=Mojo.getScaleFactor(),
+          s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
+
+        xScale= _.nor(xScale, K*2);
+        yScale= _.nor(yScale, K*2);
+        xOffset= _.nor(xOffset, -10*K);
+        yOffset= _.nor(yOffset, 0);
+        _S.scaleXY(_S.opacity(s,0.343),xScale,yScale);
+        _V.set(s,Mojo.width-s.width+xOffset, 0+yOffset);
+
+        s.m5.showFrame(Sound.sfx()?0:1);
+        s.m5.press=()=>{
+          if(Sound.sfx()){
+            Sound.mute();
+            s.m5.showFrame(1);
+          }else{
+            Sound.unmute();
+            s.m5.showFrame(0);
+          }
+        };
+        this.insert(s);
+      }
+    });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
+    _Z.scene("StarfieldBg",{
+      setup(o){
+        _.patch(o,{
+          height:Mojo.height,
+          width:Mojo.width,
+          count:100,
+          minVel:15,
+          maxVel:30
+        });
+        const self=this,
+              stars=[],
+              W=0xffffff,
+              gfx=_S.graphics();
+        _.inject(this.g,{
+          gfx,
+          stars,
+          lag:0,
+          dynamic:true,
+          fps: 1/o.fps,
+          draw(){
+            gfx.clear();
+            stars.forEach(s=>{
+              gfx.beginFill(W);
+              gfx.drawRect(s.x, s.y, s.size, s.size);
+              gfx.endFill();
+            });
+            return this;
+          },
+          moveStars(dt){
+            this.lag +=dt;
+            if(this.lag>=this.fps){
+              this.lag=0;
+              stars.forEach(s=>{
+                s.y += dt * s.vel;
+                if(s.y > o.height){
+                  _V.set(s, _.randInt(o.width), 0);
+                  s.size=_.randInt(4);
+                  s.vel=(_.rand()*(o.maxVel- o.minVel))+o.minVel;
+                }
+              });
+              this.draw();
+            }
+          }
+        });
+        if(o.static)
+          this.g.dynamic=false;
+        for(let i=0; i<o.count; ++i)
+          stars[i] = {x: _.rand()*o.width,
+                      y: _.rand()*o.height,
+                      size:_.rand()*3+1,
+                      vel:(_.rand()*(o.maxVel- o.minVel))+o.minVel};
+        this.g.draw() && this.insert(gfx);
+      },
+      postUpdate(dt){
+        this.g.dynamic ? this.g.moveStars(dt) : 0
+      }
+    },{fps:90, count:100, minVel:15, maxVel:30 });
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Emit something every so often...
+     * @class
+     */
+    class Periodic{
+      constructor(ctor,intervalSecs,size=16){
+        this._interval=intervalSecs;
+        this._ctor=ctor;
+        this._timer=0;
+        this._size=size
+        this._pool=_.fill(size,ctor);
+      }
+      lifeCycle(dt){
+        this._timer += dt;
+        if(this._timer > this._interval){
+          this._timer = 0;
+          this.discharge();
+        }
+      }
+      discharge(){
+        throw `Periodic: please implement action()` }
+      reclaim(o){
+        if(this._pool.length<this._size) this._pool.push(o)
+      }
+      _take(){
+        return this._pool.length>0? this._pool.pop(): this._ctor()
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function Camera(e,worldWidth,worldHeight,canvas){
+      const _height= canvas?canvas.height:worldHeight,
+        _width= canvas?canvas.width:worldWidth,
+        h2=_M.ndiv(_height,2),
+        w2=_M.ndiv(_width,2),
+        h4=_M.ndiv(_height,4),
+        w4=_M.ndiv(_width,4),
+        sigs=[],
+        world=e;
+      let _x=0;
+      let _y=0;
+      let self={
+        dispose(){ Mojo.off(self) },
+        //changing the camera's xy pos shifts
+        //pos of the world in the opposite direction
+        set x(v){ _x=v; e.x= -_x },
+        set y(v){ _y=v; e.y= -_y },
+        get x(){ return _x },
+        get y(){ return _y },
+        worldHeight,
+        worldWidth,
+        width: _width,
+        height: _height,
+        follow(s){
+          //Check the sprites position in relation to the viewport.
+          //Move the camera to follow the sprite if the sprite
+          //strays outside the viewport
+          const bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s)
+                                   : Mojo.Sprites.boundingBox(s);
+          const _right=()=>{ if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }},
+            _left=()=>{ if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }},
+            _top=()=>{ if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }},
+            _bottom=()=>{ if(bx.y2> this.y+int(h2+h4)){ this.y = bx.y2- h4*3 }};
+          ////
+          _left();  _right();  _top();  _bottom();
+          //clamp the camera
+          if(this.x<0){ this.x = 0 }
+          if(this.y<0){ this.y = 0 }
+          if(this.x+_width > worldWidth){ this.x= worldWidth - _width }
+          if(this.y+_height > worldHeight){ this.y= worldHeight - _height }
+          //contain the object
+          let {x1,x2,y1,y2}=s.m5.getImageOffsets();
+          let n= bx.x2 - x2;
+          if(n>worldWidth){ s.x -= (n-worldWidth) }
+          n=bx.y2 - y2;
+          if(n>worldHeight){ s.y -= (n-worldHeight) }
+          n=bx.x1 + x1;
+          if(n<0) { s.x += -n }
+          n=bx.y1  + y1;
+          if(n<0) { s.y += -n }
+        },
+        centerOver:function(s,y){
+          if(arguments.length==1 && !is.num(s)){
+            let c=Mojo.Sprites.centerXY(s)
+            this.x = c[0]- w2;
+            this.y = c[1] - h2;
+          }else{
+            if(is.num(s)) this.x=s - w2;
+            if(is.num(y)) this.y=y - h2;
+          }
+        }
+      };
+      //////
+      Mojo.on(["post.remove",e],"dispose",self);
+      return self;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function Meander(e){
+      const colls=[];
+      const self={
+        dispose(){ Mojo.off(self) },
+        boom(col){
+          _.assert(col.A===e,"got hit by someone else???");
+          if(col.B && col.B.m5.sensor){
+            Mojo.emit(["bump.sensor", col.B], col.A)
+          }else{
+            let b=0,[dx,dy]= e.m5.vel;
+            col.impact=UNDEF;
+            //update position
+            _V.sub$(e,col.overlapV);
+            if(col.overlapN[1] < -0.3){
+              if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
+              col.impact=abs(dy);
+              Mojo.emit(["bump.top", e],col);
+            }
+            if(col.overlapN[1] > 0.3){
+              if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
+              col.impact=abs(dy);
+              Mojo.emit(["bump.bottom",e],col);
+            }
+            if(col.overlapN[0] < -0.3){
+              if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
+              col.impact=abs(dx);
+              Mojo.emit(["bump.left",e],col);
+            }
+            if(col.overlapN[0] > 0.3){
+              if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
+              col.impact=abs(dx);
+              Mojo.emit(["bump.right",e],col);
+            }
+            if(col.impact===UNDEF){
+              col.impact=0
+            }else{
+              Mojo.emit(["bump.*",e],col);
+            }
+          }
+          colls.push(col);
+        }
+      };
+
+      Mojo.on(["hit",e],"boom", self);
+      Mojo.on(["post.remove",e],"dispose",self);
+
+      return function(dt){
+        colls.length=0;
+        Mojo.Sprites.move(e,dt);
+        e.parent.collideXY(e);
+        return colls[0];
+      };
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function Jitter(e,jumpSpeed,jumpKey){
+
+      jumpKey= _.nor(jumpKey, Mojo.Input.UP);
+      jumpSpeed= _.nor(jumpSpeed,-300);
+
+      //give some time to ease into or outof that ground state
+      //instead of just on or off ground,
+      let jumpCnt=0,
+        ground=0,
+        j3= jumpSpeed/3;
+
+      const self={
+        dispose(){
+          Mojo.off(self)
+        },
+        onGround(){
+          ground=0.24
+        },
+      };
+
+      Mojo.on(["bump.bottom",e],"onGround",self);
+
+      return function(dt,col){
+        if(!e.m5.skipHit){
+          let vs= e.m5.speed,
+            pR= Mojo.Input.keyDown(Mojo.Input.RIGHT),
+            pL= Mojo.Input.keyDown(Mojo.Input.LEFT),
+            pU= Mojo.Input.keyDown(jumpKey);
+          if(col && (pL || pR || ground>0)){
+            //too steep to go up or down
+            if(col.overlapN[1] > 0.85 ||
+               col.overlapN[1] < -0.85){ col= null }
+          }
+          if(pL && !pR){
+            e.m5.heading = Mojo.LEFT;
+            if(col && ground>0){
+              _V.set(e.m5.vel, vs * col.overlapN[1], -vs * col.overlapN[0])
+            }else{
+              _V.setX(e.m5.vel,-vs)
+            }
+          }else if(pR && !pL){
+            e.m5.heading = Mojo.RIGHT;
+            if(col && ground>0){
+              _V.set(e.m5.vel, -vs * col.overlapN[1], vs * col.overlapN[0])
+            }else{
+              _V.setX(e.m5.vel, vs)
+            }
+          }else{
+            _V.setX(e.m5.vel,0);
+          }
+          //handle jumpy things, very first jump
+          if(ground>0 && jumpCnt==0 && pU){
+            _V.setY(e.m5.vel, jumpSpeed);
+            jumpCnt +=1;
+            ground = -dt;
+          }else if(pU){
+            //held long enough, tell others it's jumping
+            if(jumpCnt<2){
+              jumpCnt +=1;
+              Mojo.emit(["jump",e]);
+            }
+          }
+          if(jumpCnt && !pU){
+            jumpCnt = 0;
+            Mojo.emit(["jumped",e]);
+            if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
+          }
+          if(ground>0) e.m5.vel[1]=0;
+        }
+        ground -=dt;
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function MazeRunner(e,frames){
+      const self={
+        dispose(){
+          Mojo.off(self)
+        }
+      };
+      //e.m5.heading=Mojo.UP;
+      return function(dt,col){
+        let [vx,vy]=e.m5.vel,
+          vs=e.m5.speed,
+          mx = !_.feq0(vx),
+          my = !_.feq0(vy);
+        if(!(mx&&my) && frames){
+          if(my){
+            if(is.obj(frames))
+              e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
+            else if (frames){
+              e.angle=vy>0?180:0;
+            }
+          }
+          if(mx){
+            if(is.obj(frames))
+              e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
+            else if(frames){
+              e.angle=vx>0?90:-90;
+            }
+          }
+        }
+        let r,d,l,u;
+        if(Mojo.u.touchOnly){
+          r=e.m5.heading==Mojo.RIGHT;
+          l=e.m5.heading==Mojo.LEFT;
+          u=e.m5.heading==Mojo.UP;
+          d=e.m5.heading==Mojo.DOWN;
+        }else{
+          r=Mojo.Input.keyDown(Mojo.Input.RIGHT) && Mojo.RIGHT;
+          d=Mojo.Input.keyDown(Mojo.Input.DOWN) && Mojo.DOWN;
+          l=Mojo.Input.keyDown(Mojo.Input.LEFT) && Mojo.LEFT;
+          u=Mojo.Input.keyDown(Mojo.Input.UP) && Mojo.UP;
+        }
+        if(l||u){vs *= -1}
+        if(l&&r){
+          _V.setX(e.m5.vel,0);
+        }else if(l||r){
+          e.m5.heading= l||r;
+          _V.setX(e.m5.vel,vs); }
+        if(u&&d){
+          _V.setY(e.m5.vel,0);
+        }else if(u||d){
+          e.m5.heading= u||d;
+          _V.setY(e.m5.vel,vs);
+        }
+      }
+    }
+
+    /**Sprite walks back and forth, like a patrol.
+     * @memberof module:mojoh5/Ute2D
+     * @param {PIXI/Sprite} e
+     * @param {boolean} xDir walk left and right
+     * @param {boolean} yDir walk up and down
+     * @return {PatrolObj}
+     */
+    function Patrol(e,xDir,yDir){
+      const sigs=[];
+      const self={
+        dispose(){
+          Mojo.off(self)
+        },
+        goLeft(col){
+          e.m5.heading=Mojo.LEFT;
+          e.m5.flip= "x";
+          _V.setX(e.m5.vel, -col.impact);
+        },
+        goRight(col){
+          e.m5.heading=Mojo.RIGHT;
+          e.m5.flip= "x";
+          _V.setX(e.m5.vel, col.impact);
+        },
+        goUp(col){
+          _V.setY(e.m5.vel,-col.impact);
+          e.m5.heading=Mojo.UP;
+          e.m5.flip= "y";
+        },
+        goDown(col){
+          _V.setY(e.m5.vel, col.impact);
+          e.m5.heading=Mojo.DOWN;
+          e.m5.flip= "y";
+        }
+      };
+      if(xDir){
+        Mojo.on(["bump.right",e],"goLeft",self);
+        Mojo.on(["bump.left",e],"goRight",self);
+      }
+      if(yDir){
+        Mojo.on(["bump.top",e],"goDown",self);
+        Mojo.on(["bump.bottom",e],"goUp",self);
+      }
+      Mojo.on(["post.remove",e],"dispose",self);
+      return self;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _$={
+      Periodic,
+      Meander,
+      Camera,
+      Patrol,
+      Jitter,
+      MazeRunner,
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      //steering stuff
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {vec2} pos
+       */
+      seek(s, pos){
+        let dv = _V.unit$(_V.sub(pos,s));
+        if(dv){
+          _V.mul$(dv, s.m5.maxSpeed);
+          _V.sub$(dv, s.m5.vel);
+          _V.add$(s.m5.steer,dv);
+        }
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {vec2} pos
+       * @param {number} range
+       */
+      flee(s, pos,range){
+        //only flee if the target is within 'panic distance'
+        let dv=_V.sub(s,pos), n=_V.len2(dv);
+        if(range === undefined)
+          range= s.m5.steerInfo.tooCloseDistance;
+        if(n>range*range){}else{
+          if(!_V.unit$(dv)) dv=[0.1,0.1];
+          _V.mul$(dv, s.m5.maxSpeed);
+          _V.sub$(dv, s.m5.vel);
+          _V.add$(s.m5.steer, dv);
+        }
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {vec2} pos
+       * @param {number} range
+       */
+      arrive(s, pos,range){
+        let r=1, n= _V.dist(s,pos),
+            dv = _V.unit$(_V.sub(pos,s));
+        if(range === undefined)
+          range= s.m5.steerInfo.arrivalThreshold;
+        if(n>range){}else{ r=n/range }
+        _V.mul$(dv,s.m5.maxSpeed * r);
+        _V.sub$(dv,s.m5.vel);
+        _V.add$(s.m5.steer,dv);
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {Sprite} target
+       */
+      pursue(s,target){
+        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+            predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
+        return this.seek(s,predicted);
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {Sprite} target
+       */
+      evade(s,target){
+        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+            predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
+        return this.flee(s, predicted);
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @return {Sprite}
+       */
+      idle(s){
+        _V.mul$(s.m5.vel,0);
+        _V.mul$(s.m5.steer,0);
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       */
+      wander(s){
+        let offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
+            n=_V.len(offset),
+            center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
+        offset[0] = Math.cos(s.m5.steerInfo.wanderAngle) * n;
+        offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
+        s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
+        _V.add$(s.m5.steer, _V.add$(center,offset));
+        return s;
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {Sprite} targetA
+       * @param {Sprite} targetB
+       */
+      interpose(s,targetA, targetB){
+        let mid= _V.div$(_V.add(targetA,targetB),2),
+            dt= _V.dist(s,mid) / s.m5.maxSpeed,
+            pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
+            pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
+        return this.seek(s, _V.div$(_V.add$(pA,pB),2));
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {array} ents
+       * @param {number} separationRadius
+       * @param {number} maxSeparation
+       */
+      separation(s, ents, separationRadius=300, maxSeparation=100){
+        let force = [0,0],
+            neighborCount = 0;
+        ents.forEach(e=>{
+          if(e !== s && _V.dist(e,s) < separationRadius){
+            _V.add$(force,_V.sub(e,s));
+            ++neighborCount;
+          }
+        });
+        if(neighborCount > 0){
+          _V.flip$(_V.div$(force,neighborCount))
+        }
+        _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {Sprite} leader
+       * @param {array} ents
+       * @param {number} distance
+       * @param {number} separationRadius
+       * @param {number} maxSeparation
+       * @param {number} leaderSightRadius
+       * @param {number} arrivalThreshold
+       */
+      followLeader(s,leader, ents, distance=400, separationRadius=300,
+                   maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
+
+        function isOnLeaderSight(s,leader, ahead, leaderSightRadius){
+          return _V.dist(ahead,s) < leaderSightRadius ||
+                 _V.dist(leader,s) < leaderSightRadius
+        }
+
+        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
+        let ahead = _V.add(leader,tv);
+        _V.flip$(tv);
+        let behind = _V.add(leader,tv);
+        if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
+          this.evade(s,leader);
+        }
+        this.arrive(s,behind,arrivalThreshold);
+        return this.separation(s,ents, separationRadius, maxSeparation);
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {array} ents
+       * @param {number} maxQueueAhead
+       * @param {number} maxQueueRadius
+       */
+      queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
+
+        function getNeighborAhead(){
+          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
+          let res, ahead = _V.add(s, qa);
+          for(let d,i=0; i<ents.length; ++i){
+            if(ents[i] !== s &&
+               _V.dist(ahead,ents[i]) < maxQueueRadius){
+              res = ents[i];
+              break;
+            }
+          }
+          return res;
+        }
+
+        let neighbor = getNeighborAhead();
+        let brake = [0,0],
+            v = _V.mul(s.m5.vel,1);
+        if(neighbor){
+          brake = _V.mul$(_V.flip(s.m5.steer),0.8);
+          _V.unit$(_V.flip$(v));
+          _V.add$(brake,v);
+          if(_V.dist(s,neighbor) < maxQueueRadius){
+            _V.mul$(s.m5.vel,0.3)
+          }
+        }
+        _V.add$(s.m5.steer,brake);
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {array} ents
+       */
+      flock(s, ents){
+
+        function inSight(e){
+          return _V.dist(s,e) > s.m5.steerInfo.inSightDistance ? false
+                                        : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
+        }
+
+        let inSightCount = 0,
+            averagePosition = [0,0],
+            averageVelocity = _V.mul(s.m5.vel,1);
+
+        ents.forEach(e=>{
+          if(e !== this && inSight(e)){
+            _V.add$(averageVelocity,e.m5.vel);
+            _V.add$(averagePosition,e);
+            if(_V.dist(s,e) < s.m5.steerInfo.tooCloseDistance){
+              this.flee(s, e)
+            }
+            ++inSightCount;
+          }
+        });
+        if(inSightCount>0){
+          _V.div$(averageVelocity, inSightCount);
+          _V.div$(averagePosition,inSightCount);
+          this.seek(s,averagePosition);
+          _V.add$(s.m5.steer, _V.sub$(averageVelocity, s.m5.vel));
+        }
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {array} path
+       * @param {boolean} loop
+       * @param {number} thresholdRadius
+       */
+      followPath(s, path, loop, thresholdRadius=1){
+        let wayPoint = path[s.m5.pathIndex];
+        if(!wayPoint){return}
+        if(_V.dist(s, wayPoint) < thresholdRadius){
+          if(s.m5.pathIndex >= path.length-1){
+            if(loop)
+              s.m5.pathIndex = 0;
+          }else{
+            s.m5.pathIndex += 1;
+          }
+        }
+        if(s.m5.pathIndex >= path.length-1 && !loop){
+          this.arrive(s,wayPoint)
+        }else{
+          this.seek(s,wayPoint)
+        }
+      },
+      /**
+       * @memberof module:mojoh5/Ute2D
+       * @param {Sprite} s
+       * @param {array} obstacles
+       */
+      avoid(s,obstacles){
+        let dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
+            ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
+            ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
+            avoidance, mostThreatening = null;
+        for(let c,i=0; i<obstacles.length; ++i){
+          if(obstacles[i] === this) continue;
+          c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
+              _V.dist(obstacles[i],ahead2) <= obstacles[i].m5.radius;
+          if(c)
+            if(mostThreatening === null ||
+               _V.dist(s,obstacles[i]) < _V.dist(s, mostThreatening)){
+              mostThreatening = obstacles[i]
+            }
+        }
+        if(mostThreatening){
+          avoidance = _V.mul$(_V.unit$(_V.sub(ahead,mostThreatening)),100);
+          _V.add$(s.m5.steer,avoidance);
+        }
+      },
+      /**Check if there’s clear line of sight between two sprites.
+       * memberof module:mojoh5/Sprites
+       * @param {Sprite} s1
+       * @param {Sprite} s2
+       * @param {any[]} obstacles
+       * @return {boolean}
+       */
+      lineOfSight(s1, s2, obstacles){
+        let c1=_S.centerXY(s1),
+            c2=_S.centerXY(s2);
+        for(let b,rc,s,o,i=0;i<obstacles.length;++i){
+          o=obstacles[i];
+          if(o.m5.circle){
+            rc=Geo.hitTestLineCircle(c1,c2, o.x, o.y, o.width/2)
+          }else{
+            rc=Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(_S.toPolygon(o),o.x,o.y))
+          }
+          if(rc[0]) return false;
+        }
+        return true;
+      },
+      /**Create a projectile being fired out of a shooter.
+       * @memberof module:mojoh5/Ute2D
+       * @param {any} src
+       * @param {number} angle
+       * @param {number} speed
+       * @param {function} ctor
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite}
+       */
+      shoot(src, angle, speed, ctor,x,y){
+        let b=ctor(),
+            soff=Mojo.Sprites.topLeftOffsetXY(src);
+        _V.add$(soff,[x,y]);
+        _V.copy(b,_V.add(src,soff));
+        _V.set(b.m5.vel, Math.cos(angle) * speed,
+                         Math.sin(angle) * speed);
+        return b;
+      },
+      /**Create a HealthBar widget.
+       * @memberof module:mojoh5/Ute2D
+       * @param {HealthBarConfig} cfg
+       * @return {HealthBarObj}
+       */
+      healthBar(arg){
+        let {scale:K,width,height,
+             lives,borderWidth,line,fill}=arg;
+        let c,padding=4*K,fit=4*K,out=[];
+        borderWidth = (borderWidth||4)*K;
+        lives= lives||3;
+        fill=_S.color(fill);
+        line=_S.color(line);
+        for(let r,w=_M.ndiv(width,lives), i=0;i<lives;++i){
+          out.push(_S.rect(w,height-2*borderWidth,fill))
+        }
+        return{
+          dec(){
+            if(this.lives>0){
+              this.lives -= 1;
+              out[this.lives].visible=false;
+            }
+            return this.lives>0;
+          },
+          lives: out.length,
+          sprite: _Z.layoutX(out,{bg:["#cccccc",0],
+                                  borderWidth,
+                                  border:line,padding,fit})
+        }
+      },
+      //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
+      /**Create a gauge like speedometer.
+       * @memberof module:mojoh5/Ute2D
+       * @param {GaugeUIConfig} cfg
+       * @return {GaugeUIObj}
+       */
+      gaugeUI(arg){
+        let {minDeg,maxDeg,
+             line,gfx,scale:K,
+             cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
+        const segs= [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315];
+        function getPt(x, y, r,rad){ return[x + r * cos(rad), y + r * sin(rad) ] }
+        function drawTig(x, y, rad, size){
+          let [sx,sy] = getPt(x, y, radius - 4*K, rad),
+              [ex,ey] = getPt(x, y, radius - 12*K, rad);
+          gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
+          gfx.moveTo(sx, sy);
+          gfx.lineTo(ex, ey);
+          gfx.closePath();
+        }
+        function drawPtr(r,color, rad){
+          let [px,py]= getPt(cx, cy, r - 20*K, rad),
+              [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
+              [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
+          gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
+          gfx.moveTo(p2x, p2y);
+          gfx.lineTo(px, py);
+          gfx.lineTo(p3x, p3y);
+          gfx.closePath();
+          gfx.lineStyle({color:line});
+          gfx.beginFill(line);
+          gfx.drawCircle(cx,cy,9*K);
+          gfx.endFill();
+        }
+        needle=_S.color(needle);
+        line=_S.color(line);
+        fill=_S.color(fill);
+        radius *= K;
+        return {
+          gfx,
+          draw(){
+            gfx.clear();
+            gfx.lineStyle({width: radius/8,color:line});
+            gfx.beginFill(fill, alpha);
+            gfx.drawCircle(cx, cy, radius);
+            gfx.endFill();
+            segs.forEach(s=> drawTig(cx, cy, s, 7*K));
+            drawPtr(radius*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
+          }
+        }
+      }
+    };
+
+    return (Mojo["Ute2D"]= _$);
+  }
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module=="object" && module.exports){
+    throw "Panic: browser only"
+  }else{
+    gscope["io/czlab/mojoh5/Ute2D"]=(M)=>{
+      return M["Ute2D"] ? M["Ute2D"] : _module(M) } }
 
 })(this);
 
@@ -5368,1891 +6903,6 @@
 
 
 /* Licensed under the Apache License, Version 2.0 (the "License");
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
-
-;(function(gscope,UNDEF){
-
-  "use strict";
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**Create the module. */
-  function _module(Mojo){
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Geo=gscope["io/czlab/mcfud/geo2d"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {Scenes:_Z,
-           Sprites:_S,
-           Input:_I,
-           is, ute:_}=Mojo;
-    const abs=Math.abs,
-          cos=Math.cos,
-          sin=Math.sin,
-          int=Math.floor;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const R=Math.PI/180,
-          CIRCLE=Math.PI*2;
-
-    /**
-     * @module mojoh5/Arcade
-     */
-
-    /**
-     * @typedef {object} HealthBarConfig
-     * @property {number} scale scaling factor for drawing
-     * @property {number} width width of the widget
-     * @property {number} height height of the widget
-     * @property {number} lives  default is 3
-     * @property {number} borderWidth default is 4
-     * @property {number|string} line color used for line
-     * @property {number|string} fill color used for fill
-     */
-
-    /**
-     * @typedef {object} HealthBarObj
-     * @property {function} dec decrement live count
-     * @property {number} lives lives remaining
-     * @property {PIXI/Sprite} sprite the visual widget
-     */
-
-    /**
-     * @typedef {object} GaugeUIConfig
-     * @property {number} cx
-     * @property {number} cy
-     * @property {number} scale
-     * @property {number} radius
-     * @property {number} alpha
-     * @property {PIXI/Graphics} gfx
-     * @property {number|string} fill fill color
-     * @property {number|string} line line color
-     * @property {number|string} needle color of the needle
-     * @property {function} update return next value (e.g. speed)
-     */
-
-    /**
-     * @typedef {object} GaugeUIObj
-     * @property {PIXI/Graphics} gfx
-     * @property {function} draw draw the widget
-     */
-
-    /**
-     * @typedef {object} PatrolObj
-     * @property {function} goLeft
-     * @property {function} goRight
-     * @property {function} goUp
-     * @property {function} goDown
-     * @property {function} dispose
-     */
-
-    /**
-     * @typedef {object} PlatformerObj
-     * @property {function} dispose
-     * @property {function} onTick
-     * @property {number} jumpSpeed
-     * @property {number} jumpKey  default is UP key
-     */
-
-    /**
-     * @typedef {object} MazeRunnerObj
-     * @property {function} dispose
-     * @property {function} onTick
-     */
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("EndGame",{
-      setup(options){
-        let {action1,action2,scene1,scene2}=options;
-        let {fontName,fontSize,msg}= options;
-        fontName= fontName|| "Doki Lowercase";
-        action1=action1||"Play Again?";
-        action2=action2||"Quit";
-        scene1=scene1||"PlayGame";
-        scene2=scene2||"Splash";
-        msg=msg||" ";
-        _.assert(fontSize,"expected font size");
-        let os={fontName,fontSize},
-          space=()=> _S.opacity(_S.bmpText("I",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(msg, os),
-          s4=_I.mkBtn(_S.bmpText(action1,os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText(action2,os));
-        s4.m5.press=()=> _Z.runEx(scene1);
-        s6.m5.press=()=> _Z.runEx(scene2);
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("PhotoMat",{
-      setup(arg){
-        if(arg.cb){ arg.cb(this) }else{
-          let s= arg.image? Mojo.tcached(arg.image): UNDEF;
-          this.g.gfx=_S.graphics();
-          if(s)
-            this.g.gfx.beginTextureFill({texture:s});
-          else
-            this.g.gfx.beginFill(_S.color(arg.color));
-          //top,bottom
-          this.g.gfx.drawRect(0,0,Mojo.width,arg.y1);
-          this.g.gfx.drawRect(0,arg.y2,Mojo.width,Mojo.height-arg.y2);
-          //left,right
-          this.g.gfx.drawRect(0,0,arg.x1,Mojo.height);
-          this.g.gfx.drawRect(arg.x2,0,Mojo.width-arg.x2,Mojo.height);
-          this.g.gfx.endFill();
-          this.insert(this.g.gfx);
-        }
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("HotKeys",{
-      setup(options){
-        let {fontName,fontSize,cb,radius,alpha,color}=options;
-        let {char_down,char_up,char_left,char_right}=options;
-        let bs,U,D,L,R;
-        let opstr= options.buttons?"makeButton":"makeHotspot";
-
-        _.assert(is.num(fontSize),"expected fontsize");
-        _.assert(is.num(radius),"expected radius");
-        _.assert(is.fun(cb),"expected callback");
-
-        fontName=fontName||"Doki Lowercase";
-        alpha=alpha || 0.2;
-        color=_.nor(color,"grey");
-        char_down=char_down||"-";
-        char_up=char_up||"+";
-        char_left=char_left||"<";
-        char_right=char_right||">";
-        D= _S.opacity(_S.circle(radius,color),alpha);
-        D.addChild(_S.anchorXY(_S.bmpText(char_down,fontName,fontSize),0.5));
-        U= _S.opacity(_S.circle(radius,color),alpha);
-        U.addChild(_S.anchorXY(_S.bmpText(char_up,fontName,fontSize),0.5));
-        L= _S.opacity(_S.circle(radius,color),alpha);
-        L.addChild(_S.anchorXY(_S.bmpText(char_left,fontName,fontSize),0.5));
-        R= _S.opacity(_S.circle(radius,color),alpha);
-        R.addChild(_S.anchorXY(_S.bmpText(char_right,fontName,fontSize),0.5));
-        bs=cb({left:L,right:R,down:D,up:U});
-        if(bs.right){
-          this.insert(_I[opstr](bs.right));
-          if(bs.right.m5.hotspot)
-            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
-        }
-        if(bs.left){
-          this.insert(_I[opstr](bs.left));
-          if(bs.left.m5.hotspot)
-            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
-        }
-        if(bs.up){
-          this.insert(_I[opstr](bs.up));
-          if(bs.up.m5.hotspot)
-            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
-        }
-        if(bs.down){
-          this.insert(_I[opstr](bs.down));
-          if(bs.down.m5.hotspot)
-            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
-        }
-        if(options.extra)
-          options.extra(this);
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    _Z.scene("AudioIcon",{
-      setup(arg){
-        let {xOffset,yOffset,xScale,yScale}=arg;
-        let {cb,iconOn,iconOff}= arg;
-        let {Sound}=Mojo;
-        let K=Mojo.getScaleFactor(),
-          s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
-
-        xScale= _.nor(xScale, K*2);
-        yScale= _.nor(yScale, K*2);
-        xOffset= _.nor(xOffset, -10*K);
-        yOffset= _.nor(yOffset, 0);
-        _S.scaleXY(_S.opacity(s,0.343),xScale,yScale);
-        _V.set(s,Mojo.width-s.width+xOffset, 0+yOffset);
-
-        s.m5.showFrame(Sound.sfx()?0:1);
-        s.m5.press=()=>{
-          if(Sound.sfx()){
-            Sound.mute();
-            s.m5.showFrame(1);
-          }else{
-            Sound.unmute();
-            s.m5.showFrame(0);
-          }
-        };
-        this.insert(s);
-      }
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
-    _Z.scene("StarfieldBg",{
-      setup(o){
-        _.patch(o,{
-          height:Mojo.height,
-          width:Mojo.width,
-          count:100,
-          minVel:15,
-          maxVel:30
-        });
-        const self=this,
-              stars=[],
-              W=0xffffff,
-              gfx=_S.graphics();
-        _.inject(this.g,{
-          gfx,
-          stars,
-          lag:0,
-          dynamic:true,
-          fps: 1/o.fps,
-          draw(){
-            gfx.clear();
-            stars.forEach(s=>{
-              gfx.beginFill(W);
-              gfx.drawRect(s.x, s.y, s.size, s.size);
-              gfx.endFill();
-            });
-            return this;
-          },
-          moveStars(dt){
-            this.lag +=dt;
-            if(this.lag>=this.fps){
-              this.lag=0;
-              stars.forEach(s=>{
-                s.y += dt * s.vel;
-                if(s.y > o.height){
-                  _V.set(s, _.randInt(o.width), 0);
-                  s.size=_.randInt(4);
-                  s.vel=(_.rand()*(o.maxVel- o.minVel))+o.minVel;
-                }
-              });
-              this.draw();
-            }
-          }
-        });
-        if(o.static)
-          this.g.dynamic=false;
-        for(let i=0; i<o.count; ++i)
-          stars[i] = {x: _.rand()*o.width,
-                      y: _.rand()*o.height,
-                      size:_.rand()*3+1,
-                      vel:(_.rand()*(o.maxVel- o.minVel))+o.minVel};
-        this.g.draw() && this.insert(gfx);
-      },
-      postUpdate(dt){
-        this.g.dynamic ? this.g.moveStars(dt) : 0
-      }
-    },{fps:90, count:100, minVel:15, maxVel:30 });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**Emit something every so often...
-     * @class
-     */
-    class PeriodicDischarge{
-      constructor(ctor,intervalSecs,size=16){
-        this._interval=intervalSecs;
-        this._ctor=ctor;
-        this._timer=0;
-        this._size=size
-        this._pool=_.fill(size,ctor);
-      }
-      lifeCycle(dt){
-        this._timer += dt;
-        if(this._timer > this._interval){
-          this._timer = 0;
-          this.discharge();
-        }
-      }
-      discharge(){
-        throw `PeriodicCharge: please implement action()` }
-      reclaim(o){
-        if(this._pool.length<this._size) this._pool.push(o)
-      }
-      _take(){
-        return this._pool.length>0? this._pool.pop(): this._ctor()
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**Define a mixin object. */
-    Mojo.mixin("arcade",function(e, ...minors){
-      const {Sprites}= Mojo,
-            subs=[],
-            sigs=[],
-            colls=[],
-            self={
-              dispose(){
-                subs.forEach(s=> s.dispose());
-                sigs.forEach(s=> Mojo.off(...s)) },
-              boom(col){
-                _.assert(col.A===e,"got hit by someone else???");
-                if(col.B && col.B.m5.sensor){
-                  Mojo.emit(["2d.sensor", col.B], col.A)
-                }else{
-                  let [dx,dy]= e.m5.vel;
-                  col.impact=null;
-                  _V.sub$(e,col.overlapV);
-                  if(col.overlapN[1] < -0.3){
-                    if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
-                    col.impact = abs(dy);
-                    Mojo.emit(["bump.top", e],col);
-                  }
-                  if(col.overlapN[1] > 0.3){
-                    if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
-                    col.impact = abs(dy);
-                    Mojo.emit(["bump.bottom",e],col);
-                  }
-                  if(col.overlapN[0] < -0.3){
-                    if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
-                    col.impact = abs(dx);
-                    Mojo.emit(["bump.left",e],col);
-                  }
-                  if(col.overlapN[0] > 0.3){
-                    if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
-                    col.impact = abs(dx);
-                    Mojo.emit(["bump.right",e],col);
-                  }
-                  if(is.num(col.impact)){
-                    Mojo.emit(["bump",e],col)
-                  }else{
-                    col.impact=0
-                  }
-                }
-                colls.shift(col);
-              },
-              onTick(dt){
-                colls.length=0;
-                if(is.num(dt)){
-                  _V.add$(e.m5.vel,_V.mul(e.m5.gravity,dt));
-                  _V.add$(e.m5.vel,_V.mul(e.m5.acc,dt));
-                  _V.mul$(e.m5.vel, e.m5.friction);
-                }
-                e.parent.collideXY(Sprites.move(e,dt));
-                subs.forEach(s=> s.onTick(dt,colls));
-              }
-            };
-      //_.assert(e.parent && e.parent.collideXY, "no parent or parent.collideXY");
-      sigs.push([["hit",e],"boom",self],
-                [["post.remove",e],"dispose",self]);
-      sigs.forEach(s=> Mojo.on(...s));
-      minors.forEach(m=>{
-        let o,f=m[0];
-        m[0]=e;
-        o=f(...m);
-        if(o.onTick)
-          subs.push(o);
-        _.assert(is.str(f.name)) && (self[f.name]=o);
-      });
-      return self;
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**Define mixin `camera`. */
-    Mojo.mixin("camera2d", function(e,worldWidth,worldHeight,canvas){
-      let _x=0;
-      let _y=0;
-      const _height= canvas?canvas.height:worldHeight,
-            _width= canvas?canvas.width:worldWidth,
-            height2=_M.ndiv(_height,2),
-            width2=_M.ndiv(_width,2),
-            height4=_M.ndiv(_height,4),
-            width4=_M.ndiv(_width,4),
-            {Sprites}=Mojo,
-            sigs=[],
-            world=e,
-            self={
-              dispose(){ sigs.forEach(s=>Mojo.off(...s)) },
-              //changing the camera's xy pos shifts
-              //pos of the world in the opposite direction
-              set x(v){ _x=v; e.x= -_x },
-              set y(v){ _y=v; e.y= -_y },
-              get x(){ return _x },
-              get y(){ return _y },
-              worldHeight: worldHeight,
-              worldWidth: worldWidth,
-              width: _width,
-              height: _height,
-              follow(s){
-                //Check the sprites position in relation to the viewport.
-                //Move the camera to follow the sprite if the sprite
-                //strays outside the viewport
-                const bx= _.feq0(s.angle)? Sprites.getAABB(s)
-                                         : Sprites.boundingBox(s);
-                const _right=()=>{
-                  if(bx.x2> this.x+int(width2+width4)){ this.x = bx.x2-width4*3 }},
-                _left=()=>{
-                  if(bx.x1< this.x+int(width2-width4)){ this.x = bx.x1-width4 }},
-                _top=()=>{
-                  if(bx.y1< this.y+int(height2-height4)){ this.y = bx.y1-height4 }},
-                _bottom=()=>{
-                  if(bx.y2> this.y+int(height2+height4)){ this.y = bx.y2- height4*3 }};
-                _left();  _right();  _top();  _bottom();
-                //clamp the camera
-                if(this.x<0){ this.x = 0 }
-                if(this.y<0){ this.y = 0 }
-                if(this.x+_width > worldWidth){ this.x= worldWidth - _width }
-                if(this.y+_height > worldHeight){ this.y= worldHeight - _height }
-                //contain the object
-                let {x1,x2,y1,y2}=s.m5.getImageOffsets();
-                let n= bx.x2 - x2;
-                if(n>worldWidth){ s.x -= (n-worldWidth) }
-                n=bx.y2 - y2;
-                if(n>worldHeight){ s.y -= (n-worldHeight) }
-                n=bx.x1 + x1;
-                if(n<0) { s.x += -n }
-                n=bx.y1  + y1;
-                if(n<0) { s.y += -n }
-              },
-              centerOver:function(s,y){
-                if(arguments.length==1 && !is.num(s)){
-                  let c=Sprites.centerXY(s)
-                  this.x = c[0]- width2;
-                  this.y = c[1] - height2;
-                }else{
-                  if(is.num(s)) this.x=s - width2;
-                  if(is.num(y)) this.y=y - height2;
-                }
-              }
-            };
-      sigs.push([["post.remove",e],"dispose",self]);
-      return (sigs.forEach(e=>Mojo.on(...e)), self);
-    });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const _$={
-      PeriodicDischarge,
-      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      //steering stuff
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {vec2} pos
-       */
-      seek(s, pos){
-        let dv = _V.unit$(_V.sub(pos,s));
-        if(dv){
-          _V.mul$(dv, s.m5.maxSpeed);
-          _V.sub$(dv, s.m5.vel);
-          _V.add$(s.m5.steer,dv);
-        }
-        return s;
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {vec2} pos
-       * @param {number} range
-       */
-      flee(s, pos,range){
-        //only flee if the target is within 'panic distance'
-        let dv=_V.sub(s,pos), n=_V.len2(dv);
-        if(range === undefined)
-          range= s.m5.steerInfo.tooCloseDistance;
-        if(n>range*range){}else{
-          if(!_V.unit$(dv)) dv=[0.1,0.1];
-          _V.mul$(dv, s.m5.maxSpeed);
-          _V.sub$(dv, s.m5.vel);
-          _V.add$(s.m5.steer, dv);
-        }
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {vec2} pos
-       * @param {number} range
-       */
-      arrive(s, pos,range){
-        let r=1, n= _V.dist(s,pos),
-            dv = _V.unit$(_V.sub(pos,s));
-        if(range === undefined)
-          range= s.m5.steerInfo.arrivalThreshold;
-        if(n>range){}else{ r=n/range }
-        _V.mul$(dv,s.m5.maxSpeed * r);
-        _V.sub$(dv,s.m5.vel);
-        _V.add$(s.m5.steer,dv);
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {Sprite} target
-       */
-      pursue(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
-        return this.seek(s,predicted);
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {Sprite} target
-       */
-      evade(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
-        return this.flee(s, predicted);
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @return {Sprite}
-       */
-      idle(s){
-        _V.mul$(s.m5.vel,0);
-        _V.mul$(s.m5.steer,0);
-        return s;
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       */
-      wander(s){
-        let offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
-            n=_V.len(offset),
-            center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
-        offset[0] = Math.cos(s.m5.steerInfo.wanderAngle) * n;
-        offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
-        s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
-        _V.add$(s.m5.steer, _V.add$(center,offset));
-        return s;
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {Sprite} targetA
-       * @param {Sprite} targetB
-       */
-      interpose(s,targetA, targetB){
-        let mid= _V.div$(_V.add(targetA,targetB),2),
-            dt= _V.dist(s,mid) / s.m5.maxSpeed,
-            pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
-            pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
-        return this.seek(s, _V.div$(_V.add$(pA,pB),2));
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {array} ents
-       * @param {number} separationRadius
-       * @param {number} maxSeparation
-       */
-      separation(s, ents, separationRadius=300, maxSeparation=100){
-        let force = [0,0],
-            neighborCount = 0;
-        ents.forEach(e=>{
-          if(e !== s && _V.dist(e,s) < separationRadius){
-            _V.add$(force,_V.sub(e,s));
-            ++neighborCount;
-          }
-        });
-        if(neighborCount > 0){
-          _V.flip$(_V.div$(force,neighborCount))
-        }
-        _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {Sprite} leader
-       * @param {array} ents
-       * @param {number} distance
-       * @param {number} separationRadius
-       * @param {number} maxSeparation
-       * @param {number} leaderSightRadius
-       * @param {number} arrivalThreshold
-       */
-      followLeader(s,leader, ents, distance=400, separationRadius=300,
-                   maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
-
-        function isOnLeaderSight(s,leader, ahead, leaderSightRadius){
-          return _V.dist(ahead,s) < leaderSightRadius ||
-                 _V.dist(leader,s) < leaderSightRadius
-        }
-
-        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
-        let ahead = _V.add(leader,tv);
-        _V.flip$(tv);
-        let behind = _V.add(leader,tv);
-        if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
-          this.evade(s,leader);
-        }
-        this.arrive(s,behind,arrivalThreshold);
-        return this.separation(s,ents, separationRadius, maxSeparation);
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {array} ents
-       * @param {number} maxQueueAhead
-       * @param {number} maxQueueRadius
-       */
-      queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
-
-        function getNeighborAhead(){
-          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
-          let res, ahead = _V.add(s, qa);
-          for(let d,i=0; i<ents.length; ++i){
-            if(ents[i] !== s &&
-               _V.dist(ahead,ents[i]) < maxQueueRadius){
-              res = ents[i];
-              break;
-            }
-          }
-          return res;
-        }
-
-        let neighbor = getNeighborAhead();
-        let brake = [0,0],
-            v = _V.mul(s.m5.vel,1);
-        if(neighbor){
-          brake = _V.mul$(_V.flip(s.m5.steer),0.8);
-          _V.unit$(_V.flip$(v));
-          _V.add$(brake,v);
-          if(_V.dist(s,neighbor) < maxQueueRadius){
-            _V.mul$(s.m5.vel,0.3)
-          }
-        }
-        _V.add$(s.m5.steer,brake);
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {array} ents
-       */
-      flock(s, ents){
-
-        function inSight(e){
-          return _V.dist(s,e) > s.m5.steerInfo.inSightDistance ? false
-                                        : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
-        }
-
-        let inSightCount = 0,
-            averagePosition = [0,0],
-            averageVelocity = _V.mul(s.m5.vel,1);
-
-        ents.forEach(e=>{
-          if(e !== this && inSight(e)){
-            _V.add$(averageVelocity,e.m5.vel);
-            _V.add$(averagePosition,e);
-            if(_V.dist(s,e) < s.m5.steerInfo.tooCloseDistance){
-              this.flee(s, e)
-            }
-            ++inSightCount;
-          }
-        });
-        if(inSightCount>0){
-          _V.div$(averageVelocity, inSightCount);
-          _V.div$(averagePosition,inSightCount);
-          this.seek(s,averagePosition);
-          _V.add$(s.m5.steer, _V.sub$(averageVelocity, s.m5.vel));
-        }
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {array} path
-       * @param {boolean} loop
-       * @param {number} thresholdRadius
-       */
-      followPath(s, path, loop, thresholdRadius=1){
-        let wayPoint = path[s.m5.pathIndex];
-        if(!wayPoint){return}
-        if(_V.dist(s, wayPoint) < thresholdRadius){
-          if(s.m5.pathIndex >= path.length-1){
-            if(loop)
-              s.m5.pathIndex = 0;
-          }else{
-            s.m5.pathIndex += 1;
-          }
-        }
-        if(s.m5.pathIndex >= path.length-1 && !loop){
-          this.arrive(s,wayPoint)
-        }else{
-          this.seek(s,wayPoint)
-        }
-      },
-      /**
-       * @memberof module:mojoh5/Arcade
-       * @param {Sprite} s
-       * @param {array} obstacles
-       */
-      avoid(s,obstacles){
-        let dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
-            ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
-            ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
-            avoidance, mostThreatening = null;
-        for(let c,i=0; i<obstacles.length; ++i){
-          if(obstacles[i] === this) continue;
-          c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
-              _V.dist(obstacles[i],ahead2) <= obstacles[i].m5.radius;
-          if(c)
-            if(mostThreatening === null ||
-               _V.dist(s,obstacles[i]) < _V.dist(s, mostThreatening)){
-              mostThreatening = obstacles[i]
-            }
-        }
-        if(mostThreatening){
-          avoidance = _V.mul$(_V.unit$(_V.sub(ahead,mostThreatening)),100);
-          _V.add$(s.m5.steer,avoidance);
-        }
-      },
-      /**Check if there’s clear line of sight between two sprites.
-       * memberof module:mojoh5/Sprites
-       * @param {Sprite} s1
-       * @param {Sprite} s2
-       * @param {any[]} obstacles
-       * @return {boolean}
-       */
-      lineOfSight(s1, s2, obstacles){
-        let c1=_S.centerXY(s1),
-            c2=_S.centerXY(s2);
-        for(let b,rc,s,o,i=0;i<obstacles.length;++i){
-          o=obstacles[i];
-          if(o.m5.circle){
-            rc=Geo.hitTestLineCircle(c1,c2, o.x, o.y, o.width/2)
-          }else{
-            rc=Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(_S.toPolygon(o),o.x,o.y))
-          }
-          if(rc[0]) return false;
-        }
-        return true;
-      },
-      /**Create a projectile being fired out of a shooter.
-       * @memberof module:mojoh5/Arcade
-       * @param {any} src
-       * @param {number} angle
-       * @param {number} speed
-       * @param {function} ctor
-       * @param {number} x
-       * @param {number} y
-       * @return {Sprite}
-       */
-      shoot(src, angle, speed, ctor,x,y){
-        let b=ctor(),
-            soff=Mojo.Sprites.topLeftOffsetXY(src);
-        _V.add$(soff,[x,y]);
-        _V.copy(b,_V.add(src,soff));
-        _V.set(b.m5.vel, Math.cos(angle) * speed,
-                         Math.sin(angle) * speed);
-        return b;
-      },
-      /**Create a HealthBar widget.
-       * @memberof module:mojoh5/Arcade
-       * @param {HealthBarConfig} cfg
-       * @return {HealthBarObj}
-       */
-      healthBar(arg){
-        let {scale:K,width,height,
-             lives,borderWidth,line,fill}=arg;
-        let c,padding=4*K,fit=4*K,out=[];
-        borderWidth = (borderWidth||4)*K;
-        lives= lives||3;
-        fill=_S.color(fill);
-        line=_S.color(line);
-        for(let r,w=_M.ndiv(width,lives), i=0;i<lives;++i){
-          out.push(_S.rect(w,height-2*borderWidth,fill))
-        }
-        return{
-          dec(){
-            if(this.lives>0){
-              this.lives -= 1;
-              out[this.lives].visible=false;
-            }
-            return this.lives>0;
-          },
-          lives: out.length,
-          sprite: _Z.layoutX(out,{bg:["#cccccc",0],
-                                  borderWidth,
-                                  border:line,padding,fit})
-        }
-      },
-      //modified from original source: codepen.io/johan-tirholm/pen/PGYExJ
-      /**Create a gauge like speedometer.
-       * @memberof module:mojoh5/Arcade
-       * @param {GaugeUIConfig} cfg
-       * @return {GaugeUIObj}
-       */
-      gaugeUI(arg){
-        let {minDeg,maxDeg,
-             line,gfx,scale:K,
-             cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
-        const segs= [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315];
-        function getPt(x, y, r,rad){ return[x + r * cos(rad), y + r * sin(rad) ] }
-        function drawTig(x, y, rad, size){
-          let [sx,sy] = getPt(x, y, radius - 4*K, rad),
-              [ex,ey] = getPt(x, y, radius - 12*K, rad);
-          gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
-          gfx.moveTo(sx, sy);
-          gfx.lineTo(ex, ey);
-          gfx.closePath();
-        }
-        function drawPtr(r,color, rad){
-          let [px,py]= getPt(cx, cy, r - 20*K, rad),
-              [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
-              [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
-          gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
-          gfx.moveTo(p2x, p2y);
-          gfx.lineTo(px, py);
-          gfx.lineTo(p3x, p3y);
-          gfx.closePath();
-          gfx.lineStyle({color:line});
-          gfx.beginFill(line);
-          gfx.drawCircle(cx,cy,9*K);
-          gfx.endFill();
-        }
-        needle=_S.color(needle);
-        line=_S.color(line);
-        fill=_S.color(fill);
-        radius *= K;
-        return {
-          gfx,
-          draw(){
-            gfx.clear();
-            gfx.lineStyle({width: radius/8,color:line});
-            gfx.beginFill(fill, alpha);
-            gfx.drawCircle(cx, cy, radius);
-            gfx.endFill();
-            segs.forEach(s=> drawTig(cx, cy, s, 7*K));
-            drawPtr(radius*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
-          }
-        }
-      },
-      /**Sprite walks back and forth, like a patrol.
-       * @memberof module:mojoh5/Arcade
-       * @param {PIXI/Sprite} e
-       * @param {boolean} xDir walk left and right
-       * @param {boolean} yDir walk up and down
-       * @return {PatrolObj}
-       */
-      Patrol(e,xDir,yDir){
-        const sigs=[];
-        const self={
-          dispose(){
-            sigs.forEach(a=>Mojo.off(...a)) },
-          goLeft(col){
-            e.m5.heading=Mojo.LEFT;
-            e.m5.flip= "x";
-            _V.setX(e.m5.vel, -col.impact);
-          },
-          goRight(col){
-            e.m5.heading=Mojo.RIGHT;
-            e.m5.flip= "x";
-            _V.setX(e.m5.vel, col.impact);
-          },
-          goUp(col){
-            _V.setY(e.m5.vel,-col.impact);
-            e.m5.heading=Mojo.UP;
-            e.m5.flip= "y";
-          },
-          goDown(col){
-            _V.setY(e.m5.vel, col.impact);
-            e.m5.heading=Mojo.DOWN;
-            e.m5.flip= "y";
-          }
-        };
-        sigs.push([["post.remove",e],"dispose",self]);
-        if(xDir){
-          //e.m5.heading=Mojo.LEFT;
-          sigs.push([["bump.right",e],"goLeft",self],
-                    [["bump.left",e],"goRight",self]);
-        }
-        if(yDir){
-          //e.m5.heading=Mojo.UP;
-          sigs.push([["bump.top",e],"goDown",self],
-                    [["bump.bottom",e],"goUp",self]);
-        }
-        sigs.forEach(a=>Mojo.on(...a));
-        return self;
-      },
-      /**Enhance sprite to move like mario
-       * @memberof module:mojoh5/Arcade
-       * @param {PIXI/Sprite} e
-       * @return {PlatformerObj}
-       */
-      Platformer(e){
-        const {Input, Sprites}=Mojo;
-        const sigs=[];
-        const self={
-          jumpKey: Input.UP,
-          jumpSpeed: -300,
-          _jumping:0,
-          _ground:0,
-          dispose(){
-            sigs.forEach(s=> Mojo.off(...s)) },
-          onGround(){ self._ground=0.24 },
-          onTick(dt,colls){
-            if(!e.m5.skipHit)
-              this._onTick(dt,colls)
-            self._ground -=dt;
-          },
-          _onTick(dt,colls){
-            let col=colls[0],
-                vs= e.m5.speed,
-                j3= self.jumpSpeed/3,
-                pR= Input.keyDown(Input.RIGHT),
-                pL= Input.keyDown(Input.LEFT),
-                pU= Input.keyDown(self.jumpKey);
-            if(col && (pL || pR || self._ground>0)){
-              //too steep to go up or down
-              if(col.overlapN[1] > 0.85 ||
-                 col.overlapN[1] < -0.85){ col= null } }
-            if(pL && !pR){
-              e.m5.heading = Mojo.LEFT;
-              if(col && self._ground>0){
-                _V.set(e.m5.vel, vs * col.overlapN[0],
-                                 -vs * col.overlapN[1])
-              }else{
-                _V.setX(e.m5.vel,-vs)
-              }
-            }else if(pR && !pL){
-              e.m5.heading = Mojo.RIGHT;
-              if(col && self._ground>0){
-                _V.set(e.m5.vel, -vs * col.overlapN[0],
-                                 vs * col.overlapN[1])
-              }else{
-                _V.setX(e.m5.vel, vs)
-              }
-            }else{
-              _V.setX(e.m5.vel,0);
-              if(col && self._ground>0)
-                _V.setY(e.m5.vel,0);
-            }
-            //handle jumpy things
-            if(self._ground>0 && !self._jumping && pU){
-              _V.setY(e.m5.vel,self.jumpSpeed);
-              self._jumping +=1;
-              self._ground = -dt;
-            }else if(pU){
-              //held long enough, tell others it's jumping
-              if(self._jumping<2){
-                self._jumping +=1;
-                Mojo.emit(["jump",e]);
-              }
-            }
-            if(self._jumping && !pU){
-              self._jumping = 0;
-              Mojo.emit(["jumped",e]);
-              if(e.m5.vel[1] < j3){ e.m5.vel[1] = j3 }
-            }
-          }
-        };
-        sigs.push([["bump.bottom",e],"onGround",self]);
-        sigs.forEach(s=> Mojo.on(...s));
-        return self;
-      },
-      /**Enhance sprite to move like pacman.
-       * @memberof module:mojoh5/Arcade
-       * @param {PIXI/Sprite} e
-       * @param {array} frames optional
-       * @return {MazeRunnerObj}
-       */
-      MazeRunner(e,frames){
-        const {Sprites, Input}=Mojo;
-        const self={
-          dispose(){
-            Mojo.off(self)
-          },
-          onTick(dt){
-            let [vx,vy]=e.m5.vel,
-                vs=e.m5.speed,
-                x = !_.feq0(vx),
-                y = !_.feq0(vy);
-            if(!(x&&y) && frames){
-              if(y){
-                if(is.obj(frames))
-                  e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
-                else if (frames){
-                  e.angle=vy>0?180:0;
-                }
-              }
-              if(x){
-                if(is.obj(frames))
-                  e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
-                else if(frames){
-                  e.angle=vx>0?90:-90;
-                }
-              }
-            }
-            let r,d,l,u;
-            if(Mojo.u.touchOnly){
-              r=e.m5.heading===Mojo.RIGHT;
-              l=e.m5.heading===Mojo.LEFT;
-              u=e.m5.heading===Mojo.UP;
-              d=e.m5.heading===Mojo.DOWN;
-            }else{
-              r=Input.keyDown(Input.RIGHT) && Mojo.RIGHT;
-              d=Input.keyDown(Input.DOWN) && Mojo.DOWN;
-              l=Input.keyDown(Input.LEFT) && Mojo.LEFT;
-              u=Input.keyDown(Input.UP) && Mojo.UP;
-            }
-            if(l||u){vs *= -1}
-            if(l&&r){
-              _V.setX(e.m5.vel,0);
-            }else if(l||r){
-              e.m5.heading= l||r;
-              _V.setX(e.m5.vel,vs); }
-            if(u&&d){
-              _V.setY(e.m5.vel,0);
-            }else if(u||d){
-              e.m5.heading= u||d;
-              _V.setY(e.m5.vel,vs); } } };
-        e.m5.heading=Mojo.UP;
-        return self;
-      }
-    };
-
-    return (Mojo["Arcade"]= _$);
-  }
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //exports
-  if(typeof module=="object" && module.exports){
-    throw "Panic: browser only"
-  }else{
-    gscope["io/czlab/mojoh5/Arcade"]=(M)=>{
-      return M["Arcade"] ? M["Arcade"] : _module(M) } }
-
-})(this);
-
-
-
-/* Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
-
-;(function(gscope,UNDEF){
-
-  "use strict";
-
-  /**Create the module. */
-  function _module(Mojo, TweensQueue, DustBin){
-
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const {ute:_, is}=Mojo;
-    const int=Math.floor,
-          P5=Math.PI*5,
-          PI_2= Math.PI/2,
-          TWO_PI= Math.PI*2;
-
-    /**
-     * @module mojoh5/FX
-     */
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function StarWarp(C){
-      const img = Mojo.tcached("boot/star.png");
-      const STAR_BASE_SZ= 0.05;
-      const STAR_STRETCH = 5;
-      const BASE_SPEED = 0.025;
-      const FOV = 20;
-      let cameraZ = 0,
-          speed = 0,
-          warpSpeed = 0;
-      const stars = _.fill(1000, i=>{
-        i={x:0,y:0,z:0, sprite: Mojo.Sprites.sprite(img) };
-        i.sprite.anchor.x = 0.5;
-        i.sprite.anchor.y = 0.7;
-        randStar(i, _.rand()*2000);
-        C.addChild(i.sprite);
-        return i;
-      });
-      function randStar(star, zpos){
-        const deg = _.rand() * TWO_PI,
-              distance = _.rand() * 50 + 1;
-        //calculate star positions with radial random coordinate so no star hits the camera.
-        star.z = _.nor(zpos, cameraZ + _.rand()*1000 + 2000);
-        star.x = Math.cos(deg) * distance;
-        star.y = Math.sin(deg) * distance;
-      }
-      let mark=_.now();
-      return{
-        dispose(){
-          stars.forEach(s=> Mojo.Sprites.remove(s.sprite));
-        },
-        update(dt){
-          let w2=Mojo.width/2,
-              z, h2=Mojo.height/2;
-          speed += (warpSpeed - speed) / 20;
-          cameraZ += dt * 10 * (speed + BASE_SPEED);
-          stars.forEach(s=>{
-            if(s.z < cameraZ) randStar(s);
-            // map star 3d position to 2d with simple projection
-            z = s.z - cameraZ;
-            s.sprite.x = s.x * (FOV/z) * Mojo.width + w2;
-            s.sprite.y = s.y * (FOV/z) * Mojo.width + h2;
-            //calculate star scale & rotation.
-            const dx= s.sprite.x - w2;
-            const dy= s.sprite.y - h2;
-            const d= Math.sqrt(dx* dx+ dy* dy);
-            const ds = Math.max(0, (2000 - z) / 2000);
-            s.sprite.scale.x = ds * STAR_BASE_SZ;
-            // Star is looking towards center so that y axis is towards center.
-            // Scale the star depending on how fast we are moving,
-            // what the stretchfactor is and depending on how far away it is from the center.
-            s.sprite.scale.y = ds * STAR_BASE_SZ + ds * speed * STAR_STRETCH * d / Mojo.width;
-            s.sprite.rotation = Math.atan2(dy, dx) + Math.PI / 2;
-          });
-          let now=_.now();
-          if(now-mark>5000){
-            mark=now;
-            warpSpeed = warpSpeed > 0 ? 0 : 1;
-          }
-        }
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function Tween(sprite,easing,duration=60,loop=false,ext={}){
-      return _.inject({
-        duration,
-        sprite,
-        easing,
-        loop,
-        cur:0,
-        on:0,
-        onFrame(end,alpha){},
-        _run(){
-          this.cur=0;
-          this.on=1;
-          TweensQueue.push(this);
-        },
-        onTick(){
-          if(this.on){
-            if(this.cur<this.duration){
-              this.onFrame(false,
-                           this.easing(this.cur/this.duration));
-              this.cur += 1;
-            }else{
-              this.onFrame(true);
-              if(this.loop){
-                if(is.num(this.loop)){
-                  --this.loop
-                }
-                this.onLoopReset()
-                this.cur=0;
-              }else{
-                this.on=0;
-                this.onComplete &&
-                  _.delay(0,()=> this.onComplete());
-                this.dispose();
-              }
-            }
-          }
-        },
-        dispose(){
-          _.disj(TweensQueue,this);
-          Mojo.emit(["tween.disposed"],this);
-        }
-      },ext)
-    }
-
-    /** scale */
-    function TweenScale(s,type,frames,loop){
-      return Tween(s,type,frames,loop,{
-        start(sx,ex,sy,ey){
-          this._x=is.num(ex)?[sx,ex]:null;
-          this._y=is.num(ey)?[sy,ey]:null;
-          this._run();
-        },
-        onLoopReset(){
-          //flip values
-          if(this._x)
-            _.swap(this._x,0,1);
-          if(this._y)
-            _.swap(this._y,0,1);
-        },
-        onFrame(end,dt){
-          if(this._x)
-            this.sprite.scale.x= end ? this._x[1]
-                                     : _M.lerp(this._x[0], this._x[1], dt);
-          if(this._y)
-            this.sprite.scale.y= end ? this._y[1]
-                                     : _M.lerp(this._y[0], this._y[1], dt);
-        }
-      })
-    }
-
-    /** rotation */
-    function TweenAngle(s,type,frames,loop){
-      return Tween(s,type,frames,loop,{
-        start(sa,ea){
-          this._a= [sa,ea];
-          this._run();
-        },
-        onLoopReset(){
-          _.swap(this._a,0,1)
-        },
-        onFrame(end,alpha){
-          this.sprite.rotation= end ? this._a[1]
-                                    : _M.lerp(this._a[0], this._a[1], alpha)
-        }
-      })
-    }
-
-    /** alpha */
-    function TweenAlpha(s,type,frames,loop){
-      return Tween(s,type,frames,loop,{
-        start(sa,ea){
-          this._a= [sa,ea];
-          this._run();
-        },
-        onLoopReset(){
-          _.swap(this._a,0,1)
-        },
-        onFrame(end,alpha){
-          this.sprite.alpha= end ? this._a[1]
-                                 : _M.lerp(this._a[0], this._a[1], alpha)
-        }
-      })
-    }
-
-    /** position */
-    function TweenXY(s,type,frames,loop){
-      return Tween(s,type,frames,loop,{
-        start(sx,ex,sy,ey){
-          this._x=is.num(ex)?[sx,ex]:null;
-          this._y=is.num(ey)?[sy,ey]:null;
-          this._run();
-        },
-        onLoopReset(){
-          //flip values
-          if(this._x)
-            _.swap(this._x,0,1);
-          if(this._y)
-            _.swap(this._y,0,1);
-        },
-        onFrame(end,dt){
-          if(this._x)
-            this.sprite.x= end ? this._x[1]
-                               : _M.lerp(this._x[0], this._x[1], dt);
-          if(this._y)
-            this.sprite.y= end ? this._y[1]
-                               : _M.lerp(this._y[0], this._y[1], dt);
-        }
-      })
-    }
-
-    /** sequence */
-    function BatchTweens(...ts){
-      const t= {
-        children:ts.slice(),
-        onTweenEnd(t){
-          for(let c,i=0;i<this.children.length;++i){
-            c=this.children[i];
-            if(c===t){
-              this.children.splice(i,1);
-              break;
-            }
-          }
-          if(this.children.length==0){
-            this.dispose();
-            this.onComplete &&
-              _.delay(0,()=>this.onComplete());
-          }
-        },
-        size(){
-          return this.children.length },
-        dispose(){
-          Mojo.off(["tween.disposed"],"onTweenEnd",this);
-          this.children.forEach(c=>c.dispose());
-          this.children.length=0;
-        }
-      };
-
-      Mojo.on(["tween.disposed"],"onTweenEnd",t);
-      return t;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const _$={
-      /**Easing function: exponential-in.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  EXPO_IN(x){ return x==0 ? 0 : Math.pow(1024, x-1) },
-      /**Easing function: exponential-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  EXPO_OUT(x){ return x==1 ? 1 : 1-Math.pow(2, -10*x) },
-      /**Easing function: exponential-in-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  EXPO_INOUT(x){
-			  return x==0 ? 0
-                    : (x==1) ? 1
-                             : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
-                                          : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
-      /**Easing function: linear.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-	    LINEAR(x){ return x },
-      /**Easing function: smooth.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      SMOOTH(x){ return 3*x*x - 2*x*x*x },
-      /**Easing function: quadratic-smooth.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      SMOOTH_QUAD(x){let n= _$.SMOOTH(x); return n*n},
-      /**Easing function: cubic-smooth.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      SMOOTH_CUBIC(x){let n= _$.SMOOTH(x); return n*n*n},
-      /**Easing function: cubic-ease-in.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_IN_CUBIC(x){ return x*x*x },
-      /**Easing function: cubic-ease-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_OUT_CUBIC(x){ let n=1-x; return 1 - n*n*n },
-      /**Easing function: cubic-ease-in-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_INOUT_CUBIC(x){
-        if(x < 0.5){
-          return 4*x*x*x
-        }else{
-          let n= -2*x+2;
-          return 1- n*n*n/2 } },
-      /**Easing function: quadratic-ease-in.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_IN_QUAD(x){ return x*x },
-      /**Easing function: quadratic-ease-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_OUT_QUAD(x){ return 1 - (1-x) * (1-x) },
-      /**Easing function: quadratic-ease-in-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_INOUT_QUAD(x){
-        if(x < 0.5){
-          return 2*x*x
-        }else{
-          let n= -2*x+2;
-          return 1 - n*n/2 } },
-      /**Easing function: sinusoidal-ease-in.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_IN_SINE(x){ return 1 - Math.cos(x * PI_2) },
-      /**Easing function: sinusoidal-ease-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_OUT_SINE(x){ return Math.sin(x * PI_2) },
-      /**Easing function: sinusoidal-ease-in-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      EASE_INOUT_SINE(x){ return 0.5 - Math.cos(x * Math.PI)/2 },
-      /**Easing function: spline.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      SPLINE(t, a, b, c, d){
-        return (2*b + (c-a)*t +
-               (2*a - 5*b + 4*c - d)*t*t +
-               (-a + 3*b - 3*c + d)*t*t*t) / 2 },
-      /**Easing function: cubic-bezier.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      CUBIC_BEZIER(t, a, b, c, d){
-        return a*t*t*t +
-               3*b*t*t*(1-t) +
-               3*c*t*(1-t)*(1-t) +
-               d*(1-t)*(1-t)*(1-t) },
-      /**Easing function: elastic-in.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  ELASTIC_IN(x){
-        return x==0 ? 0
-                    : x==1 ? 1
-                           : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
-      /**Easing function: elastic-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  ELASTIC_OUT(x){
-        return x==0 ? 0
-                    : x==1 ? 1
-                           : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
-      /**Easing function: elastic-in-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  ELASTIC_INOUT(x){
-        switch(x){
-          case 0: return 0;
-          case 1: return 1;
-          default:
-            x *= 2;
-			      return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
-                       : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5); } },
-      /**Easing function: bounce-in.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-      BOUNCE_IN(x){ return 1 - _$.BOUNCE_OUT(1 - x) },
-      /**Easing function: bounce-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  BOUNCE_OUT(x){
-        if(x < 1/2.75){
-          return 7.5625 * x * x
-        }else if(x < 2/2.75){
-          return 7.5625 * (x -= 1.5/2.75) * x + 0.75
-        }else if(x < 2.5/2.75){
-          return 7.5625 * (x -= 2.25/2.75) * x + 0.9375
-        }else{
-          return 7.5625 * (x -= 2.625/2.75) * x + 0.984375 } },
-      /**Easing function: bounce-in-out.
-       * @memberof module:mojoh5/FX
-       * @param {number} x
-       * @return {number}
-       */
-		  BOUNCE_INOUT(x){
-			  return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
-                       : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5 },
-      /**Create a tween operating on sprite's alpha value.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {number|number[]} endA
-       * @param {number} [frames]
-       * @param {boolean} [loop]
-       * @return {TweenAlpha}
-       */
-      tweenAlpha(s,type,endA,frames=60,loop=false){
-        const t= TweenAlpha(s,type,frames,loop);
-        let sa=s.alpha;
-        let ea=endA;
-        if(is.vec(endA)){
-          sa=endA[0];
-          ea=endA[1]
-        }
-        return t.start(sa,ea), t;
-      },
-      /**Create a tween operating on sprite's rotation value.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {number|number[]} endA
-       * @param {number} [frames]
-       * @param {boolean} [loop]
-       * @return {TweenAngle}
-       */
-      tweenAngle(s,type,endA,frames=60,loop=false){
-        const t= TweenAngle(s,type,frames,loop);
-        let sa=s.rotation;
-        let ea=endA;
-        if(is.vec(endA)){
-          sa=endA[0];
-          ea=endA[1]
-        }
-        return t.start(sa,ea), t;
-      },
-      /**Create a tween operating on sprite's scale value.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {null|number|number[]} endX
-       * @param {null|number|number[]} endY
-       * @param {number} [frames]
-       * @param {boolean} [loop]
-       * @return {TweenScale}
-       */
-      tweenScale(s,type,endX,endY,frames=60,loop=false){
-        const t= TweenScale(s,type,frames,loop);
-        let sx=s.scale.x;
-        let sy=s.scale.y;
-        let ex=endX;
-        let ey=endY;
-        if(is.vec(endX)){
-          sx=endX[0];
-          ex=endX[1]
-        }
-        if(is.vec(endY)){
-          sy=endY[0];
-          ey=endY[1]
-        }
-        if(!is.num(ex)){ sx=ex=null }
-        if(!is.num(ey)){ sy=ey=null }
-        return t.start(sx,ex,sy,ey), t;
-      },
-      /**Create a tween operating on sprite's position.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {number|number[]} endX
-       * @param {number|number[]} endY
-       * @param {number} [frames]
-       * @param {boolean} [loop]
-       * @return {TweenXY}
-       */
-      tweenXY(s,type,endX,endY,frames=60,loop=false){
-        const t= TweenXY(s,type,frames,loop);
-        let sx=s.x;
-        let sy=s.y;
-        let ex=endX;
-        let ey=endY;
-        if(is.vec(endX)){
-          sx=endX[0];
-          ex=endX[1]
-        }
-        if(is.vec(endY)){
-          sy=endY[0];
-          ey=endY[1]
-        }
-        if(!is.num(ex)){sx=ex=null}
-        if(!is.num(ey)){sy=ey=null}
-        return t.start(sx,ex,sy,ey), t;
-      },
-      /**Slowly fade out this object.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {number} frames
-       * @return {}
-       */
-      fadeOut(s, frames=60){
-        return this.tweenAlpha(s,this.EASE_OUT_SINE,0,frames) },
-      /**Slowly fade in this object.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {number} frames
-       * @return {}
-       */
-      fadeIn(s, frames=60){
-        return this.tweenAlpha(s,this.EASE_OUT_SINE,1,frames) },
-      /**Fades the sprite in and out at a steady rate.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {number} min
-       * @param {number} [frames]
-       * @param {boolean} [loop]
-       * @return {TweenAlpha}
-       */
-      pulse(s, min=0,frames=60,loop=true){
-        return this.tweenAlpha(s,this.SMOOTH,min,frames,loop) },
-      /**Slide this sprite into view.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {number|number[]} endX
-       * @param {number|number[]} endY
-       * @param {number} frames
-       * @return {TweenXY}
-       */
-      slide(s, type, endX, endY, frames=60){
-        return this.tweenXY(s,type,endX,endY,frames) },
-      /**
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {number|number[]} endX
-       * @param {number|number[]} endY
-       * @param {number} [frames]
-       * @param {boolean} [loop]
-       * @return {TweenScale}
-       */
-      throb(s, endX=0.9, endY=0.9, frames=60,loop=true){
-        return this.tweenScale(s, this.SMOOTH_QUAD,endX,endY,frames,loop) },
-      /**Scale this sprite.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {number|number[]} endX
-       * @param {number|number[]} endY
-       * @param {number} [frames]
-       * @return {TweenScale}
-       */
-      scale(s, endX=0.5, endY=0.5, frames=60){
-        return this.tweenScale(s,this.SMOOTH,endX,endY,frames) },
-      /**Flashes this sprite.
-       * @memberof module:mojoh5/affects
-       * @param {Sprite} s
-       * @param {number|number[]} scale
-       * @param {number} start
-       * @param {number} end
-       * @param {number} [frames]
-       * @param {boolean} [loop]
-       * @return {TweenScale}
-       */
-      strobe(s, scale=1.3, start=10, end=20, frames=10,loop=true){
-        return this.tweenScale(s,
-                               (v)=> this.SPLINE(v,start,0,1,end), scale,scale,frames,loop) },
-      /**
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {object} bounds {x1,x2,y1,y2}
-       * @param {number} ex
-       * @param {number} ey
-       * @param {number} frames
-       * @param {boolean} [loop]
-       * @return {BatchTweens}
-       */
-      wobble(s, bounds, ex=1.2, ey=1.2, frames=10, loop=true){
-        let {x1,x2,y1,y2}= bounds;
-        return BatchTweens(this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
-                                                              _.or(x2,10)), ex, null, frames,loop),
-                           this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
-                                                              _.or(y2,-10)), null,ey, frames,loop)) },
-      /**
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
-       * @param {number} frames
-       * @return {TweenXY}
-       */
-      followCurve(s, type, path, frames=60){
-        let t= TweenXY(s,type,frames);
-        t.start=function(){ this._run() };
-        t.onFrame=function(end,alpha){
-          if(!end)
-            _V.set(s, _$.CUBIC_BEZIER(alpha, path[0][0], path[1][0], path[2][0], path[3][0]),
-                      _$.CUBIC_BEZIER(alpha, path[0][1], path[1][1], path[2][1], path[3][1]))
-        };
-        return t.start(), t;
-      },
-      /**Make object walk in a path.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
-       * @param {number} duration
-       * @return {TweenXY}
-       */
-      walkPath(s, type, path, duration=300){
-        return (function _calc(cur,frames){
-          let t= _$.tweenXY(s,type,[path[cur][0], path[cur+1][0]],
-                                   [path[cur][1], path[cur+1][1]],frames);
-          t.onComplete=()=>{
-            if(++cur < path.length-1)
-              _.delay(0,()=> _calc(cur,frames)) };
-          return t;
-        })(0, _M.ndiv(duration, path.length));
-      },
-      /**Make object appear to walk in a curved path.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
-       * @param {number} duration
-       * @return {TweenXY}
-       */
-      walkCurve(s, type, path, duration=300){
-        return (function _calc(cur,frames){
-          let t=_$.followCurve(s, type, path[cur], frames);
-          t.onComplete=()=>{
-            if(++cur < path.length)
-              _.delay(0,()=> _calc(cur,frames)) };
-          return t;
-        })(0, _M.ndiv(duration,path.length));
-      },
-      /**Remove this tween object.
-       * @memberof module:mojoh5/FX
-       * @param {Tween} t
-       */
-      remove(t){
-        t && t.dispose() },
-      /** @ignore */
-      update(dt){
-        _.rseq(TweensQueue, t=> t.onTick(dt));
-        _.rseq(DustBin, p=> p.onTick(dt));
-      },
-      /**Create particles.
-       * @memberof module:mojoh5/FX
-       * @return {}
-       */
-      createParticles(x, y, spriteCtor, container, gravity, mins, maxs, random=true, count= 20){
-        mins= _.patch(mins,{angle:0, size:4, speed:0.3,
-                            scale:0.01, alpha:0.02, rotate:0.01});
-        maxs=_.patch(maxs,{angle:6.28, size:16, speed:3,
-                           scale:0.05, alpha:0.02, rotate:0.03 });
-        _.assert(count>1);
-        gravity[0]=0;
-        function _make(angle){
-          let size = _.randInt2(mins.size, maxs.size);
-          let p= spriteCtor();
-          DustBin.push(p);
-          container.addChild(p);
-          if(p.totalFrames)
-            p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
-          Mojo.Sprites.sizeXY(p, size,size);
-          _V.set(p,x,y);
-          Mojo.Sprites.centerAnchor(p);
-          p.m5.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
-          p.m5.alphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
-          p.m5.angVel = _.randFloat2(mins.rotate, maxs.rotate);
-          let speed = _.randFloat2(mins.speed, maxs.speed);
-          _V.set(p.m5.vel, speed * Math.cos(angle),
-                           speed * Math.sin(angle));
-          //the worker
-          p.onTick=function(){
-            _V.add$(p.m5.vel,gravity);
-            _V.add$(p,p.m5.vel);
-            if(p.scale.x - p.m5.scaleSpeed > 0){
-              p.scale.x -= p.m5.scaleSpeed;
-            }
-            if(p.scale.y - p.m5.scaleSpeed > 0){
-              p.scale.y -= p.m5.scaleSpeed;
-            }
-            p.rotation += p.m5.angVel;
-            p.alpha -= p.m5.alphaSpeed;
-            if(p.alpha <= 0){
-              _.disj(DustBin,p);
-              Mojo.Sprites.remove(p);
-            }
-          };
-        }
-        for(let gap= (maxs.angle-mins.angle)/(count-1),
-                a=mins.angle,i=0; i<count; ++i){
-          _make(random ? _.randFloat2(mins.angle, maxs.angle) : a);
-          a += gap;
-        }
-      },
-      /**Shake this sprite.
-       * @memberof module:mojoh5/FX
-       * @return {}
-       */
-      shake(s, magnitude=16, angular=false,loop=true){
-        let numberOfShakes=10,
-            wrapper={},
-            self = this,
-            counter=1,
-            startX = s.x,
-            startY = s.y,
-            startAngle = s.rotation,
-            startMagnitude= magnitude,
-            //Divide the magnitude into 10 units so that you can
-            //reduce the amount of shake by 10 percent each frame
-            magnitudeUnit = _M.ndiv(magnitude , numberOfShakes);
-        function _upAndDownShake(){
-          if(counter<numberOfShakes){
-            s.x = startX;
-            s.y = startY;
-            magnitude -= magnitudeUnit;
-            s.x += _.randInt2(-magnitude, magnitude);
-            s.y += _.randInt2(-magnitude, magnitude);
-            ++counter;
-          }else{
-            if(loop){
-              magnitude=startMagnitude;
-              counter=1;
-            }else{
-              _.disj(DustBin,wrapper);
-            }
-          }
-        }
-        let tiltAngle = 1;
-        function _angularShake(){
-          if(counter<numberOfShakes){
-            s.rotation = startAngle;
-            magnitude -= magnitudeUnit;
-            s.rotation = magnitude * tiltAngle;
-            ++counter;
-            //yoyo it
-            tiltAngle *= -1;
-          }else{
-            if(loop){
-              magnitude=startMagnitude;
-              counter=1;
-            }else{
-              _.disj(DustBin,wrapper);
-            }
-          }
-        }
-        wrapper.onTick=()=>{
-          return angular ? _angularShake(wrapper)
-                         : _upAndDownShake(wrapper)
-        };
-        DustBin.push(wrapper);
-      },
-      StarWarp
-    };
-
-    return (Mojo.FX= _$);
-  }
-
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //exports
-  if(typeof module=="object" && module.exports){
-    throw "Panic: browser only"
-  }else{
-    gscope["io/czlab/mojoh5/FX"]=function(M){
-      return M.FX ? M.FX : _module(M, [], [])
-    }
-  }
-
-})(this);
-
-
-
-/* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -7546,17 +7196,17 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** use it for collision */
-    const _contactObj = Mojo.Sprites.extend({width: 0,
-                                             height: 0,
-                                             parent:null,
-                                             x:0, y:0,
-                                             rotation:0,
-                                             tiled:{},
-                                             anchor: {x:0,y:0},
-                                             getGlobalPosition(){
-                                               return{
-                                                 x:this.x+this.parent.x,
-                                                 y:this.y+this.parent.y} }});
+    const _contactObj = Mojo.Sprites.lift({width: 0,
+                                           height: 0,
+                                           parent:null,
+                                           x:0, y:0,
+                                           rotation:0,
+                                           tiled:{},
+                                           anchor: {x:0,y:0},
+                                           getGlobalPosition(){
+                                             return{
+                                               x:this.x+this.parent.x,
+                                               y:this.y+this.parent.y} }});
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**
