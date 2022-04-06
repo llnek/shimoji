@@ -1,6 +1,7 @@
 # shimoji
 
-FIXME: Write a one-line description of your library/project.
+
+Game engine
 
 ## Overview
 
