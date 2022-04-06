@@ -1,7 +1,7 @@
 # shimoji
 
 
-Game engine
+2D Game Engine
 
 ## Overview
 
