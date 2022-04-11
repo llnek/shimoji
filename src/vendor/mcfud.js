@@ -501,6 +501,63 @@
         });
         return out;
       },
+      /**Copy these keys from object/map.
+       * @memberof module:mcfud/core._
+       * @param {object|map} des
+       * @param {object|map} src
+       * @param {string[]} keys to copy
+       * @return {object|map} des
+       */
+      copyKeys(des,src,keys){
+        _preOr([[isMap,des],[isObj,des]],"map/object");
+        if(src instanceof Map)
+          _.assert(des instanceof Map, "expected Map");
+        this.seq(keys).forEach(k=>{
+          if(isMap(src)){
+            src.has(k) && des.set(k, src.get(k));
+          }else if(is.own(src,k)){
+            des[k]=src[k]
+          }else if(src[k] !== undefined){
+            des[k]=src[k];
+          }
+        });
+        return des;
+      },
+      /**Set a value to many keys
+       * @memberof module:mcfud/core._
+       * @param {object|map} c
+       * @param {string[]} keys to be set
+       * @param {any} v
+       * @return {object|map} c
+       */
+      setManyKeys(c,keys,v){
+        _preOr([[isMap,c],[isObj,c]],"map/object");
+        this.seq(keys).forEach(k=>{
+          if(isMap(c)){
+            c.set(k, v)
+          }else{
+            c[k]=v
+          }
+        });
+        return c;
+      },
+      /**Clear out these keys
+       * @memberof module:mcfud/core._
+       * @param {object|map} c
+       * @param {string[]} keys to be removed
+       * @return {object|map} c
+       */
+      clearKeys(c,keys){
+        _preOr([[isMap,c],[isObj,c]],"map/object");
+        this.seq(keys).forEach(k=>{
+          if(isMap(c)){
+            c.delete(k)
+          }else{
+            delete c[k]
+          }
+        });
+        return c;
+      },
       /**Assert that the condition is not true.
        * @memberof module:mcfud/core._
        * @param {any} a boolean expression
@@ -540,14 +597,15 @@
        */
       randInt2(min,max){
         return min + int(PRNG() * (max-min+1)) },
-      /**Get a random float between min and max.
+      /**Get a random float between min and max (exclude max).
        * @memberof module:mcfud/core._
        * @param {number} min
        * @param {number} max
        * @return {number}
        */
       randFloat2(min, max){
-        return min + PRNG() * (max-min+1) },
+        return min + PRNG() * (max-min)
+      },
       /**Get a random float between -1 and 1.
        * @memberof module:mcfud/core._
        * @return {number}

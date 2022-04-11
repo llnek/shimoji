@@ -22,36 +22,53 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _DIRS = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_, is}=Mojo;
-    const abs=Math.abs,
-          ceil=Math.ceil,
-          int = Math.floor;
+    const {ute:_, is, v2:_V, math:_M}=Mojo;
+    const
+      abs=Math.abs,
+      ceil=Math.ceil,
+      int = Math.floor;
 
     /**
      * @module mojoh5/Tiles
      */
 
+    /**Convert the position into a grid index.
+     * @param {number} x
+     * @param {number} y
+     * @param {number} cellW
+     * @param {number} cellH
+     * @param {number} widthInCols
+     * @return {number}
+     */
+    function getIndex(x, y, cellW, cellH, widthInCols){
+      if(x<0 || y<0)
+        throw `IndexError: ${x},${y}, wanted +ve values`;
+      return _M.ndiv(x,cellW) + _M.ndiv(y,cellH) * widthInCols
+    }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** from xy position to array index */
     function _getIndex3(px, py, world){
-      return Mojo.getIndex(px,py,
-                           world.tiled.tileW,
-                           world.tiled.tileH,world.tiled.tilesInX) }
+      return getIndex(px,py,
+                      world.tiled.tileW,
+                      world.tiled.tileH,world.tiled.tilesInX)
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get vector from s1->s2 */
     function _getVector(s1,s2){
       return _V.vecAB(Mojo.Sprites.centerXY(s1),
-                      Mojo.Sprites.centerXY(s2)) }
+                      Mojo.Sprites.centerXY(s2))
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get image file name */
     function _image(obj){
-      const s= obj.image;
-      const p= s && s.split("/");
-      obj.image= p && p.length && p[p.length-1] }
+      let
+        s= obj.image,
+        p= s && s.split("/");
+      obj.image= p && p.length && p[p.length-1]
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get attributes for this gid */
@@ -90,8 +107,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** make sure we support this map */
     function _checkVer(json){
-      let tmap = Mojo.resource(json,true).data;
-      let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
+      let
+        tmap = Mojo.resource(json,true).data,
+        tver= tmap && (tmap["tiledversion"] || tmap["version"]);
       return (tver &&
               _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
                                                : _.assert(false,`${json} needs update`)
@@ -109,8 +127,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** process the tiled map */
     function _loadTMX(scene,arg,objFactory,scale){
-      let tmx= is.str(arg)?_checkVer(arg):arg;
-      let tsProps={}, gtileProps={};
+      let
+        tsProps={}, gtileProps={},
+        tmx= is.str(arg)?_checkVer(arg):arg;
       _.assert(is.obj(tmx),"bad tiled map");
       //important to clone it
       tmx=JSON.parse(JSON.stringify(tmx));
@@ -123,9 +142,10 @@
                             saved_tileH:tmx.tileheight,
                             tiledWidth:tmx.tilewidth*tmx.width,
                             tiledHeight:tmx.tileheight*tmx.height}, _parseProps(tmx));
-      let K= scale? scale: scene.getScaleFactor();
-      let NH= _.evenN(K*tmx.tileheight);
-      let NW= _.evenN(K*tmx.tilewidth);
+      let
+        K= scale? scale: scene.getScaleFactor(),
+        NH= _.evenN(K*tmx.tileheight),
+        NW= _.evenN(K*tmx.tilewidth);
       scene.tiled.new_tileW=NW;
       scene.tiled.new_tileH=NH;
       if(scale)
@@ -161,13 +181,14 @@
               if(gid>0) scene.tiled.collision[i]=gid;
               tl.collision=true;
             }
-            let mapX = i % tl.width,
-                mapY = _M.ndiv(i,tl.width),
-                ps=gtileProps[gid],
-                cz=ps && ps["Class"],
-                cFunc=cz && objFactory[cz],
-                tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-                s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
+            let
+              mapX = i % tl.width,
+              mapY = _M.ndiv(i,tl.width),
+              ps=gtileProps[gid],
+              cz=ps && ps["Class"],
+              cFunc=cz && objFactory[cz],
+              tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+              s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
             //assume all these are static (collision) tiles
             if(s){
               s.tiled.layer=tl;
@@ -177,9 +198,8 @@
             if(cFunc)
               s=cFunc.c(scene,s,tsi,ps);
             if(s){
-              if(ps && ps.sensor)
-                s.m5.sensor=true
               scene.insert(s,!!cFunc);
+              if(ps && ps.sensor) s.m5.sensor=true;
             }
           }
         },
@@ -187,19 +207,21 @@
           tl.sprites=[];
           tl.objects.forEach(o=>{
             _.assert(is.num(o.x),"wanted xy position");
-            let s,ps,
-                os=_parseProps(o),
-                gid=_.nor(o.gid, -1);
+            let
+              s,ps,
+              os=_parseProps(o),
+              gid=_.nor(o.gid, -1);
             _.inject(o,os);
             if(gid>0)
               ps=gtileProps[gid];
-            let cz= _.nor(ps && ps["Class"], o["Class"]);
-            let createFunc= cz && objFactory[cz];
-            let w=scene.tiled.saved_tileW;
-            let h=scene.tiled.saved_tileH;
-            let tx=_M.ndiv(o.x+w/2,w);
-            let ty=_M.ndiv(o.y-h/2,h);
-            let tsi=_findGid(gid,scene.tiled.tileGidList)[1];
+            let
+              cz= _.nor(ps && ps["Class"], o["Class"]),
+              createFunc= cz && objFactory[cz],
+              w=scene.tiled.saved_tileW,
+              h=scene.tiled.saved_tileH,
+              tx=_M.ndiv(o.x+w/2,w),
+              ty=_M.ndiv(o.y-h/2,h),
+              tsi=_findGid(gid,scene.tiled.tileGidList)[1];
             o.column=tx;
             o.row=ty;
             s=gid<=0?{width:NW,height:NH}
@@ -211,7 +233,7 @@
               o.uuid=s.m5.uuid;
               tl.sprites.push(s);
               scene.insert(s,true);
-              if(ps && ps.sensor){s.m5.sensor=true}
+              if(ps && ps.sensor) s.m5.sensor=true;
             }
           });
         }
@@ -246,21 +268,23 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** create a sprite */
     function _ctorTile(scene,gid,mapX,mapY,tw,th,cz){
-      let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-          XXX=_.assert(tsi,"Bad GID, no tileset"),
-          cols=tsi.columns,
-          id=gid - tsi.firstgid,
-          ps=scene.tiled.tileProps[gid],
-          cFunc, K=scene.tiled.scale || scene.getScaleFactor();
+      let
+        tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+        XXX=_.assert(tsi,"Bad GID, no tileset"),
+        cols=tsi.columns,
+        id=gid - tsi.firstgid,
+        ps=scene.tiled.tileProps[gid],
+        cFunc, K=scene.tiled.scale || scene.getScaleFactor();
       cz= _.nor(cz, (ps && ps["Class"]));
       cFunc=cz && scene.tiled.objFactory[cz];
       _.assertNot(id<0, `Bad tile id: ${id}`);
       if(!is.num(cols))
         cols=_M.ndiv(tsi.imagewidth , tsi.tilewidth+tsi.spacing);
-      let tscol = id % cols,
-          tsrow = _M.ndiv(id,cols),
-          tsX = tscol * tsi.tilewidth,
-          tsY = tsrow * tsi.tileheight;
+      let
+        tscol = id % cols,
+        tsrow = _M.ndiv(id,cols),
+        tsX = tscol * tsi.tilewidth,
+        tsY = tsrow * tsi.tileheight;
       if(tsi.spacing>0){
         tsX += tsi.spacing * tscol;
         tsY += tsi.spacing * tsrow;
@@ -341,10 +365,11 @@
           y= s.y+_M.ndiv(s.height,2);
           x= s.x+_M.ndiv(s.width,2);
         }
-        let tx= _M.ndiv(x,this.tiled.tileW),
-            ty= _M.ndiv(y,this.tiled.tileH),
-            yy= this.getTileLayer(layer),
-            pos= tx + ty*this.tiled.tilesInX;
+        let
+          tx= _M.ndiv(x,this.tiled.tileW),
+          ty= _M.ndiv(y,this.tiled.tileH),
+          yy= this.getTileLayer(layer),
+          pos= tx + ty*this.tiled.tilesInX;
         yy.data[pos]=0;
         if(yy.collision)
           this.tiled.collision[pos]=0;
@@ -358,7 +383,7 @@
        */
       getTileLayer(name,panic){
         let found= _.some(this.tiled.tilelayer, o=>{
-          if(o.name==name) return o;
+          if(o.name==name) return o
         });
         if(!found && panic)
           throw `There is no layer with name: ${name}`;
@@ -372,7 +397,7 @@
        */
       getObjectGroup(name,panic){
         let found= _.some(this.tiled.objectgroup, o=>{
-          if(o.name==name) return o;
+          if(o.name==name) return o
         });
         if(!found && panic)
           throw `There is no group with name: ${name}`;
@@ -386,13 +411,14 @@
        * @return {Sprite}
        */
       setTile(layer,row,col,gid){
-        let ts=this.getTSInfo(gid),
-            id= gid-ts.firstgid,
-            yy=this.getTileLayer(layer),
-            pos=col + this.tiled.tilesInX * row;
+        let
+          ts=this.getTSInfo(gid),
+          id= gid-ts.firstgid,
+          yy=this.getTileLayer(layer),
+          s, pos=col + this.tiled.tilesInX * row;
         if(yy.collision)
           this.tiled.collision[pos]=gid;
-        let s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
+        s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
         if(s){
           s.tiled.index=pos;
           s.tiled.layer=yy;
@@ -417,8 +443,9 @@
        * @return {array}
        */
       getTileXY(px,py){
-        let tx= _M.ndiv(px,this.tiled.tileW),
-            ty= _M.ndiv(py,this.tiled.tileH);
+        let
+          tx= _M.ndiv(px,this.tiled.tileW),
+          ty= _M.ndiv(py,this.tiled.tileH);
         _.assert(tx>=0 && tx<this.tiled.tilesInX, `bad tile col:${tx}`);
         _.assert(ty>=0 && ty<this.tiled.tilesInY, `bad tile row:${ty}`);
         return [tx,ty];
@@ -490,22 +517,23 @@
        * @return {boolean}
        */
       collideXY(obj){
-        let _S=Mojo.Sprites,
-            tw=this.tiled.tileW,
-            th=this.tiled.tileH,
-            tiles=this.tiled.collision,
-            box=_.feq0(obj.angle)?_S.getAABB(obj):_S.boundingBox(obj);
-        let sX = Math.max(0,_M.ndiv(box.x1 , tw));
-        let sY = Math.max(0,_M.ndiv(box.y1 , th));
-        let eX =  Math.min(this.tiled.tilesInX-1,ceil(box.x2 / tw));
-        let eY =  Math.min(this.tiled.tilesInY-1,ceil(box.y2 / th));
+        let
+          _S=Mojo.Sprites,
+          tw=this.tiled.tileW,
+          th=this.tiled.tileH,
+          tiles=this.tiled.collision,
+          box=_.feq0(obj.angle)?_S.getAABB(obj):_S.boundingBox(obj),
+          sX = Math.max(0,_M.ndiv(box.x1 , tw)),
+          sY = Math.max(0,_M.ndiv(box.y1 , th)),
+          eX =  Math.min(this.tiled.tilesInX-1,ceil(box.x2 / tw)),
+          eY =  Math.min(this.tiled.tilesInY-1,ceil(box.y2 / th));
         for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
           for(let tX = sX; tX<=eX; ++tX){
             pos=tY*this.tiled.tilesInX+tX;
             gid=tiles[pos];
             if(!is.num(gid))
               _.assert(is.num(gid),"bad gid");
-            if(gid===0){continue}
+            if(gid==0){continue}
             B=this._getContactObj(gid,tX, tY);
             ps=this.getTileProps(gid);
             if(ps)
@@ -513,7 +541,7 @@
             B.parent=this;
             if(_S.hit(obj,B)){
               if(B.m5.sensor){
-                Mojo.emit(["2d.sensor",obj],B); } }
+                Mojo.emit(["bump.sensor",obj],B); } }
           }
         }
         return super.collideXY(obj);
@@ -531,18 +559,22 @@
                abs(test.col - dest.col) * this.straightCost
       }
       euclidean(test, dest){
-        let vx = dest.col - test.col;
-        let vy = dest.row - test.row;
+        let
+          vx = dest.col - test.col,
+          vy = dest.row - test.row;
         return int(_.sqrt(vx * vx + vy * vy) * this.straightCost)
       }
       diagonal(test, dest){
-        let vx = abs(dest.col - test.col);
-        let vy = abs(dest.row - test.row);
+        let
+          vx = abs(dest.col - test.col),
+          vy = abs(dest.row - test.row);
         return (vx > vy) ? int(this.diagonalCost * vy + this.straightCost * (vx - vy))
                          : int(this.diagonalCost * vx + this.straightCost * (vy - vx))
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       TiledScene,
@@ -556,9 +588,10 @@
        *                                        x x x
        */
       neighborCells(index, world, ignoreSelf){
-        let w=world.tiled.tilesInX;
-        let a= [index-w-1, index-w, index-w+1, index-1];
-        let b= [index+1, index+w-1, index+w, index+w+1];
+        let
+          w=world.tiled.tilesInX,
+          a= [index-w-1, index-w, index-w+1, index-1],
+          b= [index+1, index+w-1, index+w, index+w+1];
         if(!ignoreSelf) a.push(index);
         return a.concat(b);
       },
@@ -570,13 +603,14 @@
        * @return {number[]}
        */
       updateMap(gidList, sprites, world){
-        let ret = _.fill(gidList.length,0);
-        let _mapper=(s)=>{
-          let pos= this.getTileIndex(s,world);
-          _.assert(pos >= 0 && pos < ret.length, "tiled index outofbound");
-          s.tiled.index = pos;
-          ret[pos] = s.tiled.gid;
-        };
+        let
+          ret = _.fill(gidList.length,0),
+          _mapper=(s)=>{
+            let pos= this.getTileIndex(s,world);
+            _.assert(pos >= 0 && pos < ret.length, "tiled index outofbound");
+            s.tiled.index = pos;
+            ret[pos] = s.tiled.gid;
+          };
         !is.vec(sprites) ? _mapper(sprites) : sprites.forEach(_mapper);
         return ret;
       },
@@ -594,33 +628,34 @@
       shortestPath(startTile, targetTile, tiles, world,
                    obstacles=[],
                    heuristic="manhattan", useDiagonal=true){
-        let W=world.tiled.tilesInX;
-        let nodes=tiles.map((gid,i)=> ({f:0, g:0, h:0,
+        let
+          W=world.tiled.tilesInX,
+          nodes=tiles.map((gid,i)=> ({f:0, g:0, h:0,
                                         parent:null, index:i,
-                                        col:i%W, row:_M.ndiv(i,W)}));
-        let targetNode = nodes[targetTile];
-        let startNode = nodes[startTile];
-        let centerNode = startNode;
-        let openList = [centerNode];
-        let closedList = [];
-        let theShortestPath = [];
-        let straightCost=10;
-        let diagonalCost=14;
-        let _testNodes=(i)=>{
-          let c= !useDiagonal ? this.crossCells(i,world)
-                              : this.neighborCells(i, world, true);
-          return c.map(p=>nodes[p]).filter(n=>{
-            if(n){
-              let indexOnLeft= (i% W) == 0;
-              let indexOnRight= ((i+1) % W) == 0;
-              let nodeBeyondLeft= (n.col % (W-1)) == 0 && n.col != 0;
-              let nodeBeyondRight= (n.col % W) == 0;
-              let nodeIsObstacle = obstacles.some(o => tiles[n.index] == o);
-              return indexOnLeft ? !nodeBeyondLeft
-                                 : (indexOnRight ? !nodeBeyondRight : !nodeIsObstacle);
-            }
-          });
-        }
+                                        col:i%W, row:_M.ndiv(i,W)})),
+          targetNode = nodes[targetTile],
+          startNode = nodes[startTile],
+          centerNode = startNode,
+          openList = [centerNode],
+          closedList = [],
+          theShortestPath = [],
+          straightCost=10,
+          diagonalCost=14,
+          _testNodes=(i)=>{
+            let c= !useDiagonal ? this.crossCells(i,world)
+                                : this.neighborCells(i, world, true);
+            return c.map(p=>nodes[p]).filter(n=>{
+              if(n){
+                let indexOnLeft= (i% W) == 0;
+                let indexOnRight= ((i+1) % W) == 0;
+                let nodeBeyondLeft= (n.col % (W-1)) == 0 && n.col != 0;
+                let nodeBeyondRight= (n.col % W) == 0;
+                let nodeIsObstacle = obstacles.some(o => tiles[n.index] == o);
+                return indexOnLeft ? !nodeBeyondLeft
+                                   : (indexOnRight ? !nodeBeyondRight : !nodeIsObstacle);
+              }
+            });
+          };
         while(centerNode !== targetNode){
           let testNodes = _testNodes(centerNode.index);
           for(let f,g,h,cost,tn,i=0; i < testNodes.length; ++i){
@@ -632,7 +667,7 @@
             //B. Do they occupy the same row or column?
             if(centerNode.row == tn.row ||
                centerNode.col == tn.col){
-              cost = straightCost;
+              cost = straightCost
             }
             //C. Calculate the costs (g, h and f)
             //The node's current cost
@@ -640,8 +675,9 @@
             //The cost of travelling from this node to the
             //destination node (the heuristic)
             f = g + new AStarAlgos(straightCost,diagonalCost)[heuristic](tn,targetNode);
-            let isOnOpenList = openList.some(n => tn === n);
-            let isOnClosedList = closedList.some(n => tn === n);
+            let
+              isOnOpenList = openList.some(n => tn === n),
+              isOnClosedList = closedList.some(n => tn === n);
             //If it's on either of these lists, we can check
             //whether this route is a lower-cost alternative
             //to the previous cost calculation. The new G cost
@@ -700,10 +736,11 @@
                   emptyGid = 0,
                   segment = 32, //distance between collision points
                   angles = []) { //angles to restrict the line of sight
-        let v= _getVector(s1,s2);
-        let len = _V.len(v);
-        let numPts = _M.ndiv(len,segment);
-        let len2,x,y,ux,uy,points = [];
+        let
+          v= _getVector(s1,s2),
+          len = _V.len(v),
+          numPts = _M.ndiv(len,segment),
+          angle, len2,x,y,ux,uy,points = [];
         for(let c,i = 1; i <= numPts; ++i){
           c= Mojo.Sprites.centerXY(s1);
           len2 = segment * i;
@@ -717,7 +754,7 @@
         }
         //Restrict line of sight to right angles (don't want to use diagonals)
         //Find the angle of the vector between the two sprites
-        let angle = Math.atan2(v[1], v[0]) * 180 / Math.PI;
+        angle = Math.atan2(v[1], v[0]) * 180 / Math.PI;
         //The tile-based collision test.
         //The `noObstacles` function will return `true` if all the tile
         //index numbers along the vector are `0`, which means they contain
@@ -781,10 +818,11 @@
        * @return {boolean}
        */
       canChangeDirection(dirs=[]){
-        let up = dirs.find(x => x === Mojo.UP);
-        let down = dirs.find(x => x === Mojo.DOWN);
-        let left = dirs.find(x => x === Mojo.LEFT);
-        let right = dirs.find(x => x === Mojo.RIGHT);
+        let
+          up = dirs.find(x => x === Mojo.UP),
+          down = dirs.find(x => x === Mojo.DOWN),
+          left = dirs.find(x => x === Mojo.LEFT),
+          right = dirs.find(x => x === Mojo.RIGHT);
         return dirs.length==0 ||
                dirs.length==1 || ((up||down) && (left||right)); },
       /**Randomly choose the next direction.

@@ -19,76 +19,98 @@
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
 
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const {ute:_, is}=Mojo;
-    const int=Math.floor,
-          P5=Math.PI*5,
-          PI_2= Math.PI/2,
-          TWO_PI= Math.PI*2;
+    const {
+      v2:_V,
+      math:_M,
+      ute:_,
+      is,
+      Sprites:_S
+    }=Mojo;
+    const
+      int=Math.floor,
+      P5=Math.PI*5,
+      PI_2= Math.PI/2,
+      TWO_PI= Math.PI*2;
 
     /**
      * @module mojoh5/FX
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function StarWarp(C){
-      const img = Mojo.tcached("boot/star.png");
-      const STAR_BASE_SZ= 0.05;
-      const STAR_STRETCH = 5;
-      const BASE_SPEED = 0.025;
-      const FOV = 20;
-      let cameraZ = 0,
-          speed = 0,
-          warpSpeed = 0;
-      const stars = _.fill(1000, i=>{
-        i={x:0,y:0,z:0, sprite: Mojo.Sprites.sprite(img) };
-        i.sprite.anchor.x = 0.5;
-        i.sprite.anchor.y = 0.7;
-        randStar(i, _.rand()*2000);
-        C.addChild(i.sprite);
-        return i;
+    function StarWarp(C, options){
+      options= options || {};
+      let
+        STAR_SIZE= 0.05,
+        STAR_RANGE = 6,
+        SPEED = 0.025,
+        CYCLE=5000,
+        DEPTH=2000,
+        FOV = 20,
+        RADIUS=50,
+        camZ = 0,
+        speed = 0,
+        warp= 0,
+        mark=_.now(),
+        color = options.color || "yellow",
+        items= options.items || 1000,
+        img = Mojo.tcached("boot/star.png");
+      const stars = _.fill(items, i=>{
+        i= _S.sprite(img);
+        i.g.d3=[0,0,0];
+        if(_.rand()<0.3)
+          i.tint= _S.color(color);
+        _S.anchorXY(i, 0.5,0.69);
+        C.addChild(i);
+        return cfgStar(i, _.rand()*DEPTH);
       });
-      function randStar(star, zpos){
-        const deg = _.rand() * TWO_PI,
-              distance = _.rand() * 50 + 1;
-        //calculate star positions with radial random coordinate so no star hits the camera.
-        star.z = _.nor(zpos, cameraZ + _.rand()*1000 + 2000);
-        star.x = Math.cos(deg) * distance;
-        star.y = Math.sin(deg) * distance;
+      function cfgStar(s, zpos){
+        let
+          twist = _.rand() * TWO_PI,
+          dist= _.rand() * RADIUS + 1;
+        //calc star positions with radial random
+        //coordinate so no star hits the camera.
+        s.g.d3[0] = Math.cos(twist) * dist;
+        s.g.d3[1] = Math.sin(twist) * dist;
+        s.g.d3[2]= !isNaN(zpos)?zpos
+                               :camZ + DEPTH*(1+_.rand()*0.5);
+        //console.log(`star pos= ${s.g.d3}`);
+        return s;
       }
-      let mark=_.now();
       return{
         dispose(){
-          stars.forEach(s=> Mojo.Sprites.remove(s.sprite));
+          stars.forEach(o=> _S.remove(o));
         },
         update(dt){
-          let w2=Mojo.width/2,
-              z, h2=Mojo.height/2;
-          speed += (warpSpeed - speed) / 20;
-          cameraZ += dt * 10 * (speed + BASE_SPEED);
-          stars.forEach(s=>{
-            if(s.z < cameraZ) randStar(s);
-            // map star 3d position to 2d with simple projection
-            z = s.z - cameraZ;
-            s.sprite.x = s.x * (FOV/z) * Mojo.width + w2;
-            s.sprite.y = s.y * (FOV/z) * Mojo.width + h2;
+          let
+            w2=Mojo.width/2,
+            now,z, h2=Mojo.height/2;
+          speed += (warp- speed) / 20;
+          camZ += dt * 10 * (speed + SPEED);
+          //console.log(`camz=${camZ}, speed=== ${speed}`);
+          stars.forEach((o,i)=>{
+            if(o.g.d3[2] < camZ) cfgStar(o);
+            // project to fake 3D
+            i= Mojo.width*FOV/z;
+            z = o.g.d3[2] - camZ;
+            o.x = o.g.d3[0] * i + w2;
+            o.y = o.g.d3[1] * i + h2;
             //calculate star scale & rotation.
-            const dx= s.sprite.x - w2;
-            const dy= s.sprite.y - h2;
-            const d= Math.sqrt(dx* dx+ dy* dy);
-            const ds = Math.max(0, (2000 - z) / 2000);
-            s.sprite.scale.x = ds * STAR_BASE_SZ;
-            // Star is looking towards center so that y axis is towards center.
-            // Scale the star depending on how fast we are moving,
-            // what the stretchfactor is and depending on how far away it is from the center.
-            s.sprite.scale.y = ds * STAR_BASE_SZ + ds * speed * STAR_STRETCH * d / Mojo.width;
-            s.sprite.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+            let
+              dx= o.x - w2,
+              dy= o.y - h2,
+              d= Math.sqrt(dx* dx+ dy* dy),
+              ds= Math.max(0, 1 - z/DEPTH);
+            o.rotation = Math.atan2(dy, dx) + PI_2;
+            _S.scaleXY(o, ds * STAR_SIZE,
+                          // Star is looking towards center so that y axis is towards center.
+                          // Scale the star depending on how fast we are moving,
+                          // what the stretchfactor is and depending on how far away it is from the center.
+                          ds * (STAR_SIZE + speed * STAR_RANGE * d / Mojo.width));
           });
-          let now=_.now();
-          if(now-mark>5000){
+          now=_.now();
+          if(now-mark>CYCLE){
             mark=now;
-            warpSpeed = warpSpeed > 0 ? 0 : 1;
+            warp= warp> 0 ? 0 : 1;
           }
         }
       }
@@ -125,9 +147,9 @@
                 this.cur=0;
               }else{
                 this.on=0;
+                this.dispose();
                 this.onComplete &&
                   _.delay(0,()=> this.onComplete());
-                this.dispose();
               }
             }
           }
@@ -143,8 +165,8 @@
     function TweenScale(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
-          this._x=is.num(ex)?[sx,ex]:null;
-          this._y=is.num(ey)?[sy,ey]:null;
+          this._x=is.num(ex)?[sx,ex]:UNDEF;
+          this._y=is.num(ey)?[sy,ey]:UNDEF;
           this._run();
         },
         onLoopReset(){
@@ -203,8 +225,8 @@
     function TweenXY(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
-          this._x=is.num(ex)?[sx,ex]:null;
-          this._y=is.num(ey)?[sy,ey]:null;
+          this._x=is.num(ex)?[sx,ex]:UNDEF;
+          this._y=is.num(ey)?[sy,ey]:UNDEF;
           this._run();
         },
         onLoopReset(){
@@ -225,34 +247,62 @@
       })
     }
 
-    /** sequence */
+    /** group */
     function BatchTweens(...ts){
-      const t= {
-        children:ts.slice(),
+      let cs=[];
+      ts.forEach(o=>{
+        cs.push(o)
+      });
+      const t={
         onTweenEnd(t){
-          for(let c,i=0;i<this.children.length;++i){
-            c=this.children[i];
+          for(let c,i=0;i<cs.length;++i){
+            c=cs[i];
             if(c===t){
-              this.children.splice(i,1);
+              cs.splice(i,1);
               break;
             }
           }
-          if(this.children.length==0){
+          if(cs.length==0){
             this.dispose();
             this.onComplete &&
               _.delay(0,()=>this.onComplete());
           }
         },
-        size(){
-          return this.children.length },
         dispose(){
-          Mojo.off(["tween.disposed"],"onTweenEnd",this);
-          this.children.forEach(c=>c.dispose());
-          this.children.length=0;
+          Mojo.off(["tween.disposed"],"onTweenEnd",t);
+          cs.length=0;
         }
       };
-
       Mojo.on(["tween.disposed"],"onTweenEnd",t);
+      return t;
+    }
+
+    /** seq */
+    function SeqTweens(...ts){
+      let c,cs=[];
+      ts.forEach(o=>{
+        cs.push(o);
+        _.disj(TweensQueue,o);
+      });
+      const t={
+        onDone(){
+          this.dispose();
+          this.onComplete &&
+            _.delay(0,()=>this.onComplete());
+        },
+        dispose(){
+          cs.length=0;
+        }
+      };
+      function iter(o){
+        if(o){
+          TweensQueue.push(o);
+          o.onComplete=()=> iter(cs.shift());
+        }else{
+          t.onDone();
+        }
+      }
+      iter(cs.shift());
       return t;
     }
 
@@ -263,20 +313,20 @@
        * @param {number} x
        * @return {number}
        */
-		  EXPO_IN(x){ return x==0 ? 0 : Math.pow(1024, x-1) },
+      EXPO_IN(x){ return x==0 ? 0 : Math.pow(1024, x-1) },
       /**Easing function: exponential-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  EXPO_OUT(x){ return x==1 ? 1 : 1-Math.pow(2, -10*x) },
+      EXPO_OUT(x){ return x==1 ? 1 : 1-Math.pow(2, -10*x) },
       /**Easing function: exponential-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  EXPO_INOUT(x){
-			  return x==0 ? 0
+      EXPO_INOUT(x){
+        return x==0 ? 0
                     : (x==1) ? 1
                              : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
                                           : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
@@ -285,7 +335,7 @@
        * @param {number} x
        * @return {number}
        */
-	    LINEAR(x){ return x },
+      LINEAR(x){ return x },
       /**Easing function: smooth.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -374,25 +424,39 @@
        * @return {number}
        */
       SPLINE(t, a, b, c, d){
-        return (2*b + (c-a)*t +
-               (2*a - 5*b + 4*c - d)*t*t +
-               (-a + 3*b - 3*c + d)*t*t*t) / 2 },
+        let
+          tt = t * t,
+          ttt = tt * t,
+          q1 = -ttt + 2*tt - t,
+          q2 = 3*ttt - 5*tt + 2,
+          q3 = -3*ttt + 4*tt + t,
+          q4 = ttt - tt;
+        return 0.5 * (a * q1 + b * q2 + c * q3 + d * q4);
+      },
       /**Easing function: cubic-bezier.
        * @memberof module:mojoh5/FX
-       * @param {number} x
+       * @param {number} t
+       * @param {number} a
+       * @param {number} b
+       * @param {number} c
+       * @param {number} d
        * @return {number}
        */
       CUBIC_BEZIER(t, a, b, c, d){
-        return a*t*t*t +
-               3*b*t*t*(1-t) +
-               3*c*t*(1-t)*(1-t) +
-               d*(1-t)*(1-t)*(1-t) },
+        let
+          t2=t*t,
+          t3=t2*t,
+          tm1= 1-t,
+          tm2=tm1*tm1,
+          tm3=tm2*tm1;
+        return tm3*a + 3*tm2*t*b + 3*tm1*t2*c + t3*d;
+      },
       /**Easing function: elastic-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  ELASTIC_IN(x){
+      ELASTIC_IN(x){
         return x==0 ? 0
                     : x==1 ? 1
                            : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
@@ -401,7 +465,7 @@
        * @param {number} x
        * @return {number}
        */
-		  ELASTIC_OUT(x){
+      ELASTIC_OUT(x){
         return x==0 ? 0
                     : x==1 ? 1
                            : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
@@ -410,13 +474,13 @@
        * @param {number} x
        * @return {number}
        */
-		  ELASTIC_INOUT(x){
+      ELASTIC_INOUT(x){
         switch(x){
           case 0: return 0;
           case 1: return 1;
           default:
             x *= 2;
-			      return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
+            return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
                        : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5); } },
       /**Easing function: bounce-in.
        * @memberof module:mojoh5/FX
@@ -429,7 +493,7 @@
        * @param {number} x
        * @return {number}
        */
-		  BOUNCE_OUT(x){
+      BOUNCE_OUT(x){
         if(x < 1/2.75){
           return 7.5625 * x * x
         }else if(x < 2/2.75){
@@ -443,8 +507,8 @@
        * @param {number} x
        * @return {number}
        */
-		  BOUNCE_INOUT(x){
-			  return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
+      BOUNCE_INOUT(x){
+        return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
                        : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5 },
       /**Create a tween operating on sprite's alpha value.
        * @memberof module:mojoh5/FX
@@ -508,8 +572,8 @@
           sy=endY[0];
           ey=endY[1]
         }
-        if(!is.num(ex)){ sx=ex=null }
-        if(!is.num(ey)){ sy=ey=null }
+        if(!is.num(ex)){ sx=ex=UNDEF }
+        if(!is.num(ey)){ sy=ey=UNDEF }
         return t.start(sx,ex,sy,ey), t;
       },
       /**Create a tween operating on sprite's position.
@@ -536,8 +600,8 @@
           sy=endY[0];
           ey=endY[1]
         }
-        if(!is.num(ex)){sx=ex=null}
-        if(!is.num(ey)){sy=ey=null}
+        if(!is.num(ex)){sx=ex=UNDEF}
+        if(!is.num(ey)){sy=ey=UNDEF}
         return t.start(sx,ex,sy,ey), t;
       },
       /**Slowly fade out this object.
@@ -621,64 +685,30 @@
        * @param {boolean} [loop]
        * @return {BatchTweens}
        */
-      wobble(s, bounds, ex=1.2, ey=1.2, frames=10, loop=true){
+      jiggle(s, bounds, ex=1.4, ey=1.2, frames=10, loop=true){
         let {x1,x2,y1,y2}= bounds;
         return BatchTweens(this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
-                                                              _.or(x2,10)), ex, null, frames,loop),
+                                                              _.or(x2,10)), ex, UNDEF, frames,loop),
                            this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
-                                                              _.or(y2,-10)), null,ey, frames,loop)) },
+                                                              _.or(y2,-10)), UNDEF,ey, frames,loop)) },
       /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
+       * @param {Vec2} c1
+       * @param {Vec2} c2
+       * @param {Vec2} c3
        * @param {number} frames
        * @return {TweenXY}
        */
-      followCurve(s, type, path, frames=60){
-        let t= TweenXY(s,type,frames);
+      bezier(s,c1,c2,c3,frames=60){
+        let t= TweenXY(s,this.SMOOTH,frames);
         t.start=function(){ this._run() };
         t.onFrame=function(end,alpha){
           if(!end)
-            _V.set(s, _$.CUBIC_BEZIER(alpha, path[0][0], path[1][0], path[2][0], path[3][0]),
-                      _$.CUBIC_BEZIER(alpha, path[0][1], path[1][1], path[2][1], path[3][1]))
+            _V.set(s, _$.CUBIC_BEZIER(alpha, s.x, c1[0],c2[0],c3[0]),
+                      _$.CUBIC_BEZIER(alpha, s.y, c1[1], c2[1], c3[1]));
         };
         return t.start(), t;
-      },
-      /**Make object walk in a path.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
-       * @param {number} duration
-       * @return {TweenXY}
-       */
-      walkPath(s, type, path, duration=300){
-        return (function _calc(cur,frames){
-          let t= _$.tweenXY(s,type,[path[cur][0], path[cur+1][0]],
-                                   [path[cur][1], path[cur+1][1]],frames);
-          t.onComplete=()=>{
-            if(++cur < path.length-1)
-              _.delay(0,()=> _calc(cur,frames)) };
-          return t;
-        })(0, _M.ndiv(duration, path.length));
-      },
-      /**Make object appear to walk in a curved path.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
-       * @param {number} duration
-       * @return {TweenXY}
-       */
-      walkCurve(s, type, path, duration=300){
-        return (function _calc(cur,frames){
-          let t=_$.followCurve(s, type, path[cur], frames);
-          t.onComplete=()=>{
-            if(++cur < path.length)
-              _.delay(0,()=> _calc(cur,frames)) };
-          return t;
-        })(0, _M.ndiv(duration,path.length));
       },
       /**Remove this tween object.
        * @memberof module:mojoh5/FX
@@ -695,49 +725,45 @@
        * @memberof module:mojoh5/FX
        * @return {}
        */
-      createParticles(x, y, spriteCtor, container, gravity, mins, maxs, random=true, count= 20){
+      particles(C,x, y, spriteCtor, count=24, mins={}, maxs={}, gravity=[0,0.3], random=true){
         mins= _.patch(mins,{angle:0, size:4, speed:0.3,
                             scale:0.01, alpha:0.02, rotate:0.01});
         maxs=_.patch(maxs,{angle:6.28, size:16, speed:3,
                            scale:0.05, alpha:0.02, rotate:0.03 });
-        _.assert(count>1);
-        gravity[0]=0;
         function _make(angle){
-          let size = _.randInt2(mins.size, maxs.size);
-          let p= spriteCtor();
+          let
+            p= spriteCtor(),
+            v,size = _.randInt2(mins.size, maxs.size);
           DustBin.push(p);
-          container.addChild(p);
+          C.addChild(p);
           if(p.totalFrames)
             p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
-          Mojo.Sprites.sizeXY(p, size,size);
+          _S.sizeXY(_S.anchorXY(p,0.5), size, size);
           _V.set(p,x,y);
-          Mojo.Sprites.centerAnchor(p);
-          p.m5.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
-          p.m5.alphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
-          p.m5.angVel = _.randFloat2(mins.rotate, maxs.rotate);
-          let speed = _.randFloat2(mins.speed, maxs.speed);
-          _V.set(p.m5.vel, speed * Math.cos(angle),
-                           speed * Math.sin(angle));
+          p.g.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
+          p.galphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
+          p.g.angVel = _.randFloat2(mins.rotate, maxs.rotate);
+          v= _.randFloat2(mins.speed, maxs.speed);
+          _V.set(p.m5.vel, v * Math.cos(angle),
+                           v * Math.sin(angle));
           //the worker
           p.onTick=function(){
             _V.add$(p.m5.vel,gravity);
             _V.add$(p,p.m5.vel);
-            if(p.scale.x - p.m5.scaleSpeed > 0){
-              p.scale.x -= p.m5.scaleSpeed;
+            if(p.scale.x - p.g.scaleSpeed > 0){
+              p.scale.x -= p.g.scaleSpeed
             }
-            if(p.scale.y - p.m5.scaleSpeed > 0){
-              p.scale.y -= p.m5.scaleSpeed;
+            if(p.scale.y - p.g.scaleSpeed > 0){
+              p.scale.y -= p.g.scaleSpeed
             }
             p.rotation += p.m5.angVel;
-            p.alpha -= p.m5.alphaSpeed;
-            if(p.alpha <= 0){
-              _.disj(DustBin,p);
-              Mojo.Sprites.remove(p);
-            }
+            p.alpha -= p.g.alphaSpeed;
+            if(p.alpha <= 0)
+              _.disj(DustBin, _S.remove(p));
           };
         }
-        for(let gap= (maxs.angle-mins.angle)/(count-1),
-                a=mins.angle,i=0; i<count; ++i){
+        for(let diff= maxs.angle-mins.angle,
+                gap= diff/(count-1), a=mins.angle, i=0; i<count; ++i){
           _make(random ? _.randFloat2(mins.angle, maxs.angle) : a);
           a += gap;
         }
@@ -747,59 +773,56 @@
        * @return {}
        */
       shake(s, magnitude=16, angular=false,loop=true){
-        let numberOfShakes=10,
-            wrapper={},
-            self = this,
-            counter=1,
-            startX = s.x,
-            startY = s.y,
-            startAngle = s.rotation,
-            startMagnitude= magnitude,
-            //Divide the magnitude into 10 units so that you can
-            //reduce the amount of shake by 10 percent each frame
-            magnitudeUnit = _M.ndiv(magnitude , numberOfShakes);
+        const CHUNK=8;
+        let
+          wrapper={},
+          self=this,
+          counter=1,
+          startX = s.x,
+          startY = s.y,
+          tiltAngle = 1,
+          startAngle = s.rotation,
+          startMagnitude= magnitude,
+          chunk = _M.ndiv(magnitude , CHUNK);
         function _upAndDownShake(){
-          if(counter<numberOfShakes){
+          if(counter<CHUNK){
             s.x = startX;
             s.y = startY;
-            magnitude -= magnitudeUnit;
+            magnitude -= chunk;
             s.x += _.randInt2(-magnitude, magnitude);
             s.y += _.randInt2(-magnitude, magnitude);
             ++counter;
+          }else if(loop){
+            magnitude=startMagnitude;
+            counter=1;
           }else{
-            if(loop){
-              magnitude=startMagnitude;
-              counter=1;
-            }else{
-              _.disj(DustBin,wrapper);
-            }
+            _.disj(DustBin,wrapper);
           }
         }
-        let tiltAngle = 1;
         function _angularShake(){
-          if(counter<numberOfShakes){
+          if(counter<CHUNK){
             s.rotation = startAngle;
-            magnitude -= magnitudeUnit;
+            magnitude -= chunk;
             s.rotation = magnitude * tiltAngle;
             ++counter;
             //yoyo it
             tiltAngle *= -1;
+          }else if(loop){
+            magnitude=startMagnitude;
+            counter=1;
           }else{
-            if(loop){
-              magnitude=startMagnitude;
-              counter=1;
-            }else{
-              _.disj(DustBin,wrapper);
-            }
+            _.disj(DustBin,wrapper);
           }
         }
         wrapper.onTick=()=>{
           return angular ? _angularShake(wrapper)
                          : _upAndDownShake(wrapper)
         };
-        DustBin.push(wrapper);
+        return DustBin.push(wrapper) && s;
       },
-      StarWarp
+      StarWarp,
+      SeqTweens,
+      BatchTweens
     };
 
     return (Mojo.FX= _$);

@@ -20,8 +20,7 @@
   function _module(Mojo, ScenesDict){
 
     const SG=gscope["io/czlab/mcfud/spatial"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_,is}=Mojo;
+    const {v2:_V, math:_M, ute:_,is}=Mojo;
     const int=Math.floor;
 
     /**
@@ -150,15 +149,10 @@
           c=this.getChildById(c);
         if(c){
           this.removeChild(c);
+          Mojo.off(c);
           if(c.m5._engrid)
             this.m5.sgrid.degrid(c);
-          if(c.m5.drag)
-            Mojo.Input.undoDrag(c);
-          if(c.m5.button)
-            Mojo.Input.undoButton(c);
-          if(c.m5.hotspot)
-            Mojo.Input.undoHotspot(c);
-          Mojo.off(c);
+          Mojo.Input.undoXXX(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
       }
       /**Remove item from spatial grid temporarily.
@@ -197,19 +191,13 @@
         if(engrid){
           if(c instanceof PIXI.TilingSprite){}else{
             c.m5._engrid=true;
-            if(c.visible)
-              this.m5.sgrid.engrid(c);
+            //if(c.visible) this.m5.sgrid.engrid(c);
+            this.m5.sgrid.engrid(c);
           }
         }
         return c;
       }
       _addit(c,pos){
-        let self=this,
-          w=(r)=>{
-            if(r.m5)
-              r.m5.root=self;
-            r.children.forEach(z=>w(z)); };
-        ///
         if(is.num(pos) &&
            pos >= 0 &&
            pos < this.children.length){
@@ -217,7 +205,6 @@
         }else{
           this.addChild(c);
         }
-        w(c);
         return (this.m5.index[c.m5.uuid]=c);
       }
       /**Clean up.
@@ -265,30 +252,29 @@
        * @param {object} obj
        */
       queueForRemoval(obj){
-        this.m5.garbo.push(obj);
-        return obj;
+        return this.m5.garbo.push(obj) && obj
       }
       /**
        * @param {number} dt
        */
       update(dt){
-        if(this.m5.dead){return}
-        //handle queued stuff
-        let f,futs= this.m5.queue.filter(q=>{
-          q[1] -= 1;
-          return (q[1]<=0);
-        });
-        //run ones that have expired
-        while(futs.length>0){
-          _.disj(this.m5.queue, f=futs.shift());
-          f[0]();
+        if(!this.m5.dead){
+          //look for expired futures
+          this.m5.queue.filter(q=>{
+            q[1] -= 1;
+            return (q[1]<=0);
+          }).reverse().forEach(f=>{
+            _.disj(this.m5.queue, f);
+            f[0]();
+          });
+          //run the scene
+          this.preUpdate && this.preUpdate(dt);
+          this._tick(this.children, dt);
+          this.postUpdate && this.postUpdate(dt);
+          //clean up
+          this.m5.garbo.forEach(o=>this.remove(o));
+          this.m5.garbo.length=0;
         }
-        if(this.preUpdate) this.preUpdate(dt);
-        this._tick(this.children, dt);
-        if(this.postUpdate) this.postUpdate(dt);
-        //clean up
-        this.m5.garbo.forEach(o=>this.remove(o));
-        this.m5.garbo.length=0;
       }
       /**Initial bootstrap of this scene.
       */
@@ -297,60 +283,49 @@
           this.m5.setup(this.m5.options);
           delete this.m5["setup"];
         }
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _layItems(C,items,pad,dir,skip){
-      let p,P=0,m=-1;
-      items.forEach((s,i)=>{
-        if(dir==Mojo.DOWN){
-          if(s.width>m){ P=i; m=s.width; }
-        }else{
-          if(s.height>m){ P=i; m=s.height; }
-        }
-        if(!skip) C.addChild(s);
-        _.assert(_.feq0(s.anchor.x)&&_.feq0(s.anchor.y),"wanted topleft anchor");
-      });
-      //P is the fatest or tallest
-      p=items[P];
-      for(let s,i=P-1;i>=0;--i){
-        s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinAbove":"pinLeft"](p,s,pad);
-        p=s;
-      }
-      p=items[P];
-      for(let s,i=P+1;i<items.length; ++i){
-        s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinBelow":"pinRight"](p,s,pad);
-        p=s;
+        return this;
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _layout(items,options,dir){
-      let {Sprites:_S}=Mojo,
-        K=Mojo.getScaleFactor();
       if(items.length==0){return}
+      let
+        {Sprites:_S}=Mojo,
+        K=Mojo.getScaleFactor();
       options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
                                 borderWidth:4,
                                 border:_S.SomeColors.white});
-      let borderWidth=options.borderWidth * K,
+      let
+        borderWidth=options.borderWidth * K,
         C=options.group || _S.container(),
         pad=options.padding * K,
-        fit= options.fit * K,
-        last,w,h,p,fit2= 2*fit;
+        last,w,h,p, T=0, Z=-1,
+        fit= options.fit * K, fit2= fit * 2,
+        guessWidth= (s)=>{
+          T+=s.height;
+          if(s.width>Z) Z=s.width;
+        },
+        guessHeight= (s)=>{
+          T+=s.width;
+          if(s.height>Z) Z=s.height
+        };
 
-      _layItems(C,items,pad,dir,options.skipAdd);
-      w= C.width;
-      h= C.height;
-      last=_.tail(items);
+      items.forEach(s=>{
+        _.assert(_.feq0(s.anchor.x)&&_.feq0(s.anchor.y),"wanted topleft anchor");
+        (dir==Mojo.DOWN?guessWidth:guessHeight)(s);
+        if(!options.skipAdd) C.addChild(s);
+      });
 
+      Z += fit2;
+      T += pad*(items.length-1)+fit2;
+
+      if(dir==Mojo.DOWN){ w=Z; h=T; }else{ h=Z; w=T; }
       //create a backdrop
-      if(true){
-        let r= _S.rect(w+fit2,h+fit2,
+      if(1){
+        let r= _S.rect(w,h,
                        options.bg,
                        options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
@@ -359,42 +334,37 @@
           if(options.bg == "transparent")r.alpha=0;
         }
       }
-
-      h= C.height;
-      w= C.width;
-
-      let [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)];
-      if(dir==Mojo.DOWN){
-        //realign on x-axis
-        items.forEach(s=> s.x=w2-_M.ndiv(s.width,2));
-        let hd= h-(last.y+last.height);
-        hd= _M.ndiv(hd,2);
-        //realign on y-axis
-        items.forEach(s=> s.y += hd);
-      }else{
-        //refit the items on y-axis
-        items.forEach(s=> s.y=h2- _M.ndiv(s.height,2));
-        let wd= w-(last.x+last.width);
-        wd= _M.ndiv(wd,2);
-        //refit the items on x-axis
-        items.forEach(s=> s.x += wd);
-      }
-
-      h= C.height;
-      w= C.width;
-
+      let
+        [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)],
+        prev, op=dir==Mojo.DOWN?"pinBelow":"pinAbove";
+      items.forEach((s,i)=>{
+        if(dir==Mojo.DOWN){
+          if(i==0){
+            s.x=w2-s.width/2;
+            s.y= fit;
+          }
+        }else{
+          if(i==0){
+            s.y=h2-s.height/2;
+            s.x= fit;
+          }
+        }
+        if(prev)
+          Mojo.Sprites[op](prev,s,pad);
+        prev=s;
+      });
       //may be center the whole thing
       C.x= _.nor(options.x, _M.ndiv(Mojo.width-w,2));
       C.y= _.nor(options.y, _M.ndiv(Mojo.height-h,2));
-
       return C;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _choiceBox(items,options,dir){
-      let {Sprites:_S,Input:_I}=Mojo,
-        selectedColor=_S.color(options.selectedColor),
-        c,cur, disabledColor=_S.color(options.disabledColor);
+      let
+        {Sprites:_S,Input:_I}=Mojo,
+        selectedColor=_S.color(_.nor(options.selectedColor,"green")),
+        c,cur, disabledColor=_S.color(_.nor(options.disabledColor,"grey"));
       items.forEach(o=>{
         if(o.m5.uuid==options.defaultChoice){
           cur=o;
@@ -477,7 +447,8 @@
        * @param {object} [options]
        */
       replace(cur,name,options){
-        const n=_sceneid(is.str(cur)?cur:cur.name),
+        const
+          n=_sceneid(is.str(cur)?cur:cur.name),
           c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;

@@ -20,15 +20,19 @@
   function _module(Mojo){
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const P8=Math.PI/8,
-          P8_3=P8*3,
-          P8_5=P8*5,
-          P8_7= P8*7,
-          {Sprites:_S, Input:_I, is,ute:_}=Mojo;
+    const
+      P8=Math.PI/8,
+      P8_3=P8*3,
+      P8_5=P8*5,
+      P8_7= P8*7,
+      {Sprites:_S, Input:_I, is,ute:_}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const sin=Math.sin,cos=Math.cos,abs=Math.abs;
-    const RTA=180/Math.PI;
+    const
+      sin=Math.sin,
+      cos=Math.cos,
+      abs=Math.abs,
+      RTA=180/Math.PI;
 
     /**
      * @module mojoh5/Touch
@@ -39,38 +43,38 @@
       const rad= Math.atan2(+cy, +cx);
 
       if(rad > -P8_5 && rad < -P8_3){
-        console.log("calcDir=UP");
+        Mojo.CON.log("calcDir=UP");
         return Mojo.UP;
       }
       if(rad > P8_3 && rad < P8_5){
-        console.log("calcDir=DOWN");
+        Mojo.CON.log("calcDir=DOWN");
         return Mojo.DOWN;
       }
       if((rad > -P8 && rad<0) ||
          (rad > 0 && rad<P8)){
-        console.log("calcDir=RIGHT");
+        Mojo.CON.log("calcDir=RIGHT");
         return Mojo.RIGHT;
       }
       if((rad > P8_7 && rad<Math.PI) ||
          (rad > -Math.PI && rad < -P8_7)){
-        console.log("calcDir=LEFT");
+        Mojo.CON.log("calcDir=LEFT");
         return Mojo.LEFT;
       }
 
       if(rad > P8 && rad < P8_3){
-        console.log("calcDir= SE ");
+        Mojo.CON.log("calcDir= SE ");
         return Mojo.SE;
       }
       if(rad > P8_5 && rad < P8_7){
-        console.log("calcDir= SW ");
+        Mojo.CON.log("calcDir= SW ");
         return Mojo.SW;
       }
       if(rad> -P8_3 && rad < -P8){
-        console.log("calcDir= NE ");
+        Mojo.CON.log("calcDir= NE ");
         return Mojo.NE;
       }
       if(rad > -P8_7 && rad < -P8_5){
-        console.log("calcDir= NW ");
+        Mojo.CON.log("calcDir= NW ");
         return Mojo.NW;
       }
 
@@ -80,8 +84,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _bindEvents(s){
       function onDragStart(e){
-        let ct=e.changedTouches;
-        let t= e.target;
+        let
+          t= e.target,
+          ct=e.changedTouches;
         if(ct){
           e=ct[0];
           s.m5.touchId=ct[0].identifier;
@@ -112,8 +117,7 @@
         if(_I.isPaused() || !s.visible || !s.m5.drag){return}
         let c,t= e.target;
         if(e.changedTouches){
-          for(let i=0,
-                  ct=e.changedTouches; i< ct.length; ++i){
+          for(let i=0, ct=e.changedTouches; i< ct.length; ++i){
             if(s.m5.touchId == ct[i].identifier){
               c= [ct[i].pageX-t.offsetLeft,
                   ct[i].pageY-t.offsetTop];
@@ -124,10 +128,11 @@
           c= [e.pageX - t.offsetLeft,
               e.pageY - t.offsetTop]
         }
-        let X = c? (c[0] - s.m5.startX) :0;
-        let Y = c? (c[1] - s.m5.startY) :0;
-        let limit=s.m5.range;
-        let angle = 0;
+        let
+          angle = 0,
+          X = c? (c[0]-s.m5.startX):0,
+          Y = c? (c[1]-s.m5.startY):0,
+          dir, sx, sy, limit=s.m5.range;
         c[0]=0;
         c[1]=0;
         if(_.feq0(X) && _.feq0(Y)){return}
@@ -139,7 +144,8 @@
          *    ------------> X
          *     270  |  360
          */
-        let dir, sx=abs(X), sy=abs(Y);
+        sx=abs(X);
+        sy=abs(Y);
         if(_.feq0(X)){
           c[0]=0;
           if(Y>0){
@@ -212,6 +218,9 @@
       return s;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       assets:["boot/joystick.png","boot/joystick-handle.png"],
       /**Create the joystick.
@@ -220,18 +229,19 @@
        * @return {PIXIContainer} the stick
        */
       joystick(options){
-        let inner= _S.sprite("boot/joystick-handle.png");
-        let outer= _S.sprite("boot/joystick.png");
-        let stick=new PIXI.Container();
-        let mo= _.inject({oscale:0.7,
-                          iscale:1,
-                          inner,
-                          outer,
-                          onEnd(){},
-                          onStart(){},
-                          prevDir:0,
-                          static:false,
-                          onChange(dir,angle){}}, options);
+        let
+          inner= _S.sprite("boot/joystick-handle.png"),
+          outer= _S.sprite("boot/joystick.png"),
+          stick=new PIXI.Container(),
+          mo= _.inject({oscale:0.7,
+                        iscale:1,
+                        inner,
+                        outer,
+                        onEnd(){},
+                        onStart(){},
+                        prevDir:0,
+                        static:false,
+                        onChange(dir,angle){}}, options);
         _S.scaleXY(outer,mo.oscale, mo.oscale);
         _S.scaleXY(inner,mo.iscale, mo.iscale);
         outer.anchor.set(0.5);

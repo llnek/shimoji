@@ -21,14 +21,12 @@
     throw "Fatal: no audio."
   }
 
-  const CON=console,
-        int=Math.floor;
-
   /**Create the module.
    */
   function _module(Mojo,SoundFiles){
 
     const {ute:_, is}=Mojo;
+    const int=Math.floor;
 
     /**
      * @module mojoh5/Sound
@@ -37,6 +35,7 @@
     const _actives=new Map();
     let _sndCnt=1;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** debounce */
     function _debounce(s,now,interval){
       let rc;
@@ -52,10 +51,11 @@
       return rc;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _make(_A,name, url){
-      let _pan=0;
-      let _vol=1;
+      let
+        _pan=0,
+        _vol=1;
       const s={
         sids: new Map(),
         buffer:UNDEF,
@@ -66,18 +66,19 @@
         //1(right speaker)
         get pan(){ return _pan },
         set pan(v){ _pan= v },
-        get volume(){ return _vol },
-        set volume(v){ _vol=v },
+        get vol(){ return _vol },
+        set vol(v){ _vol=v },
         play(){
           const now = _.now();
           const s= this.name;
           if(Mojo.Sound.sfx()&&
              !_debounce(s,now)){
-            let sid = _sndCnt++,
-                w=this.buffer.duration*1000,
-                g=_A.ctx.createGain(),
-                p=_A.ctx.createStereoPanner(),
-                src = _A.ctx.createBufferSource();
+            let
+              sid = _sndCnt++,
+              w=this.buffer.duration*1000,
+              g=_A.ctx.createGain(),
+              p=_A.ctx.createStereoPanner(),
+              src = _A.ctx.createBufferSource();
             src.buffer = this.buffer;
             src.connect(g);
             g.connect(p);
@@ -103,6 +104,9 @@
       return SoundFiles[name]=s;
     };
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       ctx: new gscope.AudioContext(),
       _mute:0,
@@ -118,23 +122,21 @@
        * @return {boolean}
        */
       sfx(){
-        return this._mute===0
+        return this._mute==0
       },
       /**Turn sound off.
        * @memberof module:mojoh5/Sound
        * @return {object}
        */
       mute(){
-        this._mute=1;
-        return this;
+        return (this._mute=1) && this
       },
       /**Turn sound on.
        * @memberof module:mojoh5/Sound
        * @return {object}
        */
       unmute(){
-        this._mute=0;
-        return this;
+        return (this._mute=0) || this
       },
       /**Decode these sound bytes.
        * @memberof module:mojoh5/Sound
@@ -148,7 +150,7 @@
       decodeData(name, url,blob, onLoad, onFail){
         let snd= _make(this,name, url);
         this.ctx.decodeAudioData(blob, b=>{ onLoad(snd.buffer=b);
-                                            CON.log(`decoded sound file:${url}`); },
+                                            Mojo.CON.log(`decoded sound file:${url}`); },
                                        e=> { onFail && onFail(url,e) });
         return snd;
       },
@@ -161,8 +163,9 @@
        * @return {object}
        */
       decodeUrl(name, url, onLoad, onFail){
-        let xhr= new XMLHttpRequest();
-        let snd= _make(this,name, url);
+        let
+          xhr= new XMLHttpRequest(),
+          snd= _make(this,name, url);
         xhr.open("GET", url, true);
         xhr.responseType="arraybuffer";
         xhr.addEventListener("load", ()=>{
@@ -173,6 +176,7 @@
       }
     };
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Extend Mojo */
     Mojo.sound=function(fname){
       return SoundFiles[Mojo.assetPath(fname)] ||

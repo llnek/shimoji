@@ -20,22 +20,21 @@
   function _module(Mojo){
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Geo=gscope["io/czlab/mcfud/geo2d"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
            Sprites:_S,
            FX:_F,
            Input:_I,
+           v2:_V,
+           math:_M,
            is, ute:_}=Mojo;
-    const abs=Math.abs,
-          cos=Math.cos,
-          sin=Math.sin,
-          int=Math.floor;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const R=Math.PI/180,
-          CIRCLE=Math.PI*2;
+    const
+      abs=Math.abs,
+      cos=Math.cos,
+      sin=Math.sin,
+      int=Math.floor,
+      {Geo}=_S,
+      R=Math.PI/180,
+      CIRCLE=Math.PI*2;
 
     /**
      * @module mojoh5/Ute2D
@@ -114,7 +113,6 @@
           C,
           self=this,
           K=Mojo.getScaleFactor();
-
         //ffc901 yellow
         //fd5898 pink
         //e04455 red
@@ -126,7 +124,6 @@
         titleColor= _.nor(titleColor, _S.color("#ffc901"));
         titleSize= _.nor(titleSize, 96*K);
         playMsgSize= _.nor(playMsgSize, 64*K);
-
         self.insert(_S.fillMax( _S.sprite(bg?bg:"boot/splash.jpg")));
         C= self.insert(_S.container());
         if(1){
@@ -136,14 +133,15 @@
           C.addChild(_S.anchorXY(s,0.5));
         }
         if(1){
-          let s=_S.bmpText(playMsg,playMsgFont,playMsgSize);
-          let t=_F.throb(s,0.747,0.747);
-          _S.oneOffClick(clickSnd,()=>{
+          let
+            s=_S.bmpText(playMsg,playMsgFont,playMsgSize),
+            t2,t=_F.throb(s,0.747,0.747);
+          _S.oneOffClick(()=>{
             _S.tint(s,playMsgColor2);
             _F.remove(t);
-            _F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
-            //_F.tweenScale(C,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
-          });
+            t2=_F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90);
+            t2.onComplete=()=>_Z.runEx(action.name,action.cfg);
+          },clickSnd);
           _V.set(s,Mojo.width/2,Mojo.height*0.5);
           C.addChild(_S.anchorXY(s,0.5));
         }
@@ -153,18 +151,16 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("EndGame",{
       setup(options){
-        let {fontName,fontSize,msg,replay,quit}= options;
-        let {winner,snd}=options;
-
+        let
+          {winner,snd}=options,
+          {fontName,fontSize,msg,replay,quit}= options;
         if(winner){
           snd=snd||"game_win.mp3";
         }else{
           snd=snd||"game_over.mp3";
         }
-
         _.assert(fontSize, "expected fontSize");
         fontName=fontName || "Doki Lowercase";
-
         let
           os={fontName, fontSize},
           space=()=>_S.opacity(_S.bmpText("I",os),0),
@@ -205,15 +201,14 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("HotKeys",{
       setup(options){
-        let {char_fire, char_down,char_up,char_left,char_right}=options;
-        let {fontName,fontSize,cb,radius,alpha,color}=options;
-        let bs,F,U,D,L,R;
-        let opstr= options.buttons?"makeButton":"makeHotspot";
-
+        let
+          bs,F,U,D,L,R,
+          opstr= options.buttons?"makeButton":"makeHotspot",
+          {fontName,fontSize,cb,radius,alpha,color}=options,
+          {char_fire, char_down,char_up,char_left,char_right}=options;
         _.assert(is.num(fontSize),"expected fontsize");
         _.assert(is.num(radius),"expected radius");
         _.assert(is.fun(cb),"expected callback");
-
         fontName=fontName||"Doki Lowercase";
         alpha=alpha || 0.2;
         color=_.nor(color,"grey");
@@ -262,18 +257,18 @@
           if(bs.fire.m5.hotspot)
             bs.fire.m5.touch=(o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE);
         }
-        if(options.extra)
-          options.extra(this);
+        if(options.extra) options.extra(this);
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("AudioIcon",{
       setup(arg){
-        let {xOffset,yOffset,xScale,yScale}=arg;
-        let {cb,iconOn,iconOff}= arg;
-        let {Sound}=Mojo;
-        let K=Mojo.getScaleFactor(),
+        let
+          {Sound}=Mojo,
+          {cb,iconOn,iconOff}= arg,
+          {xOffset,yOffset,xScale,yScale}=arg,
+          K=Mojo.getScaleFactor(),
           s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
 
         xScale= _.nor(xScale, K*2);
@@ -308,10 +303,10 @@
           minVel:15,
           maxVel:30
         });
-        const self=this,
-              stars=[],
-              W=0xffffff,
-              gfx=_S.graphics();
+        const
+          self=this,
+          stars=[],
+          gfx=_S.graphics();
         _.inject(this.g,{
           gfx,
           stars,
@@ -321,7 +316,7 @@
           draw(){
             gfx.clear();
             stars.forEach(s=>{
-              gfx.beginFill(W);
+              gfx.beginFill(_.rand()<0.3?_S.SomeColors.yellow:_S.SomeColors.white);
               gfx.drawRect(s.x, s.y, s.size, s.size);
               gfx.endFill();
             });
@@ -388,7 +383,8 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Camera(e,worldWidth,worldHeight,canvas){
-      const _height= canvas?canvas.height:worldHeight,
+      const
+        _height= canvas?canvas.height:worldHeight,
         _width= canvas?canvas.width:worldWidth,
         h2=_M.ndiv(_height,2),
         w2=_M.ndiv(_width,2),
@@ -396,111 +392,110 @@
         w4=_M.ndiv(_width,4),
         sigs=[],
         world=e;
-      let _x=0;
-      let _y=0;
-      let self={
-        dispose(){ Mojo.off(self) },
-        //changing the camera's xy pos shifts
-        //pos of the world in the opposite direction
-        set x(v){ _x=v; e.x= -_x },
-        set y(v){ _y=v; e.y= -_y },
-        get x(){ return _x },
-        get y(){ return _y },
-        worldHeight,
-        worldWidth,
-        width: _width,
-        height: _height,
-        follow(s){
-          //Check the sprites position in relation to the viewport.
-          //Move the camera to follow the sprite if the sprite
-          //strays outside the viewport
-          const bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s)
-                                   : Mojo.Sprites.boundingBox(s);
-          const _right=()=>{ if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }},
-            _left=()=>{ if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }},
-            _top=()=>{ if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }},
-            _bottom=()=>{ if(bx.y2> this.y+int(h2+h4)){ this.y = bx.y2- h4*3 }};
-          ////
-          _left();  _right();  _top();  _bottom();
-          //clamp the camera
-          if(this.x<0){ this.x = 0 }
-          if(this.y<0){ this.y = 0 }
-          if(this.x+_width > worldWidth){ this.x= worldWidth - _width }
-          if(this.y+_height > worldHeight){ this.y= worldHeight - _height }
-          //contain the object
-          let {x1,x2,y1,y2}=s.m5.getImageOffsets();
-          let n= bx.x2 - x2;
-          if(n>worldWidth){ s.x -= (n-worldWidth) }
-          n=bx.y2 - y2;
-          if(n>worldHeight){ s.y -= (n-worldHeight) }
-          n=bx.x1 + x1;
-          if(n<0) { s.x += -n }
-          n=bx.y1  + y1;
-          if(n<0) { s.y += -n }
-        },
-        centerOver:function(s,y){
-          if(arguments.length==1 && !is.num(s)){
-            let c=Mojo.Sprites.centerXY(s)
-            this.x = c[0]- w2;
-            this.y = c[1] - h2;
-          }else{
-            if(is.num(s)) this.x=s - w2;
-            if(is.num(y)) this.y=y - h2;
+      let
+        _x=0,
+        _y=0,
+        self={
+          dispose(){ Mojo.off(self) },
+          //changing the camera's xy pos shifts
+          //pos of the world in the opposite direction
+          set x(v){ _x=v; e.x= -_x },
+          set y(v){ _y=v; e.y= -_y },
+          get x(){ return _x },
+          get y(){ return _y },
+          worldHeight,
+          worldWidth,
+          width: _width,
+          height: _height,
+          follow(s){
+            //Check the sprites position in relation to the viewport.
+            //Move the camera to follow the sprite if the sprite
+            //strays outside the viewport
+            const
+              bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s)
+                                 : Mojo.Sprites.boundingBox(s),
+              _right=()=>{ if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }},
+              _left=()=>{ if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }},
+              _top=()=>{ if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }},
+              _bottom=()=>{ if(bx.y2> this.y+int(h2+h4)){ this.y = bx.y2- h4*3 }};
+            _left();  _right();  _top();  _bottom();
+            //clamp the camera
+            if(this.x<0){ this.x = 0 }
+            if(this.y<0){ this.y = 0 }
+            if(this.x+_width > worldWidth){ this.x= worldWidth - _width }
+            if(this.y+_height > worldHeight){ this.y= worldHeight - _height }
+            //contain the object
+            let {x1,x2,y1,y2}=s.m5.getImageOffsets();
+            let n= bx.x2 - x2;
+            if(n>worldWidth){ s.x -= (n-worldWidth) }
+            n=bx.y2 - y2;
+            if(n>worldHeight){ s.y -= (n-worldHeight) }
+            n=bx.x1 + x1;
+            if(n<0) { s.x += -n }
+            n=bx.y1  + y1;
+            if(n<0) { s.y += -n }
+          },
+          centerOver:function(s,y){
+            if(arguments.length==1 && !is.num(s)){
+              let c=Mojo.Sprites.centerXY(s)
+              this.x = c[0]- w2;
+              this.y = c[1] - h2;
+            }else{
+              if(is.num(s)) this.x=s - w2;
+              if(is.num(y)) this.y=y - h2;
+            }
           }
-        }
-      };
-      //////
+        };
       Mojo.on(["post.remove",e],"dispose",self);
       return self;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Meander(e){
-      const colls=[];
-      const self={
-        dispose(){ Mojo.off(self) },
-        boom(col){
-          _.assert(col.A===e,"got hit by someone else???");
-          if(col.B && col.B.m5.sensor){
-            Mojo.emit(["bump.sensor", col.B], col.A)
-          }else{
-            let b=0,[dx,dy]= e.m5.vel;
-            col.impact=UNDEF;
-            //update position
-            _V.sub$(e,col.overlapV);
-            if(col.overlapN[1] < -0.3){
-              if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
-              col.impact=abs(dy);
-              Mojo.emit(["bump.top", e],col);
-            }
-            if(col.overlapN[1] > 0.3){
-              if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
-              col.impact=abs(dy);
-              Mojo.emit(["bump.bottom",e],col);
-            }
-            if(col.overlapN[0] < -0.3){
-              if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
-              col.impact=abs(dx);
-              Mojo.emit(["bump.left",e],col);
-            }
-            if(col.overlapN[0] > 0.3){
-              if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
-              col.impact=abs(dx);
-              Mojo.emit(["bump.right",e],col);
-            }
-            if(col.impact===UNDEF){
-              col.impact=0
+      const
+        colls=[],
+        self={
+          dispose(){ Mojo.off(self) },
+          boom(col){
+            _.assert(col.A===e,"got hit by someone else???");
+            if(col.B && col.B.m5.sensor){
+              Mojo.emit(["bump.sensor", col.B], col.A)
             }else{
-              Mojo.emit(["bump.*",e],col);
+              let b=0,[dx,dy]= e.m5.vel;
+              col.impact=UNDEF;
+              //update position
+              _V.sub$(e,col.overlapV);
+              if(col.overlapN[1] < -0.3){
+                if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
+                col.impact=abs(dy);
+                Mojo.emit(["bump.top", e],col);
+              }
+              if(col.overlapN[1] > 0.3){
+                if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
+                col.impact=abs(dy);
+                Mojo.emit(["bump.bottom",e],col);
+              }
+              if(col.overlapN[0] < -0.3){
+                if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
+                col.impact=abs(dx);
+                Mojo.emit(["bump.left",e],col);
+              }
+              if(col.overlapN[0] > 0.3){
+                if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
+                col.impact=abs(dx);
+                Mojo.emit(["bump.right",e],col);
+              }
+              if(col.impact===UNDEF){
+                col.impact=0
+              }else{
+                Mojo.emit(["bump.*",e],col);
+              }
             }
+            colls.push(col);
           }
-          colls.push(col);
-        }
-      };
-
+        };
       Mojo.on(["hit",e],"boom", self);
       Mojo.on(["post.remove",e],"dispose",self);
-
       return function(dt){
         colls.length=0;
         Mojo.Sprites.move(e,dt);
@@ -511,37 +506,30 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Jitter(e,jumpSpeed,jumpKey){
-
       jumpKey= _.nor(jumpKey, Mojo.Input.UP);
       jumpSpeed= _.nor(jumpSpeed,-300);
-
       //give some time to ease into or outof that ground state
       //instead of just on or off ground,
-      let jumpCnt=0,
+      let
+        jumpCnt=0,
         ground=0,
         j3= jumpSpeed/3;
-
       const self={
-        dispose(){
-          Mojo.off(self)
-        },
-        onGround(){
-          ground=0.24
-        },
+        onGround(){ ground=0.24 },
+        dispose(){ Mojo.off(self) }
       };
-
       Mojo.on(["bump.bottom",e],"onGround",self);
-
       return function(dt,col){
         if(!e.m5.skipHit){
-          let vs= e.m5.speed,
+          let
+            vs= e.m5.speed,
             pR= Mojo.Input.keyDown(Mojo.Input.RIGHT),
             pL= Mojo.Input.keyDown(Mojo.Input.LEFT),
             pU= Mojo.Input.keyDown(jumpKey);
           if(col && (pL || pR || ground>0)){
             //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
-               col.overlapN[1] < -0.85){ col= null }
+               col.overlapN[1] < -0.85){ col= UNDEF }
           }
           if(pL && !pR){
             e.m5.heading = Mojo.LEFT;
@@ -586,28 +574,25 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function MazeRunner(e,frames){
       const self={
-        dispose(){
-          Mojo.off(self)
-        }
-      };
-      //e.m5.heading=Mojo.UP;
+        dispose(){ Mojo.off(self) } };
       return function(dt,col){
-        let [vx,vy]=e.m5.vel,
+        let
+          [vx,vy]=e.m5.vel,
           vs=e.m5.speed,
           mx = !_.feq0(vx),
           my = !_.feq0(vy);
         if(!(mx&&my) && frames){
           if(my){
-            if(is.obj(frames))
+            if(is.obj(frames)){
               e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
-            else if (frames){
+            }else if(frames){
               e.angle=vy>0?180:0;
             }
           }
           if(mx){
-            if(is.obj(frames))
+            if(is.obj(frames)){
               e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
-            else if(frames){
+            }else if(frames){
               e.angle=vx>0?90:-90;
             }
           }
@@ -647,32 +632,31 @@
      * @return {PatrolObj}
      */
     function Patrol(e,xDir,yDir){
-      const sigs=[];
-      const self={
-        dispose(){
-          Mojo.off(self)
-        },
-        goLeft(col){
-          e.m5.heading=Mojo.LEFT;
-          e.m5.flip= "x";
-          _V.setX(e.m5.vel, -col.impact);
-        },
-        goRight(col){
-          e.m5.heading=Mojo.RIGHT;
-          e.m5.flip= "x";
-          _V.setX(e.m5.vel, col.impact);
-        },
-        goUp(col){
-          _V.setY(e.m5.vel,-col.impact);
-          e.m5.heading=Mojo.UP;
-          e.m5.flip= "y";
-        },
-        goDown(col){
-          _V.setY(e.m5.vel, col.impact);
-          e.m5.heading=Mojo.DOWN;
-          e.m5.flip= "y";
-        }
-      };
+      const
+        sigs=[],
+        self={
+          dispose(){ Mojo.off(self) },
+          goLeft(col){
+            e.m5.heading=Mojo.LEFT;
+            e.m5.flip= "x";
+            _V.setX(e.m5.vel, -col.impact);
+          },
+          goRight(col){
+            e.m5.heading=Mojo.RIGHT;
+            e.m5.flip= "x";
+            _V.setX(e.m5.vel, col.impact);
+          },
+          goUp(col){
+            _V.setY(e.m5.vel,-col.impact);
+            e.m5.heading=Mojo.UP;
+            e.m5.flip= "y";
+          },
+          goDown(col){
+            _V.setY(e.m5.vel, col.impact);
+            e.m5.heading=Mojo.DOWN;
+            e.m5.flip= "y";
+          }
+        };
       if(xDir){
         Mojo.on(["bump.right",e],"goLeft",self);
         Mojo.on(["bump.left",e],"goRight",self);
@@ -686,6 +670,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       Periodic,
       Meander,
@@ -734,8 +720,9 @@
        * @param {number} range
        */
       arrive(s, pos,range){
-        let r=1, n= _V.dist(s,pos),
-            dv = _V.unit$(_V.sub(pos,s));
+        let
+          r=1, n= _V.dist(s,pos),
+          dv = _V.unit$(_V.sub(pos,s));
         if(range === undefined)
           range= s.m5.steerInfo.arrivalThreshold;
         if(n>range){}else{ r=n/range }
@@ -749,8 +736,9 @@
        * @param {Sprite} target
        */
       pursue(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
+        let
+          lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+          predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
         return this.seek(s,predicted);
       },
       /**
@@ -759,8 +747,9 @@
        * @param {Sprite} target
        */
       evade(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
+        let
+          lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+          predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
         return this.flee(s, predicted);
       },
       /**
@@ -778,9 +767,10 @@
        * @param {Sprite} s
        */
       wander(s){
-        let offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
-            n=_V.len(offset),
-            center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
+        let
+          offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
+          n=_V.len(offset),
+          center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
         offset[0] = Math.cos(s.m5.steerInfo.wanderAngle) * n;
         offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
         s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
@@ -794,10 +784,11 @@
        * @param {Sprite} targetB
        */
       interpose(s,targetA, targetB){
-        let mid= _V.div$(_V.add(targetA,targetB),2),
-            dt= _V.dist(s,mid) / s.m5.maxSpeed,
-            pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
-            pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
+        let
+          mid= _V.div$(_V.add(targetA,targetB),2),
+          dt= _V.dist(s,mid) / s.m5.maxSpeed,
+          pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
+          pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
         return this.seek(s, _V.div$(_V.add$(pA,pB),2));
       },
       /**
@@ -808,17 +799,17 @@
        * @param {number} maxSeparation
        */
       separation(s, ents, separationRadius=300, maxSeparation=100){
-        let force = [0,0],
-            neighborCount = 0;
+        let
+          force = [0,0],
+          neighborCount = 0;
         ents.forEach(e=>{
           if(e !== s && _V.dist(e,s) < separationRadius){
             _V.add$(force,_V.sub(e,s));
             ++neighborCount;
           }
         });
-        if(neighborCount > 0){
-          _V.flip$(_V.div$(force,neighborCount))
-        }
+        if(neighborCount > 0)
+          _V.flip$(_V.div$(force,neighborCount));
         _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
       },
       /**
@@ -834,16 +825,15 @@
        */
       followLeader(s,leader, ents, distance=400, separationRadius=300,
                    maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
-
         function isOnLeaderSight(s,leader, ahead, leaderSightRadius){
           return _V.dist(ahead,s) < leaderSightRadius ||
                  _V.dist(leader,s) < leaderSightRadius
         }
-
-        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
-        let ahead = _V.add(leader,tv);
+        let
+          tv = _V.mul$(_V.unit(leader.m5.vel),distance),
+          behind, ahead = _V.add(leader,tv);
         _V.flip$(tv);
-        let behind = _V.add(leader,tv);
+        behind = _V.add(leader,tv);
         if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
           this.evade(s,leader);
         }
@@ -860,8 +850,9 @@
       queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
 
         function getNeighborAhead(){
-          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
-          let res, ahead = _V.add(s, qa);
+          let
+            qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead),
+            res, ahead = _V.add(s, qa);
           for(let d,i=0; i<ents.length; ++i){
             if(ents[i] !== s &&
                _V.dist(ahead,ents[i]) < maxQueueRadius){
@@ -871,10 +862,10 @@
           }
           return res;
         }
-
-        let neighbor = getNeighborAhead();
-        let brake = [0,0],
-            v = _V.mul(s.m5.vel,1);
+        let
+          neighbor = getNeighborAhead(),
+          brake = [0,0],
+          v = _V.mul(s.m5.vel,1);
         if(neighbor){
           brake = _V.mul$(_V.flip(s.m5.steer),0.8);
           _V.unit$(_V.flip$(v));
@@ -897,9 +888,10 @@
                                         : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
         }
 
-        let inSightCount = 0,
-            averagePosition = [0,0],
-            averageVelocity = _V.mul(s.m5.vel,1);
+        let
+          inSightCount = 0,
+          averagePosition = [0,0],
+          averageVelocity = _V.mul(s.m5.vel,1);
 
         ents.forEach(e=>{
           if(e !== this && inSight(e)){
@@ -948,10 +940,11 @@
        * @param {array} obstacles
        */
       avoid(s,obstacles){
-        let dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
-            ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
-            ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
-            avoidance, mostThreatening = null;
+        let
+          dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
+          ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
+          ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
+          avoidance, mostThreatening = null;
         for(let c,i=0; i<obstacles.length; ++i){
           if(obstacles[i] === this) continue;
           c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
@@ -975,8 +968,9 @@
        * @return {boolean}
        */
       lineOfSight(s1, s2, obstacles){
-        let c1=_S.centerXY(s1),
-            c2=_S.centerXY(s2);
+        let
+          c1=_S.centerXY(s1),
+          c2=_S.centerXY(s2);
         for(let b,rc,s,o,i=0;i<obstacles.length;++i){
           o=obstacles[i];
           if(o.m5.circle){
@@ -999,8 +993,9 @@
        * @return {Sprite}
        */
       shoot(src, angle, speed, ctor,x,y){
-        let b=ctor(),
-            soff=Mojo.Sprites.topLeftOffsetXY(src);
+        let
+          b=ctor(),
+          soff=Mojo.Sprites.topLeftOffsetXY(src);
         _V.add$(soff,[x,y]);
         _V.copy(b,_V.add(src,soff));
         _V.set(b.m5.vel, Math.cos(angle) * speed,
@@ -1013,9 +1008,11 @@
        * @return {HealthBarObj}
        */
       healthBar(arg){
-        let {scale:K,width,height,
-             lives,borderWidth,line,fill}=arg;
-        let c,padding=4*K,fit=4*K,out=[];
+        let
+          {scale:K,width,height,
+           lives,
+           borderWidth,line,fill}=arg,
+          c, padding=4*K, fit=4*K, out=[];
         borderWidth = (borderWidth||4)*K;
         lives= lives||3;
         fill=_S.color(fill);
@@ -1044,23 +1041,26 @@
        * @return {GaugeUIObj}
        */
       gaugeUI(arg){
-        let {minDeg,maxDeg,
-             line,gfx,scale:K,
-             cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
+        let
+          {minDeg,maxDeg,
+           line,gfx,scale:K,
+           cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
         const segs= [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315];
         function getPt(x, y, r,rad){ return[x + r * cos(rad), y + r * sin(rad) ] }
         function drawTig(x, y, rad, size){
-          let [sx,sy] = getPt(x, y, radius - 4*K, rad),
-              [ex,ey] = getPt(x, y, radius - 12*K, rad);
+          let
+            [sx,sy] = getPt(x, y, radius - 4*K, rad),
+            [ex,ey] = getPt(x, y, radius - 12*K, rad);
           gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
           gfx.moveTo(sx, sy);
           gfx.lineTo(ex, ey);
           gfx.closePath();
         }
         function drawPtr(r,color, rad){
-          let [px,py]= getPt(cx, cy, r - 20*K, rad),
-              [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
-              [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
+          let
+            [px,py]= getPt(cx, cy, r - 20*K, rad),
+            [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
+            [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
           gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
           gfx.moveTo(p2x, p2y);
           gfx.lineTo(px, py);

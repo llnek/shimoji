@@ -19,31 +19,43 @@
   /**Creates the module. */
   function _module(Mojo){
 
-    const Geo=gscope["io/czlab/mcfud/geo2d"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const {ute:_,is}=Mojo;
+    const {
+      math:_M,
+      v2:_V,
+      ute:_,
+      is,
+      Sprites
+    }=Mojo;
     const Layers= [];
+    const {Geo}=Sprites;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const SKEYS= ["ctrlKey","altKey","shiftKey"];
     const cur=()=> Layers[0];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkLayer(L={}){
-      function _uh(e){
+      function _u(e){
         if(L===cur()){
-          L.keyInputs.set(e.keyCode,false);
-          L.shiftKey=e.shiftKey;
-          L.ctrlKey=e.ctrlKey;
-          L.altKey=e.altKey;
+          let o= L.keyInputs.get(e.keyCode);
+          if(!o){
+            o={};
+            L.keyInputs.set(e.keyCode,o);
+          }
+          o.state=false;
+          _.copyKeys(o,e,SKEYS);
           e.preventDefault();
         }
       }
-      function _dh(e){
+      function _d(e){
         if(L===cur()){
-          L.keyInputs.set(e.keyCode,true);
-          L.ctrlKey= false;
-          L.altKey= false;
-          L.shiftKey=false;
+          let o= L.keyInputs.get(e.keyCode);
+          if(!o){
+            o={};
+            L.keyInputs.set(e.keyCode,o);
+          }
+          o.state=true;
+          _.copyKeys(o,e,SKEYS);
           e.preventDefault();
         }
       }
@@ -51,15 +63,12 @@
         yid: `yid#${_.nextId()}`,
         keyInputs: _.jsMap(),
         pauseInput:false,
-        ctrlKey:false,
-        altKey:false,
-        shiftKey:false,
         ptr:UNDEF,
         dispose(){
           this.ptr.dispose();
           if(!Mojo.touchDevice)
-            _.delEvent([["keyup", window, _uh, false],
-                        ["keydown", window, _dh, false]]);
+            _.delEvent([["keyup", window, _u, false],
+                        ["keydown", window, _d, false]]);
         },
         pointer(){
           if(!this.ptr)
@@ -69,55 +78,49 @@
         update(dt){
           if(!this.pauseInput) this.ptr.update(dt);
         },
-        keybd(_key,press,release){
-          const self=this;
-          const key={press,
-                     release,
-                     isDown:false, isUp:true,
-                     ctrl:false, alt:false, shift:false};
-          key.code= is.vec(_key)?_key:[_key];
+        keybd(_key,pressCB,releaseCB){
+          let
+            self=this,
+            isUp=true,
+            isDown=false,
+            codes= is.vec(_key)?_key:[_key];
           function _down(e){
             if(L===cur()){
-              e.preventDefault();
-              if(key.code.includes(e.keyCode)){
-                key.ctrl=e.ctrlKey;
-                key.alt=e.altKey;
-                key.shift=e.shiftKey;
-                if(!self.pauseInput && key.isUp)
-                  key.press && key.press(key.alt,key.ctrl,key.shift);
-                key.isUp=false;
-                key.isDown=true;
+              if(codes.includes(e.keyCode)){
+                if(!self.pauseInput && isUp && pressCB)
+                  pressCB(e.altKey,e.ctrlKey,e.shiftKey);
+                isUp=false;
+                isDown=true;
               }
+              e.preventDefault();
             }
           }
           function _up(e){
             if(L===cur()){
-              e.preventDefault();
-              if(key.code.includes(e.keyCode)){
-                if(!self.pauseInput)
-                  key.isDown && key.release && key.release();
-                key.isUp=true; key.isDown=false;
-                key.ctrl=false; key.alt=false; key.shift=false;
+              if(codes.includes(e.keyCode)){
+                if(!self.pauseInput && isDown && releaseCB)
+                  releaseCB(e.altKey,e.ctrlKey,e.shiftKey);
+                isUp=true;
+                isDown=false;
               }
+              e.preventDefault();
             }
           }
           if(!Mojo.touchDevice)
             _.addEvent([["keyup", window, _up, false],
                         ["keydown", window, _down, false]]);
-          key.dispose=()=>{
-            if(!Mojo.touchDevice)
-              _.delEvent([["keyup", window, _up, false],
-                          ["keydown", window, _down, false]]);
+          return {
+            dispose(){
+              if(!Mojo.touchDevice)
+                _.delEvent([["keyup", window, _up, false],
+                            ["keydown", window, _down, false]]);
+            }
           }
-          return key;
         },
         reset(){
           this.pauseInput=false;
-          this.ctrlKey=false;
-          this.altKey=false;
-          this.shiftKey=false;
-          this.ptr.reset();
           this.keyInputs.clear();
+          this.ptr.reset();
         },
         resize(){
           Mojo.mouse=this.ptr;
@@ -136,8 +139,8 @@
 
       if(!Mojo.touchDevice)
         //keep tracks of keyboard presses
-        _.addEvent([["keyup", window, _uh, false],
-                    ["keydown", window, _dh, false]]);
+        _.addEvent([["keyup", window, _u, false],
+                    ["keydown", window, _d, false]]);
 
       return L;
     }
@@ -146,8 +149,9 @@
      * @module mojoh5/Input
      */
 
-    const HISTORY_SIZE=20,
-          TRAIL_SIZE =100;
+    const
+      HISTORY_SIZE=20,
+      TRAIL_SIZE =100;
 
     /** @ignore */
     function mkPtr(L){
@@ -251,7 +255,9 @@
         },
         _press(){
           if(L!==cur()){return}
-          let i, s, found,z=this.Buttons.length;
+          let
+            i, s, found,
+            z=this.Buttons.length;
           for(i=0;i<z;++i){
             s=this.Buttons[i];
             if(s.m5.gui && s.m5.press && this.hitTest(s)){
@@ -423,7 +429,7 @@
             });
             out.push(a);
             //handle single touch case
-            if(i===0){
+            if(i==0){
               self.touchZeroID=id;
               self._x = cx;
               self._y = cy;
@@ -641,6 +647,7 @@
       resume(){ cur().pauseInput=false },
       pause(){ cur().pauseInput=true },
       dbg(){ cur().dbg() },
+      _cur(){ return cur() },
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
        */
@@ -657,13 +664,23 @@
        * @memberof module:mojoh5/Input
        */
       setKeyOn(k){
-        cur().keyInputs.set(k,true);
+        let o=cur().keyInputs.get(k);
+        if(!o){
+          o={};
+          cur().keyInputs.set(k,o);
+        }
+        o.state=true;
       },
       /**Fake a keypress(up).
        * @memberof module:mojoh5/Input
        */
       setKeyOff(k){
-        cur().keyInputs.set(k,false);
+        let o=cur().keyInputs.get(k);
+        if(!o){
+          o={};
+          cur().keyInputs.set(k,o);
+        }
+        o.state=false;
       },
       /**
        * @memberof module:mojoh5/Input
@@ -755,10 +772,10 @@
        * @param {number} code
        * @return {boolean}
        */
-      keyDown(code){ return cur().keyInputs.get(code) },
-      keyShift(){ return cur().shiftKey },
-      keyAlt(){ return cur().altKey },
-      keyCtrl(){ return cur().ctrlKey },
+      keyDown(code){
+        let o= cur().keyInputs.get(code);
+        return (o && o.state) ? o : UNDEF;
+      },
       /**Create the default mouse pointer.
        * @memberof module:mojoh5/Input
        * @return {object}

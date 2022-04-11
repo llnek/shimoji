@@ -108,6 +108,7 @@
 
   window.addEventListener("load",()=>{
     MojoH5({
+      assetFiles: ["man_up.png","man_down.png","man_right.png", "man_left.png"],
       arena: {width:640, height:640},
       scaleToWindow:"max",
       start(Mojo){ scenes(Mojo) }

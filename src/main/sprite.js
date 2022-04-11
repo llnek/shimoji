@@ -58,16 +58,14 @@
   /**Create the module. */
   function _module(Mojo){
 
+    const {v2:_V, math:_M, ute:_, is, dom} =Mojo;
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_, is, dom} =Mojo;
     const PI2=Math.PI*2,
           int=Math.floor;
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //from pixijs
     function _genTexture(displayObject, scaleMode, resolution, region){
-      //from pixijs
       region = region || displayObject.getLocalBounds(null, true);
       //minimum texture size is 1x1, 0x0 will throw an error
       if(region.width == 0){ region.width = 1 }
@@ -85,16 +83,17 @@
       return renderTexture;
     }
 
-    //ensure PIXI doesn't have special properties
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //ENSURE PIXI DOESN'T HAVE SPECIAL PROPERTIES
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (function(c,g,s){
       g.clear();
       g.beginFill(0);
       g.drawCircle(0, 0, 4);
       g.endFill();
       s=new PIXI.Sprite(_genTexture(g));
-      ["m5","tiled",
-       "collideXY",
-       "getGuid","getBBox", "getSpatial"].forEach(n=>{
+      ["m5","tiled", "remove","collideXY",
+       "onTick","getGuid","getBBox", "getSpatial"].forEach(n=>{
         [[c,"Container"],[g,"Graphics"],[s,"Sprite"]].forEach(x=>{
           _.assertNot(_.has(x[0],n),`PIXI ${x[1]} has ${n} property!`)
         })
@@ -118,17 +117,18 @@
                     PXASprite:PIXI.AnimatedSprite,
                     PXPContainer:PIXI.ParticleContainer});
 
-    /** default contact points, counter clockwise */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** yaxis down, default contact points, counter clockwise */
     function _corners(a,w,h){
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
-      //fake anchor if none provided
-      if(!a)a={x:0,y:0};
-      //adjust for anchor
-      out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
+      //adjust for anchor?
+      if(a)
+        out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
       return out;
     }
 
-    /**Add more to an AnimatedSprite. */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Override the control of animation */
     function _exASprite(s){
       let tid=0,_s={};
       function _reset(){
@@ -167,16 +167,7 @@
       return s;
     }
 
-    /** @ignore */
-    function _animFromVec(x){
-      _.assert(is.vec(x),"bad arg to animFromVec");
-      if(is.str(x[0]))
-        x=Mojo.tcached(x[0])?x.map(s=> Mojo.tcached(s))
-                            :x.map(s=> Mojo.assetPath(s));
-      return _.inst(Mojo.PXTexture,x[0])? new Mojo.PXASprite(x)
-                                        : Mojo.PXASprite.fromImages(x)
-    }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Low level sprite creation. */
     function _sprite(src,ctor){
       let s,obj;
@@ -186,20 +177,25 @@
       if(_.inst(Mojo.PXTexture,src)){
         obj=src
       }else if(is.vec(src)){
-        s=_animFromVec(src)
+        if(is.str(src[0]))
+          src=Mojo.tcached(src[0])?src.map(s=> Mojo.tcached(s))
+                                  :src.map(s=> Mojo.assetPath(s));
+        s=_.inst(Mojo.PXTexture,src[0])? new Mojo.PXASprite(src)
+                                       : Mojo.PXASprite.fromImages(src);
       }else if(is.str(src)){
-        obj= Mojo.tcached(src) ||
-             Mojo.PXTexture.from(Mojo.assetPath(src))
+        obj= Mojo.tcached(src) || Mojo.PXTexture.from(Mojo.assetPath(src))
       }
-      if(obj){s=ctor(obj)}
+      if(obj)
+        s=ctor(obj);
       return _.assert(s, `SpriteError: ${src} not found`) && s
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _mkgrid(sx,sy,rows,cols,cellW,cellH){
-      let y1=sy,
-          x1=sx,
-          out=[];
+      let
+        y1=sy,
+        x1=sx,
+        out=[];
       for(let x2,y2,v,r=0; r<rows; ++r){
         v=[];
         for(let c=0; c<cols; ++c){
@@ -215,12 +211,14 @@
       return out;
     }
 
-    /** @ignore */
-    function _pininfo(X,o,p=null){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function _pininfo(X,o,p=UNDEF){
       let par,box;
       if(o && o.m5 && o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
+        if(o.angle !== undefined)
+          _.assert(_.feq0(o.angle), "expected non rotated object");
         par=o.parent;
         box=X.getAABB(o);
       }
@@ -236,21 +234,23 @@
                    _M.ndiv(box.y1+box.y2,2)]//center y
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //basic 2 body collision physics
     function _bounceOff(o1,o2,m){
       if(o2.m5.static){
         //full bounce v=v - (1+c)(v.n_)n_
         _V.sub$(o1.m5.vel,
                 _V.mul(m.overlapN, 2 * _V.dot(o1.m5.vel,m.overlapN)))
       }else{
-        let dd=_V.mul$(_V.sub(o2.m5.vel,o1.m5.vel),m.overlapN),
-            k= -2 * (dd[0]+dd[1])/(o1.m5.invMass + o2.m5.invMass);
+        let
+          dd=_V.mul$(_V.sub(o2.m5.vel,o1.m5.vel),m.overlapN),
+          k= -2 * (dd[0]+dd[1])/(o1.m5.invMass + o2.m5.invMass);
         _V.sub$(o1.m5.vel, _V.mul$(_V.div(m.overlapN,o1.m5.mass),k));
         _V.add$(o2.m5.vel, _V.mul$(_V.div(m.overlapN,o2.m5.mass),k));
       }
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _collideDir(col){
       const c=new Set();
       if(col.overlapN[1] < -0.3){ c.add(Mojo.TOP) }
@@ -261,10 +261,12 @@
       return c;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //convert to std geometry for collision detection
     function _hitAB(S,a,b){
-      let a_= S.toBody(a),
-          m, b_= S.toBody(b);
+      let
+        a_= S.toBody(a),
+        m, b_= S.toBody(b);
       if(a.m5.circle){
         m= b.m5.circle ? Geo.hitCircleCircle(a_, b_)
                        : Geo.hitCirclePolygon(a_, b_)
@@ -276,14 +278,14 @@
       return m;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _collideAB(S,a,b,bounce=true){
-      let ret,m=_hitAB(S,a,b);
+      let ret,d,m=_hitAB(S,a,b);
       if(m){
         if(b.m5.static){
           _V.sub$(a,m.overlapV)
         }else{
-          let d= _V.div(m.overlapV,2);
+          d= _V.div(m.overlapV,2);
           _V.sub$(a,d);
           _V.add$(b,d);
         }
@@ -309,13 +311,16 @@
       }
     }
 
-    const _PT=_V.vec();
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       SomeColors:{},
       BtnColors:{},
+      Geo,
       assets: ["boot/tap-touch.png","boot/unscii.fnt",
-               "boot/splash.jpg", "boot/trail.png","boot/star.png",
-               "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
+               "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt",
+               "boot/splash.jpg", "boot/trail.png","boot/star.png" ],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -352,11 +357,11 @@
       },
       /**React to a one off click on canvas.
        * @memberof module:mojoh5/Sprites
-       * @param {string} snd
        * @param {function} cb
+       * @param {string} snd
        * @return {function}
        */
-      oneOffClick(snd,cb){
+      oneOffClick(cb,snd=UNDEF){
         let sub= function(){
           Mojo.Input.off(["single.tap"],sub);
           if(snd) Mojo.sound(snd).play();
@@ -383,9 +388,7 @@
        * @return {Sprite} s
        */
       asCircle(s){
-        s.m5.circle=true;
-        return s;
-      },
+        return (s.m5.circle=true) && s },
       /**Change scale factor of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -440,8 +443,8 @@
        */
       anchorXY(s,x,y){
         _.assert(s.anchor,"sprite has no anchor object");
-        s.anchor.x=x;
         s.anchor.y= _.nor(y,x);
+        s.anchor.x=x;
         return s;
       },
       /**Set sprite's anchor to be at it's center.
@@ -462,32 +465,63 @@
         if(s.anchor) s.anchor.set(0,0);
         return s;
       },
+      /**Calc the offset required to find the position of corners
+       * in the object.  e.g. anchor is centered, but you want to
+       * find the bottome right.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} tx target x
+       * @param {number} ty target y
+       * @return {number[]} [x,y]
+       */
+      offsetXY(s,tx,ty){
+        _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
+                 "no anchor or bad target offset points");
+        return [s.width * (tx-s.anchor.x),
+                s.height * (ty-s.anchor.y)]
+      },
       /**Get sprite's anchor offset from top-left corner.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {number[]} [x,y]
        */
       topLeftOffsetXY(s){
-        return this.isTopLeft(s)?_V.vec()
-                                :_V.vec(-int(s.width* (s.anchor?s.anchor.x:0)),
-                                        -int(s.height*(s.anchor?s.anchor.y:0))) },
+        return this.offsetXY(s, 0,0)
+      },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {number[]} [x,y]
        */
       centerOffsetXY(s){
-        return this.isCenter(s)?_V.vec()
-                               :_V.vec(_M.ndiv(s.width,2) - int((s.anchor?s.anchor.x:0)*s.width),
-                                       _M.ndiv(s.height,2) - int((s.anchor?s.anchor.y:0)*s.height)) },
+        return this.offsetXY(s, 0.5,0.5)
+      },
+      /**Calc the offset required to make the object appear to be
+       * at this target anchor.  e.g. say the object's anchor is
+       * (1,1) and is positioned at (0,0), so the bottom right
+       * corner is sitting at the origin.  But if you wanted the
+       * top left to sit at origin, how much do you need to move
+       * the object?
+       * @param {Sprite} s
+       * @param {number} tx target x
+       * @param {number} ty target y
+       * @return {number[]} [x,y]
+       */
+      adjOffsetXY(s,tx,ty){
+        _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
+                 "no anchor or bad target offset points");
+        return [s.width * (s.anchor.x - tx),
+                s.height * (s.anchor.y - ty) ]
+      },
       /**Make this sprite steerable.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       makeSteerable(s){
-        let w2= _M.ndiv(s.width,2),
-            h2= _M.ndiv(s.height,2);
+        let
+          w2= _M.ndiv(s.width,2),
+          h2= _M.ndiv(s.height,2);
         s.m5.steer=[0,0];
         s.m5.steerInfo=SteeringInfo();
         s.m5.radius=Math.sqrt(w2*w2+h2+h2);
@@ -522,7 +556,7 @@
         }
         return s;
       },
-      /**Extend a sprite with extra methods.
+      /**Give some *mojo* to this sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
@@ -532,7 +566,7 @@
           let self=this;
           s.g={};
           s.m5={
-            uuid: _.nextId(),
+            uuid: `s${_.nextId()}`,
             circle:false,
             stage:false,
             drag:false,
@@ -620,9 +654,10 @@
        * @return {Body}
        */
       toBody(s){
-        let px=s.x,
-            py=s.y,
-            b=s.m5.circle? this.toCircle(s) : this.toPolygon(s);
+        let
+          px=s.x,
+          py=s.y,
+          b=s.m5.circle? this.toCircle(s) : this.toPolygon(s);
         return Geo.bodyWrap(b,px,py);
       },
       /**Get the PIXI global position.
@@ -654,15 +689,7 @@
        * @return {Vec2} [x,y]
        */
       centerXY(s){
-        let r;
-        if(this.isCenter(s)){
-          r=_V.vec(s.x,s.y)
-        }else{
-          let [cx,cy]= this.centerOffsetXY(s);
-          r= _V.vec(s.x+cx, s.y+cy);
-        }
-        return r;
-      },
+        return this.isCenter(s)? _V.vec(s.x,s.y) : _V.add(s, this.centerOffsetXY(s)) },
       /**PIXI operation, setting type of scaling to be used.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -723,9 +750,10 @@
        * @return {number}
        */
       leftSide(s){
-        let x=s.x,
-            w= s.width,
-            ax= s.anchor?s.anchor.x:0;
+        let
+          x=s.x,
+          w= s.width,
+          ax= s.anchor?s.anchor.x:0;
         if(ax>0.7) x -= w;
         else if(ax>0) x -= _M.ndiv(w,2);
         return x;
@@ -743,9 +771,10 @@
        * @return {number}
        */
       topSide(s){
-        let y= s.y,
-            h= s.height,
-            ay= s.anchor?s.anchor.y:0;
+        let
+          y= s.y,
+          h= s.height,
+          ay= s.anchor?s.anchor.y:0;
         if(ay>0.7) y -= h;
         else if(ay>0) y -= _M.ndiv(h,2);
         return y;
@@ -765,16 +794,13 @@
       getAABB(s){
         if(s.x1 !== undefined && s.y2 !== undefined){ return s }
         _.assert(s.m5, "bad sprite for getAABB");
-        let {x1,y1,x2,y2}=s.m5.getImageOffsets();
-        let l= this.leftSide(s),
-            t= this.topSide(s),
-            r=l+s.width,
-            b=t+s.height;
-        l+=x1;
-        t+=y1;
-        r-=x2;
-        b-=y2;
-        return { x1:l,y1:t, x2:r, y2:b }
+        let
+          {x1,y1,x2,y2}=s.m5.getImageOffsets(),
+          l= this.leftSide(s),
+          t= this.topSide(s),
+          r=l+s.width,
+          b=t+s.height;
+        return { x1: l+x1 , y1: t+y1, x2: r-x2, y2: b-y2 }
       },
       /**Create a bounding box.
        * @memberof module:mojoh5/Sprites
@@ -802,10 +828,11 @@
        * @return {Sprite}
        */
       bboxFrame(g,width=16,color="#dedede"){
-        let {x1,x2,y1,y2}=g,
-            w=x2-x1,
-            h=y2-y1,
-            s,ctx= this.graphics();
+        let
+          {x1,x2,y1,y2}=g,
+          w=x2-x1,
+          h=y2-y1,
+          s,ctx= this.graphics();
         ctx.lineStyle(width,this.color(color));
         ctx.drawRoundedRect(0,0,w+width,h+width,_M.ndiv(width,4));
         s=this.sprite(ctx);
@@ -837,16 +864,18 @@
        * @return {object} {x1,x2,y1,y2}
        */
       boundingBox(s){
-        let c,z,
-            x1,x2,
-            y1,y2,
-            x=[],y=[],
-            hw=_M.ndiv(s.width,2),
-            hh=_M.ndiv(s.height,2),
-            theta=Math.tanh(hh/hw),
-            H=Math.sqrt(hw*hw+hh*hh);
+        let
+          c,z,
+          x1,x2,
+          y1,y2,
+          x=[],y=[],
+          hw=_M.ndiv(s.width,2),
+          hh=_M.ndiv(s.height,2),
+          theta=Math.tanh(hh/hw),
+          H=Math.sqrt(hw*hw+hh*hh);
         if(!_.feq0(s.rotation))
-          _.assert(this.isCenter(s),"wanted center anchor");
+          _.assert(this.isCenter(s),
+                   "expected rotated obj with center-anchor");
         //x2,y1
         z=PI2-theta + s.rotation;
         y.push(H*Math.sin(z));
@@ -899,7 +928,7 @@
       scaleContent(...args){
         if(args.length==1&&is.vec(args[0])){ args=args[0] }
         let K=Mojo.getScaleFactor();
-        args.forEach(s=>{ s.scale.x=K; s.scale.y=K; })
+        args.forEach(s=>{ s.scale.x *=K; s.scale.y *=K; })
       },
       /**Scale this object to be as big as canvas.
        * @memberof module:mojoh5/Sprites
@@ -1006,10 +1035,9 @@
        * @return {Sprite}
        */
       tilingSprite(src, width,height){
-        let s= _sprite(src,o=>{
-          return new Mojo.PXTSprite(o,width||o.width,height||o.height)
-        });
-        return this.lift(s);
+        return this.lift(_sprite(src,
+                                 o=> new Mojo.PXTSprite(o,width||o.width,
+                                                          height||o.height)))
       },
       /**Tile sprite repeatingly in x and/or y axis.
        * @memberof module:mojoh5/Sprites
@@ -1070,16 +1098,13 @@
        * @return {Sprite}
        */
       animation(src, tileW, tileH, spacing=0){
-        let _frames=(src, w, h, pts)=>{
-          return pts.map(p=> new Mojo.PXTexture(src.baseTexture,
-                                                new Mojo.PXRect(p[0],p[1],w,h))) };
         let t=Mojo.tcached(src);
         if(!t)
           throw `SpriteError: ${src} not loaded.`;
-        let cols = _M.ndiv(t.width,tileW),
-            rows = _M.ndiv(t.height,tileH),
-            pos= [],
-            cells = cols*rows;
+        let
+          cols = _M.ndiv(t.width,tileW),
+          rows = _M.ndiv(t.height,tileH),
+          pos= [], cells = cols*rows;
         for(let x,y,i=0; i<cells; ++i){
           x= (i%cols) * tileW;
           y= _M.ndiv(i,cols) * tileH;
@@ -1089,7 +1114,10 @@
           }
           pos.push(_V.vec(x,y));
         }
-        return this.sprite(_frames(t, tileW, tileH,pos)) },
+        return this.sprite(
+          pos.map(p=> new Mojo.PXTexture(t.baseTexture,
+                                         new Mojo.PXRect(p[0],p[1],tileW,tileH))))
+      },
       /**Create a PIXI.Texture from this source.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -1100,9 +1128,8 @@
        * @return {Sprite}
        */
       frame(src, width, height,x,y){
-        const t= Mojo.tcached(src);
-        return this.sprite(new Mojo.PXTexture(t.baseTexture,new Mojo.PXRect(x, y, width,height)))
-      },
+        return this.sprite(new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
+                                              new Mojo.PXRect(x, y, width,height))) },
       /**Select a bunch of frames from image.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -1112,8 +1139,7 @@
        * @return {Texture[]}
        */
       frameSelect(src,width,height,selectors){
-        const t= Mojo.tcached(src);
-        return selectors.map(s=> new Mojo.PXTexture(t.baseTexture,
+        return selectors.map(s=> new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
                                                     new Mojo.PXRect(s[0], s[1], width,height))) },
       /**Create a sequence of frames from this texture.
        * @memberof module:mojoh5/Sprites
@@ -1127,12 +1153,13 @@
        * @return {Texture[]}
        */
       frames(src,tileW,tileH,spaceX=0,spaceY=0,sx=0,sy=0){
-        let t= Mojo.tcached(src),
-            dx=tileW+spaceX,
-            dy=tileH+spaceY,
-            out=[],
-            rows= _M.ndiv(t.height,dy),
-            cols= _M.ndiv(t.width+spaceX,dx);
+        let
+          t= Mojo.tcached(src),
+          dx=tileW+spaceX,
+          dy=tileH+spaceY,
+          out=[],
+          rows= _M.ndiv(t.height,dy),
+          cols= _M.ndiv(t.width+spaceX,dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
@@ -1205,11 +1232,12 @@
       triangle(width, height, peak,
                fillStyle = 0xffffff,
                strokeStyle = 0xffffff, lineWidth=0,x=0,y=0){
-        let g=this.graphics(),
-            a=1,w2=_M.ndiv(width,2),
-            stroke=this.color(strokeStyle),
-            X= peak<0.5?0:(peak>0.5?width:w2),
-            ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
+        let
+          g=this.graphics(),
+          a=1,w2=_M.ndiv(width,2),
+          stroke=this.color(strokeStyle),
+          X= peak<0.5?0:(peak>0.5?width:w2),
+          ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
         if(fillStyle !== false){
           if(is.vec(fillStyle)){
             a=fillStyle[1];
@@ -1225,8 +1253,7 @@
         }
         let s= new Mojo.PXSprite(this.genTexture(g));
         s=this.lift(s);
-
-        if(true){
+        if(1){
           if(height<0){
             s.m5.getContactPoints=()=>{
               return [[X,-height],[width,0],[0,0]];
@@ -1253,6 +1280,14 @@
            strokeStyle = 0xffffff, lineWidth=0){
         return this.rectEx(this.rectTexture(width,height,fillStyle,strokeStyle,lineWidth))
       },
+      /**Create a rectangular texture.
+       * @param {number} width
+       * @param {number} height
+       * @param {string|number} fillStyle
+       * @param {string|number} strokeStyle
+       * @param {number} lineWidth [0]
+       * @return {PIXI.Texture}
+       */
       rectTexture(width, height,
            fillStyle = 0xffffff,
            strokeStyle = 0xffffff, lineWidth=0){
@@ -1274,6 +1309,10 @@
         }
         return this.genTexture(g)
       },
+      /** Create sprite from this texture.
+       * @param {PIXI.Texture} t
+       * @return {Sprite}
+       */
       rectEx(t){
         return this.lift( new Mojo.PXSprite(t))
       },
@@ -1298,6 +1337,13 @@
       circle(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
         return this.circleEx(this.circleTexture(radius,fillStyle, strokeStyle,lineWidth))
       },
+      /**Create a circular texture.
+       * @param {number} radius
+       * @param {number|string} fillStyle
+       * @param {number|string} strokeStyle
+       * @param {number} lineWidth
+       * @return {PIXI.Texture}
+       */
       circleTexture(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
         let a,g = this.graphics();
         if(fillStyle !== false){
@@ -1316,6 +1362,10 @@
           g.endFill();
         return this.genTexture(g)
       },
+      /**Create a sprite from this texture.
+       * @param {PIXI.Texture} t
+       * @return {PIXI.Sprite}
+       */
       circleEx(t){
         let s=new Mojo.PXSprite(t);
         s=this.lift(s);
@@ -1327,13 +1377,14 @@
        * @param {number} lineWidth
        * @param {Vec2} A
        * @param {Vec2} B
-       * @return {Sprite}
+       * @return {PIXI.Sprite}
        */
       line(strokeStyle, lineWidth, A,B){
-        let g = this.graphics(),
-            _a= _V.clone(A),
-            _b= _V.clone(B),
-            stroke= this.color(strokeStyle) ;
+        let
+          _a= _V.clone(A),
+          _b= _V.clone(B),
+          g = this.graphics(),
+          s,stroke= this.color(strokeStyle);
         function _draw(){
           g.clear();
           g.lineStyle(lineWidth, stroke, 1);
@@ -1341,7 +1392,7 @@
           g.lineTo(_b[0], _b[1]);
         }
         _draw();
-        let s=this.lift(g);
+        s=this.lift(g);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
             _a[0] = x;
@@ -1362,7 +1413,7 @@
       },
       /**Check if a sprite is moving.
        * @memberof module:mojoh5/Sprites
-       * @param {Sprite}
+       * @param {PIXI.Sprite}
        * @return {boolean}
        */
       isMoving(s){
@@ -1389,11 +1440,12 @@
        * @return {object}
        */
       gridBox(ratioX=0.9,ratioY=0.9,parent=UNDEF){
-        let P=_.nor(parent,Mojo);
-        let h=int(P.height*ratioY);
-        let w=int(P.width*ratioX);
-        let x1=_M.ndiv(P.width-w,2);
-        let y1=_M.ndiv(P.height-h,2);
+        let
+          P=_.nor(parent,Mojo),
+          h=int(P.height*ratioY),
+          w=int(P.width*ratioX),
+          x1=_M.ndiv(P.width-w,2),
+          y1=_M.ndiv(P.height-h,2);
         return {x1,y1,x2:x1+w,y2:y1+h};
       },
       /**Create a square grid.
@@ -1404,15 +1456,19 @@
        * @return {number[][]}
        */
       gridSQ(dim,ratio=0.6,out=UNDEF){
-        let sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
-            w=_M.ndiv(sz,dim),
-            h=w;
+        let
+          sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
+          w=_M.ndiv(sz,dim), h=w;
+
         if(!_.isEven(w)){--w}
         h=w;
         sz=dim*w;
-        let sy=_M.ndiv(Mojo.height-sz,2),
-            sx=_M.ndiv(Mojo.width-sz,2),
-            _x=sx,_y=sy;
+
+        let
+          sy=_M.ndiv(Mojo.height-sz,2),
+          sx=_M.ndiv(Mojo.width-sz,2),
+          _x=sx,_y=sy;
+
         if(out){
           out.height=sz;
           out.width=sz;
@@ -1434,11 +1490,12 @@
        * @return {number[][]}
        */
       divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=UNDEF){
-        let szh=int(Mojo.height*ratioY),
-            szw=int(Mojo.width*ratioX),
-            cw=_M.ndiv(szw,dimX),
-            ch=_M.ndiv(szh,dimY),
-            _x,_y,sy,sx;
+        let
+          szh=int(Mojo.height*ratioY),
+          szw=int(Mojo.width*ratioX),
+          cw=_M.ndiv(szw,dimX),
+          ch=_M.ndiv(szh,dimY),
+          _x,_y,sy,sx;
         szh=dimY*ch;
         szw=dimX*cw;
         sy= _M.ndiv(Mojo.height-szh,2);
@@ -1465,18 +1522,21 @@
        * @return {number[][]}
        */
       gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=UNDEF){
-        let szh=int(Mojo.height*ratioY),
-            szw=int(Mojo.width*ratioX),
-            cw=_M.ndiv(szw,dimX),
-            ch=_M.ndiv(szh,dimY),
-            dim=cw>ch?ch:cw,
-            _x,_y,sy,sx;
+        let
+          szh=int(Mojo.height*ratioY),
+          szw=int(Mojo.width*ratioX),
+          cw=_M.ndiv(szw,dimX),
+          ch=_M.ndiv(szh,dimY),
+          dim=cw>ch?ch:cw,
+          _x,_y,sy,sx;
+
         if(!_.isEven(dim)){dim--}
         szh=dimY*dim;
         szw=dimX*dim;
         sy= _M.ndiv(Mojo.height-szh,2);
         sx= _M.ndiv(Mojo.width-szw,2);
         _x=sx,_y=sy;
+
         if(out){
           out.height=szh;
           out.width=szw;
@@ -1498,9 +1558,10 @@
        * @return {object} {x1,x2,y1,y2}
        */
       gridBBox(sx,sy,grid){
-        let w=grid[0].length,
-            f=grid[0][0],
-            e=grid[grid.length-1][w-1];
+        let
+          w=grid[0].length,
+          f=grid[0][0],
+          e=grid[grid.length-1][w-1];
         return {x1:sx+f.x1,
                 x2:sx+e.x2, y1:sy+f.y1, y2:sy+e.y2} },
       /**Create a PIXI Graphics object.
@@ -1529,6 +1590,8 @@
                      bbox.x2-bbox.x1,bbox.y2-bbox.y1);
         return ctx;
       },
+      /**
+      */
       drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
@@ -1548,8 +1611,9 @@
        * @return {PIXIGraphics}
        */
       drawGridLines(sx,sy,grid,lineWidth,lineColor,ctx=UNDEF){
-        let h= grid.length,
-            w= grid[0].length;
+        let
+          h= grid.length,
+          w= grid[0].length;
         if(!ctx)
           ctx= this.graphics();
         ctx.lineStyle(lineWidth,this.color(lineColor));
@@ -1592,6 +1656,7 @@
           Mojo.off(s);
           if(s.m5.dispose) s.m5.dispose();
         });
+        return cs[0];
       },
       /**Center this object on the screen.
        * @memberof module:mojoh5/Sprites
@@ -1600,7 +1665,7 @@
        */
       centerObj(obj){
         obj.x= Mojo.width/2;
-        obj.y=Mojo.height/2;
+        obj.y= Mojo.height/2;
         if(obj.anchor.x<0.3){
           obj.x -= obj.width/2;
           obj.y -= obj.height/2;
@@ -1631,8 +1696,9 @@
        */
       colorToRgbA(c){
         if(!c||!is.str(c)||c.length==0){return}
-        let lc=c.toLowerCase(),
-            code=SomeColors[lc];
+        let
+          lc=c.toLowerCase(),
+          code=SomeColors[lc];
         if(code){c=code}
         if(c[0]=="#"){
           if(c.length<7)
@@ -1670,6 +1736,8 @@
         // colorToHex('rgb(255, 0, 0)') # '#ff0000'
         const rgba = this.colorToRgbA(color);
         return "0x"+ [0,1,2].map(i=> this.byteToHex(rgba[i])).join("") },
+      /**
+      */
       color3(r,g,b){
         return parseInt(["0x",this.byteToHex(r),this.byteToHex(g),this.byteToHex(b)].join("")) },
       /**Get the integer value of this color.
@@ -1679,10 +1747,14 @@
        */
       color(value){
         return isNaN(value) ? parseInt(this.colorToHex(value)) : value },
+      /**
+      */
       rgba(arg){
         _.assert(is.vec(arg),"wanted rgba array");
         return parseInt("0x"+ [0,1,2].map(i=> this.byteToHex(arg[i])).join("")) },
-      //copied from https://github.com/less/less.js
+      /**
+       * copied from https://github.com/less/less.js
+      */
       hsla(h, s, l, a){
         function c1(v) { return Math.min(1, Math.max(0, v)) }
         function hue(h){
@@ -1717,11 +1789,12 @@
        * @param {number} alignX
        */
       pinAbove(C,b,padY=10,alignX=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let y=boxA.y1-padY-(boxB.y2-boxB.y1);
-        let x= (alignX<0.3) ? boxA.x1
-                            : (alignX<0.7 ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          y=boxA.y1-padY-(boxB.y2-boxB.y1),
+          x= (alignX<0.3) ? boxA.x1
+                          : (alignX<0.7 ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : (b.anchor.y<0.7 ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : (b.anchor.x<0.7 ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -1735,10 +1808,11 @@
        * @param {number} alignX
        */
       pinBelow(C,b,padY=10,alignX=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let y=boxA.y2+padY;
-        let x=(alignX<0.3) ? boxA.x1 : ((alignX<0.7) ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          y=boxA.y2+padY,
+          x=(alignX<0.3) ? boxA.x1 : ((alignX<0.7) ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -1750,10 +1824,11 @@
        * @param {Sprite} b
        */
       pinCenter(C,b){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let x=cxA-w2B;
-        let y=cyA-h2B;
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          x=cxA-w2B,
+          y=cyA-h2B;
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -1767,10 +1842,11 @@
        * @param {number} alignY
        */
       pinLeft(C,b,padX=10,alignY=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let x= boxA.x1 - padX - (boxB.x2-boxB.x1);
-        let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          x= boxA.x1 - padX - (boxB.x2-boxB.x1),
+          y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -1784,10 +1860,11 @@
        * @param {number} alignY
        */
       pinRight(C,b,padX=10,alignY=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let x= boxA.x2 + padX;
-        let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          x= boxA.x2 + padX,
+          y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -1846,7 +1923,8 @@
        * @param {Sprite} b
        * @return {Manifold}
        */
-      hitTest(a,b){ return _hitAB(this,a,b) },
+      hitTest(a,b){
+        return _hitAB(this,a,b) },
       /**Use to contain a sprite with `x` and
        * `y` properties inside a rectangular area.
        * @memberof module:mojoh5/Sprites
@@ -1857,8 +1935,9 @@
        * @return {number[]} a list of collision points
        */
       clamp(s, container, bounce=false,extra=UNDEF){
-        let left,right,top,bottom;
-        let box,C;
+        let
+          box,C,
+          left,right,top,bottom;
         if(is.vec(container)){
           left=container[1].left;
           right=container[1].right;
@@ -1888,14 +1967,15 @@
           _.assert(_.feq0(container.anchor.y),"Error: clamp() container anchor.y !==0");
           C=container;
         }
-        let coff= box ? [0,0] : this.topLeftOffsetXY(C);
-        let collision = new Set();
-        let CX=false,CY=false;
-        let R= this.getAABB(s);
-        let cl= box ? C.x1 : C.x+coff[0],
-            cr= cl+ (box? C.x2-C.x1 : C.width),
-            ct= box ? C.y1 : C.y+coff[1],
-            cb= ct+ (box? C.y2-C.y1 : C.height);
+        let
+          coff= box ? [0,0] : this.topLeftOffsetXY(C),
+          collision = new Set(),
+          CX=false,CY=false,
+          R= this.getAABB(s),
+          cl= box ? C.x1 : C.x+coff[0],
+          cr= cl+ (box? C.x2-C.x1 : C.width),
+          ct= box ? C.y1 : C.y+coff[1],
+          cb= ct+ (box? C.y2-C.y1 : C.height);
         //left
         if(left && R.x1<cl){
           s.x += cl-R.x1;
@@ -1931,10 +2011,12 @@
           }
           extra && extra(collision)
         }else{
-          collision=null;
+          collision=UNDEF
         }
         return collision;
       },
+      /**
+      */
       dbgShowDir(dir){
         let s="?";
         switch(dir){
@@ -1967,6 +2049,8 @@
         }
         return s;
       },
+      /**
+      */
       dbgShowCol(col){
         let out=[];
         if(is.set(col))
