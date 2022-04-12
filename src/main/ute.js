@@ -107,7 +107,7 @@
       setup(options){
         let
           {title,titleFont,titleColor,titleSize}= options,
-          {action,clickSnd}=options,
+          {footerMsgSize,action,clickSnd}=options,
           {bg, playMsg,playMsgFont,playMsgColor,playMsgSize,playMsgColor2}= options;
         let
           C,
@@ -117,6 +117,7 @@
         //fd5898 pink
         //e04455 red
         playMsgFont= playMsgFont || "Doki Lowercase";
+        footerMsgSize= footerMsgSize || 16*K;
         titleFont= titleFont || "Big Shout Bob";
         playMsg=playMsg || Mojo.clickPlayMsg();
         playMsgColor= _.nor(playMsgColor, _S.color("white"));
@@ -144,6 +145,15 @@
           },clickSnd);
           _V.set(s,Mojo.width/2,Mojo.height*0.5);
           C.addChild(_S.anchorXY(s,0.5));
+        }
+        if(1){
+          let s= _S.bmpText("(c) www.cherimoia.com 2022.","unscii", footerMsgSize);
+          _S.pinBelow(this,s,-s.height*1.5,0);
+          this.insert(s);
+          s= _S.bmpText("Powered by MojoH5 2d game engine.","unscii",footerMsgSize);
+          _S.pinBelow(this,s,-s.height*1.5,1);
+          this.insert(s);
+
         }
       }
     });

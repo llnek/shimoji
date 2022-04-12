@@ -689,7 +689,7 @@
        * @return {Vec2} [x,y]
        */
       centerXY(s){
-        return this.isCenter(s)? _V.vec(s.x,s.y) : _V.add(s, this.centerOffsetXY(s)) },
+        return this.isCenter(s)? _V.vec(s.x,s.y) : _V.add(this.centerOffsetXY(s),s) },
       /**PIXI operation, setting type of scaling to be used.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1606,7 +1606,7 @@
        * @param {number} sy
        * @param {number[][]} grid
        * @param {number} lineWidth
-       * @param {number|string} lineColor
+       * @param {number|string|object} lineColor
        * @param {PIXI.Graphics} ctx
        * @return {PIXIGraphics}
        */
@@ -1616,7 +1616,13 @@
           w= grid[0].length;
         if(!ctx)
           ctx= this.graphics();
-        ctx.lineStyle(lineWidth,this.color(lineColor));
+        if(is.obj(lineColor)){
+          lineColor.color= this.color(lineColor.color||"white");
+          lineColor.width=lineWidth;
+          ctx.lineStyle(lineColor);
+        }else{
+          ctx.lineStyle(lineWidth,this.color(lineColor));
+        }
         for(let r,y=1;y<h;++y){
           r=grid[y];
           ctx.moveTo(sx+r[0].x1,sy+r[0].y1);

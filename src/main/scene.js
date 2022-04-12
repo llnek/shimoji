@@ -336,7 +336,7 @@
       }
       let
         [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)],
-        prev, op=dir==Mojo.DOWN?"pinBelow":"pinAbove";
+        prev, op=dir==Mojo.DOWN?"pinBelow":"pinRight";
       items.forEach((s,i)=>{
         if(dir==Mojo.DOWN){
           if(i==0){

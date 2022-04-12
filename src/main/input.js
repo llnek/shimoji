@@ -80,6 +80,10 @@
         },
         keybd(_key,pressCB,releaseCB){
           let
+            ret={
+              press:pressCB,
+              release:releaseCB
+            },
             self=this,
             isUp=true,
             isDown=false,
@@ -87,8 +91,8 @@
           function _down(e){
             if(L===cur()){
               if(codes.includes(e.keyCode)){
-                if(!self.pauseInput && isUp && pressCB)
-                  pressCB(e.altKey,e.ctrlKey,e.shiftKey);
+                if(!self.pauseInput && isUp)
+                  ret.press && ret.press(e.altKey,e.ctrlKey,e.shiftKey);
                 isUp=false;
                 isDown=true;
               }
@@ -98,8 +102,8 @@
           function _up(e){
             if(L===cur()){
               if(codes.includes(e.keyCode)){
-                if(!self.pauseInput && isDown && releaseCB)
-                  releaseCB(e.altKey,e.ctrlKey,e.shiftKey);
+                if(!self.pauseInput && isDown)
+                  ret.release && ret.release(e.altKey,e.ctrlKey,e.shiftKey);
                 isUp=true;
                 isDown=false;
               }
@@ -109,13 +113,12 @@
           if(!Mojo.touchDevice)
             _.addEvent([["keyup", window, _up, false],
                         ["keydown", window, _down, false]]);
-          return {
-            dispose(){
-              if(!Mojo.touchDevice)
-                _.delEvent([["keyup", window, _up, false],
-                            ["keydown", window, _down, false]]);
-            }
-          }
+          ret.dispose=()=>{
+            if(!Mojo.touchDevice)
+              _.delEvent([["keyup", window, _up, false],
+                          ["keydown", window, _down, false]]);
+          };
+          return ret;
         },
         reset(){
           this.pauseInput=false;
