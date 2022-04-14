@@ -18,21 +18,24 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   /** Supported file extensions. */
-  const IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"];
-  const FONT_EXTS = ["ttf", "otf", "ttc", "woff"];
-  const AUDIO_EXTS= ["mp3", "wav", "ogg"];
-  const _DT15=1/15;
+  const
+    AUDIO_EXTS= ["mp3", "wav", "ogg"],
+    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"],
+    FONT_EXTS = ["ttf", "otf", "ttc", "woff"];
 
   /**Create the module. */
   function _module(cmdArg, _fonts, _spans, _BgTasks){
 
     //import mcfud's core module
-    const {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"]();
-    const _V = gscope["io/czlab/mcfud/vec2"]();
-    const _M = gscope["io/czlab/mcfud/math"]();
-    const EBus= EventBus();
-    const int=Math.floor;
-    const CON=console;
+    const
+      {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"](),
+      _V = gscope["io/czlab/mcfud/vec2"](),
+      _M = gscope["io/czlab/mcfud/math"](),
+      EBus= EventBus(),
+      int=Math.floor,
+      CON=console,
+      _DT15=1/15;
+
     let _paused = false;
 
     /**
@@ -68,23 +71,25 @@
 
     //const _height=()=> document.documentElement.clientHeight;
     //const _width=()=> document.documentElement.clientWidth;
-    const _height=()=> gscope.innerHeight;
-    const _width=()=> gscope.innerWidth;
+    const
+      _width=()=> gscope.innerWidth,
+      _height=()=> gscope.innerHeight;
 
     /**Built-in progress bar, shown during the loading of
      * assets if no user-defined load function is provided.
      */
     function _PBar(Mojo){
-      const cy= _M.ndiv(Mojo.height,2),
-            cx= _M.ndiv(Mojo.width,2),
-            w4= _M.ndiv(Mojo.width,4);
-      const K=Mojo.getScaleFactor(),
-            bgColor=0x404040,
-            fgColor=0xff8a00,
-            {Sprites}=Mojo,
-            WIDTH=w4*2,
-            RH=48*K,
-            Y=cy-RH/2;
+      const
+        cy= _M.ndiv(Mojo.height,2),
+        cx= _M.ndiv(Mojo.width,2),
+        w4= _M.ndiv(Mojo.width,4),
+        K=Mojo.getScaleFactor(),
+        bgColor=0x404040,
+        fgColor=0xff8a00,
+        {Sprites}=Mojo,
+        WIDTH=w4*2,
+        RH=48*K,
+        Y=cy-RH/2;
       return{
         init(){
           this.perc=Sprites.text("0%", {fontSize:_M.ndiv(RH,2),
@@ -104,7 +109,7 @@
           this.perc.text=`${Math.round(progress)}%`;
           CON.log(`file= ${file}, progr= ${progress}`);
         }
-      };
+      }
     }
 
     /** standard logo */
@@ -112,7 +117,8 @@
       const {Sprites}=Mojo;
       return {
         init(){
-          let logo=Sprites.sprite("boot/ZotohLab_x1240.png"),
+          let
+            logo=Sprites.sprite("boot/ZotohLab_x1240.png"),
             pbar=Sprites.sprite("boot/preloader_bar.png"),
             [w,h]=Mojo.scaleXY([logo.width,logo.height],
                                [Mojo.width,Mojo.height]),
@@ -121,8 +127,6 @@
           k *= 0.2;
           Sprites.scaleXY(pbar,k,k);
           Sprites.scaleXY(logo,k,k);
-          //Sprites.anchorXY(logo,0.5);
-          //_V.set(logo, Mojo.width/2,Mojo.height*0.3);
           Sprites.pinCenter(this,logo);
           Sprites.pinBelow(logo,pbar,4*K);
           Sprites.hide(pbar);
@@ -135,7 +139,7 @@
           this.g.pbar.visible?0:Sprites.show(this.g.pbar);
           this.g.pbar.width = this.g.pbar_width*(progress/100);
         }
-      };
+      }
     }
 
     /** @ignore */
@@ -145,9 +149,7 @@
           obj.init.call(this)
         }
       },{});
-      Mojo.stage.addChild(z);
-      z.runOnce();
-      return z;
+      return Mojo.stage.addChild(z).runOnce();
     }
 
     /**Once all the files are loaded, do some post processing,
@@ -162,33 +164,31 @@
           dom.css(e,"display","none"));
         if(ldrObj)
           Mojo.delBgTask(ldrObj);
-        _.delay(0,()=>{
+        _.delay(50,()=>{
           Mojo.Scenes.remove(scene);
-          if(!error)
-            Mojo.u.start(Mojo);
-          else
-            _.error("Cannot load game!"); });
+          error? _.error("Cannot load game!"): Mojo._runAppStart() })
       }
       function _m1(b){ --fcnt==0 && _finz() }
       if(!error)
         _.doseq(Mojo.assets, (r,k)=>{
           ext= _.fileExt(k);
           if(_.has(AUDIO_EXTS,ext)){
-            fcnt +=1;
-            Sound.decodeData(r.name, r.url,
-                             r.xhr.response, _m1); } });
+            ++fcnt;
+            Sound.decodeData(r.name, r.url, r.xhr.response, _m1) }});
       //////
       fcnt==0 && _finz();
     }
 
     /** Fetch required files. */
     function _loadFiles(Mojo){
-      let filesWanted= _.map(Mojo.u.assetFiles,
-                             f=> Mojo.assetPath(f)),
-          ffiles= _.findFiles(filesWanted, FONT_EXTS);
-      const {PXLR,PXLoader}= Mojo;
       //trick browser to load in font files.
-      let family, face, span, style;
+      const {PXLR,PXLoader}= Mojo;
+      let
+        family, face, span, style,
+        wanted= _.map(Mojo.u.assetFiles,
+                      f=> Mojo.assetPath(f)),
+        ffiles= _.findFiles(wanted, FONT_EXTS);
+      ///
       ffiles.forEach(s=>{
         style= dom.newElm("style");
         span= dom.newElm("span");
@@ -209,15 +209,16 @@
         PXLR.setExtensionXhrType(e, PXLR.XHR_RESPONSE_TYPE.BUFFER);
       });
       PXLoader.reset();
-      if(filesWanted.length>0){
+      if(wanted.length>0){
         let cbObj=Mojo.u.load;
         if(!cbObj)
           cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
-        let ecnt=0,
-            fs=[],
-            pg=[],
-            scene=_loadScene(cbObj);
-        PXLoader.add(filesWanted);
+        let
+          ecnt=0,
+          fs=[],
+          pg=[],
+          scene=_loadScene(cbObj);
+        PXLoader.add(wanted);
         PXLoader.onError.add((e,ld,r)=>{
           ++ecnt;
           CON.log(`${e}`);
@@ -229,23 +230,21 @@
         });
         PXLoader.load(()=>{
           if(ecnt==0)
-            CON.log(`asset loaded!`)
+            CON.log(`asset loaded!`);
           fs.unshift("$");
         });
         Mojo.addBgTask({
           update(){
-            let f= fs.pop(),
-                n= pg.pop();
-
+            let
+              f= fs.pop(),
+              n= pg.pop();
             if(is.num(n))
               if(f && f != "$")
                 cbObj.update.call(scene,f,n);
-
             if(f=="$")
               _postAssetLoad(Mojo,this,scene,ecnt>0);
           }
         });
-
       }else{
         _postAssetLoad(Mojo);
       }
@@ -261,8 +260,9 @@
         //use default boot logos
         Mojo.u.logos=["boot/preloader_bar.png",
                       "boot/ZotohLab_x1240.png"];
-      let ecnt=0,
-          files=Mojo.u.logos.map(f=> Mojo.assetPath(f));
+      let
+        ecnt=0,
+        files=Mojo.u.logos.map(f=> Mojo.assetPath(f));
       if(files.length==0){
         _loadFiles(Mojo)
       }else{
@@ -274,7 +274,7 @@
         });
         PXLoader.load(()=>{
           if(ecnt==0){
-            _.delay(0,()=>_loadFiles(Mojo));
+            _.delay(50,()=>_loadFiles(Mojo));
             CON.log(`logo files loaded.`);
           }else{
             CON.log(`logo files not loaded!`)
@@ -285,18 +285,20 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const _CT="body, * {padding: 0; margin: 0; height:100%; overflow:hidden}";
-    const _ScrSize={width:0,height:0};
-    const _Size11={width:1,height:1};
+    const
+      _ScrSize={width:0,height:0},
+      _Size11={width:1,height:1},
+      _CT="body, * {padding: 0; margin: 0; height:100%; overflow:hidden}";
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _configCanvas(arg){
-      const style= dom.newElm("style");
+      let
+        p= { "outline":"none" },
+        style= dom.newElm("style");
+
       dom.conj(document.body, Mojo.canvas);
       dom.conj(style, dom.newTxt(_CT));
       dom.conj(document.head,style);
-
-      let p= { "outline":"none" };
       //p["image-rendering"]= arg.rendering || "pixelated";
       //p["image-rendering"]= arg.rendering || "crisp-edges";
       dom.css(Mojo.canvas,p);
@@ -306,18 +308,17 @@
 
     /** Main */
     function _prologue(Mojo){
-      let S= Mojo.stage= new PixiStage();
-      let box= cmdArg.arena;
-      let maxed=false;
-
+      let
+        maxed=false,
+        box= cmdArg.arena,
+        S= Mojo.stage= new PixiStage();
       _.assert(box,"design resolution req'd.");
-
       //want canvas max screen
       if(cmdArg.scaleToWindow=="max"||
          cmdArg.scaleToWindow===true){
         maxed=true;
-        box= {width: _width(),
-              height: _height()};
+        box={width: _width(),
+             height: _height()};
         if(cmdArg.arena.scale==1){
           //max but no scaling
           maxed=false;
@@ -334,7 +335,7 @@
         antialias: true
       }));
       Mojo.canvas = Mojo.ctx.view;
-      Mojo.canvas.id="mojo";
+      Mojo.canvas.id="mojoh5";
       Mojo.maxed=maxed;
       Mojo.scale=1;
       Mojo.scaledBgColor= "#5A0101";
@@ -348,9 +349,8 @@
            m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
       });
 
-      //register these background tasks
+      //register built-in tasks
       _BgTasks.push(Mojo.FX, Mojo.Input);
-
       _configCanvas(cmdArg);
 
       if(_.has(cmdArg,"border"))
@@ -360,6 +360,7 @@
         Mojo.ctx.backgroundColor =
           Mojo.Sprites.color(cmdArg.bgColor);
 
+      //not thoroughly supported nor tested :)
       if(cmdArg.resize === true){
         _.addEvent("resize", gscope, _.debounce(()=>{
           //save the current size and tell others
@@ -379,20 +380,6 @@
       return _boot(Mojo);
     }
 
-    /** @ignore */
-    class Mixin{ constructor(){} }
-
-    /**Mixin registry. */
-    const _mixins= _.jsMap();
-
-    /** @ignore */
-    function _mixinAdd(s,name,f,...args){
-      _.assert(!_.has(s,name),
-               `Fatal: mixin ${name} unavailable.`);
-      s[name]=f(s,...args);
-      return s;
-    }
-
     //------------------------------------------------------------------------
     /**Code to run per tick. */
     function _update(dt){
@@ -400,11 +387,12 @@
       //process any backgorund tasks
       _BgTasks.forEach(m=> m.update && m.update(dt));
       //update all scenes
-      if(!_paused)
-        Mojo.stageCS(s=> s.update && s.update(dt));
+      if(!_paused) Mojo.stageCS(s=> s.update && s.update(dt));
     }
+
+    //------------------------------------------------------------------------
     function _draw(dt){
-      Mojo.ctx.render(Mojo.stage);
+      Mojo.ctx.render(Mojo.stage)
     }
 
     //------------------------------------------------------------------------
@@ -415,16 +403,16 @@
     class Mediator{
       constructor(){
         this.players=[];
+        this._pcnt=0;
         this.state;
         this.pcur;
         this.end;
         this.pwin;
-        this._pcnt=0;
       }
       cur(){
         return this.pcur }
       add(p){
-        p.pnum=++this._pcnt;
+        p.pnum= ++this._pcnt;
         p.owner=this;
         this.players.push(p);
         return this;
@@ -465,7 +453,7 @@
         _.assert(false,"implement postMove!") }
       updateState(from,move){
         _.assert(false,"implement updateState!") }
-      updateSound(actor){ }
+      updateSound(actor){}
       updateMove(from,move){
         if(!this.end){
           this.updateState(from,move);
@@ -488,7 +476,6 @@
         this.uid=uid;
       }
       playSound(){}
-      uuid(){ return this.uid }
       pokeMove(){
         //console.log(`player ${this.uid}: poked`);
         this.onPoke();
@@ -497,8 +484,8 @@
         //console.log(`player ${this.uid}: wait`);
         this.onWait();
       }
-      stateValue(){
-        _.assert(false,"implement stateValue!") }
+      uuid(){ return this.uid }
+      stateValue(){ _.assert(false,"implement stateValue!") }
     }
 
     /** @abstract */
@@ -546,7 +533,8 @@
       Bot,
       Local,
       Mediator,
-      frame:1/cmdArg.fps,
+      //secs per frame
+      _frame:1/cmdArg.fps,
       /**Enum (1)
       * @memberof module:mojoh5/Mojo */
       EVERY:1,
@@ -597,8 +585,8 @@
       v2:_V,
       math:_M,
       ute:_,
-      is:is,
-      dom:dom,
+      is,
+      dom,
       /**User configuration.
        * @memberof module:mojoh5/Mojo */
       u:cmdArg,
@@ -618,6 +606,11 @@
       PXLoader:PIXI.Loader.shared,
       PXObservablePoint: PIXI.ObservablePoint,
       get mouse(){ return Mojo.Input.pointer() },
+      /**Play a sound effect.
+       * @memberof module:mojoh5/Mojo
+       * @param {string} snd
+       * @return {object}
+       */
       playSfx(snd){ return this.sound(snd).play() },
       accel(v,a,dt){ return v+a*dt },
       on(...args){
@@ -630,7 +623,7 @@
         return EBus.unsub(...args)
       },
       frameRate(){
-        return this.frame;
+        return this._frame;
       },
       /**Check if `d` is on the right hand side.
        * @memberof module:mojoh5/Mojo
@@ -638,28 +631,28 @@
        * @return {boolean}
        */
       sideRight(d){
-        return d===Mojo.RIGHT || d===Mojo.NE || d===Mojo.SE },
+        return d==Mojo.RIGHT || d==Mojo.NE || d==Mojo.SE },
       /**Check if `d` is on the left hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideLeft(d){
-        return d===Mojo.LEFT || d===Mojo.NW || d===Mojo.SW },
+        return d==Mojo.LEFT || d==Mojo.NW || d==Mojo.SW },
       /**Check if `d` is on the top hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideTop(d){
-        return d===Mojo.UP || d===Mojo.TOP || d===Mojo.NW || d===Mojo.NE },
+        return d==Mojo.UP || d==Mojo.TOP || d==Mojo.NW || d==Mojo.NE },
       /**Check if `d` is on the bottom hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideBottom(d){
-        return d=== Mojo.DOWN || d===Mojo.BOTTOM || d===Mojo.SW || d===Mojo.SE },
+        return d== Mojo.DOWN || d==Mojo.BOTTOM || d==Mojo.SW || d==Mojo.SE },
       /**Check if 2 bboxes overlap.
        * @memberof module:mojoh5/Mojo
        * @param {object} a
@@ -742,26 +735,6 @@
       wrapv(v, low, high){
         return v<low ? high : (v>high ? low : v)
       },
-      /**Define a mixin.
-       * @memberof module:mojoh5/Mojo
-       * @param {string} name
-       * @param {function} body
-       */
-      mixin(name,body){
-        if(_.has(_mixins,name))
-          throw `MixinError: "${name}" already defined.`;
-        _.assert(is.fun(body),"mixin must be a function");
-        _.assoc(_mixins, name, body);
-      },
-      /**Add these mixins to the sprite.
-       * @memberof module:mojoh5/Mojo
-       * @param {Sprite} s
-       * @param {...string} fs names of mixins
-       * @return {Sprite} s
-       */
-      addMixin(s,n, ...args){
-        return _mixinAdd(s,n, _mixins.get(n), ...args)
-      },
       /**Get the loaded resources.
        * @memberof module:mojoh5/Mojo
        * @name assets
@@ -843,20 +816,6 @@
         self.anchor=Mojo.makeAnchor(0,0);
         self.m5={stage:true};
         return self;
-      },
-      /**Convert the position into a grid index.
-       * @memberof module:mojoh5/Mojo
-       * @param {number} x
-       * @param {number} y
-       * @param {number} cellW
-       * @param {number} cellH
-       * @param {number} widthInCols
-       * @return {number}
-       */
-      getIndex(x, y, cellW, cellH, widthInCols){
-        if(x<0 || y<0)
-          throw `IndexError: ${x},${y}, wanted +ve values`;
-        return _M.ndiv(x,cellW) + _M.ndiv(y,cellH) * widthInCols
       },
       /**Get a cached Texture.
        * @memberof module:mojoh5/Mojo
@@ -967,9 +926,8 @@
           _ScrSize.height=Mojo.height;
           _ScrSize.width=Mojo.width;
           let z=this.scaleSZ(this.designSize,_ScrSize);
-          return cmdArg.scaleFit=="x"?z.width
-                                      :cmdArg.scaleFit=="y"
-                                      ?z.height:Math.min(z.width,z.height); } },
+          return (cmdArg.scaleFit=="x"||cmdArg.scaleFit=="X") ?z.width
+                                      :((cmdArg.scaleFit=="y"||cmdArg.scaleFit=="Y") ?z.height:Math.min(z.width,z.height)); } },
       /**Get the named resource from the asset cache.
        * @memberof module:mojoh5/Mojo
        * @param {string} x
@@ -977,12 +935,12 @@
        * @return {any}
        */
       resource(x,panic){
-        let t= x ? (this.assets[x] || this.assets[this.assetPath(x)]) : null;
+        let t= x ? (this.assets[x] || this.assets[this.assetPath(x)]) : 0;
         return t || (panic ? _.assert(false, `no such resource ${x}.`) : UNDEF)
       },
-      fpsList:UNDEF,
-      fpsSum:0,
-      /**Get the current frames_per_second.
+      _fpsList:UNDEF,
+      _fpsSum:0,
+      /**Get the current frames_per_second (averaged).
        * @memberof module:mojoh5/Mojo
        * @param {number} dt
        * @return {number}
@@ -991,14 +949,14 @@
         let n,rc=0,size=60;
         if(dt>0){
           n=_M.ndiv(1,dt);
-          if(!this.fpsList){
-            this.fpsList=_.fill(size, n);
-            this.fpsSum= size*n;
+          if(!this._fpsList){
+            this._fpsList=_.fill(size, n);
+            this._fpsSum= size*n;
           }
-          this.fpsSum -= this.fpsList.pop();
-          this.fpsList.unshift(n);
-          this.fpsSum += n;
-          rc= _M.ndiv(this.fpsSum ,size);
+          this._fpsSum -= this._fpsList.pop();
+          this._fpsList.unshift(n);
+          this._fpsSum += n;
+          rc= _M.ndiv(this._fpsSum ,size);
         }
         //console.log("rc===="+rc);
         return rc;
@@ -1010,31 +968,43 @@
       addBgTask(t){ _BgTasks.push(t) },
       delBgTask(t){
         if(t){
-          t.dispose && t.dispose();
           _.disj(_BgTasks,t);
+          t.dispose && t.dispose();
         }
       },
       resume(){ _paused = false },
       pause(){ _paused = true },
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      //THE FRAME LOOP
+      //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       start(){
-        let acc=0,
-            last= _.now(),
-            F=function(){
-              let
-                cur= _.now(),
-                dts= (cur-last)/1000,
-                diff=Mojo.frameRate();
-              //console.log(`frames per sec= ${Math.floor(1/dt)}`);
-              //limit the time gap between calls
-              if(dts>_DT15) dts= _DT15;
-              for(acc += dts; acc >= diff; acc -= diff){ _update(dts); }
-              _draw(acc/diff);
-              last = cur;
-              _raf(F);
-            };
+        let
+          acc=0,
+          last= _.now(),
+          F=function(){
+            let
+              cur= _.now(),
+              dts= (cur-last)/1000,
+              diff=Mojo.frameRate();
+            //console.log(`frames per sec= ${Math.floor(1/dt)}`);
+            //limit the time gap between calls
+            if(dts>_DT15) dts= _DT15;
+            for(acc += dts; acc >= diff; acc -= diff){ _update(dts); }
+            _draw(acc/diff);
+            last = cur;
+            _raf(F);
+          };
         return _raf(F);
       },
-      takeScreenshot(){
+      _runAppStart(){
+        if(1){
+          Mojo.Input.keybd(Mojo.Input.Q,()=>{
+            this.takeScreenShot()
+          })
+        }
+        return Mojo.u.start(this)
+      },
+      takeScreenShot(){
         Mojo.ctx.extract.canvas(Mojo.stage).toBlob(b=>{
           const a = document.createElement("a");
           document.body.append(a);
@@ -1130,16 +1100,14 @@
   /**Create the module. */
   function _module(Mojo){
 
+    const {v2:_V, math:_M, ute:_, is, dom} =Mojo;
     const Geo=gscope["io/czlab/mcfud/geo2d"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_, is, dom} =Mojo;
     const PI2=Math.PI*2,
           int=Math.floor;
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //from pixijs
     function _genTexture(displayObject, scaleMode, resolution, region){
-      //from pixijs
       region = region || displayObject.getLocalBounds(null, true);
       //minimum texture size is 1x1, 0x0 will throw an error
       if(region.width == 0){ region.width = 1 }
@@ -1157,16 +1125,17 @@
       return renderTexture;
     }
 
-    //ensure PIXI doesn't have special properties
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //ENSURE PIXI DOESN'T HAVE SPECIAL PROPERTIES
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (function(c,g,s){
       g.clear();
       g.beginFill(0);
       g.drawCircle(0, 0, 4);
       g.endFill();
       s=new PIXI.Sprite(_genTexture(g));
-      ["m5","tiled",
-       "collideXY",
-       "getGuid","getBBox", "getSpatial"].forEach(n=>{
+      ["m5","tiled", "remove","collideXY",
+       "onTick","getGuid","getBBox", "getSpatial"].forEach(n=>{
         [[c,"Container"],[g,"Graphics"],[s,"Sprite"]].forEach(x=>{
           _.assertNot(_.has(x[0],n),`PIXI ${x[1]} has ${n} property!`)
         })
@@ -1190,17 +1159,18 @@
                     PXASprite:PIXI.AnimatedSprite,
                     PXPContainer:PIXI.ParticleContainer});
 
-    /** default contact points, counter clockwise */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** yaxis down, default contact points, counter clockwise */
     function _corners(a,w,h){
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
-      //fake anchor if none provided
-      if(!a)a={x:0,y:0};
-      //adjust for anchor
-      out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
+      //adjust for anchor?
+      if(a)
+        out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
       return out;
     }
 
-    /**Add more to an AnimatedSprite. */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Override the control of animation */
     function _exASprite(s){
       let tid=0,_s={};
       function _reset(){
@@ -1239,16 +1209,7 @@
       return s;
     }
 
-    /** @ignore */
-    function _animFromVec(x){
-      _.assert(is.vec(x),"bad arg to animFromVec");
-      if(is.str(x[0]))
-        x=Mojo.tcached(x[0])?x.map(s=> Mojo.tcached(s))
-                            :x.map(s=> Mojo.assetPath(s));
-      return _.inst(Mojo.PXTexture,x[0])? new Mojo.PXASprite(x)
-                                        : Mojo.PXASprite.fromImages(x)
-    }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Low level sprite creation. */
     function _sprite(src,ctor){
       let s,obj;
@@ -1258,20 +1219,25 @@
       if(_.inst(Mojo.PXTexture,src)){
         obj=src
       }else if(is.vec(src)){
-        s=_animFromVec(src)
+        if(is.str(src[0]))
+          src=Mojo.tcached(src[0])?src.map(s=> Mojo.tcached(s))
+                                  :src.map(s=> Mojo.assetPath(s));
+        s=_.inst(Mojo.PXTexture,src[0])? new Mojo.PXASprite(src)
+                                       : Mojo.PXASprite.fromImages(src);
       }else if(is.str(src)){
-        obj= Mojo.tcached(src) ||
-             Mojo.PXTexture.from(Mojo.assetPath(src))
+        obj= Mojo.tcached(src) || Mojo.PXTexture.from(Mojo.assetPath(src))
       }
-      if(obj){s=ctor(obj)}
+      if(obj)
+        s=ctor(obj);
       return _.assert(s, `SpriteError: ${src} not found`) && s
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _mkgrid(sx,sy,rows,cols,cellW,cellH){
-      let y1=sy,
-          x1=sx,
-          out=[];
+      let
+        y1=sy,
+        x1=sx,
+        out=[];
       for(let x2,y2,v,r=0; r<rows; ++r){
         v=[];
         for(let c=0; c<cols; ++c){
@@ -1287,12 +1253,14 @@
       return out;
     }
 
-    /** @ignore */
-    function _pininfo(X,o,p=null){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function _pininfo(X,o,p=UNDEF){
       let par,box;
       if(o && o.m5 && o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
+        if(o.angle !== undefined)
+          _.assert(_.feq0(o.angle), "expected non rotated object");
         par=o.parent;
         box=X.getAABB(o);
       }
@@ -1308,21 +1276,23 @@
                    _M.ndiv(box.y1+box.y2,2)]//center y
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //basic 2 body collision physics
     function _bounceOff(o1,o2,m){
       if(o2.m5.static){
         //full bounce v=v - (1+c)(v.n_)n_
         _V.sub$(o1.m5.vel,
                 _V.mul(m.overlapN, 2 * _V.dot(o1.m5.vel,m.overlapN)))
       }else{
-        let dd=_V.mul$(_V.sub(o2.m5.vel,o1.m5.vel),m.overlapN),
-            k= -2 * (dd[0]+dd[1])/(o1.m5.invMass + o2.m5.invMass);
+        let
+          dd=_V.mul$(_V.sub(o2.m5.vel,o1.m5.vel),m.overlapN),
+          k= -2 * (dd[0]+dd[1])/(o1.m5.invMass + o2.m5.invMass);
         _V.sub$(o1.m5.vel, _V.mul$(_V.div(m.overlapN,o1.m5.mass),k));
         _V.add$(o2.m5.vel, _V.mul$(_V.div(m.overlapN,o2.m5.mass),k));
       }
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _collideDir(col){
       const c=new Set();
       if(col.overlapN[1] < -0.3){ c.add(Mojo.TOP) }
@@ -1333,10 +1303,12 @@
       return c;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //convert to std geometry for collision detection
     function _hitAB(S,a,b){
-      let a_= S.toBody(a),
-          m, b_= S.toBody(b);
+      let
+        a_= S.toBody(a),
+        m, b_= S.toBody(b);
       if(a.m5.circle){
         m= b.m5.circle ? Geo.hitCircleCircle(a_, b_)
                        : Geo.hitCirclePolygon(a_, b_)
@@ -1348,14 +1320,14 @@
       return m;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _collideAB(S,a,b,bounce=true){
-      let ret,m=_hitAB(S,a,b);
+      let ret,d,m=_hitAB(S,a,b);
       if(m){
         if(b.m5.static){
           _V.sub$(a,m.overlapV)
         }else{
-          let d= _V.div(m.overlapV,2);
+          d= _V.div(m.overlapV,2);
           _V.sub$(a,d);
           _V.add$(b,d);
         }
@@ -1381,13 +1353,16 @@
       }
     }
 
-    const _PT=_V.vec();
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       SomeColors:{},
       BtnColors:{},
-      assets: ["boot/tap-touch.png","boot/unscii.fnt",
-               "boot/splash.jpg", "boot/trail.png","boot/star.png",
-               "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
+      Geo,
+      assets: ["boot/unscii.fnt",
+               "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt",
+               "boot/splash.jpg", "boot/trail.png","boot/star.png" ],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1424,11 +1399,11 @@
       },
       /**React to a one off click on canvas.
        * @memberof module:mojoh5/Sprites
-       * @param {string} snd
        * @param {function} cb
+       * @param {string} snd
        * @return {function}
        */
-      oneOffClick(snd,cb){
+      oneOffClick(cb,snd=UNDEF){
         let sub= function(){
           Mojo.Input.off(["single.tap"],sub);
           if(snd) Mojo.sound(snd).play();
@@ -1455,9 +1430,7 @@
        * @return {Sprite} s
        */
       asCircle(s){
-        s.m5.circle=true;
-        return s;
-      },
+        return (s.m5.circle=true) && s },
       /**Change scale factor of sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1512,8 +1485,8 @@
        */
       anchorXY(s,x,y){
         _.assert(s.anchor,"sprite has no anchor object");
-        s.anchor.x=x;
         s.anchor.y= _.nor(y,x);
+        s.anchor.x=x;
         return s;
       },
       /**Set sprite's anchor to be at it's center.
@@ -1534,32 +1507,63 @@
         if(s.anchor) s.anchor.set(0,0);
         return s;
       },
+      /**Calc the offset required to find the position of corners
+       * in the object.  e.g. anchor is centered, but you want to
+       * find the bottome right.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} tx target x
+       * @param {number} ty target y
+       * @return {number[]} [x,y]
+       */
+      offsetXY(s,tx,ty){
+        _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
+                 "no anchor or bad target offset points");
+        return [s.width * (tx-s.anchor.x),
+                s.height * (ty-s.anchor.y)]
+      },
       /**Get sprite's anchor offset from top-left corner.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {number[]} [x,y]
        */
       topLeftOffsetXY(s){
-        return this.isTopLeft(s)?_V.vec()
-                                :_V.vec(-int(s.width* (s.anchor?s.anchor.x:0)),
-                                        -int(s.height*(s.anchor?s.anchor.y:0))) },
+        return this.offsetXY(s, 0,0)
+      },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {number[]} [x,y]
        */
       centerOffsetXY(s){
-        return this.isCenter(s)?_V.vec()
-                               :_V.vec(_M.ndiv(s.width,2) - int((s.anchor?s.anchor.x:0)*s.width),
-                                       _M.ndiv(s.height,2) - int((s.anchor?s.anchor.y:0)*s.height)) },
+        return this.offsetXY(s, 0.5,0.5)
+      },
+      /**Calc the offset required to make the object appear to be
+       * at this target anchor.  e.g. say the object's anchor is
+       * (1,1) and is positioned at (0,0), so the bottom right
+       * corner is sitting at the origin.  But if you wanted the
+       * top left to sit at origin, how much do you need to move
+       * the object?
+       * @param {Sprite} s
+       * @param {number} tx target x
+       * @param {number} ty target y
+       * @return {number[]} [x,y]
+       */
+      adjOffsetXY(s,tx,ty){
+        _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
+                 "no anchor or bad target offset points");
+        return [s.width * (s.anchor.x - tx),
+                s.height * (s.anchor.y - ty) ]
+      },
       /**Make this sprite steerable.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       makeSteerable(s){
-        let w2= _M.ndiv(s.width,2),
-            h2= _M.ndiv(s.height,2);
+        let
+          w2= _M.ndiv(s.width,2),
+          h2= _M.ndiv(s.height,2);
         s.m5.steer=[0,0];
         s.m5.steerInfo=SteeringInfo();
         s.m5.radius=Math.sqrt(w2*w2+h2+h2);
@@ -1594,7 +1598,7 @@
         }
         return s;
       },
-      /**Extend a sprite with extra methods.
+      /**Give some *mojo* to this sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
@@ -1604,7 +1608,7 @@
           let self=this;
           s.g={};
           s.m5={
-            uuid: _.nextId(),
+            uuid: `s${_.nextId()}`,
             circle:false,
             stage:false,
             drag:false,
@@ -1692,9 +1696,10 @@
        * @return {Body}
        */
       toBody(s){
-        let px=s.x,
-            py=s.y,
-            b=s.m5.circle? this.toCircle(s) : this.toPolygon(s);
+        let
+          px=s.x,
+          py=s.y,
+          b=s.m5.circle? this.toCircle(s) : this.toPolygon(s);
         return Geo.bodyWrap(b,px,py);
       },
       /**Get the PIXI global position.
@@ -1726,15 +1731,7 @@
        * @return {Vec2} [x,y]
        */
       centerXY(s){
-        let r;
-        if(this.isCenter(s)){
-          r=_V.vec(s.x,s.y)
-        }else{
-          let [cx,cy]= this.centerOffsetXY(s);
-          r= _V.vec(s.x+cx, s.y+cy);
-        }
-        return r;
-      },
+        return this.isCenter(s)? _V.vec(s.x,s.y) : _V.add(this.centerOffsetXY(s),s) },
       /**PIXI operation, setting type of scaling to be used.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1795,9 +1792,10 @@
        * @return {number}
        */
       leftSide(s){
-        let x=s.x,
-            w= s.width,
-            ax= s.anchor?s.anchor.x:0;
+        let
+          x=s.x,
+          w= s.width,
+          ax= s.anchor?s.anchor.x:0;
         if(ax>0.7) x -= w;
         else if(ax>0) x -= _M.ndiv(w,2);
         return x;
@@ -1815,9 +1813,10 @@
        * @return {number}
        */
       topSide(s){
-        let y= s.y,
-            h= s.height,
-            ay= s.anchor?s.anchor.y:0;
+        let
+          y= s.y,
+          h= s.height,
+          ay= s.anchor?s.anchor.y:0;
         if(ay>0.7) y -= h;
         else if(ay>0) y -= _M.ndiv(h,2);
         return y;
@@ -1837,16 +1836,13 @@
       getAABB(s){
         if(s.x1 !== undefined && s.y2 !== undefined){ return s }
         _.assert(s.m5, "bad sprite for getAABB");
-        let {x1,y1,x2,y2}=s.m5.getImageOffsets();
-        let l= this.leftSide(s),
-            t= this.topSide(s),
-            r=l+s.width,
-            b=t+s.height;
-        l+=x1;
-        t+=y1;
-        r-=x2;
-        b-=y2;
-        return { x1:l,y1:t, x2:r, y2:b }
+        let
+          {x1,y1,x2,y2}=s.m5.getImageOffsets(),
+          l= this.leftSide(s),
+          t= this.topSide(s),
+          r=l+s.width,
+          b=t+s.height;
+        return { x1: l+x1 , y1: t+y1, x2: r-x2, y2: b-y2 }
       },
       /**Create a bounding box.
        * @memberof module:mojoh5/Sprites
@@ -1874,10 +1870,11 @@
        * @return {Sprite}
        */
       bboxFrame(g,width=16,color="#dedede"){
-        let {x1,x2,y1,y2}=g,
-            w=x2-x1,
-            h=y2-y1,
-            s,ctx= this.graphics();
+        let
+          {x1,x2,y1,y2}=g,
+          w=x2-x1,
+          h=y2-y1,
+          s,ctx= this.graphics();
         ctx.lineStyle(width,this.color(color));
         ctx.drawRoundedRect(0,0,w+width,h+width,_M.ndiv(width,4));
         s=this.sprite(ctx);
@@ -1909,16 +1906,18 @@
        * @return {object} {x1,x2,y1,y2}
        */
       boundingBox(s){
-        let c,z,
-            x1,x2,
-            y1,y2,
-            x=[],y=[],
-            hw=_M.ndiv(s.width,2),
-            hh=_M.ndiv(s.height,2),
-            theta=Math.tanh(hh/hw),
-            H=Math.sqrt(hw*hw+hh*hh);
+        let
+          c,z,
+          x1,x2,
+          y1,y2,
+          x=[],y=[],
+          hw=_M.ndiv(s.width,2),
+          hh=_M.ndiv(s.height,2),
+          theta=Math.tanh(hh/hw),
+          H=Math.sqrt(hw*hw+hh*hh);
         if(!_.feq0(s.rotation))
-          _.assert(this.isCenter(s),"wanted center anchor");
+          _.assert(this.isCenter(s),
+                   "expected rotated obj with center-anchor");
         //x2,y1
         z=PI2-theta + s.rotation;
         y.push(H*Math.sin(z));
@@ -1971,7 +1970,7 @@
       scaleContent(...args){
         if(args.length==1&&is.vec(args[0])){ args=args[0] }
         let K=Mojo.getScaleFactor();
-        args.forEach(s=>{ s.scale.x=K; s.scale.y=K; })
+        args.forEach(s=>{ s.scale.x *=K; s.scale.y *=K; })
       },
       /**Scale this object to be as big as canvas.
        * @memberof module:mojoh5/Sprites
@@ -2078,10 +2077,9 @@
        * @return {Sprite}
        */
       tilingSprite(src, width,height){
-        let s= _sprite(src,o=>{
-          return new Mojo.PXTSprite(o,width||o.width,height||o.height)
-        });
-        return this.lift(s);
+        return this.lift(_sprite(src,
+                                 o=> new Mojo.PXTSprite(o,width||o.width,
+                                                          height||o.height)))
       },
       /**Tile sprite repeatingly in x and/or y axis.
        * @memberof module:mojoh5/Sprites
@@ -2142,16 +2140,13 @@
        * @return {Sprite}
        */
       animation(src, tileW, tileH, spacing=0){
-        let _frames=(src, w, h, pts)=>{
-          return pts.map(p=> new Mojo.PXTexture(src.baseTexture,
-                                                new Mojo.PXRect(p[0],p[1],w,h))) };
         let t=Mojo.tcached(src);
         if(!t)
           throw `SpriteError: ${src} not loaded.`;
-        let cols = _M.ndiv(t.width,tileW),
-            rows = _M.ndiv(t.height,tileH),
-            pos= [],
-            cells = cols*rows;
+        let
+          cols = _M.ndiv(t.width,tileW),
+          rows = _M.ndiv(t.height,tileH),
+          pos= [], cells = cols*rows;
         for(let x,y,i=0; i<cells; ++i){
           x= (i%cols) * tileW;
           y= _M.ndiv(i,cols) * tileH;
@@ -2161,7 +2156,10 @@
           }
           pos.push(_V.vec(x,y));
         }
-        return this.sprite(_frames(t, tileW, tileH,pos)) },
+        return this.sprite(
+          pos.map(p=> new Mojo.PXTexture(t.baseTexture,
+                                         new Mojo.PXRect(p[0],p[1],tileW,tileH))))
+      },
       /**Create a PIXI.Texture from this source.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -2172,9 +2170,8 @@
        * @return {Sprite}
        */
       frame(src, width, height,x,y){
-        const t= Mojo.tcached(src);
-        return this.sprite(new Mojo.PXTexture(t.baseTexture,new Mojo.PXRect(x, y, width,height)))
-      },
+        return this.sprite(new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
+                                              new Mojo.PXRect(x, y, width,height))) },
       /**Select a bunch of frames from image.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -2184,8 +2181,7 @@
        * @return {Texture[]}
        */
       frameSelect(src,width,height,selectors){
-        const t= Mojo.tcached(src);
-        return selectors.map(s=> new Mojo.PXTexture(t.baseTexture,
+        return selectors.map(s=> new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
                                                     new Mojo.PXRect(s[0], s[1], width,height))) },
       /**Create a sequence of frames from this texture.
        * @memberof module:mojoh5/Sprites
@@ -2199,12 +2195,13 @@
        * @return {Texture[]}
        */
       frames(src,tileW,tileH,spaceX=0,spaceY=0,sx=0,sy=0){
-        let t= Mojo.tcached(src),
-            dx=tileW+spaceX,
-            dy=tileH+spaceY,
-            out=[],
-            rows= _M.ndiv(t.height,dy),
-            cols= _M.ndiv(t.width+spaceX,dx);
+        let
+          t= Mojo.tcached(src),
+          dx=tileW+spaceX,
+          dy=tileH+spaceY,
+          out=[],
+          rows= _M.ndiv(t.height,dy),
+          cols= _M.ndiv(t.width+spaceX,dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
@@ -2277,11 +2274,12 @@
       triangle(width, height, peak,
                fillStyle = 0xffffff,
                strokeStyle = 0xffffff, lineWidth=0,x=0,y=0){
-        let g=this.graphics(),
-            a=1,w2=_M.ndiv(width,2),
-            stroke=this.color(strokeStyle),
-            X= peak<0.5?0:(peak>0.5?width:w2),
-            ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
+        let
+          g=this.graphics(),
+          a=1,w2=_M.ndiv(width,2),
+          stroke=this.color(strokeStyle),
+          X= peak<0.5?0:(peak>0.5?width:w2),
+          ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
         if(fillStyle !== false){
           if(is.vec(fillStyle)){
             a=fillStyle[1];
@@ -2297,8 +2295,7 @@
         }
         let s= new Mojo.PXSprite(this.genTexture(g));
         s=this.lift(s);
-
-        if(true){
+        if(1){
           if(height<0){
             s.m5.getContactPoints=()=>{
               return [[X,-height],[width,0],[0,0]];
@@ -2325,6 +2322,14 @@
            strokeStyle = 0xffffff, lineWidth=0){
         return this.rectEx(this.rectTexture(width,height,fillStyle,strokeStyle,lineWidth))
       },
+      /**Create a rectangular texture.
+       * @param {number} width
+       * @param {number} height
+       * @param {string|number} fillStyle
+       * @param {string|number} strokeStyle
+       * @param {number} lineWidth [0]
+       * @return {PIXI.Texture}
+       */
       rectTexture(width, height,
            fillStyle = 0xffffff,
            strokeStyle = 0xffffff, lineWidth=0){
@@ -2346,6 +2351,10 @@
         }
         return this.genTexture(g)
       },
+      /** Create sprite from this texture.
+       * @param {PIXI.Texture} t
+       * @return {Sprite}
+       */
       rectEx(t){
         return this.lift( new Mojo.PXSprite(t))
       },
@@ -2370,6 +2379,13 @@
       circle(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
         return this.circleEx(this.circleTexture(radius,fillStyle, strokeStyle,lineWidth))
       },
+      /**Create a circular texture.
+       * @param {number} radius
+       * @param {number|string} fillStyle
+       * @param {number|string} strokeStyle
+       * @param {number} lineWidth
+       * @return {PIXI.Texture}
+       */
       circleTexture(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
         let a,g = this.graphics();
         if(fillStyle !== false){
@@ -2388,6 +2404,10 @@
           g.endFill();
         return this.genTexture(g)
       },
+      /**Create a sprite from this texture.
+       * @param {PIXI.Texture} t
+       * @return {PIXI.Sprite}
+       */
       circleEx(t){
         let s=new Mojo.PXSprite(t);
         s=this.lift(s);
@@ -2399,13 +2419,14 @@
        * @param {number} lineWidth
        * @param {Vec2} A
        * @param {Vec2} B
-       * @return {Sprite}
+       * @return {PIXI.Sprite}
        */
       line(strokeStyle, lineWidth, A,B){
-        let g = this.graphics(),
-            _a= _V.clone(A),
-            _b= _V.clone(B),
-            stroke= this.color(strokeStyle) ;
+        let
+          _a= _V.clone(A),
+          _b= _V.clone(B),
+          g = this.graphics(),
+          s,stroke= this.color(strokeStyle);
         function _draw(){
           g.clear();
           g.lineStyle(lineWidth, stroke, 1);
@@ -2413,7 +2434,7 @@
           g.lineTo(_b[0], _b[1]);
         }
         _draw();
-        let s=this.lift(g);
+        s=this.lift(g);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
             _a[0] = x;
@@ -2434,7 +2455,7 @@
       },
       /**Check if a sprite is moving.
        * @memberof module:mojoh5/Sprites
-       * @param {Sprite}
+       * @param {PIXI.Sprite}
        * @return {boolean}
        */
       isMoving(s){
@@ -2461,11 +2482,12 @@
        * @return {object}
        */
       gridBox(ratioX=0.9,ratioY=0.9,parent=UNDEF){
-        let P=_.nor(parent,Mojo);
-        let h=int(P.height*ratioY);
-        let w=int(P.width*ratioX);
-        let x1=_M.ndiv(P.width-w,2);
-        let y1=_M.ndiv(P.height-h,2);
+        let
+          P=_.nor(parent,Mojo),
+          h=int(P.height*ratioY),
+          w=int(P.width*ratioX),
+          x1=_M.ndiv(P.width-w,2),
+          y1=_M.ndiv(P.height-h,2);
         return {x1,y1,x2:x1+w,y2:y1+h};
       },
       /**Create a square grid.
@@ -2476,15 +2498,19 @@
        * @return {number[][]}
        */
       gridSQ(dim,ratio=0.6,out=UNDEF){
-        let sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
-            w=_M.ndiv(sz,dim),
-            h=w;
+        let
+          sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
+          w=_M.ndiv(sz,dim), h=w;
+
         if(!_.isEven(w)){--w}
         h=w;
         sz=dim*w;
-        let sy=_M.ndiv(Mojo.height-sz,2),
-            sx=_M.ndiv(Mojo.width-sz,2),
-            _x=sx,_y=sy;
+
+        let
+          sy=_M.ndiv(Mojo.height-sz,2),
+          sx=_M.ndiv(Mojo.width-sz,2),
+          _x=sx,_y=sy;
+
         if(out){
           out.height=sz;
           out.width=sz;
@@ -2506,11 +2532,12 @@
        * @return {number[][]}
        */
       divXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=UNDEF){
-        let szh=int(Mojo.height*ratioY),
-            szw=int(Mojo.width*ratioX),
-            cw=_M.ndiv(szw,dimX),
-            ch=_M.ndiv(szh,dimY),
-            _x,_y,sy,sx;
+        let
+          szh=int(Mojo.height*ratioY),
+          szw=int(Mojo.width*ratioX),
+          cw=_M.ndiv(szw,dimX),
+          ch=_M.ndiv(szh,dimY),
+          _x,_y,sy,sx;
         szh=dimY*ch;
         szw=dimX*cw;
         sy= _M.ndiv(Mojo.height-szh,2);
@@ -2537,18 +2564,21 @@
        * @return {number[][]}
        */
       gridXY([dimX,dimY],ratioX=0.9,ratioY=0.9,out=UNDEF){
-        let szh=int(Mojo.height*ratioY),
-            szw=int(Mojo.width*ratioX),
-            cw=_M.ndiv(szw,dimX),
-            ch=_M.ndiv(szh,dimY),
-            dim=cw>ch?ch:cw,
-            _x,_y,sy,sx;
+        let
+          szh=int(Mojo.height*ratioY),
+          szw=int(Mojo.width*ratioX),
+          cw=_M.ndiv(szw,dimX),
+          ch=_M.ndiv(szh,dimY),
+          dim=cw>ch?ch:cw,
+          _x,_y,sy,sx;
+
         if(!_.isEven(dim)){dim--}
         szh=dimY*dim;
         szw=dimX*dim;
         sy= _M.ndiv(Mojo.height-szh,2);
         sx= _M.ndiv(Mojo.width-szw,2);
         _x=sx,_y=sy;
+
         if(out){
           out.height=szh;
           out.width=szw;
@@ -2570,9 +2600,10 @@
        * @return {object} {x1,x2,y1,y2}
        */
       gridBBox(sx,sy,grid){
-        let w=grid[0].length,
-            f=grid[0][0],
-            e=grid[grid.length-1][w-1];
+        let
+          w=grid[0].length,
+          f=grid[0][0],
+          e=grid[grid.length-1][w-1];
         return {x1:sx+f.x1,
                 x2:sx+e.x2, y1:sy+f.y1, y2:sy+e.y2} },
       /**Create a PIXI Graphics object.
@@ -2601,6 +2632,8 @@
                      bbox.x2-bbox.x1,bbox.y2-bbox.y1);
         return ctx;
       },
+      /**
+      */
       drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
@@ -2615,16 +2648,23 @@
        * @param {number} sy
        * @param {number[][]} grid
        * @param {number} lineWidth
-       * @param {number|string} lineColor
+       * @param {number|string|object} lineColor
        * @param {PIXI.Graphics} ctx
        * @return {PIXIGraphics}
        */
       drawGridLines(sx,sy,grid,lineWidth,lineColor,ctx=UNDEF){
-        let h= grid.length,
-            w= grid[0].length;
+        let
+          h= grid.length,
+          w= grid[0].length;
         if(!ctx)
           ctx= this.graphics();
-        ctx.lineStyle(lineWidth,this.color(lineColor));
+        if(is.obj(lineColor)){
+          lineColor.color= this.color(lineColor.color||"white");
+          lineColor.width=lineWidth;
+          ctx.lineStyle(lineColor);
+        }else{
+          ctx.lineStyle(lineWidth,this.color(lineColor));
+        }
         for(let r,y=1;y<h;++y){
           r=grid[y];
           ctx.moveTo(sx+r[0].x1,sy+r[0].y1);
@@ -2664,6 +2704,7 @@
           Mojo.off(s);
           if(s.m5.dispose) s.m5.dispose();
         });
+        return cs[0];
       },
       /**Center this object on the screen.
        * @memberof module:mojoh5/Sprites
@@ -2672,7 +2713,7 @@
        */
       centerObj(obj){
         obj.x= Mojo.width/2;
-        obj.y=Mojo.height/2;
+        obj.y= Mojo.height/2;
         if(obj.anchor.x<0.3){
           obj.x -= obj.width/2;
           obj.y -= obj.height/2;
@@ -2703,8 +2744,9 @@
        */
       colorToRgbA(c){
         if(!c||!is.str(c)||c.length==0){return}
-        let lc=c.toLowerCase(),
-            code=SomeColors[lc];
+        let
+          lc=c.toLowerCase(),
+          code=SomeColors[lc];
         if(code){c=code}
         if(c[0]=="#"){
           if(c.length<7)
@@ -2742,6 +2784,8 @@
         // colorToHex('rgb(255, 0, 0)') # '#ff0000'
         const rgba = this.colorToRgbA(color);
         return "0x"+ [0,1,2].map(i=> this.byteToHex(rgba[i])).join("") },
+      /**
+      */
       color3(r,g,b){
         return parseInt(["0x",this.byteToHex(r),this.byteToHex(g),this.byteToHex(b)].join("")) },
       /**Get the integer value of this color.
@@ -2751,10 +2795,14 @@
        */
       color(value){
         return isNaN(value) ? parseInt(this.colorToHex(value)) : value },
+      /**
+      */
       rgba(arg){
         _.assert(is.vec(arg),"wanted rgba array");
         return parseInt("0x"+ [0,1,2].map(i=> this.byteToHex(arg[i])).join("")) },
-      //copied from https://github.com/less/less.js
+      /**
+       * copied from https://github.com/less/less.js
+      */
       hsla(h, s, l, a){
         function c1(v) { return Math.min(1, Math.max(0, v)) }
         function hue(h){
@@ -2789,11 +2837,12 @@
        * @param {number} alignX
        */
       pinAbove(C,b,padY=10,alignX=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let y=boxA.y1-padY-(boxB.y2-boxB.y1);
-        let x= (alignX<0.3) ? boxA.x1
-                            : (alignX<0.7 ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          y=boxA.y1-padY-(boxB.y2-boxB.y1),
+          x= (alignX<0.3) ? boxA.x1
+                          : (alignX<0.7 ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : (b.anchor.y<0.7 ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : (b.anchor.x<0.7 ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -2807,10 +2856,11 @@
        * @param {number} alignX
        */
       pinBelow(C,b,padY=10,alignX=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let y=boxA.y2+padY;
-        let x=(alignX<0.3) ? boxA.x1 : ((alignX<0.7) ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          y=boxA.y2+padY,
+          x=(alignX<0.3) ? boxA.x1 : ((alignX<0.7) ? cxA-w2B : boxA.x2-(boxB.x2-boxB.x1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -2822,10 +2872,11 @@
        * @param {Sprite} b
        */
       pinCenter(C,b){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let x=cxA-w2B;
-        let y=cyA-h2B;
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          x=cxA-w2B,
+          y=cyA-h2B;
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -2839,10 +2890,11 @@
        * @param {number} alignY
        */
       pinLeft(C,b,padX=10,alignY=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let x= boxA.x1 - padX - (boxB.x2-boxB.x1);
-        let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          x= boxA.x1 - padX - (boxB.x2-boxB.x1),
+          y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -2856,10 +2908,11 @@
        * @param {number} alignY
        */
       pinRight(C,b,padX=10,alignY=0.5){
-        let [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C);
-        let [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C);
-        let x= boxA.x2 + padX;
-        let y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
+        let
+          [boxA,w2A,h2A,cxA,cyA] = _pininfo(this,C),
+          [boxB,w2B,h2B,cxB,cyB] = _pininfo(this,b,C),
+          x= boxA.x2 + padX,
+          y= (alignY<0.3) ? boxA.y1 : ((alignY<0.7) ? cyA-h2B : boxA.y2-(boxB.y2-boxB.y1));
         //adjust for anchors [0,0.5,1]
         b.y= (!b.anchor || b.anchor.y<0.3) ? y : ((b.anchor.y<0.7) ? y+h2B : y+(boxB.y2-boxB.y1));
         b.x= (!b.anchor || b.anchor.x<0.3) ? x : ((b.anchor.x<0.7) ? x+w2B : x+(boxB.x2-boxB.x1));
@@ -2918,7 +2971,8 @@
        * @param {Sprite} b
        * @return {Manifold}
        */
-      hitTest(a,b){ return _hitAB(this,a,b) },
+      hitTest(a,b){
+        return _hitAB(this,a,b) },
       /**Use to contain a sprite with `x` and
        * `y` properties inside a rectangular area.
        * @memberof module:mojoh5/Sprites
@@ -2929,8 +2983,9 @@
        * @return {number[]} a list of collision points
        */
       clamp(s, container, bounce=false,extra=UNDEF){
-        let left,right,top,bottom;
-        let box,C;
+        let
+          box,C,
+          left,right,top,bottom;
         if(is.vec(container)){
           left=container[1].left;
           right=container[1].right;
@@ -2960,14 +3015,15 @@
           _.assert(_.feq0(container.anchor.y),"Error: clamp() container anchor.y !==0");
           C=container;
         }
-        let coff= box ? [0,0] : this.topLeftOffsetXY(C);
-        let collision = new Set();
-        let CX=false,CY=false;
-        let R= this.getAABB(s);
-        let cl= box ? C.x1 : C.x+coff[0],
-            cr= cl+ (box? C.x2-C.x1 : C.width),
-            ct= box ? C.y1 : C.y+coff[1],
-            cb= ct+ (box? C.y2-C.y1 : C.height);
+        let
+          coff= box ? [0,0] : this.topLeftOffsetXY(C),
+          collision = new Set(),
+          CX=false,CY=false,
+          R= this.getAABB(s),
+          cl= box ? C.x1 : C.x+coff[0],
+          cr= cl+ (box? C.x2-C.x1 : C.width),
+          ct= box ? C.y1 : C.y+coff[1],
+          cb= ct+ (box? C.y2-C.y1 : C.height);
         //left
         if(left && R.x1<cl){
           s.x += cl-R.x1;
@@ -3003,10 +3059,12 @@
           }
           extra && extra(collision)
         }else{
-          collision=null;
+          collision=UNDEF
         }
         return collision;
       },
+      /**
+      */
       dbgShowDir(dir){
         let s="?";
         switch(dir){
@@ -3039,6 +3097,8 @@
         }
         return s;
       },
+      /**
+      */
       dbgShowCol(col){
         let out=[];
         if(is.set(col))
@@ -3093,8 +3153,7 @@
   function _module(Mojo, ScenesDict){
 
     const SG=gscope["io/czlab/mcfud/spatial"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_,is}=Mojo;
+    const {v2:_V, math:_M, ute:_,is}=Mojo;
     const int=Math.floor;
 
     /**
@@ -3223,15 +3282,10 @@
           c=this.getChildById(c);
         if(c){
           this.removeChild(c);
+          Mojo.off(c);
           if(c.m5._engrid)
             this.m5.sgrid.degrid(c);
-          if(c.m5.drag)
-            Mojo.Input.undoDrag(c);
-          if(c.m5.button)
-            Mojo.Input.undoButton(c);
-          if(c.m5.hotspot)
-            Mojo.Input.undoHotspot(c);
-          Mojo.off(c);
+          Mojo.Input.undoXXX(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
       }
       /**Remove item from spatial grid temporarily.
@@ -3270,19 +3324,13 @@
         if(engrid){
           if(c instanceof PIXI.TilingSprite){}else{
             c.m5._engrid=true;
-            if(c.visible)
-              this.m5.sgrid.engrid(c);
+            //if(c.visible) this.m5.sgrid.engrid(c);
+            this.m5.sgrid.engrid(c);
           }
         }
         return c;
       }
       _addit(c,pos){
-        let self=this,
-          w=(r)=>{
-            if(r.m5)
-              r.m5.root=self;
-            r.children.forEach(z=>w(z)); };
-        ///
         if(is.num(pos) &&
            pos >= 0 &&
            pos < this.children.length){
@@ -3290,7 +3338,6 @@
         }else{
           this.addChild(c);
         }
-        w(c);
         return (this.m5.index[c.m5.uuid]=c);
       }
       /**Clean up.
@@ -3338,30 +3385,29 @@
        * @param {object} obj
        */
       queueForRemoval(obj){
-        this.m5.garbo.push(obj);
-        return obj;
+        return this.m5.garbo.push(obj) && obj
       }
       /**
        * @param {number} dt
        */
       update(dt){
-        if(this.m5.dead){return}
-        //handle queued stuff
-        let f,futs= this.m5.queue.filter(q=>{
-          q[1] -= 1;
-          return (q[1]<=0);
-        });
-        //run ones that have expired
-        while(futs.length>0){
-          _.disj(this.m5.queue, f=futs.shift());
-          f[0]();
+        if(!this.m5.dead){
+          //look for expired futures
+          this.m5.queue.filter(q=>{
+            q[1] -= 1;
+            return (q[1]<=0);
+          }).reverse().forEach(f=>{
+            _.disj(this.m5.queue, f);
+            f[0]();
+          });
+          //run the scene
+          this.preUpdate && this.preUpdate(dt);
+          this._tick(this.children, dt);
+          this.postUpdate && this.postUpdate(dt);
+          //clean up
+          this.m5.garbo.forEach(o=>this.remove(o));
+          this.m5.garbo.length=0;
         }
-        if(this.preUpdate) this.preUpdate(dt);
-        this._tick(this.children, dt);
-        if(this.postUpdate) this.postUpdate(dt);
-        //clean up
-        this.m5.garbo.forEach(o=>this.remove(o));
-        this.m5.garbo.length=0;
       }
       /**Initial bootstrap of this scene.
       */
@@ -3370,60 +3416,49 @@
           this.m5.setup(this.m5.options);
           delete this.m5["setup"];
         }
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _layItems(C,items,pad,dir,skip){
-      let p,P=0,m=-1;
-      items.forEach((s,i)=>{
-        if(dir==Mojo.DOWN){
-          if(s.width>m){ P=i; m=s.width; }
-        }else{
-          if(s.height>m){ P=i; m=s.height; }
-        }
-        if(!skip) C.addChild(s);
-        _.assert(_.feq0(s.anchor.x)&&_.feq0(s.anchor.y),"wanted topleft anchor");
-      });
-      //P is the fatest or tallest
-      p=items[P];
-      for(let s,i=P-1;i>=0;--i){
-        s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinAbove":"pinLeft"](p,s,pad);
-        p=s;
-      }
-      p=items[P];
-      for(let s,i=P+1;i<items.length; ++i){
-        s=items[i];
-        Mojo.Sprites[dir==Mojo.DOWN?"pinBelow":"pinRight"](p,s,pad);
-        p=s;
+        return this;
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _layout(items,options,dir){
-      let {Sprites:_S}=Mojo,
-        K=Mojo.getScaleFactor();
       if(items.length==0){return}
+      let
+        {Sprites:_S}=Mojo,
+        K=Mojo.getScaleFactor();
       options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
                                 borderWidth:4,
                                 border:_S.SomeColors.white});
-      let borderWidth=options.borderWidth * K,
+      let
+        borderWidth=options.borderWidth * K,
         C=options.group || _S.container(),
         pad=options.padding * K,
-        fit= options.fit * K,
-        last,w,h,p,fit2= 2*fit;
+        last,w,h,p, T=0, Z=-1,
+        fit= options.fit * K, fit2= fit * 2,
+        guessWidth= (s)=>{
+          T+=s.height;
+          if(s.width>Z) Z=s.width;
+        },
+        guessHeight= (s)=>{
+          T+=s.width;
+          if(s.height>Z) Z=s.height
+        };
 
-      _layItems(C,items,pad,dir,options.skipAdd);
-      w= C.width;
-      h= C.height;
-      last=_.tail(items);
+      items.forEach(s=>{
+        _.assert(_.feq0(s.anchor.x)&&_.feq0(s.anchor.y),"wanted topleft anchor");
+        (dir==Mojo.DOWN?guessWidth:guessHeight)(s);
+        if(!options.skipAdd) C.addChild(s);
+      });
 
+      Z += fit2;
+      T += pad*(items.length-1)+fit2;
+
+      if(dir==Mojo.DOWN){ w=Z; h=T; }else{ h=Z; w=T; }
       //create a backdrop
-      if(true){
-        let r= _S.rect(w+fit2,h+fit2,
+      if(1){
+        let r= _S.rect(w,h,
                        options.bg,
                        options.border, borderWidth);
         C.addChildAt(r,0); //add to front so zindex is lowest
@@ -3432,42 +3467,37 @@
           if(options.bg == "transparent")r.alpha=0;
         }
       }
-
-      h= C.height;
-      w= C.width;
-
-      let [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)];
-      if(dir==Mojo.DOWN){
-        //realign on x-axis
-        items.forEach(s=> s.x=w2-_M.ndiv(s.width,2));
-        let hd= h-(last.y+last.height);
-        hd= _M.ndiv(hd,2);
-        //realign on y-axis
-        items.forEach(s=> s.y += hd);
-      }else{
-        //refit the items on y-axis
-        items.forEach(s=> s.y=h2- _M.ndiv(s.height,2));
-        let wd= w-(last.x+last.width);
-        wd= _M.ndiv(wd,2);
-        //refit the items on x-axis
-        items.forEach(s=> s.x += wd);
-      }
-
-      h= C.height;
-      w= C.width;
-
+      let
+        [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)],
+        prev, op=dir==Mojo.DOWN?"pinBelow":"pinRight";
+      items.forEach((s,i)=>{
+        if(dir==Mojo.DOWN){
+          if(i==0){
+            s.x=w2-s.width/2;
+            s.y= fit;
+          }
+        }else{
+          if(i==0){
+            s.y=h2-s.height/2;
+            s.x= fit;
+          }
+        }
+        if(prev)
+          Mojo.Sprites[op](prev,s,pad);
+        prev=s;
+      });
       //may be center the whole thing
       C.x= _.nor(options.x, _M.ndiv(Mojo.width-w,2));
       C.y= _.nor(options.y, _M.ndiv(Mojo.height-h,2));
-
       return C;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _choiceBox(items,options,dir){
-      let {Sprites:_S,Input:_I}=Mojo,
-        selectedColor=_S.color(options.selectedColor),
-        c,cur, disabledColor=_S.color(options.disabledColor);
+      let
+        {Sprites:_S,Input:_I}=Mojo,
+        selectedColor=_S.color(_.nor(options.selectedColor,"green")),
+        c,cur, disabledColor=_S.color(_.nor(options.disabledColor,"grey"));
       items.forEach(o=>{
         if(o.m5.uuid==options.defaultChoice){
           cur=o;
@@ -3550,7 +3580,8 @@
        * @param {object} [options]
        */
       replace(cur,name,options){
-        const n=_sceneid(is.str(cur)?cur:cur.name),
+        const
+          n=_sceneid(is.str(cur)?cur:cur.name),
           c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;
@@ -3710,76 +3741,98 @@
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
 
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const {ute:_, is}=Mojo;
-    const int=Math.floor,
-          P5=Math.PI*5,
-          PI_2= Math.PI/2,
-          TWO_PI= Math.PI*2;
+    const {
+      v2:_V,
+      math:_M,
+      ute:_,
+      is,
+      Sprites:_S
+    }=Mojo;
+    const
+      int=Math.floor,
+      P5=Math.PI*5,
+      PI_2= Math.PI/2,
+      TWO_PI= Math.PI*2;
 
     /**
      * @module mojoh5/FX
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function StarWarp(C){
-      const img = Mojo.tcached("boot/star.png");
-      const STAR_BASE_SZ= 0.05;
-      const STAR_STRETCH = 5;
-      const BASE_SPEED = 0.025;
-      const FOV = 20;
-      let cameraZ = 0,
-          speed = 0,
-          warpSpeed = 0;
-      const stars = _.fill(1000, i=>{
-        i={x:0,y:0,z:0, sprite: Mojo.Sprites.sprite(img) };
-        i.sprite.anchor.x = 0.5;
-        i.sprite.anchor.y = 0.7;
-        randStar(i, _.rand()*2000);
-        C.addChild(i.sprite);
-        return i;
+    function StarWarp(C, options){
+      options= options || {};
+      let
+        STAR_SIZE= 0.05,
+        STAR_RANGE = 6,
+        SPEED = 0.025,
+        CYCLE=5000,
+        DEPTH=2000,
+        FOV = 20,
+        RADIUS=50,
+        camZ = 0,
+        speed = 0,
+        warp= 0,
+        mark=_.now(),
+        color = options.color || "yellow",
+        items= options.items || 1000,
+        img = Mojo.tcached("boot/star.png");
+      const stars = _.fill(items, i=>{
+        i= _S.sprite(img);
+        i.g.d3=[0,0,0];
+        if(_.rand()<0.3)
+          i.tint= _S.color(color);
+        _S.anchorXY(i, 0.5,0.69);
+        C.addChild(i);
+        return cfgStar(i, _.rand()*DEPTH);
       });
-      function randStar(star, zpos){
-        const deg = _.rand() * TWO_PI,
-              distance = _.rand() * 50 + 1;
-        //calculate star positions with radial random coordinate so no star hits the camera.
-        star.z = _.nor(zpos, cameraZ + _.rand()*1000 + 2000);
-        star.x = Math.cos(deg) * distance;
-        star.y = Math.sin(deg) * distance;
+      function cfgStar(s, zpos){
+        let
+          twist = _.rand() * TWO_PI,
+          dist= _.rand() * RADIUS + 1;
+        //calc star positions with radial random
+        //coordinate so no star hits the camera.
+        s.g.d3[0] = Math.cos(twist) * dist;
+        s.g.d3[1] = Math.sin(twist) * dist;
+        s.g.d3[2]= !isNaN(zpos)?zpos
+                               :camZ + DEPTH*(1+_.rand()*0.5);
+        //console.log(`star pos= ${s.g.d3}`);
+        return s;
       }
-      let mark=_.now();
       return{
         dispose(){
-          stars.forEach(s=> Mojo.Sprites.remove(s.sprite));
+          stars.forEach(o=> _S.remove(o));
         },
         update(dt){
-          let w2=Mojo.width/2,
-              z, h2=Mojo.height/2;
-          speed += (warpSpeed - speed) / 20;
-          cameraZ += dt * 10 * (speed + BASE_SPEED);
-          stars.forEach(s=>{
-            if(s.z < cameraZ) randStar(s);
-            // map star 3d position to 2d with simple projection
-            z = s.z - cameraZ;
-            s.sprite.x = s.x * (FOV/z) * Mojo.width + w2;
-            s.sprite.y = s.y * (FOV/z) * Mojo.width + h2;
+          let
+            w2=Mojo.width/2,
+            now,z, h2=Mojo.height/2;
+          speed += (warp- speed) / 20;
+          camZ += dt * 10 * (speed + SPEED);
+          //console.log(`camz=${camZ}, speed=== ${speed}`);
+          stars.forEach((o,i)=>{
+            if(o.g.d3[2] < camZ) cfgStar(o);
+            // project to fake 3D
+            i= Mojo.width*FOV/z;
+            z = o.g.d3[2] - camZ;
+            o.x = o.g.d3[0] * i + w2;
+            o.y = o.g.d3[1] * i + h2;
             //calculate star scale & rotation.
-            const dx= s.sprite.x - w2;
-            const dy= s.sprite.y - h2;
-            const d= Math.sqrt(dx* dx+ dy* dy);
-            const ds = Math.max(0, (2000 - z) / 2000);
-            s.sprite.scale.x = ds * STAR_BASE_SZ;
-            // Star is looking towards center so that y axis is towards center.
-            // Scale the star depending on how fast we are moving,
-            // what the stretchfactor is and depending on how far away it is from the center.
-            s.sprite.scale.y = ds * STAR_BASE_SZ + ds * speed * STAR_STRETCH * d / Mojo.width;
-            s.sprite.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+            let
+              dx= o.x - w2,
+              dy= o.y - h2,
+              d= Math.sqrt(dx* dx+ dy* dy),
+              ds= Math.max(0, 1 - z/DEPTH);
+            o.rotation = Math.atan2(dy, dx) + PI_2;
+            _S.scaleXY(o, ds * STAR_SIZE,
+                          // Star is looking towards center so that y axis is towards center.
+                          // Scale the star depending on how fast we are moving,
+                          // what the stretchfactor is and depending on how far away it is from the center.
+                          ds * (STAR_SIZE + speed * STAR_RANGE * d / Mojo.width));
           });
-          let now=_.now();
-          if(now-mark>5000){
+          now=_.now();
+          if(now-mark>CYCLE){
             mark=now;
-            warpSpeed = warpSpeed > 0 ? 0 : 1;
+            warp= warp> 0 ? 0 : 1;
           }
         }
       }
@@ -3816,9 +3869,9 @@
                 this.cur=0;
               }else{
                 this.on=0;
+                this.dispose();
                 this.onComplete &&
                   _.delay(0,()=> this.onComplete());
-                this.dispose();
               }
             }
           }
@@ -3834,8 +3887,8 @@
     function TweenScale(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
-          this._x=is.num(ex)?[sx,ex]:null;
-          this._y=is.num(ey)?[sy,ey]:null;
+          this._x=is.num(ex)?[sx,ex]:UNDEF;
+          this._y=is.num(ey)?[sy,ey]:UNDEF;
           this._run();
         },
         onLoopReset(){
@@ -3894,8 +3947,8 @@
     function TweenXY(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
-          this._x=is.num(ex)?[sx,ex]:null;
-          this._y=is.num(ey)?[sy,ey]:null;
+          this._x=is.num(ex)?[sx,ex]:UNDEF;
+          this._y=is.num(ey)?[sy,ey]:UNDEF;
           this._run();
         },
         onLoopReset(){
@@ -3916,34 +3969,62 @@
       })
     }
 
-    /** sequence */
+    /** group */
     function BatchTweens(...ts){
-      const t= {
-        children:ts.slice(),
+      let cs=[];
+      ts.forEach(o=>{
+        cs.push(o)
+      });
+      const t={
         onTweenEnd(t){
-          for(let c,i=0;i<this.children.length;++i){
-            c=this.children[i];
+          for(let c,i=0;i<cs.length;++i){
+            c=cs[i];
             if(c===t){
-              this.children.splice(i,1);
+              cs.splice(i,1);
               break;
             }
           }
-          if(this.children.length==0){
+          if(cs.length==0){
             this.dispose();
             this.onComplete &&
               _.delay(0,()=>this.onComplete());
           }
         },
-        size(){
-          return this.children.length },
         dispose(){
-          Mojo.off(["tween.disposed"],"onTweenEnd",this);
-          this.children.forEach(c=>c.dispose());
-          this.children.length=0;
+          Mojo.off(["tween.disposed"],"onTweenEnd",t);
+          cs.length=0;
         }
       };
-
       Mojo.on(["tween.disposed"],"onTweenEnd",t);
+      return t;
+    }
+
+    /** seq */
+    function SeqTweens(...ts){
+      let c,cs=[];
+      ts.forEach(o=>{
+        cs.push(o);
+        _.disj(TweensQueue,o);
+      });
+      const t={
+        onDone(){
+          this.dispose();
+          this.onComplete &&
+            _.delay(0,()=>this.onComplete());
+        },
+        dispose(){
+          cs.length=0;
+        }
+      };
+      function iter(o){
+        if(o){
+          TweensQueue.push(o);
+          o.onComplete=()=> iter(cs.shift());
+        }else{
+          t.onDone();
+        }
+      }
+      iter(cs.shift());
       return t;
     }
 
@@ -3954,20 +4035,20 @@
        * @param {number} x
        * @return {number}
        */
-		  EXPO_IN(x){ return x==0 ? 0 : Math.pow(1024, x-1) },
+      EXPO_IN(x){ return x==0 ? 0 : Math.pow(1024, x-1) },
       /**Easing function: exponential-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  EXPO_OUT(x){ return x==1 ? 1 : 1-Math.pow(2, -10*x) },
+      EXPO_OUT(x){ return x==1 ? 1 : 1-Math.pow(2, -10*x) },
       /**Easing function: exponential-in-out.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  EXPO_INOUT(x){
-			  return x==0 ? 0
+      EXPO_INOUT(x){
+        return x==0 ? 0
                     : (x==1) ? 1
                              : ((x*=2)<1) ? (0.5 * Math.pow(1024, x-1))
                                           : (0.5 * (2 -Math.pow(2, -10 * (x-1)))) },
@@ -3976,7 +4057,7 @@
        * @param {number} x
        * @return {number}
        */
-	    LINEAR(x){ return x },
+      LINEAR(x){ return x },
       /**Easing function: smooth.
        * @memberof module:mojoh5/FX
        * @param {number} x
@@ -4065,25 +4146,39 @@
        * @return {number}
        */
       SPLINE(t, a, b, c, d){
-        return (2*b + (c-a)*t +
-               (2*a - 5*b + 4*c - d)*t*t +
-               (-a + 3*b - 3*c + d)*t*t*t) / 2 },
+        let
+          tt = t * t,
+          ttt = tt * t,
+          q1 = -ttt + 2*tt - t,
+          q2 = 3*ttt - 5*tt + 2,
+          q3 = -3*ttt + 4*tt + t,
+          q4 = ttt - tt;
+        return 0.5 * (a * q1 + b * q2 + c * q3 + d * q4);
+      },
       /**Easing function: cubic-bezier.
        * @memberof module:mojoh5/FX
-       * @param {number} x
+       * @param {number} t
+       * @param {number} a
+       * @param {number} b
+       * @param {number} c
+       * @param {number} d
        * @return {number}
        */
       CUBIC_BEZIER(t, a, b, c, d){
-        return a*t*t*t +
-               3*b*t*t*(1-t) +
-               3*c*t*(1-t)*(1-t) +
-               d*(1-t)*(1-t)*(1-t) },
+        let
+          t2=t*t,
+          t3=t2*t,
+          tm1= 1-t,
+          tm2=tm1*tm1,
+          tm3=tm2*tm1;
+        return tm3*a + 3*tm2*t*b + 3*tm1*t2*c + t3*d;
+      },
       /**Easing function: elastic-in.
        * @memberof module:mojoh5/FX
        * @param {number} x
        * @return {number}
        */
-		  ELASTIC_IN(x){
+      ELASTIC_IN(x){
         return x==0 ? 0
                     : x==1 ? 1
                            : -Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5) },
@@ -4092,7 +4187,7 @@
        * @param {number} x
        * @return {number}
        */
-		  ELASTIC_OUT(x){
+      ELASTIC_OUT(x){
         return x==0 ? 0
                     : x==1 ? 1
                            : 1+ Math.pow(2, -10*x) * Math.sin((x-0.1)*P5) },
@@ -4101,13 +4196,13 @@
        * @param {number} x
        * @return {number}
        */
-		  ELASTIC_INOUT(x){
+      ELASTIC_INOUT(x){
         switch(x){
           case 0: return 0;
           case 1: return 1;
           default:
             x *= 2;
-			      return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
+            return x<1 ? -0.5*Math.pow(2, 10*(x-1)) * Math.sin((x-1.1)*P5)
                        : 1+ 0.5*Math.pow(2, -10*(x-1)) * Math.sin((x-1.1)*P5); } },
       /**Easing function: bounce-in.
        * @memberof module:mojoh5/FX
@@ -4120,7 +4215,7 @@
        * @param {number} x
        * @return {number}
        */
-		  BOUNCE_OUT(x){
+      BOUNCE_OUT(x){
         if(x < 1/2.75){
           return 7.5625 * x * x
         }else if(x < 2/2.75){
@@ -4134,8 +4229,8 @@
        * @param {number} x
        * @return {number}
        */
-		  BOUNCE_INOUT(x){
-			  return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
+      BOUNCE_INOUT(x){
+        return x < 0.5 ? _$.BOUNCE_IN(x*2) * 0.5
                        : _$.BOUNCE_OUT(x*2 - 1) * 0.5 + 0.5 },
       /**Create a tween operating on sprite's alpha value.
        * @memberof module:mojoh5/FX
@@ -4199,8 +4294,8 @@
           sy=endY[0];
           ey=endY[1]
         }
-        if(!is.num(ex)){ sx=ex=null }
-        if(!is.num(ey)){ sy=ey=null }
+        if(!is.num(ex)){ sx=ex=UNDEF }
+        if(!is.num(ey)){ sy=ey=UNDEF }
         return t.start(sx,ex,sy,ey), t;
       },
       /**Create a tween operating on sprite's position.
@@ -4227,8 +4322,8 @@
           sy=endY[0];
           ey=endY[1]
         }
-        if(!is.num(ex)){sx=ex=null}
-        if(!is.num(ey)){sy=ey=null}
+        if(!is.num(ex)){sx=ex=UNDEF}
+        if(!is.num(ey)){sy=ey=UNDEF}
         return t.start(sx,ex,sy,ey), t;
       },
       /**Slowly fade out this object.
@@ -4312,64 +4407,30 @@
        * @param {boolean} [loop]
        * @return {BatchTweens}
        */
-      wobble(s, bounds, ex=1.2, ey=1.2, frames=10, loop=true){
+      jiggle(s, bounds, ex=1.4, ey=1.2, frames=10, loop=true){
         let {x1,x2,y1,y2}= bounds;
         return BatchTweens(this.tweenScale(s,v=>this.SPLINE(v,_.or(x1,10),0,1,
-                                                              _.or(x2,10)), ex, null, frames,loop),
+                                                              _.or(x2,10)), ex, UNDEF, frames,loop),
                            this.tweenScale(s,v=>this.SPLINE(v,_.or(y1,-10),0,1,
-                                                              _.or(y2,-10)), null,ey, frames,loop)) },
+                                                              _.or(y2,-10)), UNDEF,ey, frames,loop)) },
       /**
        * @memberof module:mojoh5/FX
        * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
+       * @param {Vec2} c1
+       * @param {Vec2} c2
+       * @param {Vec2} c3
        * @param {number} frames
        * @return {TweenXY}
        */
-      followCurve(s, type, path, frames=60){
-        let t= TweenXY(s,type,frames);
+      bezier(s,c1,c2,c3,frames=60){
+        let t= TweenXY(s,this.SMOOTH,frames);
         t.start=function(){ this._run() };
         t.onFrame=function(end,alpha){
           if(!end)
-            _V.set(s, _$.CUBIC_BEZIER(alpha, path[0][0], path[1][0], path[2][0], path[3][0]),
-                      _$.CUBIC_BEZIER(alpha, path[0][1], path[1][1], path[2][1], path[3][1]))
+            _V.set(s, _$.CUBIC_BEZIER(alpha, s.x, c1[0],c2[0],c3[0]),
+                      _$.CUBIC_BEZIER(alpha, s.y, c1[1], c2[1], c3[1]));
         };
         return t.start(), t;
-      },
-      /**Make object walk in a path.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
-       * @param {number} duration
-       * @return {TweenXY}
-       */
-      walkPath(s, type, path, duration=300){
-        return (function _calc(cur,frames){
-          let t= _$.tweenXY(s,type,[path[cur][0], path[cur+1][0]],
-                                   [path[cur][1], path[cur+1][1]],frames);
-          t.onComplete=()=>{
-            if(++cur < path.length-1)
-              _.delay(0,()=> _calc(cur,frames)) };
-          return t;
-        })(0, _M.ndiv(duration, path.length));
-      },
-      /**Make object appear to walk in a curved path.
-       * @memberof module:mojoh5/FX
-       * @param {Sprite} s
-       * @param {function} type
-       * @param {Vec2[]} path
-       * @param {number} duration
-       * @return {TweenXY}
-       */
-      walkCurve(s, type, path, duration=300){
-        return (function _calc(cur,frames){
-          let t=_$.followCurve(s, type, path[cur], frames);
-          t.onComplete=()=>{
-            if(++cur < path.length)
-              _.delay(0,()=> _calc(cur,frames)) };
-          return t;
-        })(0, _M.ndiv(duration,path.length));
       },
       /**Remove this tween object.
        * @memberof module:mojoh5/FX
@@ -4386,49 +4447,45 @@
        * @memberof module:mojoh5/FX
        * @return {}
        */
-      createParticles(x, y, spriteCtor, container, gravity, mins, maxs, random=true, count= 20){
+      particles(C,x, y, spriteCtor, count=24, mins={}, maxs={}, gravity=[0,0.3], random=true){
         mins= _.patch(mins,{angle:0, size:4, speed:0.3,
                             scale:0.01, alpha:0.02, rotate:0.01});
         maxs=_.patch(maxs,{angle:6.28, size:16, speed:3,
                            scale:0.05, alpha:0.02, rotate:0.03 });
-        _.assert(count>1);
-        gravity[0]=0;
         function _make(angle){
-          let size = _.randInt2(mins.size, maxs.size);
-          let p= spriteCtor();
+          let
+            p= spriteCtor(),
+            v,size = _.randInt2(mins.size, maxs.size);
           DustBin.push(p);
-          container.addChild(p);
+          C.addChild(p);
           if(p.totalFrames)
             p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
-          Mojo.Sprites.sizeXY(p, size,size);
+          _S.sizeXY(_S.anchorXY(p,0.5), size, size);
           _V.set(p,x,y);
-          Mojo.Sprites.centerAnchor(p);
-          p.m5.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
-          p.m5.alphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
-          p.m5.angVel = _.randFloat2(mins.rotate, maxs.rotate);
-          let speed = _.randFloat2(mins.speed, maxs.speed);
-          _V.set(p.m5.vel, speed * Math.cos(angle),
-                           speed * Math.sin(angle));
+          p.g.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
+          p.galphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
+          p.g.angVel = _.randFloat2(mins.rotate, maxs.rotate);
+          v= _.randFloat2(mins.speed, maxs.speed);
+          _V.set(p.m5.vel, v * Math.cos(angle),
+                           v * Math.sin(angle));
           //the worker
           p.onTick=function(){
             _V.add$(p.m5.vel,gravity);
             _V.add$(p,p.m5.vel);
-            if(p.scale.x - p.m5.scaleSpeed > 0){
-              p.scale.x -= p.m5.scaleSpeed;
+            if(p.scale.x - p.g.scaleSpeed > 0){
+              p.scale.x -= p.g.scaleSpeed
             }
-            if(p.scale.y - p.m5.scaleSpeed > 0){
-              p.scale.y -= p.m5.scaleSpeed;
+            if(p.scale.y - p.g.scaleSpeed > 0){
+              p.scale.y -= p.g.scaleSpeed
             }
             p.rotation += p.m5.angVel;
-            p.alpha -= p.m5.alphaSpeed;
-            if(p.alpha <= 0){
-              _.disj(DustBin,p);
-              Mojo.Sprites.remove(p);
-            }
+            p.alpha -= p.g.alphaSpeed;
+            if(p.alpha <= 0)
+              _.disj(DustBin, _S.remove(p));
           };
         }
-        for(let gap= (maxs.angle-mins.angle)/(count-1),
-                a=mins.angle,i=0; i<count; ++i){
+        for(let diff= maxs.angle-mins.angle,
+                gap= diff/(count-1), a=mins.angle, i=0; i<count; ++i){
           _make(random ? _.randFloat2(mins.angle, maxs.angle) : a);
           a += gap;
         }
@@ -4438,59 +4495,56 @@
        * @return {}
        */
       shake(s, magnitude=16, angular=false,loop=true){
-        let numberOfShakes=10,
-            wrapper={},
-            self = this,
-            counter=1,
-            startX = s.x,
-            startY = s.y,
-            startAngle = s.rotation,
-            startMagnitude= magnitude,
-            //Divide the magnitude into 10 units so that you can
-            //reduce the amount of shake by 10 percent each frame
-            magnitudeUnit = _M.ndiv(magnitude , numberOfShakes);
+        const CHUNK=8;
+        let
+          wrapper={},
+          self=this,
+          counter=1,
+          startX = s.x,
+          startY = s.y,
+          tiltAngle = 1,
+          startAngle = s.rotation,
+          startMagnitude= magnitude,
+          chunk = _M.ndiv(magnitude , CHUNK);
         function _upAndDownShake(){
-          if(counter<numberOfShakes){
+          if(counter<CHUNK){
             s.x = startX;
             s.y = startY;
-            magnitude -= magnitudeUnit;
+            magnitude -= chunk;
             s.x += _.randInt2(-magnitude, magnitude);
             s.y += _.randInt2(-magnitude, magnitude);
             ++counter;
+          }else if(loop){
+            magnitude=startMagnitude;
+            counter=1;
           }else{
-            if(loop){
-              magnitude=startMagnitude;
-              counter=1;
-            }else{
-              _.disj(DustBin,wrapper);
-            }
+            _.disj(DustBin,wrapper);
           }
         }
-        let tiltAngle = 1;
         function _angularShake(){
-          if(counter<numberOfShakes){
+          if(counter<CHUNK){
             s.rotation = startAngle;
-            magnitude -= magnitudeUnit;
+            magnitude -= chunk;
             s.rotation = magnitude * tiltAngle;
             ++counter;
             //yoyo it
             tiltAngle *= -1;
+          }else if(loop){
+            magnitude=startMagnitude;
+            counter=1;
           }else{
-            if(loop){
-              magnitude=startMagnitude;
-              counter=1;
-            }else{
-              _.disj(DustBin,wrapper);
-            }
+            _.disj(DustBin,wrapper);
           }
         }
         wrapper.onTick=()=>{
           return angular ? _angularShake(wrapper)
                          : _upAndDownShake(wrapper)
         };
-        DustBin.push(wrapper);
+        return DustBin.push(wrapper) && s;
       },
-      StarWarp
+      StarWarp,
+      SeqTweens,
+      BatchTweens
     };
 
     return (Mojo.FX= _$);
@@ -4532,22 +4586,21 @@
   function _module(Mojo){
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const Geo=gscope["io/czlab/mcfud/geo2d"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
     const {Scenes:_Z,
            Sprites:_S,
            FX:_F,
            Input:_I,
+           v2:_V,
+           math:_M,
            is, ute:_}=Mojo;
-    const abs=Math.abs,
-          cos=Math.cos,
-          sin=Math.sin,
-          int=Math.floor;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const R=Math.PI/180,
-          CIRCLE=Math.PI*2;
+    const
+      abs=Math.abs,
+      cos=Math.cos,
+      sin=Math.sin,
+      int=Math.floor,
+      {Geo}=_S,
+      R=Math.PI/180,
+      CIRCLE=Math.PI*2;
 
     /**
      * @module mojoh5/Ute2D
@@ -4620,17 +4673,17 @@
       setup(options){
         let
           {title,titleFont,titleColor,titleSize}= options,
-          {action,clickSnd}=options,
+          {footerMsgSize,action,clickSnd}=options,
           {bg, playMsg,playMsgFont,playMsgColor,playMsgSize,playMsgColor2}= options;
         let
           C,
           self=this,
           K=Mojo.getScaleFactor();
-
         //ffc901 yellow
         //fd5898 pink
         //e04455 red
         playMsgFont= playMsgFont || "Doki Lowercase";
+        footerMsgSize= footerMsgSize || 16*K;
         titleFont= titleFont || "Big Shout Bob";
         playMsg=playMsg || Mojo.clickPlayMsg();
         playMsgColor= _.nor(playMsgColor, _S.color("white"));
@@ -4638,7 +4691,6 @@
         titleColor= _.nor(titleColor, _S.color("#ffc901"));
         titleSize= _.nor(titleSize, 96*K);
         playMsgSize= _.nor(playMsgSize, 64*K);
-
         self.insert(_S.fillMax( _S.sprite(bg?bg:"boot/splash.jpg")));
         C= self.insert(_S.container());
         if(1){
@@ -4648,16 +4700,26 @@
           C.addChild(_S.anchorXY(s,0.5));
         }
         if(1){
-          let s=_S.bmpText(playMsg,playMsgFont,playMsgSize);
-          let t=_F.throb(s,0.747,0.747);
-          _S.oneOffClick(clickSnd,()=>{
+          let
+            s=_S.bmpText(playMsg,playMsgFont,playMsgSize),
+            t2,t=_F.throb(s,0.747,0.747);
+          _S.oneOffClick(()=>{
             _S.tint(s,playMsgColor2);
             _F.remove(t);
-            _F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
-            //_F.tweenScale(C,_F.EASE_OUT_SINE,0,0,2*60).onComplete=()=>{ _Z.runEx(action.name,action.cfg); };
-          });
+            t2=_F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90);
+            t2.onComplete=()=>_Z.runEx(action.name,action.cfg);
+          },clickSnd);
           _V.set(s,Mojo.width/2,Mojo.height*0.5);
           C.addChild(_S.anchorXY(s,0.5));
+        }
+        if(1){
+          let s= _S.bmpText("(c) www.cherimoia.com 2022.","unscii", footerMsgSize);
+          _S.pinBelow(this,s,-s.height*1.5,0);
+          this.insert(s);
+          s= _S.bmpText("Powered by MojoH5 2d game engine.","unscii",footerMsgSize);
+          _S.pinBelow(this,s,-s.height*1.5,1);
+          this.insert(s);
+
         }
       }
     });
@@ -4665,18 +4727,16 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("EndGame",{
       setup(options){
-        let {fontName,fontSize,msg,replay,quit}= options;
-        let {winner,snd}=options;
-
+        let
+          {winner,snd}=options,
+          {fontName,fontSize,msg,replay,quit}= options;
         if(winner){
           snd=snd||"game_win.mp3";
         }else{
           snd=snd||"game_over.mp3";
         }
-
         _.assert(fontSize, "expected fontSize");
         fontName=fontName || "Doki Lowercase";
-
         let
           os={fontName, fontSize},
           space=()=>_S.opacity(_S.bmpText("I",os),0),
@@ -4717,15 +4777,14 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("HotKeys",{
       setup(options){
-        let {char_fire, char_down,char_up,char_left,char_right}=options;
-        let {fontName,fontSize,cb,radius,alpha,color}=options;
-        let bs,F,U,D,L,R;
-        let opstr= options.buttons?"makeButton":"makeHotspot";
-
+        let
+          bs,F,U,D,L,R,
+          opstr= options.buttons?"makeButton":"makeHotspot",
+          {fontName,fontSize,cb,radius,alpha,color}=options,
+          {char_fire, char_down,char_up,char_left,char_right}=options;
         _.assert(is.num(fontSize),"expected fontsize");
         _.assert(is.num(radius),"expected radius");
         _.assert(is.fun(cb),"expected callback");
-
         fontName=fontName||"Doki Lowercase";
         alpha=alpha || 0.2;
         color=_.nor(color,"grey");
@@ -4774,18 +4833,18 @@
           if(bs.fire.m5.hotspot)
             bs.fire.m5.touch=(o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE);
         }
-        if(options.extra)
-          options.extra(this);
+        if(options.extra) options.extra(this);
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _Z.scene("AudioIcon",{
       setup(arg){
-        let {xOffset,yOffset,xScale,yScale}=arg;
-        let {cb,iconOn,iconOff}= arg;
-        let {Sound}=Mojo;
-        let K=Mojo.getScaleFactor(),
+        let
+          {Sound}=Mojo,
+          {cb,iconOn,iconOff}= arg,
+          {xOffset,yOffset,xScale,yScale}=arg,
+          K=Mojo.getScaleFactor(),
           s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
 
         xScale= _.nor(xScale, K*2);
@@ -4820,10 +4879,10 @@
           minVel:15,
           maxVel:30
         });
-        const self=this,
-              stars=[],
-              W=0xffffff,
-              gfx=_S.graphics();
+        const
+          self=this,
+          stars=[],
+          gfx=_S.graphics();
         _.inject(this.g,{
           gfx,
           stars,
@@ -4833,7 +4892,7 @@
           draw(){
             gfx.clear();
             stars.forEach(s=>{
-              gfx.beginFill(W);
+              gfx.beginFill(_.rand()<0.3?_S.SomeColors.yellow:_S.SomeColors.white);
               gfx.drawRect(s.x, s.y, s.size, s.size);
               gfx.endFill();
             });
@@ -4900,7 +4959,8 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Camera(e,worldWidth,worldHeight,canvas){
-      const _height= canvas?canvas.height:worldHeight,
+      const
+        _height= canvas?canvas.height:worldHeight,
         _width= canvas?canvas.width:worldWidth,
         h2=_M.ndiv(_height,2),
         w2=_M.ndiv(_width,2),
@@ -4908,111 +4968,110 @@
         w4=_M.ndiv(_width,4),
         sigs=[],
         world=e;
-      let _x=0;
-      let _y=0;
-      let self={
-        dispose(){ Mojo.off(self) },
-        //changing the camera's xy pos shifts
-        //pos of the world in the opposite direction
-        set x(v){ _x=v; e.x= -_x },
-        set y(v){ _y=v; e.y= -_y },
-        get x(){ return _x },
-        get y(){ return _y },
-        worldHeight,
-        worldWidth,
-        width: _width,
-        height: _height,
-        follow(s){
-          //Check the sprites position in relation to the viewport.
-          //Move the camera to follow the sprite if the sprite
-          //strays outside the viewport
-          const bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s)
-                                   : Mojo.Sprites.boundingBox(s);
-          const _right=()=>{ if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }},
-            _left=()=>{ if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }},
-            _top=()=>{ if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }},
-            _bottom=()=>{ if(bx.y2> this.y+int(h2+h4)){ this.y = bx.y2- h4*3 }};
-          ////
-          _left();  _right();  _top();  _bottom();
-          //clamp the camera
-          if(this.x<0){ this.x = 0 }
-          if(this.y<0){ this.y = 0 }
-          if(this.x+_width > worldWidth){ this.x= worldWidth - _width }
-          if(this.y+_height > worldHeight){ this.y= worldHeight - _height }
-          //contain the object
-          let {x1,x2,y1,y2}=s.m5.getImageOffsets();
-          let n= bx.x2 - x2;
-          if(n>worldWidth){ s.x -= (n-worldWidth) }
-          n=bx.y2 - y2;
-          if(n>worldHeight){ s.y -= (n-worldHeight) }
-          n=bx.x1 + x1;
-          if(n<0) { s.x += -n }
-          n=bx.y1  + y1;
-          if(n<0) { s.y += -n }
-        },
-        centerOver:function(s,y){
-          if(arguments.length==1 && !is.num(s)){
-            let c=Mojo.Sprites.centerXY(s)
-            this.x = c[0]- w2;
-            this.y = c[1] - h2;
-          }else{
-            if(is.num(s)) this.x=s - w2;
-            if(is.num(y)) this.y=y - h2;
+      let
+        _x=0,
+        _y=0,
+        self={
+          dispose(){ Mojo.off(self) },
+          //changing the camera's xy pos shifts
+          //pos of the world in the opposite direction
+          set x(v){ _x=v; e.x= -_x },
+          set y(v){ _y=v; e.y= -_y },
+          get x(){ return _x },
+          get y(){ return _y },
+          worldHeight,
+          worldWidth,
+          width: _width,
+          height: _height,
+          follow(s){
+            //Check the sprites position in relation to the viewport.
+            //Move the camera to follow the sprite if the sprite
+            //strays outside the viewport
+            const
+              bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s)
+                                 : Mojo.Sprites.boundingBox(s),
+              _right=()=>{ if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }},
+              _left=()=>{ if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }},
+              _top=()=>{ if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }},
+              _bottom=()=>{ if(bx.y2> this.y+int(h2+h4)){ this.y = bx.y2- h4*3 }};
+            _left();  _right();  _top();  _bottom();
+            //clamp the camera
+            if(this.x<0){ this.x = 0 }
+            if(this.y<0){ this.y = 0 }
+            if(this.x+_width > worldWidth){ this.x= worldWidth - _width }
+            if(this.y+_height > worldHeight){ this.y= worldHeight - _height }
+            //contain the object
+            let {x1,x2,y1,y2}=s.m5.getImageOffsets();
+            let n= bx.x2 - x2;
+            if(n>worldWidth){ s.x -= (n-worldWidth) }
+            n=bx.y2 - y2;
+            if(n>worldHeight){ s.y -= (n-worldHeight) }
+            n=bx.x1 + x1;
+            if(n<0) { s.x += -n }
+            n=bx.y1  + y1;
+            if(n<0) { s.y += -n }
+          },
+          centerOver:function(s,y){
+            if(arguments.length==1 && !is.num(s)){
+              let c=Mojo.Sprites.centerXY(s)
+              this.x = c[0]- w2;
+              this.y = c[1] - h2;
+            }else{
+              if(is.num(s)) this.x=s - w2;
+              if(is.num(y)) this.y=y - h2;
+            }
           }
-        }
-      };
-      //////
+        };
       Mojo.on(["post.remove",e],"dispose",self);
       return self;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Meander(e){
-      const colls=[];
-      const self={
-        dispose(){ Mojo.off(self) },
-        boom(col){
-          _.assert(col.A===e,"got hit by someone else???");
-          if(col.B && col.B.m5.sensor){
-            Mojo.emit(["bump.sensor", col.B], col.A)
-          }else{
-            let b=0,[dx,dy]= e.m5.vel;
-            col.impact=UNDEF;
-            //update position
-            _V.sub$(e,col.overlapV);
-            if(col.overlapN[1] < -0.3){
-              if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
-              col.impact=abs(dy);
-              Mojo.emit(["bump.top", e],col);
-            }
-            if(col.overlapN[1] > 0.3){
-              if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
-              col.impact=abs(dy);
-              Mojo.emit(["bump.bottom",e],col);
-            }
-            if(col.overlapN[0] < -0.3){
-              if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
-              col.impact=abs(dx);
-              Mojo.emit(["bump.left",e],col);
-            }
-            if(col.overlapN[0] > 0.3){
-              if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
-              col.impact=abs(dx);
-              Mojo.emit(["bump.right",e],col);
-            }
-            if(col.impact===UNDEF){
-              col.impact=0
+      const
+        colls=[],
+        self={
+          dispose(){ Mojo.off(self) },
+          boom(col){
+            _.assert(col.A===e,"got hit by someone else???");
+            if(col.B && col.B.m5.sensor){
+              Mojo.emit(["bump.sensor", col.B], col.A)
             }else{
-              Mojo.emit(["bump.*",e],col);
+              let b=0,[dx,dy]= e.m5.vel;
+              col.impact=UNDEF;
+              //update position
+              _V.sub$(e,col.overlapV);
+              if(col.overlapN[1] < -0.3){
+                if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
+                col.impact=abs(dy);
+                Mojo.emit(["bump.top", e],col);
+              }
+              if(col.overlapN[1] > 0.3){
+                if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
+                col.impact=abs(dy);
+                Mojo.emit(["bump.bottom",e],col);
+              }
+              if(col.overlapN[0] < -0.3){
+                if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
+                col.impact=abs(dx);
+                Mojo.emit(["bump.left",e],col);
+              }
+              if(col.overlapN[0] > 0.3){
+                if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
+                col.impact=abs(dx);
+                Mojo.emit(["bump.right",e],col);
+              }
+              if(col.impact===UNDEF){
+                col.impact=0
+              }else{
+                Mojo.emit(["bump.*",e],col);
+              }
             }
+            colls.push(col);
           }
-          colls.push(col);
-        }
-      };
-
+        };
       Mojo.on(["hit",e],"boom", self);
       Mojo.on(["post.remove",e],"dispose",self);
-
       return function(dt){
         colls.length=0;
         Mojo.Sprites.move(e,dt);
@@ -5023,37 +5082,30 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Jitter(e,jumpSpeed,jumpKey){
-
       jumpKey= _.nor(jumpKey, Mojo.Input.UP);
       jumpSpeed= _.nor(jumpSpeed,-300);
-
       //give some time to ease into or outof that ground state
       //instead of just on or off ground,
-      let jumpCnt=0,
+      let
+        jumpCnt=0,
         ground=0,
         j3= jumpSpeed/3;
-
       const self={
-        dispose(){
-          Mojo.off(self)
-        },
-        onGround(){
-          ground=0.24
-        },
+        onGround(){ ground=0.24 },
+        dispose(){ Mojo.off(self) }
       };
-
       Mojo.on(["bump.bottom",e],"onGround",self);
-
       return function(dt,col){
         if(!e.m5.skipHit){
-          let vs= e.m5.speed,
+          let
+            vs= e.m5.speed,
             pR= Mojo.Input.keyDown(Mojo.Input.RIGHT),
             pL= Mojo.Input.keyDown(Mojo.Input.LEFT),
             pU= Mojo.Input.keyDown(jumpKey);
           if(col && (pL || pR || ground>0)){
             //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
-               col.overlapN[1] < -0.85){ col= null }
+               col.overlapN[1] < -0.85){ col= UNDEF }
           }
           if(pL && !pR){
             e.m5.heading = Mojo.LEFT;
@@ -5098,28 +5150,25 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function MazeRunner(e,frames){
       const self={
-        dispose(){
-          Mojo.off(self)
-        }
-      };
-      //e.m5.heading=Mojo.UP;
+        dispose(){ Mojo.off(self) } };
       return function(dt,col){
-        let [vx,vy]=e.m5.vel,
+        let
+          [vx,vy]=e.m5.vel,
           vs=e.m5.speed,
           mx = !_.feq0(vx),
           my = !_.feq0(vy);
         if(!(mx&&my) && frames){
           if(my){
-            if(is.obj(frames))
+            if(is.obj(frames)){
               e.m5.showFrame(frames[vy>0?Mojo.DOWN:Mojo.UP]);
-            else if (frames){
+            }else if(frames){
               e.angle=vy>0?180:0;
             }
           }
           if(mx){
-            if(is.obj(frames))
+            if(is.obj(frames)){
               e.m5.showFrame(frames[vx>0?Mojo.RIGHT:Mojo.LEFT]);
-            else if(frames){
+            }else if(frames){
               e.angle=vx>0?90:-90;
             }
           }
@@ -5159,32 +5208,31 @@
      * @return {PatrolObj}
      */
     function Patrol(e,xDir,yDir){
-      const sigs=[];
-      const self={
-        dispose(){
-          Mojo.off(self)
-        },
-        goLeft(col){
-          e.m5.heading=Mojo.LEFT;
-          e.m5.flip= "x";
-          _V.setX(e.m5.vel, -col.impact);
-        },
-        goRight(col){
-          e.m5.heading=Mojo.RIGHT;
-          e.m5.flip= "x";
-          _V.setX(e.m5.vel, col.impact);
-        },
-        goUp(col){
-          _V.setY(e.m5.vel,-col.impact);
-          e.m5.heading=Mojo.UP;
-          e.m5.flip= "y";
-        },
-        goDown(col){
-          _V.setY(e.m5.vel, col.impact);
-          e.m5.heading=Mojo.DOWN;
-          e.m5.flip= "y";
-        }
-      };
+      const
+        sigs=[],
+        self={
+          dispose(){ Mojo.off(self) },
+          goLeft(col){
+            e.m5.heading=Mojo.LEFT;
+            e.m5.flip= "x";
+            _V.setX(e.m5.vel, -col.impact);
+          },
+          goRight(col){
+            e.m5.heading=Mojo.RIGHT;
+            e.m5.flip= "x";
+            _V.setX(e.m5.vel, col.impact);
+          },
+          goUp(col){
+            _V.setY(e.m5.vel,-col.impact);
+            e.m5.heading=Mojo.UP;
+            e.m5.flip= "y";
+          },
+          goDown(col){
+            _V.setY(e.m5.vel, col.impact);
+            e.m5.heading=Mojo.DOWN;
+            e.m5.flip= "y";
+          }
+        };
       if(xDir){
         Mojo.on(["bump.right",e],"goLeft",self);
         Mojo.on(["bump.left",e],"goRight",self);
@@ -5198,6 +5246,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       Periodic,
       Meander,
@@ -5246,8 +5296,9 @@
        * @param {number} range
        */
       arrive(s, pos,range){
-        let r=1, n= _V.dist(s,pos),
-            dv = _V.unit$(_V.sub(pos,s));
+        let
+          r=1, n= _V.dist(s,pos),
+          dv = _V.unit$(_V.sub(pos,s));
         if(range === undefined)
           range= s.m5.steerInfo.arrivalThreshold;
         if(n>range){}else{ r=n/range }
@@ -5261,8 +5312,9 @@
        * @param {Sprite} target
        */
       pursue(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
+        let
+          lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+          predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
         return this.seek(s,predicted);
       },
       /**
@@ -5271,8 +5323,9 @@
        * @param {Sprite} target
        */
       evade(s,target){
-        let lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-            predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
+        let
+          lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
+          predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
         return this.flee(s, predicted);
       },
       /**
@@ -5290,9 +5343,10 @@
        * @param {Sprite} s
        */
       wander(s){
-        let offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
-            n=_V.len(offset),
-            center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
+        let
+          offset = _V.mul$([1,1], s.m5.steerInfo.wanderRadius),
+          n=_V.len(offset),
+          center= _V.mul$(_V.unit(s.m5.vel), s.m5.steerInfo.wanderDistance);
         offset[0] = Math.cos(s.m5.steerInfo.wanderAngle) * n;
         offset[1] = Math.sin(s.m5.steerInfo.wanderAngle) * n;
         s.m5.steerInfo.wanderAngle += _.rand() * s.m5.steerInfo.wanderRange - s.m5.steerInfo.wanderRange * 0.5;
@@ -5306,10 +5360,11 @@
        * @param {Sprite} targetB
        */
       interpose(s,targetA, targetB){
-        let mid= _V.div$(_V.add(targetA,targetB),2),
-            dt= _V.dist(s,mid) / s.m5.maxSpeed,
-            pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
-            pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
+        let
+          mid= _V.div$(_V.add(targetA,targetB),2),
+          dt= _V.dist(s,mid) / s.m5.maxSpeed,
+          pA = _V.add(targetA, _V.mul(targetA.m5.vel,dt)),
+          pB = _V.add(targetB,_V.mul(targetB.m5.vel,dt));
         return this.seek(s, _V.div$(_V.add$(pA,pB),2));
       },
       /**
@@ -5320,17 +5375,17 @@
        * @param {number} maxSeparation
        */
       separation(s, ents, separationRadius=300, maxSeparation=100){
-        let force = [0,0],
-            neighborCount = 0;
+        let
+          force = [0,0],
+          neighborCount = 0;
         ents.forEach(e=>{
           if(e !== s && _V.dist(e,s) < separationRadius){
             _V.add$(force,_V.sub(e,s));
             ++neighborCount;
           }
         });
-        if(neighborCount > 0){
-          _V.flip$(_V.div$(force,neighborCount))
-        }
+        if(neighborCount > 0)
+          _V.flip$(_V.div$(force,neighborCount));
         _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
       },
       /**
@@ -5346,16 +5401,15 @@
        */
       followLeader(s,leader, ents, distance=400, separationRadius=300,
                    maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
-
         function isOnLeaderSight(s,leader, ahead, leaderSightRadius){
           return _V.dist(ahead,s) < leaderSightRadius ||
                  _V.dist(leader,s) < leaderSightRadius
         }
-
-        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
-        let ahead = _V.add(leader,tv);
+        let
+          tv = _V.mul$(_V.unit(leader.m5.vel),distance),
+          behind, ahead = _V.add(leader,tv);
         _V.flip$(tv);
-        let behind = _V.add(leader,tv);
+        behind = _V.add(leader,tv);
         if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
           this.evade(s,leader);
         }
@@ -5372,8 +5426,9 @@
       queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
 
         function getNeighborAhead(){
-          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
-          let res, ahead = _V.add(s, qa);
+          let
+            qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead),
+            res, ahead = _V.add(s, qa);
           for(let d,i=0; i<ents.length; ++i){
             if(ents[i] !== s &&
                _V.dist(ahead,ents[i]) < maxQueueRadius){
@@ -5383,10 +5438,10 @@
           }
           return res;
         }
-
-        let neighbor = getNeighborAhead();
-        let brake = [0,0],
-            v = _V.mul(s.m5.vel,1);
+        let
+          neighbor = getNeighborAhead(),
+          brake = [0,0],
+          v = _V.mul(s.m5.vel,1);
         if(neighbor){
           brake = _V.mul$(_V.flip(s.m5.steer),0.8);
           _V.unit$(_V.flip$(v));
@@ -5409,9 +5464,10 @@
                                         : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
         }
 
-        let inSightCount = 0,
-            averagePosition = [0,0],
-            averageVelocity = _V.mul(s.m5.vel,1);
+        let
+          inSightCount = 0,
+          averagePosition = [0,0],
+          averageVelocity = _V.mul(s.m5.vel,1);
 
         ents.forEach(e=>{
           if(e !== this && inSight(e)){
@@ -5460,10 +5516,11 @@
        * @param {array} obstacles
        */
       avoid(s,obstacles){
-        let dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
-            ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
-            ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
-            avoidance, mostThreatening = null;
+        let
+          dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
+          ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
+          ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
+          avoidance, mostThreatening = null;
         for(let c,i=0; i<obstacles.length; ++i){
           if(obstacles[i] === this) continue;
           c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
@@ -5487,8 +5544,9 @@
        * @return {boolean}
        */
       lineOfSight(s1, s2, obstacles){
-        let c1=_S.centerXY(s1),
-            c2=_S.centerXY(s2);
+        let
+          c1=_S.centerXY(s1),
+          c2=_S.centerXY(s2);
         for(let b,rc,s,o,i=0;i<obstacles.length;++i){
           o=obstacles[i];
           if(o.m5.circle){
@@ -5511,8 +5569,9 @@
        * @return {Sprite}
        */
       shoot(src, angle, speed, ctor,x,y){
-        let b=ctor(),
-            soff=Mojo.Sprites.topLeftOffsetXY(src);
+        let
+          b=ctor(),
+          soff=Mojo.Sprites.topLeftOffsetXY(src);
         _V.add$(soff,[x,y]);
         _V.copy(b,_V.add(src,soff));
         _V.set(b.m5.vel, Math.cos(angle) * speed,
@@ -5525,9 +5584,11 @@
        * @return {HealthBarObj}
        */
       healthBar(arg){
-        let {scale:K,width,height,
-             lives,borderWidth,line,fill}=arg;
-        let c,padding=4*K,fit=4*K,out=[];
+        let
+          {scale:K,width,height,
+           lives,
+           borderWidth,line,fill}=arg,
+          c, padding=4*K, fit=4*K, out=[];
         borderWidth = (borderWidth||4)*K;
         lives= lives||3;
         fill=_S.color(fill);
@@ -5556,23 +5617,26 @@
        * @return {GaugeUIObj}
        */
       gaugeUI(arg){
-        let {minDeg,maxDeg,
-             line,gfx,scale:K,
-             cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
+        let
+          {minDeg,maxDeg,
+           line,gfx,scale:K,
+           cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
         const segs= [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315];
         function getPt(x, y, r,rad){ return[x + r * cos(rad), y + r * sin(rad) ] }
         function drawTig(x, y, rad, size){
-          let [sx,sy] = getPt(x, y, radius - 4*K, rad),
-              [ex,ey] = getPt(x, y, radius - 12*K, rad);
+          let
+            [sx,sy] = getPt(x, y, radius - 4*K, rad),
+            [ex,ey] = getPt(x, y, radius - 12*K, rad);
           gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
           gfx.moveTo(sx, sy);
           gfx.lineTo(ex, ey);
           gfx.closePath();
         }
         function drawPtr(r,color, rad){
-          let [px,py]= getPt(cx, cy, r - 20*K, rad),
-              [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
-              [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
+          let
+            [px,py]= getPt(cx, cy, r - 20*K, rad),
+            [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
+            [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
           gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
           gfx.moveTo(p2x, p2y);
           gfx.lineTo(px, py);
@@ -5640,14 +5704,12 @@
     throw "Fatal: no audio."
   }
 
-  const CON=console,
-        int=Math.floor;
-
   /**Create the module.
    */
   function _module(Mojo,SoundFiles){
 
     const {ute:_, is}=Mojo;
+    const int=Math.floor;
 
     /**
      * @module mojoh5/Sound
@@ -5656,6 +5718,7 @@
     const _actives=new Map();
     let _sndCnt=1;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** debounce */
     function _debounce(s,now,interval){
       let rc;
@@ -5671,10 +5734,11 @@
       return rc;
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _make(_A,name, url){
-      let _pan=0;
-      let _vol=1;
+      let
+        _pan=0,
+        _vol=1;
       const s={
         sids: new Map(),
         buffer:UNDEF,
@@ -5685,18 +5749,19 @@
         //1(right speaker)
         get pan(){ return _pan },
         set pan(v){ _pan= v },
-        get volume(){ return _vol },
-        set volume(v){ _vol=v },
+        get vol(){ return _vol },
+        set vol(v){ _vol=v },
         play(){
           const now = _.now();
           const s= this.name;
           if(Mojo.Sound.sfx()&&
              !_debounce(s,now)){
-            let sid = _sndCnt++,
-                w=this.buffer.duration*1000,
-                g=_A.ctx.createGain(),
-                p=_A.ctx.createStereoPanner(),
-                src = _A.ctx.createBufferSource();
+            let
+              sid = _sndCnt++,
+              w=this.buffer.duration*1000,
+              g=_A.ctx.createGain(),
+              p=_A.ctx.createStereoPanner(),
+              src = _A.ctx.createBufferSource();
             src.buffer = this.buffer;
             src.connect(g);
             g.connect(p);
@@ -5722,6 +5787,9 @@
       return SoundFiles[name]=s;
     };
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       ctx: new gscope.AudioContext(),
       _mute:0,
@@ -5737,23 +5805,21 @@
        * @return {boolean}
        */
       sfx(){
-        return this._mute===0
+        return this._mute==0
       },
       /**Turn sound off.
        * @memberof module:mojoh5/Sound
        * @return {object}
        */
       mute(){
-        this._mute=1;
-        return this;
+        return (this._mute=1) && this
       },
       /**Turn sound on.
        * @memberof module:mojoh5/Sound
        * @return {object}
        */
       unmute(){
-        this._mute=0;
-        return this;
+        return (this._mute=0) || this
       },
       /**Decode these sound bytes.
        * @memberof module:mojoh5/Sound
@@ -5767,7 +5833,7 @@
       decodeData(name, url,blob, onLoad, onFail){
         let snd= _make(this,name, url);
         this.ctx.decodeAudioData(blob, b=>{ onLoad(snd.buffer=b);
-                                            CON.log(`decoded sound file:${url}`); },
+                                            Mojo.CON.log(`decoded sound file:${url}`); },
                                        e=> { onFail && onFail(url,e) });
         return snd;
       },
@@ -5780,8 +5846,9 @@
        * @return {object}
        */
       decodeUrl(name, url, onLoad, onFail){
-        let xhr= new XMLHttpRequest();
-        let snd= _make(this,name, url);
+        let
+          xhr= new XMLHttpRequest(),
+          snd= _make(this,name, url);
         xhr.open("GET", url, true);
         xhr.responseType="arraybuffer";
         xhr.addEventListener("load", ()=>{
@@ -5792,6 +5859,7 @@
       }
     };
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Extend Mojo */
     Mojo.sound=function(fname){
       return SoundFiles[Mojo.assetPath(fname)] ||
@@ -5836,31 +5904,43 @@
   /**Creates the module. */
   function _module(Mojo){
 
-    const Geo=gscope["io/czlab/mcfud/geo2d"]();
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const {ute:_,is}=Mojo;
+    const {
+      math:_M,
+      v2:_V,
+      ute:_,
+      is,
+      Sprites
+    }=Mojo;
     const Layers= [];
+    const {Geo}=Sprites;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const SKEYS= ["ctrlKey","altKey","shiftKey"];
     const cur=()=> Layers[0];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function mkLayer(L={}){
-      function _uh(e){
+      function _u(e){
         if(L===cur()){
-          L.keyInputs.set(e.keyCode,false);
-          L.shiftKey=e.shiftKey;
-          L.ctrlKey=e.ctrlKey;
-          L.altKey=e.altKey;
+          let o= L.keyInputs.get(e.keyCode);
+          if(!o){
+            o={};
+            L.keyInputs.set(e.keyCode,o);
+          }
+          o.state=false;
+          _.copyKeys(o,e,SKEYS);
           e.preventDefault();
         }
       }
-      function _dh(e){
+      function _d(e){
         if(L===cur()){
-          L.keyInputs.set(e.keyCode,true);
-          L.ctrlKey= false;
-          L.altKey= false;
-          L.shiftKey=false;
+          let o= L.keyInputs.get(e.keyCode);
+          if(!o){
+            o={};
+            L.keyInputs.set(e.keyCode,o);
+          }
+          o.state=true;
+          _.copyKeys(o,e,SKEYS);
           e.preventDefault();
         }
       }
@@ -5868,15 +5948,12 @@
         yid: `yid#${_.nextId()}`,
         keyInputs: _.jsMap(),
         pauseInput:false,
-        ctrlKey:false,
-        altKey:false,
-        shiftKey:false,
         ptr:UNDEF,
         dispose(){
           this.ptr.dispose();
           if(!Mojo.touchDevice)
-            _.delEvent([["keyup", window, _uh, false],
-                        ["keydown", window, _dh, false]]);
+            _.delEvent([["keyup", window, _u, false],
+                        ["keydown", window, _d, false]]);
         },
         pointer(){
           if(!this.ptr)
@@ -5886,55 +5963,52 @@
         update(dt){
           if(!this.pauseInput) this.ptr.update(dt);
         },
-        keybd(_key,press,release){
-          const self=this;
-          const key={press,
-                     release,
-                     isDown:false, isUp:true,
-                     ctrl:false, alt:false, shift:false};
-          key.code= is.vec(_key)?_key:[_key];
+        keybd(_key,pressCB,releaseCB){
+          let
+            ret={
+              press:pressCB,
+              release:releaseCB
+            },
+            self=this,
+            isUp=true,
+            isDown=false,
+            codes= is.vec(_key)?_key:[_key];
           function _down(e){
             if(L===cur()){
-              e.preventDefault();
-              if(key.code.includes(e.keyCode)){
-                key.ctrl=e.ctrlKey;
-                key.alt=e.altKey;
-                key.shift=e.shiftKey;
-                if(!self.pauseInput && key.isUp)
-                  key.press && key.press(key.alt,key.ctrl,key.shift);
-                key.isUp=false;
-                key.isDown=true;
+              if(codes.includes(e.keyCode)){
+                if(!self.pauseInput && isUp)
+                  ret.press && ret.press(e.altKey,e.ctrlKey,e.shiftKey);
+                isUp=false;
+                isDown=true;
               }
+              e.preventDefault();
             }
           }
           function _up(e){
             if(L===cur()){
-              e.preventDefault();
-              if(key.code.includes(e.keyCode)){
-                if(!self.pauseInput)
-                  key.isDown && key.release && key.release();
-                key.isUp=true; key.isDown=false;
-                key.ctrl=false; key.alt=false; key.shift=false;
+              if(codes.includes(e.keyCode)){
+                if(!self.pauseInput && isDown)
+                  ret.release && ret.release(e.altKey,e.ctrlKey,e.shiftKey);
+                isUp=true;
+                isDown=false;
               }
+              e.preventDefault();
             }
           }
           if(!Mojo.touchDevice)
             _.addEvent([["keyup", window, _up, false],
                         ["keydown", window, _down, false]]);
-          key.dispose=()=>{
+          ret.dispose=()=>{
             if(!Mojo.touchDevice)
               _.delEvent([["keyup", window, _up, false],
                           ["keydown", window, _down, false]]);
-          }
-          return key;
+          };
+          return ret;
         },
         reset(){
           this.pauseInput=false;
-          this.ctrlKey=false;
-          this.altKey=false;
-          this.shiftKey=false;
-          this.ptr.reset();
           this.keyInputs.clear();
+          this.ptr.reset();
         },
         resize(){
           Mojo.mouse=this.ptr;
@@ -5953,8 +6027,8 @@
 
       if(!Mojo.touchDevice)
         //keep tracks of keyboard presses
-        _.addEvent([["keyup", window, _uh, false],
-                    ["keydown", window, _dh, false]]);
+        _.addEvent([["keyup", window, _u, false],
+                    ["keydown", window, _d, false]]);
 
       return L;
     }
@@ -5963,8 +6037,9 @@
      * @module mojoh5/Input
      */
 
-    const HISTORY_SIZE=20,
-          TRAIL_SIZE =100;
+    const
+      HISTORY_SIZE=20,
+      TRAIL_SIZE =100;
 
     /** @ignore */
     function mkPtr(L){
@@ -6068,7 +6143,9 @@
         },
         _press(){
           if(L!==cur()){return}
-          let i, s, found,z=this.Buttons.length;
+          let
+            i, s, found,
+            z=this.Buttons.length;
           for(i=0;i<z;++i){
             s=this.Buttons[i];
             if(s.m5.gui && s.m5.press && this.hitTest(s)){
@@ -6240,7 +6317,7 @@
             });
             out.push(a);
             //handle single touch case
-            if(i===0){
+            if(i==0){
               self.touchZeroID=id;
               self._x = cx;
               self._y = cy;
@@ -6458,6 +6535,7 @@
       resume(){ cur().pauseInput=false },
       pause(){ cur().pauseInput=true },
       dbg(){ cur().dbg() },
+      _cur(){ return cur() },
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
        */
@@ -6474,13 +6552,23 @@
        * @memberof module:mojoh5/Input
        */
       setKeyOn(k){
-        cur().keyInputs.set(k,true);
+        let o=cur().keyInputs.get(k);
+        if(!o){
+          o={};
+          cur().keyInputs.set(k,o);
+        }
+        o.state=true;
       },
       /**Fake a keypress(up).
        * @memberof module:mojoh5/Input
        */
       setKeyOff(k){
-        cur().keyInputs.set(k,false);
+        let o=cur().keyInputs.get(k);
+        if(!o){
+          o={};
+          cur().keyInputs.set(k,o);
+        }
+        o.state=false;
       },
       /**
        * @memberof module:mojoh5/Input
@@ -6572,10 +6660,10 @@
        * @param {number} code
        * @return {boolean}
        */
-      keyDown(code){ return cur().keyInputs.get(code) },
-      keyShift(){ return cur().shiftKey },
-      keyAlt(){ return cur().altKey },
-      keyCtrl(){ return cur().ctrlKey },
+      keyDown(code){
+        let o= cur().keyInputs.get(code);
+        return (o && o.state) ? o : UNDEF;
+      },
       /**Create the default mouse pointer.
        * @memberof module:mojoh5/Input
        * @return {object}
@@ -6659,15 +6747,19 @@
   function _module(Mojo){
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const P8=Math.PI/8,
-          P8_3=P8*3,
-          P8_5=P8*5,
-          P8_7= P8*7,
-          {Sprites:_S, Input:_I, is,ute:_}=Mojo;
+    const
+      P8=Math.PI/8,
+      P8_3=P8*3,
+      P8_5=P8*5,
+      P8_7= P8*7,
+      {Sprites:_S, Input:_I, is,ute:_}=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const sin=Math.sin,cos=Math.cos,abs=Math.abs;
-    const RTA=180/Math.PI;
+    const
+      sin=Math.sin,
+      cos=Math.cos,
+      abs=Math.abs,
+      RTA=180/Math.PI;
 
     /**
      * @module mojoh5/Touch
@@ -6678,38 +6770,38 @@
       const rad= Math.atan2(+cy, +cx);
 
       if(rad > -P8_5 && rad < -P8_3){
-        console.log("calcDir=UP");
+        Mojo.CON.log("calcDir=UP");
         return Mojo.UP;
       }
       if(rad > P8_3 && rad < P8_5){
-        console.log("calcDir=DOWN");
+        Mojo.CON.log("calcDir=DOWN");
         return Mojo.DOWN;
       }
       if((rad > -P8 && rad<0) ||
          (rad > 0 && rad<P8)){
-        console.log("calcDir=RIGHT");
+        Mojo.CON.log("calcDir=RIGHT");
         return Mojo.RIGHT;
       }
       if((rad > P8_7 && rad<Math.PI) ||
          (rad > -Math.PI && rad < -P8_7)){
-        console.log("calcDir=LEFT");
+        Mojo.CON.log("calcDir=LEFT");
         return Mojo.LEFT;
       }
 
       if(rad > P8 && rad < P8_3){
-        console.log("calcDir= SE ");
+        Mojo.CON.log("calcDir= SE ");
         return Mojo.SE;
       }
       if(rad > P8_5 && rad < P8_7){
-        console.log("calcDir= SW ");
+        Mojo.CON.log("calcDir= SW ");
         return Mojo.SW;
       }
       if(rad> -P8_3 && rad < -P8){
-        console.log("calcDir= NE ");
+        Mojo.CON.log("calcDir= NE ");
         return Mojo.NE;
       }
       if(rad > -P8_7 && rad < -P8_5){
-        console.log("calcDir= NW ");
+        Mojo.CON.log("calcDir= NW ");
         return Mojo.NW;
       }
 
@@ -6719,8 +6811,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _bindEvents(s){
       function onDragStart(e){
-        let ct=e.changedTouches;
-        let t= e.target;
+        let
+          t= e.target,
+          ct=e.changedTouches;
         if(ct){
           e=ct[0];
           s.m5.touchId=ct[0].identifier;
@@ -6751,8 +6844,7 @@
         if(_I.isPaused() || !s.visible || !s.m5.drag){return}
         let c,t= e.target;
         if(e.changedTouches){
-          for(let i=0,
-                  ct=e.changedTouches; i< ct.length; ++i){
+          for(let i=0, ct=e.changedTouches; i< ct.length; ++i){
             if(s.m5.touchId == ct[i].identifier){
               c= [ct[i].pageX-t.offsetLeft,
                   ct[i].pageY-t.offsetTop];
@@ -6763,10 +6855,11 @@
           c= [e.pageX - t.offsetLeft,
               e.pageY - t.offsetTop]
         }
-        let X = c? (c[0] - s.m5.startX) :0;
-        let Y = c? (c[1] - s.m5.startY) :0;
-        let limit=s.m5.range;
-        let angle = 0;
+        let
+          angle = 0,
+          X = c? (c[0]-s.m5.startX):0,
+          Y = c? (c[1]-s.m5.startY):0,
+          dir, sx, sy, limit=s.m5.range;
         c[0]=0;
         c[1]=0;
         if(_.feq0(X) && _.feq0(Y)){return}
@@ -6778,7 +6871,8 @@
          *    ------------> X
          *     270  |  360
          */
-        let dir, sx=abs(X), sy=abs(Y);
+        sx=abs(X);
+        sy=abs(Y);
         if(_.feq0(X)){
           c[0]=0;
           if(Y>0){
@@ -6851,6 +6945,9 @@
       return s;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       assets:["boot/joystick.png","boot/joystick-handle.png"],
       /**Create the joystick.
@@ -6859,18 +6956,19 @@
        * @return {PIXIContainer} the stick
        */
       joystick(options){
-        let inner= _S.sprite("boot/joystick-handle.png");
-        let outer= _S.sprite("boot/joystick.png");
-        let stick=new PIXI.Container();
-        let mo= _.inject({oscale:0.7,
-                          iscale:1,
-                          inner,
-                          outer,
-                          onEnd(){},
-                          onStart(){},
-                          prevDir:0,
-                          static:false,
-                          onChange(dir,angle){}}, options);
+        let
+          inner= _S.sprite("boot/joystick-handle.png"),
+          outer= _S.sprite("boot/joystick.png"),
+          stick=new PIXI.Container(),
+          mo= _.inject({oscale:0.7,
+                        iscale:1,
+                        inner,
+                        outer,
+                        onEnd(){},
+                        onStart(){},
+                        prevDir:0,
+                        static:false,
+                        onChange(dir,angle){}}, options);
         _S.scaleXY(outer,mo.oscale, mo.oscale);
         _S.scaleXY(inner,mo.iscale, mo.iscale);
         outer.anchor.set(0.5);
@@ -6926,36 +7024,53 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _DIRS = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
-    const _V=gscope["io/czlab/mcfud/vec2"]();
-    const _M=gscope["io/czlab/mcfud/math"]();
-    const {ute:_, is}=Mojo;
-    const abs=Math.abs,
-          ceil=Math.ceil,
-          int = Math.floor;
+    const {ute:_, is, v2:_V, math:_M}=Mojo;
+    const
+      abs=Math.abs,
+      ceil=Math.ceil,
+      int = Math.floor;
 
     /**
      * @module mojoh5/Tiles
      */
 
+    /**Convert the position into a grid index.
+     * @param {number} x
+     * @param {number} y
+     * @param {number} cellW
+     * @param {number} cellH
+     * @param {number} widthInCols
+     * @return {number}
+     */
+    function getIndex(x, y, cellW, cellH, widthInCols){
+      if(x<0 || y<0)
+        throw `IndexError: ${x},${y}, wanted +ve values`;
+      return _M.ndiv(x,cellW) + _M.ndiv(y,cellH) * widthInCols
+    }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** from xy position to array index */
     function _getIndex3(px, py, world){
-      return Mojo.getIndex(px,py,
-                           world.tiled.tileW,
-                           world.tiled.tileH,world.tiled.tilesInX) }
+      return getIndex(px,py,
+                      world.tiled.tileW,
+                      world.tiled.tileH,world.tiled.tilesInX)
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get vector from s1->s2 */
     function _getVector(s1,s2){
       return _V.vecAB(Mojo.Sprites.centerXY(s1),
-                      Mojo.Sprites.centerXY(s2)) }
+                      Mojo.Sprites.centerXY(s2))
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get image file name */
     function _image(obj){
-      const s= obj.image;
-      const p= s && s.split("/");
-      obj.image= p && p.length && p[p.length-1] }
+      let
+        s= obj.image,
+        p= s && s.split("/");
+      obj.image= p && p.length && p[p.length-1]
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get attributes for this gid */
@@ -6994,8 +7109,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** make sure we support this map */
     function _checkVer(json){
-      let tmap = Mojo.resource(json,true).data;
-      let tver= tmap && (tmap["tiledversion"] || tmap["version"]);
+      let
+        tmap = Mojo.resource(json,true).data,
+        tver= tmap && (tmap["tiledversion"] || tmap["version"]);
       return (tver &&
               _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
                                                : _.assert(false,`${json} needs update`)
@@ -7013,8 +7129,9 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** process the tiled map */
     function _loadTMX(scene,arg,objFactory,scale){
-      let tmx= is.str(arg)?_checkVer(arg):arg;
-      let tsProps={}, gtileProps={};
+      let
+        tsProps={}, gtileProps={},
+        tmx= is.str(arg)?_checkVer(arg):arg;
       _.assert(is.obj(tmx),"bad tiled map");
       //important to clone it
       tmx=JSON.parse(JSON.stringify(tmx));
@@ -7027,9 +7144,10 @@
                             saved_tileH:tmx.tileheight,
                             tiledWidth:tmx.tilewidth*tmx.width,
                             tiledHeight:tmx.tileheight*tmx.height}, _parseProps(tmx));
-      let K= scale? scale: scene.getScaleFactor();
-      let NH= _.evenN(K*tmx.tileheight);
-      let NW= _.evenN(K*tmx.tilewidth);
+      let
+        K= scale? scale: scene.getScaleFactor(),
+        NH= _.evenN(K*tmx.tileheight),
+        NW= _.evenN(K*tmx.tilewidth);
       scene.tiled.new_tileW=NW;
       scene.tiled.new_tileH=NH;
       if(scale)
@@ -7065,13 +7183,14 @@
               if(gid>0) scene.tiled.collision[i]=gid;
               tl.collision=true;
             }
-            let mapX = i % tl.width,
-                mapY = _M.ndiv(i,tl.width),
-                ps=gtileProps[gid],
-                cz=ps && ps["Class"],
-                cFunc=cz && objFactory[cz],
-                tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-                s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
+            let
+              mapX = i % tl.width,
+              mapY = _M.ndiv(i,tl.width),
+              ps=gtileProps[gid],
+              cz=ps && ps["Class"],
+              cFunc=cz && objFactory[cz],
+              tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+              s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
             //assume all these are static (collision) tiles
             if(s){
               s.tiled.layer=tl;
@@ -7081,9 +7200,8 @@
             if(cFunc)
               s=cFunc.c(scene,s,tsi,ps);
             if(s){
-              if(ps && ps.sensor)
-                s.m5.sensor=true
               scene.insert(s,!!cFunc);
+              if(ps && ps.sensor) s.m5.sensor=true;
             }
           }
         },
@@ -7091,19 +7209,21 @@
           tl.sprites=[];
           tl.objects.forEach(o=>{
             _.assert(is.num(o.x),"wanted xy position");
-            let s,ps,
-                os=_parseProps(o),
-                gid=_.nor(o.gid, -1);
+            let
+              s,ps,
+              os=_parseProps(o),
+              gid=_.nor(o.gid, -1);
             _.inject(o,os);
             if(gid>0)
               ps=gtileProps[gid];
-            let cz= _.nor(ps && ps["Class"], o["Class"]);
-            let createFunc= cz && objFactory[cz];
-            let w=scene.tiled.saved_tileW;
-            let h=scene.tiled.saved_tileH;
-            let tx=_M.ndiv(o.x+w/2,w);
-            let ty=_M.ndiv(o.y-h/2,h);
-            let tsi=_findGid(gid,scene.tiled.tileGidList)[1];
+            let
+              cz= _.nor(ps && ps["Class"], o["Class"]),
+              createFunc= cz && objFactory[cz],
+              w=scene.tiled.saved_tileW,
+              h=scene.tiled.saved_tileH,
+              tx=_M.ndiv(o.x+w/2,w),
+              ty=_M.ndiv(o.y-h/2,h),
+              tsi=_findGid(gid,scene.tiled.tileGidList)[1];
             o.column=tx;
             o.row=ty;
             s=gid<=0?{width:NW,height:NH}
@@ -7115,7 +7235,7 @@
               o.uuid=s.m5.uuid;
               tl.sprites.push(s);
               scene.insert(s,true);
-              if(ps && ps.sensor){s.m5.sensor=true}
+              if(ps && ps.sensor) s.m5.sensor=true;
             }
           });
         }
@@ -7150,21 +7270,23 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** create a sprite */
     function _ctorTile(scene,gid,mapX,mapY,tw,th,cz){
-      let tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-          XXX=_.assert(tsi,"Bad GID, no tileset"),
-          cols=tsi.columns,
-          id=gid - tsi.firstgid,
-          ps=scene.tiled.tileProps[gid],
-          cFunc, K=scene.tiled.scale || scene.getScaleFactor();
+      let
+        tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+        XXX=_.assert(tsi,"Bad GID, no tileset"),
+        cols=tsi.columns,
+        id=gid - tsi.firstgid,
+        ps=scene.tiled.tileProps[gid],
+        cFunc, K=scene.tiled.scale || scene.getScaleFactor();
       cz= _.nor(cz, (ps && ps["Class"]));
       cFunc=cz && scene.tiled.objFactory[cz];
       _.assertNot(id<0, `Bad tile id: ${id}`);
       if(!is.num(cols))
         cols=_M.ndiv(tsi.imagewidth , tsi.tilewidth+tsi.spacing);
-      let tscol = id % cols,
-          tsrow = _M.ndiv(id,cols),
-          tsX = tscol * tsi.tilewidth,
-          tsY = tsrow * tsi.tileheight;
+      let
+        tscol = id % cols,
+        tsrow = _M.ndiv(id,cols),
+        tsX = tscol * tsi.tilewidth,
+        tsY = tsrow * tsi.tileheight;
       if(tsi.spacing>0){
         tsX += tsi.spacing * tscol;
         tsY += tsi.spacing * tsrow;
@@ -7245,10 +7367,11 @@
           y= s.y+_M.ndiv(s.height,2);
           x= s.x+_M.ndiv(s.width,2);
         }
-        let tx= _M.ndiv(x,this.tiled.tileW),
-            ty= _M.ndiv(y,this.tiled.tileH),
-            yy= this.getTileLayer(layer),
-            pos= tx + ty*this.tiled.tilesInX;
+        let
+          tx= _M.ndiv(x,this.tiled.tileW),
+          ty= _M.ndiv(y,this.tiled.tileH),
+          yy= this.getTileLayer(layer),
+          pos= tx + ty*this.tiled.tilesInX;
         yy.data[pos]=0;
         if(yy.collision)
           this.tiled.collision[pos]=0;
@@ -7262,7 +7385,7 @@
        */
       getTileLayer(name,panic){
         let found= _.some(this.tiled.tilelayer, o=>{
-          if(o.name==name) return o;
+          if(o.name==name) return o
         });
         if(!found && panic)
           throw `There is no layer with name: ${name}`;
@@ -7276,7 +7399,7 @@
        */
       getObjectGroup(name,panic){
         let found= _.some(this.tiled.objectgroup, o=>{
-          if(o.name==name) return o;
+          if(o.name==name) return o
         });
         if(!found && panic)
           throw `There is no group with name: ${name}`;
@@ -7290,13 +7413,14 @@
        * @return {Sprite}
        */
       setTile(layer,row,col,gid){
-        let ts=this.getTSInfo(gid),
-            id= gid-ts.firstgid,
-            yy=this.getTileLayer(layer),
-            pos=col + this.tiled.tilesInX * row;
+        let
+          ts=this.getTSInfo(gid),
+          id= gid-ts.firstgid,
+          yy=this.getTileLayer(layer),
+          s, pos=col + this.tiled.tilesInX * row;
         if(yy.collision)
           this.tiled.collision[pos]=gid;
-        let s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
+        s=_ctorTile(this,gid,col,row,ts.tilewidth,ts.tileheight);
         if(s){
           s.tiled.index=pos;
           s.tiled.layer=yy;
@@ -7321,8 +7445,9 @@
        * @return {array}
        */
       getTileXY(px,py){
-        let tx= _M.ndiv(px,this.tiled.tileW),
-            ty= _M.ndiv(py,this.tiled.tileH);
+        let
+          tx= _M.ndiv(px,this.tiled.tileW),
+          ty= _M.ndiv(py,this.tiled.tileH);
         _.assert(tx>=0 && tx<this.tiled.tilesInX, `bad tile col:${tx}`);
         _.assert(ty>=0 && ty<this.tiled.tilesInY, `bad tile row:${ty}`);
         return [tx,ty];
@@ -7394,22 +7519,23 @@
        * @return {boolean}
        */
       collideXY(obj){
-        let _S=Mojo.Sprites,
-            tw=this.tiled.tileW,
-            th=this.tiled.tileH,
-            tiles=this.tiled.collision,
-            box=_.feq0(obj.angle)?_S.getAABB(obj):_S.boundingBox(obj);
-        let sX = Math.max(0,_M.ndiv(box.x1 , tw));
-        let sY = Math.max(0,_M.ndiv(box.y1 , th));
-        let eX =  Math.min(this.tiled.tilesInX-1,ceil(box.x2 / tw));
-        let eY =  Math.min(this.tiled.tilesInY-1,ceil(box.y2 / th));
+        let
+          _S=Mojo.Sprites,
+          tw=this.tiled.tileW,
+          th=this.tiled.tileH,
+          tiles=this.tiled.collision,
+          box=_.feq0(obj.angle)?_S.getAABB(obj):_S.boundingBox(obj),
+          sX = Math.max(0,_M.ndiv(box.x1 , tw)),
+          sY = Math.max(0,_M.ndiv(box.y1 , th)),
+          eX =  Math.min(this.tiled.tilesInX-1,ceil(box.x2 / tw)),
+          eY =  Math.min(this.tiled.tilesInY-1,ceil(box.y2 / th));
         for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
           for(let tX = sX; tX<=eX; ++tX){
             pos=tY*this.tiled.tilesInX+tX;
             gid=tiles[pos];
             if(!is.num(gid))
               _.assert(is.num(gid),"bad gid");
-            if(gid===0){continue}
+            if(gid==0){continue}
             B=this._getContactObj(gid,tX, tY);
             ps=this.getTileProps(gid);
             if(ps)
@@ -7417,7 +7543,7 @@
             B.parent=this;
             if(_S.hit(obj,B)){
               if(B.m5.sensor){
-                Mojo.emit(["2d.sensor",obj],B); } }
+                Mojo.emit(["bump.sensor",obj],B); } }
           }
         }
         return super.collideXY(obj);
@@ -7435,18 +7561,22 @@
                abs(test.col - dest.col) * this.straightCost
       }
       euclidean(test, dest){
-        let vx = dest.col - test.col;
-        let vy = dest.row - test.row;
+        let
+          vx = dest.col - test.col,
+          vy = dest.row - test.row;
         return int(_.sqrt(vx * vx + vy * vy) * this.straightCost)
       }
       diagonal(test, dest){
-        let vx = abs(dest.col - test.col);
-        let vy = abs(dest.row - test.row);
+        let
+          vx = abs(dest.col - test.col),
+          vy = abs(dest.row - test.row);
         return (vx > vy) ? int(this.diagonalCost * vy + this.straightCost * (vx - vy))
                          : int(this.diagonalCost * vx + this.straightCost * (vy - vx))
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //MODULE EXPORT
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       TiledScene,
@@ -7460,9 +7590,10 @@
        *                                        x x x
        */
       neighborCells(index, world, ignoreSelf){
-        let w=world.tiled.tilesInX;
-        let a= [index-w-1, index-w, index-w+1, index-1];
-        let b= [index+1, index+w-1, index+w, index+w+1];
+        let
+          w=world.tiled.tilesInX,
+          a= [index-w-1, index-w, index-w+1, index-1],
+          b= [index+1, index+w-1, index+w, index+w+1];
         if(!ignoreSelf) a.push(index);
         return a.concat(b);
       },
@@ -7474,13 +7605,14 @@
        * @return {number[]}
        */
       updateMap(gidList, sprites, world){
-        let ret = _.fill(gidList.length,0);
-        let _mapper=(s)=>{
-          let pos= this.getTileIndex(s,world);
-          _.assert(pos >= 0 && pos < ret.length, "tiled index outofbound");
-          s.tiled.index = pos;
-          ret[pos] = s.tiled.gid;
-        };
+        let
+          ret = _.fill(gidList.length,0),
+          _mapper=(s)=>{
+            let pos= this.getTileIndex(s,world);
+            _.assert(pos >= 0 && pos < ret.length, "tiled index outofbound");
+            s.tiled.index = pos;
+            ret[pos] = s.tiled.gid;
+          };
         !is.vec(sprites) ? _mapper(sprites) : sprites.forEach(_mapper);
         return ret;
       },
@@ -7498,33 +7630,34 @@
       shortestPath(startTile, targetTile, tiles, world,
                    obstacles=[],
                    heuristic="manhattan", useDiagonal=true){
-        let W=world.tiled.tilesInX;
-        let nodes=tiles.map((gid,i)=> ({f:0, g:0, h:0,
+        let
+          W=world.tiled.tilesInX,
+          nodes=tiles.map((gid,i)=> ({f:0, g:0, h:0,
                                         parent:null, index:i,
-                                        col:i%W, row:_M.ndiv(i,W)}));
-        let targetNode = nodes[targetTile];
-        let startNode = nodes[startTile];
-        let centerNode = startNode;
-        let openList = [centerNode];
-        let closedList = [];
-        let theShortestPath = [];
-        let straightCost=10;
-        let diagonalCost=14;
-        let _testNodes=(i)=>{
-          let c= !useDiagonal ? this.crossCells(i,world)
-                              : this.neighborCells(i, world, true);
-          return c.map(p=>nodes[p]).filter(n=>{
-            if(n){
-              let indexOnLeft= (i% W) == 0;
-              let indexOnRight= ((i+1) % W) == 0;
-              let nodeBeyondLeft= (n.col % (W-1)) == 0 && n.col != 0;
-              let nodeBeyondRight= (n.col % W) == 0;
-              let nodeIsObstacle = obstacles.some(o => tiles[n.index] == o);
-              return indexOnLeft ? !nodeBeyondLeft
-                                 : (indexOnRight ? !nodeBeyondRight : !nodeIsObstacle);
-            }
-          });
-        }
+                                        col:i%W, row:_M.ndiv(i,W)})),
+          targetNode = nodes[targetTile],
+          startNode = nodes[startTile],
+          centerNode = startNode,
+          openList = [centerNode],
+          closedList = [],
+          theShortestPath = [],
+          straightCost=10,
+          diagonalCost=14,
+          _testNodes=(i)=>{
+            let c= !useDiagonal ? this.crossCells(i,world)
+                                : this.neighborCells(i, world, true);
+            return c.map(p=>nodes[p]).filter(n=>{
+              if(n){
+                let indexOnLeft= (i% W) == 0;
+                let indexOnRight= ((i+1) % W) == 0;
+                let nodeBeyondLeft= (n.col % (W-1)) == 0 && n.col != 0;
+                let nodeBeyondRight= (n.col % W) == 0;
+                let nodeIsObstacle = obstacles.some(o => tiles[n.index] == o);
+                return indexOnLeft ? !nodeBeyondLeft
+                                   : (indexOnRight ? !nodeBeyondRight : !nodeIsObstacle);
+              }
+            });
+          };
         while(centerNode !== targetNode){
           let testNodes = _testNodes(centerNode.index);
           for(let f,g,h,cost,tn,i=0; i < testNodes.length; ++i){
@@ -7536,7 +7669,7 @@
             //B. Do they occupy the same row or column?
             if(centerNode.row == tn.row ||
                centerNode.col == tn.col){
-              cost = straightCost;
+              cost = straightCost
             }
             //C. Calculate the costs (g, h and f)
             //The node's current cost
@@ -7544,8 +7677,9 @@
             //The cost of travelling from this node to the
             //destination node (the heuristic)
             f = g + new AStarAlgos(straightCost,diagonalCost)[heuristic](tn,targetNode);
-            let isOnOpenList = openList.some(n => tn === n);
-            let isOnClosedList = closedList.some(n => tn === n);
+            let
+              isOnOpenList = openList.some(n => tn === n),
+              isOnClosedList = closedList.some(n => tn === n);
             //If it's on either of these lists, we can check
             //whether this route is a lower-cost alternative
             //to the previous cost calculation. The new G cost
@@ -7604,10 +7738,11 @@
                   emptyGid = 0,
                   segment = 32, //distance between collision points
                   angles = []) { //angles to restrict the line of sight
-        let v= _getVector(s1,s2);
-        let len = _V.len(v);
-        let numPts = _M.ndiv(len,segment);
-        let len2,x,y,ux,uy,points = [];
+        let
+          v= _getVector(s1,s2),
+          len = _V.len(v),
+          numPts = _M.ndiv(len,segment),
+          angle, len2,x,y,ux,uy,points = [];
         for(let c,i = 1; i <= numPts; ++i){
           c= Mojo.Sprites.centerXY(s1);
           len2 = segment * i;
@@ -7621,7 +7756,7 @@
         }
         //Restrict line of sight to right angles (don't want to use diagonals)
         //Find the angle of the vector between the two sprites
-        let angle = Math.atan2(v[1], v[0]) * 180 / Math.PI;
+        angle = Math.atan2(v[1], v[0]) * 180 / Math.PI;
         //The tile-based collision test.
         //The `noObstacles` function will return `true` if all the tile
         //index numbers along the vector are `0`, which means they contain
@@ -7685,10 +7820,11 @@
        * @return {boolean}
        */
       canChangeDirection(dirs=[]){
-        let up = dirs.find(x => x === Mojo.UP);
-        let down = dirs.find(x => x === Mojo.DOWN);
-        let left = dirs.find(x => x === Mojo.LEFT);
-        let right = dirs.find(x => x === Mojo.RIGHT);
+        let
+          up = dirs.find(x => x === Mojo.UP),
+          down = dirs.find(x => x === Mojo.DOWN),
+          left = dirs.find(x => x === Mojo.LEFT),
+          right = dirs.find(x => x === Mojo.RIGHT);
         return dirs.length==0 ||
                dirs.length==1 || ((up||down) && (left||right)); },
       /**Randomly choose the next direction.

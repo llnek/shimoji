@@ -147,7 +147,7 @@
           C.addChild(_S.anchorXY(s,0.5));
         }
         if(1){
-          let s= _S.bmpText("(c) www.cherimoia.com 2022.","unscii", footerMsgSize);
+          let s= _S.bmpText("(c) www.zotohlab.com 2022.","unscii", footerMsgSize);
           _S.pinBelow(this,s,-s.height*1.5,0);
           this.insert(s);
           s= _S.bmpText("Powered by MojoH5 2d game engine.","unscii",footerMsgSize);

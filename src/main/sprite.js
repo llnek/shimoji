@@ -318,7 +318,7 @@
       SomeColors:{},
       BtnColors:{},
       Geo,
-      assets: ["boot/tap-touch.png","boot/unscii.fnt",
+      assets: ["boot/unscii.fnt",
                "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt",
                "boot/splash.jpg", "boot/trail.png","boot/star.png" ],
       /**Check if sprite is centered.
