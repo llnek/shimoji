@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(window,doco,seed_rand,UNDEF){
 
@@ -260,6 +260,29 @@
       feq(a, b, diff=EPSILON){
         //return Math.abs(a-b) < EPSILON
         return a >= b-diff && a <= b+diff;
+      },
+      /**Convert hex string to binary string.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @return {string} binary str
+       */
+      hexToBin(s){
+        const Table = {
+          "0": "0000", "1": "0001", "2": "0010", "3": "0011", "4": "0100",
+          "5": "0101", "6": "0110", "7": "0111", "8": "1000", "9": "1001",
+          "a": "1010", "b": "1011", "c": "1100", "d": "1101", "e": "1110", "f": "1111",
+          "A": "1010", "B": "1011", "C": "1100", "D": "1101", "E": "1110", "F": "1111"
+        };
+        let ret="";
+        for(let n,i=0; i<s.length; ++i){
+          if(n=Table[s[i]]){
+            ret += n;
+          }else{
+            i=Infinity;
+            ret=UNDEF;
+          }
+        }
+        return ret;
       },
       /**Serialize input to JSON.
        * @memberof module:mcfud/core._
@@ -5982,7 +6005,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
