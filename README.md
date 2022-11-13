@@ -9,7 +9,7 @@ MojoH5 is a 2D game engine in javascript.
 
 
 ## Documentation
-
+Uses pixijs 6.x
 
 ## Usage
 
