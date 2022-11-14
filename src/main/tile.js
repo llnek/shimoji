@@ -108,7 +108,7 @@
     /** make sure we support this map */
     function _checkVer(json){
       let
-        tmap = Mojo.resource(json,true).data,
+        tmap = Mojo.resource(json,true),
         tver= tmap && (tmap["tiledversion"] || tmap["version"]);
       return (tver &&
               _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap

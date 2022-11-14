@@ -104,10 +104,10 @@
           this.insert(this.fg);
           this.insert(this.perc);
         },
-        update(file,progress){
-          this.fg.width = WIDTH*(progress/100);
-          this.perc.text=`${Math.round(progress)}%`;
-          CON.log(`file= ${file}, progr= ${progress}`);
+        update(progress){
+          this.fg.width = WIDTH*progress;
+          this.perc.text=`${Math.round(progress*100)}%`;
+          CON.log(`progr= ${progress*100}`);
         }
       }
     }
@@ -135,9 +135,9 @@
           this.insert(logo);
           this.insert(pbar);
         },
-        update(file,progress){
+        update(progress){
           this.g.pbar.visible?0:Sprites.show(this.g.pbar);
-          this.g.pbar.width = this.g.pbar_width*(progress/100);
+          this.g.pbar.width = this.g.pbar_width*progress;
         }
       }
     }
@@ -152,42 +152,59 @@
       return Mojo.stage.addChild(z).runOnce();
     }
 
-    /**Once all the files are loaded, do some post processing,
-     * mainly to deal with sound files.
+    /**Once all the files are loaded, do some post processing.
      */
     function _postAssetLoad(Mojo,ldrObj,scene,error){
-      const {Sound} = Mojo;
-      let ext, fcnt=0;
       //clean up stuff used during load
-      function _finz(){
-        _spans.forEach(e=>
-          dom.css(e,"display","none"));
-        if(ldrObj)
-          Mojo.delBgTask(ldrObj);
-        _.delay(50,()=>{
-          Mojo.Scenes.remove(scene);
-          error? _.error("Cannot load game!"): Mojo._runAppStart() })
+      _spans.forEach(e=> dom.css(e,"display","none"));
+      if(ldrObj)
+        Mojo.delBgTask(ldrObj);
+      _.delay(50,()=>{
+        Mojo.Scenes.remove(scene);
+        error? _.error("Cannot load game!"): Mojo._runAppStart() })
+    }
+
+    async function _loadSnd(url){
+      const res = await PIXI.settings.ADAPTER.fetch(url);
+      const b=await res.arrayBuffer();
+      const i=url.lastIndexOf("/");
+      let name="";
+      if(i>0){
+        name= url.substring(i+1);
+      }else{
+        name=url;
       }
-      function _m1(b){ --fcnt==0 && _finz() }
-      if(!error)
-        _.doseq(Mojo.assets, (r,k)=>{
-          ext= _.fileExt(k);
-          if(_.has(AUDIO_EXTS,ext)){
-            ++fcnt;
-            Sound.decodeData(r.name, r.url, r.xhr.response, _m1) }});
-      //////
-      fcnt==0 && _finz();
+      return {name, url, buffer:b}
+    }
+
+    function _preloadSounds(sfiles){
+      let fcnt=sfiles.length;
+      function _m1(b){ --fcnt }
+      sfiles.forEach(f=>{
+        _loadSnd(f).then(r=>{
+          Mojo.Sound.decodeData(r.name, r.url, r.buffer, _m1)
+        });
+      })
     }
 
     /** Fetch required files. */
     function _loadFiles(Mojo){
       //trick browser to load in font files.
-      const {PXLR,PXLoader}= Mojo;
-      let
-        family, face, span, style,
-        wanted= _.map(Mojo.u.assetFiles,
-                      f=> Mojo.assetPath(f)),
-        ffiles= _.findFiles(wanted, FONT_EXTS);
+      const {PXLoader}= Mojo;
+      let family, face, span, style;
+      let wanted=[], sfiles=[],ffiles=[];
+
+      Mojo.u.assetFiles.forEach((f,ext)=>{
+        f=Mojo.assetPath(f);
+        ext=_.fileExt(f);
+        if(_.has(AUDIO_EXTS,ext)){
+          sfiles.push(f)
+        }else if (_.has(FONT_EXTS, f)){
+          ffiles.push(f)
+        }else{
+          wanted.push(f)
+        }
+      });
       ///
       ffiles.forEach(s=>{
         style= dom.newElm("style");
@@ -204,48 +221,47 @@
         dom.css(span,{display: "block", opacity: "0"});
         _spans.push(span);
       });
-      AUDIO_EXTS.forEach(e=>{
-        PXLR.setExtensionLoadType(e, PXLR.LOAD_TYPE.XHR);
-        PXLR.setExtensionXhrType(e, PXLR.XHR_RESPONSE_TYPE.BUFFER);
-      });
-      PXLoader.reset();
+      PXLoader.init();
       if(wanted.length>0){
         let cbObj=Mojo.u.load;
         if(!cbObj)
           cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
         let
-          ecnt=0,
-          fs=[],
           pg=[],
-          scene=_loadScene(cbObj);
-        PXLoader.add(wanted);
-        PXLoader.onError.add((e,ld,r)=>{
-          ++ecnt;
-          CON.log(`${e}`);
-        });
-        PXLoader.onProgress.add((ld,r)=>{
-          CON.log(`loading ${r.url}`);
-          fs.unshift(r.url);
-          pg.unshift(ld.progress);
-        });
-        PXLoader.load(()=>{
-          if(ecnt==0)
-            CON.log(`asset loaded!`);
-          fs.unshift("$");
+          ecnt=0,
+          scene=_loadScene(cbObj),
+          rc= PXLoader.load(wanted, (p)=>{
+            CON.log(`percentage ${p}`);
+            pg.unshift(p);
+          });
+        rc.then((r)=>{
+          if(wanted.length != Object.keys(r).length){
+            CON.error(`failed to load all assets!`);
+            ++ecnt;
+          }
+          pg.unshift("$");
         });
         Mojo.addBgTask({
           update(){
-            let
-              f= fs.pop(),
-              n= pg.pop();
-            if(is.num(n))
-              if(f && f != "$")
-                cbObj.update.call(scene,f,n);
-            if(f=="$")
-              _postAssetLoad(Mojo,this,scene,ecnt>0);
+            let n= pg.pop();
+            if(is.num(n)){
+              if(n)
+                cbObj.update.call(scene,n);
+            }
+            else if(n=="$"){
+              if(ecnt==0 && sfiles.length>0){
+                _preloadSounds(sfiles)
+              }
+              _.delay(800,()=>
+                              _postAssetLoad(Mojo,this,scene,ecnt>0));
+            }
+            else{
+              //CON.error("fatal error while loading assets");
+            }
           }
         });
       }else{
+        if(sfiles.length>0) _preloadSounds(sfiles);
         _postAssetLoad(Mojo);
       }
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -266,18 +282,15 @@
       if(files.length==0){
         _loadFiles(Mojo)
       }else{
-        PXLoader.reset();
-        PXLoader.add(files);
-        PXLoader.onError.add((e,ld,r)=>{
-          ++ecnt;
-          CON.log(`${e}`);
-        });
-        PXLoader.load(()=>{
-          if(ecnt==0){
+        PXLoader.init();
+        PXLoader.load(files, (p)=>{
+          CON.log(`boot load percentage= ${p}`);
+        }).then((r)=>{
+          if(files.length != Object.keys(r).length){
+            CON.log(`logo files not loaded!`)
+          }else{
             _.delay(50,()=>_loadFiles(Mojo));
             CON.log(`logo files loaded.`);
-          }else{
-            CON.log(`logo files not loaded!`)
           }
         });
       }
@@ -602,8 +615,7 @@
       PXGraphics:PIXI.Graphics,
       PXTexture:PIXI.Texture,
       PXFilters:PIXI.filters,
-      PXLR:PIXI.LoaderResource,
-      PXLoader:PIXI.Loader.shared,
+      PXLoader:PIXI.Assets,
       PXObservablePoint: PIXI.ObservablePoint,
       get mouse(){ return Mojo.Input.pointer() },
       /**Play a sound effect.
@@ -740,7 +752,7 @@
        * @name assets
        * @return {object} resouces
        */
-      get assets(){ return PIXI.Loader.shared.resources },
+      get assets(){ return PIXI.Assets.cache._cache },
       /**Get the game's design resolution.
        * @memberof module:mojoh5/Mojo
        * @name designSize
@@ -876,15 +888,15 @@
        * @param {string} n
        * @return {object}
        */
-      xml(n){ return (this.assets[n] ||
-                      _.assert(false, `${n} not loaded.`)).data },
+      xml(n){ return (this.assets.get(n) ||
+                      _.assert(false, `${n} not loaded.`)) },
       /**Get the cached JSON file.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {object}
        */
-      json(n){ return (this.assets[n] ||
-                       _.assert(false, `${n} not loaded.`)).data },
+      json(n){ return (this.assets.get(n) ||
+                       _.assert(false, `${n} not loaded.`)) },
       /**Get the relative path for this file.
        * @memberof module:mojoh5/Mojo
        * @param {string} name
@@ -935,7 +947,7 @@
        * @return {any}
        */
       resource(x,panic){
-        let t= x ? (this.assets[x] || this.assets[this.assetPath(x)]) : 0;
+        let t= x ? (this.assets.get(x) || this.assets.get(this.assetPath(x))) : 0;
         return t || (panic ? _.assert(false, `no such resource ${x}.`) : UNDEF)
       },
       _fpsList:UNDEF,

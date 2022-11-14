@@ -179,8 +179,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Extend Mojo */
     Mojo.sound=function(fname){
-      return SoundFiles[Mojo.assetPath(fname)] ||
-             _.assert(false, `Sound: ${fname} not loaded.`)
+      return SoundFiles[fname || Mojo.assetPath(fname)] || _.assert(false, `Sound: ${fname} not loaded.`)
     };
 
     return (Mojo.Sound= _$);

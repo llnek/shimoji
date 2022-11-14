@@ -64,23 +64,8 @@
           int=Math.floor;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //from pixijs
     function _genTexture(displayObject, scaleMode, resolution, region){
-      region = region || displayObject.getLocalBounds(null, true);
-      //minimum texture size is 1x1, 0x0 will throw an error
-      if(region.width == 0){ region.width = 1 }
-      if(region.height == 0){ region.height = 1 }
-      let mat=PIXI.Matrix.TEMP_MATRIX,
-        renderTexture = PIXI.RenderTexture.create({
-        width: region.width | 0,
-        height: region.height | 0,
-        scaleMode: scaleMode,
-        resolution: resolution
-      });
-      mat.tx = -region.x;
-      mat.ty = -region.y;
-      Mojo.ctx.render(displayObject, renderTexture, false, mat, !!displayObject.parent);
-      return renderTexture;
+      return new PIXI.GenerateTextureSystem(Mojo.ctx).generateTexture(displayObject)
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
