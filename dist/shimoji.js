@@ -10,22 +10,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ////////////////////////////////////////////////////////////////////////////
   /** Supported file extensions. */
   const
     AUDIO_EXTS= ["mp3", "wav", "ogg"],
-    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"],
-    FONT_EXTS = ["ttf", "otf", "ttc", "woff"];
+    FONT_EXTS = ["ttf", "otf", "ttc", "woff"],
+    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif","webp"];
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
-  function _module(cmdArg, _fonts, _spans, _BgTasks){
+  function _module(cmdArg, _BgTasks){
 
+    ////////////////////////////////////////////////////////////////////////////
     //import mcfud's core module
     const
       {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"](),
@@ -38,9 +40,22 @@
 
     let _paused = false;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Mojo
      */
+
+    class SSheetFrame{
+      #sheet;
+      #frame;
+      constructor(s,f){
+        this.#sheet=s;
+        this.#frame=f;
+      }
+      get frame(){ return this.#frame }
+      get sheet(){ return this.#sheet }
+      toString(){ return `${this.#sheet}::${this.#frame}` }
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Main Stage class, holds scenes or scene-wrappers. */
@@ -54,7 +69,7 @@
           if(s instanceof Mojo.Scenes.SceneWrapper){
             s=s.children[0]; //1 child - should be the scene
           }
-          s.onCanvasResize(curSize);
+          s.onCanvasResize(curSize[0], curSize[1]);
         });
         Mojo.Input.resize();
       }
@@ -75,14 +90,15 @@
       _width=()=> gscope.innerWidth,
       _height=()=> gscope.innerHeight;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**Built-in progress bar, shown during the loading of
      * assets if no user-defined load function is provided.
      */
     function _PBar(Mojo){
       const
-        cy= _M.ndiv(Mojo.height,2),
-        cx= _M.ndiv(Mojo.width,2),
-        w4= _M.ndiv(Mojo.width,4),
+        cy= int(Mojo.height/2),
+        cx= int(Mojo.width/2),
+        w4= int(Mojo.width/4),
         K=Mojo.getScaleFactor(),
         bgColor=0x404040,
         fgColor=0xff8a00,
@@ -92,7 +108,7 @@
         Y=cy-RH/2;
       return{
         init(){
-          this.perc=Sprites.text("0%", {fontSize:_M.ndiv(RH,2),
+          this.perc=Sprites.text("0%", {fontSize: int(RH/2),
                                         fill:"black",
                                         fontFamily:"sans-serif"});
           this.fg=Sprites.rect(cx, RH, fgColor);
@@ -105,13 +121,14 @@
           this.insert(this.perc);
         },
         update(progress){
+          CON.log(`progr= ${progress*100}`);
           this.fg.width = WIDTH*progress;
           this.perc.text=`${Math.round(progress*100)}%`;
-          CON.log(`progr= ${progress*100}`);
         }
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** standard logo */
     function _LogoBar(Mojo){
       const {Sprites}=Mojo;
@@ -130,18 +147,20 @@
           Sprites.pinCenter(this,logo);
           Sprites.pinBelow(logo,pbar,4*K);
           Sprites.hide(pbar);
+          Sprites.opacity(pbar,0.3);
+          this.insertEx([logo,pbar]);
           this.g.pbar=pbar;
           this.g.pbar_width=pbar.width;
-          this.insert(logo);
-          this.insert(pbar);
         },
         update(progress){
+          CON.log(`progr= ${progress*100}`);
           this.g.pbar.visible?0:Sprites.show(this.g.pbar);
           this.g.pbar.width = this.g.pbar_width*progress;
         }
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @ignore */
     function _loadScene(obj){
       const z= new Mojo.Scenes.Scene("loader",{
@@ -152,148 +171,159 @@
       return Mojo.stage.addChild(z).runOnce();
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    function _maybeHandleAtlas(Mojo){
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     /**Once all the files are loaded, do some post processing.
      */
     function _postAssetLoad(Mojo,ldrObj,scene,error){
-      //clean up stuff used during load
-      _spans.forEach(e=> dom.css(e,"display","none"));
+
       if(ldrObj)
         Mojo.delBgTask(ldrObj);
+
+      error?0:_maybeHandleAtlas(Mojo);
+
       _.delay(50,()=>{
         Mojo.Scenes.remove(scene);
-        error? _.error("Cannot load game!"): Mojo._runAppStart() })
+        error? _.error("Cannot load game!"): Mojo._runAppStart()
+      })
     }
 
-    async function _loadSnd(url){
-      const res = await PIXI.settings.ADAPTER.fetch(url);
+    ////////////////////////////////////////////////////////////////////////////
+    /** Fetch sound files
+    */
+    async function _getSnd(url){
+      const res = await PIXI.DOMAdapter.get().fetch(url);
       const b=await res.arrayBuffer();
       const i=url.lastIndexOf("/");
-      let name="";
-      if(i>0){
-        name= url.substring(i+1);
-      }else{
-        name=url;
-      }
+      const name= i>0 ? url.substring(i+1) : url;
       return {name, url, buffer:b}
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    /** Decode the loaded sound files
+    */
     function _preloadSounds(sfiles){
       let fcnt=sfiles.length;
       function _m1(b){ --fcnt }
       sfiles.forEach(f=>{
-        _loadSnd(f).then(r=>{
+        _getSnd(f).then(r=>{
           Mojo.Sound.decodeData(r.name, r.url, r.buffer, _m1)
         });
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** Fetch required files. */
     function _loadFiles(Mojo){
-      //trick browser to load in font files.
-      const {PXLoader}= Mojo;
-      let family, face, span, style;
       let wanted=[], sfiles=[],ffiles=[];
+      let family, face, span, style;
 
+      //group various file types
       Mojo.u.assetFiles.forEach((f,ext)=>{
-        f=Mojo.assetPath(f);
-        ext=_.fileExt(f);
-        if(_.has(AUDIO_EXTS,ext)){
-          sfiles.push(f)
-        }else if (_.has(FONT_EXTS, f)){
-          ffiles.push(f)
+        if(is.obj(f)){
+          _.has(FONT_EXTS, _.fileExt(f.url))?ffiles.push(f):0
         }else{
-          wanted.push(f)
+          f=Mojo.assetPath(f);
+          ext=_.fileExt(f);
+          _.has(AUDIO_EXTS,ext)? sfiles.push(f): wanted.push(f)
         }
       });
-      ///
-      ffiles.forEach(s=>{
+
+      //trick browser to load in font files.
+      ffiles.forEach(f=>{
         style= dom.newElm("style");
         span= dom.newElm("span");
-        family= s.split("/").pop().split(".")[0];
-        face= `@font-face {font-family: '${family}'; src: url('${s}');}`;
-        //CON.log(`fontface = ${face}`);
-        _fonts.push(family);
+        face= `@font-face {font-family: '${f.family}'; src: url('${f.url}');}`;
+        CON.log(`loading fontface = ${face}`);
         dom.conj(style,dom.newTxt(face));
         dom.conj(document.head,style);
         span.innerHTML = "?";
         dom.css(span,"fontFamily", family);
         dom.conj(document.body,span);
         dom.css(span,{display: "block", opacity: "0"});
-        _spans.push(span);
       });
-      PXLoader.init();
-      if(wanted.length>0){
-        let cbObj=Mojo.u.load;
-        if(!cbObj)
-          cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
-        let
-          pg=[],
-          ecnt=0,
-          scene=_loadScene(cbObj),
-          rc= PXLoader.load(wanted, (p)=>{
-            CON.log(`percentage ${p}`);
-            pg.unshift(p);
-          });
-        rc.then((r)=>{
-          if(wanted.length != Object.keys(r).length){
-            CON.error(`failed to load all assets!`);
-            ++ecnt;
-          }
-          pg.unshift("$");
-        });
-        Mojo.addBgTask({
-          update(){
+
+      let rc,scene,pg=[], ecnt=0, cbObj=Mojo.u.load;
+
+      if(!cbObj)
+        cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
+      scene=_loadScene(cbObj);
+
+      PIXI.Assets.loader.load(wanted, (p)=>{
+        CON.log(`percentage ${p}`);
+        pg.unshift(p);
+      }).then(r=>{
+        let cnt=0,w=wanted.length;
+        for(const [k, v] of Object.entries(r)){
+          if(_.inst(PIXI.Texture, v)) v.source.scaleMode = 'linear';
+          Mojo._cache[k]=v;
+          ++cnt;
+          CON.log(`loaded ${k}`);
+        }
+        CON.log(`loaded ${cnt} files, wanted ${w}... ${cnt==w?"Yippy":"Hmmmm"}...!`);
+        pg.unshift("$");
+      }).catch(err=>{
+        ++ecnt;
+        CON.error(`Failed to load all assets: ${err}`)
+      });
+      Mojo.addBgTask({
+        update(){
+          if(pg.length==0){
+          }else{
             let n= pg.pop();
             if(is.num(n)){
-              if(n)
+              if(n){
                 cbObj.update.call(scene,n);
-            }
-            else if(n=="$"){
+              }
+            }else if(n=="$"){
               if(ecnt==0 && sfiles.length>0){
                 _preloadSounds(sfiles)
               }
-              _.delay(800,()=>
-                              _postAssetLoad(Mojo,this,scene,ecnt>0));
-            }
-            else{
-              //CON.error("fatal error while loading assets");
+              _.delay(800,()=> _postAssetLoad(Mojo,this,scene,ecnt>0))
+            }else{
+              CON.error("fatal error while loading assets");
             }
           }
-        });
-      }else{
-        if(sfiles.length>0) _preloadSounds(sfiles);
-        _postAssetLoad(Mojo);
-      }
+        }
+      });
+
+
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       return Mojo.start(); // starting the game loop
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @ignore */
     function _boot(Mojo){
-      const {PXLoader}= Mojo;
       if(!Mojo.u.load)
         //use default boot logos
         Mojo.u.logos=["boot/preloader_bar.png",
                       "boot/ZotohLab_x1240.png"];
       let
         ecnt=0,
-        files=Mojo.u.logos.map(f=> Mojo.assetPath(f));
-      if(files.length==0){
-        _loadFiles(Mojo)
-      }else{
-        PXLoader.init();
-        PXLoader.load(files, (p)=>{
-          CON.log(`boot load percentage= ${p}`);
-        }).then((r)=>{
-          if(files.length != Object.keys(r).length){
-            CON.log(`logo files not loaded!`)
-          }else{
-            _.delay(50,()=>_loadFiles(Mojo));
-            CON.log(`logo files loaded.`);
-          }
-        });
-      }
+        bFiles=Mojo.u.logos.map(f=> Mojo.assetPath(f));
+
+      PIXI.Assets.init();
+
+      (async()=>{
+        let rc=UNDEF;
+        try{
+          rc=await PIXI.Assets.load(bFiles);
+        }catch(e){
+          CON.error(e);
+        }
+        if(rc && bFiles.length == Object.keys(rc).length){
+          _.delay(50,()=>_loadFiles(Mojo));
+          CON.log(`logo files loaded.`);
+        }else{
+          CON.log(`logo files not loaded!`)
+        }
+      })();
+
       return Mojo;
     }
 
@@ -309,23 +339,31 @@
         p= { "outline":"none" },
         style= dom.newElm("style");
 
-      dom.conj(document.body, Mojo.canvas);
+      dom.conj(document.body, Mojo._canvasObj);
       dom.conj(style, dom.newTxt(_CT));
       dom.conj(document.head,style);
       //p["image-rendering"]= arg.rendering || "pixelated";
       //p["image-rendering"]= arg.rendering || "crisp-edges";
-      dom.css(Mojo.canvas,p);
-      dom.attrs(Mojo.canvas,"tabindex","0");
+      dom.css(Mojo._canvasObj,p);
+      dom.attrs(Mojo._canvasObj,"tabindex","0");
       dom.css(document.body,{"background":"black"});
     }
 
-    /** Main */
+    ////////////////////////////////////////////////////////////////////////////
+    /** Main
+    */
     function _prologue(Mojo){
       let
         maxed=false,
-        box= cmdArg.arena,
-        S= Mojo.stage= new PixiStage();
+        box= cmdArg.arena;
+
+      if(0 && PIXI.isMobile.phone){
+        const msg="Mobile Phone not supported, please use a tablet.";
+        alert(msg);
+        _.assert(false, msg);
+      }
       _.assert(box,"design resolution req'd.");
+
       //want canvas max screen
       if(cmdArg.scaleToWindow=="max"||
          cmdArg.scaleToWindow===true){
@@ -340,26 +378,38 @@
         }
       }
 
+      Mojo.maxed=maxed;
+
       if(!cmdArg.logos)
         cmdArg.logos=new Array();
 
+      //realize the renderer
+      (async()=>{
+        Mojo.ctx= await PIXI.autoDetectRenderer(_.inject(box,{
+          webgpu:{ antialias: true},
+          webgl:{ antialias: true}
+        }))
+        _begin(Mojo,cmdArg);
+      })();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    /** Main Helper
+    */
+    function _begin(Mojo,cmdArg){
+
       Mojo.touchDevice= !!("ontouchstart" in document);
-      Mojo.ctx= PIXI.autoDetectRenderer(_.inject(box,{
-        antialias: true
-      }));
-      Mojo.canvas = Mojo.ctx.view;
-      Mojo.canvas.id="mojoh5";
-      Mojo.maxed=maxed;
+      Mojo._canvasObj = Mojo.ctx.canvas;
+      Mojo._canvasObj.id="mojoh5";
       Mojo.scale=1;
       Mojo.scaledBgColor= "#5A0101";
+      Mojo.stage= new PixiStage();
 
       //install modules
-      ["Sprites","Input","Scenes",
-       "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
+      ["Sprites","Input","Scenes", "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
          CON.log(`installing module ${s}...`);
          let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
-         if(m.assets)
-           m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
+         if(m.assets) m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
       });
 
       //register built-in tasks
@@ -370,16 +420,22 @@
         dom.css(Mojo.canvas, "border", cmdArg.border);
 
       if(_.has(cmdArg,"bgColor"))
-        Mojo.ctx.backgroundColor =
-          Mojo.Sprites.color(cmdArg.bgColor);
+        Mojo.ctx.backgroundColor = Mojo.Sprites.color(cmdArg.bgColor);
 
       //not thoroughly supported nor tested :)
+      //keep track of current size, for resize purpose
+      Mojo.prevHeight=Mojo.height;
+      Mojo.prevWidth=Mojo.width;
+      CON.log(`canvas size= w:${Mojo.prevHeight},h=${Mojo.height}`);
       if(cmdArg.resize === true){
-        _.addEvent("resize", gscope, _.debounce(()=>{
+        _.addEvent("resize", gscope, _.debounce(e=>{
           //save the current size and tell others
-          const [w,h]=[Mojo.width, Mojo.height];
+          const [w,h]=[Mojo.prevWidth, Mojo.prevHeight];
           Mojo.ctx.resize(_width(),_height());
           Mojo.emit(["canvas.resize"],[w,h]);
+          //sync to new size
+          Mojo.prevWidth=_width();
+          Mojo.prevHeight=_height();
         },cmdArg.debounceRate||150));
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
@@ -388,30 +444,33 @@
         Mojo.scroll()
       }
 
-      Mojo.canvas.focus();
+      Mojo._canvasObj.focus();
 
       return _boot(Mojo);
     }
 
-    //------------------------------------------------------------------------
-    /**Code to run per tick. */
+    ////////////////////////////////////////////////////////////////////////////
+    /**Code to run per tick
+    */
     function _update(dt){
       Mojo._curFPS=Mojo.calcFPS(dt);
       //process any backgorund tasks
-      _BgTasks.forEach(m=> m.update && m.update(dt));
+      _BgTasks.forEach(m=> m.update?.(dt));
       //update all scenes
-      if(!_paused) Mojo.stageCS(s=> s.update && s.update(dt));
+      _paused ? 0 : Mojo.stageCS(s=> s.update?.(dt));
     }
 
-    //------------------------------------------------------------------------
+    ////////////////////////////////////////////////////////////////////////////
     function _draw(dt){
       Mojo.ctx.render(Mojo.stage)
     }
 
-    //------------------------------------------------------------------------
+    ////////////////////////////////////////////////////////////////////////////
     const _raf=(cb)=> gscope.requestAnimationFrame(cb);
+    //------------------------------------------------------------------------
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Mediator{
       constructor(){
@@ -483,6 +542,7 @@
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Player{
       constructor(uid){
@@ -501,6 +561,7 @@
       stateValue(){ _.assert(false,"implement stateValue!") }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Local extends Player{
       constructor(uid="p1"){
@@ -516,6 +577,7 @@
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Bot extends Player{
       constructor(uid="p2"){
@@ -528,7 +590,6 @@
         //do nothing
       }
     }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Mojo={
       //for world/screen conversions
@@ -546,6 +607,11 @@
       Bot,
       Local,
       Mediator,
+      SSheetFrame,
+      UNSCII: "unscii",
+      DOKI_LOWER:"Doki Lowercase",
+      BIGSHOUTBOB: "Big Shout Bob",
+      COPYRIGHT: "(c) www.zotohlab.com 2022-2024.",
       //secs per frame
       _frame:1/cmdArg.fps,
       /**Enum (1)
@@ -606,17 +672,12 @@
       /**Storage for all game data.
        * @memberof module:mojoh5/Mojo */
       Game:{mode:1},
+      _cache:{},
       MODE_ONE:1,
       MODE_TWO:2,
       MODE_NET:3,
       CON:console,
       noop: ()=>{},
-      PXContainer:PIXI.Container,
-      PXGraphics:PIXI.Graphics,
-      PXTexture:PIXI.Texture,
-      PXFilters:PIXI.filters,
-      PXLoader:PIXI.Assets,
-      PXObservablePoint: PIXI.ObservablePoint,
       get mouse(){ return Mojo.Input.pointer() },
       /**Play a sound effect.
        * @memberof module:mojoh5/Mojo
@@ -624,7 +685,14 @@
        * @return {object}
        */
       playSfx(snd){ return this.sound(snd).play() },
-      accel(v,a,dt){ return v+a*dt },
+      /**Linear acceleration.
+       * @memberof module:mojoh5/Mojo
+       * @param {number} vel
+       * @param {number} acc
+       * @param {number} dt
+       * @return {number} new velocity
+       */
+      accel(vel,acc,dt){ return vel+acc*dt },
       on(...args){
         return EBus.sub(...args)
       },
@@ -634,31 +702,38 @@
       off(...args){
         return EBus.unsub(...args)
       },
+      ssf(s,f){
+        return new this.SSheetFrame(s,f);
+      },
+      /**Get the seconds per frame.
+       * @memberof module:mojoh5/Mojo
+       * @return {number}
+       */
       frameRate(){
         return this._frame;
       },
-      /**Check if `d` is on the right hand side.
+      /**Check if enum `d` is on the right hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideRight(d){
         return d==Mojo.RIGHT || d==Mojo.NE || d==Mojo.SE },
-      /**Check if `d` is on the left hand side.
+      /**Check if enum `d` is on the left hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideLeft(d){
         return d==Mojo.LEFT || d==Mojo.NW || d==Mojo.SW },
-      /**Check if `d` is on the top hand side.
+      /**Check if enum `d` is on the top hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideTop(d){
         return d==Mojo.UP || d==Mojo.TOP || d==Mojo.NW || d==Mojo.NE },
-      /**Check if `d` is on the bottom hand side.
+      /**Check if enum `d` is on the bottom hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
@@ -747,6 +822,12 @@
       wrapv(v, low, high){
         return v<low ? high : (v>high ? low : v)
       },
+      /**Get the 2d htnml5 canvas object.
+       * @memberof module:mojoh5/Mojo
+       * @name canvas
+       * @return {object}
+       */
+      get canvas(){ return this._canvasObj },
       /**Get the loaded resources.
        * @memberof module:mojoh5/Mojo
        * @name assets
@@ -781,10 +862,12 @@
         }else{
           this.stage.children.forEach(s=>{
             if(s instanceof Mojo.Scenes.SceneWrapper){ s=s.children[0] }
-            if(s instanceof PIXI.SimpleRope){}else{ cb(s) }
+            if(s) cb(s)
           })
         }
       },
+      /**
+      */
       scroll(x,y){
         gscope.scrollTo(x||0, y||1) },
       /**Check if viewport is in portrait mode.
@@ -796,7 +879,7 @@
        * @memberof module:mojoh5/Mojo
        * @return {Vec2} [x,y]
        */
-      screenCenter(){ return _.v2(_M.ndiv(Mojo.width,2),_M.ndiv(Mojo.height,2)) },
+      screenCenter(){ return _.v2(int(Mojo.width/2), int(Mojo.height/2)) },
       /**Scale the `src` size against the `des` size.
        * @memberof module:mojoh5/Mojo
        * @param {Vec2} src
@@ -810,7 +893,7 @@
        * @param {number} y
        * @return {ObservablePoint}
        */
-      makeAnchor(x,y){ return new Mojo.PXObservablePoint(Mojo.noop,this,x,y) },
+      makeAnchor(x,y){ return new PIXI.ObservablePoint(this,x,y) },
       /**Ducktype a stage object.
        * @memberof module:mojoh5/Mojo
        * @param {number} [px]
@@ -835,8 +918,8 @@
        * @return {Texture}
        */
       tcached(x){
-        return _.inst(this.PXTexture,x)?x
-          :(is.str(x)? PIXI.utils.TextureCache[x] || PIXI.utils.TextureCache[this.assetPath(x)] : UNDEF)
+        return _.inst(PIXI.Texture,x)?x
+          : is.str(x)? (this._cache[x] || PIXI.Assets.cache._cache.get(x)) : UNDEF;
       },
       /**Click to play message.
        * @memberof module:mojoh5/Mojo
@@ -851,7 +934,7 @@
        * @param {number} width
        * @return {number[]} [col,row]
        */
-      splitXY(pos,width){ return [pos%width, _M.ndiv(pos,width)] },
+      splitXY(pos,width){ return [pos%width, int(pos/width)] },
       /**Create a PIXI Rectangle.
        * @memberof module:mojoh5/Mojo
        * @param {number} x
@@ -860,7 +943,7 @@
        * @param {number} h
        * @return {Rectangle}
        */
-      rect(x,y,w,h){ return new Mojo.PXRectangle(x,y,w,h) },
+      rect(x,y,w,h){ return new PIXI.Rectangle(x,y,w,h) },
       /**Scale the `src` size against `des` size.
        * @memberof module:mojoh5/Mojo
        * @param {object} src
@@ -872,50 +955,62 @@
                  height: des.height/src.height} },
       /**Get the cached Texture.
        * @memberof module:mojoh5/Mojo
-       * @param {string} frame
+       * @param {string} s
        * @return {Texture}
        */
-      id(frame){ return this.image(frame) },
+      KENLXXid(s){ return this.image(s) },
       /**Get the cached Texture.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {Texture}
        */
-      image(n){ return this.tcached(n) ||
-                       _.assert(false, `${n} not loaded.`) },
+      /**Get a frame in a spritesheet.
+       * @memberof module:mojoh5/Mojo
+       * @param {string} name
+       * @return {Texture}
+       */
+      sheet(name,frame){
+        const ssObj=this.resource(name);
+        _.assert(ssObj, `unknown sheet: ${name}.`);
+        _.assert(is.obj(ssObj.data) && is.obj(ssObj.textures), `bad sheet: ${name}`);
+        return ssObj.textures[frame];
+      },
+      image(n){ return this.resource(n) },
       /**Get the cached XML file.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {object}
        */
-      xml(n){ return (this.assets.get(n) ||
-                      _.assert(false, `${n} not loaded.`)) },
+      xml(n){ return this.resource(n) },
       /**Get the cached JSON file.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {object}
        */
-      json(n){ return (this.assets.get(n) ||
-                       _.assert(false, `${n} not loaded.`)) },
+      json(n){ return this.resource(n) },
       /**Get the relative path for this file.
        * @memberof module:mojoh5/Mojo
        * @param {string} name
        * @return {string}
        */
-      assetPath(fname){
-        if(fname.includes("/")) {return fname}
-        let pfx="data",
-            ext= _.fileExt(fname);
-        //if(ext) ext=ext.substring(1);
-        if(_.has(IMAGE_EXTS,ext)){
-          pfx="images"
-        }else if(ext=="fnt" ||
-                 _.has(FONT_EXTS,ext)){
-          pfx="fonts"
-        }else if(_.has(AUDIO_EXTS,ext)){
-          pfx="audio"
+      assetPath(fname,out){
+        if(is.str(fname)){
+          if(fname.includes("/")){out= fname}else{
+            let pfx="data",
+                ext= _.fileExt(fname);
+            //if(ext) ext=ext.substring(1);
+            if(_.has(IMAGE_EXTS,ext)){
+              pfx="images"
+            }else if(ext=="fnt" ||
+                     _.has(FONT_EXTS,ext)){
+              pfx="fonts"
+            }else if(_.has(AUDIO_EXTS,ext)){
+              pfx="audio"
+            }
+            out= `${pfx}/${fname}`;
+          }
         }
-        return `${pfx}/${fname}`
+        return out || "";
       },
       /**Get the scale factor for this maximized viewport.
        * @memberof module:mojoh5/Mojo
@@ -947,8 +1042,25 @@
        * @return {any}
        */
       resource(x,panic){
-        let t= x ? (this.assets.get(x) || this.assets.get(this.assetPath(x))) : 0;
+        let p,t;
+        if(_.inst(this.SSheetFrame,x)){
+          t=this.sheet(x.sheet,x.frame);
+        }else if (x){
+          p=this.assetPath(x)
+          t= this.tcached(x) || this.tcached(p) || PIXI.Texture.from(p);
+        }
         return t || (panic ? _.assert(false, `no such resource ${x}.`) : UNDEF)
+      },
+      /**Add one or more children to container.
+       * @memberof module:mojoh5/Mojo
+       * @param {PIXI.Container} p
+       * @param {...PIXI.Container} cs
+       * @return {PIXI.Container} first child
+       */
+      addChild(p,c1,...cs){
+        p.addChild(c1);
+        cs.forEach(c=>p.addChild(c));
+        return c1;
       },
       _fpsList:UNDEF,
       _fpsSum:0,
@@ -998,7 +1110,7 @@
               cur= _.now(),
               dts= (cur-last)/1000,
               diff=Mojo.frameRate();
-            //console.log(`frames per sec= ${Math.floor(1/dt)}`);
+            //console.log(`frames per sec= ${Math.floor(1/dts)}`);
             //limit the time gap between calls
             if(dts>_DT15) dts= _DT15;
             for(acc += dts; acc >= diff; acc -= diff){ _update(dts); }
@@ -1010,9 +1122,7 @@
       },
       _runAppStart(){
         if(1){
-          Mojo.Input.keybd(Mojo.Input.Q,()=>{
-            this.takeScreenShot()
-          })
+          Mojo.Input.keybd(Mojo.Input.Q,()=>{ this.takeScreenShot() })
         }
         return Mojo.u.start(this)
       },
@@ -1045,7 +1155,8 @@
   if(typeof module=="object" && module.exports){
     throw "Panic: browser only!"
   }else{
-    return gscope.MojoH5=function(arg){ return _module(arg, [], [], []) }
+    gscope.MojoH5=function(arg){ return _module(arg, []) }
+    gscope.MojoH5Ldr=function(arg){ window.addEventListener("load",()=> gscope.MojoH5(arg)) }
   }
 
 })(this);
@@ -1064,12 +1175,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
   const BtnColors={
     blue:"#319bd5",
     green:"#78c03f",
@@ -1108,8 +1220,11 @@
     wheat: "#F5DEB3",
     white:  "#FFFFFF",
     yellow: "#FFFF00"};
+  ////////////////////////////////////////////////////////////////////////////
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(Mojo){
 
     const {v2:_V, math:_M, ute:_, is, dom} =Mojo;
@@ -1117,57 +1232,78 @@
     const PI2=Math.PI*2,
           int=Math.floor;
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _genTexture(displayObject, scaleMode, resolution, region){
-      return new PIXI.GenerateTextureSystem(Mojo.ctx).generateTexture(displayObject)
+    /*PIXI code
+      export type SCALE_MODE = | 'nearest' | 'linear';
+      export type ALPHA_MODES = 'no-premultiply-alpha' | 'premultiply-alpha-on-upload' | 'premultiplied-alpha';
+     export type LineCap = 'butt' | 'round' | 'square';
+     export type LineJoin = 'round' | 'bevel' | 'miter';
+    StrokeStyle extends FillStyle {
+      //The color to use for the fill.
+      color?: ColorSource;
+      //The alpha value to use for the fill
+      alpha?: number;
+      //The texture to use for the fill.
+      texture?: Texture | null;
+      //The matrix to apply.
+      matrix?: Matrix | null;
+      //The fill pattern to use.
+      fill?: FillPattern | FillGradient | null;
+      //The width of the stroke.
+      width?: number;
+      //The alignment of the stroke.
+      alignment?: number;
+      // native?: boolean;
+      //The line cap style to use.
+      cap?: LineCap;
+      //The line join style to use
+      join?: LineJoin;
+      //The miter limit to use.
+      miterLimit?: number;
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////
+    /*Generate an actual Texture object */
+    ////////////////////////////////////////////////////////////////////////////
+    function _genTexture(dispObj, scaleMode, resolution, region){
+      return new PIXI.GenerateTextureSystem(Mojo.ctx).generateTexture(dispObj)
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //ENSURE PIXI DOESN'T HAVE SPECIAL PROPERTIES
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    //NOTE: ENSURE PIXI DOESN'T HAVE these SPECIAL PROPERTIES
+    ////////////////////////////////////////////////////////////////////////////
     (function(c,g,s){
-      g.clear();
-      g.beginFill(0);
-      g.drawCircle(0, 0, 4);
-      g.endFill();
+      g.circle(0, 0, 4); g.fill({color:0});
       s=new PIXI.Sprite(_genTexture(g));
-      ["m5","tiled", "remove","collideXY",
+      ["m5","tiled", "remove","collideXY","setup","preTMX","postTMX",
+        "dispose","preDispose",
        "onTick","getGuid","getBBox", "getSpatial"].forEach(n=>{
         [[c,"Container"],[g,"Graphics"],[s,"Sprite"]].forEach(x=>{
-          _.assertNot(_.has(x[0],n),`PIXI ${x[1]} has ${n} property!`)
+          _.assertNot(_.has(x[0],n),`Uh Oh, PIXI ${x[1]} has our ${n} property!`)
         })
-      });
+      })
     })(new PIXI.Container(),new PIXI.Graphics());
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Sprites
      */
-
-    //------------------------------------------------------------------------
-    //create aliases for various PIXI objects
-    _.inject(Mojo, {PXMatrix:PIXI.Matrix.TEMP_MATRIX,
-                    PXRTexture:PIXI.RenderTexture,
-                    PXRect:PIXI.Rectangle,
-                    PXBText:PIXI.BitmapText,
-                    PXSprite:PIXI.Sprite,
-                    PXGraphics:PIXI.Graphics,
-                    PXText:PIXI.Text,
-                    PXTSprite:PIXI.TilingSprite,
-                    PXASprite:PIXI.AnimatedSprite,
-                    PXPContainer:PIXI.ParticleContainer});
+    ////////////////////////////////////////////////////////////////////////////
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** yaxis down, default contact points, counter clockwise */
+    ////////////////////////////////////////////////////////////////////////////
     function _corners(a,w,h){
+      //starting with bottom right
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
       //adjust for anchor?
-      if(a)
-        out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
+      a ? out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); }) : 0;
       return out;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Override the control of animation */
+    ////////////////////////////////////////////////////////////////////////////
     function _exASprite(s){
       let tid=0,_s={};
       function _reset(){
@@ -1183,7 +1319,7 @@
           _s.cnt=1;
         }else{
           _reset();
-          s.onComplete && s.onComplete();
+          s.onComplete?.();
         }
       }
       _.inject(s.m5,{
@@ -1208,21 +1344,20 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Low level sprite creation. */
+    ////////////////////////////////////////////////////////////////////////////
     function _sprite(src,ctor){
       let s,obj;
-      if(_.inst(Mojo.PXGraphics,src)){
+      if(_.inst(PIXI.Graphics,src)){
         src=_genTexture(src);
       }
-      if(_.inst(Mojo.PXTexture,src)){
+      if(_.inst(PIXI.Texture,src)){
         obj=src
       }else if(is.vec(src)){
         if(is.str(src[0]))
-          src=Mojo.tcached(src[0])?src.map(s=> Mojo.tcached(s))
-                                  :src.map(s=> Mojo.assetPath(s));
-        s=_.inst(Mojo.PXTexture,src[0])? new Mojo.PXASprite(src)
-                                       : Mojo.PXASprite.fromImages(src);
+          src=src.map(s=> Mojo.resource(s));
+        s=_.inst(PIXI.Texture,src[0])? new PIXI.AnimatedSprite(src, false) : UNDEF;
       }else if(is.str(src)){
-        obj= Mojo.tcached(src) || Mojo.PXTexture.from(Mojo.assetPath(src))
+        obj= Mojo.resource(src);
       }
       if(obj)
         s=ctor(obj);
@@ -1230,11 +1365,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*core function to make 2D grids */
+    ////////////////////////////////////////////////////////////////////////////
     function _mkgrid(sx,sy,rows,cols,cellW,cellH){
-      let
-        y1=sy,
-        x1=sx,
-        out=[];
+      let y1=sy, x1=sx, out=[];
       for(let x2,y2,v,r=0; r<rows; ++r){
         v=[];
         for(let c=0; c<cols; ++c){
@@ -1251,22 +1385,26 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _pininfo(X,o,p=UNDEF){
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    function _pininfo(ThisModule,o,p=UNDEF){
       let par,box;
       if(o && o.m5 && o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
         if(o.angle !== undefined)
-          _.assert(_.feq0(o.angle), "expected non rotated object");
+          _.assert(_.feq0(o.angle), "expected non rotated object!");
         par=o.parent;
-        box=X.getAABB(o);
+        box=ThisModule.getAABB(o);
       }
       if(p && par===p){
+        //account for the parent's position...
         box.x1 += p.x;
         box.x2 += p.x;
         box.y1 += p.y;
         box.y2 += p.y;
       }
+      //give extra info back...
       return [box, _M.ndiv(box.x2-box.x1,2),//half width
                    _M.ndiv(box.y2-box.y1,2),//half height
                    _M.ndiv(box.x1+box.x2,2),//center x
@@ -1274,7 +1412,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //basic 2 body collision physics
+    //basic 2 body collision physics, assuming o1 hits o2
+    ////////////////////////////////////////////////////////////////////////////
     function _bounceOff(o1,o2,m){
       if(o2.m5.static){
         //full bounce v=v - (1+c)(v.n_)n_
@@ -1290,18 +1429,21 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*Detect where the collision occurred */
+    ////////////////////////////////////////////////////////////////////////////
     function _collideDir(col){
       const c=new Set();
-      if(col.overlapN[1] < -0.3){ c.add(Mojo.TOP) }
-      if(col.overlapN[1] > 0.3){ c.add(Mojo.BOTTOM) }
-      if(col.overlapN[0] < -0.3){ c.add(Mojo.LEFT) }
-      if(col.overlapN[0] > 0.3){ c.add(Mojo.RIGHT) }
+      (col.overlapN[1] < -0.3) ? c.add(Mojo.TOP) :0;
+      (col.overlapN[1] > 0.3) ? c.add(Mojo.BOTTOM) :0;
+      (col.overlapN[0] < -0.3) ? c.add(Mojo.LEFT) :0;
+      (col.overlapN[0] > 0.3) ? c.add(Mojo.RIGHT) : 0;
       c.add(col);
       return c;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //convert to std geometry for collision detection
+    //convert to std geometry for A hit B collision detection
+    ////////////////////////////////////////////////////////////////////////////
     function _hitAB(S,a,b){
       let
         a_= S.toBody(a),
@@ -1318,6 +1460,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*A collides with B, elastic collision. */
+    ////////////////////////////////////////////////////////////////////////////
     function _collideAB(S,a,b,bounce=true){
       let ret,d,m=_hitAB(S,a,b);
       if(m){
@@ -1328,13 +1472,14 @@
           _V.sub$(a,d);
           _V.add$(b,d);
         }
-        if(bounce)
-          _bounceOff(a,b,m);
+        bounce ? _bounceOff(a,b,m) : 0;
       }
       return m;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*For common movement */
+    ////////////////////////////////////////////////////////////////////////////
     function SteeringInfo(){
       return{
         wanderAngle: _.rand()*Math.PI*2,
@@ -1357,23 +1502,23 @@
       SomeColors:{},
       BtnColors:{},
       Geo,
-      assets: ["boot/unscii.fnt",
-               "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt",
-               "boot/splash.jpg", "boot/trail.png","boot/star.png" ],
+      assets: ["boot/unscii.fnt", "boot/doki.fnt",
+               "boot/BIG_SHOUT_BOB.fnt", "boot/splash.jpg", "boot/star.png" ],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
+       * @return {boolean}
        */
       assertCenter(s){
-        return _.assert(s.anchor && _.feq(s.anchor.x,0.5) &&
-                                    _.feq(s.anchor.y,0.5), "not center'ed") },
+        return _.assert(s?.anchor && _.feq(s.anchor.x,0.5) &&
+                                     _.feq(s.anchor.y,0.5), "not center'ed") },
       /**Check if sprite has children.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {boolean}
        */
       empty(s){
-        return s.children.length == 0 },
+        return s && s.children.length == 0 },
       /**Emulate a button press
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} b
@@ -1381,17 +1526,15 @@
        * @param {number|string} oldColor
        * @param {string} snd
        * @param {function} cb
+       * @param {number} delayMillis
        * @return {function}
        */
-      btnPress(b,c1,c0,snd,cb){
-        let self=this;
+      btnPress(b,c1,c0,snd,cb,delayMillis=343){
+        const self=this;
         return function(arg){
           arg.tint=self.color(c1);
-          if(snd) Mojo.sound(snd).play();
-          _.delay(343,()=>{
-            arg.tint=self.color(c0);
-            cb(arg);
-          });
+          snd ? Mojo.sound(snd).play() : 0;
+          _.delay(delayMillis,()=>{ arg.tint=self.color(c0); cb(arg); })
         }
       },
       /**React to a one off click on canvas.
@@ -1400,14 +1543,23 @@
        * @param {string} snd
        * @return {function}
        */
-      oneOffClick(cb,snd=UNDEF){
-        let sub= function(){
+      oneOffClick(cb,snd){
+        const sub= function(){
           Mojo.Input.off(["single.tap"],sub);
-          if(snd) Mojo.sound(snd).play();
+          snd ? Mojo.sound(snd).play() : 0;
           cb();
         };
         Mojo.Input.on(["single.tap"],sub);
         return sub;
+      },
+      /**Cancel the a one off click.
+       * @memberof module:mojoh5/Sprites
+       * @param {function} cb
+       * @return {any} undefined
+       */
+      cancelOneOffClick(sub){
+        sub ? Mojo.Input.off(["single.tap"],sub) : 0;
+        return UNDEF;
       },
       /**Change size of sprite.
        * @memberof module:mojoh5/Sprites
@@ -1472,7 +1624,7 @@
        * @return {object} {width,height}
        */
       halfSize(s){
-        return {width: _M.ndiv(s.width,2), height: _M.ndiv(s.height,2)} },
+        return {width: int(s.width/2), height: int(s.height/2)} },
       /**Set the anchor.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1482,7 +1634,7 @@
        */
       anchorXY(s,x,y){
         _.assert(s.anchor,"sprite has no anchor object");
-        s.anchor.y= _.nor(y,x);
+        s.anchor.y=  y ?? x;
         s.anchor.x=x;
         return s;
       },
@@ -1492,18 +1644,14 @@
        * @return {Sprite} s
        */
       centerAnchor(s){
-        if(s.anchor) s.anchor.set(0.5,0.5);
-        return s;
-      },
+        return this.anchorXY(s,0.5,0.5) },
       /**Set sprite's anchor to be at it's top left.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       topLeftAnchor(s){
-        if(s.anchor) s.anchor.set(0,0);
-        return s;
-      },
+        return this.anchorXY(s,0,0) },
       /**Calc the offset required to find the position of corners
        * in the object.  e.g. anchor is centered, but you want to
        * find the bottome right.
@@ -1516,8 +1664,7 @@
       offsetXY(s,tx,ty){
         _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
                  "no anchor or bad target offset points");
-        return [s.width * (tx-s.anchor.x),
-                s.height * (ty-s.anchor.y)]
+        return [s.width * (tx-s.anchor.x), s.height * (ty-s.anchor.y)]
       },
       /**Get sprite's anchor offset from top-left corner.
        * @memberof module:mojoh5/Sprites
@@ -1525,16 +1672,14 @@
        * @return {number[]} [x,y]
        */
       topLeftOffsetXY(s){
-        return this.offsetXY(s, 0,0)
-      },
+        return this.offsetXY(s, 0,0) },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {number[]} [x,y]
        */
       centerOffsetXY(s){
-        return this.offsetXY(s, 0.5,0.5)
-      },
+        return this.offsetXY(s, 0.5,0.5) },
       /**Calc the offset required to make the object appear to be
        * at this target anchor.  e.g. say the object's anchor is
        * (1,1) and is positioned at (0,0), so the bottom right
@@ -1549,8 +1694,7 @@
       adjOffsetXY(s,tx,ty){
         _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
                  "no anchor or bad target offset points");
-        return [s.width * (s.anchor.x - tx),
-                s.height * (s.anchor.y - ty) ]
+        return [s.width * (s.anchor.x - tx), s.height * (s.anchor.y - ty) ]
       },
       /**Make this sprite steerable.
        * @memberof module:mojoh5/Sprites
@@ -1558,12 +1702,12 @@
        * @return {Sprite} s
        */
       makeSteerable(s){
-        let
-          w2= _M.ndiv(s.width,2),
-          h2= _M.ndiv(s.height,2);
+        if(s.width != s.height)
+          Mojo.CON.warn(`object ${s.m5?.uuid} is not a square, radius will be off....`);
+        let {width,height}= this.halfSize(s);
         s.m5.steer=[0,0];
         s.m5.steerInfo=SteeringInfo();
-        s.m5.radius=Math.sqrt(w2*w2+h2+h2);
+        s.m5.radius=Math.sqrt(width*width+height*height);
         return s;
       },
       /**
@@ -1572,12 +1716,11 @@
        * @return {Sprite} s
        */
       updateSteer(s,reset=true){
-        if(s.m5.steer){
+        if(s.m5?.steer){
           _V.clamp$(s.m5.steer, 0, s.m5.steerInfo.maxForce);
           _V.div$(s.m5.steer,s.m5.mass);
           _V.add$(s.m5.vel, s.m5.steer);
-          if(reset)
-            _V.mul$(s.m5.steer,0);
+          reset ? _V.mul$(s.m5.steer,0) : 0;
         }
         return s;
       },
@@ -1587,7 +1730,7 @@
        * @return {Sprite} s
        */
       clrSpatial(s){
-        if(s && s.m5 && s.m5.sgrid){
+        if(s.m5?.sgrid){
           s.m5.sgrid.x1=UNDEF;
           s.m5.sgrid.x2=UNDEF;
           s.m5.sgrid.y1=UNDEF;
@@ -1602,7 +1745,7 @@
        */
       lift(s){
         if(!s.m5){
-          let self=this;
+          const self=this;
           s.g={};
           s.m5={
             uuid: `s${_.nextId()}`,
@@ -1638,8 +1781,7 @@
           //these special functions are for quadtree
           s.getGuid=function(){ return s.m5.uuid };
           s.getSpatial=function(){ return s.m5.sgrid; };
-          s.getBBox=function(){
-            return _.feq0(s.angle)?self.getAABB(s):self.boundingBox(s) };
+          s.getBBox=function(){ return _.feq0(s.angle)?self.getAABB(s):self.boundingBox(s) };
         }
         return s;
       },
@@ -1649,8 +1791,8 @@
        * @return {Sprite}
        */
       clamp2Pi(s){
-        if(s.rotation > PI2){ s.rotation -= PI2 }
-        if(s.rotation < 0) { s.rotation += PI2 }
+        while(s.rotation > PI2){ s.rotation -= PI2 }
+        while(s.rotation < 0) { s.rotation += PI2 }
         return s;
       },
       /**Convert polar to cartesian
@@ -1669,7 +1811,7 @@
        * @return {Sprite} s
        */
       setOrient(s,v,deg=false){
-        deg ? s.angle=v : s.rotation=v;
+        deg ? (s.angle=v) : (s.rotation=v);
         return s;
       },
       /**Convert sprite to a polygonal shape.
@@ -1687,7 +1829,7 @@
       toCircle(s){
         return this.assertCenter(s) &&
                new Geo.Circle(_M.ndiv(s.width,2)).setOrient(s.rotation) },
-      /**
+      /**For 2D physics, create a body.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Body}
@@ -1735,8 +1877,8 @@
        * @param {boolean} b
        * @return {Sprite} s
        */
-      setScaleModeNearest(s,b){
-        s.texture.baseTexture.scaleMode = b ? PIXI.SCALE_MODES.NEAREST : PIXI.SCALE_MODES.LINEAR;
+      setScaleModeNearest(s,b=true){
+        s.texture.source.scaleMode = b ? "nearest" : "linear";
         return s;
       },
       /**Find the angle in radians between two sprites.
@@ -1747,24 +1889,20 @@
        */
       angle(s1, s2){
         return _V.angle(this.centerXY(s1), this.centerXY(s2)) },
-      /**
+      /**Mark it as dead.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       die(s){
-        if(s) s.m5.dead=true;
-        return s;
-      },
-      /**
+        s.m5.dead=true; return s; },
+      /**Come back to life, from dead.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       undie(s){
-        if(s) s.m5.dead=false;
-        return s;
-      },
+        s.m5.dead=false; return s; },
       /**Move a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1773,14 +1911,15 @@
        */
       move(s,dt){
         if(dt){
-          _V.add$(s.m5.vel,_V.mul(s.m5.gravity,dt));
-          _V.add$(s.m5.vel,_V.mul(s.m5.acc,dt));
-          _V.mul$(s.m5.vel, s.m5.friction);
+          _V.add$(s.m5.vel,_V.mul(s.m5.gravity,dt));//deal with gravity
+          _V.add$(s.m5.vel,_V.mul(s.m5.acc,dt));//deal with acceleration
+          _V.mul$(s.m5.vel, s.m5.friction);//deal with friction
         }else{
           dt=1;
         }
         if(s.m5.maxSpeed !== undefined)
           _V.clamp$(s.m5.vel,0, s.m5.maxSpeed);
+        //finally, update the sprite's x & y position
         return _V.add$(s,_V.mul(s.m5.vel,dt));
       },
       /**Get the left side of this sprite.
@@ -1824,6 +1963,7 @@
        * @return {number}
        */
       bottomSide(s){
+        // y-axis goes down, so bottom > top :)
         return this.topSide(s)+s.height },
       /**Get the sprite's bounding box, *ignoring* rotation.
        * @memberof module:mojoh5/Sprites
@@ -1863,18 +2003,20 @@
                         _M.ndiv(b4.y1+b4.y2,2)) },
       /**Frame this box.
        * @memberof module:mojoh5/Sprites
-       * @param {object} b4
+       * @param {object} g
+       * @param {number} width
+       * @param {string|number} color
        * @return {Sprite}
        */
       bboxFrame(g,width=16,color="#dedede"){
-        let
-          {x1,x2,y1,y2}=g,
+        _.assert(g.x1 !== undefined,"bad bounding box");
+        let {x1,x2,y1,y2}= g,
           w=x2-x1,
           h=y2-y1,
-          s,ctx= this.graphics();
-        ctx.lineStyle(width,this.color(color));
-        ctx.drawRoundedRect(0,0,w+width,h+width,_M.ndiv(width,4));
-        s=this.sprite(ctx);
+          s,gfx= this.graphics();
+        gfx.roundRect(0,0,w+width,h+width,int(width/4));
+        gfx.stroke({width,color:this.color(color)});
+        s=this.sprite(gfx);
         s.x=x1-width;
         s.y=y1-width;
         return s;
@@ -1885,7 +2027,7 @@
        * @return {Vec2} [x,y]
        */
       bboxSize(b4){
-        return _V.vec(b4.x2-b4.x1, b4.y2-b4.y1) },
+        return b4.x1 !== undefined ? _V.vec(b4.x2-b4.x1, b4.y2-b4.y1) : _.assert(false, "bad bounding box") },
       /**Check if point is inside this bounding box.
        * @memberof module:mojoh5/Sprites
        * @param {number} x
@@ -1894,8 +2036,7 @@
        * @return {boolean}
        */
       pointInBBox(x,y,box){
-        return x > box.x1 &&
-               x < box.x2 && y > box.y1 && y < box.y2 },
+        return box.x1 !== undefined && x > box.x1 && x < box.x2 && y > box.y1 && y < box.y2 },
       /**Find the bounding box of a sprite, taking account of it's
        * current rotation.
        * @memberof module:mojoh5/Sprites
@@ -1903,18 +2044,14 @@
        * @return {object} {x1,x2,y1,y2}
        */
       boundingBox(s){
-        let
-          c,z,
-          x1,x2,
-          y1,y2,
-          x=[],y=[],
-          hw=_M.ndiv(s.width,2),
-          hh=_M.ndiv(s.height,2),
-          theta=Math.tanh(hh/hw),
-          H=Math.sqrt(hw*hw+hh*hh);
         if(!_.feq0(s.rotation))
           _.assert(this.isCenter(s),
                    "expected rotated obj with center-anchor");
+        let c,z, x1,x2, y1,y2, x=[],y=[],
+          hw=int(s.width/2),
+          hh=int(s.height/2),
+          theta=Math.tanh(hh/hw),
+          H=Math.sqrt(hw*hw+hh*hh);
         //x2,y1
         z=PI2-theta + s.rotation;
         y.push(H*Math.sin(z));
@@ -1949,7 +2086,7 @@
        * @return {boolean}
        */
       hitTestPoint(px,py,s){
-        let z=this.toBody(s);
+        const z=this.toBody(s);
         return s.m5.circle ? Geo.hitTestPointCircle(px,py,z)
                            : Geo.hitTestPointPolygon(px,py,z) },
       /**Find distance between these 2 sprites.
@@ -1963,10 +2100,11 @@
       /**Scale all these sprites by the global scale factor.
        * @memberof module:mojoh5/Sprites
        * @param {...Sprite} args
+       * @return {any} undefined
        */
       scaleContent(...args){
         if(args.length==1&&is.vec(args[0])){ args=args[0] }
-        let K=Mojo.getScaleFactor();
+        const K=Mojo.getScaleFactor();
         args.forEach(s=>{ s.scale.x *=K; s.scale.y *=K; })
       },
       /**Scale this object to be as big as canvas.
@@ -1986,35 +2124,37 @@
        * @return {Sprite} s
        */
       uuid(s,id){
-        s.m5.uuid=id;
-        return s;
-      },
+        s.m5.uuid=id; return s },
       /**Set the transparency of this sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @param {number} v
        * @return {Sprite} s
        */
-      opacity(s,v){ s.alpha=v; return s },
+      opacity(s,v){
+        s.alpha=v; return s },
       /**Set a sprite's color(tint).
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @param {number|string} color
        * @return {Sprite} s
        */
-      tint(s,color){ s.tint=color; return s },
+      tint(s,color){
+        s.tint= this.color(color); return s },
       /**Unset a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
-      hide(s){s.visible=false;return s},
+      hide(s){
+        s.visible=false;return s},
       /**Set a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
-      show(s){s.visible=true;return s},
+      show(s){
+        s.visible=true;return s},
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -2023,9 +2163,7 @@
        * @return {Sprite} s
        */
       pset(s,p,v){
-        s.g[p]=v;
-        return s;
-      },
+        s.g[p]=v; return s },
       /**Get a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -2039,33 +2177,47 @@
        * @return {Container}
        */
       container(cb){
-        let s= new Mojo.PXContainer();
-        s= this.lift(s);
-        if(cb){
-          cb(s)
-        }
+        const s= this.lift(new PIXI.Container());
+        cb ? cb(s) : 0;
         return s;
       },
+      /**Create a new Container object with these children.
+       * @memberof module:mojoh5/Sprites
+       * @param {...any} cs child objects
+       * @return {Container}
+       */
       group(...cs){
-        let C= this.container();
+        const C= this.container();
         cs.forEach(c=> C.addChild(c));
         return C;
       },
       /**Create a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
+       * @param {boolean} center
        * @param {number} x
        * @param {number} y
-       * @param {boolean} center
        * @return {Sprite}
        */
       sprite(src, center=false,x=0,y=0){
-        let s= _sprite(src, o=> new Mojo.PXSprite(o));
-        s=this.lift(s);
-        _V.set(s,x,y);
-        if(center)
-          this.centerAnchor(s);
-        return _.inst(Mojo.PXASprite,s) ? _exASprite(s) : s; },
+        const s= this.lift(_sprite(src, o=> new PIXI.Sprite(o)));
+        s.x=x;
+        s.y=y;
+        center ? this.centerAnchor(s) : 0;
+        return _.inst(PIXI.AnimatedSprite,s) ? _exASprite(s) : s;
+      },
+      /**Create a sprite from a spritesheet frame.
+       * @memberof module:mojoh5/Sprites
+       * @param {string} sheet
+       * @param {string} frame
+       * @param {boolean} center
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite}
+       */
+      spriteFrame(sheet,frame,center=false,x=0,y=0){
+        return this.sprite(Mojo.sheet(sheet,frame),center,x,y)
+      },
       /**Create a TilingSprite.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -2074,9 +2226,9 @@
        * @return {Sprite}
        */
       tilingSprite(src, width,height){
-        return this.lift(_sprite(src,
-                                 o=> new Mojo.PXTSprite(o,width||o.width,
-                                                          height||o.height)))
+        return this.lift(_sprite(src, o=> new PIXI.TilingSprite({
+          texture:o,width:width||o.width, height:height||o.height
+        })))
       },
       /**Tile sprite repeatingly in x and/or y axis.
        * @memberof module:mojoh5/Sprites
@@ -2088,14 +2240,14 @@
        * @return {Sprite}
        */
       repeatSprite(src,rx=true,ry=true,width=UNDEF,height=UNDEF){
-        let xx= ()=>{
-          let s= this.lift(_sprite(src, o=> new Mojo.PXSprite(o)));
+        let self=this, s, out=[],x=0,y=0,w=0,h=0;
+        function xx(){
+          const s= self.lift(_sprite(src, o=> new PIXI.Sprite(o)));
           let K=Mojo.getScaleFactor();K=1;
           s.width *= K;
           s.height *= K;
           return s;
-        };
-        let s,out=[],x=0,y=0,w=0,h=0;
+        }
         if(rx){
           while(w<width){
             out.push(s=xx());
@@ -2120,8 +2272,8 @@
             if(h>=height&& w< width && rx){
               w += s.width;
               x += s.width;
-              x=y;
-              w=h;
+              y=0;
+              h=0;
             }
           }
           rx=false;
@@ -2134,28 +2286,28 @@
        * @param {number} tileW
        * @param {number} tileH
        * @param {number} spacing
-       * @return {Sprite}
+       * @return {AnimatedSprite}
        */
       animation(src, tileW, tileH, spacing=0){
-        let t=Mojo.tcached(src);
+        let t=Mojo.resource(src);
         if(!t)
           throw `SpriteError: ${src} not loaded.`;
         let
-          cols = _M.ndiv(t.width,tileW),
-          rows = _M.ndiv(t.height,tileH),
+          cols = int(t.width/tileW),
+          rows = int(t.height/tileH),
           pos= [], cells = cols*rows;
         for(let x,y,i=0; i<cells; ++i){
           x= (i%cols) * tileW;
-          y= _M.ndiv(i,cols) * tileH;
+          y= int(i/cols) * tileH;
           if(spacing>0){
             x += spacing + (spacing * i % cols);
-            y += spacing + (spacing * _M.ndiv(i,cols));
+            y += spacing + (spacing * int(i/cols));
           }
           pos.push(_V.vec(x,y));
         }
         return this.sprite(
-          pos.map(p=> new Mojo.PXTexture(t.baseTexture,
-                                         new Mojo.PXRect(p[0],p[1],tileW,tileH))))
+          pos.map(p=> new PIXI.Texture({source: t.source,
+                                        frame: new PIXI.Rectangle(p[0],p[1],tileW,tileH) })));
       },
       /**Create a PIXI.Texture from this source.
        * @memberof module:mojoh5/Sprites
@@ -2167,8 +2319,8 @@
        * @return {Sprite}
        */
       frame(src, width, height,x,y){
-        return this.sprite(new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
-                                              new Mojo.PXRect(x, y, width,height))) },
+        return this.sprite(new PIXI.Texture({source: Mojo.resource(src).source,
+                                             frame: new PIXI.Rectangle(x, y, width,height)})) },
       /**Select a bunch of frames from image.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -2178,8 +2330,8 @@
        * @return {Texture[]}
        */
       frameSelect(src,width,height,selectors){
-        return selectors.map(s=> new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
-                                                    new Mojo.PXRect(s[0], s[1], width,height))) },
+        return selectors.map(s=> new PIXI.Texture({source: Mojo.resource(src).source,
+                                                   frame: new PIXI.Rectangle(s[0], s[1], width,height)})) },
       /**Create a sequence of frames from this texture.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -2192,19 +2344,16 @@
        * @return {Texture[]}
        */
       frames(src,tileW,tileH,spaceX=0,spaceY=0,sx=0,sy=0){
-        let
-          t= Mojo.tcached(src),
-          dx=tileW+spaceX,
-          dy=tileH+spaceY,
-          out=[],
-          rows= _M.ndiv(t.height,dy),
+        let dx=tileW+spaceX, dy=tileH+spaceY, out=[],
+          t= Mojo.resource(src),
+          rows= int(t.height/dy),
           cols= _M.ndiv(t.width+spaceX,dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
             x= sx + tileW*c;
-            out.push(new Mojo.PXTexture(t.baseTexture,
-                                        new Mojo.PXRect(x, y, tileW,tileH))) }
+            out.push(new PIXI.Texture({source:t.source,
+                                       frame:new PIXI.Rectangle(x, y, tileW,tileH)})) }
         }
         return out;
       },
@@ -2214,16 +2363,17 @@
        * @return {Texture[]}
        */
       frameImages(...pics){
-        if(pics.length==1 &&
-           is.vec(pics[0])){ pics=pics[0] }
-        return pics.map(p=> Mojo.tcached(p)) },
+        if(pics.length==1
+          && is.vec(pics[0])){ pics=pics[0] }
+        return pics.map(p=> Mojo.resource(p));
+      },
       /**Create a PIXI AnimatedSprite from these images.
        * @memberof module:mojoh5/Sprites
        * @param {...any} pics
        * @return {AnimatedSprite}
        */
       spriteFrom(...pics){
-        return this.sprite(this.frameImages(...pics)) },
+        return this.sprite(this.frameImages(pics)) },
       /**Create a PIXI.Text object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -2233,7 +2383,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        return _V.set(this.lift(new Mojo.PXText(msg,fspec)),x,y) },
+        return _V.set(this.lift(new PIXI.Text(msg,fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -2245,63 +2395,55 @@
       bitmapText(msg,name,size){
         //in pixi, no fontSize, defaults to 26, left-align
         let fstyle;
+        msg = msg || "";
         if(is.str(name)){
-          fstyle={fontName:name};
+          fstyle={fontFamily:name};
           if(is.num(size)) fstyle.fontSize=size;
         }else{
           fstyle=name;
         }
-        if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
-        if(!fstyle.fontName) fstyle.fontName="unscii";
+        if(!fstyle.fontFamily)
+          fstyle.fontFamily= fstyle.fontName? fstyle.fontName : "unscii";
         if(!fstyle.align) fstyle.align="center";
-        return this.lift(new Mojo.PXBText(msg,fstyle));
+        return this.lift(new PIXI.BitmapText({text:msg,style:fstyle}));
       },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
        * @param {number} height
-       * @param {number} point
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number} peak
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @param {number} x
        * @param {number} y
        * @return {Sprite}
        */
       triangle(width, height, peak,
-               fillStyle = 0xffffff,
-               strokeStyle = 0xffffff, lineWidth=0,x=0,y=0){
+               fillColor = 0xffffff,
+               strokeColor = 0xffffff, lineWidth=0,x=0,y=0){
         let
           g=this.graphics(),
-          a=1,w2=_M.ndiv(width,2),
-          stroke=this.color(strokeStyle),
-          X= peak<0.5?0:(peak>0.5?width:w2),
-          ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
-        if(fillStyle !== false){
-          if(is.vec(fillStyle)){
-            a=fillStyle[1];
-            fillStyle=fillStyle[0];
+          a=1,w2=int(width/2),
+          stroke=this.color(strokeColor),
+          X= peak<0.5?0:(peak>0.5?width:w2);
+        if(fillColor !== false){
+          if(is.vec(fillColor)){
+            a=fillColor[1];
+            fillColor=fillColor[0];
           }
-          g.beginFill(this.color(fillStyle),a);
         }
+        g.poly([0,0,X,-height,width,0]);
+        if(fillColor !== false)
+          g.fill({color:this.color(fillColor),alpha:a});
         if(lineWidth>0)
-          g.lineStyle(lineWidth, stroke, 1);
-        g.drawPolygon(...ps);
-        if(fillStyle !== false){
-          g.endFill()
-        }
-        let s= new Mojo.PXSprite(this.genTexture(g));
-        s=this.lift(s);
+          g.stroke({width:lineWidth, color:stroke, alpha:1});
+        let s= this.sprite(g);
         if(1){
-          if(height<0){
-            s.m5.getContactPoints=()=>{
-              return [[X,-height],[width,0],[0,0]];
-            }
-          }else{
-            s.m5.getContactPoints=()=>{
-              return [[width,height],[X,0],[0,height]];
-            }
-          }
+          s.m5.getContactPoints= height<0 ?
+            ()=>{ return [[X,-height],[width,0],[0,0]] }
+            :
+            ()=>{ return [[width,height],[X,0],[0,height]] }
         }
         return _V.set(s,x,y);
       },
@@ -2309,51 +2451,120 @@
        * @memberof module:mojoh5/Sprites
        * @param {number} width
        * @param {number} height
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @return {Sprite}
        */
       rect(width, height,
-           fillStyle = 0xffffff,
-           strokeStyle = 0xffffff, lineWidth=0){
-        return this.rectEx(this.rectTexture(width,height,fillStyle,strokeStyle,lineWidth))
+           fillColor = 0xffffff,
+           strokeColor = 0xffffff, lineWidth=0){
+        return this.sprite(this.rectTexture(width,height,fillColor,strokeColor,lineWidth)) },
+      /**Draw a rectangle.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {number} x
+       * @param {number} y
+       * @param {number} width
+       * @param {number} height
+       * @return {PIXI.Graphics}
+       */
+      grect(gfx, x,y,width,height){
+        gfx.rect(x,y,width,height); return gfx },
+      /**Draw a circle.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {number} cx
+       * @param {number} cy
+       * @param {number} radius
+       * @return {PIXI.Graphics}
+       */
+      gcircle(gfx, cx, cy, radius){
+        gfx.circle(cx,cy,radius); return gfx },
+      /**Fill graphics with texture.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {PIXI.Texture} t
+       * @param {object} style
+       * @return {PIXI.Graphics}
+       */
+      gfillEx(gfx, t, style){
+        if(!style) style={};
+        style.texture=t;
+        gfx.texture(style);
+        return gfx;
+      },
+      /**Clear graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @return {PIXI.Graphics}
+       */
+      gclear(gfx){
+        return gfx.clear() },
+      /**Draw a sequence of paths in graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {array} actions
+       * @return {PIXI.Graphics}
+       */
+      gpath(gfx,actions){
+        _.assert(is.vec(actions),"expected path actions!");
+        actions.forEach(a=>{
+          if(is.vec(a)){
+            gfx[a.shift()].apply(gfx,a);
+          }else if(is.str(a)){
+            gfx[a]();
+          }
+        });
+        return gfx;
+      },
+      /**Fill graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {object} style
+       * @return {PIXI.Graphics}
+       */
+      gfill(gfx, style){
+        _.assert(is.obj(style),`expected fill style object`);
+        gfx.fill(style);
+        return gfx;
+      },
+      /**Stroke graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {object} style
+       * @return {PIXI.Graphics}
+       */
+      gstroke(gfx,style){
+        _.assert(is.obj(style),`expected stroke style object`);
+        gfx.stroke(style);
+        return gfx;
       },
       /**Create a rectangular texture.
        * @param {number} width
        * @param {number} height
-       * @param {string|number} fillStyle
-       * @param {string|number} strokeStyle
+       * @param {string|number} fillColor
+       * @param {string|number} strokeColor
        * @param {number} lineWidth [0]
        * @return {PIXI.Texture}
        */
       rectTexture(width, height,
-           fillStyle = 0xffffff,
-           strokeStyle = 0xffffff, lineWidth=0){
-        let a,g=this.graphics();
-        if(fillStyle !== false){
-          if(is.vec(fillStyle)){
-            a=fillStyle[1];
-            fillStyle=fillStyle[0];
+                  fillColor = 0xffffff, strokeColor = 0xffffff, lineWidth=0){
+        let a,gfx=this.graphics();
+        if(fillColor !== false){
+          if(is.vec(fillColor)){
+            a=fillColor[1];
+            fillColor=fillColor[0];
           }else{
             a=1;
           }
-          g.beginFill(this.color(fillStyle),a);
         }
+        gfx.rect(0, 0, width,height);
+        if(fillColor !== false)
+          gfx.fill({color:this.color(fillColor),alpha:a});
         if(lineWidth>0)
-          g.lineStyle(lineWidth, this.color(strokeStyle));
-        g.drawRect(0, 0, width,height);
-        if(fillStyle !== false){
-          g.endFill()
-        }
-        return this.genTexture(g)
-      },
-      /** Create sprite from this texture.
-       * @param {PIXI.Texture} t
-       * @return {Sprite}
-       */
-      rectEx(t){
-        return this.lift( new Mojo.PXSprite(t))
+          gfx.stroke({width:lineWidth, color:this.color(strokeColor)});
+        return this.genTexture(gfx)
       },
       /**Create a sprite by applying a drawing routine to the graphics object.
        * @memberof module:mojoh5/Sprites
@@ -2362,92 +2573,80 @@
        * @return {Sprite}
        */
       drawBody(cb,...args){
-        let g = this.graphics();
-        cb.apply(this, [g].concat(args));
-        return this.lift(new Mojo.PXSprite(this.genTexture(g))) },
+        const gfx = this.graphics();
+        cb.apply(this, [gfx].concat(args));
+        return this.lift(new PIXI.Sprite(this.genTexture(gfx))) },
       /**Create a circular sprite by generating a texture.
        * @memberof module:mojoh5/Sprites
        * @param {number} radius
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @return {Sprite}
        */
-      circle(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
-        return this.circleEx(this.circleTexture(radius,fillStyle, strokeStyle,lineWidth))
+      circle(radius, fillColor=0xffffff, strokeColor=0xffffff, lineWidth=0){
+        return this.circleEx(this.circleTexture(radius,fillColor, strokeColor,lineWidth))
       },
       /**Create a circular texture.
        * @param {number} radius
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @return {PIXI.Texture}
        */
-      circleTexture(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
-        let a,g = this.graphics();
-        if(fillStyle !== false){
-          if(is.vec(fillStyle)){
-            a=fillStyle[1];
-            fillStyle=fillStyle[0];
+      circleTexture(radius, fillColor=0xffffff, strokeColor=0xffffff, lineWidth=0){
+        let a,gfx = this.graphics();
+        if(fillColor !== false){
+          if(is.vec(fillColor)){
+            a=fillColor[1];
+            fillColor=fillColor[0];
           }else{
             a=1;
           }
-          g.beginFill(this.color(fillStyle),a);
         }
+        gfx.circle(0, 0, radius);
+        if(fillColor !== false)
+          gfx.fill({color:this.color(fillColor),alpha:a});
         if(lineWidth>0)
-          g.lineStyle(lineWidth, this.color(strokeStyle));
-        g.drawCircle(0, 0, radius);
-        if(fillStyle !== false)
-          g.endFill();
-        return this.genTexture(g)
+          gfx.stroke({width:lineWidth, color:this.color(strokeColor)});
+        return this.genTexture(gfx)
       },
       /**Create a sprite from this texture.
        * @param {PIXI.Texture} t
        * @return {PIXI.Sprite}
        */
       circleEx(t){
-        let s=new Mojo.PXSprite(t);
-        s=this.lift(s);
-        return (s.m5.circle=true) && this.centerAnchor(s)
-      },
+        const s= this.lift(new PIXI.Sprite(t));
+        return (s.m5.circle=true) && this.centerAnchor(s) },
       /**Create a line sprite.
        * @memberof module:mojoh5/Sprites
-       * @param {number|string} strokeStyle
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @param {Vec2} A
        * @param {Vec2} B
+       * @param {number} alpha
        * @return {PIXI.Sprite}
        */
-      line(strokeStyle, lineWidth, A,B){
+      line(strokeColor, lineWidth, A,B, alpha=1){
         let
           _a= _V.clone(A),
           _b= _V.clone(B),
-          g = this.graphics(),
-          s,stroke= this.color(strokeStyle);
+          gfx = this.graphics(),
+          s,stroke= this.color(strokeColor);
         function _draw(){
-          g.clear();
-          g.lineStyle(lineWidth, stroke, 1);
-          g.moveTo(_a[0], _a[1]);
-          g.lineTo(_b[0], _b[1]);
+          gfx.clear();
+          gfx.moveTo(_a[0], _a[1]);
+          gfx.lineTo(_b[0], _b[1]);
+          gfx.stroke({width:lineWidth, color:stroke, alpha});
         }
         _draw();
-        s=this.lift(g);
+        s=this.lift(gfx);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
-            _a[0] = x;
-            _a[1] = _.nor(y,x);
-            _draw();
-          }
-          return _a;
-        };
+            _a[0] = x; _a[1] = _.nor(y,x); _draw(); } return _a; };
         s.m5.ptB=function(x,y){
           if(x !== undefined){
-            _b[0] = x;
-            _b[1] = _.nor(y,x);
-            _draw();
-          }
-          return _b;
-        };
+            _b[0] = x; _b[1] = _.nor(y,x); _draw(); } return _b; };
         return s;
       },
       /**Check if a sprite is moving.
@@ -2480,7 +2679,7 @@
        */
       gridBox(ratioX=0.9,ratioY=0.9,parent=UNDEF){
         let
-          P=_.nor(parent,Mojo),
+          P= parent ?? Mojo,
           h=int(P.height*ratioY),
           w=int(P.width*ratioX),
           x1=_M.ndiv(P.width-w,2),
@@ -2494,10 +2693,10 @@
        * @param {object} [out]
        * @return {number[][]}
        */
-      gridSQ(dim,ratio=0.6,out=UNDEF){
+      gridSQ(dim,ratio=0.9,out=UNDEF){
         let
           sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
-          w=_M.ndiv(sz,dim), h=w;
+          w=int(sz/dim), h=w;
 
         if(!_.isEven(w)){--w}
         h=w;
@@ -2532,8 +2731,8 @@
         let
           szh=int(Mojo.height*ratioY),
           szw=int(Mojo.width*ratioX),
-          cw=_M.ndiv(szw,dimX),
-          ch=_M.ndiv(szh,dimY),
+          cw=int(szw/dimX),
+          ch=int(szh/dimY),
           _x,_y,sy,sx;
         szh=dimY*ch;
         szw=dimX*cw;
@@ -2564,12 +2763,12 @@
         let
           szh=int(Mojo.height*ratioY),
           szw=int(Mojo.width*ratioX),
-          cw=_M.ndiv(szw,dimX),
-          ch=_M.ndiv(szh,dimY),
+          cw=int(szw/dimX),
+          ch=int(szh/dimY),
           dim=cw>ch?ch:cw,
           _x,_y,sy,sx;
 
-        if(!_.isEven(dim)){dim--}
+        if(!_.isEven(dim)){--dim}
         szh=dimY*dim;
         szw=dimX*dim;
         sy= _M.ndiv(Mojo.height-szh,2);
@@ -2609,7 +2808,7 @@
        * @return {PIXI.Graphics}
        */
       graphics(id=UNDEF){
-        let ctx= new Mojo.PXGraphics();
+        const ctx= new PIXI.Graphics();
         return (ctx.m5={uuid:`${id?id:_.nextId()}`}) && ctx },
       /**Draw borders around this grid.
        * @memberof module:mojoh5/Sprites
@@ -2624,19 +2823,25 @@
       drawGridBox(bbox,lineWidth=1,lineColor="white",ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
-        ctx.lineStyle(lineWidth,this.color(lineColor));
-        ctx.drawRect(bbox.x1,bbox.y1,
-                     bbox.x2-bbox.x1,bbox.y2-bbox.y1);
+        ctx.rect(bbox.x1,bbox.y1, bbox.x2-bbox.x1,bbox.y2-bbox.y1);
+        ctx.stroke({width:lineWidth,color:this.color(lineColor)});
         return ctx;
       },
-      /**
-      */
+      /**Draw borders around this grid, rounded corners.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} sx
+       * @param {number} sy
+       * @param {number} width
+       * @param {number} height
+       * @param {number} lineWidth
+       * @param {number|string} lineColor
+       * @return {PIXIGraphics}
+       */
       drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
-        ctx.lineStyle(lineWidth,this.color(lineColor));
-        ctx.drawRoundedRect(bbox.x1,bbox.y1,
-                            bbox.x2-bbox.x1,bbox.y2-bbox.y1,radius);
+        ctx.roundRect(bbox.x1,bbox.y1, bbox.x2-bbox.x1,bbox.y2-bbox.y1,radius);
+        ctx.stroke({width:lineWidth,color:this.color(lineColor)});
         return ctx;
       },
       /**Draw grid lines.
@@ -2655,13 +2860,7 @@
           w= grid[0].length;
         if(!ctx)
           ctx= this.graphics();
-        if(is.obj(lineColor)){
-          lineColor.color= this.color(lineColor.color||"white");
-          lineColor.width=lineWidth;
-          ctx.lineStyle(lineColor);
-        }else{
-          ctx.lineStyle(lineWidth,this.color(lineColor));
-        }
+
         for(let r,y=1;y<h;++y){
           r=grid[y];
           ctx.moveTo(sx+r[0].x1,sy+r[0].y1);
@@ -2671,6 +2870,14 @@
           ctx.moveTo(sx+r[x].x1,sy+r[x].y1);
           r=grid[h-1];
           ctx.lineTo(sx+r[x].x1,sy+r[x].y2); }
+
+        if(is.obj(lineColor)){
+          lineColor.color= this.color(lineColor.color||"white");
+          lineColor.width=lineWidth;
+          ctx.stroke(lineColor);
+        }else{
+          ctx.stroke({width:lineWidth,color:this.color(lineColor)});
+        }
         return ctx;
       },
       /**Add more children to this container.
@@ -2680,26 +2887,19 @@
        * @return {Container} parent
        */
       add(par, ...cs){
-        cs.forEach(c=> c && par.addChild(c));
-        return par;
-      },
+        cs.forEach(c=> c && par.addChild(c)); return par },
       /**Remove these sprites, will detach from their parents.
        * @memberof module:mojoh5/Sprites
        * @param {...Sprite} sprites
        */
       remove(...cs){
-        if(cs.length==1 &&
-           is.vec(cs[0])){ cs=cs[0] }
+        if(cs.length==1 && is.vec(cs[0])){ cs=cs[0] }
         _.doseqEx(cs,s=>{
-          if(s.parent){
-            if(_.inst(Mojo.Scenes.Scene,s.parent))
-              s.parent.remove(s);
-            else
-              s.parent.removeChild(s);
-          }
+          if(s.parent)
+            _.inst(Mojo.Scenes.Scene,s.parent)? s.parent.remove(s) : s.parent.removeChild(s);
           Mojo.emit(["post.remove",s]);
           Mojo.off(s);
-          if(s.m5.dispose) s.m5.dispose();
+          s.m5.dispose?.();
         });
         return cs[0];
       },
@@ -2709,15 +2909,17 @@
        * @return {Sprite|Container} obj
        */
       centerObj(obj){
-        obj.x= Mojo.width/2;
-        obj.y= Mojo.height/2;
-        if(obj.anchor.x<0.3){
-          obj.x -= obj.width/2;
-          obj.y -= obj.height/2;
-        }else if(obj.anchor.x<0.7){
-        }else{
-          _.assert(false, "bad anchor to center");
-        }
+        let a=obj.anchor, cx= Mojo.width/2, cy=Mojo.height/2;
+        let w2=obj.width/2, h2=obj.height/2;
+        obj.x=cx;
+        obj.y=cy;
+        //handle containers, fake an anchor
+        if(!a)
+          a= {x:0,y:0};
+        if(a.x<0.3) obj.x=cx-w2;
+        if(a.x>0.7) obj.x=cx+w2;
+        if(a.y<0.3) obj.y=cy-h2;
+        if(a.y>0.7) obj.y=cy+h2;
         return obj;
       },
       /**Expand object to fill entire screen.
@@ -2726,41 +2928,40 @@
        * @return {Sprite|Container} obj
        */
       fillMax(obj){
-        if(obj.anchor)
-          _.assert(obj.anchor.x<0.3,"wanted top left anchor");
+        if(is.str(obj) || _.inst(PIXI.Texture,obj)){ obj=this.sprite(obj) }
+        _.assert(_.inst(PIXI.Container,obj), "expected sprite");
         obj.height=Mojo.height;
         obj.width=Mojo.width;
-        obj.x=0;
-        obj.y=0;
-        return obj;
+        return this.centerObj(obj)
       },
-      /**Remove these sprites, will detach from their parents.
+      /**Convert color value to RGB(A) values.
        * @memberof module:mojoh5/Sprites
        * @param {string} c
        * @return {number[]}
        */
-      colorToRgbA(c){
-        if(!c||!is.str(c)||c.length==0){return}
-        let
-          lc=c.toLowerCase(),
-          code=SomeColors[lc];
+      colorToRgbA(c){//"#319bd5",
+        _.assert(is.str(c) && c.length>0, "bad color string value");
+        let r,lc=c.toLowerCase(), code=SomeColors[lc];
+        if(lc == "transparent"){ return [0,0,0,0] }
         if(code){c=code}
         if(c[0]=="#"){
-          if(c.length<7)
-            c=`#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}${c.length>4?(c[4]+c[4]):""}`;
-          return [parseInt(c.substr(1, 2), 16),
-                  parseInt(c.substr(3, 2), 16),
-                  parseInt(c.substr(5, 2), 16),
-                  c.length>7 ? parseInt(c.substr(7, 2), 16)/255 : 1] }
-
-        if(lc == "transparent"){ return [0,0,0,0] }
-
-        if(lc.indexOf("rgb") == 0){
+          //#RGB or #RGBA or #RRGGBB or #RRGGBBAA
+          (r=c.split("")).shift();
+          if(r.length==3) r.push("F");
+          if(r.length==4){ r= r.flatMap(n=> [n,n]) }
+          if(r.length==6){ r.push("F","F") }
+          if(r.length==8){
+            return [parseInt(r[0]+r[1],16), parseInt(r[2]+r[3],16),
+                    parseInt(r[4]+r[5],16), parseInt(r[6]+r[7],16)/255]
+          }
+        }
+        else if(lc.indexOf("rgb") == 0){
+          //e.g. rgba(0,0,255,0.3)
           if(lc.indexOf("rgba")<0){lc += ",1"}
           return lc.match(/[\.\d]+/g).map(a=> { return +a })
-        }else{
-          throw `Error: Bad color: ${c}`
         }
+        //
+        throw `Error: Bad color string: ${c}`
       },
       /**Turn a number (0-255) into a 2-character hex number (00-ff).
        * @memberof module:mojoh5/Sprites
@@ -2781,19 +2982,27 @@
         // colorToHex('rgb(255, 0, 0)') # '#ff0000'
         const rgba = this.colorToRgbA(color);
         return "0x"+ [0,1,2].map(i=> this.byteToHex(rgba[i])).join("") },
-      /**
-      */
+      /**Convert RGB color to a decimal.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} r
+       * @param {number} g
+       * @param {number} b
+       * @return {number}
+       */
       color3(r,g,b){
         return parseInt(["0x",this.byteToHex(r),this.byteToHex(g),this.byteToHex(b)].join("")) },
       /**Get the integer value of this color.
        * @memberof module:mojoh5/Sprites
        * @param {number|string} value
-       * @return {number}
+       * @return {number} decimal value
        */
       color(value){
         return isNaN(value) ? parseInt(this.colorToHex(value)) : value },
-      /**
-      */
+      /**Get the integer value of this RGBA color.
+       * @memberof module:mojoh5/Sprites
+       * @param {array} arg
+       * @return {number} decimal value
+       */
       rgba(arg){
         _.assert(is.vec(arg),"wanted rgba array");
         return parseInt("0x"+ [0,1,2].map(i=> this.byteToHex(arg[i])).join("")) },
@@ -2824,8 +3033,8 @@
       },
       /** @ignore */
       resize(s,px,py,pw,ph){
-        s && _.doseqEx(s.children,c=>c.m5&&c.m5.resize&&
-                                     c.m5.resize(s.x,s.y,s.width,s.height)) },
+        //not sure this works :P
+        s && _.doseqEx(s.children,c=>c.m5 && c.m5.resize?.(s.x,s.y,s.width,s.height)) },
       /**Put b on top of C.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} C
@@ -2921,8 +3130,7 @@
        * @param {number} m
        */
       setMass(s,m){ s.m5.mass=m },
-      /**Copied from pixi.legacy, why didn't they want to keep this????
-       * so useful!
+      /**Create a Texture from a graphics object.
        * @memberof module:mojoh5/Sprites
        * @param {object} displayObject
        * @param {number} scaleMode
@@ -2935,6 +3143,7 @@
       /**Apply bounce to the objects in this manifold.
        * @memberof module:mojoh5/Sprites
        * @param {Manifold} m
+       * @return {any} undefined
        */
       bounceOff(m){
         return _bounceOff(m.A,m.B,m) },
@@ -3097,7 +3306,7 @@
       /**
       */
       dbgShowCol(col){
-        let out=[];
+        const out=[];
         if(is.set(col))
           for(let i of col.values())
             out.push(this.dbgShowDir(i));
@@ -3140,19 +3349,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
-  /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
+  /**Create the module
+  */
   function _module(Mojo, ScenesDict){
 
     const SG=gscope["io/czlab/mcfud/spatial"]();
     const {v2:_V, math:_M, ute:_,is}=Mojo;
     const int=Math.floor;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Scenes
      */
@@ -3161,20 +3373,23 @@
     const _sceneid=(id)=> id.startsWith("scene::") ? id : `scene::${id}` ;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** internal */
+    ////////////////////////////////////////////////////////////////////////////
     function _killScene(s){
       if(s){
-        s.dispose && s.dispose();
+        s.dispose?.();
         s.parent.removeChild(s);
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /** internal class, wraps a scene */
-    class SceneWrapper extends Mojo.PXContainer{
+    /** internal class, wraps a scene.  Use this to center a scene in the game window */
+    ////////////////////////////////////////////////////////////////////////////
+    class SceneWrapper extends PIXI.Container{
       constructor(s){
         super();
         this.addChild(s);
-        this.name=s.name;
+        this.label=s.label;
         this.m5={stage:true};
       }
       dispose(){
@@ -3185,6 +3400,7 @@
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @memberof module:mojoh5/Scenes
      * @class
@@ -3192,7 +3408,7 @@
      * @property {object} m5
      * @property {object} g  scene specific props go here
      */
-    class Scene extends Mojo.PXContainer{
+    class Scene extends PIXI.Container{
       /**
        * @param {string} sid
        * @param {object|function} func
@@ -3200,7 +3416,7 @@
        */
       constructor(sid,func,options){
         super();
-        this.name= _sceneid(sid);
+        this.label= _sceneid(sid);
         this.g={};
         this.m5={
           index:{},
@@ -3211,18 +3427,18 @@
           stage:true,
           sgrid:SG.spatialGrid(options.sgridX||320,
                                options.sgridY||320) };
-        let s;
         if(is.fun(func)){
-          s=func;
+          this["setup"]=func;
         }else if(is.obj(func)){
-          s= _.dissoc(func,"setup");
           _.inject(this, func);
         }
-        if(s)
-          this.m5.setup=s.bind(this);
       }
-      _hitObjects(grid,obj,found,repeat=1){
-        for(let m,b,i=0,cur=repeat;i<found.length;++i){
+      ////////////////////////////////////////////////////////////////////////////
+      /*check all potential hits */
+      ////////////////////////////////////////////////////////////////////////////
+      #hitObjects(grid,obj,found){
+        let m,b,i,rc=false;
+        for(i=0; !rc && i<found.length;++i){
           b=found[i];
           if(obj !== b &&
              !b.m5.dead &&
@@ -3233,37 +3449,48 @@
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--repeat==0){break}
+              rc=true;
             }
           }
         }
+        return rc;
       }
-      collideXY(obj){
-        this._hitObjects(this.m5.sgrid,obj,
-                         this.m5.sgrid.search(obj))
-      }
-      /**Callback to handle window resizing.
-       * @param {number[]} old  window size before resize
+      /**Check for collision of this object.
+       * @param {object} obj
+       * @return {Scene} this
        */
-      onCanvasResize([width,height]){
+      collideXY(obj){
+        return this.#hitObjects(this.m5.sgrid,obj, this.m5.sgrid.search(obj)) }
+      /**Callback to handle window resizing.
+       * @param {number} width  canvas width before resize
+       * @param {number} height  canvas height before resize
+       * @return {Scene} this
+       */
+      onCanvasResize(width,height){
+        //NOTE: not tested thoroughly yet :)
         Mojo.Sprites.resize({x:0,y:0,
                              width,
                              height,
                              children:this.children})
+        return this;
       }
       /**Run this function after a delay in millis.
-       * @param {function}
+       * @param {function} expr
        * @param {number} delayMillis
+       * @return {Scene} this
        */
       future(expr,delayMillis){
-        this.m5.queue.push([expr, _M.ndiv(Mojo._curFPS*delayMillis,1000) || 1])
+        this.m5.queue.push([expr, _M.ndiv(Mojo._curFPS*delayMillis,1000) || 1]);
+        return this;
       }
       /**Run this function after a delay in frames.
-       * @param {function}
+       * @param {function} expr
        * @param {number} delayFrames
+       * @return {Scene} this
        */
       futureX(expr,delayFrames){
-        this.m5.queue.push([expr,delayFrames||1])
+        this.m5.queue.push([expr,delayFrames || 1]);
+        return this;
       }
       /**Get the child with this id.
        * @param {string} id
@@ -3273,6 +3500,7 @@
         return id && this.m5.index[id] }
       /**Remove this child
        * @param {string|Sprite} c
+       * @return {Scene} this
        */
       remove(c){
         if(is.str(c))
@@ -3284,10 +3512,11 @@
             this.m5.sgrid.degrid(c);
           Mojo.Input.undoXXX(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
+        return this;
       }
       /**Remove item from spatial grid temporarily.
        * @param {Sprite} c
-       * @return {Sprite} c
+       * @return {Sprite} the removed item
        */
       degrid(c){
         if(c && c.m5._engrid)
@@ -3296,17 +3525,28 @@
       }
       /**Force item to update spatial grid.
        * @param {Sprite} c
-       * @return {Sprite} c
+       * @return {Sprite} the item
        */
       engrid(c){
         if(c && c.m5._engrid)
           this.m5.sgrid.engrid(c);
         return c;
       }
+      /**Insert a bunch of child sprites
+       * @param {array} cs
+       * @param {boolean} [engrid]
+       * @return {Sprite} the last child added
+       */
+      insertEx(cs,engrid=false){
+        _.assert(is.vec(cs),"wanted array of child sprites to be inserted!");
+        let out;
+        cs.forEach(c=>{ this.insertAt(c,null,engrid); out=c; });
+        return out;
+      }
       /**Insert this child sprite.
        * @param {Sprite} c
        * @param {boolean} [engrid]
-       * @return {Sprite} c
+       * @return {Sprite} the child
        */
       insert(c,engrid=false){
         return this.insertAt(c,null,engrid) }
@@ -3314,20 +3554,22 @@
        * @param {Sprite} c
        * @param {number} pos
        * @param {boolean} [engrid]
-       * @return {Sprite} c
+       * @return {Sprite} the child
        */
       insertAt(c,pos,engrid=false){
-        c=this._addit(c,pos);
+        c=this.#addit(c,pos);
         if(engrid){
           if(c instanceof PIXI.TilingSprite){}else{
             c.m5._engrid=true;
-            //if(c.visible) this.m5.sgrid.engrid(c);
             this.m5.sgrid.engrid(c);
           }
         }
         return c;
       }
-      _addit(c,pos){
+      ////////////////////////////////////////////////////////////////////////////
+      /*add this child */
+      ////////////////////////////////////////////////////////////////////////////
+      #addit(c,pos){
         if(is.num(pos) &&
            pos >= 0 &&
            pos < this.children.length){
@@ -3337,13 +3579,19 @@
         }
         return (this.m5.index[c.m5.uuid]=c);
       }
+      /**Subclass can override this to do more during dispose
+       * @return {Scene} this
+       */
+      preDispose(){ return this }
       /**Clean up.
-      */
+       * @return {Scene} this
+       */
       dispose(){
+        this.preDispose();
         function _c(o){
           if(o){
             Mojo.Input.undoXXX(o);
-            o.children.forEach(c=> _c(c)); } }
+            o.children.forEach(c=> _c(c)) } }
         this.m5.dead=true;
         Mojo.off(this);
         _c(this);
@@ -3353,8 +3601,12 @@
           Mojo.Input.restore();
           Mojo.CON.log(`removed the current modal scene`);
         }
+        return this;
       }
-      _tick(r,dt){
+      ////////////////////////////////////////////////////////////////////////////
+      /*work horse runned every frame  */
+      ////////////////////////////////////////////////////////////////////////////
+      #tick(r,dt){
         r.forEach(c=>{
           if(c.visible && c.m5 && c.m5.tick){
             c.m5.tick(dt);
@@ -3367,9 +3619,9 @@
             c.m5.flip=false;
             Mojo.emit(["post.tick",c],dt);
             //might have moved, so regrid
-            if(c.m5._engrid) this.m5.sgrid.engrid(c);
+            c.m5._engrid && this.m5.sgrid.engrid(c);
           }
-          c.children.length>0 && this._tick(c.children, dt)
+          c.children.length>0 && this.#tick(c.children, dt)
         })
       }
       /**Find objects that may collide with this object.
@@ -3380,12 +3632,14 @@
         return this.m5.sgrid.search(obj,incObj) }
       /**Stage this object for removal.
        * @param {object} obj
+       * @return {object} the same object
        */
       queueForRemoval(obj){
         return this.m5.garbo.push(obj) && obj
       }
-      /**
+      /**Update the scene, called every frame.
        * @param {number} dt
+       * @return {Scene} this
        */
       update(dt){
         if(!this.m5.dead){
@@ -3398,31 +3652,30 @@
             f[0]();
           });
           //run the scene
-          this.preUpdate && this.preUpdate(dt);
-          this._tick(this.children, dt);
-          this.postUpdate && this.postUpdate(dt);
+          this.preUpdate?.(dt);
+          this.#tick(this.children, dt);
+          this.postUpdate?.(dt);
           //clean up
           this.m5.garbo.forEach(o=>this.remove(o));
           this.m5.garbo.length=0;
         }
+        return this;
       }
       /**Initial bootstrap of this scene.
-      */
+       * @return {Scnene} this
+       */
       runOnce(){
-        if(this.m5.setup){
-          this.m5.setup(this.m5.options);
-          delete this.m5["setup"];
-        }
+        this.setup?.(this.m5.options);
         return this;
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*Smart layout for menus, both vertical or horizontal. */
+    ////////////////////////////////////////////////////////////////////////////
     function _layout(items,options,dir){
+      let {Sprites:_S}=Mojo, K=Mojo.getScaleFactor();
       if(items.length==0){return}
-      let
-        {Sprites:_S}=Mojo,
-        K=Mojo.getScaleFactor();
       options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
@@ -3433,7 +3686,8 @@
         C=options.group || _S.container(),
         pad=options.padding * K,
         last,w,h,p, T=0, Z=-1,
-        fit= options.fit * K, fit2= fit * 2,
+        fit= options.fit * K,
+        fit2= fit * 2,
         guessWidth= (s)=>{
           T+=s.height;
           if(s.width>Z) Z=s.width;
@@ -3465,8 +3719,9 @@
         }
       }
       let
-        [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)],
-        prev, op=dir==Mojo.DOWN?"pinBelow":"pinRight";
+        prev,
+        [w2,h2]=[int(w/2), int(h/2)],
+        op=dir==Mojo.DOWN?"pinBelow":"pinRight";
       items.forEach((s,i)=>{
         if(dir==Mojo.DOWN){
           if(i==0){
@@ -3490,6 +3745,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*Create a selectable menu. */
+    ////////////////////////////////////////////////////////////////////////////
     function _choiceBox(items,options,dir){
       let
         {Sprites:_S,Input:_I}=Mojo,
@@ -3508,7 +3765,7 @@
               cur.tint=disabledColor;
               b.tint=selectedColor;
               cur=b;
-              options.onClick && options.onClick(b);
+              options.onClick?.(b);
             }
           };
       });
@@ -3523,38 +3780,39 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //the module
+    ////////////////////////////////////////////////////////////////////////////
     const _$={
       Scene,
       SceneWrapper,
       /**Lay items out horizontally.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       layoutX(items,options){
         return _layout(items,options,Mojo.RIGHT) },
       /**Lay items out vertically.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       layoutY(items,options){
         return _layout(items, options, Mojo.DOWN) },
       /**Lay selectable items out horizontally.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       choiceMenuX(items,options){
         return _choiceBox(items, options, Mojo.RIGHT) },
       /**Lay selectable items out vertically.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       choiceMenuY(items,options){
         return _choiceBox(items, options, Mojo.DOWN) },
@@ -3563,6 +3821,7 @@
        * @param {string} name
        * @param {object|function} func
        * @param {object} [options]
+       * @return {any} undefined
        */
       scene(name, func, options){
         //add a new scene definition
@@ -3575,10 +3834,11 @@
        * @param {string|Scene} cur
        * @param {string} name
        * @param {object} [options]
+       * @return {Scene} new scene
        */
       replace(cur,name,options){
         const
-          n=_sceneid(is.str(cur)?cur:cur.name),
+          n=_sceneid(is.str(cur)?cur:cur.label),
           c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;
@@ -3587,6 +3847,7 @@
       /**Remove these scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...Scene} args
+       * @return {any} undefined
        */
       remove(...args){
         if(args.length==1 &&
@@ -3595,6 +3856,7 @@
       },
       /**Remove all the scenes.
        * @memberof module:mojoh5/Scenes
+       * @return {any} undefined
        */
       removeAll(){
         while(Mojo.stage.children.length>0)
@@ -3605,7 +3867,7 @@
       /**Find this scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
-       * @return {Scene}
+       * @return {Scene} the named scene
        */
       find(name){
         return Mojo.stage.getChildByName(_sceneid(name)) },
@@ -3614,16 +3876,16 @@
        * @param {string} name
        * @param {number} num
        * @param {object} [options]
-       * @return {Scene}
+       * @return {Scene} the named scene
        */
       runEx(name,num,options){
         this.removeAll();
-        this.run(name,num,options);
+        return this.run(name,num,options);
       },
       /**Run a sequence of scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...any} args
-       * @return {Scene}
+       * @return {any} undefined
        */
       runSeq(...args){
         args.forEach(a=>{
@@ -3635,9 +3897,10 @@
        * @memberof module:mojoh5/Scenes
        * @param {string} name
        * @param {object} [options]
-       * @return {Scene}
+       * @return {Scene} the modal scene
        */
       modal(name,options){
+        _.assert(!Mojo.modalScene,`Another modal is already running!`);
         Mojo.Input.save();
         return Mojo.modalScene= this.run(name,null,options);
       },
@@ -3646,7 +3909,7 @@
        * @param {string} name
        * @param {number} num
        * @param {object} [options]
-       * @return {Scene}
+       * @return {Scene} the new scene
        */
       run(name,num,options){
         let py, y, s0,_s = ScenesDict[name];
@@ -3688,7 +3951,7 @@
       },
       /**Get the topmost scene.
        * @memberof module:mojoh5/Scenes
-       * @return {Scene}
+       * @return {Scene} the top scene
        */
       topMost(){
         let c= _.last(Mojo.stage.children);
@@ -3729,12 +3992,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
 
@@ -3745,17 +4009,21 @@
       is,
       Sprites:_S
     }=Mojo;
+
     const
       int=Math.floor,
       P5=Math.PI*5,
       PI_2= Math.PI/2,
       TWO_PI= Math.PI*2;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/FX
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function StarWarp(C, options){
       options= options || {};
       let
@@ -3770,18 +4038,19 @@
         speed = 0,
         warp= 0,
         mark=_.now(),
-        color = options.color || "yellow",
-        items= options.items || 1000,
-        img = Mojo.tcached("boot/star.png");
-      const stars = _.fill(items, i=>{
-        i= _S.sprite(img);
-        i.g.d3=[0,0,0];
-        if(_.rand()<0.3)
-          i.tint= _S.color(color);
-        _S.anchorXY(i, 0.5,0.69);
-        C.addChild(i);
-        return cfgStar(i, _.rand()*DEPTH);
-      });
+        color = options.color ?? "yellow",
+        items= options.items ?? 1000,
+        img = Mojo.resource("boot/star.png");
+      const
+        stars = _.fill(items, i=>{
+          i= _S.sprite(img);
+          i.g.d3=[0,0,0];
+          if(_.rand()<0.3)
+            i.tint= _S.color(color);
+          _S.anchorXY(i, 0.5,0.69);
+          C.addChild(i);
+          return cfgStar(i, _.rand()*DEPTH);
+        });
       function cfgStar(s, zpos){
         let
           twist = _.rand() * TWO_PI,
@@ -3836,6 +4105,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function Tween(sprite,easing,duration=60,loop=false,ext={}){
       return _.inject({
         duration,
@@ -3844,10 +4115,12 @@
         loop,
         cur:0,
         on:0,
+        dead:0,
         onFrame(end,alpha){},
         _run(){
           this.cur=0;
           this.on=1;
+          this.dead=0;
           TweensQueue.push(this);
         },
         onTick(){
@@ -3867,20 +4140,21 @@
               }else{
                 this.on=0;
                 this.dispose();
-                this.onComplete &&
-                  _.delay(0,()=> this.onComplete());
+                this.onComplete && _.delay(0,()=> this.onComplete());
               }
             }
           }
         },
         dispose(){
-          _.disj(TweensQueue,this);
+          this.dead=1;
           Mojo.emit(["tween.disposed"],this);
         }
       },ext)
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** scale */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenScale(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
@@ -3906,7 +4180,9 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** rotation */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenAngle(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sa,ea){
@@ -3923,7 +4199,9 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** alpha */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenAlpha(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sa,ea){
@@ -3940,7 +4218,9 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** position */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenXY(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
@@ -3966,13 +4246,12 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** group */
+    ////////////////////////////////////////////////////////////////////////////
     function BatchTweens(...ts){
-      let cs=[];
-      ts.forEach(o=>{
-        cs.push(o)
-      });
-      const t={
+      const cs=ts.slice(0);
+      const tObj={
         onTweenEnd(t){
           for(let c,i=0;i<cs.length;++i){
             c=cs[i];
@@ -3983,20 +4262,21 @@
           }
           if(cs.length==0){
             this.dispose();
-            this.onComplete &&
-              _.delay(0,()=>this.onComplete());
+            this.onComplete && _.delay(0,()=>this.onComplete());
           }
         },
         dispose(){
-          Mojo.off(["tween.disposed"],"onTweenEnd",t);
+          Mojo.off(["tween.disposed"],"onTweenEnd",tObj);
           cs.length=0;
         }
       };
-      Mojo.on(["tween.disposed"],"onTweenEnd",t);
-      return t;
+      Mojo.on(["tween.disposed"],"onTweenEnd",tObj);
+      return tObj;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** seq */
+    ////////////////////////////////////////////////////////////////////////////
     function SeqTweens(...ts){
       let c,cs=[];
       ts.forEach(o=>{
@@ -4433,16 +4713,17 @@
        * @memberof module:mojoh5/FX
        * @param {Tween} t
        */
-      remove(t){
-        t && t.dispose() },
+      remove(t){ t?.dispose() },
       /** @ignore */
       update(dt){
         _.rseq(TweensQueue, t=> t.onTick(dt));
         _.rseq(DustBin, p=> p.onTick(dt));
+        for(let i=TweensQueue.length-1;i>=0;--i) TweensQueue[i].dead? TweensQueue.splice(i,1):0;
+        for(let i=DustBin.length-1;i>=0;--i) DustBin[i].m5.dead? _S.remove(DustBin[i]) && DustBin.splice(i,1):0;
       },
       /**Create particles.
        * @memberof module:mojoh5/FX
-       * @return {}
+       * @return {any} undefined
        */
       particles(C,x, y, spriteCtor, count=24, mins={}, maxs={}, gravity=[0,0.3], random=true){
         mins= _.patch(mins,{angle:0, size:4, speed:0.3,
@@ -4457,28 +4738,25 @@
           C.addChild(p);
           if(p.totalFrames)
             p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
-          _S.sizeXY(_S.anchorXY(p,0.5), size, size);
+          _S.sizeXY(_S.centerAnchor(p), size, size);
           _V.set(p,x,y);
           p.g.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
-          p.galphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
+          p.g.alphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
           p.g.angVel = _.randFloat2(mins.rotate, maxs.rotate);
           v= _.randFloat2(mins.speed, maxs.speed);
           _V.set(p.m5.vel, v * Math.cos(angle),
                            v * Math.sin(angle));
           //the worker
           p.onTick=function(){
-            _V.add$(p.m5.vel,gravity);
-            _V.add$(p,p.m5.vel);
-            if(p.scale.x - p.g.scaleSpeed > 0){
-              p.scale.x -= p.g.scaleSpeed
+            if(!this.m5.dead){
+              _V.add$(this.m5.vel,gravity);
+              _V.add$(this,this.m5.vel);
+              if(this.scale.x - this.g.scaleSpeed > 0){ this.scale.x -= this.g.scaleSpeed }
+              if(this.scale.y - this.g.scaleSpeed > 0){ this.scale.y -= this.g.scaleSpeed }
+              this.rotation += this.m5.angVel;
+              this.alpha -= this.g.alphaSpeed;
+              if(this.alpha <= 0){ this.m5.dead=true; }
             }
-            if(p.scale.y - p.g.scaleSpeed > 0){
-              p.scale.y -= p.g.scaleSpeed
-            }
-            p.rotation += p.m5.angVel;
-            p.alpha -= p.g.alphaSpeed;
-            if(p.alpha <= 0)
-              _.disj(DustBin, _S.remove(p));
           };
         }
         for(let diff= maxs.angle-mins.angle,
@@ -4489,7 +4767,7 @@
       },
       /**Shake this sprite.
        * @memberof module:mojoh5/FX
-       * @return {}
+       * @return {Sprite}
        */
       shake(s, magnitude=16, angular=false,loop=true){
         const CHUNK=8;
@@ -4502,7 +4780,7 @@
           tiltAngle = 1,
           startAngle = s.rotation,
           startMagnitude= magnitude,
-          chunk = _M.ndiv(magnitude , CHUNK);
+          chunk = int(magnitude / CHUNK);
         function _upAndDownShake(){
           if(counter<CHUNK){
             s.x = startX;
@@ -4572,7 +4850,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -4583,13 +4861,15 @@
   function _module(Mojo){
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const {Scenes:_Z,
-           Sprites:_S,
-           FX:_F,
-           Input:_I,
-           v2:_V,
-           math:_M,
-           is, ute:_}=Mojo;
+    const
+    {Scenes:_Z,
+      Sprites:_S,
+      FX:_F,
+      Input:_I,
+      v2:_V,
+      math:_M,
+      is, ute:_}=Mojo;
+
     const
       abs=Math.abs,
       cos=Math.cos,
@@ -4599,9 +4879,11 @@
       R=Math.PI/180,
       CIRCLE=Math.PI*2;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Ute2D
      */
+    ////////////////////////////////////////////////////////////////////////////
 
     /**
      * @typedef {object} HealthBarConfig
@@ -4666,79 +4948,93 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //internal use only
+    //////////////////////////////////////////////////////////////////////////////
 		_Z.scene("Splash",{
       setup(options){
+        let C,s, self=this, K=Mojo.getScaleFactor();
         let
           {title,titleFont,titleColor,titleSize}= options,
           {footerMsgSize,action,clickSnd}=options,
           {bg, playMsg,playMsgFont,playMsgColor,playMsgSize,playMsgColor2}= options;
-        let
-          C,
-          self=this,
-          K=Mojo.getScaleFactor();
-        //ffc901 yellow
-        //fd5898 pink
-        //e04455 red
-        playMsgFont= playMsgFont || "Doki Lowercase";
-        footerMsgSize= footerMsgSize || 16*K;
-        titleFont= titleFont || "Big Shout Bob";
+
+        //ffc901 yellow fd5898 pink e04455 red
+
+        playMsgFont= playMsgFont || Mojo.DOKI_LOWER;
+        titleFont= titleFont || Mojo.BIGSHOUTBOB;
+        footerMsgSize= footerMsgSize || 18*K;
         playMsg=playMsg || Mojo.clickPlayMsg();
-        playMsgColor= _.nor(playMsgColor, _S.color("white"));
-        playMsgColor2= _.nor(playMsgColor2, _S.color("#ffc901"));
-        titleColor= _.nor(titleColor, _S.color("#ffc901"));
-        titleSize= _.nor(titleSize, 96*K);
-        playMsgSize= _.nor(playMsgSize, 64*K);
-        self.insert(_S.fillMax( _S.sprite(bg?bg:"boot/splash.jpg")));
+        playMsgColor= playMsgColor ?? _S.color("white");
+        playMsgColor2= playMsgColor2 ?? _S.color("#ffc901");
+        titleColor= titleColor ?? _S.color("#ffc901");
+        titleSize= titleSize ?? 96*K;
+        playMsgSize= playMsgSize ?? 64*K;
+
+        self.insert(_S.fillMax(bg?bg:"boot/splash.jpg"));
         C= self.insert(_S.container());
+        ////////////////////////////////////////////////////////////////////////////
+        //the title
         if(1){
-          let s=_S.bmpText(title, titleFont,titleSize);
-          if(titleColor) _S.tint(s,titleColor);
+          s=_S.bmpText(title, titleFont,titleSize);
+          _.echt(titleColor) ? _S.tint(s,titleColor) : 0;
           _V.set(s,Mojo.width/2,Mojo.height*0.3);
-          C.addChild(_S.anchorXY(s,0.5));
+          C.addChild(_S.centerAnchor(s));
         }
+
+        ////////////////////////////////////////////////////////////////////////////
+        //play message
         if(1){
-          let
-            s=_S.bmpText(playMsg,playMsgFont,playMsgSize),
-            t2,t=_F.throb(s,0.747,0.747);
-          _S.oneOffClick(()=>{
+          s=_S.bmpText(playMsg,playMsgFont,playMsgSize);
+          let t2,t=_F.throb(s, 0.747, 0.747);
+          const cf=()=>{
             _S.tint(s,playMsgColor2);
             _F.remove(t);
             t2=_F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90);
             t2.onComplete=()=>_Z.runEx(action.name,action.cfg);
-          },clickSnd);
-          _V.set(s,Mojo.width/2,Mojo.height*0.5);
-          C.addChild(_S.anchorXY(s,0.5));
+          };
+          let sub= _S.oneOffClick(cf,clickSnd);
+          _V.set(s,Mojo.width/2,Mojo.height*0.65);
+          C.addChild(_S.centerAnchor(s));
+          if(!Mojo.touchDevice){
+            this.g.space= _I.keybd(_I.SPACE,()=>{
+              _S.cancelOneOffClick(sub);
+              cf();
+              Mojo.sound(clickSnd).play();
+            });
+          }
         }
-        if(1){
-          let s= _S.bmpText("(c) www.zotohlab.com 2022.","unscii", footerMsgSize);
-          _S.pinBelow(this,s,-s.height*1.5,0);
-          this.insert(s);
-          s= _S.bmpText("Powered by MojoH5 2d game engine.","unscii",footerMsgSize);
-          _S.pinBelow(this,s,-s.height*1.5,1);
-          this.insert(s);
 
+        ////////////////////////////////////////////////////////////////////////////
+        //footer
+        if(1){
+          const s2= _S.bmpText("Powered by MojoH5 2d game engine.",Mojo.UNSCII,footerMsgSize);
+          const s1= _S.bmpText(Mojo.COPYRIGHT, Mojo.UNSCII, footerMsgSize);
+          _S.pinBelow(this,s1,-s1.height*1.5,0);
+          _S.pinBelow(this,s2,-s2.height*1.5,1);
+          this.insert(s1);
+          this.insert(s2);
         }
+      },
+      preDispose(){
+        this.g.space?.dispose();
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     _Z.scene("EndGame",{
       setup(options){
         let
           {winner,snd}=options,
           {fontName,fontSize,msg,replay,quit}= options;
-        if(winner){
-          snd=snd||"game_win.mp3";
-        }else{
-          snd=snd||"game_over.mp3";
-        }
+        if(!snd) snd= winner ? "game_win.mp3" : "game_over.mp3";
         _.assert(fontSize, "expected fontSize");
-        fontName=fontName || "Doki Lowercase";
+        fontName=fontName || Mojo.DOKI_LOWER;
         let
           os={fontName, fontSize},
-          space=()=>_S.opacity(_S.bmpText("I",os),0),
+          space=()=>_S.opacity(_S.bmpText("#",os),0),
           s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(msg||"", os),
+          s2=_S.bmpText(msg, os),
           s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
           s5=_S.bmpText(" or ",os),
           s6=_I.mkBtn(_S.bmpText("Quit",os));
@@ -4750,115 +5046,99 @@
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     _Z.scene("PhotoMat",{
       setup(arg){
-        if(arg.cb){ arg.cb(this) }else{
-          let s= arg.image? Mojo.tcached(arg.image): UNDEF;
-          this.g.gfx=_S.graphics();
-          if(s)
-            this.g.gfx.beginTextureFill({texture:s});
-          else
-            this.g.gfx.beginFill(_S.color(arg.color));
-          //top,bottom
-          this.g.gfx.drawRect(0,0,Mojo.width,arg.y1);
-          this.g.gfx.drawRect(0,arg.y2,Mojo.width,Mojo.height-arg.y2);
-          //left,right
-          this.g.gfx.drawRect(0,0,arg.x1,Mojo.height);
-          this.g.gfx.drawRect(arg.x2,0,Mojo.width-arg.x2,Mojo.height);
-          this.g.gfx.endFill();
-          this.insert(this.g.gfx);
-        }
+        let s= arg.image? Mojo.resource(arg.image): UNDEF;
+        this.g.gfx=_S.graphics();
+        //top,bottom
+        _S.grect(this.g.gfx, 0,0,Mojo.width,arg.y1);
+        _S.grect(this.g.gfx, 0,arg.y2,Mojo.width,Mojo.height-arg.y2);
+        //left,right
+        _S.grect(this.g.gfx, 0,0,arg.x1,Mojo.height);
+        _S.grect(this.g.gfx, arg.x2,0,Mojo.width-arg.x2,Mojo.height);
+        s ? _S.gfillEx(this.g.gfx, s,{})
+          : _S.gfill(this.g.gfx, {color:_S.color(arg.color)});
+        this.insert(this.g.gfx);
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     _Z.scene("HotKeys",{
       setup(options){
         let
-          bs,F,U,D,L,R,
-          opstr= options.buttons?"makeButton":"makeHotspot",
+          m, bs, opstr= options.buttons?"makeButton":"makeHotspot",
           {fontName,fontSize,cb,radius,alpha,color}=options,
-          {char_fire, char_down,char_up,char_left,char_right}=options;
+          {char_fire,char_down,char_up,char_left,char_right}=options;
         _.assert(is.num(fontSize),"expected fontsize");
         _.assert(is.num(radius),"expected radius");
         _.assert(is.fun(cb),"expected callback");
-        fontName=fontName||"Doki Lowercase";
-        alpha=alpha || 0.2;
-        color=_.nor(color,"grey");
-
-        char_down=char_down||"-";
-        char_up=char_up||"+";
-        char_left=char_left||"<";
-        char_right=char_right||">";
-        char_fire=char_fire||"^";
-
-        D= _S.opacity(_S.circle(radius,color),alpha);
-        D.addChild(_S.anchorXY(_S.bmpText(char_down,fontName,fontSize),0.5));
-        U= _S.opacity(_S.circle(radius,color),alpha);
-        U.addChild(_S.anchorXY(_S.bmpText(char_up,fontName,fontSize),0.5));
-        L= _S.opacity(_S.circle(radius,color),alpha);
-        L.addChild(_S.anchorXY(_S.bmpText(char_left,fontName,fontSize),0.5));
-        R= _S.opacity(_S.circle(radius,color),alpha);
-        R.addChild(_S.anchorXY(_S.bmpText(char_right,fontName,fontSize),0.5));
-        if(options.fire){
-          F= _S.opacity(_S.circle(radius,color),alpha);
-          F.addChild(_S.anchorXY(_S.bmpText(char_fire,fontName,fontSize),0.5));
-        }
-        bs=cb(F?{left:L,right:R,down:D,up:U,fire:F}:{left:L,right:R,down:D,up:U});
+        fontName=fontName||Mojo.DOKI_LOWER;
+        alpha=alpha ?? 0.2;
+        color=color ?? "grey";
+        m= [["left",char_left || "<"],
+            ["right",char_right || ">"],
+            ["up",char_up || "+"],
+            ["down",char_down || "-"], ["fire",char_fire || "^"]].reduce((acc,v,i)=>{
+              if(v[0]=="fire" && !options.fire){}else{
+                acc[v[0]]= _S.opacity(_S.circle(radius,color),alpha);
+                acc[v[0]].addChild(_S.centerAnchor(_S.bmpText(v[1],fontName,fontSize)));
+              }
+              return acc;
+            },{});
+        bs=cb(m);
         if(bs.right){
           this.insert(_I[opstr](bs.right));
           if(bs.right.m5.hotspot)
-            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT);
-        }
+            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT); }
         if(bs.left){
           this.insert(_I[opstr](bs.left));
           if(bs.left.m5.hotspot)
-            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT);
-        }
+            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT); }
         if(bs.up){
           this.insert(_I[opstr](bs.up));
           if(bs.up.m5.hotspot)
-            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP);
-        }
+            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP); }
         if(bs.down){
           this.insert(_I[opstr](bs.down));
           if(bs.down.m5.hotspot)
-            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN);
-        }
+            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN); }
         if(bs.fire){
           this.insert(_I[opstr](bs.fire));
           if(bs.fire.m5.hotspot)
-            bs.fire.m5.touch=(o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE);
-        }
-        if(options.extra) options.extra(this);
+            bs.fire.m5.touch= (o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE); }
+        //run any extra code...
+        options.extra?.(this);
       }
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     _Z.scene("AudioIcon",{
       setup(arg){
         let
-          {Sound}=Mojo,
           {cb,iconOn,iconOff}= arg,
           {xOffset,yOffset,xScale,yScale}=arg,
-          K=Mojo.getScaleFactor(),
+          {Sound}=Mojo, K=Mojo.getScaleFactor(),
           s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
 
-        xScale= _.nor(xScale, K*2);
-        yScale= _.nor(yScale, K*2);
-        xOffset= _.nor(xOffset, -10*K);
-        yOffset= _.nor(yOffset, 0);
+        xScale= xScale ?? K*2;
+        yScale= yScale ?? K*2;
+        yOffset= yOffset ?? 0;
+        xOffset= xOffset ?? -10*K;
         _S.scaleXY(_S.opacity(s,0.343),xScale,yScale);
         _V.set(s,Mojo.width-s.width+xOffset, 0+yOffset);
 
         s.m5.showFrame(Sound.sfx()?0:1);
         s.m5.press=()=>{
           if(Sound.sfx()){
-            Sound.mute();
-            s.m5.showFrame(1);
+            Sound.mute(); s.m5.showFrame(1);
           }else{
-            Sound.unmute();
-            s.m5.showFrame(0);
+            Sound.unmute(); s.m5.showFrame(0);
           }
         };
         this.insert(s);
@@ -4867,8 +5147,14 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
+    ////////////////////////////////////////////////////////////////////////////
     _Z.scene("StarfieldBg",{
       setup(o){
+        const
+          self=this,
+          stars=[],
+          gfx=_S.graphics();
+
         _.patch(o,{
           height:Mojo.height,
           width:Mojo.width,
@@ -4876,10 +5162,6 @@
           minVel:15,
           maxVel:30
         });
-        const
-          self=this,
-          stars=[],
-          gfx=_S.graphics();
         _.inject(this.g,{
           gfx,
           stars,
@@ -4887,11 +5169,10 @@
           dynamic:true,
           fps: 1/o.fps,
           draw(){
-            gfx.clear();
+            _S.gclear(gfx);
             stars.forEach(s=>{
-              gfx.beginFill(_.rand()<0.3?_S.SomeColors.yellow:_S.SomeColors.white);
-              gfx.drawRect(s.x, s.y, s.size, s.size);
-              gfx.endFill();
+              _S.grect(gfx,s.x, s.y, s.size, s.size);
+              _S.gfill(gfx,{color:_.rand()<0.3?_S.SomeColors.yellow:_S.SomeColors.white});
             });
             return this;
           },
@@ -4921,7 +5202,7 @@
         this.g.draw() && this.insert(gfx);
       },
       postUpdate(dt){
-        this.g.dynamic ? this.g.moveStars(dt) : 0
+        this.g.dynamic && this.g.moveStars(dt)
       }
     },{fps:90, count:100, minVel:15, maxVel:30 });
 
@@ -4929,49 +5210,56 @@
     /**Emit something every so often...
      * @class
      */
-    class Periodic{
+    class Periodic {
+      #interval;
+      #ctor;
+      #timer;
+      #size;
+      #pool;
       constructor(ctor,intervalSecs,size=16){
-        this._interval=intervalSecs;
-        this._ctor=ctor;
-        this._timer=0;
-        this._size=size
-        this._pool=_.fill(size,ctor);
+        this.#interval=intervalSecs;
+        this.#ctor=ctor;
+        this.#timer=0;
+        this.#size=size
+        this.#pool=_.fill(size,ctor);
       }
       lifeCycle(dt){
-        this._timer += dt;
-        if(this._timer > this._interval){
-          this._timer = 0;
+        this.#timer += dt;
+        if(this.#timer > this.#interval){
+          this.#timer = 0;
           this.discharge();
         }
       }
       discharge(){
         throw `Periodic: please implement action()` }
       reclaim(o){
-        if(this._pool.length<this._size) this._pool.push(o)
+        if(this.#pool.length<this.#size) this.#pool.push(o)
       }
-      _take(){
-        return this._pool.length>0? this._pool.pop(): this._ctor()
+      take(){
+        return this.#pool.length>0? this.#pool.pop(): this.#ctor()
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function Camera(e,worldWidth,worldHeight,canvas){
       const
-        _height= canvas?canvas.height:worldHeight,
-        _width= canvas?canvas.width:worldWidth,
-        h2=_M.ndiv(_height,2),
-        w2=_M.ndiv(_width,2),
-        h4=_M.ndiv(_height,4),
-        w4=_M.ndiv(_width,4),
+        _height= canvas?.height ?? worldHeight,
+        _width= canvas?.width ?? worldWidth,
         sigs=[],
-        world=e;
+        world=e,
+        h2=int(_height/2),
+        w2=int(_width/2),
+        h4=int(_height/4),
+        w4=int(_width/4);
       let
         _x=0,
         _y=0,
         self={
           dispose(){ Mojo.off(self) },
-          //changing the camera's xy pos shifts
-          //pos of the world in the opposite direction
+          //changing the camera's xy pos shifts pos of the world in the opposite direction
+          //e.g. panning camera right means pulling world to left
           set x(v){ _x=v; e.x= -_x },
           set y(v){ _y=v; e.y= -_y },
           get x(){ return _x },
@@ -4984,14 +5272,11 @@
             //Check the sprites position in relation to the viewport.
             //Move the camera to follow the sprite if the sprite
             //strays outside the viewport
-            const
-              bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s)
-                                 : Mojo.Sprites.boundingBox(s),
-              _right=()=>{ if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }},
-              _left=()=>{ if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }},
-              _top=()=>{ if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }},
-              _bottom=()=>{ if(bx.y2> this.y+int(h2+h4)){ this.y = bx.y2- h4*3 }};
-            _left();  _right();  _top();  _bottom();
+            const bx= _.feq0(s.angle)? _S.getAABB(s) : _S.boundingBox(s);
+            { if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }}//left
+            { if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }}//right
+            { if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }}//top
+            { if(bx.y2> this.y+int(h2+h4)){ this.y = bx.y2- h4*3 }}//bottom
             //clamp the camera
             if(this.x<0){ this.x = 0 }
             if(this.y<0){ this.y = 0 }
@@ -5007,16 +5292,19 @@
             if(n<0) { s.x += -n }
             n=bx.y1  + y1;
             if(n<0) { s.y += -n }
+            return s;
           },
+          //NOTE: old fashion funcdef when `arguments` is used
           centerOver:function(s,y){
             if(arguments.length==1 && !is.num(s)){
-              let c=Mojo.Sprites.centerXY(s)
+              const c=_S.centerXY(s);
               this.x = c[0]- w2;
               this.y = c[1] - h2;
             }else{
               if(is.num(s)) this.x=s - w2;
               if(is.num(y)) this.y=y - h2;
             }
+            return s;
           }
         };
       Mojo.on(["post.remove",e],"dispose",self);
@@ -5024,81 +5312,78 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function Meander(e){
-      const
-        colls=[],
-        self={
-          dispose(){ Mojo.off(self) },
-          boom(col){
-            _.assert(col.A===e,"got hit by someone else???");
-            if(col.B && col.B.m5.sensor){
-              Mojo.emit(["bump.sensor", col.B], col.A)
-            }else{
-              let b=0,[dx,dy]= e.m5.vel;
-              col.impact=UNDEF;
-              //update position
-              _V.sub$(e,col.overlapV);
-              if(col.overlapN[1] < -0.3){
-                if(!e.m5.skipHit && dy<0){ _V.setY(e.m5.vel,0) }
-                col.impact=abs(dy);
-                Mojo.emit(["bump.top", e],col);
-              }
-              if(col.overlapN[1] > 0.3){
-                if(!e.m5.skipHit && dy>0){ _V.setY(e.m5.vel,0) }
-                col.impact=abs(dy);
-                Mojo.emit(["bump.bottom",e],col);
-              }
-              if(col.overlapN[0] < -0.3){
-                if(!e.m5.skipHit && dx<0){ _V.setX(e.m5.vel,0) }
-                col.impact=abs(dx);
-                Mojo.emit(["bump.left",e],col);
-              }
-              if(col.overlapN[0] > 0.3){
-                if(!e.m5.skipHit && dx>0){ _V.setX(e.m5.vel,0) }
-                col.impact=abs(dx);
-                Mojo.emit(["bump.right",e],col);
-              }
-              if(col.impact===UNDEF){
-                col.impact=0
-              }else{
-                Mojo.emit(["bump.*",e],col);
-              }
+      function boomFn(e,col,dv,signal){
+        //Mojo.CON.log(`boomFn dv=${dv}, signal=${signal}`);
+        col.impact=abs(dv);
+        Mojo.emit([signal, e],col);
+      }
+      const colls=[];
+      const self={
+        dispose(){ Mojo.off(self) },
+        boom(col){
+          _.assert(col.A===e,"got hit by someone else???");
+          if(col.B && col.B.m5.sensor){
+            //tell sensor it got hit by A
+            Mojo.emit(["bump.sensor", col.B], col.A)
+          }else{
+            let b=0,[dx,dy]= e.m5.vel;
+            col.impact=UNDEF;
+            //update position
+            _V.sub$(e,col.overlapV);
+            if(col.overlapN[1] < -0.3){
+              dy<0?(e.m5.skipHit?0: _V.setY(e.m5.vel,0)):0;
+              boomFn(e,col,dy,"bump.top");
+            }else if(col.overlapN[1] > 0.3){
+              dy>0?(e.m5.skipHit?0: _V.setY(e.m5.vel,0)):0;
+              boomFn(e,col,dy,"bump.bottom");
             }
-            colls.push(col);
+            if(col.overlapN[0] < -0.3){
+              dx<0?(e.m5.skipHit?0: _V.setX(e.m5.vel,0)):0;
+              boomFn(e,col,dx,"bump.left");
+            }else if(col.overlapN[0] > 0.3){
+              dx>0?(e.m5.skipHit?0: _V.setX(e.m5.vel,0)):0;
+              boomFn(e,col,dx,"bump.right");
+            }
+            if(col.impact===UNDEF){ col.impact=0 }else{
+              Mojo.emit(["bump.*",e],col);
+            }
           }
-        };
+          colls.push(col);
+        }
+      };
       Mojo.on(["hit",e],"boom", self);
       Mojo.on(["post.remove",e],"dispose",self);
       return function(dt){
         colls.length=0;
-        Mojo.Sprites.move(e,dt);
-        e.parent.collideXY(e);
-        return colls[0];
+        _S.move(e,dt) && e.parent.collideXY(e);
+        return colls.length>0?colls[0]:UNDEF;
       };
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function Jitter(e,jumpSpeed,jumpKey){
-      jumpKey= _.nor(jumpKey, Mojo.Input.UP);
-      jumpSpeed= _.nor(jumpSpeed,-300);
+      jumpSpeed= jumpSpeed ?? -300;
+      jumpKey= jumpKey ?? _I.UP;
       //give some time to ease into or outof that ground state
       //instead of just on or off ground,
-      let
-        jumpCnt=0,
-        ground=0,
-        j3= jumpSpeed/3;
+      let jumpCnt=0, ground=0, j3= jumpSpeed/3;
+      const _DT15=1/15;
       const self={
-        onGround(){ ground=0.24 },
-        dispose(){ Mojo.off(self) }
-      };
+        onGround(){ ground=_DT15 },
+        dispose(){ Mojo.off(self) } };
       Mojo.on(["bump.bottom",e],"onGround",self);
       return function(dt,col){
         if(!e.m5.skipHit){
           let
             vs= e.m5.speed,
-            pR= Mojo.Input.keyDown(Mojo.Input.RIGHT),
-            pL= Mojo.Input.keyDown(Mojo.Input.LEFT),
-            pU= Mojo.Input.keyDown(jumpKey);
+            pR= _I.keyDown(_I.RIGHT),
+            pL= _I.keyDown(_I.LEFT),
+            pU= _I.keyDown(jumpKey);
           if(col && (pL || pR || ground>0)){
             //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
@@ -5121,8 +5406,8 @@
           }else{
             _V.setX(e.m5.vel,0);
           }
-          //handle jumpy things, very first jump
           if(ground>0 && jumpCnt==0 && pU){
+            //handle jumpy things, very first jump
             _V.setY(e.m5.vel, jumpSpeed);
             jumpCnt +=1;
             ground = -dt;
@@ -5145,9 +5430,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function MazeRunner(e,frames){
-      const self={
-        dispose(){ Mojo.off(self) } };
+      const self={ dispose(){ Mojo.off(self) } };
       return function(dt,col){
         let
           [vx,vy]=e.m5.vel,
@@ -5170,18 +5456,14 @@
             }
           }
         }
-        let r,d,l,u;
-        if(Mojo.u.touchOnly){
-          r=e.m5.heading==Mojo.RIGHT;
-          l=e.m5.heading==Mojo.LEFT;
-          u=e.m5.heading==Mojo.UP;
-          d=e.m5.heading==Mojo.DOWN;
-        }else{
-          r=Mojo.Input.keyDown(Mojo.Input.RIGHT) && Mojo.RIGHT;
-          d=Mojo.Input.keyDown(Mojo.Input.DOWN) && Mojo.DOWN;
-          l=Mojo.Input.keyDown(Mojo.Input.LEFT) && Mojo.LEFT;
-          u=Mojo.Input.keyDown(Mojo.Input.UP) && Mojo.UP;
-        }
+
+        let
+          bt=Mojo.u.touchOnly,
+          r=bt ? (e.m5.heading==Mojo.RIGHT) : (_I.keyDown(_I.RIGHT) && Mojo.RIGHT),
+          l=bt ? (e.m5.heading==Mojo.LEFT) : (_I.keyDown(_I.LEFT) && Mojo.LEFT),
+          u=bt ? (e.m5.heading==Mojo.UP) : (_I.keyDown(_I.UP) && Mojo.UP),
+          d=bt ? (e.m5.heading==Mojo.DOWN) : (_I.keyDown(_I.DOWN) && Mojo.DOWN);
+
         if(l||u){vs *= -1}
         if(l&&r){
           _V.setX(e.m5.vel,0);
@@ -5197,6 +5479,7 @@
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /**Sprite walks back and forth, like a patrol.
      * @memberof module:mojoh5/Ute2D
      * @param {PIXI/Sprite} e
@@ -5205,39 +5488,38 @@
      * @return {PatrolObj}
      */
     function Patrol(e,xDir,yDir){
-      const
-        sigs=[],
-        self={
-          dispose(){ Mojo.off(self) },
-          goLeft(col){
-            e.m5.heading=Mojo.LEFT;
-            e.m5.flip= "x";
-            _V.setX(e.m5.vel, -col.impact);
-          },
-          goRight(col){
-            e.m5.heading=Mojo.RIGHT;
-            e.m5.flip= "x";
-            _V.setX(e.m5.vel, col.impact);
-          },
-          goUp(col){
-            _V.setY(e.m5.vel,-col.impact);
-            e.m5.heading=Mojo.UP;
-            e.m5.flip= "y";
-          },
-          goDown(col){
-            _V.setY(e.m5.vel, col.impact);
-            e.m5.heading=Mojo.DOWN;
-            e.m5.flip= "y";
-          }
-        };
+      const sigs=[];
+      const self={
+        dispose(){ Mojo.off(self) },
+        goLeft(col){
+          e.m5.heading=Mojo.LEFT;
+          e.m5.flip= "x";
+          _V.setX(e.m5.vel, -col.impact);
+        },
+        goRight(col){
+          e.m5.heading=Mojo.RIGHT;
+          e.m5.flip= "x";
+          _V.setX(e.m5.vel, col.impact);
+        },
+        goUp(col){
+          _V.setY(e.m5.vel,-col.impact);
+          e.m5.heading=Mojo.UP;
+          e.m5.flip= "y";
+        },
+        goDown(col){
+          _V.setY(e.m5.vel, col.impact);
+          e.m5.heading=Mojo.DOWN;
+          e.m5.flip= "y";
+        }
+      };
+
       if(xDir){
         Mojo.on(["bump.right",e],"goLeft",self);
-        Mojo.on(["bump.left",e],"goRight",self);
-      }
+        Mojo.on(["bump.left",e],"goRight",self); }
       if(yDir){
         Mojo.on(["bump.top",e],"goDown",self);
-        Mojo.on(["bump.bottom",e],"goUp",self);
-      }
+        Mojo.on(["bump.bottom",e],"goUp",self); }
+
       Mojo.on(["post.remove",e],"dispose",self);
       return self;
     }
@@ -5258,14 +5540,14 @@
        * @memberof module:mojoh5/Ute2D
        * @param {Sprite} s
        * @param {vec2} pos
+       * @return {Sprite}
        */
       seek(s, pos){
-        let dv = _V.unit$(_V.sub(pos,s));
+        const dv = _V.unit$(_V.sub(pos,s));
         if(dv){
           _V.mul$(dv, s.m5.maxSpeed);
           _V.sub$(dv, s.m5.vel);
-          _V.add$(s.m5.steer,dv);
-        }
+          _V.add$(s.m5.steer,dv); }
         return s;
       },
       /**
@@ -5273,6 +5555,7 @@
        * @param {Sprite} s
        * @param {vec2} pos
        * @param {number} range
+       * @return {Sprite}
        */
       flee(s, pos,range){
         //only flee if the target is within 'panic distance'
@@ -5285,45 +5568,54 @@
           _V.sub$(dv, s.m5.vel);
           _V.add$(s.m5.steer, dv);
         }
+        return s;
       },
       /**
        * @memberof module:mojoh5/Ute2D
        * @param {Sprite} s
        * @param {vec2} pos
        * @param {number} range
+       * @return {Sprite}
        */
       arrive(s, pos,range){
-        let
-          r=1, n= _V.dist(s,pos),
-          dv = _V.unit$(_V.sub(pos,s));
+        let r=1, n= _V.dist(s,pos);
+        let dv = _V.unit$(_V.sub(pos,s));
         if(range === undefined)
           range= s.m5.steerInfo.arrivalThreshold;
         if(n>range){}else{ r=n/range }
         _V.mul$(dv,s.m5.maxSpeed * r);
         _V.sub$(dv,s.m5.vel);
         _V.add$(s.m5.steer,dv);
+        return s;
       },
       /**
        * @memberof module:mojoh5/Ute2D
        * @param {Sprite} s
        * @param {Sprite} target
+       * @return {Sprite}
        */
       pursue(s,target){
-        let
-          lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-          predicted= _V.add(target, _V.mul(target.m5.vel,lookAheadTime));
-        return this.seek(s,predicted);
+        return this.seek(s,
+                         //predicted pos
+                         _V.add(target,
+                                _V.mul(target.m5.vel,
+                                       // lookahead time
+                                       _V.dist(s,target) / s.m5.maxSpeed)))
       },
       /**
        * @memberof module:mojoh5/Ute2D
        * @param {Sprite} s
        * @param {Sprite} target
+       * @return {Sprite}
        */
       evade(s,target){
-        let
-          lookAheadTime = _V.dist(s,target) / s.m5.maxSpeed,
-          predicted= _V.sub(target, _V.mul(target.m5.vel,lookAheadTime));
-        return this.flee(s, predicted);
+        return this.flee(s,
+                         //predicted pos
+                         _V.sub(target,
+                                _V.mul(target.m5.vel,
+                                       //lookahead time
+                                       _V.dist(s,target) / s.m5.maxSpeed)))
+
       },
       /**
        * @memberof module:mojoh5/Ute2D
@@ -5338,6 +5630,7 @@
       /**
        * @memberof module:mojoh5/Ute2D
        * @param {Sprite} s
+       * @return {Sprite}
        */
       wander(s){
         let
@@ -5355,6 +5648,7 @@
        * @param {Sprite} s
        * @param {Sprite} targetA
        * @param {Sprite} targetB
+       * @return {Sprite}
        */
       interpose(s,targetA, targetB){
         let
@@ -5370,11 +5664,10 @@
        * @param {array} ents
        * @param {number} separationRadius
        * @param {number} maxSeparation
+       * @return {Sprite}
        */
       separation(s, ents, separationRadius=300, maxSeparation=100){
-        let
-          force = [0,0],
-          neighborCount = 0;
+        let force = [0,0], neighborCount = 0;
         ents.forEach(e=>{
           if(e !== s && _V.dist(e,s) < separationRadius){
             _V.add$(force,_V.sub(e,s));
@@ -5384,6 +5677,7 @@
         if(neighborCount > 0)
           _V.flip$(_V.div$(force,neighborCount));
         _V.add$(s.m5.steer, _V.mul$(_V.unit$(force), maxSeparation));
+        return s;
       },
       /**
        * @memberof module:mojoh5/Ute2D
@@ -5395,6 +5689,7 @@
        * @param {number} maxSeparation
        * @param {number} leaderSightRadius
        * @param {number} arrivalThreshold
+       * @return {Sprite}
        */
       followLeader(s,leader, ents, distance=400, separationRadius=300,
                    maxSeparation = 100, leaderSightRadius = 1600, arrivalThreshold=200){
@@ -5402,9 +5697,8 @@
           return _V.dist(ahead,s) < leaderSightRadius ||
                  _V.dist(leader,s) < leaderSightRadius
         }
-        let
-          tv = _V.mul$(_V.unit(leader.m5.vel),distance),
-          behind, ahead = _V.add(leader,tv);
+        let tv = _V.mul$(_V.unit(leader.m5.vel),distance);
+        let behind, ahead = _V.add(leader,tv);
         _V.flip$(tv);
         behind = _V.add(leader,tv);
         if(isOnLeaderSight(s,leader, ahead, leaderSightRadius)){
@@ -5419,13 +5713,12 @@
        * @param {array} ents
        * @param {number} maxQueueAhead
        * @param {number} maxQueueRadius
+       * @return {Sprite}
        */
       queue(s,ents, maxQueueAhead=500, maxQueueRadius = 500){
-
         function getNeighborAhead(){
-          let
-            qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead),
-            res, ahead = _V.add(s, qa);
+          let qa=_V.mul$(_V.unit(s.m5.vel),maxQueueAhead);
+          let res, ahead = _V.add(s, qa);
           for(let d,i=0; i<ents.length; ++i){
             if(ents[i] !== s &&
                _V.dist(ahead,ents[i]) < maxQueueRadius){
@@ -5435,10 +5728,8 @@
           }
           return res;
         }
-        let
-          neighbor = getNeighborAhead(),
-          brake = [0,0],
-          v = _V.mul(s.m5.vel,1);
+        let neighbor = getNeighborAhead();
+        let brake = [0,0], v = _V.mul(s.m5.vel,1);
         if(neighbor){
           brake = _V.mul$(_V.flip(s.m5.steer),0.8);
           _V.unit$(_V.flip$(v));
@@ -5448,24 +5739,23 @@
           }
         }
         _V.add$(s.m5.steer,brake);
+        return s;
       },
       /**
        * @memberof module:mojoh5/Ute2D
        * @param {Sprite} s
        * @param {array} ents
+       * @return {Sprite}
        */
       flock(s, ents){
-
         function inSight(e){
           return _V.dist(s,e) > s.m5.steerInfo.inSightDistance ? false
                                         : (_V.dot(_V.sub(e, s), _V.unit(s.m5.vel)) < 0 ? false : true);
         }
-
         let
           inSightCount = 0,
           averagePosition = [0,0],
           averageVelocity = _V.mul(s.m5.vel,1);
-
         ents.forEach(e=>{
           if(e !== this && inSight(e)){
             _V.add$(averageVelocity,e.m5.vel);
@@ -5482,6 +5772,7 @@
           this.seek(s,averagePosition);
           _V.add$(s.m5.steer, _V.sub$(averageVelocity, s.m5.vel));
         }
+        return s;
       },
       /**
        * @memberof module:mojoh5/Ute2D
@@ -5489,6 +5780,7 @@
        * @param {array} path
        * @param {boolean} loop
        * @param {number} thresholdRadius
+       * @return {Sprite}
        */
       followPath(s, path, loop, thresholdRadius=1){
         let wayPoint = path[s.m5.pathIndex];
@@ -5501,23 +5793,22 @@
             s.m5.pathIndex += 1;
           }
         }
-        if(s.m5.pathIndex >= path.length-1 && !loop){
-          this.arrive(s,wayPoint)
-        }else{
-          this.seek(s,wayPoint)
-        }
+        (s.m5.pathIndex >= path.length-1 && !loop) ? this.arrive(s,wayPoint)
+                                                   : this.seek(s,wayPoint);
+        return s;
       },
       /**
        * @memberof module:mojoh5/Ute2D
        * @param {Sprite} s
        * @param {array} obstacles
+       * @return {Sprite}
        */
       avoid(s,obstacles){
         let
+          avoidance, mostThreatening = null,
           dlen= _V.len(s.m5.vel) / s.m5.maxSpeed,
           ahead = _V.add(s, _V.mul$(_V.unit(s.m5.vel),dlen)),
-          ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5)),
-          avoidance, mostThreatening = null;
+          ahead2 = _V.add(s, _V.mul$(_V.unit(s.m5.vel),s.m5.steerInfo.avoidDistance*0.5));
         for(let c,i=0; i<obstacles.length; ++i){
           if(obstacles[i] === this) continue;
           c = _V.dist(obstacles[i],ahead) <= obstacles[i].m5.radius ||
@@ -5532,6 +5823,7 @@
           avoidance = _V.mul$(_V.unit$(_V.sub(ahead,mostThreatening)),100);
           _V.add$(s.m5.steer,avoidance);
         }
+        return s;
       },
       /**Check if there’s clear line of sight between two sprites.
        * memberof module:mojoh5/Sprites
@@ -5541,16 +5833,11 @@
        * @return {boolean}
        */
       lineOfSight(s1, s2, obstacles){
-        let
-          c1=_S.centerXY(s1),
-          c2=_S.centerXY(s2);
+        let c1=_S.centerXY(s1), c2=_S.centerXY(s2);
         for(let b,rc,s,o,i=0;i<obstacles.length;++i){
           o=obstacles[i];
-          if(o.m5.circle){
-            rc=Geo.hitTestLineCircle(c1,c2, o.x, o.y, o.width/2)
-          }else{
-            rc=Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(_S.toPolygon(o),o.x,o.y))
-          }
+          rc=o.m5.circle? Geo.hitTestLineCircle(c1,c2, o.x, o.y, o.width/2)
+                        : Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(_S.toPolygon(o),o.x,o.y));
           if(rc[0]) return false;
         }
         return true;
@@ -5566,9 +5853,7 @@
        * @return {Sprite}
        */
       shoot(src, angle, speed, ctor,x,y){
-        let
-          b=ctor(),
-          soff=Mojo.Sprites.topLeftOffsetXY(src);
+        const b=ctor(), soff=_S.topLeftOffsetXY(src);
         _V.add$(soff,[x,y]);
         _V.copy(b,_V.add(src,soff));
         _V.set(b.m5.vel, Math.cos(angle) * speed,
@@ -5581,16 +5866,13 @@
        * @return {HealthBarObj}
        */
       healthBar(arg){
-        let
-          {scale:K,width,height,
-           lives,
-           borderWidth,line,fill}=arg,
-          c, padding=4*K, fit=4*K, out=[];
+        let {scale:K,width,height, lives, borderWidth,line,fill}=arg;
+        let c, padding=4*K, fit=4*K, out=[];
         borderWidth = (borderWidth||4)*K;
         lives= lives||3;
         fill=_S.color(fill);
         line=_S.color(line);
-        for(let r,w=_M.ndiv(width,lives), i=0;i<lives;++i){
+        for(let r,w=int(width/lives), i=0;i<lives;++i){
           out.push(_S.rect(w,height-2*borderWidth,fill))
         }
         return{
@@ -5615,34 +5897,29 @@
        */
       gaugeUI(arg){
         let
-          {minDeg,maxDeg,
-           line,gfx,scale:K,
+          {minDeg,maxDeg,line,gfx,scale:K,
            cx,cy,radius,alpha,fill,needle }= _.patch(arg,{minDeg:90,maxDeg:360});
         const segs= [0, R*45, R*90, R*135, R*180, R*225, R*270, R*315];
-        function getPt(x, y, r,rad){ return[x + r * cos(rad), y + r * sin(rad) ] }
+        function getPt(x, y, r,rad){ return [x + r * cos(rad), y + r * sin(rad) ] }
         function drawTig(x, y, rad, size){
           let
             [sx,sy] = getPt(x, y, radius - 4*K, rad),
             [ex,ey] = getPt(x, y, radius - 12*K, rad);
-          gfx.lineStyle({color: line, width:size, cap:PIXI.LINE_CAP.ROUND});
-          gfx.moveTo(sx, sy);
-          gfx.lineTo(ex, ey);
-          gfx.closePath();
+          _S.gpath(gfx, [["moveTo",sx, sy],
+                        ["lineTo",ex, ey], ["closePath"]]);
+          _S.gstroke(gfx,{color: line, width:size, cap:"round"});
         }
         function drawPtr(r,color, rad){
           let
             [px,py]= getPt(cx, cy, r - 20*K, rad),
             [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
             [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
-          gfx.lineStyle({cap:PIXI.LINE_CAP.ROUND, width:4*K, color: needle});
-          gfx.moveTo(p2x, p2y);
-          gfx.lineTo(px, py);
-          gfx.lineTo(p3x, p3y);
-          gfx.closePath();
-          gfx.lineStyle({color:line});
-          gfx.beginFill(line);
-          gfx.drawCircle(cx,cy,9*K);
-          gfx.endFill();
+          _S.gpath(gfx, [["moveTo",p2x, p2y],
+                         ["lineTo",px, py], ["lineTo",p3x, p3y], ["closePath"]]);
+          _S.gstroke(gfx,{cap:"round", width:4*K, color: needle});
+          _S.gcircle(gfx,cx,cy,9*K);
+          _S.gfill(gfx,{color:line});
+          _S.gstroke(gfx,{color:line});
         }
         needle=_S.color(needle);
         line=_S.color(line);
@@ -5651,11 +5928,10 @@
         return {
           gfx,
           draw(){
-            gfx.clear();
-            gfx.lineStyle({width: radius/8,color:line});
-            gfx.beginFill(fill, alpha);
-            gfx.drawCircle(cx, cy, radius);
-            gfx.endFill();
+            _S.gclear(gfx);
+            _S.gcircle(gfx,cx, cy, radius);
+            _S.gfill(gfx,{color:fill, alpha});
+            _S.gstroke(gfx,{width: radius/8,color:line});
             segs.forEach(s=> drawTig(cx, cy, s, 7*K));
             drawPtr(radius*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
           }
@@ -5690,7 +5966,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -5701,6 +5977,7 @@
     throw "Fatal: no audio."
   }
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module.
    */
   function _module(Mojo,SoundFiles){
@@ -5708,10 +5985,11 @@
     const {ute:_, is}=Mojo;
     const int=Math.floor;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Sound
      */
-
+    ////////////////////////////////////////////////////////////////////////////
     const _actives=new Map();
     let _sndCnt=1;
 
@@ -5858,8 +6136,8 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Extend Mojo */
-    Mojo.sound=function(fname){
-      return SoundFiles[fname || Mojo.assetPath(fname)] || _.assert(false, `Sound: ${fname} not loaded.`)
+    Mojo.sound=function(fname,panic=true){
+      return SoundFiles[fname || Mojo.assetPath(fname)] || (panic?_.assert(false, `Sound: ${fname} not loaded.`):UNDEF)
     };
 
     return (Mojo.Sound= _$);
@@ -5891,12 +6169,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Creates the module. */
   function _module(Mojo){
 
@@ -5907,14 +6186,17 @@
       is,
       Sprites
     }=Mojo;
-    const Layers= [];
+
     const {Geo}=Sprites;
+    const Layers= [];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const SKEYS= ["ctrlKey","altKey","shiftKey"];
     const cur=()=> Layers[0];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function mkLayer(L={}){
       function _u(e){
         if(L===cur()){
@@ -5945,35 +6227,38 @@
         keyInputs: _.jsMap(),
         pauseInput:false,
         ptr:UNDEF,
+        /**
+        */
         dispose(){
           this.ptr.dispose();
           if(!Mojo.touchDevice)
-            _.delEvent([["keyup", window, _u, false],
-                        ["keydown", window, _d, false]]);
+            _.delEvent([["keyup", globalThis, _u, false],
+                        ["keydown", globalThis, _d, false]]);
         },
+        /**
+        */
         pointer(){
           if(!this.ptr)
-            this.ptr=mkPtr(this);
-          return this.ptr;
-        },
+            this.ptr=mkPtr(this); return this.ptr; },
+        /**
+        */
         update(dt){
           if(!this.pauseInput) this.ptr.update(dt);
         },
+        /**
+        */
         keybd(_key,pressCB,releaseCB){
-          let
-            ret={
+          let ret={
               press:pressCB,
               release:releaseCB
             },
-            self=this,
-            isUp=true,
-            isDown=false,
-            codes= is.vec(_key)?_key:[_key];
+            self=this, isUp=true, isDown=false, codes= is.vec(_key)?_key:[_key];
+
           function _down(e){
             if(L===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isUp)
-                  ret.press && ret.press(e.altKey,e.ctrlKey,e.shiftKey);
+                  ret.press?.(e.altKey,e.ctrlKey,e.shiftKey);
                 isUp=false;
                 isDown=true;
               }
@@ -5984,7 +6269,7 @@
             if(L===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isDown)
-                  ret.release && ret.release(e.altKey,e.ctrlKey,e.shiftKey);
+                  ret.release?.(e.altKey,e.ctrlKey,e.shiftKey);
                 isUp=true;
                 isDown=false;
               }
@@ -5992,24 +6277,30 @@
             }
           }
           if(!Mojo.touchDevice)
-            _.addEvent([["keyup", window, _up, false],
-                        ["keydown", window, _down, false]]);
+            _.addEvent([["keyup", globalThis, _up, false],
+                        ["keydown", globalThis, _down, false]]);
           ret.dispose=()=>{
             if(!Mojo.touchDevice)
-              _.delEvent([["keyup", window, _up, false],
-                          ["keydown", window, _down, false]]);
+              _.delEvent([["keyup", globalThis, _up, false],
+                          ["keydown", globalThis, _down, false]]);
           };
           return ret;
         },
+        /**
+        */
         reset(){
           this.pauseInput=false;
           this.keyInputs.clear();
           this.ptr.reset();
         },
+        /**
+        */
         resize(){
           Mojo.mouse=this.ptr;
           this.ptr.reset();
         },
+        /**
+        */
         dbg(){
           console.log(`N# of touches= ${this.ptr.ActiveTouches.size}`);
           console.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
@@ -6023,8 +6314,8 @@
 
       if(!Mojo.touchDevice)
         //keep tracks of keyboard presses
-        _.addEvent([["keyup", window, _u, false],
-                    ["keydown", window, _d, false]]);
+        _.addEvent([["keyup", globalThis, _u, false],
+                    ["keydown", globalThis, _d, false]]);
 
       return L;
     }
@@ -6032,10 +6323,6 @@
     /**
      * @module mojoh5/Input
      */
-
-    const
-      HISTORY_SIZE=20,
-      TRAIL_SIZE =100;
 
     /** @ignore */
     function mkPtr(L){
@@ -6103,6 +6390,8 @@
             }
           }
         },
+        /**
+        */
         updateDrags(dt){
           if(this.state[0]){
             if(this.dragged){
@@ -6118,9 +6407,12 @@
                   this.dragPtrY= this.y;
                   this.dragged = s;
                   //pop it up to top
-                  cs= s.parent.children;
-                  _.disj(cs,s);
-                  cs.push(s);
+                  //cs= s.parent.children;
+                  //_.disj(cs,s);
+                  //cs.push(s);
+                  gp=s.parent;
+                  gp.removeChild(s);
+                  gp.addChild(s);
                   break;
                 }
               }
@@ -6134,9 +6426,13 @@
             this.dragged=UNDEF;
           }
         },
+        /**
+        */
         getGlobalPosition(){
           return {x: this.x, y: this.y}
         },
+        /**
+        */
         _press(){
           if(L!==cur()){return}
           let
@@ -6159,6 +6455,8 @@
               }
             }
         },
+        /**
+        */
         _doMDown(b){
           if(L!==cur()){return}
           let found,self=P;
@@ -6172,6 +6470,8 @@
           }
           return found;
         },
+        /**
+        */
         mouseDown(e){
           if(L!==cur()){return}
           let self=P, nn=_.now();
@@ -6193,6 +6493,8 @@
             //console.log(`mouse x= ${self.x}, y = ${self.y}`);
           }
         },
+        /**
+        */
         mouseMove(e){
           if(L!==cur()){return}
           let self=P;
@@ -6202,6 +6504,8 @@
           if(!L.pauseInput)
             Mojo.emit([`${L.yid}/mousemove`]);
         },
+        /**
+        */
         mouseUp(e){
           if(L!==cur()){return}
           let self=P,nn=_.now();
@@ -6227,6 +6531,8 @@
             }
           }
         },
+        /**
+        */
         _swipeMotion(v,dd,dt,arg){
           if(L!==cur()){return}
           let n= _V.unit$(_V.normal(v));
@@ -6253,6 +6559,8 @@
           if(rc)
             Mojo.emit([`${L.yid}/${rc}`], arg)
         },
+        /**
+        */
         _doMTouch(ts,flag){
           if(L!==cur()){return}
           let self=P,
@@ -6270,6 +6578,8 @@
           }
           return found;
         },
+        /**
+        */
         _doMDrag(ts,found){
           if(L!==cur()){return}
           let self=P;
@@ -6287,11 +6597,15 @@
           }
           return found;
         },
+        /**
+        */
         touchCancel(e){
           if(L!==cur()){return}
           console.warn("received touchCancel event!");
           this.freeTouches();
         },
+        /**
+        */
         touchStart(e){
           if(L!==cur()){return}
           let self=P,
@@ -6328,6 +6642,8 @@
             self._doMTouch(out,true);
           }
         },
+        /**
+        */
         touchMove(e){
           if(L!==cur()){return}
           let out=[],
@@ -6355,6 +6671,8 @@
           if(!L.pauseInput)
             Mojo.emit([`${L.yid}/touchmove`],out);
         },
+        /**
+        */
         touchEnd(e){
           if(L!==cur()){return}
           let self=P,
@@ -6393,6 +6711,8 @@
             self._onMultiTouches(out,found);
           }
         },
+        /**
+        */
         _onMultiTouches(ts,found){
           if(L!==cur()){return}
           let self=P;
@@ -6415,6 +6735,8 @@
             }
           }
         },
+        /**
+        */
         freeTouches(){
           _.setVec(this.state,false,true);
           this.touchZeroID=0;
@@ -6422,6 +6744,8 @@
           this.ActiveDrags.clear();
           this.ActiveDragsID.clear();
         },
+        /**
+        */
         reset(){
           _.setVec(this.state,false,true);
           this.freeTouches();
@@ -6429,6 +6753,8 @@
           this.Buttons.length=0;
           this.Hotspots.length=0;
         },
+        /**
+        */
         _test(s,x,y){
           let _S=Mojo.Sprites,
               g=_S.gposXY(s),
@@ -6436,79 +6762,35 @@
               ps=_V.translate(g,p.calcPoints);
           return Geo.hitTestPointInPolygon(x, y, ps);
         },
+        /**
+        */
         hitTest(s){
           return this._test(s,this.x, this.y)
         },
+        /**
+        */
         update(dt){
           if(this.DragDrops.length>0)
             Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt);
-          if(this.tail)
-            this.updateTrail();
-        },
-        updateTrail(){
-          this.tailHistX.pop();
-          this.tailHistY.pop();
-          this.tailHistX.unshift(this.x);
-          this.tailHistY.unshift(this.y);
-          this.tailPoints.forEach((p,i)=>{
-            p.x= this.cubic(this.tailHistX, i/TRAIL_SIZE * HISTORY_SIZE);
-            p.y= this.cubic(this.tailHistY, i/TRAIL_SIZE * HISTORY_SIZE);
-          });
-        },
-        cubic(arr, t, tangentFactor=1){
-          function clipInput(k, arr){
-            if(k < 0) k = 0;
-            if(k > arr.length-1) k = arr.length-1;
-            return arr[k];
-          }
-          function getTangent(k, arr){
-            return tangentFactor * (clipInput(k+1, arr) - clipInput(k-1, arr))/2;
-          }
-          const k = Math.floor(t),
-                m = [getTangent(k, arr), getTangent(k+1, arr)],
-                p = [clipInput(k, arr), clipInput(k+1, arr)];
-          t -= k;
-          const t2 = t * t;
-          const t3 = t * t2;
-          return (2 * t3 - 3 * t2 + 1) * p[0] + (t3 - 2 * t2 + t) * m[0] + (-2 * t3 + 3 * t2) * p[1] + (t3 - t2) * m[1];
-        },
-        disableTrail(){
-          if(this.tail)
-            Mojo.stage.removeChild(this.tail);
-          this.tail=null;
-          this.tailHistX=null;
-          this.tailHistY=null;
-          this.tailPoints=null;
-        },
-        enableTrail(){
-          const ps= _.fill(TRAIL_SIZE, ()=> new PIXI.Point(0, 0)),
-                t= Mojo.tcached("boot/trail.png"),
-                rope = new PIXI.SimpleRope(t, ps);
-          rope.blendmode = PIXI.BLEND_MODES.ADD;
-          this.tail=rope;
-          this.tailPoints=ps;
-          this.tailHistX=_.fill(HISTORY_SIZE, 0);
-          this.tailHistY=_.fill(HISTORY_SIZE, 0);
-          Mojo.stage.addChild(rope);
         }
       };
 
       //////
       const msigs=[["mousemove", Mojo.canvas, P.mouseMove],
                   ["mousedown", Mojo.canvas,P.mouseDown],
-                  ["mouseup", window, P.mouseUp]];
+                  ["mouseup", globalThis, P.mouseUp]];
       const tsigs=[["touchmove", Mojo.canvas, P.touchMove],
                   ["touchstart", Mojo.canvas, P.touchStart],
-                  ["touchend", window, P.touchEnd],
-                  ["touchcancel", window, P.touchCancel]];
+                  ["touchend", globalThis, P.touchEnd],
+                  ["touchcancel", globalThis, P.touchCancel]];
 
       Mojo.touchDevice? _.addEvent(tsigs) : _.addEvent(msigs);
-      //////
+
       P.dispose=function(){
         this.reset();
         Mojo.touchDevice? _.delEvent(tsigs) : _.delEvent(msigs);
       };
-      //////
+
       return P;
     }
 
@@ -6733,7 +7015,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -6757,82 +7039,87 @@
       abs=Math.abs,
       RTA=180/Math.PI;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Touch
      */
+    ////////////////////////////////////////////////////////////////////////////
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function _calcDir(cx,cy){
       const rad= Math.atan2(+cy, +cx);
 
       if(rad > -P8_5 && rad < -P8_3){
-        Mojo.CON.log("calcDir=UP");
+        //Mojo.CON.log("calcDir=UP");
         return Mojo.UP;
       }
       if(rad > P8_3 && rad < P8_5){
-        Mojo.CON.log("calcDir=DOWN");
+        //Mojo.CON.log("calcDir=DOWN");
         return Mojo.DOWN;
       }
-      if((rad > -P8 && rad<0) ||
-         (rad > 0 && rad<P8)){
-        Mojo.CON.log("calcDir=RIGHT");
+      if((rad > -P8 && rad<0) || (rad > 0 && rad<P8)){
+        //Mojo.CON.log("calcDir=RIGHT");
         return Mojo.RIGHT;
       }
-      if((rad > P8_7 && rad<Math.PI) ||
-         (rad > -Math.PI && rad < -P8_7)){
-        Mojo.CON.log("calcDir=LEFT");
+      if((rad > P8_7 && rad<Math.PI) || (rad > -Math.PI && rad < -P8_7)){
+        //Mojo.CON.log("calcDir=LEFT");
         return Mojo.LEFT;
       }
 
       if(rad > P8 && rad < P8_3){
-        Mojo.CON.log("calcDir= SE ");
+        //Mojo.CON.log("calcDir= SE ");
         return Mojo.SE;
       }
       if(rad > P8_5 && rad < P8_7){
-        Mojo.CON.log("calcDir= SW ");
+        //Mojo.CON.log("calcDir= SW ");
         return Mojo.SW;
       }
       if(rad> -P8_3 && rad < -P8){
-        Mojo.CON.log("calcDir= NE ");
+        //Mojo.CON.log("calcDir= NE ");
         return Mojo.NE;
       }
       if(rad > -P8_7 && rad < -P8_5){
-        Mojo.CON.log("calcDir= NW ");
+        //Mojo.CON.log("calcDir= NW ");
         return Mojo.NW;
       }
-
       _.assert(false,"Failed Joystick calcDir");
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function _bindEvents(s){
       function onDragStart(e){
         let
           t= e.target,
           ct=e.changedTouches;
+
         if(ct){
           e=ct[0];
           s.m5.touchId=ct[0].identifier;
-        }else{//for mouse
+        }else{
           s.m5.touchId=0;
         }
+
         s.m5.startX= e.pageX - t.offsetLeft;
         s.m5.startY= e.pageY - t.offsetTop;
         s.m5.drag= true;
+
         if(!s.m5.static){
           s.visible=true;
           s.x=s.m5.startX;
           s.y=s.m5.startY;
         }
+
         if(!_I.isPaused()) s.m5.onStart();
       }
       function onDragEnd(e){
         if(s.m5.drag){
-          s.m5.inner.position.set(0,0);
+          s.m5.hdle.position.set(0,0);
           s.m5.drag= false;
-          if(!s.m5.static){
-            s.visible=false;
-          }
+          if(!s.m5.static){ s.visible=false }
           if(!_I.isPaused()) s.m5.onEnd();
         }
       }
@@ -6847,7 +7134,7 @@
               break;
             }
           }
-        }else{//for mouse
+        }else{
           c= [e.pageX - t.offsetLeft,
               e.pageY - t.offsetTop]
         }
@@ -6907,33 +7194,33 @@
           if(X<0)
             c[0]= -abs(c[0]);
           if(X>0 && Y<0){
-            //console.log(`angle < 90`);
+            //Mojo.CON.log(`angle < 90`);
             // < 90
           }else if(X<0 && Y<0){
             // 90 ~ 180
-            //console.log(`angle 90 ~ 180`);
+            //Mojo.CON.log(`angle 90 ~ 180`);
             angle= 180 - angle;
           }else if(X<0 && Y>0){
             // 180 ~ 270
-            //console.log(`angle 180 ~ 270`);
+            //Mojo.CON.log(`angle 180 ~ 270`);
             angle += 180;
           }else if(X>0 && Y>0){
             // 270 ~ 360
-            //console.log(`angle 270 ~ 360`);
+            //Mojo.CON.log(`angle 270 ~ 360`);
             angle= 360 - angle;
           }
           dir= _calcDir(c[0],c[1]);
         }
-        s.m5.inner.position.set(c[0],c[1]);
+        s.m5.hdle.position.set(c[0],c[1]);
         s.m5.onChange(dir,angle);
       }
 
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       const sigs= [["mousemove", Mojo.canvas, onDragMove],
                    ["mousedown", Mojo.canvas, onDragStart],
-                   ["mouseup", window, onDragEnd],
-                   ["touchend", window, onDragEnd],
-                   ["touchcancel", window, onDragEnd],
+                   ["mouseup", globalThis, onDragEnd],
+                   ["touchend", globalThis, onDragEnd],
+                   ["touchcancel", globalThis, onDragEnd],
                    ["touchmove", Mojo.canvas, onDragMove],
                    ["touchstart", Mojo.canvas, onDragStart]];
       _.addEvent(sigs);
@@ -6953,29 +7240,26 @@
        */
       joystick(options){
         let
-          inner= _S.sprite("boot/joystick-handle.png"),
-          outer= _S.sprite("boot/joystick.png"),
-          stick=new PIXI.Container(),
-          mo= _.inject({oscale:0.7,
-                        iscale:1,
-                        inner,
-                        outer,
+          hdle= _S.sprite("boot/joystick-handle.png"),
+          schtick= _S.sprite("boot/joystick.png"),
+          C=_S.container(),
+          K=Mojo.getScaleFactor(),
+          mo= _.inject({oscale:0.7 * K,
+                        iscale:1*K,
+                        hdle,
+                        schtick,
                         onEnd(){},
                         onStart(){},
                         prevDir:0,
                         static:false,
                         onChange(dir,angle){}}, options);
-        _S.scaleXY(outer,mo.oscale, mo.oscale);
-        _S.scaleXY(inner,mo.iscale, mo.iscale);
-        outer.anchor.set(0.5);
-        inner.anchor.set(0.5);
-        stick.addChild(outer);
-        stick.addChild(inner);
-        mo.range = stick.width/2.5;
+        C.addChild(_S.centerAnchor(_S.scaleXY(schtick,mo.oscale, mo.oscale)));
+        C.addChild(_S.centerAnchor(_S.scaleXY(hdle,mo.iscale, mo.iscale)));
+        mo.range = C.width/2.5;
         if(!mo.static)
-          stick.visible=false;
-        stick.m5=mo;
-        return _bindEvents(stick);
+          C.visible=false;
+        _.inject(C.m5,mo);
+        return _bindEvents(C);
       }
     };
 
@@ -7008,28 +7292,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
+  /**Create the module
+  */
   function _module(Mojo){
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     const _DIRS = [Mojo.UP,Mojo.LEFT,Mojo.RIGHT,Mojo.DOWN];
     const {ute:_, is, v2:_V, math:_M}=Mojo;
-    const
-      abs=Math.abs,
-      ceil=Math.ceil,
-      int = Math.floor;
+    const abs=Math.abs, ceil=Math.ceil, int = Math.floor;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Tiles
      */
+    ////////////////////////////////////////////////////////////////////////////
 
+    ////////////////////////////////////////////////////////////////////////////
     /**Convert the position into a grid index.
      * @param {number} x
      * @param {number} y
@@ -7039,37 +7324,31 @@
      * @return {number}
      */
     function getIndex(x, y, cellW, cellH, widthInCols){
-      if(x<0 || y<0)
-        throw `IndexError: ${x},${y}, wanted +ve values`;
-      return _M.ndiv(x,cellW) + _M.ndiv(y,cellH) * widthInCols
-    }
+      return (x>=0 && y>= 0) ? int(x/cellW) + int(y/cellH) * widthInCols
+                             : _.assert(false,`IndexError: ${x},${y}, wanted +ve values`) }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** from xy position to array index */
     function _getIndex3(px, py, world){
       return getIndex(px,py,
                       world.tiled.tileW,
-                      world.tiled.tileH,world.tiled.tilesInX)
-    }
+                      world.tiled.tileH,world.tiled.tilesInX) }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get vector from s1->s2 */
     function _getVector(s1,s2){
       return _V.vecAB(Mojo.Sprites.centerXY(s1),
-                      Mojo.Sprites.centerXY(s2))
-    }
+                      Mojo.Sprites.centerXY(s2)) }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get image file name */
     function _image(obj){
-      let
-        s= obj.image,
-        p= s && s.split("/");
-      obj.image= p && p.length && p[p.length-1]
-    }
+      const p= obj.image?.split("/");
+      obj.image= p && p.length && p[p.length-1] }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** get attributes for this gid */
+    ////////////////////////////////////////////////////////////////////////////
     function _findGid(gid,gidMap){
       let idx = -1;
       if(gid>0){
@@ -7082,14 +7361,15 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Scans all tilesets and record all custom properties into one giant map */
+    ////////////////////////////////////////////////////////////////////////////
     function _tilesets(tsets, tsi, gprops){
-      let gidList = [];
+      const gidList = [];
       tsets.forEach(ts=>{
         gidList.push([ts.firstgid, ts]);
         if(!ts.spacing) ts.spacing=0;
         _image(ts);
-        let lprops={};
-        (ts.tiles||[]).forEach(t=>{
+        const lprops ={};
+        (ts.tiles || []).forEach(t=>{
           let p=_.selectNotKeys(t,"properties");
           p=_.inject(p, _parseProps(t));
           p.gid=ts.firstgid + t.id;
@@ -7110,11 +7390,11 @@
         tver= tmap && (tmap["tiledversion"] || tmap["version"]);
       return (tver &&
               _.cmpVerStrs(tver,"1.4.2") >= 0) ? tmap
-                                               : _.assert(false,`${json} needs update`)
-    }
+                                               : _.assert(false,`${json} needs update`) }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** process properties group */
+    ////////////////////////////////////////////////////////////////////////////
     function _parseProps(el){
       return (el.properties||[]).reduce((acc,p)=>{
         acc[p.name]=p.value;
@@ -7124,12 +7404,13 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** process the tiled map */
-    function _loadTMX(scene,arg,objFactory,scale){
+    ////////////////////////////////////////////////////////////////////////////
+    function _loadTMX(scene,arg,objFactory){
       let
         tsProps={}, gtileProps={},
         tmx= is.str(arg)?_checkVer(arg):arg;
       _.assert(is.obj(tmx),"bad tiled map");
-      //important to clone it
+      //NOTE: important to clone it
       tmx=JSON.parse(JSON.stringify(tmx));
       _.inject(scene.tiled,{tileW:tmx.tilewidth,
                             tileH:tmx.tileheight,
@@ -7141,55 +7422,51 @@
                             tiledWidth:tmx.tilewidth*tmx.width,
                             tiledHeight:tmx.tileheight*tmx.height}, _parseProps(tmx));
       let
-        K= scale? scale: scene.getScaleFactor(),
+        K= scene.getScaleFactor(),
         NH= _.evenN(K*tmx.tileheight),
         NW= _.evenN(K*tmx.tilewidth);
       scene.tiled.new_tileW=NW;
       scene.tiled.new_tileH=NH;
-      if(scale)
-        scene.tiled.scale = scale;
       //workers
       const F={
-        imagelayer(tl){ _image(tl) },
-        tilelayer(tl){
-          if(is.vec(tl.data[0])){
-            //from hand-crafted map creation
-            tl.width=tl.data[0].length;
-            tl.height=tl.data.length;
-            tl.data=tl.data.flat();
+        imagelayer(yy){ _image(yy) },
+        tilelayer(yy){
+          if(is.vec(yy.data[0])){
+            //if 2D array, it's from hand-crafted map creation
+            yy.width=yy.data[0].length;
+            yy.height=yy.data.length;
+            yy.data=yy.data.flat();
           }
-          if(!tl.width)
-            tl.width=scene.tiled.tilesInX;
-          if(!tl.height)
-            tl.height=scene.tiled.tilesInY;
+          if(!yy.width) yy.width=scene.tiled.tilesInX;
+          if(!yy.height) yy.height=scene.tiled.tilesInY;
           //maybe get layer's properties
-          let cz,tps=_parseProps(tl);
-          if(tl.visible === false){
+          let cz,tps=_parseProps(yy);
+          if(yy.visible === false){
             //the layer is invisible but maybe user wants to handle it
             if(cz=tps["Class"])
-              objFactory[cz](scene,tl);
+              objFactory[cz](scene,yy);
             return;
           }
           //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
           //process the tiles
-          for(let s,gid,i=0;i<tl.data.length;++i){
-            if((gid=tl.data[i])==0){ continue }
-            if(tl.collision===false || tps.collision === false){
-            }else if(tl.collision===true || tps.collision===true){
+          for(let s,gid,i=0;i<yy.data.length;++i){
+            if((gid=yy.data[i])==0){ continue }
+            if(yy.collision===false || tps.collision === false){
+            }else if(yy.collision===true || tps.collision===true){
               if(gid>0) scene.tiled.collision[i]=gid;
-              tl.collision=true;
+              yy.collision=true;
             }
             let
-              mapX = i % tl.width,
-              mapY = _M.ndiv(i,tl.width),
+              mapX = i % yy.width,
+              mapY = int(i/yy.width),
               ps=gtileProps[gid],
               cz=ps && ps["Class"],
               cFunc=cz && objFactory[cz],
-              tsi=_findGid(gid,scene.tiled.tileGidList)[1],
+              tsi=scene.getTSInfo(gid),
               s=_ctorTile(scene,gid,mapX,mapY,tps.width,tps.height);
             //assume all these are static (collision) tiles
             if(s){
-              s.tiled.layer=tl;
+              s.tiled.layer=yy;
               s.tiled.index=i;
               s.m5.static=true;
             }
@@ -7197,21 +7474,17 @@
               s=cFunc.c(scene,s,tsi,ps);
             if(s){
               scene.insert(s,!!cFunc);
-              if(ps && ps.sensor) s.m5.sensor=true;
+              if(ps && ps.sensor) s.m5.sensor= true;
             }
           }
         },
-        objectgroup(tl){
-          tl.sprites=[];
-          tl.objects.forEach(o=>{
+        objectgroup(yy){
+          yy.sprites=[];
+          yy.objects.forEach(o=>{
             _.assert(is.num(o.x),"wanted xy position");
-            let
-              s,ps,
-              os=_parseProps(o),
-              gid=_.nor(o.gid, -1);
+            let s,ps, os=_parseProps(o), gid=o.gid ?? -1;
             _.inject(o,os);
-            if(gid>0)
-              ps=gtileProps[gid];
+            if(gid>0) ps=gtileProps[gid];
             let
               cz= _.nor(ps && ps["Class"], o["Class"]),
               createFunc= cz && objFactory[cz],
@@ -7219,7 +7492,7 @@
               h=scene.tiled.saved_tileH,
               tx=_M.ndiv(o.x+w/2,w),
               ty=_M.ndiv(o.y-h/2,h),
-              tsi=_findGid(gid,scene.tiled.tileGidList)[1];
+              tsi=scene.getTSInfo(gid);
             o.column=tx;
             o.row=ty;
             s=gid<=0?{width:NW,height:NH}
@@ -7229,14 +7502,14 @@
             if(s){
               if(o.visible===false) s.visible=false;
               o.uuid=s.m5.uuid;
-              tl.sprites.push(s);
+              yy.sprites.push(s);
               scene.insert(s,true);
-              if(ps && ps.sensor) s.m5.sensor=true;
+              if(ps && ps.sensor) s.m5.sensor= true;
             }
           });
         }
       };
-      objFactory=_.nor(objFactory,{});
+      objFactory= objFactory ?? {};
       _.inject(scene.tiled, {objFactory,
                              tileSets: tsProps,
                              tileProps: gtileProps,
@@ -7244,9 +7517,9 @@
                              imagelayer:[], objectgroup:[], tilelayer:[],
                              tileGidList: _tilesets(tmx.tilesets,tsProps,gtileProps)});
       ["imagelayer","tilelayer","objectgroup"].forEach(s=>{
-        tmx.layers.filter(y=>y.type==s).forEach(y=>{
-          F[s](y);
-          scene.tiled[s].push(y);
+        tmx.layers.filter(yy=>yy.type==s).forEach(yy=>{
+          F[s](yy);
+          scene.tiled[s].push(yy);
         });
       });
       //reset due to possible scaling
@@ -7263,26 +7536,28 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /** create a sprite */
+    ////////////////////////////////////////////////////////////////////////////
     function _ctorTile(scene,gid,mapX,mapY,tw,th,cz){
       let
-        tsi=_findGid(gid,scene.tiled.tileGidList)[1],
-        XXX=_.assert(tsi,"Bad GID, no tileset"),
+        tsi=scene.getTSInfo(gid,true),
         cols=tsi.columns,
         id=gid - tsi.firstgid,
-        ps=scene.tiled.tileProps[gid],
-        cFunc, K=scene.tiled.scale || scene.getScaleFactor();
-      cz= _.nor(cz, (ps && ps["Class"]));
+        ps=scene.tiled.tileProps[gid], cFunc, K= scene.getScaleFactor();
+
+      cz= cz ?? (ps && ps["Class"]);
       cFunc=cz && scene.tiled.objFactory[cz];
       _.assertNot(id<0, `Bad tile id: ${id}`);
       if(!is.num(cols))
         cols=_M.ndiv(tsi.imagewidth , tsi.tilewidth+tsi.spacing);
+
       let
         tscol = id % cols,
-        tsrow = _M.ndiv(id,cols),
+        tsrow = int(id/cols),
         tsX = tscol * tsi.tilewidth,
         tsY = tsrow * tsi.tileheight;
+
       if(tsi.spacing>0){
         tsX += tsi.spacing * tscol;
         tsY += tsi.spacing * tsrow;
@@ -7314,6 +7589,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** use it for collision */
+    ////////////////////////////////////////////////////////////////////////////
     const _contactObj = Mojo.Sprites.lift({width: 0,
                                            height: 0,
                                            parent:null,
@@ -7346,13 +7622,15 @@
       reloadMap(o){
         this.tiled={};
         this.m5.options.tiled = o;
-        _loadTMX(this, o.name, o.factory, o.scale);
+        _loadTMX(this, o.name, o.factory);
       }
       /**
       */
       runOnce(){
         const t= this.m5.options.tiled;
-        _loadTMX(this, t.name, t.factory, t.scale);
+        this.preTMX?.(t);
+        _loadTMX(this, t.name, t.factory);
+        this.postTMX?.(t);
         super.runOnce();
       }
       /**
@@ -7360,14 +7638,15 @@
       removeTile(layer, s){
         let {x,y}= s;
         if(s.anchor.x < 0.3){
-          y= s.y+_M.ndiv(s.height,2);
-          x= s.x+_M.ndiv(s.width,2);
+          y= s.y+int(s.height/2);
+          x= s.x+int(s.width/2);
         }
         let
-          tx= _M.ndiv(x,this.tiled.tileW),
-          ty= _M.ndiv(y,this.tiled.tileH),
+          tx= int(x/this.tiled.tileW),
+          ty= int(y/this.tiled.tileH),
           yy= this.getTileLayer(layer),
           pos= tx + ty*this.tiled.tilesInX;
+
         yy.data[pos]=0;
         if(yy.collision)
           this.tiled.collision[pos]=0;
@@ -7380,7 +7659,7 @@
        * @return {Container}
        */
       getTileLayer(name,panic){
-        let found= _.some(this.tiled.tilelayer, o=>{
+        const found= _.some(this.tiled.tilelayer, o=>{
           if(o.name==name) return o
         });
         if(!found && panic)
@@ -7394,7 +7673,7 @@
        * @return {Container}
        */
       getObjectGroup(name,panic){
-        let found= _.some(this.tiled.objectgroup, o=>{
+        const found= _.some(this.tiled.objectgroup, o=>{
           if(o.name==name) return o
         });
         if(!found && panic)
@@ -7410,7 +7689,7 @@
        */
       setTile(layer,row,col,gid){
         let
-          ts=this.getTSInfo(gid),
+          ts=this.getTSInfo(gid, true),
           id= gid-ts.firstgid,
           yy=this.getTileLayer(layer),
           s, pos=col + this.tiled.tilesInX * row;
@@ -7430,8 +7709,8 @@
       getTile(s){
         let {x,y}=s;
         if(s.anchor.x<0.3){
-          y += _M.ndiv(s.height,2);
-          x += _M.ndiv(s.width,2);
+          y += int(s.height/2);
+          x += int(s.width/2);
         }
         return this.getTileXY(x,y);
       }
@@ -7442,8 +7721,8 @@
        */
       getTileXY(px,py){
         let
-          tx= _M.ndiv(px,this.tiled.tileW),
-          ty= _M.ndiv(py,this.tiled.tileH);
+          tx= int(px/this.tiled.tileW),
+          ty= int(py/this.tiled.tileH);
         _.assert(tx>=0 && tx<this.tiled.tilesInX, `bad tile col:${tx}`);
         _.assert(ty>=0 && ty<this.tiled.tilesInY, `bad tile row:${ty}`);
         return [tx,ty];
@@ -7453,7 +7732,7 @@
        * @return {array}
        */
       getNamedItem(name){
-        let out=[];
+        const out=[];
         this.tiled.objectgroup.forEach(c=>{
           c.objects.forEach(o=>{
             if(name==_.get(o,"name")) out.push(o)
@@ -7465,15 +7744,11 @@
        * @return {number}
        */
       getScaleFactor(){
-        let x,y,r=1;
+        let y=Mojo.height/(this.tiled.saved_tileH*this.tiled.tilesInY);
+        let x=Mojo.width/(this.tiled.saved_tileW*this.tiled.tilesInX);
+        let r=1;
         if(Mojo.u.scaleToWindow == "max"){
-          if(Mojo.width>Mojo.height){
-            y=Mojo.height/(this.tiled.saved_tileH*this.tiled.tilesInY);
-            r=y;
-          }else{
-            x=Mojo.width/(this.tiled.saved_tileW*this.tiled.tilesInX)
-            r=x;
-          }
+          r= (x<y)?x:y;
         }
         return r;
       }
@@ -7489,8 +7764,9 @@
        * @param {number} gid
        * @return {object}
        */
-      getTSInfo(gid){
-        return _findGid(gid,this.tiled.tileGidList)[1] }
+      getTSInfo(gid,panic){
+        const r= _findGid(gid,this.tiled.tileGidList)[1];
+        return (!r && panic) ? _.assert(false,`Bad GID ${gid}, no tileset`) : r }
       /**Get tile information.
        * @param {number} gid
        * @return {object}
@@ -7521,16 +7797,15 @@
           th=this.tiled.tileH,
           tiles=this.tiled.collision,
           box=_.feq0(obj.angle)?_S.getAABB(obj):_S.boundingBox(obj),
-          sX = Math.max(0,_M.ndiv(box.x1 , tw)),
-          sY = Math.max(0,_M.ndiv(box.y1 , th)),
+          sX = Math.max(0,int(box.x1 / tw)),
+          sY = Math.max(0,int(box.y1 / th)),
           eX =  Math.min(this.tiled.tilesInX-1,ceil(box.x2 / tw)),
           eY =  Math.min(this.tiled.tilesInY-1,ceil(box.y2 / th));
         for(let ps,c,gid,pos,B,tY = sY; tY<=eY; ++tY){
           for(let tX = sX; tX<=eX; ++tX){
             pos=tY*this.tiled.tilesInX+tX;
             gid=tiles[pos];
-            if(!is.num(gid))
-              _.assert(is.num(gid),"bad gid");
+            _.assert(is.num(gid),"bad gid");
             if(gid==0){continue}
             B=this._getContactObj(gid,tX, tY);
             ps=this.getTileProps(gid);
@@ -7601,8 +7876,7 @@
        * @return {number[]}
        */
       updateMap(gidList, sprites, world){
-        let
-          ret = _.fill(gidList.length,0),
+        let ret = _.fill(gidList.length,0),
           _mapper=(s)=>{
             let pos= this.getTileIndex(s,world);
             _.assert(pos >= 0 && pos < ret.length, "tiled index outofbound");
@@ -7626,11 +7900,10 @@
       shortestPath(startTile, targetTile, tiles, world,
                    obstacles=[],
                    heuristic="manhattan", useDiagonal=true){
-        let
-          W=world.tiled.tilesInX,
+        let W=world.tiled.tilesInX,
           nodes=tiles.map((gid,i)=> ({f:0, g:0, h:0,
-                                        parent:null, index:i,
-                                        col:i%W, row:_M.ndiv(i,W)})),
+                                      parent:null, index:i,
+                                      col:i%W, row:int(i/W)})),
           targetNode = nodes[targetTile],
           startNode = nodes[startTile],
           centerNode = startNode,
@@ -7718,7 +7991,9 @@
           //until the start node is found
           while(tn !== startNode){
             tn = tn.parent;
-            theShortestPath.unshift(tn); } }
+            theShortestPath.unshift(tn);
+          }
+        }
         return theShortestPath;
       },
       /**Check if sprites are visible to each other.
@@ -7737,7 +8012,7 @@
         let
           v= _getVector(s1,s2),
           len = _V.len(v),
-          numPts = _M.ndiv(len,segment),
+          numPts = int(len/segment),
           angle, len2,x,y,ux,uy,points = [];
         for(let c,i = 1; i <= numPts; ++i){
           c= Mojo.Sprites.centerXY(s1);
@@ -7759,7 +8034,8 @@
         //no walls. If any of them aren't 0, then the function returns
         //`false` which means there's a wall in the way
         return points.every(p=> tiles[p.index] == emptyGid) &&
-               (angles.length == 0 || angles.some(x=> x == angle)) },
+               (angles.length == 0 || angles.some(x=> x == angle))
+      },
       /**Get indices of orthognoal cells.
        * @memberof module:mojoh5/Tiles
        * @param {number} index

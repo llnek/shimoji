@@ -10,12 +10,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Creates the module. */
   function _module(Mojo){
 
@@ -26,14 +27,17 @@
       is,
       Sprites
     }=Mojo;
-    const Layers= [];
+
     const {Geo}=Sprites;
+    const Layers= [];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const SKEYS= ["ctrlKey","altKey","shiftKey"];
     const cur=()=> Layers[0];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function mkLayer(L={}){
       function _u(e){
         if(L===cur()){
@@ -64,35 +68,38 @@
         keyInputs: _.jsMap(),
         pauseInput:false,
         ptr:UNDEF,
+        /**
+        */
         dispose(){
           this.ptr.dispose();
           if(!Mojo.touchDevice)
-            _.delEvent([["keyup", window, _u, false],
-                        ["keydown", window, _d, false]]);
+            _.delEvent([["keyup", globalThis, _u, false],
+                        ["keydown", globalThis, _d, false]]);
         },
+        /**
+        */
         pointer(){
           if(!this.ptr)
-            this.ptr=mkPtr(this);
-          return this.ptr;
-        },
+            this.ptr=mkPtr(this); return this.ptr; },
+        /**
+        */
         update(dt){
           if(!this.pauseInput) this.ptr.update(dt);
         },
+        /**
+        */
         keybd(_key,pressCB,releaseCB){
-          let
-            ret={
+          let ret={
               press:pressCB,
               release:releaseCB
             },
-            self=this,
-            isUp=true,
-            isDown=false,
-            codes= is.vec(_key)?_key:[_key];
+            self=this, isUp=true, isDown=false, codes= is.vec(_key)?_key:[_key];
+
           function _down(e){
             if(L===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isUp)
-                  ret.press && ret.press(e.altKey,e.ctrlKey,e.shiftKey);
+                  ret.press?.(e.altKey,e.ctrlKey,e.shiftKey);
                 isUp=false;
                 isDown=true;
               }
@@ -103,7 +110,7 @@
             if(L===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isDown)
-                  ret.release && ret.release(e.altKey,e.ctrlKey,e.shiftKey);
+                  ret.release?.(e.altKey,e.ctrlKey,e.shiftKey);
                 isUp=true;
                 isDown=false;
               }
@@ -111,24 +118,30 @@
             }
           }
           if(!Mojo.touchDevice)
-            _.addEvent([["keyup", window, _up, false],
-                        ["keydown", window, _down, false]]);
+            _.addEvent([["keyup", globalThis, _up, false],
+                        ["keydown", globalThis, _down, false]]);
           ret.dispose=()=>{
             if(!Mojo.touchDevice)
-              _.delEvent([["keyup", window, _up, false],
-                          ["keydown", window, _down, false]]);
+              _.delEvent([["keyup", globalThis, _up, false],
+                          ["keydown", globalThis, _down, false]]);
           };
           return ret;
         },
+        /**
+        */
         reset(){
           this.pauseInput=false;
           this.keyInputs.clear();
           this.ptr.reset();
         },
+        /**
+        */
         resize(){
           Mojo.mouse=this.ptr;
           this.ptr.reset();
         },
+        /**
+        */
         dbg(){
           console.log(`N# of touches= ${this.ptr.ActiveTouches.size}`);
           console.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
@@ -142,8 +155,8 @@
 
       if(!Mojo.touchDevice)
         //keep tracks of keyboard presses
-        _.addEvent([["keyup", window, _u, false],
-                    ["keydown", window, _d, false]]);
+        _.addEvent([["keyup", globalThis, _u, false],
+                    ["keydown", globalThis, _d, false]]);
 
       return L;
     }
@@ -151,10 +164,6 @@
     /**
      * @module mojoh5/Input
      */
-
-    const
-      HISTORY_SIZE=20,
-      TRAIL_SIZE =100;
 
     /** @ignore */
     function mkPtr(L){
@@ -222,6 +231,8 @@
             }
           }
         },
+        /**
+        */
         updateDrags(dt){
           if(this.state[0]){
             if(this.dragged){
@@ -237,9 +248,12 @@
                   this.dragPtrY= this.y;
                   this.dragged = s;
                   //pop it up to top
-                  cs= s.parent.children;
-                  _.disj(cs,s);
-                  cs.push(s);
+                  //cs= s.parent.children;
+                  //_.disj(cs,s);
+                  //cs.push(s);
+                  gp=s.parent;
+                  gp.removeChild(s);
+                  gp.addChild(s);
                   break;
                 }
               }
@@ -253,9 +267,13 @@
             this.dragged=UNDEF;
           }
         },
+        /**
+        */
         getGlobalPosition(){
           return {x: this.x, y: this.y}
         },
+        /**
+        */
         _press(){
           if(L!==cur()){return}
           let
@@ -278,6 +296,8 @@
               }
             }
         },
+        /**
+        */
         _doMDown(b){
           if(L!==cur()){return}
           let found,self=P;
@@ -291,6 +311,8 @@
           }
           return found;
         },
+        /**
+        */
         mouseDown(e){
           if(L!==cur()){return}
           let self=P, nn=_.now();
@@ -312,6 +334,8 @@
             //console.log(`mouse x= ${self.x}, y = ${self.y}`);
           }
         },
+        /**
+        */
         mouseMove(e){
           if(L!==cur()){return}
           let self=P;
@@ -321,6 +345,8 @@
           if(!L.pauseInput)
             Mojo.emit([`${L.yid}/mousemove`]);
         },
+        /**
+        */
         mouseUp(e){
           if(L!==cur()){return}
           let self=P,nn=_.now();
@@ -346,6 +372,8 @@
             }
           }
         },
+        /**
+        */
         _swipeMotion(v,dd,dt,arg){
           if(L!==cur()){return}
           let n= _V.unit$(_V.normal(v));
@@ -372,6 +400,8 @@
           if(rc)
             Mojo.emit([`${L.yid}/${rc}`], arg)
         },
+        /**
+        */
         _doMTouch(ts,flag){
           if(L!==cur()){return}
           let self=P,
@@ -389,6 +419,8 @@
           }
           return found;
         },
+        /**
+        */
         _doMDrag(ts,found){
           if(L!==cur()){return}
           let self=P;
@@ -406,11 +438,15 @@
           }
           return found;
         },
+        /**
+        */
         touchCancel(e){
           if(L!==cur()){return}
           console.warn("received touchCancel event!");
           this.freeTouches();
         },
+        /**
+        */
         touchStart(e){
           if(L!==cur()){return}
           let self=P,
@@ -447,6 +483,8 @@
             self._doMTouch(out,true);
           }
         },
+        /**
+        */
         touchMove(e){
           if(L!==cur()){return}
           let out=[],
@@ -474,6 +512,8 @@
           if(!L.pauseInput)
             Mojo.emit([`${L.yid}/touchmove`],out);
         },
+        /**
+        */
         touchEnd(e){
           if(L!==cur()){return}
           let self=P,
@@ -512,6 +552,8 @@
             self._onMultiTouches(out,found);
           }
         },
+        /**
+        */
         _onMultiTouches(ts,found){
           if(L!==cur()){return}
           let self=P;
@@ -534,6 +576,8 @@
             }
           }
         },
+        /**
+        */
         freeTouches(){
           _.setVec(this.state,false,true);
           this.touchZeroID=0;
@@ -541,6 +585,8 @@
           this.ActiveDrags.clear();
           this.ActiveDragsID.clear();
         },
+        /**
+        */
         reset(){
           _.setVec(this.state,false,true);
           this.freeTouches();
@@ -548,6 +594,8 @@
           this.Buttons.length=0;
           this.Hotspots.length=0;
         },
+        /**
+        */
         _test(s,x,y){
           let _S=Mojo.Sprites,
               g=_S.gposXY(s),
@@ -555,79 +603,35 @@
               ps=_V.translate(g,p.calcPoints);
           return Geo.hitTestPointInPolygon(x, y, ps);
         },
+        /**
+        */
         hitTest(s){
           return this._test(s,this.x, this.y)
         },
+        /**
+        */
         update(dt){
           if(this.DragDrops.length>0)
             Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt);
-          if(this.tail)
-            this.updateTrail();
-        },
-        updateTrail(){
-          this.tailHistX.pop();
-          this.tailHistY.pop();
-          this.tailHistX.unshift(this.x);
-          this.tailHistY.unshift(this.y);
-          this.tailPoints.forEach((p,i)=>{
-            p.x= this.cubic(this.tailHistX, i/TRAIL_SIZE * HISTORY_SIZE);
-            p.y= this.cubic(this.tailHistY, i/TRAIL_SIZE * HISTORY_SIZE);
-          });
-        },
-        cubic(arr, t, tangentFactor=1){
-          function clipInput(k, arr){
-            if(k < 0) k = 0;
-            if(k > arr.length-1) k = arr.length-1;
-            return arr[k];
-          }
-          function getTangent(k, arr){
-            return tangentFactor * (clipInput(k+1, arr) - clipInput(k-1, arr))/2;
-          }
-          const k = Math.floor(t),
-                m = [getTangent(k, arr), getTangent(k+1, arr)],
-                p = [clipInput(k, arr), clipInput(k+1, arr)];
-          t -= k;
-          const t2 = t * t;
-          const t3 = t * t2;
-          return (2 * t3 - 3 * t2 + 1) * p[0] + (t3 - 2 * t2 + t) * m[0] + (-2 * t3 + 3 * t2) * p[1] + (t3 - t2) * m[1];
-        },
-        disableTrail(){
-          if(this.tail)
-            Mojo.stage.removeChild(this.tail);
-          this.tail=null;
-          this.tailHistX=null;
-          this.tailHistY=null;
-          this.tailPoints=null;
-        },
-        enableTrail(){
-          const ps= _.fill(TRAIL_SIZE, ()=> new PIXI.Point(0, 0)),
-                t= Mojo.tcached("boot/trail.png"),
-                rope = new PIXI.SimpleRope(t, ps);
-          rope.blendmode = PIXI.BLEND_MODES.ADD;
-          this.tail=rope;
-          this.tailPoints=ps;
-          this.tailHistX=_.fill(HISTORY_SIZE, 0);
-          this.tailHistY=_.fill(HISTORY_SIZE, 0);
-          Mojo.stage.addChild(rope);
         }
       };
 
       //////
       const msigs=[["mousemove", Mojo.canvas, P.mouseMove],
                   ["mousedown", Mojo.canvas,P.mouseDown],
-                  ["mouseup", window, P.mouseUp]];
+                  ["mouseup", globalThis, P.mouseUp]];
       const tsigs=[["touchmove", Mojo.canvas, P.touchMove],
                   ["touchstart", Mojo.canvas, P.touchStart],
-                  ["touchend", window, P.touchEnd],
-                  ["touchcancel", window, P.touchCancel]];
+                  ["touchend", globalThis, P.touchEnd],
+                  ["touchcancel", globalThis, P.touchCancel]];
 
       Mojo.touchDevice? _.addEvent(tsigs) : _.addEvent(msigs);
-      //////
+
       P.dispose=function(){
         this.reset();
         Mojo.touchDevice? _.delEvent(tsigs) : _.delEvent(msigs);
       };
-      //////
+
       return P;
     }
 

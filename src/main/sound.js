@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -21,6 +21,7 @@
     throw "Fatal: no audio."
   }
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module.
    */
   function _module(Mojo,SoundFiles){
@@ -28,10 +29,11 @@
     const {ute:_, is}=Mojo;
     const int=Math.floor;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Sound
      */
-
+    ////////////////////////////////////////////////////////////////////////////
     const _actives=new Map();
     let _sndCnt=1;
 
@@ -178,8 +180,8 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Extend Mojo */
-    Mojo.sound=function(fname){
-      return SoundFiles[fname || Mojo.assetPath(fname)] || _.assert(false, `Sound: ${fname} not loaded.`)
+    Mojo.sound=function(fname,panic=true){
+      return SoundFiles[fname || Mojo.assetPath(fname)] || (panic?_.assert(false, `Sound: ${fname} not loaded.`):UNDEF)
     };
 
     return (Mojo.Sound= _$);

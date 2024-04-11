@@ -10,22 +10,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ////////////////////////////////////////////////////////////////////////////
   /** Supported file extensions. */
   const
     AUDIO_EXTS= ["mp3", "wav", "ogg"],
-    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif"],
-    FONT_EXTS = ["ttf", "otf", "ttc", "woff"];
+    FONT_EXTS = ["ttf", "otf", "ttc", "woff"],
+    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif","webp"];
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
-  function _module(cmdArg, _fonts, _spans, _BgTasks){
+  function _module(cmdArg, _BgTasks){
 
+    ////////////////////////////////////////////////////////////////////////////
     //import mcfud's core module
     const
       {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"](),
@@ -38,9 +40,22 @@
 
     let _paused = false;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Mojo
      */
+
+    class SSheetFrame{
+      #sheet;
+      #frame;
+      constructor(s,f){
+        this.#sheet=s;
+        this.#frame=f;
+      }
+      get frame(){ return this.#frame }
+      get sheet(){ return this.#sheet }
+      toString(){ return `${this.#sheet}::${this.#frame}` }
+    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Main Stage class, holds scenes or scene-wrappers. */
@@ -54,7 +69,7 @@
           if(s instanceof Mojo.Scenes.SceneWrapper){
             s=s.children[0]; //1 child - should be the scene
           }
-          s.onCanvasResize(curSize);
+          s.onCanvasResize(curSize[0], curSize[1]);
         });
         Mojo.Input.resize();
       }
@@ -75,14 +90,15 @@
       _width=()=> gscope.innerWidth,
       _height=()=> gscope.innerHeight;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**Built-in progress bar, shown during the loading of
      * assets if no user-defined load function is provided.
      */
     function _PBar(Mojo){
       const
-        cy= _M.ndiv(Mojo.height,2),
-        cx= _M.ndiv(Mojo.width,2),
-        w4= _M.ndiv(Mojo.width,4),
+        cy= int(Mojo.height/2),
+        cx= int(Mojo.width/2),
+        w4= int(Mojo.width/4),
         K=Mojo.getScaleFactor(),
         bgColor=0x404040,
         fgColor=0xff8a00,
@@ -92,7 +108,7 @@
         Y=cy-RH/2;
       return{
         init(){
-          this.perc=Sprites.text("0%", {fontSize:_M.ndiv(RH,2),
+          this.perc=Sprites.text("0%", {fontSize: int(RH/2),
                                         fill:"black",
                                         fontFamily:"sans-serif"});
           this.fg=Sprites.rect(cx, RH, fgColor);
@@ -105,13 +121,14 @@
           this.insert(this.perc);
         },
         update(progress){
+          CON.log(`progr= ${progress*100}`);
           this.fg.width = WIDTH*progress;
           this.perc.text=`${Math.round(progress*100)}%`;
-          CON.log(`progr= ${progress*100}`);
         }
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** standard logo */
     function _LogoBar(Mojo){
       const {Sprites}=Mojo;
@@ -130,18 +147,20 @@
           Sprites.pinCenter(this,logo);
           Sprites.pinBelow(logo,pbar,4*K);
           Sprites.hide(pbar);
+          Sprites.opacity(pbar,0.3);
+          this.insertEx([logo,pbar]);
           this.g.pbar=pbar;
           this.g.pbar_width=pbar.width;
-          this.insert(logo);
-          this.insert(pbar);
         },
         update(progress){
+          CON.log(`progr= ${progress*100}`);
           this.g.pbar.visible?0:Sprites.show(this.g.pbar);
           this.g.pbar.width = this.g.pbar_width*progress;
         }
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @ignore */
     function _loadScene(obj){
       const z= new Mojo.Scenes.Scene("loader",{
@@ -152,148 +171,159 @@
       return Mojo.stage.addChild(z).runOnce();
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    function _maybeHandleAtlas(Mojo){
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     /**Once all the files are loaded, do some post processing.
      */
     function _postAssetLoad(Mojo,ldrObj,scene,error){
-      //clean up stuff used during load
-      _spans.forEach(e=> dom.css(e,"display","none"));
+
       if(ldrObj)
         Mojo.delBgTask(ldrObj);
+
+      error?0:_maybeHandleAtlas(Mojo);
+
       _.delay(50,()=>{
         Mojo.Scenes.remove(scene);
-        error? _.error("Cannot load game!"): Mojo._runAppStart() })
+        error? _.error("Cannot load game!"): Mojo._runAppStart()
+      })
     }
 
-    async function _loadSnd(url){
-      const res = await PIXI.settings.ADAPTER.fetch(url);
+    ////////////////////////////////////////////////////////////////////////////
+    /** Fetch sound files
+    */
+    async function _getSnd(url){
+      const res = await PIXI.DOMAdapter.get().fetch(url);
       const b=await res.arrayBuffer();
       const i=url.lastIndexOf("/");
-      let name="";
-      if(i>0){
-        name= url.substring(i+1);
-      }else{
-        name=url;
-      }
+      const name= i>0 ? url.substring(i+1) : url;
       return {name, url, buffer:b}
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    /** Decode the loaded sound files
+    */
     function _preloadSounds(sfiles){
       let fcnt=sfiles.length;
       function _m1(b){ --fcnt }
       sfiles.forEach(f=>{
-        _loadSnd(f).then(r=>{
+        _getSnd(f).then(r=>{
           Mojo.Sound.decodeData(r.name, r.url, r.buffer, _m1)
         });
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** Fetch required files. */
     function _loadFiles(Mojo){
-      //trick browser to load in font files.
-      const {PXLoader}= Mojo;
-      let family, face, span, style;
       let wanted=[], sfiles=[],ffiles=[];
+      let family, face, span, style;
 
+      //group various file types
       Mojo.u.assetFiles.forEach((f,ext)=>{
-        f=Mojo.assetPath(f);
-        ext=_.fileExt(f);
-        if(_.has(AUDIO_EXTS,ext)){
-          sfiles.push(f)
-        }else if (_.has(FONT_EXTS, f)){
-          ffiles.push(f)
+        if(is.obj(f)){
+          _.has(FONT_EXTS, _.fileExt(f.url))?ffiles.push(f):0
         }else{
-          wanted.push(f)
+          f=Mojo.assetPath(f);
+          ext=_.fileExt(f);
+          _.has(AUDIO_EXTS,ext)? sfiles.push(f): wanted.push(f)
         }
       });
-      ///
-      ffiles.forEach(s=>{
+
+      //trick browser to load in font files.
+      ffiles.forEach(f=>{
         style= dom.newElm("style");
         span= dom.newElm("span");
-        family= s.split("/").pop().split(".")[0];
-        face= `@font-face {font-family: '${family}'; src: url('${s}');}`;
-        //CON.log(`fontface = ${face}`);
-        _fonts.push(family);
+        face= `@font-face {font-family: '${f.family}'; src: url('${f.url}');}`;
+        CON.log(`loading fontface = ${face}`);
         dom.conj(style,dom.newTxt(face));
         dom.conj(document.head,style);
         span.innerHTML = "?";
         dom.css(span,"fontFamily", family);
         dom.conj(document.body,span);
         dom.css(span,{display: "block", opacity: "0"});
-        _spans.push(span);
       });
-      PXLoader.init();
-      if(wanted.length>0){
-        let cbObj=Mojo.u.load;
-        if(!cbObj)
-          cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
-        let
-          pg=[],
-          ecnt=0,
-          scene=_loadScene(cbObj),
-          rc= PXLoader.load(wanted, (p)=>{
-            CON.log(`percentage ${p}`);
-            pg.unshift(p);
-          });
-        rc.then((r)=>{
-          if(wanted.length != Object.keys(r).length){
-            CON.error(`failed to load all assets!`);
-            ++ecnt;
-          }
-          pg.unshift("$");
-        });
-        Mojo.addBgTask({
-          update(){
+
+      let rc,scene,pg=[], ecnt=0, cbObj=Mojo.u.load;
+
+      if(!cbObj)
+        cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
+      scene=_loadScene(cbObj);
+
+      PIXI.Assets.loader.load(wanted, (p)=>{
+        CON.log(`percentage ${p}`);
+        pg.unshift(p);
+      }).then(r=>{
+        let cnt=0,w=wanted.length;
+        for(const [k, v] of Object.entries(r)){
+          if(_.inst(PIXI.Texture, v)) v.source.scaleMode = 'linear';
+          Mojo._cache[k]=v;
+          ++cnt;
+          CON.log(`loaded ${k}`);
+        }
+        CON.log(`loaded ${cnt} files, wanted ${w}... ${cnt==w?"Yippy":"Hmmmm"}...!`);
+        pg.unshift("$");
+      }).catch(err=>{
+        ++ecnt;
+        CON.error(`Failed to load all assets: ${err}`)
+      });
+      Mojo.addBgTask({
+        update(){
+          if(pg.length==0){
+          }else{
             let n= pg.pop();
             if(is.num(n)){
-              if(n)
+              if(n){
                 cbObj.update.call(scene,n);
-            }
-            else if(n=="$"){
+              }
+            }else if(n=="$"){
               if(ecnt==0 && sfiles.length>0){
                 _preloadSounds(sfiles)
               }
-              _.delay(800,()=>
-                              _postAssetLoad(Mojo,this,scene,ecnt>0));
-            }
-            else{
-              //CON.error("fatal error while loading assets");
+              _.delay(800,()=> _postAssetLoad(Mojo,this,scene,ecnt>0))
+            }else{
+              CON.error("fatal error while loading assets");
             }
           }
-        });
-      }else{
-        if(sfiles.length>0) _preloadSounds(sfiles);
-        _postAssetLoad(Mojo);
-      }
+        }
+      });
+
+
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       return Mojo.start(); // starting the game loop
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @ignore */
     function _boot(Mojo){
-      const {PXLoader}= Mojo;
       if(!Mojo.u.load)
         //use default boot logos
         Mojo.u.logos=["boot/preloader_bar.png",
                       "boot/ZotohLab_x1240.png"];
       let
         ecnt=0,
-        files=Mojo.u.logos.map(f=> Mojo.assetPath(f));
-      if(files.length==0){
-        _loadFiles(Mojo)
-      }else{
-        PXLoader.init();
-        PXLoader.load(files, (p)=>{
-          CON.log(`boot load percentage= ${p}`);
-        }).then((r)=>{
-          if(files.length != Object.keys(r).length){
-            CON.log(`logo files not loaded!`)
-          }else{
-            _.delay(50,()=>_loadFiles(Mojo));
-            CON.log(`logo files loaded.`);
-          }
-        });
-      }
+        bFiles=Mojo.u.logos.map(f=> Mojo.assetPath(f));
+
+      PIXI.Assets.init();
+
+      (async()=>{
+        let rc=UNDEF;
+        try{
+          rc=await PIXI.Assets.load(bFiles);
+        }catch(e){
+          CON.error(e);
+        }
+        if(rc && bFiles.length == Object.keys(rc).length){
+          _.delay(50,()=>_loadFiles(Mojo));
+          CON.log(`logo files loaded.`);
+        }else{
+          CON.log(`logo files not loaded!`)
+        }
+      })();
+
       return Mojo;
     }
 
@@ -309,23 +339,31 @@
         p= { "outline":"none" },
         style= dom.newElm("style");
 
-      dom.conj(document.body, Mojo.canvas);
+      dom.conj(document.body, Mojo._canvasObj);
       dom.conj(style, dom.newTxt(_CT));
       dom.conj(document.head,style);
       //p["image-rendering"]= arg.rendering || "pixelated";
       //p["image-rendering"]= arg.rendering || "crisp-edges";
-      dom.css(Mojo.canvas,p);
-      dom.attrs(Mojo.canvas,"tabindex","0");
+      dom.css(Mojo._canvasObj,p);
+      dom.attrs(Mojo._canvasObj,"tabindex","0");
       dom.css(document.body,{"background":"black"});
     }
 
-    /** Main */
+    ////////////////////////////////////////////////////////////////////////////
+    /** Main
+    */
     function _prologue(Mojo){
       let
         maxed=false,
-        box= cmdArg.arena,
-        S= Mojo.stage= new PixiStage();
+        box= cmdArg.arena;
+
+      if(0 && PIXI.isMobile.phone){
+        const msg="Mobile Phone not supported, please use a tablet.";
+        alert(msg);
+        _.assert(false, msg);
+      }
       _.assert(box,"design resolution req'd.");
+
       //want canvas max screen
       if(cmdArg.scaleToWindow=="max"||
          cmdArg.scaleToWindow===true){
@@ -340,26 +378,38 @@
         }
       }
 
+      Mojo.maxed=maxed;
+
       if(!cmdArg.logos)
         cmdArg.logos=new Array();
 
+      //realize the renderer
+      (async()=>{
+        Mojo.ctx= await PIXI.autoDetectRenderer(_.inject(box,{
+          webgpu:{ antialias: true},
+          webgl:{ antialias: true}
+        }))
+        _begin(Mojo,cmdArg);
+      })();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    /** Main Helper
+    */
+    function _begin(Mojo,cmdArg){
+
       Mojo.touchDevice= !!("ontouchstart" in document);
-      Mojo.ctx= PIXI.autoDetectRenderer(_.inject(box,{
-        antialias: true
-      }));
-      Mojo.canvas = Mojo.ctx.view;
-      Mojo.canvas.id="mojoh5";
-      Mojo.maxed=maxed;
+      Mojo._canvasObj = Mojo.ctx.canvas;
+      Mojo._canvasObj.id="mojoh5";
       Mojo.scale=1;
       Mojo.scaledBgColor= "#5A0101";
+      Mojo.stage= new PixiStage();
 
       //install modules
-      ["Sprites","Input","Scenes",
-       "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
+      ["Sprites","Input","Scenes", "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
          CON.log(`installing module ${s}...`);
          let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
-         if(m.assets)
-           m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
+         if(m.assets) m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
       });
 
       //register built-in tasks
@@ -370,16 +420,22 @@
         dom.css(Mojo.canvas, "border", cmdArg.border);
 
       if(_.has(cmdArg,"bgColor"))
-        Mojo.ctx.backgroundColor =
-          Mojo.Sprites.color(cmdArg.bgColor);
+        Mojo.ctx.backgroundColor = Mojo.Sprites.color(cmdArg.bgColor);
 
       //not thoroughly supported nor tested :)
+      //keep track of current size, for resize purpose
+      Mojo.prevHeight=Mojo.height;
+      Mojo.prevWidth=Mojo.width;
+      CON.log(`canvas size= w:${Mojo.prevHeight},h=${Mojo.height}`);
       if(cmdArg.resize === true){
-        _.addEvent("resize", gscope, _.debounce(()=>{
+        _.addEvent("resize", gscope, _.debounce(e=>{
           //save the current size and tell others
-          const [w,h]=[Mojo.width, Mojo.height];
+          const [w,h]=[Mojo.prevWidth, Mojo.prevHeight];
           Mojo.ctx.resize(_width(),_height());
           Mojo.emit(["canvas.resize"],[w,h]);
+          //sync to new size
+          Mojo.prevWidth=_width();
+          Mojo.prevHeight=_height();
         },cmdArg.debounceRate||150));
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
@@ -388,30 +444,33 @@
         Mojo.scroll()
       }
 
-      Mojo.canvas.focus();
+      Mojo._canvasObj.focus();
 
       return _boot(Mojo);
     }
 
-    //------------------------------------------------------------------------
-    /**Code to run per tick. */
+    ////////////////////////////////////////////////////////////////////////////
+    /**Code to run per tick
+    */
     function _update(dt){
       Mojo._curFPS=Mojo.calcFPS(dt);
       //process any backgorund tasks
-      _BgTasks.forEach(m=> m.update && m.update(dt));
+      _BgTasks.forEach(m=> m.update?.(dt));
       //update all scenes
-      if(!_paused) Mojo.stageCS(s=> s.update && s.update(dt));
+      _paused ? 0 : Mojo.stageCS(s=> s.update?.(dt));
     }
 
-    //------------------------------------------------------------------------
+    ////////////////////////////////////////////////////////////////////////////
     function _draw(dt){
       Mojo.ctx.render(Mojo.stage)
     }
 
-    //------------------------------------------------------------------------
+    ////////////////////////////////////////////////////////////////////////////
     const _raf=(cb)=> gscope.requestAnimationFrame(cb);
+    //------------------------------------------------------------------------
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Mediator{
       constructor(){
@@ -483,6 +542,7 @@
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Player{
       constructor(uid){
@@ -501,6 +561,7 @@
       stateValue(){ _.assert(false,"implement stateValue!") }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Local extends Player{
       constructor(uid="p1"){
@@ -516,6 +577,7 @@
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
     class Bot extends Player{
       constructor(uid="p2"){
@@ -528,7 +590,6 @@
         //do nothing
       }
     }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const Mojo={
       //for world/screen conversions
@@ -546,6 +607,11 @@
       Bot,
       Local,
       Mediator,
+      SSheetFrame,
+      UNSCII: "unscii",
+      DOKI_LOWER:"Doki Lowercase",
+      BIGSHOUTBOB: "Big Shout Bob",
+      COPYRIGHT: "(c) www.zotohlab.com 2022-2024.",
       //secs per frame
       _frame:1/cmdArg.fps,
       /**Enum (1)
@@ -606,17 +672,12 @@
       /**Storage for all game data.
        * @memberof module:mojoh5/Mojo */
       Game:{mode:1},
+      _cache:{},
       MODE_ONE:1,
       MODE_TWO:2,
       MODE_NET:3,
       CON:console,
       noop: ()=>{},
-      PXContainer:PIXI.Container,
-      PXGraphics:PIXI.Graphics,
-      PXTexture:PIXI.Texture,
-      PXFilters:PIXI.filters,
-      PXLoader:PIXI.Assets,
-      PXObservablePoint: PIXI.ObservablePoint,
       get mouse(){ return Mojo.Input.pointer() },
       /**Play a sound effect.
        * @memberof module:mojoh5/Mojo
@@ -624,7 +685,14 @@
        * @return {object}
        */
       playSfx(snd){ return this.sound(snd).play() },
-      accel(v,a,dt){ return v+a*dt },
+      /**Linear acceleration.
+       * @memberof module:mojoh5/Mojo
+       * @param {number} vel
+       * @param {number} acc
+       * @param {number} dt
+       * @return {number} new velocity
+       */
+      accel(vel,acc,dt){ return vel+acc*dt },
       on(...args){
         return EBus.sub(...args)
       },
@@ -634,31 +702,38 @@
       off(...args){
         return EBus.unsub(...args)
       },
+      ssf(s,f){
+        return new this.SSheetFrame(s,f);
+      },
+      /**Get the seconds per frame.
+       * @memberof module:mojoh5/Mojo
+       * @return {number}
+       */
       frameRate(){
         return this._frame;
       },
-      /**Check if `d` is on the right hand side.
+      /**Check if enum `d` is on the right hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideRight(d){
         return d==Mojo.RIGHT || d==Mojo.NE || d==Mojo.SE },
-      /**Check if `d` is on the left hand side.
+      /**Check if enum `d` is on the left hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideLeft(d){
         return d==Mojo.LEFT || d==Mojo.NW || d==Mojo.SW },
-      /**Check if `d` is on the top hand side.
+      /**Check if enum `d` is on the top hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
        */
       sideTop(d){
         return d==Mojo.UP || d==Mojo.TOP || d==Mojo.NW || d==Mojo.NE },
-      /**Check if `d` is on the bottom hand side.
+      /**Check if enum `d` is on the bottom hand side.
        * @memberof module:mojoh5/Mojo
        * @param {number} d
        * @return {boolean}
@@ -747,6 +822,12 @@
       wrapv(v, low, high){
         return v<low ? high : (v>high ? low : v)
       },
+      /**Get the 2d htnml5 canvas object.
+       * @memberof module:mojoh5/Mojo
+       * @name canvas
+       * @return {object}
+       */
+      get canvas(){ return this._canvasObj },
       /**Get the loaded resources.
        * @memberof module:mojoh5/Mojo
        * @name assets
@@ -781,10 +862,12 @@
         }else{
           this.stage.children.forEach(s=>{
             if(s instanceof Mojo.Scenes.SceneWrapper){ s=s.children[0] }
-            if(s instanceof PIXI.SimpleRope){}else{ cb(s) }
+            if(s) cb(s)
           })
         }
       },
+      /**
+      */
       scroll(x,y){
         gscope.scrollTo(x||0, y||1) },
       /**Check if viewport is in portrait mode.
@@ -796,7 +879,7 @@
        * @memberof module:mojoh5/Mojo
        * @return {Vec2} [x,y]
        */
-      screenCenter(){ return _.v2(_M.ndiv(Mojo.width,2),_M.ndiv(Mojo.height,2)) },
+      screenCenter(){ return _.v2(int(Mojo.width/2), int(Mojo.height/2)) },
       /**Scale the `src` size against the `des` size.
        * @memberof module:mojoh5/Mojo
        * @param {Vec2} src
@@ -810,7 +893,7 @@
        * @param {number} y
        * @return {ObservablePoint}
        */
-      makeAnchor(x,y){ return new Mojo.PXObservablePoint(Mojo.noop,this,x,y) },
+      makeAnchor(x,y){ return new PIXI.ObservablePoint(this,x,y) },
       /**Ducktype a stage object.
        * @memberof module:mojoh5/Mojo
        * @param {number} [px]
@@ -835,8 +918,8 @@
        * @return {Texture}
        */
       tcached(x){
-        return _.inst(this.PXTexture,x)?x
-          :(is.str(x)? PIXI.utils.TextureCache[x] || PIXI.utils.TextureCache[this.assetPath(x)] : UNDEF)
+        return _.inst(PIXI.Texture,x)?x
+          : is.str(x)? (this._cache[x] || PIXI.Assets.cache._cache.get(x)) : UNDEF;
       },
       /**Click to play message.
        * @memberof module:mojoh5/Mojo
@@ -851,7 +934,7 @@
        * @param {number} width
        * @return {number[]} [col,row]
        */
-      splitXY(pos,width){ return [pos%width, _M.ndiv(pos,width)] },
+      splitXY(pos,width){ return [pos%width, int(pos/width)] },
       /**Create a PIXI Rectangle.
        * @memberof module:mojoh5/Mojo
        * @param {number} x
@@ -860,7 +943,7 @@
        * @param {number} h
        * @return {Rectangle}
        */
-      rect(x,y,w,h){ return new Mojo.PXRectangle(x,y,w,h) },
+      rect(x,y,w,h){ return new PIXI.Rectangle(x,y,w,h) },
       /**Scale the `src` size against `des` size.
        * @memberof module:mojoh5/Mojo
        * @param {object} src
@@ -872,50 +955,62 @@
                  height: des.height/src.height} },
       /**Get the cached Texture.
        * @memberof module:mojoh5/Mojo
-       * @param {string} frame
+       * @param {string} s
        * @return {Texture}
        */
-      id(frame){ return this.image(frame) },
+      KENLXXid(s){ return this.image(s) },
       /**Get the cached Texture.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {Texture}
        */
-      image(n){ return this.tcached(n) ||
-                       _.assert(false, `${n} not loaded.`) },
+      /**Get a frame in a spritesheet.
+       * @memberof module:mojoh5/Mojo
+       * @param {string} name
+       * @return {Texture}
+       */
+      sheet(name,frame){
+        const ssObj=this.resource(name);
+        _.assert(ssObj, `unknown sheet: ${name}.`);
+        _.assert(is.obj(ssObj.data) && is.obj(ssObj.textures), `bad sheet: ${name}`);
+        return ssObj.textures[frame];
+      },
+      image(n){ return this.resource(n) },
       /**Get the cached XML file.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {object}
        */
-      xml(n){ return (this.assets.get(n) ||
-                      _.assert(false, `${n} not loaded.`)) },
+      xml(n){ return this.resource(n) },
       /**Get the cached JSON file.
        * @memberof module:mojoh5/Mojo
        * @param {string} n
        * @return {object}
        */
-      json(n){ return (this.assets.get(n) ||
-                       _.assert(false, `${n} not loaded.`)) },
+      json(n){ return this.resource(n) },
       /**Get the relative path for this file.
        * @memberof module:mojoh5/Mojo
        * @param {string} name
        * @return {string}
        */
-      assetPath(fname){
-        if(fname.includes("/")) {return fname}
-        let pfx="data",
-            ext= _.fileExt(fname);
-        //if(ext) ext=ext.substring(1);
-        if(_.has(IMAGE_EXTS,ext)){
-          pfx="images"
-        }else if(ext=="fnt" ||
-                 _.has(FONT_EXTS,ext)){
-          pfx="fonts"
-        }else if(_.has(AUDIO_EXTS,ext)){
-          pfx="audio"
+      assetPath(fname,out){
+        if(is.str(fname)){
+          if(fname.includes("/")){out= fname}else{
+            let pfx="data",
+                ext= _.fileExt(fname);
+            //if(ext) ext=ext.substring(1);
+            if(_.has(IMAGE_EXTS,ext)){
+              pfx="images"
+            }else if(ext=="fnt" ||
+                     _.has(FONT_EXTS,ext)){
+              pfx="fonts"
+            }else if(_.has(AUDIO_EXTS,ext)){
+              pfx="audio"
+            }
+            out= `${pfx}/${fname}`;
+          }
         }
-        return `${pfx}/${fname}`
+        return out || "";
       },
       /**Get the scale factor for this maximized viewport.
        * @memberof module:mojoh5/Mojo
@@ -947,8 +1042,25 @@
        * @return {any}
        */
       resource(x,panic){
-        let t= x ? (this.assets.get(x) || this.assets.get(this.assetPath(x))) : 0;
+        let p,t;
+        if(_.inst(this.SSheetFrame,x)){
+          t=this.sheet(x.sheet,x.frame);
+        }else if (x){
+          p=this.assetPath(x)
+          t= this.tcached(x) || this.tcached(p) || PIXI.Texture.from(p);
+        }
         return t || (panic ? _.assert(false, `no such resource ${x}.`) : UNDEF)
+      },
+      /**Add one or more children to container.
+       * @memberof module:mojoh5/Mojo
+       * @param {PIXI.Container} p
+       * @param {...PIXI.Container} cs
+       * @return {PIXI.Container} first child
+       */
+      addChild(p,c1,...cs){
+        p.addChild(c1);
+        cs.forEach(c=>p.addChild(c));
+        return c1;
       },
       _fpsList:UNDEF,
       _fpsSum:0,
@@ -998,7 +1110,7 @@
               cur= _.now(),
               dts= (cur-last)/1000,
               diff=Mojo.frameRate();
-            //console.log(`frames per sec= ${Math.floor(1/dt)}`);
+            //console.log(`frames per sec= ${Math.floor(1/dts)}`);
             //limit the time gap between calls
             if(dts>_DT15) dts= _DT15;
             for(acc += dts; acc >= diff; acc -= diff){ _update(dts); }
@@ -1010,9 +1122,7 @@
       },
       _runAppStart(){
         if(1){
-          Mojo.Input.keybd(Mojo.Input.Q,()=>{
-            this.takeScreenShot()
-          })
+          Mojo.Input.keybd(Mojo.Input.Q,()=>{ this.takeScreenShot() })
         }
         return Mojo.u.start(this)
       },
@@ -1045,7 +1155,8 @@
   if(typeof module=="object" && module.exports){
     throw "Panic: browser only!"
   }else{
-    return gscope.MojoH5=function(arg){ return _module(arg, [], [], []) }
+    gscope.MojoH5=function(arg){ return _module(arg, []) }
+    gscope.MojoH5Ldr=function(arg){ window.addEventListener("load",()=> gscope.MojoH5(arg)) }
   }
 
 })(this);

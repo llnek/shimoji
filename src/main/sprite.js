@@ -10,12 +10,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
   const BtnColors={
     blue:"#319bd5",
     green:"#78c03f",
@@ -54,8 +55,11 @@
     wheat: "#F5DEB3",
     white:  "#FFFFFF",
     yellow: "#FFFF00"};
+  ////////////////////////////////////////////////////////////////////////////
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(Mojo){
 
     const {v2:_V, math:_M, ute:_, is, dom} =Mojo;
@@ -63,57 +67,78 @@
     const PI2=Math.PI*2,
           int=Math.floor;
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _genTexture(displayObject, scaleMode, resolution, region){
-      return new PIXI.GenerateTextureSystem(Mojo.ctx).generateTexture(displayObject)
+    /*PIXI code
+      export type SCALE_MODE = | 'nearest' | 'linear';
+      export type ALPHA_MODES = 'no-premultiply-alpha' | 'premultiply-alpha-on-upload' | 'premultiplied-alpha';
+     export type LineCap = 'butt' | 'round' | 'square';
+     export type LineJoin = 'round' | 'bevel' | 'miter';
+    StrokeStyle extends FillStyle {
+      //The color to use for the fill.
+      color?: ColorSource;
+      //The alpha value to use for the fill
+      alpha?: number;
+      //The texture to use for the fill.
+      texture?: Texture | null;
+      //The matrix to apply.
+      matrix?: Matrix | null;
+      //The fill pattern to use.
+      fill?: FillPattern | FillGradient | null;
+      //The width of the stroke.
+      width?: number;
+      //The alignment of the stroke.
+      alignment?: number;
+      // native?: boolean;
+      //The line cap style to use.
+      cap?: LineCap;
+      //The line join style to use
+      join?: LineJoin;
+      //The miter limit to use.
+      miterLimit?: number;
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////
+    /*Generate an actual Texture object */
+    ////////////////////////////////////////////////////////////////////////////
+    function _genTexture(dispObj, scaleMode, resolution, region){
+      return new PIXI.GenerateTextureSystem(Mojo.ctx).generateTexture(dispObj)
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //ENSURE PIXI DOESN'T HAVE SPECIAL PROPERTIES
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    //NOTE: ENSURE PIXI DOESN'T HAVE these SPECIAL PROPERTIES
+    ////////////////////////////////////////////////////////////////////////////
     (function(c,g,s){
-      g.clear();
-      g.beginFill(0);
-      g.drawCircle(0, 0, 4);
-      g.endFill();
+      g.circle(0, 0, 4); g.fill({color:0});
       s=new PIXI.Sprite(_genTexture(g));
-      ["m5","tiled", "remove","collideXY",
+      ["m5","tiled", "remove","collideXY","setup","preTMX","postTMX",
+        "dispose","preDispose",
        "onTick","getGuid","getBBox", "getSpatial"].forEach(n=>{
         [[c,"Container"],[g,"Graphics"],[s,"Sprite"]].forEach(x=>{
-          _.assertNot(_.has(x[0],n),`PIXI ${x[1]} has ${n} property!`)
+          _.assertNot(_.has(x[0],n),`Uh Oh, PIXI ${x[1]} has our ${n} property!`)
         })
-      });
+      })
     })(new PIXI.Container(),new PIXI.Graphics());
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Sprites
      */
-
-    //------------------------------------------------------------------------
-    //create aliases for various PIXI objects
-    _.inject(Mojo, {PXMatrix:PIXI.Matrix.TEMP_MATRIX,
-                    PXRTexture:PIXI.RenderTexture,
-                    PXRect:PIXI.Rectangle,
-                    PXBText:PIXI.BitmapText,
-                    PXSprite:PIXI.Sprite,
-                    PXGraphics:PIXI.Graphics,
-                    PXText:PIXI.Text,
-                    PXTSprite:PIXI.TilingSprite,
-                    PXASprite:PIXI.AnimatedSprite,
-                    PXPContainer:PIXI.ParticleContainer});
+    ////////////////////////////////////////////////////////////////////////////
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** yaxis down, default contact points, counter clockwise */
+    ////////////////////////////////////////////////////////////////////////////
     function _corners(a,w,h){
+      //starting with bottom right
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
       //adjust for anchor?
-      if(a)
-        out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); });
+      a ? out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); }) : 0;
       return out;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Override the control of animation */
+    ////////////////////////////////////////////////////////////////////////////
     function _exASprite(s){
       let tid=0,_s={};
       function _reset(){
@@ -129,7 +154,7 @@
           _s.cnt=1;
         }else{
           _reset();
-          s.onComplete && s.onComplete();
+          s.onComplete?.();
         }
       }
       _.inject(s.m5,{
@@ -154,21 +179,20 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Low level sprite creation. */
+    ////////////////////////////////////////////////////////////////////////////
     function _sprite(src,ctor){
       let s,obj;
-      if(_.inst(Mojo.PXGraphics,src)){
+      if(_.inst(PIXI.Graphics,src)){
         src=_genTexture(src);
       }
-      if(_.inst(Mojo.PXTexture,src)){
+      if(_.inst(PIXI.Texture,src)){
         obj=src
       }else if(is.vec(src)){
         if(is.str(src[0]))
-          src=Mojo.tcached(src[0])?src.map(s=> Mojo.tcached(s))
-                                  :src.map(s=> Mojo.assetPath(s));
-        s=_.inst(Mojo.PXTexture,src[0])? new Mojo.PXASprite(src)
-                                       : Mojo.PXASprite.fromImages(src);
+          src=src.map(s=> Mojo.resource(s));
+        s=_.inst(PIXI.Texture,src[0])? new PIXI.AnimatedSprite(src, false) : UNDEF;
       }else if(is.str(src)){
-        obj= Mojo.tcached(src) || Mojo.PXTexture.from(Mojo.assetPath(src))
+        obj= Mojo.resource(src);
       }
       if(obj)
         s=ctor(obj);
@@ -176,11 +200,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*core function to make 2D grids */
+    ////////////////////////////////////////////////////////////////////////////
     function _mkgrid(sx,sy,rows,cols,cellW,cellH){
-      let
-        y1=sy,
-        x1=sx,
-        out=[];
+      let y1=sy, x1=sx, out=[];
       for(let x2,y2,v,r=0; r<rows; ++r){
         v=[];
         for(let c=0; c<cols; ++c){
@@ -197,22 +220,26 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _pininfo(X,o,p=UNDEF){
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    function _pininfo(ThisModule,o,p=UNDEF){
       let par,box;
       if(o && o.m5 && o.m5.stage){
         box={x1:0,y1:0, x2:Mojo.width, y2:Mojo.height};
       }else{
         if(o.angle !== undefined)
-          _.assert(_.feq0(o.angle), "expected non rotated object");
+          _.assert(_.feq0(o.angle), "expected non rotated object!");
         par=o.parent;
-        box=X.getAABB(o);
+        box=ThisModule.getAABB(o);
       }
       if(p && par===p){
+        //account for the parent's position...
         box.x1 += p.x;
         box.x2 += p.x;
         box.y1 += p.y;
         box.y2 += p.y;
       }
+      //give extra info back...
       return [box, _M.ndiv(box.x2-box.x1,2),//half width
                    _M.ndiv(box.y2-box.y1,2),//half height
                    _M.ndiv(box.x1+box.x2,2),//center x
@@ -220,7 +247,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //basic 2 body collision physics
+    //basic 2 body collision physics, assuming o1 hits o2
+    ////////////////////////////////////////////////////////////////////////////
     function _bounceOff(o1,o2,m){
       if(o2.m5.static){
         //full bounce v=v - (1+c)(v.n_)n_
@@ -236,18 +264,21 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*Detect where the collision occurred */
+    ////////////////////////////////////////////////////////////////////////////
     function _collideDir(col){
       const c=new Set();
-      if(col.overlapN[1] < -0.3){ c.add(Mojo.TOP) }
-      if(col.overlapN[1] > 0.3){ c.add(Mojo.BOTTOM) }
-      if(col.overlapN[0] < -0.3){ c.add(Mojo.LEFT) }
-      if(col.overlapN[0] > 0.3){ c.add(Mojo.RIGHT) }
+      (col.overlapN[1] < -0.3) ? c.add(Mojo.TOP) :0;
+      (col.overlapN[1] > 0.3) ? c.add(Mojo.BOTTOM) :0;
+      (col.overlapN[0] < -0.3) ? c.add(Mojo.LEFT) :0;
+      (col.overlapN[0] > 0.3) ? c.add(Mojo.RIGHT) : 0;
       c.add(col);
       return c;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //convert to std geometry for collision detection
+    //convert to std geometry for A hit B collision detection
+    ////////////////////////////////////////////////////////////////////////////
     function _hitAB(S,a,b){
       let
         a_= S.toBody(a),
@@ -264,6 +295,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*A collides with B, elastic collision. */
+    ////////////////////////////////////////////////////////////////////////////
     function _collideAB(S,a,b,bounce=true){
       let ret,d,m=_hitAB(S,a,b);
       if(m){
@@ -274,13 +307,14 @@
           _V.sub$(a,d);
           _V.add$(b,d);
         }
-        if(bounce)
-          _bounceOff(a,b,m);
+        bounce ? _bounceOff(a,b,m) : 0;
       }
       return m;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*For common movement */
+    ////////////////////////////////////////////////////////////////////////////
     function SteeringInfo(){
       return{
         wanderAngle: _.rand()*Math.PI*2,
@@ -303,23 +337,23 @@
       SomeColors:{},
       BtnColors:{},
       Geo,
-      assets: ["boot/unscii.fnt",
-               "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt",
-               "boot/splash.jpg", "boot/trail.png","boot/star.png" ],
+      assets: ["boot/unscii.fnt", "boot/doki.fnt",
+               "boot/BIG_SHOUT_BOB.fnt", "boot/splash.jpg", "boot/star.png" ],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
+       * @return {boolean}
        */
       assertCenter(s){
-        return _.assert(s.anchor && _.feq(s.anchor.x,0.5) &&
-                                    _.feq(s.anchor.y,0.5), "not center'ed") },
+        return _.assert(s?.anchor && _.feq(s.anchor.x,0.5) &&
+                                     _.feq(s.anchor.y,0.5), "not center'ed") },
       /**Check if sprite has children.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {boolean}
        */
       empty(s){
-        return s.children.length == 0 },
+        return s && s.children.length == 0 },
       /**Emulate a button press
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} b
@@ -327,17 +361,15 @@
        * @param {number|string} oldColor
        * @param {string} snd
        * @param {function} cb
+       * @param {number} delayMillis
        * @return {function}
        */
-      btnPress(b,c1,c0,snd,cb){
-        let self=this;
+      btnPress(b,c1,c0,snd,cb,delayMillis=343){
+        const self=this;
         return function(arg){
           arg.tint=self.color(c1);
-          if(snd) Mojo.sound(snd).play();
-          _.delay(343,()=>{
-            arg.tint=self.color(c0);
-            cb(arg);
-          });
+          snd ? Mojo.sound(snd).play() : 0;
+          _.delay(delayMillis,()=>{ arg.tint=self.color(c0); cb(arg); })
         }
       },
       /**React to a one off click on canvas.
@@ -346,14 +378,23 @@
        * @param {string} snd
        * @return {function}
        */
-      oneOffClick(cb,snd=UNDEF){
-        let sub= function(){
+      oneOffClick(cb,snd){
+        const sub= function(){
           Mojo.Input.off(["single.tap"],sub);
-          if(snd) Mojo.sound(snd).play();
+          snd ? Mojo.sound(snd).play() : 0;
           cb();
         };
         Mojo.Input.on(["single.tap"],sub);
         return sub;
+      },
+      /**Cancel the a one off click.
+       * @memberof module:mojoh5/Sprites
+       * @param {function} cb
+       * @return {any} undefined
+       */
+      cancelOneOffClick(sub){
+        sub ? Mojo.Input.off(["single.tap"],sub) : 0;
+        return UNDEF;
       },
       /**Change size of sprite.
        * @memberof module:mojoh5/Sprites
@@ -418,7 +459,7 @@
        * @return {object} {width,height}
        */
       halfSize(s){
-        return {width: _M.ndiv(s.width,2), height: _M.ndiv(s.height,2)} },
+        return {width: int(s.width/2), height: int(s.height/2)} },
       /**Set the anchor.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -428,7 +469,7 @@
        */
       anchorXY(s,x,y){
         _.assert(s.anchor,"sprite has no anchor object");
-        s.anchor.y= _.nor(y,x);
+        s.anchor.y=  y ?? x;
         s.anchor.x=x;
         return s;
       },
@@ -438,18 +479,14 @@
        * @return {Sprite} s
        */
       centerAnchor(s){
-        if(s.anchor) s.anchor.set(0.5,0.5);
-        return s;
-      },
+        return this.anchorXY(s,0.5,0.5) },
       /**Set sprite's anchor to be at it's top left.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       topLeftAnchor(s){
-        if(s.anchor) s.anchor.set(0,0);
-        return s;
-      },
+        return this.anchorXY(s,0,0) },
       /**Calc the offset required to find the position of corners
        * in the object.  e.g. anchor is centered, but you want to
        * find the bottome right.
@@ -462,8 +499,7 @@
       offsetXY(s,tx,ty){
         _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
                  "no anchor or bad target offset points");
-        return [s.width * (tx-s.anchor.x),
-                s.height * (ty-s.anchor.y)]
+        return [s.width * (tx-s.anchor.x), s.height * (ty-s.anchor.y)]
       },
       /**Get sprite's anchor offset from top-left corner.
        * @memberof module:mojoh5/Sprites
@@ -471,16 +507,14 @@
        * @return {number[]} [x,y]
        */
       topLeftOffsetXY(s){
-        return this.offsetXY(s, 0,0)
-      },
+        return this.offsetXY(s, 0,0) },
       /**Get sprite's anchor offset from center.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {number[]} [x,y]
        */
       centerOffsetXY(s){
-        return this.offsetXY(s, 0.5,0.5)
-      },
+        return this.offsetXY(s, 0.5,0.5) },
       /**Calc the offset required to make the object appear to be
        * at this target anchor.  e.g. say the object's anchor is
        * (1,1) and is positioned at (0,0), so the bottom right
@@ -495,8 +529,7 @@
       adjOffsetXY(s,tx,ty){
         _.assert(s.anchor&&tx>=0&&tx<=1&&ty>=0&&ty<=1,
                  "no anchor or bad target offset points");
-        return [s.width * (s.anchor.x - tx),
-                s.height * (s.anchor.y - ty) ]
+        return [s.width * (s.anchor.x - tx), s.height * (s.anchor.y - ty) ]
       },
       /**Make this sprite steerable.
        * @memberof module:mojoh5/Sprites
@@ -504,12 +537,12 @@
        * @return {Sprite} s
        */
       makeSteerable(s){
-        let
-          w2= _M.ndiv(s.width,2),
-          h2= _M.ndiv(s.height,2);
+        if(s.width != s.height)
+          Mojo.CON.warn(`object ${s.m5?.uuid} is not a square, radius will be off....`);
+        let {width,height}= this.halfSize(s);
         s.m5.steer=[0,0];
         s.m5.steerInfo=SteeringInfo();
-        s.m5.radius=Math.sqrt(w2*w2+h2+h2);
+        s.m5.radius=Math.sqrt(width*width+height*height);
         return s;
       },
       /**
@@ -518,12 +551,11 @@
        * @return {Sprite} s
        */
       updateSteer(s,reset=true){
-        if(s.m5.steer){
+        if(s.m5?.steer){
           _V.clamp$(s.m5.steer, 0, s.m5.steerInfo.maxForce);
           _V.div$(s.m5.steer,s.m5.mass);
           _V.add$(s.m5.vel, s.m5.steer);
-          if(reset)
-            _V.mul$(s.m5.steer,0);
+          reset ? _V.mul$(s.m5.steer,0) : 0;
         }
         return s;
       },
@@ -533,7 +565,7 @@
        * @return {Sprite} s
        */
       clrSpatial(s){
-        if(s && s.m5 && s.m5.sgrid){
+        if(s.m5?.sgrid){
           s.m5.sgrid.x1=UNDEF;
           s.m5.sgrid.x2=UNDEF;
           s.m5.sgrid.y1=UNDEF;
@@ -548,7 +580,7 @@
        */
       lift(s){
         if(!s.m5){
-          let self=this;
+          const self=this;
           s.g={};
           s.m5={
             uuid: `s${_.nextId()}`,
@@ -584,8 +616,7 @@
           //these special functions are for quadtree
           s.getGuid=function(){ return s.m5.uuid };
           s.getSpatial=function(){ return s.m5.sgrid; };
-          s.getBBox=function(){
-            return _.feq0(s.angle)?self.getAABB(s):self.boundingBox(s) };
+          s.getBBox=function(){ return _.feq0(s.angle)?self.getAABB(s):self.boundingBox(s) };
         }
         return s;
       },
@@ -595,8 +626,8 @@
        * @return {Sprite}
        */
       clamp2Pi(s){
-        if(s.rotation > PI2){ s.rotation -= PI2 }
-        if(s.rotation < 0) { s.rotation += PI2 }
+        while(s.rotation > PI2){ s.rotation -= PI2 }
+        while(s.rotation < 0) { s.rotation += PI2 }
         return s;
       },
       /**Convert polar to cartesian
@@ -615,7 +646,7 @@
        * @return {Sprite} s
        */
       setOrient(s,v,deg=false){
-        deg ? s.angle=v : s.rotation=v;
+        deg ? (s.angle=v) : (s.rotation=v);
         return s;
       },
       /**Convert sprite to a polygonal shape.
@@ -633,7 +664,7 @@
       toCircle(s){
         return this.assertCenter(s) &&
                new Geo.Circle(_M.ndiv(s.width,2)).setOrient(s.rotation) },
-      /**
+      /**For 2D physics, create a body.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Body}
@@ -681,8 +712,8 @@
        * @param {boolean} b
        * @return {Sprite} s
        */
-      setScaleModeNearest(s,b){
-        s.texture.baseTexture.scaleMode = b ? PIXI.SCALE_MODES.NEAREST : PIXI.SCALE_MODES.LINEAR;
+      setScaleModeNearest(s,b=true){
+        s.texture.source.scaleMode = b ? "nearest" : "linear";
         return s;
       },
       /**Find the angle in radians between two sprites.
@@ -693,24 +724,20 @@
        */
       angle(s1, s2){
         return _V.angle(this.centerXY(s1), this.centerXY(s2)) },
-      /**
+      /**Mark it as dead.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       die(s){
-        if(s) s.m5.dead=true;
-        return s;
-      },
-      /**
+        s.m5.dead=true; return s; },
+      /**Come back to life, from dead.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       undie(s){
-        if(s) s.m5.dead=false;
-        return s;
-      },
+        s.m5.dead=false; return s; },
       /**Move a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -719,14 +746,15 @@
        */
       move(s,dt){
         if(dt){
-          _V.add$(s.m5.vel,_V.mul(s.m5.gravity,dt));
-          _V.add$(s.m5.vel,_V.mul(s.m5.acc,dt));
-          _V.mul$(s.m5.vel, s.m5.friction);
+          _V.add$(s.m5.vel,_V.mul(s.m5.gravity,dt));//deal with gravity
+          _V.add$(s.m5.vel,_V.mul(s.m5.acc,dt));//deal with acceleration
+          _V.mul$(s.m5.vel, s.m5.friction);//deal with friction
         }else{
           dt=1;
         }
         if(s.m5.maxSpeed !== undefined)
           _V.clamp$(s.m5.vel,0, s.m5.maxSpeed);
+        //finally, update the sprite's x & y position
         return _V.add$(s,_V.mul(s.m5.vel,dt));
       },
       /**Get the left side of this sprite.
@@ -770,6 +798,7 @@
        * @return {number}
        */
       bottomSide(s){
+        // y-axis goes down, so bottom > top :)
         return this.topSide(s)+s.height },
       /**Get the sprite's bounding box, *ignoring* rotation.
        * @memberof module:mojoh5/Sprites
@@ -809,18 +838,20 @@
                         _M.ndiv(b4.y1+b4.y2,2)) },
       /**Frame this box.
        * @memberof module:mojoh5/Sprites
-       * @param {object} b4
+       * @param {object} g
+       * @param {number} width
+       * @param {string|number} color
        * @return {Sprite}
        */
       bboxFrame(g,width=16,color="#dedede"){
-        let
-          {x1,x2,y1,y2}=g,
+        _.assert(g.x1 !== undefined,"bad bounding box");
+        let {x1,x2,y1,y2}= g,
           w=x2-x1,
           h=y2-y1,
-          s,ctx= this.graphics();
-        ctx.lineStyle(width,this.color(color));
-        ctx.drawRoundedRect(0,0,w+width,h+width,_M.ndiv(width,4));
-        s=this.sprite(ctx);
+          s,gfx= this.graphics();
+        gfx.roundRect(0,0,w+width,h+width,int(width/4));
+        gfx.stroke({width,color:this.color(color)});
+        s=this.sprite(gfx);
         s.x=x1-width;
         s.y=y1-width;
         return s;
@@ -831,7 +862,7 @@
        * @return {Vec2} [x,y]
        */
       bboxSize(b4){
-        return _V.vec(b4.x2-b4.x1, b4.y2-b4.y1) },
+        return b4.x1 !== undefined ? _V.vec(b4.x2-b4.x1, b4.y2-b4.y1) : _.assert(false, "bad bounding box") },
       /**Check if point is inside this bounding box.
        * @memberof module:mojoh5/Sprites
        * @param {number} x
@@ -840,8 +871,7 @@
        * @return {boolean}
        */
       pointInBBox(x,y,box){
-        return x > box.x1 &&
-               x < box.x2 && y > box.y1 && y < box.y2 },
+        return box.x1 !== undefined && x > box.x1 && x < box.x2 && y > box.y1 && y < box.y2 },
       /**Find the bounding box of a sprite, taking account of it's
        * current rotation.
        * @memberof module:mojoh5/Sprites
@@ -849,18 +879,14 @@
        * @return {object} {x1,x2,y1,y2}
        */
       boundingBox(s){
-        let
-          c,z,
-          x1,x2,
-          y1,y2,
-          x=[],y=[],
-          hw=_M.ndiv(s.width,2),
-          hh=_M.ndiv(s.height,2),
-          theta=Math.tanh(hh/hw),
-          H=Math.sqrt(hw*hw+hh*hh);
         if(!_.feq0(s.rotation))
           _.assert(this.isCenter(s),
                    "expected rotated obj with center-anchor");
+        let c,z, x1,x2, y1,y2, x=[],y=[],
+          hw=int(s.width/2),
+          hh=int(s.height/2),
+          theta=Math.tanh(hh/hw),
+          H=Math.sqrt(hw*hw+hh*hh);
         //x2,y1
         z=PI2-theta + s.rotation;
         y.push(H*Math.sin(z));
@@ -895,7 +921,7 @@
        * @return {boolean}
        */
       hitTestPoint(px,py,s){
-        let z=this.toBody(s);
+        const z=this.toBody(s);
         return s.m5.circle ? Geo.hitTestPointCircle(px,py,z)
                            : Geo.hitTestPointPolygon(px,py,z) },
       /**Find distance between these 2 sprites.
@@ -909,10 +935,11 @@
       /**Scale all these sprites by the global scale factor.
        * @memberof module:mojoh5/Sprites
        * @param {...Sprite} args
+       * @return {any} undefined
        */
       scaleContent(...args){
         if(args.length==1&&is.vec(args[0])){ args=args[0] }
-        let K=Mojo.getScaleFactor();
+        const K=Mojo.getScaleFactor();
         args.forEach(s=>{ s.scale.x *=K; s.scale.y *=K; })
       },
       /**Scale this object to be as big as canvas.
@@ -932,35 +959,37 @@
        * @return {Sprite} s
        */
       uuid(s,id){
-        s.m5.uuid=id;
-        return s;
-      },
+        s.m5.uuid=id; return s },
       /**Set the transparency of this sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @param {number} v
        * @return {Sprite} s
        */
-      opacity(s,v){ s.alpha=v; return s },
+      opacity(s,v){
+        s.alpha=v; return s },
       /**Set a sprite's color(tint).
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @param {number|string} color
        * @return {Sprite} s
        */
-      tint(s,color){ s.tint=color; return s },
+      tint(s,color){
+        s.tint= this.color(color); return s },
       /**Unset a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
-      hide(s){s.visible=false;return s},
+      hide(s){
+        s.visible=false;return s},
       /**Set a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
-      show(s){s.visible=true;return s},
+      show(s){
+        s.visible=true;return s},
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -969,9 +998,7 @@
        * @return {Sprite} s
        */
       pset(s,p,v){
-        s.g[p]=v;
-        return s;
-      },
+        s.g[p]=v; return s },
       /**Get a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -985,33 +1012,47 @@
        * @return {Container}
        */
       container(cb){
-        let s= new Mojo.PXContainer();
-        s= this.lift(s);
-        if(cb){
-          cb(s)
-        }
+        const s= this.lift(new PIXI.Container());
+        cb ? cb(s) : 0;
         return s;
       },
+      /**Create a new Container object with these children.
+       * @memberof module:mojoh5/Sprites
+       * @param {...any} cs child objects
+       * @return {Container}
+       */
       group(...cs){
-        let C= this.container();
+        const C= this.container();
         cs.forEach(c=> C.addChild(c));
         return C;
       },
       /**Create a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
+       * @param {boolean} center
        * @param {number} x
        * @param {number} y
-       * @param {boolean} center
        * @return {Sprite}
        */
       sprite(src, center=false,x=0,y=0){
-        let s= _sprite(src, o=> new Mojo.PXSprite(o));
-        s=this.lift(s);
-        _V.set(s,x,y);
-        if(center)
-          this.centerAnchor(s);
-        return _.inst(Mojo.PXASprite,s) ? _exASprite(s) : s; },
+        const s= this.lift(_sprite(src, o=> new PIXI.Sprite(o)));
+        s.x=x;
+        s.y=y;
+        center ? this.centerAnchor(s) : 0;
+        return _.inst(PIXI.AnimatedSprite,s) ? _exASprite(s) : s;
+      },
+      /**Create a sprite from a spritesheet frame.
+       * @memberof module:mojoh5/Sprites
+       * @param {string} sheet
+       * @param {string} frame
+       * @param {boolean} center
+       * @param {number} x
+       * @param {number} y
+       * @return {Sprite}
+       */
+      spriteFrame(sheet,frame,center=false,x=0,y=0){
+        return this.sprite(Mojo.sheet(sheet,frame),center,x,y)
+      },
       /**Create a TilingSprite.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -1020,9 +1061,9 @@
        * @return {Sprite}
        */
       tilingSprite(src, width,height){
-        return this.lift(_sprite(src,
-                                 o=> new Mojo.PXTSprite(o,width||o.width,
-                                                          height||o.height)))
+        return this.lift(_sprite(src, o=> new PIXI.TilingSprite({
+          texture:o,width:width||o.width, height:height||o.height
+        })))
       },
       /**Tile sprite repeatingly in x and/or y axis.
        * @memberof module:mojoh5/Sprites
@@ -1034,14 +1075,14 @@
        * @return {Sprite}
        */
       repeatSprite(src,rx=true,ry=true,width=UNDEF,height=UNDEF){
-        let xx= ()=>{
-          let s= this.lift(_sprite(src, o=> new Mojo.PXSprite(o)));
+        let self=this, s, out=[],x=0,y=0,w=0,h=0;
+        function xx(){
+          const s= self.lift(_sprite(src, o=> new PIXI.Sprite(o)));
           let K=Mojo.getScaleFactor();K=1;
           s.width *= K;
           s.height *= K;
           return s;
-        };
-        let s,out=[],x=0,y=0,w=0,h=0;
+        }
         if(rx){
           while(w<width){
             out.push(s=xx());
@@ -1066,8 +1107,8 @@
             if(h>=height&& w< width && rx){
               w += s.width;
               x += s.width;
-              x=y;
-              w=h;
+              y=0;
+              h=0;
             }
           }
           rx=false;
@@ -1080,28 +1121,28 @@
        * @param {number} tileW
        * @param {number} tileH
        * @param {number} spacing
-       * @return {Sprite}
+       * @return {AnimatedSprite}
        */
       animation(src, tileW, tileH, spacing=0){
-        let t=Mojo.tcached(src);
+        let t=Mojo.resource(src);
         if(!t)
           throw `SpriteError: ${src} not loaded.`;
         let
-          cols = _M.ndiv(t.width,tileW),
-          rows = _M.ndiv(t.height,tileH),
+          cols = int(t.width/tileW),
+          rows = int(t.height/tileH),
           pos= [], cells = cols*rows;
         for(let x,y,i=0; i<cells; ++i){
           x= (i%cols) * tileW;
-          y= _M.ndiv(i,cols) * tileH;
+          y= int(i/cols) * tileH;
           if(spacing>0){
             x += spacing + (spacing * i % cols);
-            y += spacing + (spacing * _M.ndiv(i,cols));
+            y += spacing + (spacing * int(i/cols));
           }
           pos.push(_V.vec(x,y));
         }
         return this.sprite(
-          pos.map(p=> new Mojo.PXTexture(t.baseTexture,
-                                         new Mojo.PXRect(p[0],p[1],tileW,tileH))))
+          pos.map(p=> new PIXI.Texture({source: t.source,
+                                        frame: new PIXI.Rectangle(p[0],p[1],tileW,tileH) })));
       },
       /**Create a PIXI.Texture from this source.
        * @memberof module:mojoh5/Sprites
@@ -1113,8 +1154,8 @@
        * @return {Sprite}
        */
       frame(src, width, height,x,y){
-        return this.sprite(new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
-                                              new Mojo.PXRect(x, y, width,height))) },
+        return this.sprite(new PIXI.Texture({source: Mojo.resource(src).source,
+                                             frame: new PIXI.Rectangle(x, y, width,height)})) },
       /**Select a bunch of frames from image.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -1124,8 +1165,8 @@
        * @return {Texture[]}
        */
       frameSelect(src,width,height,selectors){
-        return selectors.map(s=> new Mojo.PXTexture(Mojo.tcached(src).baseTexture,
-                                                    new Mojo.PXRect(s[0], s[1], width,height))) },
+        return selectors.map(s=> new PIXI.Texture({source: Mojo.resource(src).source,
+                                                   frame: new PIXI.Rectangle(s[0], s[1], width,height)})) },
       /**Create a sequence of frames from this texture.
        * @memberof module:mojoh5/Sprites
        * @param {any} src
@@ -1138,19 +1179,16 @@
        * @return {Texture[]}
        */
       frames(src,tileW,tileH,spaceX=0,spaceY=0,sx=0,sy=0){
-        let
-          t= Mojo.tcached(src),
-          dx=tileW+spaceX,
-          dy=tileH+spaceY,
-          out=[],
-          rows= _M.ndiv(t.height,dy),
+        let dx=tileW+spaceX, dy=tileH+spaceY, out=[],
+          t= Mojo.resource(src),
+          rows= int(t.height/dy),
           cols= _M.ndiv(t.width+spaceX,dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
             x= sx + tileW*c;
-            out.push(new Mojo.PXTexture(t.baseTexture,
-                                        new Mojo.PXRect(x, y, tileW,tileH))) }
+            out.push(new PIXI.Texture({source:t.source,
+                                       frame:new PIXI.Rectangle(x, y, tileW,tileH)})) }
         }
         return out;
       },
@@ -1160,16 +1198,17 @@
        * @return {Texture[]}
        */
       frameImages(...pics){
-        if(pics.length==1 &&
-           is.vec(pics[0])){ pics=pics[0] }
-        return pics.map(p=> Mojo.tcached(p)) },
+        if(pics.length==1
+          && is.vec(pics[0])){ pics=pics[0] }
+        return pics.map(p=> Mojo.resource(p));
+      },
       /**Create a PIXI AnimatedSprite from these images.
        * @memberof module:mojoh5/Sprites
        * @param {...any} pics
        * @return {AnimatedSprite}
        */
       spriteFrom(...pics){
-        return this.sprite(this.frameImages(...pics)) },
+        return this.sprite(this.frameImages(pics)) },
       /**Create a PIXI.Text object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -1179,7 +1218,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        return _V.set(this.lift(new Mojo.PXText(msg,fspec)),x,y) },
+        return _V.set(this.lift(new PIXI.Text(msg,fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -1191,63 +1230,55 @@
       bitmapText(msg,name,size){
         //in pixi, no fontSize, defaults to 26, left-align
         let fstyle;
+        msg = msg || "";
         if(is.str(name)){
-          fstyle={fontName:name};
+          fstyle={fontFamily:name};
           if(is.num(size)) fstyle.fontSize=size;
         }else{
           fstyle=name;
         }
-        if(fstyle.fill) fstyle.tint=this.color(fstyle.fill);
-        if(!fstyle.fontName) fstyle.fontName="unscii";
+        if(!fstyle.fontFamily)
+          fstyle.fontFamily= fstyle.fontName? fstyle.fontName : "unscii";
         if(!fstyle.align) fstyle.align="center";
-        return this.lift(new Mojo.PXBText(msg,fstyle));
+        return this.lift(new PIXI.BitmapText({text:msg,style:fstyle}));
       },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
        * @param {number} width
        * @param {number} height
-       * @param {number} point
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number} peak
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @param {number} x
        * @param {number} y
        * @return {Sprite}
        */
       triangle(width, height, peak,
-               fillStyle = 0xffffff,
-               strokeStyle = 0xffffff, lineWidth=0,x=0,y=0){
+               fillColor = 0xffffff,
+               strokeColor = 0xffffff, lineWidth=0,x=0,y=0){
         let
           g=this.graphics(),
-          a=1,w2=_M.ndiv(width,2),
-          stroke=this.color(strokeStyle),
-          X= peak<0.5?0:(peak>0.5?width:w2),
-          ps=[{x:0,y:0}, {x:X,y: -height},{x:width,y:0},{x:0,y:0}];
-        if(fillStyle !== false){
-          if(is.vec(fillStyle)){
-            a=fillStyle[1];
-            fillStyle=fillStyle[0];
+          a=1,w2=int(width/2),
+          stroke=this.color(strokeColor),
+          X= peak<0.5?0:(peak>0.5?width:w2);
+        if(fillColor !== false){
+          if(is.vec(fillColor)){
+            a=fillColor[1];
+            fillColor=fillColor[0];
           }
-          g.beginFill(this.color(fillStyle),a);
         }
+        g.poly([0,0,X,-height,width,0]);
+        if(fillColor !== false)
+          g.fill({color:this.color(fillColor),alpha:a});
         if(lineWidth>0)
-          g.lineStyle(lineWidth, stroke, 1);
-        g.drawPolygon(...ps);
-        if(fillStyle !== false){
-          g.endFill()
-        }
-        let s= new Mojo.PXSprite(this.genTexture(g));
-        s=this.lift(s);
+          g.stroke({width:lineWidth, color:stroke, alpha:1});
+        let s= this.sprite(g);
         if(1){
-          if(height<0){
-            s.m5.getContactPoints=()=>{
-              return [[X,-height],[width,0],[0,0]];
-            }
-          }else{
-            s.m5.getContactPoints=()=>{
-              return [[width,height],[X,0],[0,height]];
-            }
-          }
+          s.m5.getContactPoints= height<0 ?
+            ()=>{ return [[X,-height],[width,0],[0,0]] }
+            :
+            ()=>{ return [[width,height],[X,0],[0,height]] }
         }
         return _V.set(s,x,y);
       },
@@ -1255,51 +1286,120 @@
        * @memberof module:mojoh5/Sprites
        * @param {number} width
        * @param {number} height
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @return {Sprite}
        */
       rect(width, height,
-           fillStyle = 0xffffff,
-           strokeStyle = 0xffffff, lineWidth=0){
-        return this.rectEx(this.rectTexture(width,height,fillStyle,strokeStyle,lineWidth))
+           fillColor = 0xffffff,
+           strokeColor = 0xffffff, lineWidth=0){
+        return this.sprite(this.rectTexture(width,height,fillColor,strokeColor,lineWidth)) },
+      /**Draw a rectangle.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {number} x
+       * @param {number} y
+       * @param {number} width
+       * @param {number} height
+       * @return {PIXI.Graphics}
+       */
+      grect(gfx, x,y,width,height){
+        gfx.rect(x,y,width,height); return gfx },
+      /**Draw a circle.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {number} cx
+       * @param {number} cy
+       * @param {number} radius
+       * @return {PIXI.Graphics}
+       */
+      gcircle(gfx, cx, cy, radius){
+        gfx.circle(cx,cy,radius); return gfx },
+      /**Fill graphics with texture.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {PIXI.Texture} t
+       * @param {object} style
+       * @return {PIXI.Graphics}
+       */
+      gfillEx(gfx, t, style){
+        if(!style) style={};
+        style.texture=t;
+        gfx.texture(style);
+        return gfx;
+      },
+      /**Clear graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @return {PIXI.Graphics}
+       */
+      gclear(gfx){
+        return gfx.clear() },
+      /**Draw a sequence of paths in graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {array} actions
+       * @return {PIXI.Graphics}
+       */
+      gpath(gfx,actions){
+        _.assert(is.vec(actions),"expected path actions!");
+        actions.forEach(a=>{
+          if(is.vec(a)){
+            gfx[a.shift()].apply(gfx,a);
+          }else if(is.str(a)){
+            gfx[a]();
+          }
+        });
+        return gfx;
+      },
+      /**Fill graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {object} style
+       * @return {PIXI.Graphics}
+       */
+      gfill(gfx, style){
+        _.assert(is.obj(style),`expected fill style object`);
+        gfx.fill(style);
+        return gfx;
+      },
+      /**Stroke graphics.
+       * @memberof module:mojoh5/Sprites
+       * @param {PIXI.Graphics} gfx
+       * @param {object} style
+       * @return {PIXI.Graphics}
+       */
+      gstroke(gfx,style){
+        _.assert(is.obj(style),`expected stroke style object`);
+        gfx.stroke(style);
+        return gfx;
       },
       /**Create a rectangular texture.
        * @param {number} width
        * @param {number} height
-       * @param {string|number} fillStyle
-       * @param {string|number} strokeStyle
+       * @param {string|number} fillColor
+       * @param {string|number} strokeColor
        * @param {number} lineWidth [0]
        * @return {PIXI.Texture}
        */
       rectTexture(width, height,
-           fillStyle = 0xffffff,
-           strokeStyle = 0xffffff, lineWidth=0){
-        let a,g=this.graphics();
-        if(fillStyle !== false){
-          if(is.vec(fillStyle)){
-            a=fillStyle[1];
-            fillStyle=fillStyle[0];
+                  fillColor = 0xffffff, strokeColor = 0xffffff, lineWidth=0){
+        let a,gfx=this.graphics();
+        if(fillColor !== false){
+          if(is.vec(fillColor)){
+            a=fillColor[1];
+            fillColor=fillColor[0];
           }else{
             a=1;
           }
-          g.beginFill(this.color(fillStyle),a);
         }
+        gfx.rect(0, 0, width,height);
+        if(fillColor !== false)
+          gfx.fill({color:this.color(fillColor),alpha:a});
         if(lineWidth>0)
-          g.lineStyle(lineWidth, this.color(strokeStyle));
-        g.drawRect(0, 0, width,height);
-        if(fillStyle !== false){
-          g.endFill()
-        }
-        return this.genTexture(g)
-      },
-      /** Create sprite from this texture.
-       * @param {PIXI.Texture} t
-       * @return {Sprite}
-       */
-      rectEx(t){
-        return this.lift( new Mojo.PXSprite(t))
+          gfx.stroke({width:lineWidth, color:this.color(strokeColor)});
+        return this.genTexture(gfx)
       },
       /**Create a sprite by applying a drawing routine to the graphics object.
        * @memberof module:mojoh5/Sprites
@@ -1308,92 +1408,80 @@
        * @return {Sprite}
        */
       drawBody(cb,...args){
-        let g = this.graphics();
-        cb.apply(this, [g].concat(args));
-        return this.lift(new Mojo.PXSprite(this.genTexture(g))) },
+        const gfx = this.graphics();
+        cb.apply(this, [gfx].concat(args));
+        return this.lift(new PIXI.Sprite(this.genTexture(gfx))) },
       /**Create a circular sprite by generating a texture.
        * @memberof module:mojoh5/Sprites
        * @param {number} radius
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @return {Sprite}
        */
-      circle(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
-        return this.circleEx(this.circleTexture(radius,fillStyle, strokeStyle,lineWidth))
+      circle(radius, fillColor=0xffffff, strokeColor=0xffffff, lineWidth=0){
+        return this.circleEx(this.circleTexture(radius,fillColor, strokeColor,lineWidth))
       },
       /**Create a circular texture.
        * @param {number} radius
-       * @param {number|string} fillStyle
-       * @param {number|string} strokeStyle
+       * @param {number|string} fillColor
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @return {PIXI.Texture}
        */
-      circleTexture(radius, fillStyle=0xffffff, strokeStyle=0xffffff, lineWidth=0){
-        let a,g = this.graphics();
-        if(fillStyle !== false){
-          if(is.vec(fillStyle)){
-            a=fillStyle[1];
-            fillStyle=fillStyle[0];
+      circleTexture(radius, fillColor=0xffffff, strokeColor=0xffffff, lineWidth=0){
+        let a,gfx = this.graphics();
+        if(fillColor !== false){
+          if(is.vec(fillColor)){
+            a=fillColor[1];
+            fillColor=fillColor[0];
           }else{
             a=1;
           }
-          g.beginFill(this.color(fillStyle),a);
         }
+        gfx.circle(0, 0, radius);
+        if(fillColor !== false)
+          gfx.fill({color:this.color(fillColor),alpha:a});
         if(lineWidth>0)
-          g.lineStyle(lineWidth, this.color(strokeStyle));
-        g.drawCircle(0, 0, radius);
-        if(fillStyle !== false)
-          g.endFill();
-        return this.genTexture(g)
+          gfx.stroke({width:lineWidth, color:this.color(strokeColor)});
+        return this.genTexture(gfx)
       },
       /**Create a sprite from this texture.
        * @param {PIXI.Texture} t
        * @return {PIXI.Sprite}
        */
       circleEx(t){
-        let s=new Mojo.PXSprite(t);
-        s=this.lift(s);
-        return (s.m5.circle=true) && this.centerAnchor(s)
-      },
+        const s= this.lift(new PIXI.Sprite(t));
+        return (s.m5.circle=true) && this.centerAnchor(s) },
       /**Create a line sprite.
        * @memberof module:mojoh5/Sprites
-       * @param {number|string} strokeStyle
+       * @param {number|string} strokeColor
        * @param {number} lineWidth
        * @param {Vec2} A
        * @param {Vec2} B
+       * @param {number} alpha
        * @return {PIXI.Sprite}
        */
-      line(strokeStyle, lineWidth, A,B){
+      line(strokeColor, lineWidth, A,B, alpha=1){
         let
           _a= _V.clone(A),
           _b= _V.clone(B),
-          g = this.graphics(),
-          s,stroke= this.color(strokeStyle);
+          gfx = this.graphics(),
+          s,stroke= this.color(strokeColor);
         function _draw(){
-          g.clear();
-          g.lineStyle(lineWidth, stroke, 1);
-          g.moveTo(_a[0], _a[1]);
-          g.lineTo(_b[0], _b[1]);
+          gfx.clear();
+          gfx.moveTo(_a[0], _a[1]);
+          gfx.lineTo(_b[0], _b[1]);
+          gfx.stroke({width:lineWidth, color:stroke, alpha});
         }
         _draw();
-        s=this.lift(g);
+        s=this.lift(gfx);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
-            _a[0] = x;
-            _a[1] = _.nor(y,x);
-            _draw();
-          }
-          return _a;
-        };
+            _a[0] = x; _a[1] = _.nor(y,x); _draw(); } return _a; };
         s.m5.ptB=function(x,y){
           if(x !== undefined){
-            _b[0] = x;
-            _b[1] = _.nor(y,x);
-            _draw();
-          }
-          return _b;
-        };
+            _b[0] = x; _b[1] = _.nor(y,x); _draw(); } return _b; };
         return s;
       },
       /**Check if a sprite is moving.
@@ -1426,7 +1514,7 @@
        */
       gridBox(ratioX=0.9,ratioY=0.9,parent=UNDEF){
         let
-          P=_.nor(parent,Mojo),
+          P= parent ?? Mojo,
           h=int(P.height*ratioY),
           w=int(P.width*ratioX),
           x1=_M.ndiv(P.width-w,2),
@@ -1440,10 +1528,10 @@
        * @param {object} [out]
        * @return {number[][]}
        */
-      gridSQ(dim,ratio=0.6,out=UNDEF){
+      gridSQ(dim,ratio=0.9,out=UNDEF){
         let
           sz= ratio* (Mojo.height<Mojo.width?Mojo.height:Mojo.width),
-          w=_M.ndiv(sz,dim), h=w;
+          w=int(sz/dim), h=w;
 
         if(!_.isEven(w)){--w}
         h=w;
@@ -1478,8 +1566,8 @@
         let
           szh=int(Mojo.height*ratioY),
           szw=int(Mojo.width*ratioX),
-          cw=_M.ndiv(szw,dimX),
-          ch=_M.ndiv(szh,dimY),
+          cw=int(szw/dimX),
+          ch=int(szh/dimY),
           _x,_y,sy,sx;
         szh=dimY*ch;
         szw=dimX*cw;
@@ -1510,12 +1598,12 @@
         let
           szh=int(Mojo.height*ratioY),
           szw=int(Mojo.width*ratioX),
-          cw=_M.ndiv(szw,dimX),
-          ch=_M.ndiv(szh,dimY),
+          cw=int(szw/dimX),
+          ch=int(szh/dimY),
           dim=cw>ch?ch:cw,
           _x,_y,sy,sx;
 
-        if(!_.isEven(dim)){dim--}
+        if(!_.isEven(dim)){--dim}
         szh=dimY*dim;
         szw=dimX*dim;
         sy= _M.ndiv(Mojo.height-szh,2);
@@ -1555,7 +1643,7 @@
        * @return {PIXI.Graphics}
        */
       graphics(id=UNDEF){
-        let ctx= new Mojo.PXGraphics();
+        const ctx= new PIXI.Graphics();
         return (ctx.m5={uuid:`${id?id:_.nextId()}`}) && ctx },
       /**Draw borders around this grid.
        * @memberof module:mojoh5/Sprites
@@ -1570,19 +1658,25 @@
       drawGridBox(bbox,lineWidth=1,lineColor="white",ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
-        ctx.lineStyle(lineWidth,this.color(lineColor));
-        ctx.drawRect(bbox.x1,bbox.y1,
-                     bbox.x2-bbox.x1,bbox.y2-bbox.y1);
+        ctx.rect(bbox.x1,bbox.y1, bbox.x2-bbox.x1,bbox.y2-bbox.y1);
+        ctx.stroke({width:lineWidth,color:this.color(lineColor)});
         return ctx;
       },
-      /**
-      */
+      /**Draw borders around this grid, rounded corners.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} sx
+       * @param {number} sy
+       * @param {number} width
+       * @param {number} height
+       * @param {number} lineWidth
+       * @param {number|string} lineColor
+       * @return {PIXIGraphics}
+       */
       drawGridBoxEx(bbox,lineWidth=1,lineColor="white",radius=1,ctx=UNDEF){
         if(!ctx)
           ctx= this.graphics();
-        ctx.lineStyle(lineWidth,this.color(lineColor));
-        ctx.drawRoundedRect(bbox.x1,bbox.y1,
-                            bbox.x2-bbox.x1,bbox.y2-bbox.y1,radius);
+        ctx.roundRect(bbox.x1,bbox.y1, bbox.x2-bbox.x1,bbox.y2-bbox.y1,radius);
+        ctx.stroke({width:lineWidth,color:this.color(lineColor)});
         return ctx;
       },
       /**Draw grid lines.
@@ -1601,13 +1695,7 @@
           w= grid[0].length;
         if(!ctx)
           ctx= this.graphics();
-        if(is.obj(lineColor)){
-          lineColor.color= this.color(lineColor.color||"white");
-          lineColor.width=lineWidth;
-          ctx.lineStyle(lineColor);
-        }else{
-          ctx.lineStyle(lineWidth,this.color(lineColor));
-        }
+
         for(let r,y=1;y<h;++y){
           r=grid[y];
           ctx.moveTo(sx+r[0].x1,sy+r[0].y1);
@@ -1617,6 +1705,14 @@
           ctx.moveTo(sx+r[x].x1,sy+r[x].y1);
           r=grid[h-1];
           ctx.lineTo(sx+r[x].x1,sy+r[x].y2); }
+
+        if(is.obj(lineColor)){
+          lineColor.color= this.color(lineColor.color||"white");
+          lineColor.width=lineWidth;
+          ctx.stroke(lineColor);
+        }else{
+          ctx.stroke({width:lineWidth,color:this.color(lineColor)});
+        }
         return ctx;
       },
       /**Add more children to this container.
@@ -1626,26 +1722,19 @@
        * @return {Container} parent
        */
       add(par, ...cs){
-        cs.forEach(c=> c && par.addChild(c));
-        return par;
-      },
+        cs.forEach(c=> c && par.addChild(c)); return par },
       /**Remove these sprites, will detach from their parents.
        * @memberof module:mojoh5/Sprites
        * @param {...Sprite} sprites
        */
       remove(...cs){
-        if(cs.length==1 &&
-           is.vec(cs[0])){ cs=cs[0] }
+        if(cs.length==1 && is.vec(cs[0])){ cs=cs[0] }
         _.doseqEx(cs,s=>{
-          if(s.parent){
-            if(_.inst(Mojo.Scenes.Scene,s.parent))
-              s.parent.remove(s);
-            else
-              s.parent.removeChild(s);
-          }
+          if(s.parent)
+            _.inst(Mojo.Scenes.Scene,s.parent)? s.parent.remove(s) : s.parent.removeChild(s);
           Mojo.emit(["post.remove",s]);
           Mojo.off(s);
-          if(s.m5.dispose) s.m5.dispose();
+          s.m5.dispose?.();
         });
         return cs[0];
       },
@@ -1655,15 +1744,17 @@
        * @return {Sprite|Container} obj
        */
       centerObj(obj){
-        obj.x= Mojo.width/2;
-        obj.y= Mojo.height/2;
-        if(obj.anchor.x<0.3){
-          obj.x -= obj.width/2;
-          obj.y -= obj.height/2;
-        }else if(obj.anchor.x<0.7){
-        }else{
-          _.assert(false, "bad anchor to center");
-        }
+        let a=obj.anchor, cx= Mojo.width/2, cy=Mojo.height/2;
+        let w2=obj.width/2, h2=obj.height/2;
+        obj.x=cx;
+        obj.y=cy;
+        //handle containers, fake an anchor
+        if(!a)
+          a= {x:0,y:0};
+        if(a.x<0.3) obj.x=cx-w2;
+        if(a.x>0.7) obj.x=cx+w2;
+        if(a.y<0.3) obj.y=cy-h2;
+        if(a.y>0.7) obj.y=cy+h2;
         return obj;
       },
       /**Expand object to fill entire screen.
@@ -1672,41 +1763,40 @@
        * @return {Sprite|Container} obj
        */
       fillMax(obj){
-        if(obj.anchor)
-          _.assert(obj.anchor.x<0.3,"wanted top left anchor");
+        if(is.str(obj) || _.inst(PIXI.Texture,obj)){ obj=this.sprite(obj) }
+        _.assert(_.inst(PIXI.Container,obj), "expected sprite");
         obj.height=Mojo.height;
         obj.width=Mojo.width;
-        obj.x=0;
-        obj.y=0;
-        return obj;
+        return this.centerObj(obj)
       },
-      /**Remove these sprites, will detach from their parents.
+      /**Convert color value to RGB(A) values.
        * @memberof module:mojoh5/Sprites
        * @param {string} c
        * @return {number[]}
        */
-      colorToRgbA(c){
-        if(!c||!is.str(c)||c.length==0){return}
-        let
-          lc=c.toLowerCase(),
-          code=SomeColors[lc];
+      colorToRgbA(c){//"#319bd5",
+        _.assert(is.str(c) && c.length>0, "bad color string value");
+        let r,lc=c.toLowerCase(), code=SomeColors[lc];
+        if(lc == "transparent"){ return [0,0,0,0] }
         if(code){c=code}
         if(c[0]=="#"){
-          if(c.length<7)
-            c=`#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}${c.length>4?(c[4]+c[4]):""}`;
-          return [parseInt(c.substr(1, 2), 16),
-                  parseInt(c.substr(3, 2), 16),
-                  parseInt(c.substr(5, 2), 16),
-                  c.length>7 ? parseInt(c.substr(7, 2), 16)/255 : 1] }
-
-        if(lc == "transparent"){ return [0,0,0,0] }
-
-        if(lc.indexOf("rgb") == 0){
+          //#RGB or #RGBA or #RRGGBB or #RRGGBBAA
+          (r=c.split("")).shift();
+          if(r.length==3) r.push("F");
+          if(r.length==4){ r= r.flatMap(n=> [n,n]) }
+          if(r.length==6){ r.push("F","F") }
+          if(r.length==8){
+            return [parseInt(r[0]+r[1],16), parseInt(r[2]+r[3],16),
+                    parseInt(r[4]+r[5],16), parseInt(r[6]+r[7],16)/255]
+          }
+        }
+        else if(lc.indexOf("rgb") == 0){
+          //e.g. rgba(0,0,255,0.3)
           if(lc.indexOf("rgba")<0){lc += ",1"}
           return lc.match(/[\.\d]+/g).map(a=> { return +a })
-        }else{
-          throw `Error: Bad color: ${c}`
         }
+        //
+        throw `Error: Bad color string: ${c}`
       },
       /**Turn a number (0-255) into a 2-character hex number (00-ff).
        * @memberof module:mojoh5/Sprites
@@ -1727,19 +1817,27 @@
         // colorToHex('rgb(255, 0, 0)') # '#ff0000'
         const rgba = this.colorToRgbA(color);
         return "0x"+ [0,1,2].map(i=> this.byteToHex(rgba[i])).join("") },
-      /**
-      */
+      /**Convert RGB color to a decimal.
+       * @memberof module:mojoh5/Sprites
+       * @param {number} r
+       * @param {number} g
+       * @param {number} b
+       * @return {number}
+       */
       color3(r,g,b){
         return parseInt(["0x",this.byteToHex(r),this.byteToHex(g),this.byteToHex(b)].join("")) },
       /**Get the integer value of this color.
        * @memberof module:mojoh5/Sprites
        * @param {number|string} value
-       * @return {number}
+       * @return {number} decimal value
        */
       color(value){
         return isNaN(value) ? parseInt(this.colorToHex(value)) : value },
-      /**
-      */
+      /**Get the integer value of this RGBA color.
+       * @memberof module:mojoh5/Sprites
+       * @param {array} arg
+       * @return {number} decimal value
+       */
       rgba(arg){
         _.assert(is.vec(arg),"wanted rgba array");
         return parseInt("0x"+ [0,1,2].map(i=> this.byteToHex(arg[i])).join("")) },
@@ -1770,8 +1868,8 @@
       },
       /** @ignore */
       resize(s,px,py,pw,ph){
-        s && _.doseqEx(s.children,c=>c.m5&&c.m5.resize&&
-                                     c.m5.resize(s.x,s.y,s.width,s.height)) },
+        //not sure this works :P
+        s && _.doseqEx(s.children,c=>c.m5 && c.m5.resize?.(s.x,s.y,s.width,s.height)) },
       /**Put b on top of C.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} C
@@ -1867,8 +1965,7 @@
        * @param {number} m
        */
       setMass(s,m){ s.m5.mass=m },
-      /**Copied from pixi.legacy, why didn't they want to keep this????
-       * so useful!
+      /**Create a Texture from a graphics object.
        * @memberof module:mojoh5/Sprites
        * @param {object} displayObject
        * @param {number} scaleMode
@@ -1881,6 +1978,7 @@
       /**Apply bounce to the objects in this manifold.
        * @memberof module:mojoh5/Sprites
        * @param {Manifold} m
+       * @return {any} undefined
        */
       bounceOff(m){
         return _bounceOff(m.A,m.B,m) },
@@ -2043,7 +2141,7 @@
       /**
       */
       dbgShowCol(col){
-        let out=[];
+        const out=[];
         if(is.set(col))
           for(let i of col.values())
             out.push(this.dbgShowDir(i));

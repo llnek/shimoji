@@ -10,19 +10,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
-  /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
+  /**Create the module
+  */
   function _module(Mojo, ScenesDict){
 
     const SG=gscope["io/czlab/mcfud/spatial"]();
     const {v2:_V, math:_M, ute:_,is}=Mojo;
     const int=Math.floor;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Scenes
      */
@@ -31,20 +34,23 @@
     const _sceneid=(id)=> id.startsWith("scene::") ? id : `scene::${id}` ;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /** internal */
+    ////////////////////////////////////////////////////////////////////////////
     function _killScene(s){
       if(s){
-        s.dispose && s.dispose();
+        s.dispose?.();
         s.parent.removeChild(s);
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /** internal class, wraps a scene */
-    class SceneWrapper extends Mojo.PXContainer{
+    /** internal class, wraps a scene.  Use this to center a scene in the game window */
+    ////////////////////////////////////////////////////////////////////////////
+    class SceneWrapper extends PIXI.Container{
       constructor(s){
         super();
         this.addChild(s);
-        this.name=s.name;
+        this.label=s.label;
         this.m5={stage:true};
       }
       dispose(){
@@ -55,6 +61,7 @@
       }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @memberof module:mojoh5/Scenes
      * @class
@@ -62,7 +69,7 @@
      * @property {object} m5
      * @property {object} g  scene specific props go here
      */
-    class Scene extends Mojo.PXContainer{
+    class Scene extends PIXI.Container{
       /**
        * @param {string} sid
        * @param {object|function} func
@@ -70,7 +77,7 @@
        */
       constructor(sid,func,options){
         super();
-        this.name= _sceneid(sid);
+        this.label= _sceneid(sid);
         this.g={};
         this.m5={
           index:{},
@@ -81,18 +88,18 @@
           stage:true,
           sgrid:SG.spatialGrid(options.sgridX||320,
                                options.sgridY||320) };
-        let s;
         if(is.fun(func)){
-          s=func;
+          this["setup"]=func;
         }else if(is.obj(func)){
-          s= _.dissoc(func,"setup");
           _.inject(this, func);
         }
-        if(s)
-          this.m5.setup=s.bind(this);
       }
-      _hitObjects(grid,obj,found,repeat=1){
-        for(let m,b,i=0,cur=repeat;i<found.length;++i){
+      ////////////////////////////////////////////////////////////////////////////
+      /*check all potential hits */
+      ////////////////////////////////////////////////////////////////////////////
+      #hitObjects(grid,obj,found){
+        let m,b,i,rc=false;
+        for(i=0; !rc && i<found.length;++i){
           b=found[i];
           if(obj !== b &&
              !b.m5.dead &&
@@ -103,37 +110,48 @@
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
               grid.engrid(obj);
-              if(--repeat==0){break}
+              rc=true;
             }
           }
         }
+        return rc;
       }
-      collideXY(obj){
-        this._hitObjects(this.m5.sgrid,obj,
-                         this.m5.sgrid.search(obj))
-      }
-      /**Callback to handle window resizing.
-       * @param {number[]} old  window size before resize
+      /**Check for collision of this object.
+       * @param {object} obj
+       * @return {Scene} this
        */
-      onCanvasResize([width,height]){
+      collideXY(obj){
+        return this.#hitObjects(this.m5.sgrid,obj, this.m5.sgrid.search(obj)) }
+      /**Callback to handle window resizing.
+       * @param {number} width  canvas width before resize
+       * @param {number} height  canvas height before resize
+       * @return {Scene} this
+       */
+      onCanvasResize(width,height){
+        //NOTE: not tested thoroughly yet :)
         Mojo.Sprites.resize({x:0,y:0,
                              width,
                              height,
                              children:this.children})
+        return this;
       }
       /**Run this function after a delay in millis.
-       * @param {function}
+       * @param {function} expr
        * @param {number} delayMillis
+       * @return {Scene} this
        */
       future(expr,delayMillis){
-        this.m5.queue.push([expr, _M.ndiv(Mojo._curFPS*delayMillis,1000) || 1])
+        this.m5.queue.push([expr, _M.ndiv(Mojo._curFPS*delayMillis,1000) || 1]);
+        return this;
       }
       /**Run this function after a delay in frames.
-       * @param {function}
+       * @param {function} expr
        * @param {number} delayFrames
+       * @return {Scene} this
        */
       futureX(expr,delayFrames){
-        this.m5.queue.push([expr,delayFrames||1])
+        this.m5.queue.push([expr,delayFrames || 1]);
+        return this;
       }
       /**Get the child with this id.
        * @param {string} id
@@ -143,6 +161,7 @@
         return id && this.m5.index[id] }
       /**Remove this child
        * @param {string|Sprite} c
+       * @return {Scene} this
        */
       remove(c){
         if(is.str(c))
@@ -154,10 +173,11 @@
             this.m5.sgrid.degrid(c);
           Mojo.Input.undoXXX(c);
           _.dissoc(this.m5.index,c.m5.uuid); }
+        return this;
       }
       /**Remove item from spatial grid temporarily.
        * @param {Sprite} c
-       * @return {Sprite} c
+       * @return {Sprite} the removed item
        */
       degrid(c){
         if(c && c.m5._engrid)
@@ -166,17 +186,28 @@
       }
       /**Force item to update spatial grid.
        * @param {Sprite} c
-       * @return {Sprite} c
+       * @return {Sprite} the item
        */
       engrid(c){
         if(c && c.m5._engrid)
           this.m5.sgrid.engrid(c);
         return c;
       }
+      /**Insert a bunch of child sprites
+       * @param {array} cs
+       * @param {boolean} [engrid]
+       * @return {Sprite} the last child added
+       */
+      insertEx(cs,engrid=false){
+        _.assert(is.vec(cs),"wanted array of child sprites to be inserted!");
+        let out;
+        cs.forEach(c=>{ this.insertAt(c,null,engrid); out=c; });
+        return out;
+      }
       /**Insert this child sprite.
        * @param {Sprite} c
        * @param {boolean} [engrid]
-       * @return {Sprite} c
+       * @return {Sprite} the child
        */
       insert(c,engrid=false){
         return this.insertAt(c,null,engrid) }
@@ -184,20 +215,22 @@
        * @param {Sprite} c
        * @param {number} pos
        * @param {boolean} [engrid]
-       * @return {Sprite} c
+       * @return {Sprite} the child
        */
       insertAt(c,pos,engrid=false){
-        c=this._addit(c,pos);
+        c=this.#addit(c,pos);
         if(engrid){
           if(c instanceof PIXI.TilingSprite){}else{
             c.m5._engrid=true;
-            //if(c.visible) this.m5.sgrid.engrid(c);
             this.m5.sgrid.engrid(c);
           }
         }
         return c;
       }
-      _addit(c,pos){
+      ////////////////////////////////////////////////////////////////////////////
+      /*add this child */
+      ////////////////////////////////////////////////////////////////////////////
+      #addit(c,pos){
         if(is.num(pos) &&
            pos >= 0 &&
            pos < this.children.length){
@@ -207,13 +240,19 @@
         }
         return (this.m5.index[c.m5.uuid]=c);
       }
+      /**Subclass can override this to do more during dispose
+       * @return {Scene} this
+       */
+      preDispose(){ return this }
       /**Clean up.
-      */
+       * @return {Scene} this
+       */
       dispose(){
+        this.preDispose();
         function _c(o){
           if(o){
             Mojo.Input.undoXXX(o);
-            o.children.forEach(c=> _c(c)); } }
+            o.children.forEach(c=> _c(c)) } }
         this.m5.dead=true;
         Mojo.off(this);
         _c(this);
@@ -223,8 +262,12 @@
           Mojo.Input.restore();
           Mojo.CON.log(`removed the current modal scene`);
         }
+        return this;
       }
-      _tick(r,dt){
+      ////////////////////////////////////////////////////////////////////////////
+      /*work horse runned every frame  */
+      ////////////////////////////////////////////////////////////////////////////
+      #tick(r,dt){
         r.forEach(c=>{
           if(c.visible && c.m5 && c.m5.tick){
             c.m5.tick(dt);
@@ -237,9 +280,9 @@
             c.m5.flip=false;
             Mojo.emit(["post.tick",c],dt);
             //might have moved, so regrid
-            if(c.m5._engrid) this.m5.sgrid.engrid(c);
+            c.m5._engrid && this.m5.sgrid.engrid(c);
           }
-          c.children.length>0 && this._tick(c.children, dt)
+          c.children.length>0 && this.#tick(c.children, dt)
         })
       }
       /**Find objects that may collide with this object.
@@ -250,12 +293,14 @@
         return this.m5.sgrid.search(obj,incObj) }
       /**Stage this object for removal.
        * @param {object} obj
+       * @return {object} the same object
        */
       queueForRemoval(obj){
         return this.m5.garbo.push(obj) && obj
       }
-      /**
+      /**Update the scene, called every frame.
        * @param {number} dt
+       * @return {Scene} this
        */
       update(dt){
         if(!this.m5.dead){
@@ -268,31 +313,30 @@
             f[0]();
           });
           //run the scene
-          this.preUpdate && this.preUpdate(dt);
-          this._tick(this.children, dt);
-          this.postUpdate && this.postUpdate(dt);
+          this.preUpdate?.(dt);
+          this.#tick(this.children, dt);
+          this.postUpdate?.(dt);
           //clean up
           this.m5.garbo.forEach(o=>this.remove(o));
           this.m5.garbo.length=0;
         }
+        return this;
       }
       /**Initial bootstrap of this scene.
-      */
+       * @return {Scnene} this
+       */
       runOnce(){
-        if(this.m5.setup){
-          this.m5.setup(this.m5.options);
-          delete this.m5["setup"];
-        }
+        this.setup?.(this.m5.options);
         return this;
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*Smart layout for menus, both vertical or horizontal. */
+    ////////////////////////////////////////////////////////////////////////////
     function _layout(items,options,dir){
+      let {Sprites:_S}=Mojo, K=Mojo.getScaleFactor();
       if(items.length==0){return}
-      let
-        {Sprites:_S}=Mojo,
-        K=Mojo.getScaleFactor();
       options= _.patch(options,{bg:0,
                                 padding:10,
                                 fit:20,
@@ -303,7 +347,8 @@
         C=options.group || _S.container(),
         pad=options.padding * K,
         last,w,h,p, T=0, Z=-1,
-        fit= options.fit * K, fit2= fit * 2,
+        fit= options.fit * K,
+        fit2= fit * 2,
         guessWidth= (s)=>{
           T+=s.height;
           if(s.width>Z) Z=s.width;
@@ -335,8 +380,9 @@
         }
       }
       let
-        [w2,h2]=[_M.ndiv(w,2), _M.ndiv(h,2)],
-        prev, op=dir==Mojo.DOWN?"pinBelow":"pinRight";
+        prev,
+        [w2,h2]=[int(w/2), int(h/2)],
+        op=dir==Mojo.DOWN?"pinBelow":"pinRight";
       items.forEach((s,i)=>{
         if(dir==Mojo.DOWN){
           if(i==0){
@@ -360,6 +406,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /*Create a selectable menu. */
+    ////////////////////////////////////////////////////////////////////////////
     function _choiceBox(items,options,dir){
       let
         {Sprites:_S,Input:_I}=Mojo,
@@ -378,7 +426,7 @@
               cur.tint=disabledColor;
               b.tint=selectedColor;
               cur=b;
-              options.onClick && options.onClick(b);
+              options.onClick?.(b);
             }
           };
       });
@@ -393,38 +441,39 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //the module
+    ////////////////////////////////////////////////////////////////////////////
     const _$={
       Scene,
       SceneWrapper,
       /**Lay items out horizontally.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       layoutX(items,options){
         return _layout(items,options,Mojo.RIGHT) },
       /**Lay items out vertically.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       layoutY(items,options){
         return _layout(items, options, Mojo.DOWN) },
       /**Lay selectable items out horizontally.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       choiceMenuX(items,options){
         return _choiceBox(items, options, Mojo.RIGHT) },
       /**Lay selectable items out vertically.
        * @memberof module:mojoh5/Scenes
-       * @param {Sprite[]} items
+       * @param {PIXI.Sprite[]} items
        * @param {object} [options]
-       * @return {Container}
+       * @return {PIXI.Container}
        */
       choiceMenuY(items,options){
         return _choiceBox(items, options, Mojo.DOWN) },
@@ -433,6 +482,7 @@
        * @param {string} name
        * @param {object|function} func
        * @param {object} [options]
+       * @return {any} undefined
        */
       scene(name, func, options){
         //add a new scene definition
@@ -445,10 +495,11 @@
        * @param {string|Scene} cur
        * @param {string} name
        * @param {object} [options]
+       * @return {Scene} new scene
        */
       replace(cur,name,options){
         const
-          n=_sceneid(is.str(cur)?cur:cur.name),
+          n=_sceneid(is.str(cur)?cur:cur.label),
           c= Mojo.stage.getChildByName(n);
         if(!c)
           throw `Fatal: no such scene: ${n}`;
@@ -457,6 +508,7 @@
       /**Remove these scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...Scene} args
+       * @return {any} undefined
        */
       remove(...args){
         if(args.length==1 &&
@@ -465,6 +517,7 @@
       },
       /**Remove all the scenes.
        * @memberof module:mojoh5/Scenes
+       * @return {any} undefined
        */
       removeAll(){
         while(Mojo.stage.children.length>0)
@@ -475,7 +528,7 @@
       /**Find this scene.
        * @memberof module:mojoh5/Scenes
        * @param {string} name
-       * @return {Scene}
+       * @return {Scene} the named scene
        */
       find(name){
         return Mojo.stage.getChildByName(_sceneid(name)) },
@@ -484,16 +537,16 @@
        * @param {string} name
        * @param {number} num
        * @param {object} [options]
-       * @return {Scene}
+       * @return {Scene} the named scene
        */
       runEx(name,num,options){
         this.removeAll();
-        this.run(name,num,options);
+        return this.run(name,num,options);
       },
       /**Run a sequence of scenes.
        * @memberof module:mojoh5/Scenes
        * @param {...any} args
-       * @return {Scene}
+       * @return {any} undefined
        */
       runSeq(...args){
         args.forEach(a=>{
@@ -505,9 +558,10 @@
        * @memberof module:mojoh5/Scenes
        * @param {string} name
        * @param {object} [options]
-       * @return {Scene}
+       * @return {Scene} the modal scene
        */
       modal(name,options){
+        _.assert(!Mojo.modalScene,`Another modal is already running!`);
         Mojo.Input.save();
         return Mojo.modalScene= this.run(name,null,options);
       },
@@ -516,7 +570,7 @@
        * @param {string} name
        * @param {number} num
        * @param {object} [options]
-       * @return {Scene}
+       * @return {Scene} the new scene
        */
       run(name,num,options){
         let py, y, s0,_s = ScenesDict[name];
@@ -558,7 +612,7 @@
       },
       /**Get the topmost scene.
        * @memberof module:mojoh5/Scenes
-       * @return {Scene}
+       * @return {Scene} the top scene
        */
       topMost(){
         let c= _.last(Mojo.stage.children);

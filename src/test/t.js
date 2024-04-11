@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(window,UNDEF){
 
@@ -50,29 +50,31 @@
       test8(){
         let C= _S.container();
         this.insert(C);
-        if(0)
-        _F.particles(C,400,40,()=>{
-          return _S.rect(10,10,"white")
-        });
-        let s= _S.rect(200,200,"white");
-        _V.set(s, 400,400);
-        _S.anchorXY(s,0.5);
-        this.insert(s);
-        _F.shake(s,20);
+        if(1){
+          _F.particles(C,400,40,()=>{ return _S.rect(10,10,"white") },100);
+        }else{
+          let s= _S.rect(200,200,"white");
+          _V.set(s, 400,400);
+          _S.anchorXY(s,0.5);
+          this.insert(s);
+          _F.shake(s,20);
+        }
       },
       test7(){
         let s= _S.rect(100,20,"white");
         s.x=400;
         s.y=400;
         this.insert(s);
-        if(0)
+        if(0){
           _F.bezier(s,[100, 550],[300, 350],[300, 150],120).onComplete=()=>{
             _F.tweenXY(s,_F.SMOOTH, 800,500, 120)
           }
-        //_S.anchorXY(s,0.5);
-        //_F.wobble(s,{});
-        //_F.strobe(s);
-        //_F.pulse(s);
+        }else{
+          _S.anchorXY(s,0.5);
+          _F.jiggle(s,{});
+          _F.strobe(s);
+          _F.pulse(s);
+        }
       },
       test6(){
         let s= _S.rect(200,200,"blue");
@@ -82,9 +84,7 @@
           _F.tweenScale(s,_F.SMOOTH,3,3),
           _F.tweenAlpha(s,_F.SMOOTH,[0,1]),
           _F.tweenAngle(s,_F.SMOOTH,1.8*Math.PI));
-        b.onComplete=()=>{
-          alert("yo")
-        }
+        b.onComplete=()=>{ console.log("yo") }
       },
       test5(){
         let s= _S.rect(200,200,"green");
@@ -92,11 +92,9 @@
         this.insert(s);
         let b= _F.BatchTweens(
           _F.tweenScale(s,_F.SMOOTH,3,3),
-          _F.tweenAlpha(s,_F.SMOOTH,[0,1],60,100),
+          _F.tweenAlpha(s,_F.SMOOTH,[0,1],60),
           _F.tweenAngle(s,_F.SMOOTH,1.8*Math.PI));
-        b.onComplete=()=>{
-          alert("yo")
-        }
+        b.onComplete=()=>{ console.log("yo") }
       },
       update4(dt){
         this.g.warp.update(dt)
@@ -152,10 +150,10 @@
         this.insert(C);
       },
       setup(){
-        this.test9();
+        this.test2();
       },
       postUpdate(dt){
-        this.update9(dt);
+        //this.update4(dt);
       }
     });
 

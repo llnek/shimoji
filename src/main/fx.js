@@ -10,12 +10,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
 
@@ -26,17 +27,21 @@
       is,
       Sprites:_S
     }=Mojo;
+
     const
       int=Math.floor,
       P5=Math.PI*5,
       PI_2= Math.PI/2,
       TWO_PI= Math.PI*2;
 
+    ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/FX
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function StarWarp(C, options){
       options= options || {};
       let
@@ -51,18 +56,19 @@
         speed = 0,
         warp= 0,
         mark=_.now(),
-        color = options.color || "yellow",
-        items= options.items || 1000,
-        img = Mojo.tcached("boot/star.png");
-      const stars = _.fill(items, i=>{
-        i= _S.sprite(img);
-        i.g.d3=[0,0,0];
-        if(_.rand()<0.3)
-          i.tint= _S.color(color);
-        _S.anchorXY(i, 0.5,0.69);
-        C.addChild(i);
-        return cfgStar(i, _.rand()*DEPTH);
-      });
+        color = options.color ?? "yellow",
+        items= options.items ?? 1000,
+        img = Mojo.resource("boot/star.png");
+      const
+        stars = _.fill(items, i=>{
+          i= _S.sprite(img);
+          i.g.d3=[0,0,0];
+          if(_.rand()<0.3)
+            i.tint= _S.color(color);
+          _S.anchorXY(i, 0.5,0.69);
+          C.addChild(i);
+          return cfgStar(i, _.rand()*DEPTH);
+        });
       function cfgStar(s, zpos){
         let
           twist = _.rand() * TWO_PI,
@@ -117,6 +123,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
     function Tween(sprite,easing,duration=60,loop=false,ext={}){
       return _.inject({
         duration,
@@ -125,10 +133,12 @@
         loop,
         cur:0,
         on:0,
+        dead:0,
         onFrame(end,alpha){},
         _run(){
           this.cur=0;
           this.on=1;
+          this.dead=0;
           TweensQueue.push(this);
         },
         onTick(){
@@ -148,20 +158,21 @@
               }else{
                 this.on=0;
                 this.dispose();
-                this.onComplete &&
-                  _.delay(0,()=> this.onComplete());
+                this.onComplete && _.delay(0,()=> this.onComplete());
               }
             }
           }
         },
         dispose(){
-          _.disj(TweensQueue,this);
+          this.dead=1;
           Mojo.emit(["tween.disposed"],this);
         }
       },ext)
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** scale */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenScale(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
@@ -187,7 +198,9 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** rotation */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenAngle(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sa,ea){
@@ -204,7 +217,9 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** alpha */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenAlpha(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sa,ea){
@@ -221,7 +236,9 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** position */
+    ////////////////////////////////////////////////////////////////////////////
     function TweenXY(s,type,frames,loop){
       return Tween(s,type,frames,loop,{
         start(sx,ex,sy,ey){
@@ -247,13 +264,12 @@
       })
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** group */
+    ////////////////////////////////////////////////////////////////////////////
     function BatchTweens(...ts){
-      let cs=[];
-      ts.forEach(o=>{
-        cs.push(o)
-      });
-      const t={
+      const cs=ts.slice(0);
+      const tObj={
         onTweenEnd(t){
           for(let c,i=0;i<cs.length;++i){
             c=cs[i];
@@ -264,20 +280,21 @@
           }
           if(cs.length==0){
             this.dispose();
-            this.onComplete &&
-              _.delay(0,()=>this.onComplete());
+            this.onComplete && _.delay(0,()=>this.onComplete());
           }
         },
         dispose(){
-          Mojo.off(["tween.disposed"],"onTweenEnd",t);
+          Mojo.off(["tween.disposed"],"onTweenEnd",tObj);
           cs.length=0;
         }
       };
-      Mojo.on(["tween.disposed"],"onTweenEnd",t);
-      return t;
+      Mojo.on(["tween.disposed"],"onTweenEnd",tObj);
+      return tObj;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     /** seq */
+    ////////////////////////////////////////////////////////////////////////////
     function SeqTweens(...ts){
       let c,cs=[];
       ts.forEach(o=>{
@@ -714,16 +731,17 @@
        * @memberof module:mojoh5/FX
        * @param {Tween} t
        */
-      remove(t){
-        t && t.dispose() },
+      remove(t){ t?.dispose() },
       /** @ignore */
       update(dt){
         _.rseq(TweensQueue, t=> t.onTick(dt));
         _.rseq(DustBin, p=> p.onTick(dt));
+        for(let i=TweensQueue.length-1;i>=0;--i) TweensQueue[i].dead? TweensQueue.splice(i,1):0;
+        for(let i=DustBin.length-1;i>=0;--i) DustBin[i].m5.dead? _S.remove(DustBin[i]) && DustBin.splice(i,1):0;
       },
       /**Create particles.
        * @memberof module:mojoh5/FX
-       * @return {}
+       * @return {any} undefined
        */
       particles(C,x, y, spriteCtor, count=24, mins={}, maxs={}, gravity=[0,0.3], random=true){
         mins= _.patch(mins,{angle:0, size:4, speed:0.3,
@@ -738,28 +756,25 @@
           C.addChild(p);
           if(p.totalFrames)
             p.gotoAndStop(_.randInt2(0, p.totalFrames-1));
-          _S.sizeXY(_S.anchorXY(p,0.5), size, size);
+          _S.sizeXY(_S.centerAnchor(p), size, size);
           _V.set(p,x,y);
           p.g.scaleSpeed = _.randFloat2(mins.scale, maxs.scale);
-          p.galphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
+          p.g.alphaSpeed = _.randFloat2(mins.alpha, maxs.alpha);
           p.g.angVel = _.randFloat2(mins.rotate, maxs.rotate);
           v= _.randFloat2(mins.speed, maxs.speed);
           _V.set(p.m5.vel, v * Math.cos(angle),
                            v * Math.sin(angle));
           //the worker
           p.onTick=function(){
-            _V.add$(p.m5.vel,gravity);
-            _V.add$(p,p.m5.vel);
-            if(p.scale.x - p.g.scaleSpeed > 0){
-              p.scale.x -= p.g.scaleSpeed
+            if(!this.m5.dead){
+              _V.add$(this.m5.vel,gravity);
+              _V.add$(this,this.m5.vel);
+              if(this.scale.x - this.g.scaleSpeed > 0){ this.scale.x -= this.g.scaleSpeed }
+              if(this.scale.y - this.g.scaleSpeed > 0){ this.scale.y -= this.g.scaleSpeed }
+              this.rotation += this.m5.angVel;
+              this.alpha -= this.g.alphaSpeed;
+              if(this.alpha <= 0){ this.m5.dead=true; }
             }
-            if(p.scale.y - p.g.scaleSpeed > 0){
-              p.scale.y -= p.g.scaleSpeed
-            }
-            p.rotation += p.m5.angVel;
-            p.alpha -= p.g.alphaSpeed;
-            if(p.alpha <= 0)
-              _.disj(DustBin, _S.remove(p));
           };
         }
         for(let diff= maxs.angle-mins.angle,
@@ -770,7 +785,7 @@
       },
       /**Shake this sprite.
        * @memberof module:mojoh5/FX
-       * @return {}
+       * @return {Sprite}
        */
       shake(s, magnitude=16, angular=false,loop=true){
         const CHUNK=8;
@@ -783,7 +798,7 @@
           tiltAngle = 1,
           startAngle = s.rotation,
           startMagnitude= magnitude,
-          chunk = _M.ndiv(magnitude , CHUNK);
+          chunk = int(magnitude / CHUNK);
         function _upAndDownShake(){
           if(counter<CHUNK){
             s.x = startX;
