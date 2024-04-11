@@ -6360,9 +6360,8 @@
           this._visible = v;
         },
         updateMultiDrags(dt){
-          let self=P;
-          for(let cs,a,i=0; i < self.ActiveTouches.size; ++i){
-            a=self.ActiveTouches[i];
+          let cs, self=P;
+          self.ActiveTouches.forEach((a,k)=>{
             for(let p,s,i=self.DragDrops.length-1; i>=0; --i){
               s=self.DragDrops[i];
               p=self.ActiveDrags.get(s.m5.uuid);
@@ -6388,7 +6387,7 @@
                 break;
               }
             }
-          }
+          });
         },
         /**
         */
