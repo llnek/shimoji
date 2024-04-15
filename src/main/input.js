@@ -20,83 +20,69 @@
   /**Creates the module. */
   function _module(Mojo){
 
-    const {
-      math:_M,
-      v2:_V,
-      ute:_,
-      is,
-      Sprites
-    }=Mojo;
-
-    const {Geo}=Sprites;
-    const Layers= [];
+    ////////////////////////////////////////////////////////////////////////////
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
+    const { math:_M, v2:_V, ute:_, is }=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const SKEYS= ["ctrlKey","altKey","shiftKey"];
+    const Layers= [];
     const cur=()=> Layers[0];
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    function mkLayer(L={}){
-      function _u(e){
-        if(L===cur()){
-          let o= L.keyInputs.get(e.keyCode);
-          if(!o){
-            o={};
-            L.keyInputs.set(e.keyCode,o);
+    /**
+     * @module mojoh5/Input
+     */
+    ////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////
+    /**Create a new Input Layer */
+    ////////////////////////////////////////////////////////////////////////////
+    function _mkLayer(LObj){
+      function xxxou(e,o,flag){
+        if(LObj===cur()){
+          if(o= LObj.keyInputs.get(e.keyCode)){}else{
+            LObj.keyInputs.set(e.keyCode,o={});
           }
-          o.state=false;
+          o.state=flag;
           _.copyKeys(o,e,SKEYS);
           e.preventDefault();
         }
       }
-      function _d(e){
-        if(L===cur()){
-          let o= L.keyInputs.get(e.keyCode);
-          if(!o){
-            o={};
-            L.keyInputs.set(e.keyCode,o);
-          }
-          o.state=true;
-          _.copyKeys(o,e,SKEYS);
-          e.preventDefault();
-        }
-      }
-      _.inject(L,{
+      function _u(e,o){ xxxou(e,o,false) }
+      function _d(e,o){ xxxou(e,o,true)  }
+      const _gup=["keyup", globalThis, _u, false];
+      const _gdn=["keydown", globalThis, _d, false];
+      ////////////////////////////////////////////////////////////////////////////
+      /* keep tracks of keyboard presses */
+      if(!Mojo.touchDevice) _.addEvent([_gup, _gdn]);
+      ////////////////////////////////////////////////////////////////////////////
+      _.inject(LObj,{
         yid: `yid#${_.nextId()}`,
         keyInputs: _.jsMap(),
         pauseInput:false,
         ptr:UNDEF,
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         dispose(){
           this.ptr.dispose();
-          if(!Mojo.touchDevice)
-            _.delEvent([["keyup", globalThis, _u, false],
-                        ["keydown", globalThis, _d, false]]);
+          if(!Mojo.touchDevice) _.delEvent([_gup,_gdn]);
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         pointer(){
-          if(!this.ptr)
-            this.ptr=mkPtr(this); return this.ptr; },
-        /**
-        */
-        update(dt){
-          if(!this.pauseInput) this.ptr.update(dt);
+          return this.ptr || (this.ptr=_mkPtr(this));
         },
-        /**
-        */
-        keybd(_key,pressCB,releaseCB){
-          let ret={
-              press:pressCB,
-              release:releaseCB
-            },
-            self=this, isUp=true, isDown=false, codes= is.vec(_key)?_key:[_key];
-
+        ////////////////////////////////////////////////////////////////////////////
+        update(dt){
+          this.pauseInput ? 0 : this.ptr.update(dt);
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        keybd(_key, pressCB, releaseCB){
+          const ret={ press:pressCB, release:releaseCB };
+          let
+            isUp=true, isDown=false,
+            self=this, codes= is.vec(_key) ? _key : [_key];
           function _down(e){
-            if(L===cur()){
+            if(LObj===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isUp)
                   ret.press?.(e.altKey,e.ctrlKey,e.shiftKey);
@@ -107,7 +93,7 @@
             }
           }
           function _up(e){
-            if(L===cur()){
+            if(LObj===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isDown)
                   ret.release?.(e.altKey,e.ctrlKey,e.shiftKey);
@@ -117,66 +103,52 @@
               e.preventDefault();
             }
           }
-          if(!Mojo.touchDevice)
-            _.addEvent([["keyup", globalThis, _up, false],
-                        ["keydown", globalThis, _down, false]]);
-          ret.dispose=()=>{
-            if(!Mojo.touchDevice)
-              _.delEvent([["keyup", globalThis, _up, false],
-                          ["keydown", globalThis, _down, false]]);
-          };
+          const ev1=["keyup", globalThis, _up, false];
+          const ev2=["keydown", globalThis, _down, false];
+          if(!Mojo.touchDevice) _.addEvent([ev1,ev2]);
+          ret.dispose=()=>{ if(!Mojo.touchDevice) _.delEvent([ev1, ev2]) };
           return ret;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         reset(){
           this.pauseInput=false;
+          this.ptr.reset();
           this.keyInputs.clear();
-          this.ptr.reset();
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         resize(){
-          Mojo.mouse=this.ptr;
-          this.ptr.reset();
+          (Mojo.mouse=this.ptr).reset();
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         dbg(){
-          console.log(`N# of touches= ${this.ptr.ActiveTouches.size}`);
-          console.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
-          console.log(`N# of buttons= ${this.ptr.Buttons.length}`);
-          console.log(`N# of drags= ${this.ptr.DragDrops.length}`);
-          console.log(`Mouse pointer = ${this.ptr}`);
+          _.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
+          _.log(`N# of buttons= ${this.ptr.Buttons.length}`);
+          _.log(`N# of drags= ${this.ptr.DragDrops.length}`);
+          _.log(`Mouse pointer = ${this.ptr}`);
         }
       });
-
-      L.pointer();
-
-      if(!Mojo.touchDevice)
-        //keep tracks of keyboard presses
-        _.addEvent([["keyup", globalThis, _u, false],
-                    ["keydown", globalThis, _d, false]]);
-
-      return L;
+      //make a default pointer
+      return LObj.pointer() && LObj;
     }
 
-    /**
-     * @module mojoh5/Input
-     */
-
-    /** @ignore */
-    function mkPtr(L){
-      let P={
-        ActiveDragsID: _.jsMap(),
-        ActiveDrags: _.jsMap(),
-        ActiveTouches: _.jsMap(),
+    ////////////////////////////////////////////////////////////////////////////
+    /**Create a mouse and touch handler */
+    ////////////////////////////////////////////////////////////////////////////
+    function _mkPtr(LObj){
+      let PObj={
+        Actives: {
+          DragsID: _.jsMap(),
+          Touches: _.jsMap(),
+          reset(){
+            this.DragsID.clear();
+            this.Touches.clear()}
+        },
         Hotspots:[],
         Buttons:[],
         DragDrops:[],
         //down,up
         state: [false,true],
-        touchZeroID:0,
+        touchZeroID:UNDEF,
         _visible: true,
         _x: 0,
         _y: 0,
@@ -200,121 +172,130 @@
           this.cursor = v ? "auto" : "none";
           this._visible = v;
         },
-        updateMultiDrags(dt){
-          let cs, self=P;
-          self.ActiveTouches.forEach((a,k)=>{
-            for(let p,s,i=self.DragDrops.length-1; i>=0; --i){
-              s=self.DragDrops[i];
-              p=self.ActiveDrags.get(s.m5.uuid);
-              if(p){
-                _V.set(p.dragged, p.dragStartX+(a.x-p.dragPtrX),
-                                  p.dragStartY+(a.y-p.dragPtrY));
-                break;
-              }
-              if(s.m5.drag && self._test(s,a.x,a.y)){
-                _.assoc(self.ActiveDrags, s.m5.uuid, p={
-                  dragStartX: s.x,
-                  dragStartY: s.y,
-                  dragPtrX: a.x,
-                  dragPtrY: a.y,
-                  dragged: s,
-                  id: a.id
-                });
-                _.assoc(self.ActiveDragsID, a.id, p);
-                //pop it up to top
-                cs= s.parent.children;
-                _.disj(cs,s);
-                cs.push(s);
-                break;
-              }
+        ////////////////////////////////////////////////////////////////////////////
+        _testTouchDragStart(ts,found){
+          for(let p, o, j=0; j<ts.length; ++j){
+            o=ts[j];
+            if(found.get(o.id) ||
+               this.Actives.DragsID.get(o.id)){
+              found.set(o.id,1);
+              continue;
             }
-          });
-        },
-        /**
-        */
-        updateDrags(dt){
-          if(this.state[0]){
-            if(this.dragged){
-              _V.set(this.dragged, this.dragStartX+(this.x-this.dragPtrX),
-                                   this.dragStartY+(this.y-this.dragPtrY));
-            }else{
-              for(let gp,cs,s,i=this.DragDrops.length-1; i>=0; --i){
-                s=this.DragDrops[i];
-                if(s.m5.drag && this.hitTest(s)){
-                  this.dragStartX = s.x;
-                  this.dragStartY = s.y;
-                  this.dragPtrX= this.x;
-                  this.dragPtrY= this.y;
-                  this.dragged = s;
-                  //pop it up to top
-                  //cs= s.parent.children;
-                  //_.disj(cs,s);
-                  //cs.push(s);
-                  gp=s.parent;
-                  gp.removeChild(s);
-                  gp.addChild(s);
-                  break;
+            for(let gp,s,i=this.DragDrops.length-1; i>=0; --i){
+              if((s=this.DragDrops[i]) &&
+                 s.m5.drag && this._test(s,o.x,o.y)){
+                p={dragged: s, id: o.id,
+                   dragPtrX: o.x, dragPtrY: o.y,
+                   dragStartX: s.x, dragStartY: s.y};
+                this.Actives.DragsID.set(o.id, p);
+                if(this.touchZeroID == o.id){
+                  //this is actually a dragdrop, so not a tap
+                  this._resetClickTap()
                 }
+                Mojo.moveToTop(s);
+                found.set(o.id,1);
+                break;
               }
             }
           }
-          if(this.state[1]){
-            //dragged and now dropped
-            if(this.dragged &&
-               this.dragged.m5.onDragDropped)
-              this.dragged.m5.onDragDropped();
-            this.dragged=UNDEF;
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        _testMouseDragStart(){
+          for(let gp,cs,s,i=this.DragDrops.length-1; i>=0; --i){
+            if((s=this.DragDrops[i]) &&
+               s.m5.drag && this.hitTest(s)){
+              this.dragStartX = s.x;
+              this.dragStartY = s.y;
+              this.dragPtrX= this.x;
+              this.dragPtrY= this.y;
+              this.dragged = s;
+              Mojo.moveToTop(s);
+              break;
+            }
+          }
+          return this.dragged;
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        _maybeUpdateMouseDrag(){
+          if(this.state[0] && this.dragged){
+            _V.set(this.dragged,
+                   this.dragStartX+(this.x-this.dragPtrX),
+                   this.dragStartY+(this.y-this.dragPtrY))
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
+        _maybeEndMouseDrag(rc=0){
+          if(this.state[1] && this.dragged){
+            //dragged and now dropped
+            this.dragged.m5.onDragDropped?.();
+            this.dragged=UNDEF;
+            rc=true;
+          }
+          return rc;
+        },
+        ////////////////////////////////////////////////////////////////////////////
         getGlobalPosition(){
           return {x: this.x, y: this.y}
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _press(){
-          if(L!==cur()){return}
+
+          if(LObj!==cur()){
+            return
+          }
+
           let
             i, s, found,
             z=this.Buttons.length;
-          for(i=0;i<z;++i){
+
+          for(i=0; i<z; ++i){
             s=this.Buttons[i];
-            if(s.m5.gui && s.m5.press && this.hitTest(s)){
+            if(s.m5.gui &&
+               s.m5.press && this.hitTest(s)){
               s.m5.press(s);
               found=true;
               break;
             }
           }
-          if(!found)
-            for(i=0;i<z;++i){
-              s=this.Buttons[i];
-              if(s.m5.press && this.hitTest(s)){
-                s.m5.press(s);
-                break;
-              }
+
+          if(!found) for(i=0; i<z; ++i){
+            s=this.Buttons[i];
+            if(s.m5.press && this.hitTest(s)){
+              s.m5.press(s);
+              break;
             }
+          }
+
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _doMDown(b){
-          if(L!==cur()){return}
-          let found,self=P;
-          for(let s,i=0;i<self.Hotspots.length;++i){
-            s=self.Hotspots[i];
-            if(s.m5.touch && self.hitTest(s)){
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let found, self=PObj;
+
+          for(let s,i=0; i<self.Hotspots.length; ++i){
+            if((s=self.Hotspots[i]) &&
+               s.m5.touch && self.hitTest(s)){
               s.m5.touch(s,b);
               found=true;
               break;
             }
           }
+
           return found;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         mouseDown(e){
-          if(L!==cur()){return}
-          let self=P, nn=_.now();
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj, nn=_.now();
+
           //left click only
           if(e.button==0){
             e.preventDefault();
@@ -326,57 +307,70 @@
             self.downAt[0]=self._x;
             self.downAt[1]=self._y;
             Mojo.Sound.init();
-            if(!L.pauseInput){
-              Mojo.emit([`${L.yid}/mousedown`]);
-              self._doMDown(true);
+            if(!LObj.pauseInput){
+              self._testMouseDragStart() ? 0 : self._doMDown(true);
+              Mojo.emit([`${LObj.yid}/mousedown`]);
             }
-            //console.log(`mouse x= ${self.x}, y = ${self.y}`);
+            //_.log(`mouse x= ${self.x}, y = ${self.y}`);
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         mouseMove(e){
-          if(L!==cur()){return}
-          let self=P;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj;
+
           self._x = e.pageX - e.target.offsetLeft;
           self._y = e.pageY - e.target.offsetTop;
           //e.preventDefault();
-          if(!L.pauseInput)
-            Mojo.emit([`${L.yid}/mousemove`]);
+          if(!LObj.pauseInput){
+            self._maybeUpdateMouseDrag();
+            Mojo.emit([`${LObj.yid}/mousemove`]);
+          }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         mouseUp(e){
-          if(L!==cur()){return}
-          let self=P,nn=_.now();
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj,nn=_.now();
+
           if(e.button==0){
             e.preventDefault();
             self.elapsedTime = Math.max(0, nn - self.downTime);
             self._x = e.pageX - e.target.offsetLeft;
             self._y = e.pageY - e.target.offsetTop;
             _.setVec(self.state,false,true);
-            if(!L.pauseInput){
-              Mojo.emit([`${L.yid}/mouseup`]);
-              if(!self._doMDown(false)){
+            if(!LObj.pauseInput){
+              if(self._maybeEndMouseDrag()){
+              }else if(!self._doMDown(false)){
                 let v= _V.vecAB(self.downAt,self);
                 let z= _V.len2(v);
                 //small distance and fast then a click
                 if(z<400 && self.elapsedTime<200){
-                  Mojo.emit([`${L.yid}/single.tap`]);
                   self._press();
+                  Mojo.emit([`${LObj.yid}/single.tap`]);
                 }else{
                   self._swipeMotion(v,z,self.elapsedTime);
                 }
               }
+              Mojo.emit([`${LObj.yid}/mouseup`]);
             }
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _swipeMotion(v,dd,dt,arg){
-          if(L!==cur()){return}
-          let n= _V.unit$(_V.normal(v));
-          let rc;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let rc, n= _V.unit$(_V.normal(v));
           //up->down n(1,0)
           //bottom->up n(-1,0)
           //right->left n(0,1)
@@ -396,78 +390,75 @@
               rc="swipe.right";
             }
           }
-          if(rc)
-            Mojo.emit([`${L.yid}/${rc}`], arg)
+          rc ? Mojo.emit([`${LObj.yid}/${rc}`], arg) : 0;
         },
-        /**
-        */
-        _doMTouch(ts,flag){
-          if(L!==cur()){return}
-          let self=P,
-              found=_.jsMap();
+        ////////////////////////////////////////////////////////////////////////////
+        _doMTouch(ts,found,flag){
+
+          if(LObj!==cur()){
+            return
+          }
+
           for(let a,i=0; i<ts.length; ++i){
             a=ts[i];
-            for(let s,j=0; j<self.Hotspots.length; ++j){
-              s=self.Hotspots[j];
-              if(s.m5.touch && self._test(s,a.x,a.y)){
+            if(found.get(a.id)){continue}
+            for(let s,j=0; j<this.Hotspots.length; ++j){
+              if((s=this.Hotspots[j]) &&
+                 s.m5.touch && this._test(s,a.x,a.y)){
                 s.m5.touch(s,flag);
                 found.set(a.id,1);
                 break;
               }
             }
           }
-          return found;
         },
-        /**
-        */
-        _doMDrag(ts,found){
-          if(L!==cur()){return}
-          let self=P;
-          for(let p,a,i=0; i<ts.length;++i){
-            a=ts[i];
-            if(found.get(a.id)){continue}
-            p=self.ActiveDragsID.get(a.id);
-            if(p){
-              found.set(a.id,1);
-              p.dragged.m5.onDragDropped &&
-              p.dragged.m5.onDragDropped();
-              self.ActiveDragsID.delete(a.id);
-              self.ActiveDrags.delete(p.dragged.m5.uuid);
-            }
-          }
-          return found;
-        },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchCancel(e){
-          if(L!==cur()){return}
-          console.warn("received touchCancel event!");
-          this.freeTouches();
+
+          _.log("received touchCancel event!");
+          if(LObj!==cur()){
+            return
+          }
+
+          let o,i,self=PObj,
+              ts=e.changedTouches;
+
+          for(i=0; i< ts.length; ++i){
+            o=ts[i];
+            self.Actives.Touches.delete(o.id);
+            self.Actives.DragsID.delete(o.id);
+          }
+
+          if(self.Actives.Touches.size==0){
+            self.Actives.DragsID.clear();
+            self._freeTouches();
+          }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchStart(e){
-          if(L!==cur()){return}
-          let self=P,
-              t= e.target,
-              out=[],
-              nn= _.now(),
-              T= e.targetTouches,
-              A= self.ActiveTouches;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let
+            t= e.target, out=[],
+            self=PObj, nn= _.now(),
+            found=_.jsMap(), ts = e.changedTouches;
+
           e.preventDefault();
-          for(let a,cx,cy,id,o,i=0;i<T.length;++i){
-            o=T[i];
+          for(let a,c,cx,cy,id,o,i=0; i<ts.length; ++i){
+            o=ts[i];
             id=o.identifier;
             cx = o.pageX - t.offsetLeft;
             cy = o.pageY - t.offsetTop;
-            _.assoc(A, id, a={
-              id, _x:cx, _y:cy,
-              downTime: nn, downAt: [cx,cy],
-              x:cx/Mojo.scale, y:cy/Mojo.scale
-            });
+            a={ id, _x:cx, _y:cy, downTime: nn,
+                downAt: [cx,cy], x:cx/Mojo.scale, y:cy/Mojo.scale };
+            c={ id, _x:cx, _y:cy, downTime: nn, downAt: [cx,cy], x: a.x, y: a.y };
+            self.Actives.Touches.set(id,c);
             out.push(a);
             //handle single touch case
-            if(i==0){
+            if(self.touchZeroID===UNDEF && i==0){
               self.touchZeroID=id;
               self._x = cx;
               self._y = cy;
@@ -477,124 +468,164 @@
             }
           }
           Mojo.Sound.init();
-          if(!L.pauseInput){
-            Mojo.emit([`${L.yid}/touchstart`],out);
-            self._doMTouch(out,true);
+          if(!LObj.pauseInput){
+            self._testTouchDragStart(out,found);
+            self._doMTouch(out,found,true);
+            Mojo.emit([`${LObj.yid}/touchstart`],out);
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchMove(e){
-          if(L!==cur()){return}
-          let out=[],
-              self=P,
-              t = e.target,
-              T = e.targetTouches;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj, out=[],
+              t = e.target, ts = e.changedTouches;
+
           e.preventDefault();
-          for(let cx,cy,a,o,id,i=0;i<T.length;++i){
-            o=T[i];
+          for(let p,s,x,y,cx,cy,o,id,i=0; i<ts.length; ++i){
+            o=ts[i];
             id= o.identifier;
+            if(p=self.Actives.Touches.get(id)){}else{
+              Mojo.warn(`move-no activetouch with id=${id}`);
+              continue;
+            }
             cx= o.pageX - t.offsetLeft;
             cy= o.pageY - t.offsetTop;
+            x=cx/Mojo.scale;
+            y=cy/Mojo.scale;
             if(id==self.touchZeroID){
               self._x = cx;
               self._y = cy;
             }
-            if(a= self.ActiveTouches.get(id)){
-              a.x=cx/Mojo.scale;
-              a.y=cy/Mojo.scale;
-              a._x = cx;
-              a._y = cy;
-              out.push(a);
+            p.x=x; p.y=y;
+            p._x = cx; p._y = cy;
+            if(p= self.Actives.DragsID.get(id)){
+              p.x=x; p.y=y;
+              p._x = cx; p._y = cy;
+              s=p.dragged;
+              _V.set(s, p.dragStartX+(x-p.dragPtrX),
+                        p.dragStartY+(y-p.dragPtrY));
             }
+            out.push({ id, x, y, _x:cx, _y:cy });
           }
-          if(!L.pauseInput)
-            Mojo.emit([`${L.yid}/touchmove`],out);
+          LObj.pauseInput ? 0 : Mojo.emit([`${LObj.yid}/touchmove`],out);
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchEnd(e){
-          if(L!==cur()){return}
-          let self=P,
-              out=[],
-              T = e.targetTouches,
-              C = e.changedTouches,
-              cx,cy,i,a,o,id,
-              t = e.target, nn=_.now();
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let
+            self=PObj, out=[],
+            found=_.jsMap(),
+            cx,cy,i,a,d,p,o,id,
+            ts= e.changedTouches, t = e.target, nn=_.now();
+
           e.preventDefault();
-          for(i=0;i<C.length;++i){
-            o=C[i];
+          for(i=0; i<ts.length; ++i){
+            o=ts[i];
             id=o.identifier;
             cx= o.pageX - t.offsetLeft;
             cy= o.pageY - t.offsetTop;
-            a=self.ActiveTouches.get(id);
             if(id==self.touchZeroID){
               self.elapsedTime = Math.max(0,nn-self.downTime);
               _.setVec(self.state,false,true);
               self._x= cx;
               self._y= cy;
             }
-            if(a){
-              a.elapsedTime = Math.max(0,nn-a.downTime);
-              self.ActiveTouches.delete(id);
-              a._x= cx;
-              a._y= cy;
-              a.x=cx/Mojo.scale;
-              a.y=cy/Mojo.scale;
-              out.push(a);
+            if(p=self.Actives.Touches.get(id)){}else{
+              Mojo.warn(`end-no activetouch with id=${id}`);
+              continue;
             }
+            p.elapsedTime = Math.max(0,nn-p.downTime);
+            p.x=cx/Mojo.scale;
+            p.y=cy/Mojo.scale;
+            p._x = cx;
+            p._y = cy;
+            out.push(_.clone(p));
           }
-          if(!L.pauseInput){
-            Mojo.emit([`${L.yid}/touchend`],out);
-            let found= self._doMTouch(out,false);
-            self._doMDrag(out,found);
-            self._onMultiTouches(out,found);
+          if(!LObj.pauseInput){
+            self._maybeEndTouchDrag(out,found);
+            self._doMTouch(out,found,false);
+            self._onEndMultiTouches(out,found);
+            Mojo.emit([`${LObj.yid}/touchend`],out);
+          }
+          for(i=0;i<ts.length;++i){
+            self.Actives.Touches.delete(ts[i].id);
+          }
+          if(self.Actives.Touches.size==0){
+            self.freeTouches();
           }
         },
-        /**
-        */
-        _onMultiTouches(ts,found){
-          if(L!==cur()){return}
-          let self=P;
+        ////////////////////////////////////////////////////////////////////////////
+        _maybeEndTouchDrag(ts,found){
+          let prevX= this._x, prevY= this._y;
+          for(let s,p,o,i=0; i<ts.length; ++i){
+            o=ts[i];
+            if(p=this.Actives.DragsID.get(o.id)){
+              this.Actives.DragsID.delete(o.id);
+              s=p.dragged;
+              found.set(o.id,1);
+              this._x=o._x;
+              this._y=o._y;
+              _V.set(s, p.dragStartX+(o.x-p.dragPtrX),
+                        p.dragStartY+(o.y-p.dragPtrY));
+              s.m5.onDragDropped?.();
+            }
+          }
+          this._x=prevX;
+          this._y=prevY;
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        _onEndMultiTouches(ts,found){
+
+          if(LObj!==cur()){
+            return
+          }
+
           for(let a,v,z,j=0; j<ts.length; ++j){
             a=ts[j];
-            if(found.get(a.id)){continue}
+            if(found.get(a.id))
+            {continue}
             v= _V.vecAB(a.downAt,a);
             z= _V.len2(v);
             if(z<400 && a.elapsedTime<200){
-              Mojo.emit([`${L.yid}/single.tap`],a);
-              for(let s,i=0,n=self.Buttons.length;i<n;++i){
-                s=self.Buttons[i];
-                if(s.m5.press && self._test(s, a.x, a.y)){
+              for(let s,i=0,n=this.Buttons.length;i<n;++i){
+                if((s=this.Buttons[i]) &&
+                   s.m5.press && this._test(s, a.x, a.y)){
                   s.m5.press(s);
                   break;
                 }
               }
+              Mojo.emit([`${LObj.yid}/single.tap`],a);
             }else{
-              self._swipeMotion(v,z,a.elapsedTime,a);
+              this._swipeMotion(v,z,a.elapsedTime,a);
             }
           }
         },
-        /**
-        */
-        freeTouches(){
+        ////////////////////////////////////////////////////////////////////////////
+        _resetClickTap(){
           _.setVec(this.state,false,true);
-          this.touchZeroID=0;
-          this.ActiveTouches.clear();
-          this.ActiveDrags.clear();
-          this.ActiveDragsID.clear();
+          this.touchZeroID=UNDEF;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
+        _freeTouches(){
+          this._resetClickTap();
+          this.Actives.reset();
+        },
+        ////////////////////////////////////////////////////////////////////////////
         reset(){
-          _.setVec(this.state,false,true);
-          this.freeTouches();
+          this._freeTouches();
           this.DragDrops.length=0;
           this.Buttons.length=0;
           this.Hotspots.length=0;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _test(s,x,y){
           let _S=Mojo.Sprites,
               g=_S.gposXY(s),
@@ -602,39 +633,36 @@
               ps=_V.translate(g,p.calcPoints);
           return Geo.hitTestPointInPolygon(x, y, ps);
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         hitTest(s){
           return this._test(s,this.x, this.y)
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         update(dt){
-          if(this.DragDrops.length>0)
-            Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt);
         }
       };
 
       //////
-      const msigs=[["mousemove", Mojo.canvas, P.mouseMove],
-                  ["mousedown", Mojo.canvas,P.mouseDown],
-                  ["mouseup", globalThis, P.mouseUp]];
-      const tsigs=[["touchmove", Mojo.canvas, P.touchMove],
-                  ["touchstart", Mojo.canvas, P.touchStart],
-                  ["touchend", globalThis, P.touchEnd],
-                  ["touchcancel", globalThis, P.touchCancel]];
+      const msigs=[["mousemove", Mojo.canvas, PObj.mouseMove],
+                  ["mousedown", Mojo.canvas,PObj.mouseDown],
+                  ["mouseup", globalThis, PObj.mouseUp]];
+      const tsigs=[["touchmove", Mojo.canvas, PObj.touchMove],
+                  ["touchstart", Mojo.canvas, PObj.touchStart],
+                  ["touchend", globalThis, PObj.touchEnd],
+                  ["touchcancel", globalThis, PObj.touchCancel]];
 
       Mojo.touchDevice? _.addEvent(tsigs) : _.addEvent(msigs);
 
-      P.dispose=function(){
+      PObj.dispose=function(){
         this.reset();
         Mojo.touchDevice? _.delEvent(tsigs) : _.delEvent(msigs);
       };
 
-      return P;
+      return PObj;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    let _multiTouch=true;
     const _$={
       LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
       ZERO: 48, ONE: 49, TWO: 50,
@@ -654,6 +682,9 @@
       pause(){ cur().pauseInput=true },
       dbg(){ cur().dbg() },
       _cur(){ return cur() },
+      setMultiTouch(b){
+        _multiTouch=b
+      },
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
        */
@@ -671,10 +702,8 @@
        */
       setKeyOn(k){
         let o=cur().keyInputs.get(k);
-        if(!o){
-          o={};
-          cur().keyInputs.set(k,o);
-        }
+        if(!o)
+          cur().keyInputs.set(k,o={});
         o.state=true;
       },
       /**Fake a keypress(up).
@@ -682,10 +711,8 @@
        */
       setKeyOff(k){
         let o=cur().keyInputs.get(k);
-        if(!o){
-          o={};
-          cur().keyInputs.set(k,o);
-        }
+        if(!o)
+          cur().keyInputs.set(k,o={});
         o.state=false;
       },
       /**
@@ -789,24 +816,40 @@
       pointer(){
         return cur().pointer()
       },
+      /**Clear all input layers.
+       * @memberof module:mojoh5/Input
+       * @return {any} undefined
+       */
       dispose(){
         Layers.forEach(a => a.dispose());
         Layers.length=0;
       },
+      /**Pop off the top input layer.
+       * @memberof module:mojoh5/Input
+       * @return {any} undefined
+       */
       restore(){
         if(Layers.length>1){
           Layers.shift().dispose()
           cur().pauseInput=false;
         }
       },
+      /**Push new input layer to top.
+       * @memberof module:mojoh5/Input
+       * @return {any} undefined
+       */
       save(){
-        Layers.unshift(mkLayer());
+        Layers.unshift(_mkLayer({}));
       },
+      /**
+      */
       on(...args){
         _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.on()");
         args[0][0]=`${cur().yid}/${args[0][0]}`;
         return Mojo.on(...args);
       },
+      /**
+      */
       off(...args){
         _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.off()");
         args[0][0]=`${cur().yid}/${args[0][0]}`;
@@ -814,6 +857,7 @@
       }
     };
 
+    ////////////////////////////////////////////////////////////////////////////
     //disable the default actions on the canvas
     Mojo.canvas.style.touchAction = "none";
 
@@ -824,7 +868,7 @@
     _$.mkDrag=_$.makeDrag;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    Layers.push(mkLayer());
+    Layers.push(_mkLayer({}));
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     return (Mojo.Input= _$);

@@ -19,32 +19,38 @@
   ////////////////////////////////////////////////////////////////////////////
   /** Supported file extensions. */
   const
+    BMFNT_EXTS= ["fnt"],
     AUDIO_EXTS= ["mp3", "wav", "ogg"],
     FONT_EXTS = ["ttf", "otf", "ttc", "woff"],
     IMAGE_EXTS= ["jpg", "png", "jpeg", "gif","webp"];
 
   ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(cmdArg, _BgTasks){
 
     ////////////////////////////////////////////////////////////////////////////
     //import mcfud's core module
+    ////////////////////////////////////////////////////////////////////////////
     const
       {EventBus,dom,is,u:_} = gscope["io/czlab/mcfud/core"](),
       _V = gscope["io/czlab/mcfud/vec2"](),
       _M = gscope["io/czlab/mcfud/math"](),
       EBus= EventBus(),
       int=Math.floor,
-      CON=console,
       _DT15=1/15;
 
+    ////////////////////////////////////////////////////////////////////////////
+    //to control game processing
     let _paused = false;
+    ////////////////////////////////////////////////////////////////////////////
+
 
     ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/Mojo
      */
-
+    ////////////////////////////////////////////////////////////////////////////
     class SSheetFrame{
       #sheet;
       #frame;
@@ -59,6 +65,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Main Stage class, holds scenes or scene-wrappers. */
+    ////////////////////////////////////////////////////////////////////////////
     class PixiStage extends PIXI.Container{
       constructor(){
         super();
@@ -83,17 +90,25 @@
       aniFps: 12,
       fps: 60
     });
+    ////////////////////////////////////////////////////////////////////////////
 
-    //const _height=()=> document.documentElement.clientHeight;
-    //const _width=()=> document.documentElement.clientWidth;
-    const
-      _width=()=> gscope.innerWidth,
-      _height=()=> gscope.innerHeight;
+    ////////////////////////////////////////////////////////////////////////////
+    /**Provide the size of the browser window */
+    ////////////////////////////////////////////////////////////////////////////
+    function _width(){
+      return window.innerWidth ||
+      document.documentElement.clientWidth || document.body.clientWidth;
+    }
+    function _height(){
+      return window.innerHeight ||
+      document.documentElement.clientHeight || document.body.clientHeight;
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     /**Built-in progress bar, shown during the loading of
      * assets if no user-defined load function is provided.
      */
+    ////////////////////////////////////////////////////////////////////////////
     function _PBar(Mojo){
       const
         cy= int(Mojo.height/2),
@@ -102,17 +117,16 @@
         K=Mojo.getScaleFactor(),
         bgColor=0x404040,
         fgColor=0xff8a00,
-        {Sprites}=Mojo,
         WIDTH=w4*2,
         RH=48*K,
         Y=cy-RH/2;
+
       return{
         init(){
-          this.perc=Sprites.text("0%", {fontSize: int(RH/2),
-                                        fill:"black",
-                                        fontFamily:"sans-serif"});
-          this.fg=Sprites.rect(cx, RH, fgColor);
-          this.bg=Sprites.rect(cx, RH, bgColor);
+          this.perc=Mojo.Sprites.text("0%", {fontSize: int(RH/2),
+                                      fill:"black", fontFamily:"sans-serif"});
+          this.fg=Mojo.Sprites.rect(cx, RH, fgColor);
+          this.bg=Mojo.Sprites.rect(cx, RH, bgColor);
           _V.set(this.bg, cx-w4, Y);
           _V.set(this.fg, cx-w4+1, Y);
           _V.set(this.perc, cx-w4+10, int(cy-this.perc.height/2));
@@ -121,7 +135,7 @@
           this.insert(this.perc);
         },
         update(progress){
-          CON.log(`progr= ${progress*100}`);
+          _.log(`progr= ${progress*100}`);
           this.fg.width = WIDTH*progress;
           this.perc.text=`${Math.round(progress*100)}%`;
         }
@@ -130,31 +144,32 @@
 
     ////////////////////////////////////////////////////////////////////////////
     /** standard logo */
+    ////////////////////////////////////////////////////////////////////////////
     function _LogoBar(Mojo){
-      const {Sprites}=Mojo;
       return {
         init(){
           let
-            logo=Sprites.sprite("boot/ZotohLab_x1240.png"),
-            pbar=Sprites.sprite("boot/preloader_bar.png"),
+            logo=Mojo.Sprites.sprite("boot/ZotohLab_x1240.png"),
+            pbar=Mojo.Sprites.sprite("boot/preloader_bar.png"),
+            pbar2=Mojo.Sprites.sprite("boot/preloader_bar.png"),
             [w,h]=Mojo.scaleXY([logo.width,logo.height],
                                [Mojo.width,Mojo.height]),
             K=Mojo.getScaleFactor(),
             k= w>h?h:w;
           k *= 0.2;
-          Sprites.scaleXY(pbar,k,k);
-          Sprites.scaleXY(logo,k,k);
-          Sprites.pinCenter(this,logo);
-          Sprites.pinBelow(logo,pbar,4*K);
-          Sprites.hide(pbar);
-          Sprites.opacity(pbar,0.3);
-          this.insertEx([logo,pbar]);
+          Mojo.Sprites.scaleXY(pbar2,k,k);
+          Mojo.Sprites.scaleXY(pbar,k,k);
+          Mojo.Sprites.scaleXY(logo,k,k);
+          Mojo.Sprites.pinCenter(this,logo);
+          Mojo.Sprites.pinBelow(logo,pbar,4*K);
+          Mojo.Sprites.pinBelow(logo,pbar2,4*K);
+          Mojo.Sprites.opacity(pbar2,0.3);
+          this.insertEx([logo,pbar2,pbar]);
           this.g.pbar=pbar;
           this.g.pbar_width=pbar.width;
         },
         update(progress){
-          CON.log(`progr= ${progress*100}`);
-          this.g.pbar.visible?0:Sprites.show(this.g.pbar);
+          //_.log(`progr= ${progress}`);
           this.g.pbar.width = this.g.pbar_width*progress;
         }
       }
@@ -172,19 +187,11 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    function _maybeHandleAtlas(Mojo){
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
     /**Once all the files are loaded, do some post processing.
      */
     function _postAssetLoad(Mojo,ldrObj,scene,error){
-
       if(ldrObj)
         Mojo.delBgTask(ldrObj);
-
-      error?0:_maybeHandleAtlas(Mojo);
-
       _.delay(50,()=>{
         Mojo.Scenes.remove(scene);
         error? _.error("Cannot load game!"): Mojo._runAppStart()
@@ -205,39 +212,44 @@
     ////////////////////////////////////////////////////////////////////////////
     /** Decode the loaded sound files
     */
-    function _preloadSounds(sfiles){
+    function _preloadSounds(sfiles,cb){
       let fcnt=sfiles.length;
-      function _m1(b){ --fcnt }
+      function onDone(){ _.delay(0, ()=> cb()) }
+      function _m1(b){ --fcnt; if(fcnt==0) onDone(); }
       sfiles.forEach(f=>{
         _getSnd(f).then(r=>{
           Mojo.Sound.decodeData(r.name, r.url, r.buffer, _m1)
         });
       })
+      if(fcnt==0){ onDone() }
+      return fcnt;
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    /** Fetch required files. */
-    function _loadFiles(Mojo){
-      let wanted=[], sfiles=[],ffiles=[];
-      let family, face, span, style;
-
-      //group various file types
-      Mojo.u.assetFiles.forEach((f,ext)=>{
-        if(is.obj(f)){
-          _.has(FONT_EXTS, _.fileExt(f.url))?ffiles.push(f):0
-        }else{
-          f=Mojo.assetPath(f);
-          ext=_.fileExt(f);
-          _.has(AUDIO_EXTS,ext)? sfiles.push(f): wanted.push(f)
-        }
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    async function _grabBMapFonts(bfiles, cb){
+      let err=0, p=[];
+      bfiles.forEach(b=>{ p.push(PIXI.Assets.load(b)); })
+      Promise.allSettled(p).then(a=>{
+        a.forEach(r => r.status=="rejected" ? err++ : 0);
+        if(err>0)
+          _.error("Failed to load bitmap fonts");
+        else
+          _.delay(0, ()=> cb());
       });
+    }
 
-      //trick browser to load in font files.
+    ////////////////////////////////////////////////////////////////////////////
+    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    function _trickBrowserToLoadFonts(ffiles){
+      let family, face, span, style;
       ffiles.forEach(f=>{
         style= dom.newElm("style");
         span= dom.newElm("span");
         face= `@font-face {font-family: '${f.family}'; src: url('${f.url}');}`;
-        CON.log(`loading fontface = ${face}`);
+        _.log(`loading fontface = ${face}`);
         dom.conj(style,dom.newTxt(face));
         dom.conj(document.head,style);
         span.innerHTML = "?";
@@ -245,51 +257,84 @@
         dom.conj(document.body,span);
         dom.css(span,{display: "block", opacity: "0"});
       });
+    }
 
+    ////////////////////////////////////////////////////////////////////////////
+    /** Fetch required files. */
+    function _loadFiles(Mojo){
       let rc,scene,pg=[], ecnt=0, cbObj=Mojo.u.load;
+      let sfiles=[], ffiles=[], wanted=[];
 
+      ////////////////////////////////////////////////////////////////////////////
+      //deal with web fonts?
+      Mojo.u.assetFiles.forEach(f=>{
+        if(is.obj(f)){
+          _.has(FONT_EXTS, _.fileExt(f.url)) ? ffiles.push(f) : 0
+        }else if(is.str(f)){
+          f=Mojo.assetPath(f);
+          _.has(AUDIO_EXTS, _.fileExt(f)) ? sfiles.push(f) : wanted.push(f)
+        }
+      });
+      _trickBrowserToLoadFonts(ffiles);
+
+      ////////////////////////////////////////////////////////////////////////////
+      //select the loader scene
       if(!cbObj)
         cbObj= 1 ? _LogoBar(Mojo) : _PBar(Mojo);
-      scene=_loadScene(cbObj);
 
-      PIXI.Assets.loader.load(wanted, (p)=>{
-        CON.log(`percentage ${p}`);
-        pg.unshift(p);
+      ////////////////////////////////////////////////////////////////////////////
+      //run the loader scene
+      if(1){
+        const z= new Mojo.Scenes.Scene("loader",{
+          setup(){ cbObj.init.call(this) }
+        },{});
+        scene=Mojo.stage.addChild(z).runOnce();
+      }
+
+      ////////////////////////////////////////////////////////////////////////////
+      function loadOthers(r1){
+        function fz(s){ _.log(`loaded ${s}`) }
+        _preloadSounds(sfiles,()=>{
+          let cnt=0;
+          for(const [k, v] of Object.entries(r1)){
+            ++cnt; fz(k); Mojo._cache[k]=v;
+          }
+          sfiles.forEach(fz);
+          _.log(`completed loading of ${cnt+sfiles.length} files.`);
+          //indicate end of load
+          pg.unshift("$");
+        });
+      }
+
+      ////////////////////////////////////////////////////////////////////////////
+      //load images, json...etc first
+      PIXI.Assets.load(wanted, (p)=>{
+        pg.unshift(p)
       }).then(r=>{
-        let cnt=0,w=wanted.length;
-        for(const [k, v] of Object.entries(r)){
-          if(_.inst(PIXI.Texture, v)) v.source.scaleMode = 'linear';
-          Mojo._cache[k]=v;
-          ++cnt;
-          CON.log(`loaded ${k}`);
-        }
-        CON.log(`loaded ${cnt} files, wanted ${w}... ${cnt==w?"Yippy":"Hmmmm"}...!`);
-        pg.unshift("$");
+        _.delay(0,()=> loadOthers(r))
       }).catch(err=>{
         ++ecnt;
-        CON.error(`Failed to load all assets: ${err}`)
+        _.error(`Failed to load all assets: ${err}`)
       });
+
+      ////////////////////////////////////////////////////////////////////////////
+      //for the loading scene...
       Mojo.addBgTask({
         update(){
           if(pg.length==0){
           }else{
             let n= pg.pop();
             if(is.num(n)){
-              if(n){
-                cbObj.update.call(scene,n);
-              }
-            }else if(n=="$"){
-              if(ecnt==0 && sfiles.length>0){
-                _preloadSounds(sfiles)
-              }
+              n && cbObj.update.call(scene,n);
+            }
+            else if(n=="$"){
               _.delay(800,()=> _postAssetLoad(Mojo,this,scene,ecnt>0))
             }else{
-              CON.error("fatal error while loading assets");
+              _.error("Fatal error while loading assets");
             }
           }
         }
       });
-
 
       //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       return Mojo.start(); // starting the game loop
@@ -297,8 +342,14 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    /** @ignore */
+    /**Bootup MojoH5 */
+    ////////////////////////////////////////////////////////////////////////////
     function _boot(Mojo){
+      _.log(`canvas size= w:${Mojo.canvas.width},h=${Mojo.canvas.height}`);
+      //sync to new size
+      Mojo.prevHeight=_height();
+      Mojo.prevWidth=_width();
+
       if(!Mojo.u.load)
         //use default boot logos
         Mojo.u.logos=["boot/preloader_bar.png",
@@ -309,18 +360,18 @@
 
       PIXI.Assets.init();
 
-      (async()=>{
-        let rc=UNDEF;
+      (async (rc,ks)=>{
         try{
           rc=await PIXI.Assets.load(bFiles);
+          ks=Object.keys(rc);
         }catch(e){
-          CON.error(e);
+          _.error(e);
         }
-        if(rc && bFiles.length == Object.keys(rc).length){
+        if(ks && bFiles.length == ks.length){
+          ks.forEach(k=> _.log(`loaded logo file "${k}"`));
           _.delay(50,()=>_loadFiles(Mojo));
-          CON.log(`logo files loaded.`);
         }else{
-          CON.log(`logo files not loaded!`)
+          _.log(`logo files not loaded!`)
         }
       })();
 
@@ -333,7 +384,9 @@
       _Size11={width:1,height:1},
       _CT="body, * {padding: 0; margin: 0; height:100%; overflow:hidden}";
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
     function _configCanvas(arg){
       let
         p= { "outline":"none" },
@@ -350,21 +403,18 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    /** Main
-    */
+    /**Main */
+    ////////////////////////////////////////////////////////////////////////////
     function _prologue(Mojo){
+
       let
         maxed=false,
         box= cmdArg.arena;
 
-      if(0 && PIXI.isMobile.phone){
-        const msg="Mobile Phone not supported, please use a tablet.";
-        alert(msg);
-        _.assert(false, msg);
-      }
       _.assert(box,"design resolution req'd.");
 
-      //want canvas max screen
+      ////////////////////////////////////////////////////////////////////////////
+      //want canvas max screen?
       if(cmdArg.scaleToWindow=="max"||
          cmdArg.scaleToWindow===true){
         maxed=true;
@@ -384,7 +434,7 @@
         cmdArg.logos=new Array();
 
       //realize the renderer
-      (async()=>{
+      (async ()=>{
         Mojo.ctx= await PIXI.autoDetectRenderer(_.inject(box,{
           webgpu:{ antialias: true},
           webgl:{ antialias: true}
@@ -394,8 +444,8 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    /** Main Helper
-    */
+    /**Main's Helper */
+    ////////////////////////////////////////////////////////////////////////////
     function _begin(Mojo,cmdArg){
 
       Mojo.touchDevice= !!("ontouchstart" in document);
@@ -405,15 +455,17 @@
       Mojo.scaledBgColor= "#5A0101";
       Mojo.stage= new PixiStage();
 
-      //install modules
-      ["Sprites","Input","Scenes", "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
-         CON.log(`installing module ${s}...`);
+      ////////////////////////////////////////////////////////////////////////////
+      //install these modules, order is important!
+      ["Sprites","Input","Scenes",
+       "Sound","FX","Ute2D","Tiles","Touch"].forEach(s=>{
+         _.log(`installing module ${s}...`);
          let m=gscope[`io/czlab/mojoh5/${s}`](Mojo);
-         if(m.assets) m.assets.forEach(a=> Mojo.u.assetFiles.unshift(a))
+         m.assets?.forEach(a=> Mojo.u.assetFiles.unshift(a))
       });
 
       //register built-in tasks
-      _BgTasks.push(Mojo.FX, Mojo.Input);
+      _BgTasks.push(Mojo.FX);
       _configCanvas(cmdArg);
 
       if(_.has(cmdArg,"border"))
@@ -422,11 +474,11 @@
       if(_.has(cmdArg,"bgColor"))
         Mojo.ctx.backgroundColor = Mojo.Sprites.color(cmdArg.bgColor);
 
+      ////////////////////////////////////////////////////////////////////////////
       //not thoroughly supported nor tested :)
       //keep track of current size, for resize purpose
-      Mojo.prevHeight=Mojo.height;
-      Mojo.prevWidth=Mojo.width;
-      CON.log(`canvas size= w:${Mojo.prevHeight},h=${Mojo.height}`);
+      Mojo.prevHeight=0;
+      Mojo.prevWidth=0;
       if(cmdArg.resize === true){
         _.addEvent("resize", gscope, _.debounce(e=>{
           //save the current size and tell others
@@ -440,18 +492,22 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
+      ////////////////////////////////////////////////////////////////////////////
+      //force to scroll to top
       if(Mojo.touchDevice){
         Mojo.scroll()
       }
 
       Mojo._canvasObj.focus();
 
+      ////////////////////////////////////////////////////////////////////////////
+      //finally boot up Mojo
       return _boot(Mojo);
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    /**Code to run per tick
-    */
+    /**Code to run per tick */
+    ////////////////////////////////////////////////////////////////////////////
     function _update(dt){
       Mojo._curFPS=Mojo.calcFPS(dt);
       //process any backgorund tasks
@@ -461,17 +517,18 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    function _draw(dt){
-      Mojo.ctx.render(Mojo.stage)
-    }
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    function _draw(dt){ Mojo.ctx.render(Mojo.stage) }
 
     ////////////////////////////////////////////////////////////////////////////
+    /** */
     const _raf=(cb)=> gscope.requestAnimationFrame(cb);
-    //------------------------------------------------------------------------
-
+    ////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
+    ////////////////////////////////////////////////////////////////////////////
     class Mediator{
       constructor(){
         this.players=[];
@@ -544,6 +601,7 @@
 
     ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
+    ////////////////////////////////////////////////////////////////////////////
     class Player{
       constructor(uid){
         this.uid=uid;
@@ -563,6 +621,7 @@
 
     ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
+    ////////////////////////////////////////////////////////////////////////////
     class Local extends Player{
       constructor(uid="p1"){
         super(uid)
@@ -579,6 +638,7 @@
 
     ////////////////////////////////////////////////////////////////////////////
     /** @abstract */
+    ////////////////////////////////////////////////////////////////////////////
     class Bot extends Player{
       constructor(uid="p2"){
         super(uid)
@@ -590,7 +650,10 @@
         //do nothing
       }
     }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
     const Mojo={
       //for world/screen conversions
       _offsetX:0,
@@ -678,6 +741,7 @@
       MODE_NET:3,
       CON:console,
       noop: ()=>{},
+      warn(...args){ console.warn(...args) },
       get mouse(){ return Mojo.Input.pointer() },
       /**Play a sound effect.
        * @memberof module:mojoh5/Mojo
@@ -693,15 +757,23 @@
        * @return {number} new velocity
        */
       accel(vel,acc,dt){ return vel+acc*dt },
+      /**
+      */
       on(...args){
         return EBus.sub(...args)
       },
+      /**
+      */
       emit(...args){
         return EBus.pub(...args)
       },
+      /**
+      */
       off(...args){
         return EBus.unsub(...args)
       },
+      /**
+      */
       ssf(s,f){
         return new this.SSheetFrame(s,f);
       },
@@ -866,6 +938,19 @@
           })
         }
       },
+      /**Move this item to become the topmost child.
+       * @memberof module:mojoh5/Mojo
+       * @param {Container} s
+       * @return {Container} s
+       */
+      moveToTop(s){
+        let gp=s.parent;
+        if(gp){
+          gp.removeChild(s);
+          gp.addChild(s);
+        }
+        return s;
+      },
       /**
       */
       scroll(x,y){
@@ -893,7 +978,7 @@
        * @param {number} y
        * @return {ObservablePoint}
        */
-      makeAnchor(x,y){ return new PIXI.ObservablePoint(this,x,y) },
+      makeAnchor(x,y){ return new PIXI.ObservablePoint(this,x, y ?? x) },
       /**Ducktype a stage object.
        * @memberof module:mojoh5/Mojo
        * @param {number} [px]
@@ -905,8 +990,8 @@
       mockStage(px=0,py=0,width=undefined,height=undefined){
         let self=is.obj(px)?px
                            :{x:px, y:py,
-                             width: _.nor(width,Mojo.width),
-                             height: _.nor(height,Mojo.height)};
+                             width: width ?? Mojo.width,
+                             height: height ?? Mojo.height};
         self.getGlobalPosition=()=>{ return {x: this.x, y: this.y} };
         self.anchor=Mojo.makeAnchor(0,0);
         self.m5={stage:true};
@@ -953,21 +1038,10 @@
       scaleSZ(src,des){
         return { width: des.width/src.width,
                  height: des.height/src.height} },
-      /**Get the cached Texture.
-       * @memberof module:mojoh5/Mojo
-       * @param {string} s
-       * @return {Texture}
-       */
-      KENLXXid(s){ return this.image(s) },
-      /**Get the cached Texture.
-       * @memberof module:mojoh5/Mojo
-       * @param {string} n
-       * @return {Texture}
-       */
       /**Get a frame in a spritesheet.
        * @memberof module:mojoh5/Mojo
        * @param {string} name
-       * @return {Texture}
+       * @return {PIXI.Texture}
        */
       sheet(name,frame){
         const ssObj=this.resource(name);
@@ -975,6 +1049,11 @@
         _.assert(is.obj(ssObj.data) && is.obj(ssObj.textures), `bad sheet: ${name}`);
         return ssObj.textures[frame];
       },
+      /**Get the cached image.
+       * @memberof module:mojoh5/Mojo
+       * @param {string} n
+       * @return {PIXI.Texture}
+       */
       image(n){ return this.resource(n) },
       /**Get the cached XML file.
        * @memberof module:mojoh5/Mojo
@@ -1001,7 +1080,7 @@
             //if(ext) ext=ext.substring(1);
             if(_.has(IMAGE_EXTS,ext)){
               pfx="images"
-            }else if(ext=="fnt" ||
+            }else if(_.has(BMFNT_EXTS,ext) ||
                      _.has(FONT_EXTS,ext)){
               pfx="fonts"
             }else if(_.has(AUDIO_EXTS,ext)){
@@ -1072,7 +1151,7 @@
       calcFPS(dt){
         let n,rc=0,size=60;
         if(dt>0){
-          n=_M.ndiv(1,dt);
+          n=int(1/dt);
           if(!this._fpsList){
             this._fpsList=_.fill(size, n);
             this._fpsSum= size*n;
@@ -1080,7 +1159,7 @@
           this._fpsSum -= this._fpsList.pop();
           this._fpsList.unshift(n);
           this._fpsSum += n;
-          rc= _M.ndiv(this._fpsSum ,size);
+          rc= int(this._fpsSum /size);
         }
         //console.log("rc===="+rc);
         return rc;
@@ -1181,6 +1260,8 @@
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
+  /** */
   ////////////////////////////////////////////////////////////////////////////
   const BtnColors={
     blue:"#319bd5",
@@ -1502,8 +1583,9 @@
       SomeColors:{},
       BtnColors:{},
       Geo,
-      assets: ["boot/unscii.fnt", "boot/doki.fnt",
-               "boot/BIG_SHOUT_BOB.fnt", "boot/splash.jpg", "boot/star.png" ],
+      assets: ["boot/splash.jpg", "boot/star.png",
+               "boot/audioOff.png", "boot/audioOn.png",
+               "boot/unscii.fnt", "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1703,7 +1785,7 @@
        */
       makeSteerable(s){
         if(s.width != s.height)
-          Mojo.CON.warn(`object ${s.m5?.uuid} is not a square, radius will be off....`);
+          Mojo.warn(`object ${s.m5?.uuid} is not a square, radius will be off....`);
         let {width,height}= this.halfSize(s);
         s.m5.steer=[0,0];
         s.m5.steerInfo=SteeringInfo();
@@ -1828,7 +1910,7 @@
        */
       toCircle(s){
         return this.assertCenter(s) &&
-               new Geo.Circle(_M.ndiv(s.width,2)).setOrient(s.rotation) },
+               new Geo.Circle(int(s.width/2)).setOrient(s.rotation) },
       /**For 2D physics, create a body.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1838,7 +1920,7 @@
         let
           px=s.x,
           py=s.y,
-          b=s.m5.circle? this.toCircle(s) : this.toPolygon(s);
+          b=s.m5.circle ? this.toCircle(s) : this.toPolygon(s);
         return Geo.bodyWrap(b,px,py);
       },
       /**Get the PIXI global position.
@@ -1870,7 +1952,7 @@
        * @return {Vec2} [x,y]
        */
       centerXY(s){
-        return this.isCenter(s)? _V.vec(s.x,s.y) : _V.add(this.centerOffsetXY(s),s) },
+        return this.isCenter(s) ? _V.vec(s.x,s.y) : _V.add(this.centerOffsetXY(s),s) },
       /**PIXI operation, setting type of scaling to be used.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1895,14 +1977,14 @@
        * @return {Sprite} s
        */
       die(s){
-        s.m5.dead=true; return s; },
+        return (s.m5.dead=true) && s; },
       /**Come back to life, from dead.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       undie(s){
-        s.m5.dead=false; return s; },
+        return (s.m5.dead=false) || s; },
       /**Move a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1931,9 +2013,9 @@
         let
           x=s.x,
           w= s.width,
-          ax= s.anchor?s.anchor.x:0;
+          ax= s.anchor ? s.anchor.x : 0;
         if(ax>0.7) x -= w;
-        else if(ax>0) x -= _M.ndiv(w,2);
+        else if(ax>0) x -= int(w/2);
         return x;
       },
       /**Get the right side of this sprite.
@@ -1952,9 +2034,9 @@
         let
           y= s.y,
           h= s.height,
-          ay= s.anchor?s.anchor.y:0;
+          ay= s.anchor ? s.anchor.y : 0;
         if(ay>0.7) y -= h;
-        else if(ay>0) y -= _M.ndiv(h,2);
+        else if(ay>0) y -= int(h/2);
         return y;
       },
       /**Get the bottom side of this sprite.
@@ -2147,14 +2229,14 @@
        * @return {Sprite} s
        */
       hide(s){
-        s.visible=false;return s},
+        return (s.visible=false) || s; },
       /**Set a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       show(s){
-        s.visible=true;return s},
+        return (s.visible=true) && s; },
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -2344,10 +2426,12 @@
        * @return {Texture[]}
        */
       frames(src,tileW,tileH,spaceX=0,spaceY=0,sx=0,sy=0){
-        let dx=tileW+spaceX, dy=tileH+spaceY, out=[],
+        let
+          dx=tileW+spaceX,
+          dy=tileH+spaceY,
           t= Mojo.resource(src),
           rows= int(t.height/dy),
-          cols= _M.ndiv(t.width+spaceX,dx);
+          out=[], cols= _M.ndiv(t.width+spaceX,dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
@@ -2373,7 +2457,7 @@
        * @return {AnimatedSprite}
        */
       spriteFrom(...pics){
-        return this.sprite(this.frameImages(pics)) },
+        return this.sprite(this.frameImages(...pics)) },
       /**Create a PIXI.Text object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -2383,7 +2467,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        return _V.set(this.lift(new PIXI.Text(msg,fspec)),x,y) },
+        return _V.set(this.lift(new PIXI.Text(msg || "",fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -2395,7 +2479,6 @@
       bitmapText(msg,name,size){
         //in pixi, no fontSize, defaults to 26, left-align
         let fstyle;
-        msg = msg || "";
         if(is.str(name)){
           fstyle={fontFamily:name};
           if(is.num(size)) fstyle.fontSize=size;
@@ -2405,7 +2488,7 @@
         if(!fstyle.fontFamily)
           fstyle.fontFamily= fstyle.fontName? fstyle.fontName : "unscii";
         if(!fstyle.align) fstyle.align="center";
-        return this.lift(new PIXI.BitmapText({text:msg,style:fstyle}));
+        return this.lift(new PIXI.BitmapText({text:msg || "", style:fstyle}));
       },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
@@ -2643,10 +2726,10 @@
         s=this.lift(gfx);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
-            _a[0] = x; _a[1] = _.nor(y,x); _draw(); } return _a; };
+            _a[0] = x; _a[1] = y ?? x; _draw(); } return _a; };
         s.m5.ptB=function(x,y){
           if(x !== undefined){
-            _b[0] = x; _b[1] = _.nor(y,x); _draw(); } return _b; };
+            _b[0] = x; _b[1] = y ?? x; _draw(); } return _b; };
         return s;
       },
       /**Check if a sprite is moving.
@@ -2896,7 +2979,7 @@
         if(cs.length==1 && is.vec(cs[0])){ cs=cs[0] }
         _.doseqEx(cs,s=>{
           if(s.parent)
-            _.inst(Mojo.Scenes.Scene,s.parent)? s.parent.remove(s) : s.parent.removeChild(s);
+            _.inst(Mojo.Scenes.Scene,s.parent) ? s.parent.remove(s) : s.parent.removeChild(s);
           Mojo.emit(["post.remove",s]);
           Mojo.off(s);
           s.m5.dispose?.();
@@ -3369,10 +3452,12 @@
      * @module mojoh5/Scenes
      */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     const _sceneid=(id)=> id.startsWith("scene::") ? id : `scene::${id}` ;
+    ////////////////////////////////////////////////////////////////////////////
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /** internal */
     ////////////////////////////////////////////////////////////////////////////
     function _killScene(s){
@@ -3382,7 +3467,7 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /** internal class, wraps a scene.  Use this to center a scene in the game window */
     ////////////////////////////////////////////////////////////////////////////
     class SceneWrapper extends PIXI.Container{
@@ -3443,8 +3528,8 @@
           if(obj !== b &&
              !b.m5.dead &&
              (obj.m5.cmask & b.m5.type)){
-            m= Mojo.Sprites.hitTest(obj,b);
-            if(m){
+
+            if(m= Mojo.Sprites.hitTest(obj,b)){
               Mojo.emit(["hit",obj],m);
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
@@ -3599,7 +3684,7 @@
         if(Mojo.modalScene===this){
           Mojo.modalScene=UNDEF;
           Mojo.Input.restore();
-          Mojo.CON.log(`removed the current modal scene`);
+          _.log(`removed the current modal scene`);
         }
         return this;
       }
@@ -3671,7 +3756,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /*Smart layout for menus, both vertical or horizontal. */
+    /**Smart layout for menus, both vertical or horizontal. */
     ////////////////////////////////////////////////////////////////////////////
     function _layout(items,options,dir){
       let {Sprites:_S}=Mojo, K=Mojo.getScaleFactor();
@@ -3739,8 +3824,8 @@
         prev=s;
       });
       //may be center the whole thing
-      C.x= _.nor(options.x, _M.ndiv(Mojo.width-w,2));
-      C.y= _.nor(options.y, _M.ndiv(Mojo.height-h,2));
+      C.x= options.x ??  _M.ndiv(Mojo.width-w,2);
+      C.y= options.y ?? _M.ndiv(Mojo.height-h,2);
       return C;
     }
 
@@ -3750,8 +3835,8 @@
     function _choiceBox(items,options,dir){
       let
         {Sprites:_S,Input:_I}=Mojo,
-        selectedColor=_S.color(_.nor(options.selectedColor,"green")),
-        c,cur, disabledColor=_S.color(_.nor(options.disabledColor,"grey"));
+        selectedColor=_S.color(options.selectedColor ?? "green"),
+        c,cur, disabledColor=_S.color(options.disabledColor ?? "grey");
       items.forEach(o=>{
         if(o.m5.uuid==options.defaultChoice){
           cur=o;
@@ -3778,8 +3863,8 @@
       return c;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //the module
+    ////////////////////////////////////////////////////////////////////////////
+    /** The Module */
     ////////////////////////////////////////////////////////////////////////////
     const _$={
       Scene,
@@ -3862,7 +3947,7 @@
         while(Mojo.stage.children.length>0)
           _killScene(Mojo.stage.children[Mojo.stage.children.length-1])
         Mojo.mouse.reset();
-        Mojo["Input"].reset();
+        Mojo.Input.reset();
       },
       /**Find this scene.
        * @memberof module:mojoh5/Scenes
@@ -4002,30 +4087,25 @@
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
 
-    const {
-      v2:_V,
-      math:_M,
-      ute:_,
-      is,
-      Sprites:_S
-    }=Mojo;
-
     const
       int=Math.floor,
       P5=Math.PI*5,
       PI_2= Math.PI/2,
       TWO_PI= Math.PI*2;
+    const
+      { v2:_V, math:_M, ute:_, is }=Mojo;
 
     ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/FX
      */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /* */
     ////////////////////////////////////////////////////////////////////////////
     function StarWarp(C, options){
       options= options || {};
+      let {Sprites:_S}=Mojo;
       let
         STAR_SIZE= 0.05,
         STAR_RANGE = 6,
@@ -4061,7 +4141,7 @@
         s.g.d3[1] = Math.sin(twist) * dist;
         s.g.d3[2]= !isNaN(zpos)?zpos
                                :camZ + DEPTH*(1+_.rand()*0.5);
-        //console.log(`star pos= ${s.g.d3}`);
+        //_.log(`star pos= ${s.g.d3}`);
         return s;
       }
       return{
@@ -4074,7 +4154,7 @@
             now,z, h2=Mojo.height/2;
           speed += (warp- speed) / 20;
           camZ += dt * 10 * (speed + SPEED);
-          //console.log(`camz=${camZ}, speed=== ${speed}`);
+          //_.log(`camz=${camZ}, speed=== ${speed}`);
           stars.forEach((o,i)=>{
             if(o.g.d3[2] < camZ) cfgStar(o);
             // project to fake 3D
@@ -4104,8 +4184,8 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Tween(sprite,easing,duration=60,loop=false,ext={}){
       return _.inject({
@@ -4305,7 +4385,9 @@
       return t;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /**The Module */
+    ////////////////////////////////////////////////////////////////////////////
     const _$={
       /**Easing function: exponential-in.
        * @memberof module:mojoh5/FX
@@ -4856,26 +4938,19 @@
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(Mojo){
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const
-    {Scenes:_Z,
-      Sprites:_S,
-      FX:_F,
-      Input:_I,
-      v2:_V,
-      math:_M,
-      is, ute:_}=Mojo;
-
+    ////////////////////////////////////////////////////////////////////////////
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
+    const { v2:_V, math:_M, is, ute:_}=Mojo;
     const
       abs=Math.abs,
       cos=Math.cos,
       sin=Math.sin,
       int=Math.floor,
-      {Geo}=_S,
       R=Math.PI/180,
       CIRCLE=Math.PI*2;
 
@@ -4946,12 +5021,12 @@
      * @property {function} onTick
      */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     //internal use only
     //////////////////////////////////////////////////////////////////////////////
-		_Z.scene("Splash",{
+		Mojo.Scenes.scene("Splash",{
       setup(options){
-        let C,s, self=this, K=Mojo.getScaleFactor();
+        let C,s, st,self=this, K=Mojo.getScaleFactor();
         let
           {title,titleFont,titleColor,titleSize}= options,
           {footerMsgSize,action,clickSnd}=options,
@@ -4961,42 +5036,44 @@
 
         playMsgFont= playMsgFont || Mojo.DOKI_LOWER;
         titleFont= titleFont || Mojo.BIGSHOUTBOB;
-        footerMsgSize= footerMsgSize || 18*K;
+        footerMsgSize= (footerMsgSize || 18)*K;
         playMsg=playMsg || Mojo.clickPlayMsg();
-        playMsgColor= playMsgColor ?? _S.color("white");
-        playMsgColor2= playMsgColor2 ?? _S.color("#ffc901");
-        titleColor= titleColor ?? _S.color("#ffc901");
-        titleSize= titleSize ?? 96*K;
-        playMsgSize= playMsgSize ?? 64*K;
+        playMsgColor= playMsgColor ?? Mojo.Sprites.color("white");
+        playMsgColor2= playMsgColor2 ?? Mojo.Sprites.color("#ffc901");
+        titleColor= titleColor ?? Mojo.Sprites.color("#ffc901");
+        titleSize= (titleSize||96)*K;
+        playMsgSize= (playMsgSize||48)*K;
 
-        self.insert(_S.fillMax(bg?bg:"boot/splash.jpg"));
-        C= self.insert(_S.container());
+        self.insert(Mojo.Sprites.fillMax(bg?bg:"boot/splash.jpg"));
+        C= self.insert(Mojo.Sprites.container());
+
         ////////////////////////////////////////////////////////////////////////////
         //the title
         if(1){
-          s=_S.bmpText(title, titleFont,titleSize);
-          _.echt(titleColor) ? _S.tint(s,titleColor) : 0;
-          _V.set(s,Mojo.width/2,Mojo.height*0.3);
-          C.addChild(_S.centerAnchor(s));
+          st=Mojo.Sprites.bmpText(title, titleFont,titleSize);
+          _.echt(titleColor) ? Mojo.Sprites.tint(st,titleColor) : 0;
+          _V.set(st, Mojo.width/2,Mojo.height*0.45);
+          C.addChild(Mojo.Sprites.centerAnchor(st));
         }
 
         ////////////////////////////////////////////////////////////////////////////
         //play message
         if(1){
-          s=_S.bmpText(playMsg,playMsgFont,playMsgSize);
-          let t2,t=_F.throb(s, 0.747, 0.747);
+          s=Mojo.Sprites.bmpText(playMsg,playMsgFont,playMsgSize);
+          let t2,t=Mojo.FX.throb(s, 0.747, 0.747);
           const cf=()=>{
-            _S.tint(s,playMsgColor2);
-            _F.remove(t);
-            t2=_F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90);
-            t2.onComplete=()=>_Z.runEx(action.name,action.cfg);
+            Mojo.Sprites.tint(s,playMsgColor2);
+            Mojo.FX.remove(t);
+            t2=Mojo.FX.tweenAlpha(C,Mojo.FX.EASE_OUT_SINE,0,90);
+            t2.onComplete=()=>Mojo.Scenes.runEx(action.name,action.cfg);
           };
-          let sub= _S.oneOffClick(cf,clickSnd);
-          _V.set(s,Mojo.width/2,Mojo.height*0.65);
-          C.addChild(_S.centerAnchor(s));
+          let sub= Mojo.Sprites.oneOffClick(cf,clickSnd);
+          Mojo.Sprites.centerAnchor(s);
+          Mojo.Sprites.pinBelow(st,s);
+          C.addChild(s);
           if(!Mojo.touchDevice){
-            this.g.space= _I.keybd(_I.SPACE,()=>{
-              _S.cancelOneOffClick(sub);
+            this.g.space= Mojo.Input.keybd(Mojo.Input.SPACE,()=>{
+              Mojo.Sprites.cancelOneOffClick(sub);
               cf();
               Mojo.sound(clickSnd).play();
             });
@@ -5006,10 +5083,10 @@
         ////////////////////////////////////////////////////////////////////////////
         //footer
         if(1){
-          const s2= _S.bmpText("Powered by MojoH5 2d game engine.",Mojo.UNSCII,footerMsgSize);
-          const s1= _S.bmpText(Mojo.COPYRIGHT, Mojo.UNSCII, footerMsgSize);
-          _S.pinBelow(this,s1,-s1.height*1.5,0);
-          _S.pinBelow(this,s2,-s2.height*1.5,1);
+          const s2= Mojo.Sprites.bmpText("Powered by MojoH5 2d game engine.",Mojo.UNSCII,footerMsgSize);
+          const s1= Mojo.Sprites.bmpText(Mojo.COPYRIGHT, Mojo.UNSCII, footerMsgSize);
+          Mojo.Sprites.pinBelow(this,s1,-s1.height*1.5,0);
+          Mojo.Sprites.pinBelow(this,s2,-s2.height*1.5,1);
           this.insert(s1);
           this.insert(s2);
         }
@@ -5019,118 +5096,119 @@
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("EndGame",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("EndGame",{
       setup(options){
         let
           {winner,snd}=options,
           {fontName,fontSize,msg,replay,quit}= options;
         if(!snd) snd= winner ? "game_win.mp3" : "game_over.mp3";
-        _.assert(fontSize, "expected fontSize");
+        fontSize=(fontSize||32)*Mojo.getScaleFactor();
         fontName=fontName || Mojo.DOKI_LOWER;
         let
           os={fontName, fontSize},
-          space=()=>_S.opacity(_S.bmpText("#",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(msg, os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx(replay.name,replay.cfg);
-        s6.m5.press=()=>_Z.runEx(quit.name,quit.cfg);
+          space=()=>Mojo.Sprites.opacity(Mojo.Sprites.bmpText("#",os),0),
+          s1=Mojo.Sprites.bmpText("Game Over", os),
+          s2=Mojo.Sprites.bmpText(msg, os),
+          s4=Mojo.Input.mkBtn(Mojo.Sprites.bmpText("Play Again?",os)),
+          s5=Mojo.Sprites.bmpText(" or ",os),
+          s6=Mojo.Input.mkBtn(Mojo.Sprites.bmpText("Quit",os));
+        s4.m5.press=()=>Mojo.Scenes.runEx(replay.name,replay.cfg);
+        s6.m5.press=()=>Mojo.Scenes.runEx(quit.name,quit.cfg);
         Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+        this.insert(Mojo.Scenes.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("PhotoMat",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("PhotoMat",{
       setup(arg){
         let s= arg.image? Mojo.resource(arg.image): UNDEF;
-        this.g.gfx=_S.graphics();
+        this.g.gfx=Mojo.Sprites.graphics();
         //top,bottom
-        _S.grect(this.g.gfx, 0,0,Mojo.width,arg.y1);
-        _S.grect(this.g.gfx, 0,arg.y2,Mojo.width,Mojo.height-arg.y2);
+        Mojo.Sprites.grect(this.g.gfx, 0,0,Mojo.width,arg.y1);
+        Mojo.Sprites.grect(this.g.gfx, 0,arg.y2,Mojo.width,Mojo.height-arg.y2);
         //left,right
-        _S.grect(this.g.gfx, 0,0,arg.x1,Mojo.height);
-        _S.grect(this.g.gfx, arg.x2,0,Mojo.width-arg.x2,Mojo.height);
-        s ? _S.gfillEx(this.g.gfx, s,{})
-          : _S.gfill(this.g.gfx, {color:_S.color(arg.color)});
+        Mojo.Sprites.grect(this.g.gfx, 0,0,arg.x1,Mojo.height);
+        Mojo.Sprites.grect(this.g.gfx, arg.x2,0,Mojo.width-arg.x2,Mojo.height);
+        s ? Mojo.Sprites.gfillEx(this.g.gfx, s,{})
+          : Mojo.Sprites.gfill(this.g.gfx, {color:Mojo.Sprites.color(arg.color)});
         this.insert(this.g.gfx);
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("HotKeys",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("HotKeys",{
       setup(options){
         let
+          K=Mojo.getScaleFactor(),
           m, bs, opstr= options.buttons?"makeButton":"makeHotspot",
           {fontName,fontSize,cb,radius,alpha,color}=options,
           {char_fire,char_down,char_up,char_left,char_right}=options;
-        _.assert(is.num(fontSize),"expected fontsize");
-        _.assert(is.num(radius),"expected radius");
         _.assert(is.fun(cb),"expected callback");
         fontName=fontName||Mojo.DOKI_LOWER;
-        alpha=alpha ?? 0.2;
+        fontSize=(fontSize||24)*K;
+        radius= (radius || 36)*K;
+        alpha= alpha ?? 0.3;
         color=color ?? "grey";
         m= [["left",char_left || "<"],
             ["right",char_right || ">"],
             ["up",char_up || "+"],
             ["down",char_down || "-"], ["fire",char_fire || "^"]].reduce((acc,v,i)=>{
               if(v[0]=="fire" && !options.fire){}else{
-                acc[v[0]]= _S.opacity(_S.circle(radius,color),alpha);
-                acc[v[0]].addChild(_S.centerAnchor(_S.bmpText(v[1],fontName,fontSize)));
+                acc[v[0]]= Mojo.Sprites.opacity(Mojo.Sprites.circle(radius,color),alpha);
+                acc[v[0]].addChild(Mojo.Sprites.centerAnchor(Mojo.Sprites.bmpText(v[1],fontName,fontSize)));
               }
               return acc;
             },{});
         bs=cb(m);
         if(bs.right){
-          this.insert(_I[opstr](bs.right));
+          this.insert(Mojo.Input[opstr](bs.right));
           if(bs.right.m5.hotspot)
-            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT); }
+            bs.right.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.RIGHT):Mojo.Input.setKeyOff(Mojo.Input.RIGHT); }
         if(bs.left){
-          this.insert(_I[opstr](bs.left));
+          this.insert(Mojo.Input[opstr](bs.left));
           if(bs.left.m5.hotspot)
-            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT); }
+            bs.left.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.LEFT):Mojo.Input.setKeyOff(Mojo.Input.LEFT); }
         if(bs.up){
-          this.insert(_I[opstr](bs.up));
+          this.insert(Mojo.Input[opstr](bs.up));
           if(bs.up.m5.hotspot)
-            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP); }
+            bs.up.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.UP):Mojo.Input.setKeyOff(Mojo.Input.UP); }
         if(bs.down){
-          this.insert(_I[opstr](bs.down));
+          this.insert(Mojo.Input[opstr](bs.down));
           if(bs.down.m5.hotspot)
-            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN); }
+            bs.down.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.DOWN):Mojo.Input.setKeyOff(Mojo.Input.DOWN); }
         if(bs.fire){
-          this.insert(_I[opstr](bs.fire));
+          this.insert(Mojo.Input[opstr](bs.fire));
           if(bs.fire.m5.hotspot)
-            bs.fire.m5.touch= (o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE); }
+            bs.fire.m5.touch= (o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.SPACE):Mojo.Input.setKeyOff(Mojo.Input.SPACE); }
         //run any extra code...
         options.extra?.(this);
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("AudioIcon",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("AudioIcon",{
       setup(arg){
         let
           {cb,iconOn,iconOff}= arg,
           {xOffset,yOffset,xScale,yScale}=arg,
           {Sound}=Mojo, K=Mojo.getScaleFactor(),
-          s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
+          s=Mojo.Input.mkBtn(Mojo.Sprites.spriteFrom(iconOn||"boot/audioOn.png",iconOff||"boot/audioOff.png"));
 
-        xScale= xScale ?? K*2;
-        yScale= yScale ?? K*2;
+        xScale= xScale ?? K;
+        yScale= yScale ?? K;
         yOffset= yOffset ?? 0;
         xOffset= xOffset ?? -10*K;
-        _S.scaleXY(_S.opacity(s,0.343),xScale,yScale);
+        Mojo.Sprites.scaleXY(Mojo.Sprites.opacity(s,0.343),xScale,yScale);
         _V.set(s,Mojo.width-s.width+xOffset, 0+yOffset);
 
         s.m5.showFrame(Sound.sfx()?0:1);
@@ -5145,15 +5223,15 @@
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("StarfieldBg",{
+    Mojo.Scenes.scene("StarfieldBg",{
       setup(o){
         const
           self=this,
           stars=[],
-          gfx=_S.graphics();
+          gfx=Mojo.Sprites.graphics();
 
         _.patch(o,{
           height:Mojo.height,
@@ -5169,10 +5247,10 @@
           dynamic:true,
           fps: 1/o.fps,
           draw(){
-            _S.gclear(gfx);
+            Mojo.Sprites.gclear(gfx);
             stars.forEach(s=>{
-              _S.grect(gfx,s.x, s.y, s.size, s.size);
-              _S.gfill(gfx,{color:_.rand()<0.3?_S.SomeColors.yellow:_S.SomeColors.white});
+              Mojo.Sprites.grect(gfx,s.x, s.y, s.size, s.size);
+              Mojo.Sprites.gfill(gfx,{color:_.rand()<0.3?Mojo.Sprites.SomeColors.yellow:Mojo.Sprites.SomeColors.white});
             });
             return this;
           },
@@ -5240,8 +5318,8 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Camera(e,worldWidth,worldHeight,canvas){
       const
@@ -5272,7 +5350,7 @@
             //Check the sprites position in relation to the viewport.
             //Move the camera to follow the sprite if the sprite
             //strays outside the viewport
-            const bx= _.feq0(s.angle)? _S.getAABB(s) : _S.boundingBox(s);
+            const bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s) : Mojo.Sprites.boundingBox(s);
             { if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }}//left
             { if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }}//right
             { if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }}//top
@@ -5297,7 +5375,7 @@
           //NOTE: old fashion funcdef when `arguments` is used
           centerOver:function(s,y){
             if(arguments.length==1 && !is.num(s)){
-              const c=_S.centerXY(s);
+              const c=Mojo.Sprites.centerXY(s);
               this.x = c[0]- w2;
               this.y = c[1] - h2;
             }else{
@@ -5311,12 +5389,12 @@
       return self;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Meander(e){
       function boomFn(e,col,dv,signal){
-        //Mojo.CON.log(`boomFn dv=${dv}, signal=${signal}`);
+        //_.log(`boomFn dv=${dv}, signal=${signal}`);
         col.impact=abs(dv);
         Mojo.emit([signal, e],col);
       }
@@ -5358,17 +5436,17 @@
       Mojo.on(["post.remove",e],"dispose",self);
       return function(dt){
         colls.length=0;
-        _S.move(e,dt) && e.parent.collideXY(e);
+        Mojo.Sprites.move(e,dt) && e.parent.collideXY(e);
         return colls.length>0?colls[0]:UNDEF;
       };
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Jitter(e,jumpSpeed,jumpKey){
       jumpSpeed= jumpSpeed ?? -300;
-      jumpKey= jumpKey ?? _I.UP;
+      jumpKey= jumpKey ?? Mojo.Input.UP;
       //give some time to ease into or outof that ground state
       //instead of just on or off ground,
       let jumpCnt=0, ground=0, j3= jumpSpeed/3;
@@ -5381,9 +5459,9 @@
         if(!e.m5.skipHit){
           let
             vs= e.m5.speed,
-            pR= _I.keyDown(_I.RIGHT),
-            pL= _I.keyDown(_I.LEFT),
-            pU= _I.keyDown(jumpKey);
+            pR= Mojo.Input.keyDown(Mojo.Input.RIGHT),
+            pL= Mojo.Input.keyDown(Mojo.Input.LEFT),
+            pU= Mojo.Input.keyDown(jumpKey);
           if(col && (pL || pR || ground>0)){
             //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
@@ -5429,8 +5507,8 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function MazeRunner(e,frames){
       const self={ dispose(){ Mojo.off(self) } };
@@ -5459,10 +5537,10 @@
 
         let
           bt=Mojo.u.touchOnly,
-          r=bt ? (e.m5.heading==Mojo.RIGHT) : (_I.keyDown(_I.RIGHT) && Mojo.RIGHT),
-          l=bt ? (e.m5.heading==Mojo.LEFT) : (_I.keyDown(_I.LEFT) && Mojo.LEFT),
-          u=bt ? (e.m5.heading==Mojo.UP) : (_I.keyDown(_I.UP) && Mojo.UP),
-          d=bt ? (e.m5.heading==Mojo.DOWN) : (_I.keyDown(_I.DOWN) && Mojo.DOWN);
+          r=bt ? (e.m5.heading==Mojo.RIGHT) : (Mojo.Input.keyDown(Mojo.Input.RIGHT) && Mojo.RIGHT),
+          l=bt ? (e.m5.heading==Mojo.LEFT) : (Mojo.Input.keyDown(Mojo.Input.LEFT) && Mojo.LEFT),
+          u=bt ? (e.m5.heading==Mojo.UP) : (Mojo.Input.keyDown(Mojo.Input.UP) && Mojo.UP),
+          d=bt ? (e.m5.heading==Mojo.DOWN) : (Mojo.Input.keyDown(Mojo.Input.DOWN) && Mojo.DOWN);
 
         if(l||u){vs *= -1}
         if(l&&r){
@@ -5525,7 +5603,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //MODULE EXPORT
+    /**The Module */
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       Periodic,
@@ -5833,11 +5911,11 @@
        * @return {boolean}
        */
       lineOfSight(s1, s2, obstacles){
-        let c1=_S.centerXY(s1), c2=_S.centerXY(s2);
+        let c1=Mojo.Sprites.centerXY(s1), c2=Mojo.Sprites.centerXY(s2);
         for(let b,rc,s,o,i=0;i<obstacles.length;++i){
           o=obstacles[i];
           rc=o.m5.circle? Geo.hitTestLineCircle(c1,c2, o.x, o.y, o.width/2)
-                        : Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(_S.toPolygon(o),o.x,o.y));
+                        : Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(Mojo.Sprites.toPolygon(o),o.x,o.y));
           if(rc[0]) return false;
         }
         return true;
@@ -5853,7 +5931,7 @@
        * @return {Sprite}
        */
       shoot(src, angle, speed, ctor,x,y){
-        const b=ctor(), soff=_S.topLeftOffsetXY(src);
+        const b=ctor(), soff=Mojo.Sprites.topLeftOffsetXY(src);
         _V.add$(soff,[x,y]);
         _V.copy(b,_V.add(src,soff));
         _V.set(b.m5.vel, Math.cos(angle) * speed,
@@ -5870,10 +5948,10 @@
         let c, padding=4*K, fit=4*K, out=[];
         borderWidth = (borderWidth||4)*K;
         lives= lives||3;
-        fill=_S.color(fill);
-        line=_S.color(line);
+        fill=Mojo.Sprites.color(fill);
+        line=Mojo.Sprites.color(line);
         for(let r,w=int(width/lives), i=0;i<lives;++i){
-          out.push(_S.rect(w,height-2*borderWidth,fill))
+          out.push(Mojo.Sprites.rect(w,height-2*borderWidth,fill))
         }
         return{
           dec(){
@@ -5884,7 +5962,7 @@
             return this.lives>0;
           },
           lives: out.length,
-          sprite: _Z.layoutX(out,{bg:["#cccccc",0],
+          sprite: Mojo.Scenes.layoutX(out,{bg:["#cccccc",0],
                                   borderWidth,
                                   border:line,padding,fit})
         }
@@ -5905,33 +5983,33 @@
           let
             [sx,sy] = getPt(x, y, radius - 4*K, rad),
             [ex,ey] = getPt(x, y, radius - 12*K, rad);
-          _S.gpath(gfx, [["moveTo",sx, sy],
+          Mojo.Sprites.gpath(gfx, [["moveTo",sx, sy],
                         ["lineTo",ex, ey], ["closePath"]]);
-          _S.gstroke(gfx,{color: line, width:size, cap:"round"});
+          Mojo.Sprites.gstroke(gfx,{color: line, width:size, cap:"round"});
         }
         function drawPtr(r,color, rad){
           let
             [px,py]= getPt(cx, cy, r - 20*K, rad),
             [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
             [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
-          _S.gpath(gfx, [["moveTo",p2x, p2y],
+          Mojo.Sprites.gpath(gfx, [["moveTo",p2x, p2y],
                          ["lineTo",px, py], ["lineTo",p3x, p3y], ["closePath"]]);
-          _S.gstroke(gfx,{cap:"round", width:4*K, color: needle});
-          _S.gcircle(gfx,cx,cy,9*K);
-          _S.gfill(gfx,{color:line});
-          _S.gstroke(gfx,{color:line});
+          Mojo.Sprites.gstroke(gfx,{cap:"round", width:4*K, color: needle});
+          Mojo.Sprites.gcircle(gfx,cx,cy,9*K);
+          Mojo.Sprites.gfill(gfx,{color:line});
+          Mojo.Sprites.gstroke(gfx,{color:line});
         }
-        needle=_S.color(needle);
-        line=_S.color(line);
-        fill=_S.color(fill);
+        needle=Mojo.Sprites.color(needle);
+        line=Mojo.Sprites.color(line);
+        fill=Mojo.Sprites.color(fill);
         radius *= K;
         return {
           gfx,
           draw(){
-            _S.gclear(gfx);
-            _S.gcircle(gfx,cx, cy, radius);
-            _S.gfill(gfx,{color:fill, alpha});
-            _S.gstroke(gfx,{width: radius/8,color:line});
+            Mojo.Sprites.gclear(gfx);
+            Mojo.Sprites.gcircle(gfx,cx, cy, radius);
+            Mojo.Sprites.gfill(gfx,{color:fill, alpha});
+            Mojo.Sprites.gstroke(gfx,{width: radius/8,color:line});
             segs.forEach(s=> drawTig(cx, cy, s, 7*K));
             drawPtr(radius*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
           }
@@ -5972,7 +6050,9 @@
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ////////////////////////////////////////////////////////////////////////////
+  /**Making sure... */
+  ////////////////////////////////////////////////////////////////////////////
   if(!gscope.AudioContext){
     throw "Fatal: no audio."
   }
@@ -5980,8 +6060,10 @@
   ////////////////////////////////////////////////////////////////////////////
   /**Create the module.
    */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(Mojo,SoundFiles){
 
+    ////////////////////////////////////////////////////////////////////////////
     const {ute:_, is}=Mojo;
     const int=Math.floor;
 
@@ -5993,29 +6075,29 @@
     const _actives=new Map();
     let _sndCnt=1;
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /** debounce */
+    ////////////////////////////////////////////////////////////////////////////
     function _debounce(s,now,interval){
       let rc;
       if(_actives.has(s) &&
          _actives.get(s) > now){
         rc=true
       }else{
-        if(!interval)
-          _actives.delete(s)
-        else
-          _actives.set(s, now+interval)
+        interval ? _actives.set(s, now+interval) : _actives.delete(s)
       }
       return rc;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
     function _make(_A,name, url){
       let
         _pan=0,
         _vol=1;
       const s={
-        sids: new Map(),
+        sids: _.jsMap(),
         buffer:UNDEF,
         loop:false,
         src: url,
@@ -6062,9 +6144,9 @@
       return SoundFiles[name]=s;
     };
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //MODULE EXPORT
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /**The Module */
+    ////////////////////////////////////////////////////////////////////////////
     const _$={
       ctx: new gscope.AudioContext(),
       _mute:0,
@@ -6108,7 +6190,8 @@
       decodeData(name, url,blob, onLoad, onFail){
         let snd= _make(this,name, url);
         this.ctx.decodeAudioData(blob, b=>{ onLoad(snd.buffer=b);
-                                            Mojo.CON.log(`decoded sound file:${url}`); },
+                                            //_.log(`decoded sound file:${url}`);
+                                       },
                                        e=> { onFail && onFail(url,e) });
         return snd;
       },
@@ -6134,10 +6217,13 @@
       }
     };
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /**Extend Mojo */
+    ////////////////////////////////////////////////////////////////////////////
     Mojo.sound=function(fname,panic=true){
-      return SoundFiles[fname || Mojo.assetPath(fname)] || (panic?_.assert(false, `Sound: ${fname} not loaded.`):UNDEF)
+      return SoundFiles[fname ||
+        Mojo.assetPath(fname)] ||
+        (panic?_.assert(false, `Sound: ${fname} not loaded.`):UNDEF)
     };
 
     return (Mojo.Sound= _$);
@@ -6179,83 +6265,69 @@
   /**Creates the module. */
   function _module(Mojo){
 
-    const {
-      math:_M,
-      v2:_V,
-      ute:_,
-      is,
-      Sprites
-    }=Mojo;
-
-    const {Geo}=Sprites;
-    const Layers= [];
+    ////////////////////////////////////////////////////////////////////////////
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
+    const { math:_M, v2:_V, ute:_, is }=Mojo;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const SKEYS= ["ctrlKey","altKey","shiftKey"];
+    const Layers= [];
     const cur=()=> Layers[0];
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    function mkLayer(L={}){
-      function _u(e){
-        if(L===cur()){
-          let o= L.keyInputs.get(e.keyCode);
-          if(!o){
-            o={};
-            L.keyInputs.set(e.keyCode,o);
+    /**
+     * @module mojoh5/Input
+     */
+    ////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////
+    /**Create a new Input Layer */
+    ////////////////////////////////////////////////////////////////////////////
+    function _mkLayer(LObj){
+      function xxxou(e,o,flag){
+        if(LObj===cur()){
+          if(o= LObj.keyInputs.get(e.keyCode)){}else{
+            LObj.keyInputs.set(e.keyCode,o={});
           }
-          o.state=false;
+          o.state=flag;
           _.copyKeys(o,e,SKEYS);
           e.preventDefault();
         }
       }
-      function _d(e){
-        if(L===cur()){
-          let o= L.keyInputs.get(e.keyCode);
-          if(!o){
-            o={};
-            L.keyInputs.set(e.keyCode,o);
-          }
-          o.state=true;
-          _.copyKeys(o,e,SKEYS);
-          e.preventDefault();
-        }
-      }
-      _.inject(L,{
+      function _u(e,o){ xxxou(e,o,false) }
+      function _d(e,o){ xxxou(e,o,true)  }
+      const _gup=["keyup", globalThis, _u, false];
+      const _gdn=["keydown", globalThis, _d, false];
+      ////////////////////////////////////////////////////////////////////////////
+      /* keep tracks of keyboard presses */
+      if(!Mojo.touchDevice) _.addEvent([_gup, _gdn]);
+      ////////////////////////////////////////////////////////////////////////////
+      _.inject(LObj,{
         yid: `yid#${_.nextId()}`,
         keyInputs: _.jsMap(),
         pauseInput:false,
         ptr:UNDEF,
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         dispose(){
           this.ptr.dispose();
-          if(!Mojo.touchDevice)
-            _.delEvent([["keyup", globalThis, _u, false],
-                        ["keydown", globalThis, _d, false]]);
+          if(!Mojo.touchDevice) _.delEvent([_gup,_gdn]);
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         pointer(){
-          if(!this.ptr)
-            this.ptr=mkPtr(this); return this.ptr; },
-        /**
-        */
-        update(dt){
-          if(!this.pauseInput) this.ptr.update(dt);
+          return this.ptr || (this.ptr=_mkPtr(this));
         },
-        /**
-        */
-        keybd(_key,pressCB,releaseCB){
-          let ret={
-              press:pressCB,
-              release:releaseCB
-            },
-            self=this, isUp=true, isDown=false, codes= is.vec(_key)?_key:[_key];
-
+        ////////////////////////////////////////////////////////////////////////////
+        update(dt){
+          this.pauseInput ? 0 : this.ptr.update(dt);
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        keybd(_key, pressCB, releaseCB){
+          const ret={ press:pressCB, release:releaseCB };
+          let
+            isUp=true, isDown=false,
+            self=this, codes= is.vec(_key) ? _key : [_key];
           function _down(e){
-            if(L===cur()){
+            if(LObj===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isUp)
                   ret.press?.(e.altKey,e.ctrlKey,e.shiftKey);
@@ -6266,7 +6338,7 @@
             }
           }
           function _up(e){
-            if(L===cur()){
+            if(LObj===cur()){
               if(codes.includes(e.keyCode)){
                 if(!self.pauseInput && isDown)
                   ret.release?.(e.altKey,e.ctrlKey,e.shiftKey);
@@ -6276,66 +6348,52 @@
               e.preventDefault();
             }
           }
-          if(!Mojo.touchDevice)
-            _.addEvent([["keyup", globalThis, _up, false],
-                        ["keydown", globalThis, _down, false]]);
-          ret.dispose=()=>{
-            if(!Mojo.touchDevice)
-              _.delEvent([["keyup", globalThis, _up, false],
-                          ["keydown", globalThis, _down, false]]);
-          };
+          const ev1=["keyup", globalThis, _up, false];
+          const ev2=["keydown", globalThis, _down, false];
+          if(!Mojo.touchDevice) _.addEvent([ev1,ev2]);
+          ret.dispose=()=>{ if(!Mojo.touchDevice) _.delEvent([ev1, ev2]) };
           return ret;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         reset(){
           this.pauseInput=false;
+          this.ptr.reset();
           this.keyInputs.clear();
-          this.ptr.reset();
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         resize(){
-          Mojo.mouse=this.ptr;
-          this.ptr.reset();
+          (Mojo.mouse=this.ptr).reset();
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         dbg(){
-          console.log(`N# of touches= ${this.ptr.ActiveTouches.size}`);
-          console.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
-          console.log(`N# of buttons= ${this.ptr.Buttons.length}`);
-          console.log(`N# of drags= ${this.ptr.DragDrops.length}`);
-          console.log(`Mouse pointer = ${this.ptr}`);
+          _.log(`N# of hotspots= ${this.ptr.Hotspots.length}`);
+          _.log(`N# of buttons= ${this.ptr.Buttons.length}`);
+          _.log(`N# of drags= ${this.ptr.DragDrops.length}`);
+          _.log(`Mouse pointer = ${this.ptr}`);
         }
       });
-
-      L.pointer();
-
-      if(!Mojo.touchDevice)
-        //keep tracks of keyboard presses
-        _.addEvent([["keyup", globalThis, _u, false],
-                    ["keydown", globalThis, _d, false]]);
-
-      return L;
+      //make a default pointer
+      return LObj.pointer() && LObj;
     }
 
-    /**
-     * @module mojoh5/Input
-     */
-
-    /** @ignore */
-    function mkPtr(L){
-      let P={
-        ActiveDragsID: _.jsMap(),
-        ActiveDrags: _.jsMap(),
-        ActiveTouches: _.jsMap(),
+    ////////////////////////////////////////////////////////////////////////////
+    /**Create a mouse and touch handler */
+    ////////////////////////////////////////////////////////////////////////////
+    function _mkPtr(LObj){
+      let PObj={
+        Actives: {
+          DragsID: _.jsMap(),
+          Touches: _.jsMap(),
+          reset(){
+            this.DragsID.clear();
+            this.Touches.clear()}
+        },
         Hotspots:[],
         Buttons:[],
         DragDrops:[],
         //down,up
         state: [false,true],
-        touchZeroID:0,
+        touchZeroID:UNDEF,
         _visible: true,
         _x: 0,
         _y: 0,
@@ -6359,121 +6417,130 @@
           this.cursor = v ? "auto" : "none";
           this._visible = v;
         },
-        updateMultiDrags(dt){
-          let cs, self=P;
-          self.ActiveTouches.forEach((a,k)=>{
-            for(let p,s,i=self.DragDrops.length-1; i>=0; --i){
-              s=self.DragDrops[i];
-              p=self.ActiveDrags.get(s.m5.uuid);
-              if(p){
-                _V.set(p.dragged, p.dragStartX+(a.x-p.dragPtrX),
-                                  p.dragStartY+(a.y-p.dragPtrY));
-                break;
-              }
-              if(s.m5.drag && self._test(s,a.x,a.y)){
-                _.assoc(self.ActiveDrags, s.m5.uuid, p={
-                  dragStartX: s.x,
-                  dragStartY: s.y,
-                  dragPtrX: a.x,
-                  dragPtrY: a.y,
-                  dragged: s,
-                  id: a.id
-                });
-                _.assoc(self.ActiveDragsID, a.id, p);
-                //pop it up to top
-                cs= s.parent.children;
-                _.disj(cs,s);
-                cs.push(s);
-                break;
-              }
+        ////////////////////////////////////////////////////////////////////////////
+        _testTouchDragStart(ts,found){
+          for(let p, o, j=0; j<ts.length; ++j){
+            o=ts[j];
+            if(found.get(o.id) ||
+               this.Actives.DragsID.get(o.id)){
+              found.set(o.id,1);
+              continue;
             }
-          });
-        },
-        /**
-        */
-        updateDrags(dt){
-          if(this.state[0]){
-            if(this.dragged){
-              _V.set(this.dragged, this.dragStartX+(this.x-this.dragPtrX),
-                                   this.dragStartY+(this.y-this.dragPtrY));
-            }else{
-              for(let gp,cs,s,i=this.DragDrops.length-1; i>=0; --i){
-                s=this.DragDrops[i];
-                if(s.m5.drag && this.hitTest(s)){
-                  this.dragStartX = s.x;
-                  this.dragStartY = s.y;
-                  this.dragPtrX= this.x;
-                  this.dragPtrY= this.y;
-                  this.dragged = s;
-                  //pop it up to top
-                  //cs= s.parent.children;
-                  //_.disj(cs,s);
-                  //cs.push(s);
-                  gp=s.parent;
-                  gp.removeChild(s);
-                  gp.addChild(s);
-                  break;
+            for(let gp,s,i=this.DragDrops.length-1; i>=0; --i){
+              if((s=this.DragDrops[i]) &&
+                 s.m5.drag && this._test(s,o.x,o.y)){
+                p={dragged: s, id: o.id,
+                   dragPtrX: o.x, dragPtrY: o.y,
+                   dragStartX: s.x, dragStartY: s.y};
+                this.Actives.DragsID.set(o.id, p);
+                if(this.touchZeroID == o.id){
+                  //this is actually a dragdrop, so not a tap
+                  this._resetClickTap()
                 }
+                Mojo.moveToTop(s);
+                found.set(o.id,1);
+                break;
               }
             }
           }
-          if(this.state[1]){
-            //dragged and now dropped
-            if(this.dragged &&
-               this.dragged.m5.onDragDropped)
-              this.dragged.m5.onDragDropped();
-            this.dragged=UNDEF;
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        _testMouseDragStart(){
+          for(let gp,cs,s,i=this.DragDrops.length-1; i>=0; --i){
+            if((s=this.DragDrops[i]) &&
+               s.m5.drag && this.hitTest(s)){
+              this.dragStartX = s.x;
+              this.dragStartY = s.y;
+              this.dragPtrX= this.x;
+              this.dragPtrY= this.y;
+              this.dragged = s;
+              Mojo.moveToTop(s);
+              break;
+            }
+          }
+          return this.dragged;
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        _maybeUpdateMouseDrag(){
+          if(this.state[0] && this.dragged){
+            _V.set(this.dragged,
+                   this.dragStartX+(this.x-this.dragPtrX),
+                   this.dragStartY+(this.y-this.dragPtrY))
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
+        _maybeEndMouseDrag(rc=0){
+          if(this.state[1] && this.dragged){
+            //dragged and now dropped
+            this.dragged.m5.onDragDropped?.();
+            this.dragged=UNDEF;
+            rc=true;
+          }
+          return rc;
+        },
+        ////////////////////////////////////////////////////////////////////////////
         getGlobalPosition(){
           return {x: this.x, y: this.y}
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _press(){
-          if(L!==cur()){return}
+
+          if(LObj!==cur()){
+            return
+          }
+
           let
             i, s, found,
             z=this.Buttons.length;
-          for(i=0;i<z;++i){
+
+          for(i=0; i<z; ++i){
             s=this.Buttons[i];
-            if(s.m5.gui && s.m5.press && this.hitTest(s)){
+            if(s.m5.gui &&
+               s.m5.press && this.hitTest(s)){
               s.m5.press(s);
               found=true;
               break;
             }
           }
-          if(!found)
-            for(i=0;i<z;++i){
-              s=this.Buttons[i];
-              if(s.m5.press && this.hitTest(s)){
-                s.m5.press(s);
-                break;
-              }
+
+          if(!found) for(i=0; i<z; ++i){
+            s=this.Buttons[i];
+            if(s.m5.press && this.hitTest(s)){
+              s.m5.press(s);
+              break;
             }
+          }
+
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _doMDown(b){
-          if(L!==cur()){return}
-          let found,self=P;
-          for(let s,i=0;i<self.Hotspots.length;++i){
-            s=self.Hotspots[i];
-            if(s.m5.touch && self.hitTest(s)){
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let found, self=PObj;
+
+          for(let s,i=0; i<self.Hotspots.length; ++i){
+            if((s=self.Hotspots[i]) &&
+               s.m5.touch && self.hitTest(s)){
               s.m5.touch(s,b);
               found=true;
               break;
             }
           }
+
           return found;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         mouseDown(e){
-          if(L!==cur()){return}
-          let self=P, nn=_.now();
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj, nn=_.now();
+
           //left click only
           if(e.button==0){
             e.preventDefault();
@@ -6485,57 +6552,70 @@
             self.downAt[0]=self._x;
             self.downAt[1]=self._y;
             Mojo.Sound.init();
-            if(!L.pauseInput){
-              Mojo.emit([`${L.yid}/mousedown`]);
-              self._doMDown(true);
+            if(!LObj.pauseInput){
+              self._testMouseDragStart() ? 0 : self._doMDown(true);
+              Mojo.emit([`${LObj.yid}/mousedown`]);
             }
-            //console.log(`mouse x= ${self.x}, y = ${self.y}`);
+            //_.log(`mouse x= ${self.x}, y = ${self.y}`);
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         mouseMove(e){
-          if(L!==cur()){return}
-          let self=P;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj;
+
           self._x = e.pageX - e.target.offsetLeft;
           self._y = e.pageY - e.target.offsetTop;
           //e.preventDefault();
-          if(!L.pauseInput)
-            Mojo.emit([`${L.yid}/mousemove`]);
+          if(!LObj.pauseInput){
+            self._maybeUpdateMouseDrag();
+            Mojo.emit([`${LObj.yid}/mousemove`]);
+          }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         mouseUp(e){
-          if(L!==cur()){return}
-          let self=P,nn=_.now();
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj,nn=_.now();
+
           if(e.button==0){
             e.preventDefault();
             self.elapsedTime = Math.max(0, nn - self.downTime);
             self._x = e.pageX - e.target.offsetLeft;
             self._y = e.pageY - e.target.offsetTop;
             _.setVec(self.state,false,true);
-            if(!L.pauseInput){
-              Mojo.emit([`${L.yid}/mouseup`]);
-              if(!self._doMDown(false)){
+            if(!LObj.pauseInput){
+              if(self._maybeEndMouseDrag()){
+              }else if(!self._doMDown(false)){
                 let v= _V.vecAB(self.downAt,self);
                 let z= _V.len2(v);
                 //small distance and fast then a click
                 if(z<400 && self.elapsedTime<200){
-                  Mojo.emit([`${L.yid}/single.tap`]);
                   self._press();
+                  Mojo.emit([`${LObj.yid}/single.tap`]);
                 }else{
                   self._swipeMotion(v,z,self.elapsedTime);
                 }
               }
+              Mojo.emit([`${LObj.yid}/mouseup`]);
             }
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _swipeMotion(v,dd,dt,arg){
-          if(L!==cur()){return}
-          let n= _V.unit$(_V.normal(v));
-          let rc;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let rc, n= _V.unit$(_V.normal(v));
           //up->down n(1,0)
           //bottom->up n(-1,0)
           //right->left n(0,1)
@@ -6555,78 +6635,75 @@
               rc="swipe.right";
             }
           }
-          if(rc)
-            Mojo.emit([`${L.yid}/${rc}`], arg)
+          rc ? Mojo.emit([`${LObj.yid}/${rc}`], arg) : 0;
         },
-        /**
-        */
-        _doMTouch(ts,flag){
-          if(L!==cur()){return}
-          let self=P,
-              found=_.jsMap();
+        ////////////////////////////////////////////////////////////////////////////
+        _doMTouch(ts,found,flag){
+
+          if(LObj!==cur()){
+            return
+          }
+
           for(let a,i=0; i<ts.length; ++i){
             a=ts[i];
-            for(let s,j=0; j<self.Hotspots.length; ++j){
-              s=self.Hotspots[j];
-              if(s.m5.touch && self._test(s,a.x,a.y)){
+            if(found.get(a.id)){continue}
+            for(let s,j=0; j<this.Hotspots.length; ++j){
+              if((s=this.Hotspots[j]) &&
+                 s.m5.touch && this._test(s,a.x,a.y)){
                 s.m5.touch(s,flag);
                 found.set(a.id,1);
                 break;
               }
             }
           }
-          return found;
         },
-        /**
-        */
-        _doMDrag(ts,found){
-          if(L!==cur()){return}
-          let self=P;
-          for(let p,a,i=0; i<ts.length;++i){
-            a=ts[i];
-            if(found.get(a.id)){continue}
-            p=self.ActiveDragsID.get(a.id);
-            if(p){
-              found.set(a.id,1);
-              p.dragged.m5.onDragDropped &&
-              p.dragged.m5.onDragDropped();
-              self.ActiveDragsID.delete(a.id);
-              self.ActiveDrags.delete(p.dragged.m5.uuid);
-            }
-          }
-          return found;
-        },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchCancel(e){
-          if(L!==cur()){return}
-          console.warn("received touchCancel event!");
-          this.freeTouches();
+
+          _.log("received touchCancel event!");
+          if(LObj!==cur()){
+            return
+          }
+
+          let o,i,self=PObj,
+              ts=e.changedTouches;
+
+          for(i=0; i< ts.length; ++i){
+            o=ts[i];
+            self.Actives.Touches.delete(o.id);
+            self.Actives.DragsID.delete(o.id);
+          }
+
+          if(self.Actives.Touches.size==0){
+            self.Actives.DragsID.clear();
+            self._freeTouches();
+          }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchStart(e){
-          if(L!==cur()){return}
-          let self=P,
-              t= e.target,
-              out=[],
-              nn= _.now(),
-              T= e.targetTouches,
-              A= self.ActiveTouches;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let
+            t= e.target, out=[],
+            self=PObj, nn= _.now(),
+            found=_.jsMap(), ts = e.changedTouches;
+
           e.preventDefault();
-          for(let a,cx,cy,id,o,i=0;i<T.length;++i){
-            o=T[i];
+          for(let a,c,cx,cy,id,o,i=0; i<ts.length; ++i){
+            o=ts[i];
             id=o.identifier;
             cx = o.pageX - t.offsetLeft;
             cy = o.pageY - t.offsetTop;
-            _.assoc(A, id, a={
-              id, _x:cx, _y:cy,
-              downTime: nn, downAt: [cx,cy],
-              x:cx/Mojo.scale, y:cy/Mojo.scale
-            });
+            a={ id, _x:cx, _y:cy, downTime: nn,
+                downAt: [cx,cy], x:cx/Mojo.scale, y:cy/Mojo.scale };
+            c={ id, _x:cx, _y:cy, downTime: nn, downAt: [cx,cy], x: a.x, y: a.y };
+            self.Actives.Touches.set(id,c);
             out.push(a);
             //handle single touch case
-            if(i==0){
+            if(self.touchZeroID===UNDEF && i==0){
               self.touchZeroID=id;
               self._x = cx;
               self._y = cy;
@@ -6636,124 +6713,164 @@
             }
           }
           Mojo.Sound.init();
-          if(!L.pauseInput){
-            Mojo.emit([`${L.yid}/touchstart`],out);
-            self._doMTouch(out,true);
+          if(!LObj.pauseInput){
+            self._testTouchDragStart(out,found);
+            self._doMTouch(out,found,true);
+            Mojo.emit([`${LObj.yid}/touchstart`],out);
           }
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchMove(e){
-          if(L!==cur()){return}
-          let out=[],
-              self=P,
-              t = e.target,
-              T = e.targetTouches;
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let self=PObj, out=[],
+              t = e.target, ts = e.changedTouches;
+
           e.preventDefault();
-          for(let cx,cy,a,o,id,i=0;i<T.length;++i){
-            o=T[i];
+          for(let p,s,x,y,cx,cy,o,id,i=0; i<ts.length; ++i){
+            o=ts[i];
             id= o.identifier;
+            if(p=self.Actives.Touches.get(id)){}else{
+              Mojo.warn(`move-no activetouch with id=${id}`);
+              continue;
+            }
             cx= o.pageX - t.offsetLeft;
             cy= o.pageY - t.offsetTop;
+            x=cx/Mojo.scale;
+            y=cy/Mojo.scale;
             if(id==self.touchZeroID){
               self._x = cx;
               self._y = cy;
             }
-            if(a= self.ActiveTouches.get(id)){
-              a.x=cx/Mojo.scale;
-              a.y=cy/Mojo.scale;
-              a._x = cx;
-              a._y = cy;
-              out.push(a);
+            p.x=x; p.y=y;
+            p._x = cx; p._y = cy;
+            if(p= self.Actives.DragsID.get(id)){
+              p.x=x; p.y=y;
+              p._x = cx; p._y = cy;
+              s=p.dragged;
+              _V.set(s, p.dragStartX+(x-p.dragPtrX),
+                        p.dragStartY+(y-p.dragPtrY));
             }
+            out.push({ id, x, y, _x:cx, _y:cy });
           }
-          if(!L.pauseInput)
-            Mojo.emit([`${L.yid}/touchmove`],out);
+          LObj.pauseInput ? 0 : Mojo.emit([`${LObj.yid}/touchmove`],out);
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         touchEnd(e){
-          if(L!==cur()){return}
-          let self=P,
-              out=[],
-              T = e.targetTouches,
-              C = e.changedTouches,
-              cx,cy,i,a,o,id,
-              t = e.target, nn=_.now();
+
+          if(LObj!==cur()){
+            return
+          }
+
+          let
+            self=PObj, out=[],
+            found=_.jsMap(),
+            cx,cy,i,a,d,p,o,id,
+            ts= e.changedTouches, t = e.target, nn=_.now();
+
           e.preventDefault();
-          for(i=0;i<C.length;++i){
-            o=C[i];
+          for(i=0; i<ts.length; ++i){
+            o=ts[i];
             id=o.identifier;
             cx= o.pageX - t.offsetLeft;
             cy= o.pageY - t.offsetTop;
-            a=self.ActiveTouches.get(id);
             if(id==self.touchZeroID){
               self.elapsedTime = Math.max(0,nn-self.downTime);
               _.setVec(self.state,false,true);
               self._x= cx;
               self._y= cy;
             }
-            if(a){
-              a.elapsedTime = Math.max(0,nn-a.downTime);
-              self.ActiveTouches.delete(id);
-              a._x= cx;
-              a._y= cy;
-              a.x=cx/Mojo.scale;
-              a.y=cy/Mojo.scale;
-              out.push(a);
+            if(p=self.Actives.Touches.get(id)){}else{
+              Mojo.warn(`end-no activetouch with id=${id}`);
+              continue;
             }
+            p.elapsedTime = Math.max(0,nn-p.downTime);
+            p.x=cx/Mojo.scale;
+            p.y=cy/Mojo.scale;
+            p._x = cx;
+            p._y = cy;
+            out.push(_.clone(p));
           }
-          if(!L.pauseInput){
-            Mojo.emit([`${L.yid}/touchend`],out);
-            let found= self._doMTouch(out,false);
-            self._doMDrag(out,found);
-            self._onMultiTouches(out,found);
+          if(!LObj.pauseInput){
+            self._maybeEndTouchDrag(out,found);
+            self._doMTouch(out,found,false);
+            self._onEndMultiTouches(out,found);
+            Mojo.emit([`${LObj.yid}/touchend`],out);
+          }
+          for(i=0;i<ts.length;++i){
+            self.Actives.Touches.delete(ts[i].id);
+          }
+          if(self.Actives.Touches.size==0){
+            self.freeTouches();
           }
         },
-        /**
-        */
-        _onMultiTouches(ts,found){
-          if(L!==cur()){return}
-          let self=P;
+        ////////////////////////////////////////////////////////////////////////////
+        _maybeEndTouchDrag(ts,found){
+          let prevX= this._x, prevY= this._y;
+          for(let s,p,o,i=0; i<ts.length; ++i){
+            o=ts[i];
+            if(p=this.Actives.DragsID.get(o.id)){
+              this.Actives.DragsID.delete(o.id);
+              s=p.dragged;
+              found.set(o.id,1);
+              this._x=o._x;
+              this._y=o._y;
+              _V.set(s, p.dragStartX+(o.x-p.dragPtrX),
+                        p.dragStartY+(o.y-p.dragPtrY));
+              s.m5.onDragDropped?.();
+            }
+          }
+          this._x=prevX;
+          this._y=prevY;
+        },
+        ////////////////////////////////////////////////////////////////////////////
+        _onEndMultiTouches(ts,found){
+
+          if(LObj!==cur()){
+            return
+          }
+
           for(let a,v,z,j=0; j<ts.length; ++j){
             a=ts[j];
-            if(found.get(a.id)){continue}
+            if(found.get(a.id))
+            {continue}
             v= _V.vecAB(a.downAt,a);
             z= _V.len2(v);
             if(z<400 && a.elapsedTime<200){
-              Mojo.emit([`${L.yid}/single.tap`],a);
-              for(let s,i=0,n=self.Buttons.length;i<n;++i){
-                s=self.Buttons[i];
-                if(s.m5.press && self._test(s, a.x, a.y)){
+              for(let s,i=0,n=this.Buttons.length;i<n;++i){
+                if((s=this.Buttons[i]) &&
+                   s.m5.press && this._test(s, a.x, a.y)){
                   s.m5.press(s);
                   break;
                 }
               }
+              Mojo.emit([`${LObj.yid}/single.tap`],a);
             }else{
-              self._swipeMotion(v,z,a.elapsedTime,a);
+              this._swipeMotion(v,z,a.elapsedTime,a);
             }
           }
         },
-        /**
-        */
-        freeTouches(){
+        ////////////////////////////////////////////////////////////////////////////
+        _resetClickTap(){
           _.setVec(this.state,false,true);
-          this.touchZeroID=0;
-          this.ActiveTouches.clear();
-          this.ActiveDrags.clear();
-          this.ActiveDragsID.clear();
+          this.touchZeroID=UNDEF;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
+        _freeTouches(){
+          this._resetClickTap();
+          this.Actives.reset();
+        },
+        ////////////////////////////////////////////////////////////////////////////
         reset(){
-          _.setVec(this.state,false,true);
-          this.freeTouches();
+          this._freeTouches();
           this.DragDrops.length=0;
           this.Buttons.length=0;
           this.Hotspots.length=0;
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         _test(s,x,y){
           let _S=Mojo.Sprites,
               g=_S.gposXY(s),
@@ -6761,39 +6878,36 @@
               ps=_V.translate(g,p.calcPoints);
           return Geo.hitTestPointInPolygon(x, y, ps);
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         hitTest(s){
           return this._test(s,this.x, this.y)
         },
-        /**
-        */
+        ////////////////////////////////////////////////////////////////////////////
         update(dt){
-          if(this.DragDrops.length>0)
-            Mojo.touchDevice? this.updateMultiDrags(dt) : this.updateDrags(dt);
         }
       };
 
       //////
-      const msigs=[["mousemove", Mojo.canvas, P.mouseMove],
-                  ["mousedown", Mojo.canvas,P.mouseDown],
-                  ["mouseup", globalThis, P.mouseUp]];
-      const tsigs=[["touchmove", Mojo.canvas, P.touchMove],
-                  ["touchstart", Mojo.canvas, P.touchStart],
-                  ["touchend", globalThis, P.touchEnd],
-                  ["touchcancel", globalThis, P.touchCancel]];
+      const msigs=[["mousemove", Mojo.canvas, PObj.mouseMove],
+                  ["mousedown", Mojo.canvas,PObj.mouseDown],
+                  ["mouseup", globalThis, PObj.mouseUp]];
+      const tsigs=[["touchmove", Mojo.canvas, PObj.touchMove],
+                  ["touchstart", Mojo.canvas, PObj.touchStart],
+                  ["touchend", globalThis, PObj.touchEnd],
+                  ["touchcancel", globalThis, PObj.touchCancel]];
 
       Mojo.touchDevice? _.addEvent(tsigs) : _.addEvent(msigs);
 
-      P.dispose=function(){
+      PObj.dispose=function(){
         this.reset();
         Mojo.touchDevice? _.delEvent(tsigs) : _.delEvent(msigs);
       };
 
-      return P;
+      return PObj;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    let _multiTouch=true;
     const _$={
       LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40,
       ZERO: 48, ONE: 49, TWO: 50,
@@ -6813,6 +6927,9 @@
       pause(){ cur().pauseInput=true },
       dbg(){ cur().dbg() },
       _cur(){ return cur() },
+      setMultiTouch(b){
+        _multiTouch=b
+      },
       /**Resize the mouse pointer.
        * @memberof module:mojoh5/Input
        */
@@ -6830,10 +6947,8 @@
        */
       setKeyOn(k){
         let o=cur().keyInputs.get(k);
-        if(!o){
-          o={};
-          cur().keyInputs.set(k,o);
-        }
+        if(!o)
+          cur().keyInputs.set(k,o={});
         o.state=true;
       },
       /**Fake a keypress(up).
@@ -6841,10 +6956,8 @@
        */
       setKeyOff(k){
         let o=cur().keyInputs.get(k);
-        if(!o){
-          o={};
-          cur().keyInputs.set(k,o);
-        }
+        if(!o)
+          cur().keyInputs.set(k,o={});
         o.state=false;
       },
       /**
@@ -6948,24 +7061,40 @@
       pointer(){
         return cur().pointer()
       },
+      /**Clear all input layers.
+       * @memberof module:mojoh5/Input
+       * @return {any} undefined
+       */
       dispose(){
         Layers.forEach(a => a.dispose());
         Layers.length=0;
       },
+      /**Pop off the top input layer.
+       * @memberof module:mojoh5/Input
+       * @return {any} undefined
+       */
       restore(){
         if(Layers.length>1){
           Layers.shift().dispose()
           cur().pauseInput=false;
         }
       },
+      /**Push new input layer to top.
+       * @memberof module:mojoh5/Input
+       * @return {any} undefined
+       */
       save(){
-        Layers.unshift(mkLayer());
+        Layers.unshift(_mkLayer({}));
       },
+      /**
+      */
       on(...args){
         _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.on()");
         args[0][0]=`${cur().yid}/${args[0][0]}`;
         return Mojo.on(...args);
       },
+      /**
+      */
       off(...args){
         _.assert(is.vec(args[0])&&is.str(args[0][0]),"bad arg for Input.off()");
         args[0][0]=`${cur().yid}/${args[0][0]}`;
@@ -6973,6 +7102,7 @@
       }
     };
 
+    ////////////////////////////////////////////////////////////////////////////
     //disable the default actions on the canvas
     Mojo.canvas.style.touchAction = "none";
 
@@ -6983,7 +7113,7 @@
     _$.mkDrag=_$.makeDrag;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    Layers.push(mkLayer());
+    Layers.push(_mkLayer({}));
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     return (Mojo.Input= _$);
@@ -7020,18 +7150,20 @@
 
   "use strict";
 
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(Mojo){
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     const
       P8=Math.PI/8,
       P8_3=P8*3,
       P8_5=P8*5,
       P8_7= P8*7,
-      {Sprites:_S, Input:_I, is,ute:_}=Mojo;
+      { is,ute:_}=Mojo;
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     const
       sin=Math.sin,
       cos=Math.cos,
@@ -7045,7 +7177,7 @@
     ////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////
-    /* */
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function _calcDir(cx,cy){
       const rad= Math.atan2(+cy, +cx);
@@ -7087,9 +7219,10 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function _bindEvents(s){
+      let {Input:_I}=Mojo;
       function onDragStart(e){
         let
           t= e.target,
@@ -7193,19 +7326,19 @@
           if(X<0)
             c[0]= -abs(c[0]);
           if(X>0 && Y<0){
-            //Mojo.CON.log(`angle < 90`);
+            //_.log(`angle < 90`);
             // < 90
           }else if(X<0 && Y<0){
             // 90 ~ 180
-            //Mojo.CON.log(`angle 90 ~ 180`);
+            //_.log(`angle 90 ~ 180`);
             angle= 180 - angle;
           }else if(X<0 && Y>0){
             // 180 ~ 270
-            //Mojo.CON.log(`angle 180 ~ 270`);
+            //_.log(`angle 180 ~ 270`);
             angle += 180;
           }else if(X>0 && Y>0){
             // 270 ~ 360
-            //Mojo.CON.log(`angle 270 ~ 360`);
+            //_.log(`angle 270 ~ 360`);
             angle= 360 - angle;
           }
           dir= _calcDir(c[0],c[1]);
@@ -7228,7 +7361,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //MODULE EXPORT
+    /**The Module */
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       assets:["boot/joystick.png","boot/joystick-handle.png"],
@@ -7238,6 +7371,7 @@
        * @return {PIXIContainer} the stick
        */
       joystick(options){
+        let {Sprites:_S}= Mojo;
         let
           hdle= _S.sprite("boot/joystick-handle.png"),
           schtick= _S.sprite("boot/joystick.png"),

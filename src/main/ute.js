@@ -15,26 +15,19 @@
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(Mojo){
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const
-    {Scenes:_Z,
-      Sprites:_S,
-      FX:_F,
-      Input:_I,
-      v2:_V,
-      math:_M,
-      is, ute:_}=Mojo;
-
+    ////////////////////////////////////////////////////////////////////////////
+    const Geo=gscope["io/czlab/mcfud/geo2d"]();
+    const { v2:_V, math:_M, is, ute:_}=Mojo;
     const
       abs=Math.abs,
       cos=Math.cos,
       sin=Math.sin,
       int=Math.floor,
-      {Geo}=_S,
       R=Math.PI/180,
       CIRCLE=Math.PI*2;
 
@@ -105,12 +98,12 @@
      * @property {function} onTick
      */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     //internal use only
     //////////////////////////////////////////////////////////////////////////////
-		_Z.scene("Splash",{
+		Mojo.Scenes.scene("Splash",{
       setup(options){
-        let C,s, self=this, K=Mojo.getScaleFactor();
+        let C,s, st,self=this, K=Mojo.getScaleFactor();
         let
           {title,titleFont,titleColor,titleSize}= options,
           {footerMsgSize,action,clickSnd}=options,
@@ -120,42 +113,44 @@
 
         playMsgFont= playMsgFont || Mojo.DOKI_LOWER;
         titleFont= titleFont || Mojo.BIGSHOUTBOB;
-        footerMsgSize= footerMsgSize || 18*K;
+        footerMsgSize= (footerMsgSize || 18)*K;
         playMsg=playMsg || Mojo.clickPlayMsg();
-        playMsgColor= playMsgColor ?? _S.color("white");
-        playMsgColor2= playMsgColor2 ?? _S.color("#ffc901");
-        titleColor= titleColor ?? _S.color("#ffc901");
-        titleSize= titleSize ?? 96*K;
-        playMsgSize= playMsgSize ?? 64*K;
+        playMsgColor= playMsgColor ?? Mojo.Sprites.color("white");
+        playMsgColor2= playMsgColor2 ?? Mojo.Sprites.color("#ffc901");
+        titleColor= titleColor ?? Mojo.Sprites.color("#ffc901");
+        titleSize= (titleSize||96)*K;
+        playMsgSize= (playMsgSize||48)*K;
 
-        self.insert(_S.fillMax(bg?bg:"boot/splash.jpg"));
-        C= self.insert(_S.container());
+        self.insert(Mojo.Sprites.fillMax(bg?bg:"boot/splash.jpg"));
+        C= self.insert(Mojo.Sprites.container());
+
         ////////////////////////////////////////////////////////////////////////////
         //the title
         if(1){
-          s=_S.bmpText(title, titleFont,titleSize);
-          _.echt(titleColor) ? _S.tint(s,titleColor) : 0;
-          _V.set(s,Mojo.width/2,Mojo.height*0.3);
-          C.addChild(_S.centerAnchor(s));
+          st=Mojo.Sprites.bmpText(title, titleFont,titleSize);
+          _.echt(titleColor) ? Mojo.Sprites.tint(st,titleColor) : 0;
+          _V.set(st, Mojo.width/2,Mojo.height*0.45);
+          C.addChild(Mojo.Sprites.centerAnchor(st));
         }
 
         ////////////////////////////////////////////////////////////////////////////
         //play message
         if(1){
-          s=_S.bmpText(playMsg,playMsgFont,playMsgSize);
-          let t2,t=_F.throb(s, 0.747, 0.747);
+          s=Mojo.Sprites.bmpText(playMsg,playMsgFont,playMsgSize);
+          let t2,t=Mojo.FX.throb(s, 0.747, 0.747);
           const cf=()=>{
-            _S.tint(s,playMsgColor2);
-            _F.remove(t);
-            t2=_F.tweenAlpha(C,_F.EASE_OUT_SINE,0,90);
-            t2.onComplete=()=>_Z.runEx(action.name,action.cfg);
+            Mojo.Sprites.tint(s,playMsgColor2);
+            Mojo.FX.remove(t);
+            t2=Mojo.FX.tweenAlpha(C,Mojo.FX.EASE_OUT_SINE,0,90);
+            t2.onComplete=()=>Mojo.Scenes.runEx(action.name,action.cfg);
           };
-          let sub= _S.oneOffClick(cf,clickSnd);
-          _V.set(s,Mojo.width/2,Mojo.height*0.65);
-          C.addChild(_S.centerAnchor(s));
+          let sub= Mojo.Sprites.oneOffClick(cf,clickSnd);
+          Mojo.Sprites.centerAnchor(s);
+          Mojo.Sprites.pinBelow(st,s);
+          C.addChild(s);
           if(!Mojo.touchDevice){
-            this.g.space= _I.keybd(_I.SPACE,()=>{
-              _S.cancelOneOffClick(sub);
+            this.g.space= Mojo.Input.keybd(Mojo.Input.SPACE,()=>{
+              Mojo.Sprites.cancelOneOffClick(sub);
               cf();
               Mojo.sound(clickSnd).play();
             });
@@ -165,10 +160,10 @@
         ////////////////////////////////////////////////////////////////////////////
         //footer
         if(1){
-          const s2= _S.bmpText("Powered by MojoH5 2d game engine.",Mojo.UNSCII,footerMsgSize);
-          const s1= _S.bmpText(Mojo.COPYRIGHT, Mojo.UNSCII, footerMsgSize);
-          _S.pinBelow(this,s1,-s1.height*1.5,0);
-          _S.pinBelow(this,s2,-s2.height*1.5,1);
+          const s2= Mojo.Sprites.bmpText("Powered by MojoH5 2d game engine.",Mojo.UNSCII,footerMsgSize);
+          const s1= Mojo.Sprites.bmpText(Mojo.COPYRIGHT, Mojo.UNSCII, footerMsgSize);
+          Mojo.Sprites.pinBelow(this,s1,-s1.height*1.5,0);
+          Mojo.Sprites.pinBelow(this,s2,-s2.height*1.5,1);
           this.insert(s1);
           this.insert(s2);
         }
@@ -178,118 +173,119 @@
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("EndGame",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("EndGame",{
       setup(options){
         let
           {winner,snd}=options,
           {fontName,fontSize,msg,replay,quit}= options;
         if(!snd) snd= winner ? "game_win.mp3" : "game_over.mp3";
-        _.assert(fontSize, "expected fontSize");
+        fontSize=(fontSize||32)*Mojo.getScaleFactor();
         fontName=fontName || Mojo.DOKI_LOWER;
         let
           os={fontName, fontSize},
-          space=()=>_S.opacity(_S.bmpText("#",os),0),
-          s1=_S.bmpText("Game Over", os),
-          s2=_S.bmpText(msg, os),
-          s4=_I.mkBtn(_S.bmpText("Play Again?",os)),
-          s5=_S.bmpText(" or ",os),
-          s6=_I.mkBtn(_S.bmpText("Quit",os));
-        s4.m5.press=()=>_Z.runEx(replay.name,replay.cfg);
-        s6.m5.press=()=>_Z.runEx(quit.name,quit.cfg);
+          space=()=>Mojo.Sprites.opacity(Mojo.Sprites.bmpText("#",os),0),
+          s1=Mojo.Sprites.bmpText("Game Over", os),
+          s2=Mojo.Sprites.bmpText(msg, os),
+          s4=Mojo.Input.mkBtn(Mojo.Sprites.bmpText("Play Again?",os)),
+          s5=Mojo.Sprites.bmpText(" or ",os),
+          s6=Mojo.Input.mkBtn(Mojo.Sprites.bmpText("Quit",os));
+        s4.m5.press=()=>Mojo.Scenes.runEx(replay.name,replay.cfg);
+        s6.m5.press=()=>Mojo.Scenes.runEx(quit.name,quit.cfg);
         Mojo.sound(snd).play();
-        this.insert(_Z.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
+        this.insert(Mojo.Scenes.layoutY([s1,s2,space(),space(),space(),s4,s5,s6],options));
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("PhotoMat",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("PhotoMat",{
       setup(arg){
         let s= arg.image? Mojo.resource(arg.image): UNDEF;
-        this.g.gfx=_S.graphics();
+        this.g.gfx=Mojo.Sprites.graphics();
         //top,bottom
-        _S.grect(this.g.gfx, 0,0,Mojo.width,arg.y1);
-        _S.grect(this.g.gfx, 0,arg.y2,Mojo.width,Mojo.height-arg.y2);
+        Mojo.Sprites.grect(this.g.gfx, 0,0,Mojo.width,arg.y1);
+        Mojo.Sprites.grect(this.g.gfx, 0,arg.y2,Mojo.width,Mojo.height-arg.y2);
         //left,right
-        _S.grect(this.g.gfx, 0,0,arg.x1,Mojo.height);
-        _S.grect(this.g.gfx, arg.x2,0,Mojo.width-arg.x2,Mojo.height);
-        s ? _S.gfillEx(this.g.gfx, s,{})
-          : _S.gfill(this.g.gfx, {color:_S.color(arg.color)});
+        Mojo.Sprites.grect(this.g.gfx, 0,0,arg.x1,Mojo.height);
+        Mojo.Sprites.grect(this.g.gfx, arg.x2,0,Mojo.width-arg.x2,Mojo.height);
+        s ? Mojo.Sprites.gfillEx(this.g.gfx, s,{})
+          : Mojo.Sprites.gfill(this.g.gfx, {color:Mojo.Sprites.color(arg.color)});
         this.insert(this.g.gfx);
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("HotKeys",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("HotKeys",{
       setup(options){
         let
+          K=Mojo.getScaleFactor(),
           m, bs, opstr= options.buttons?"makeButton":"makeHotspot",
           {fontName,fontSize,cb,radius,alpha,color}=options,
           {char_fire,char_down,char_up,char_left,char_right}=options;
-        _.assert(is.num(fontSize),"expected fontsize");
-        _.assert(is.num(radius),"expected radius");
         _.assert(is.fun(cb),"expected callback");
         fontName=fontName||Mojo.DOKI_LOWER;
-        alpha=alpha ?? 0.2;
+        fontSize=(fontSize||24)*K;
+        radius= (radius || 36)*K;
+        alpha= alpha ?? 0.3;
         color=color ?? "grey";
         m= [["left",char_left || "<"],
             ["right",char_right || ">"],
             ["up",char_up || "+"],
             ["down",char_down || "-"], ["fire",char_fire || "^"]].reduce((acc,v,i)=>{
               if(v[0]=="fire" && !options.fire){}else{
-                acc[v[0]]= _S.opacity(_S.circle(radius,color),alpha);
-                acc[v[0]].addChild(_S.centerAnchor(_S.bmpText(v[1],fontName,fontSize)));
+                acc[v[0]]= Mojo.Sprites.opacity(Mojo.Sprites.circle(radius,color),alpha);
+                acc[v[0]].addChild(Mojo.Sprites.centerAnchor(Mojo.Sprites.bmpText(v[1],fontName,fontSize)));
               }
               return acc;
             },{});
         bs=cb(m);
         if(bs.right){
-          this.insert(_I[opstr](bs.right));
+          this.insert(Mojo.Input[opstr](bs.right));
           if(bs.right.m5.hotspot)
-            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT); }
+            bs.right.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.RIGHT):Mojo.Input.setKeyOff(Mojo.Input.RIGHT); }
         if(bs.left){
-          this.insert(_I[opstr](bs.left));
+          this.insert(Mojo.Input[opstr](bs.left));
           if(bs.left.m5.hotspot)
-            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT); }
+            bs.left.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.LEFT):Mojo.Input.setKeyOff(Mojo.Input.LEFT); }
         if(bs.up){
-          this.insert(_I[opstr](bs.up));
+          this.insert(Mojo.Input[opstr](bs.up));
           if(bs.up.m5.hotspot)
-            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP); }
+            bs.up.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.UP):Mojo.Input.setKeyOff(Mojo.Input.UP); }
         if(bs.down){
-          this.insert(_I[opstr](bs.down));
+          this.insert(Mojo.Input[opstr](bs.down));
           if(bs.down.m5.hotspot)
-            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN); }
+            bs.down.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.DOWN):Mojo.Input.setKeyOff(Mojo.Input.DOWN); }
         if(bs.fire){
-          this.insert(_I[opstr](bs.fire));
+          this.insert(Mojo.Input[opstr](bs.fire));
           if(bs.fire.m5.hotspot)
-            bs.fire.m5.touch= (o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE); }
+            bs.fire.m5.touch= (o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.SPACE):Mojo.Input.setKeyOff(Mojo.Input.SPACE); }
         //run any extra code...
         options.extra?.(this);
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("AudioIcon",{
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("AudioIcon",{
       setup(arg){
         let
           {cb,iconOn,iconOff}= arg,
           {xOffset,yOffset,xScale,yScale}=arg,
           {Sound}=Mojo, K=Mojo.getScaleFactor(),
-          s=_I.mkBtn(_S.spriteFrom(iconOn||"audioOn.png",iconOff||"audioOff.png"));
+          s=Mojo.Input.mkBtn(Mojo.Sprites.spriteFrom(iconOn||"boot/audioOn.png",iconOff||"boot/audioOff.png"));
 
-        xScale= xScale ?? K*2;
-        yScale= yScale ?? K*2;
+        xScale= xScale ?? K;
+        yScale= yScale ?? K;
         yOffset= yOffset ?? 0;
         xOffset= xOffset ?? -10*K;
-        _S.scaleXY(_S.opacity(s,0.343),xScale,yScale);
+        Mojo.Sprites.scaleXY(Mojo.Sprites.opacity(s,0.343),xScale,yScale);
         _V.set(s,Mojo.width-s.width+xOffset, 0+yOffset);
 
         s.m5.showFrame(Sound.sfx()?0:1);
@@ -304,15 +300,15 @@
       }
     });
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js
     ////////////////////////////////////////////////////////////////////////////
-    _Z.scene("StarfieldBg",{
+    Mojo.Scenes.scene("StarfieldBg",{
       setup(o){
         const
           self=this,
           stars=[],
-          gfx=_S.graphics();
+          gfx=Mojo.Sprites.graphics();
 
         _.patch(o,{
           height:Mojo.height,
@@ -328,10 +324,10 @@
           dynamic:true,
           fps: 1/o.fps,
           draw(){
-            _S.gclear(gfx);
+            Mojo.Sprites.gclear(gfx);
             stars.forEach(s=>{
-              _S.grect(gfx,s.x, s.y, s.size, s.size);
-              _S.gfill(gfx,{color:_.rand()<0.3?_S.SomeColors.yellow:_S.SomeColors.white});
+              Mojo.Sprites.grect(gfx,s.x, s.y, s.size, s.size);
+              Mojo.Sprites.gfill(gfx,{color:_.rand()<0.3?Mojo.Sprites.SomeColors.yellow:Mojo.Sprites.SomeColors.white});
             });
             return this;
           },
@@ -399,8 +395,8 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Camera(e,worldWidth,worldHeight,canvas){
       const
@@ -431,7 +427,7 @@
             //Check the sprites position in relation to the viewport.
             //Move the camera to follow the sprite if the sprite
             //strays outside the viewport
-            const bx= _.feq0(s.angle)? _S.getAABB(s) : _S.boundingBox(s);
+            const bx= _.feq0(s.angle)? Mojo.Sprites.getAABB(s) : Mojo.Sprites.boundingBox(s);
             { if(bx.x1< this.x+int(w2-w4)){ this.x = bx.x1-w4 }}//left
             { if(bx.x2> this.x+int(w2+w4)){ this.x = bx.x2-w4*3 }}//right
             { if(bx.y1< this.y+int(h2-h4)){ this.y = bx.y1-h4 }}//top
@@ -456,7 +452,7 @@
           //NOTE: old fashion funcdef when `arguments` is used
           centerOver:function(s,y){
             if(arguments.length==1 && !is.num(s)){
-              const c=_S.centerXY(s);
+              const c=Mojo.Sprites.centerXY(s);
               this.x = c[0]- w2;
               this.y = c[1] - h2;
             }else{
@@ -470,12 +466,12 @@
       return self;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Meander(e){
       function boomFn(e,col,dv,signal){
-        //Mojo.CON.log(`boomFn dv=${dv}, signal=${signal}`);
+        //_.log(`boomFn dv=${dv}, signal=${signal}`);
         col.impact=abs(dv);
         Mojo.emit([signal, e],col);
       }
@@ -517,17 +513,17 @@
       Mojo.on(["post.remove",e],"dispose",self);
       return function(dt){
         colls.length=0;
-        _S.move(e,dt) && e.parent.collideXY(e);
+        Mojo.Sprites.move(e,dt) && e.parent.collideXY(e);
         return colls.length>0?colls[0]:UNDEF;
       };
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Jitter(e,jumpSpeed,jumpKey){
       jumpSpeed= jumpSpeed ?? -300;
-      jumpKey= jumpKey ?? _I.UP;
+      jumpKey= jumpKey ?? Mojo.Input.UP;
       //give some time to ease into or outof that ground state
       //instead of just on or off ground,
       let jumpCnt=0, ground=0, j3= jumpSpeed/3;
@@ -540,9 +536,9 @@
         if(!e.m5.skipHit){
           let
             vs= e.m5.speed,
-            pR= _I.keyDown(_I.RIGHT),
-            pL= _I.keyDown(_I.LEFT),
-            pU= _I.keyDown(jumpKey);
+            pR= Mojo.Input.keyDown(Mojo.Input.RIGHT),
+            pL= Mojo.Input.keyDown(Mojo.Input.LEFT),
+            pU= Mojo.Input.keyDown(jumpKey);
           if(col && (pL || pR || ground>0)){
             //too steep to go up or down
             if(col.overlapN[1] > 0.85 ||
@@ -588,8 +584,8 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function MazeRunner(e,frames){
       const self={ dispose(){ Mojo.off(self) } };
@@ -618,10 +614,10 @@
 
         let
           bt=Mojo.u.touchOnly,
-          r=bt ? (e.m5.heading==Mojo.RIGHT) : (_I.keyDown(_I.RIGHT) && Mojo.RIGHT),
-          l=bt ? (e.m5.heading==Mojo.LEFT) : (_I.keyDown(_I.LEFT) && Mojo.LEFT),
-          u=bt ? (e.m5.heading==Mojo.UP) : (_I.keyDown(_I.UP) && Mojo.UP),
-          d=bt ? (e.m5.heading==Mojo.DOWN) : (_I.keyDown(_I.DOWN) && Mojo.DOWN);
+          r=bt ? (e.m5.heading==Mojo.RIGHT) : (Mojo.Input.keyDown(Mojo.Input.RIGHT) && Mojo.RIGHT),
+          l=bt ? (e.m5.heading==Mojo.LEFT) : (Mojo.Input.keyDown(Mojo.Input.LEFT) && Mojo.LEFT),
+          u=bt ? (e.m5.heading==Mojo.UP) : (Mojo.Input.keyDown(Mojo.Input.UP) && Mojo.UP),
+          d=bt ? (e.m5.heading==Mojo.DOWN) : (Mojo.Input.keyDown(Mojo.Input.DOWN) && Mojo.DOWN);
 
         if(l||u){vs *= -1}
         if(l&&r){
@@ -684,7 +680,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //MODULE EXPORT
+    /**The Module */
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       Periodic,
@@ -992,11 +988,11 @@
        * @return {boolean}
        */
       lineOfSight(s1, s2, obstacles){
-        let c1=_S.centerXY(s1), c2=_S.centerXY(s2);
+        let c1=Mojo.Sprites.centerXY(s1), c2=Mojo.Sprites.centerXY(s2);
         for(let b,rc,s,o,i=0;i<obstacles.length;++i){
           o=obstacles[i];
           rc=o.m5.circle? Geo.hitTestLineCircle(c1,c2, o.x, o.y, o.width/2)
-                        : Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(_S.toPolygon(o),o.x,o.y));
+                        : Geo.hitTestLinePolygon(c1,c2, Geo.bodyWrap(Mojo.Sprites.toPolygon(o),o.x,o.y));
           if(rc[0]) return false;
         }
         return true;
@@ -1012,7 +1008,7 @@
        * @return {Sprite}
        */
       shoot(src, angle, speed, ctor,x,y){
-        const b=ctor(), soff=_S.topLeftOffsetXY(src);
+        const b=ctor(), soff=Mojo.Sprites.topLeftOffsetXY(src);
         _V.add$(soff,[x,y]);
         _V.copy(b,_V.add(src,soff));
         _V.set(b.m5.vel, Math.cos(angle) * speed,
@@ -1029,10 +1025,10 @@
         let c, padding=4*K, fit=4*K, out=[];
         borderWidth = (borderWidth||4)*K;
         lives= lives||3;
-        fill=_S.color(fill);
-        line=_S.color(line);
+        fill=Mojo.Sprites.color(fill);
+        line=Mojo.Sprites.color(line);
         for(let r,w=int(width/lives), i=0;i<lives;++i){
-          out.push(_S.rect(w,height-2*borderWidth,fill))
+          out.push(Mojo.Sprites.rect(w,height-2*borderWidth,fill))
         }
         return{
           dec(){
@@ -1043,7 +1039,7 @@
             return this.lives>0;
           },
           lives: out.length,
-          sprite: _Z.layoutX(out,{bg:["#cccccc",0],
+          sprite: Mojo.Scenes.layoutX(out,{bg:["#cccccc",0],
                                   borderWidth,
                                   border:line,padding,fit})
         }
@@ -1064,33 +1060,33 @@
           let
             [sx,sy] = getPt(x, y, radius - 4*K, rad),
             [ex,ey] = getPt(x, y, radius - 12*K, rad);
-          _S.gpath(gfx, [["moveTo",sx, sy],
+          Mojo.Sprites.gpath(gfx, [["moveTo",sx, sy],
                         ["lineTo",ex, ey], ["closePath"]]);
-          _S.gstroke(gfx,{color: line, width:size, cap:"round"});
+          Mojo.Sprites.gstroke(gfx,{color: line, width:size, cap:"round"});
         }
         function drawPtr(r,color, rad){
           let
             [px,py]= getPt(cx, cy, r - 20*K, rad),
             [p2x,p2y] = getPt(cx, cy, 2*K, rad+R*90),
             [p3x,p3y] = getPt(cx, cy, 2*K, rad-R*90);
-          _S.gpath(gfx, [["moveTo",p2x, p2y],
+          Mojo.Sprites.gpath(gfx, [["moveTo",p2x, p2y],
                          ["lineTo",px, py], ["lineTo",p3x, p3y], ["closePath"]]);
-          _S.gstroke(gfx,{cap:"round", width:4*K, color: needle});
-          _S.gcircle(gfx,cx,cy,9*K);
-          _S.gfill(gfx,{color:line});
-          _S.gstroke(gfx,{color:line});
+          Mojo.Sprites.gstroke(gfx,{cap:"round", width:4*K, color: needle});
+          Mojo.Sprites.gcircle(gfx,cx,cy,9*K);
+          Mojo.Sprites.gfill(gfx,{color:line});
+          Mojo.Sprites.gstroke(gfx,{color:line});
         }
-        needle=_S.color(needle);
-        line=_S.color(line);
-        fill=_S.color(fill);
+        needle=Mojo.Sprites.color(needle);
+        line=Mojo.Sprites.color(line);
+        fill=Mojo.Sprites.color(fill);
         radius *= K;
         return {
           gfx,
           draw(){
-            _S.gclear(gfx);
-            _S.gcircle(gfx,cx, cy, radius);
-            _S.gfill(gfx,{color:fill, alpha});
-            _S.gstroke(gfx,{width: radius/8,color:line});
+            Mojo.Sprites.gclear(gfx);
+            Mojo.Sprites.gcircle(gfx,cx, cy, radius);
+            Mojo.Sprites.gfill(gfx,{color:fill, alpha});
+            Mojo.Sprites.gstroke(gfx,{width: radius/8,color:line});
             segs.forEach(s=> drawTig(cx, cy, s, 7*K));
             drawPtr(radius*K, fill, R* _M.lerp(minDeg, maxDeg, arg.update()));
           }

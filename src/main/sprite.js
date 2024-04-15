@@ -17,6 +17,8 @@
   "use strict";
 
   ////////////////////////////////////////////////////////////////////////////
+  /** */
+  ////////////////////////////////////////////////////////////////////////////
   const BtnColors={
     blue:"#319bd5",
     green:"#78c03f",
@@ -337,8 +339,9 @@
       SomeColors:{},
       BtnColors:{},
       Geo,
-      assets: ["boot/unscii.fnt", "boot/doki.fnt",
-               "boot/BIG_SHOUT_BOB.fnt", "boot/splash.jpg", "boot/star.png" ],
+      assets: ["boot/splash.jpg", "boot/star.png",
+               "boot/audioOff.png", "boot/audioOn.png",
+               "boot/unscii.fnt", "boot/doki.fnt", "boot/BIG_SHOUT_BOB.fnt"],
       /**Check if sprite is centered.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -538,7 +541,7 @@
        */
       makeSteerable(s){
         if(s.width != s.height)
-          Mojo.CON.warn(`object ${s.m5?.uuid} is not a square, radius will be off....`);
+          Mojo.warn(`object ${s.m5?.uuid} is not a square, radius will be off....`);
         let {width,height}= this.halfSize(s);
         s.m5.steer=[0,0];
         s.m5.steerInfo=SteeringInfo();
@@ -663,7 +666,7 @@
        */
       toCircle(s){
         return this.assertCenter(s) &&
-               new Geo.Circle(_M.ndiv(s.width,2)).setOrient(s.rotation) },
+               new Geo.Circle(int(s.width/2)).setOrient(s.rotation) },
       /**For 2D physics, create a body.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -673,7 +676,7 @@
         let
           px=s.x,
           py=s.y,
-          b=s.m5.circle? this.toCircle(s) : this.toPolygon(s);
+          b=s.m5.circle ? this.toCircle(s) : this.toPolygon(s);
         return Geo.bodyWrap(b,px,py);
       },
       /**Get the PIXI global position.
@@ -705,7 +708,7 @@
        * @return {Vec2} [x,y]
        */
       centerXY(s){
-        return this.isCenter(s)? _V.vec(s.x,s.y) : _V.add(this.centerOffsetXY(s),s) },
+        return this.isCenter(s) ? _V.vec(s.x,s.y) : _V.add(this.centerOffsetXY(s),s) },
       /**PIXI operation, setting type of scaling to be used.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -730,14 +733,14 @@
        * @return {Sprite} s
        */
       die(s){
-        s.m5.dead=true; return s; },
+        return (s.m5.dead=true) && s; },
       /**Come back to life, from dead.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       undie(s){
-        s.m5.dead=false; return s; },
+        return (s.m5.dead=false) || s; },
       /**Move a sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -766,9 +769,9 @@
         let
           x=s.x,
           w= s.width,
-          ax= s.anchor?s.anchor.x:0;
+          ax= s.anchor ? s.anchor.x : 0;
         if(ax>0.7) x -= w;
-        else if(ax>0) x -= _M.ndiv(w,2);
+        else if(ax>0) x -= int(w/2);
         return x;
       },
       /**Get the right side of this sprite.
@@ -787,9 +790,9 @@
         let
           y= s.y,
           h= s.height,
-          ay= s.anchor?s.anchor.y:0;
+          ay= s.anchor ? s.anchor.y : 0;
         if(ay>0.7) y -= h;
-        else if(ay>0) y -= _M.ndiv(h,2);
+        else if(ay>0) y -= int(h/2);
         return y;
       },
       /**Get the bottom side of this sprite.
@@ -982,14 +985,14 @@
        * @return {Sprite} s
        */
       hide(s){
-        s.visible=false;return s},
+        return (s.visible=false) || s; },
       /**Set a sprite's visibility.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
        * @return {Sprite} s
        */
       show(s){
-        s.visible=true;return s},
+        return (s.visible=true) && s; },
       /**Set a user defined property.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
@@ -1179,10 +1182,12 @@
        * @return {Texture[]}
        */
       frames(src,tileW,tileH,spaceX=0,spaceY=0,sx=0,sy=0){
-        let dx=tileW+spaceX, dy=tileH+spaceY, out=[],
+        let
+          dx=tileW+spaceX,
+          dy=tileH+spaceY,
           t= Mojo.resource(src),
           rows= int(t.height/dy),
-          cols= _M.ndiv(t.width+spaceX,dx);
+          out=[], cols= _M.ndiv(t.width+spaceX,dx);
         for(let y,r=0;r<rows;++r){
           y= sy + tileH*r;
           for(let x,c=0;c<cols;++c){
@@ -1208,7 +1213,7 @@
        * @return {AnimatedSprite}
        */
       spriteFrom(...pics){
-        return this.sprite(this.frameImages(pics)) },
+        return this.sprite(this.frameImages(...pics)) },
       /**Create a PIXI.Text object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -1218,7 +1223,7 @@
        * @return {Text}
        */
       text(msg,fspec, x=0, y=0){
-        return _V.set(this.lift(new PIXI.Text(msg,fspec)),x,y) },
+        return _V.set(this.lift(new PIXI.Text(msg || "",fspec)),x,y) },
       /**Create a PIXI.BitmapText object.
        * @memberof module:mojoh5/Sprites
        * @param {string} msg
@@ -1230,7 +1235,6 @@
       bitmapText(msg,name,size){
         //in pixi, no fontSize, defaults to 26, left-align
         let fstyle;
-        msg = msg || "";
         if(is.str(name)){
           fstyle={fontFamily:name};
           if(is.num(size)) fstyle.fontSize=size;
@@ -1240,7 +1244,7 @@
         if(!fstyle.fontFamily)
           fstyle.fontFamily= fstyle.fontName? fstyle.fontName : "unscii";
         if(!fstyle.align) fstyle.align="center";
-        return this.lift(new PIXI.BitmapText({text:msg,style:fstyle}));
+        return this.lift(new PIXI.BitmapText({text:msg || "", style:fstyle}));
       },
       /**Create a triangle sprite by generating a texture object.
        * @memberof module:mojoh5/Sprites
@@ -1478,10 +1482,10 @@
         s=this.lift(gfx);
         s.m5.ptA=function(x,y){
           if(x !== undefined){
-            _a[0] = x; _a[1] = _.nor(y,x); _draw(); } return _a; };
+            _a[0] = x; _a[1] = y ?? x; _draw(); } return _a; };
         s.m5.ptB=function(x,y){
           if(x !== undefined){
-            _b[0] = x; _b[1] = _.nor(y,x); _draw(); } return _b; };
+            _b[0] = x; _b[1] = y ?? x; _draw(); } return _b; };
         return s;
       },
       /**Check if a sprite is moving.
@@ -1731,7 +1735,7 @@
         if(cs.length==1 && is.vec(cs[0])){ cs=cs[0] }
         _.doseqEx(cs,s=>{
           if(s.parent)
-            _.inst(Mojo.Scenes.Scene,s.parent)? s.parent.remove(s) : s.parent.removeChild(s);
+            _.inst(Mojo.Scenes.Scene,s.parent) ? s.parent.remove(s) : s.parent.removeChild(s);
           Mojo.emit(["post.remove",s]);
           Mojo.off(s);
           s.m5.dispose?.();

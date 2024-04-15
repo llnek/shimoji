@@ -30,10 +30,12 @@
      * @module mojoh5/Scenes
      */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     const _sceneid=(id)=> id.startsWith("scene::") ? id : `scene::${id}` ;
+    ////////////////////////////////////////////////////////////////////////////
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /** internal */
     ////////////////////////////////////////////////////////////////////////////
     function _killScene(s){
@@ -43,7 +45,7 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /** internal class, wraps a scene.  Use this to center a scene in the game window */
     ////////////////////////////////////////////////////////////////////////////
     class SceneWrapper extends PIXI.Container{
@@ -104,8 +106,8 @@
           if(obj !== b &&
              !b.m5.dead &&
              (obj.m5.cmask & b.m5.type)){
-            m= Mojo.Sprites.hitTest(obj,b);
-            if(m){
+
+            if(m= Mojo.Sprites.hitTest(obj,b)){
               Mojo.emit(["hit",obj],m);
               if(!m.B.m5.static)
                 Mojo.emit(["hit",m.B],m.swap());
@@ -260,7 +262,7 @@
         if(Mojo.modalScene===this){
           Mojo.modalScene=UNDEF;
           Mojo.Input.restore();
-          Mojo.CON.log(`removed the current modal scene`);
+          _.log(`removed the current modal scene`);
         }
         return this;
       }
@@ -332,7 +334,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /*Smart layout for menus, both vertical or horizontal. */
+    /**Smart layout for menus, both vertical or horizontal. */
     ////////////////////////////////////////////////////////////////////////////
     function _layout(items,options,dir){
       let {Sprites:_S}=Mojo, K=Mojo.getScaleFactor();
@@ -400,8 +402,8 @@
         prev=s;
       });
       //may be center the whole thing
-      C.x= _.nor(options.x, _M.ndiv(Mojo.width-w,2));
-      C.y= _.nor(options.y, _M.ndiv(Mojo.height-h,2));
+      C.x= options.x ??  _M.ndiv(Mojo.width-w,2);
+      C.y= options.y ?? _M.ndiv(Mojo.height-h,2);
       return C;
     }
 
@@ -411,8 +413,8 @@
     function _choiceBox(items,options,dir){
       let
         {Sprites:_S,Input:_I}=Mojo,
-        selectedColor=_S.color(_.nor(options.selectedColor,"green")),
-        c,cur, disabledColor=_S.color(_.nor(options.disabledColor,"grey"));
+        selectedColor=_S.color(options.selectedColor ?? "green"),
+        c,cur, disabledColor=_S.color(options.disabledColor ?? "grey");
       items.forEach(o=>{
         if(o.m5.uuid==options.defaultChoice){
           cur=o;
@@ -439,8 +441,8 @@
       return c;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //the module
+    ////////////////////////////////////////////////////////////////////////////
+    /** The Module */
     ////////////////////////////////////////////////////////////////////////////
     const _$={
       Scene,
@@ -523,7 +525,7 @@
         while(Mojo.stage.children.length>0)
           _killScene(Mojo.stage.children[Mojo.stage.children.length-1])
         Mojo.mouse.reset();
-        Mojo["Input"].reset();
+        Mojo.Input.reset();
       },
       /**Find this scene.
        * @memberof module:mojoh5/Scenes

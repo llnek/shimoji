@@ -20,30 +20,25 @@
   /**Create the module. */
   function _module(Mojo, TweensQueue, DustBin){
 
-    const {
-      v2:_V,
-      math:_M,
-      ute:_,
-      is,
-      Sprites:_S
-    }=Mojo;
-
     const
       int=Math.floor,
       P5=Math.PI*5,
       PI_2= Math.PI/2,
       TWO_PI= Math.PI*2;
+    const
+      { v2:_V, math:_M, ute:_, is }=Mojo;
 
     ////////////////////////////////////////////////////////////////////////////
     /**
      * @module mojoh5/FX
      */
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /* */
     ////////////////////////////////////////////////////////////////////////////
     function StarWarp(C, options){
       options= options || {};
+      let {Sprites:_S}=Mojo;
       let
         STAR_SIZE= 0.05,
         STAR_RANGE = 6,
@@ -79,7 +74,7 @@
         s.g.d3[1] = Math.sin(twist) * dist;
         s.g.d3[2]= !isNaN(zpos)?zpos
                                :camZ + DEPTH*(1+_.rand()*0.5);
-        //console.log(`star pos= ${s.g.d3}`);
+        //_.log(`star pos= ${s.g.d3}`);
         return s;
       }
       return{
@@ -92,7 +87,7 @@
             now,z, h2=Mojo.height/2;
           speed += (warp- speed) / 20;
           camZ += dt * 10 * (speed + SPEED);
-          //console.log(`camz=${camZ}, speed=== ${speed}`);
+          //_.log(`camz=${camZ}, speed=== ${speed}`);
           stars.forEach((o,i)=>{
             if(o.g.d3[2] < camZ) cfgStar(o);
             // project to fake 3D
@@ -122,8 +117,8 @@
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /* */
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
     ////////////////////////////////////////////////////////////////////////////
     function Tween(sprite,easing,duration=60,loop=false,ext={}){
       return _.inject({
@@ -323,7 +318,9 @@
       return t;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /**The Module */
+    ////////////////////////////////////////////////////////////////////////////
     const _$={
       /**Easing function: exponential-in.
        * @memberof module:mojoh5/FX

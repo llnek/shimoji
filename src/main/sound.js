@@ -16,7 +16,9 @@
 
   "use strict";
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ////////////////////////////////////////////////////////////////////////////
+  /**Making sure... */
+  ////////////////////////////////////////////////////////////////////////////
   if(!gscope.AudioContext){
     throw "Fatal: no audio."
   }
@@ -24,8 +26,10 @@
   ////////////////////////////////////////////////////////////////////////////
   /**Create the module.
    */
+  ////////////////////////////////////////////////////////////////////////////
   function _module(Mojo,SoundFiles){
 
+    ////////////////////////////////////////////////////////////////////////////
     const {ute:_, is}=Mojo;
     const int=Math.floor;
 
@@ -37,29 +41,29 @@
     const _actives=new Map();
     let _sndCnt=1;
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /** debounce */
+    ////////////////////////////////////////////////////////////////////////////
     function _debounce(s,now,interval){
       let rc;
       if(_actives.has(s) &&
          _actives.get(s) > now){
         rc=true
       }else{
-        if(!interval)
-          _actives.delete(s)
-        else
-          _actives.set(s, now+interval)
+        interval ? _actives.set(s, now+interval) : _actives.delete(s)
       }
       return rc;
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
     function _make(_A,name, url){
       let
         _pan=0,
         _vol=1;
       const s={
-        sids: new Map(),
+        sids: _.jsMap(),
         buffer:UNDEF,
         loop:false,
         src: url,
@@ -106,9 +110,9 @@
       return SoundFiles[name]=s;
     };
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //MODULE EXPORT
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
+    /**The Module */
+    ////////////////////////////////////////////////////////////////////////////
     const _$={
       ctx: new gscope.AudioContext(),
       _mute:0,
@@ -152,7 +156,8 @@
       decodeData(name, url,blob, onLoad, onFail){
         let snd= _make(this,name, url);
         this.ctx.decodeAudioData(blob, b=>{ onLoad(snd.buffer=b);
-                                            Mojo.CON.log(`decoded sound file:${url}`); },
+                                            //_.log(`decoded sound file:${url}`);
+                                       },
                                        e=> { onFail && onFail(url,e) });
         return snd;
       },
@@ -178,10 +183,13 @@
       }
     };
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ////////////////////////////////////////////////////////////////////////////
     /**Extend Mojo */
+    ////////////////////////////////////////////////////////////////////////////
     Mojo.sound=function(fname,panic=true){
-      return SoundFiles[fname || Mojo.assetPath(fname)] || (panic?_.assert(false, `Sound: ${fname} not loaded.`):UNDEF)
+      return SoundFiles[fname ||
+        Mojo.assetPath(fname)] ||
+        (panic?_.assert(false, `Sound: ${fname} not loaded.`):UNDEF)
     };
 
     return (Mojo.Sound= _$);
