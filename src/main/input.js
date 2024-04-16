@@ -444,7 +444,7 @@
           let
             t= e.target, out=[],
             self=PObj, nn= _.now(),
-            found=_.jsMap(), ts = e.changedTouches;
+            found=_.jsMap(), ts = e.targetTouches;
 
           e.preventDefault();
           for(let a,c,cx,cy,id,o,i=0; i<ts.length; ++i){
@@ -556,10 +556,10 @@
             Mojo.emit([`${LObj.yid}/touchend`],out);
           }
           for(i=0;i<ts.length;++i){
-            self.Actives.Touches.delete(ts[i].id);
+            self.Actives.Touches.delete(ts[i].identifier);
           }
           if(self.Actives.Touches.size==0){
-            self.freeTouches();
+            self._freeTouches();
           }
         },
         ////////////////////////////////////////////////////////////////////////////
@@ -602,6 +602,8 @@
                   break;
                 }
               }
+              this._x=a.downAt[0];
+              this._y=a.downAt[1];
               Mojo.emit([`${LObj.yid}/single.tap`],a);
             }else{
               this._swipeMotion(v,z,a.elapsedTime,a);

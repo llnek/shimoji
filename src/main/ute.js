@@ -234,6 +234,13 @@
         radius= (radius || 36)*K;
         alpha= alpha ?? 0.3;
         color=color ?? "grey";
+
+        options.fontName=fontName;
+        options.fontSize=fontSize;
+        options.radius= radius;
+        options.alpha= alpha;
+        options.color=color;
+
         m= [["left",char_left || "<"],
             ["right",char_right || ">"],
             ["up",char_up || "+"],
@@ -266,7 +273,7 @@
           if(bs.fire.m5.hotspot)
             bs.fire.m5.touch= (o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.SPACE):Mojo.Input.setKeyOff(Mojo.Input.SPACE); }
         //run any extra code...
-        options.extra?.(this);
+        options.extra?.(this, options);
       }
     });
 
