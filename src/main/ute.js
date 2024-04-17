@@ -230,8 +230,8 @@
           {char_fire,char_down,char_up,char_left,char_right}=options;
         _.assert(is.fun(cb),"expected callback");
         fontName=fontName||Mojo.DOKI_LOWER;
-        fontSize=(fontSize||24)*K;
-        radius= (radius || 36)*K;
+        fontSize=(fontSize||48)*K;
+        radius= (radius || 72)*K;
         alpha= alpha ?? 0.3;
         color=color ?? "grey";
 
