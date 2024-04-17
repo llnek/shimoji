@@ -5161,15 +5161,19 @@
     Mojo.Scenes.scene("HotKeys",{
       setup(options){
         let
+          {Sprites:_S, Input:_I}=Mojo,
           K=Mojo.getScaleFactor(),
-          m, bs, opstr= options.buttons?"makeButton":"makeHotspot",
+          gap=1.2,
+          W=Mojo.width,
+          H=Mojo.height,
+          m, dx,dy, bs, opstr= options.buttons?"makeButton":"makeHotspot",
           {fontName,fontSize,cb,radius,alpha,color}=options,
           {char_fire,char_down,char_up,char_left,char_right}=options;
-        _.assert(is.fun(cb),"expected callback");
+
         fontName=fontName||Mojo.DOKI_LOWER;
         fontSize=(fontSize||48)*K;
-        radius= (radius || 72)*K;
-        alpha= alpha ?? 0.3;
+        radius= (radius || 64)*K;
+        alpha= alpha ?? 0.5;
         color=color ?? "grey";
 
         options.fontName=fontName;
@@ -5178,37 +5182,71 @@
         options.alpha= alpha;
         options.color=color;
 
-        m= [["left",char_left || "<"],
-            ["right",char_right || ">"],
-            ["up",char_up || "+"],
-            ["down",char_down || "-"], ["fire",char_fire || "^"]].reduce((acc,v,i)=>{
-              if(v[0]=="fire" && !options.fire){}else{
-                acc[v[0]]= Mojo.Sprites.opacity(Mojo.Sprites.circle(radius,color),alpha);
-                acc[v[0]].addChild(Mojo.Sprites.centerAnchor(Mojo.Sprites.bmpText(v[1],fontName,fontSize)));
-              }
-              return acc;
-            },{});
-        bs=cb(m);
+        function mk(acc,k,ch){
+          let s=_S.opacity(_S.circle(radius,color),alpha);
+          s.addChild(_S.centerAnchor(_S.tint(_S.bmpText(ch,fontName,fontSize),"white")));
+          acc[k]=s;
+        }
+
+        dx=[UNDEF,UNDEF];
+        dy=[UNDEF,UNDEF];
+        m={};
+        (options.right ?? true) ? mk(m, "right", char_right || ">") : 0;
+        (options.left ?? true) ? mk(m, "left", char_left || "<") : 0;
+        (options.up ?? true) ? mk(m, "up", char_up || "+") : 0;
+        (options.down ?? true) ? mk(m, "down", char_down || "-") : 0;
+        (options.fire ?? false) ? mk(m, "fire", char_fire || "^") : 0;
+
+        if(options.southpaw){
+          if(m.left) dx[0]=m.left;
+          if(m.right){ if(dx[0]) dx[1]=m.right; else dx[0]=m.right; }
+          if(dx[0]) _V.set(dx[0], gap*dx[0].width, H- gap*dx[0].height);
+          if(dx[1]) _S.pinRight(dx[0],dx[1], dx[0].width/3);
+          if(m.up) dy[0]=m.up;
+          if(m.down){ if(dy[0]) dy[1]=m.down; else dy[0]=m.down; }
+          if(dy[0]) _V.set(dy[0], W- gap*dy[0].width, H- gap*dy[0].height);
+          if(dy[1]) _S.pinLeft(dy[0],dy[1],dy[0].width/3);
+        }else{
+          if(m.right) dx[0]=m.right;
+          if(m.left){ if(dx[0]) dx[1]=m.left; else dx[0]=m.left; }
+          if(dx[0]) _V.set(dx[0], W- gap*dx[0].width, H- gap*dx[0].height);
+          if(dx[1]) _S.pinLeft(dx[0],dx[1],dx[0].width/3);
+          if(m.up) dy[0]=m.up;
+          if(m.down){ if(dy[0]) dy[1]=m.down; else dy[0]=m.down; }
+          if(dy[0]) _V.set(dy[0], gap*dy[0].width, H- gap*dy[0].height);
+          if(dy[1]) _S.pinRight(dy[0],dy[1], dy[0].width/3);
+        }
+        if(m.fire){
+          if(dy[0])
+            _S.pinAbove(dy[0],m.fire, dy[0].height/3);
+          else
+            _V.set(m.fire, gap*m.fire.width, H- gap*m.fire.height);
+        }
+        if(cb){
+          bs=cb(m);
+        }else{
+          bs=m;
+        }
         if(bs.right){
-          this.insert(Mojo.Input[opstr](bs.right));
+          this.insert(_I[opstr](bs.right));
           if(bs.right.m5.hotspot)
-            bs.right.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.RIGHT):Mojo.Input.setKeyOff(Mojo.Input.RIGHT); }
+            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT); }
         if(bs.left){
-          this.insert(Mojo.Input[opstr](bs.left));
+          this.insert(_I[opstr](bs.left));
           if(bs.left.m5.hotspot)
-            bs.left.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.LEFT):Mojo.Input.setKeyOff(Mojo.Input.LEFT); }
+            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT); }
         if(bs.up){
-          this.insert(Mojo.Input[opstr](bs.up));
+          this.insert(_I[opstr](bs.up));
           if(bs.up.m5.hotspot)
-            bs.up.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.UP):Mojo.Input.setKeyOff(Mojo.Input.UP); }
+            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP); }
         if(bs.down){
-          this.insert(Mojo.Input[opstr](bs.down));
+          this.insert(_I[opstr](bs.down));
           if(bs.down.m5.hotspot)
-            bs.down.m5.touch=(o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.DOWN):Mojo.Input.setKeyOff(Mojo.Input.DOWN); }
+            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN); }
         if(bs.fire){
-          this.insert(Mojo.Input[opstr](bs.fire));
+          this.insert(_I[opstr](bs.fire));
           if(bs.fire.m5.hotspot)
-            bs.fire.m5.touch= (o,t)=> t?Mojo.Input.setKeyOn(Mojo.Input.SPACE):Mojo.Input.setKeyOff(Mojo.Input.SPACE); }
+            bs.fire.m5.touch= (o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE); }
         //run any extra code...
         options.extra?.(this, options);
       }
