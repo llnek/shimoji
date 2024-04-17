@@ -346,12 +346,13 @@
     ////////////////////////////////////////////////////////////////////////////
     function _boot(Mojo){
 
+      _.log(`browser window size= w:${_width()},h=${_height()}`);
+      _.log(`canvas size= w:${Mojo.canvas.width},h=${Mojo.canvas.height}`);
       //enforce canvas size
-      Mojo._canvasObj.height= _height();
-      Mojo._canvasObj.width= _width();
+      //Mojo._canvasObj.height= _height();
+      //Mojo._canvasObj.width= _width();
       Mojo._canvasObj.focus();
       Mojo.scroll();
-      _.log(`canvas size= w:${Mojo.canvas.width},h=${Mojo.canvas.height}`);
 
       //sync to new size
       Mojo.prevHeight=_height();
@@ -499,11 +500,7 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
-      if(1 || Mojo.touchDevice){
-        //deal with mobile browser not opening to full screen size correctly
-        //finally boot up Mojo
-        gscope.setTimeout(function(){ _boot(Mojo ) },1000);
-      }
+      _boot(Mojo);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1251,8 +1248,11 @@
   if(typeof module=="object" && module.exports){
     throw "Panic: browser only!"
   }else{
-    gscope.MojoH5=function(arg){ return _module(arg, []) }
-    gscope.MojoH5Ldr=function(arg){ window.addEventListener("load",()=> gscope.MojoH5(arg)) }
+    gscope.MojoH5=function(arg){ return _module(arg, []) };
+    gscope.MojoH5Ldr=function(arg){
+      window.addEventListener("load", function(){
+        gscope.setTimeout(function(){ gscope.MojoH5(arg) }, 1000); });
+    }
   }
 
 })(this);
