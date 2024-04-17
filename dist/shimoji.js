@@ -1249,10 +1249,7 @@
     throw "Panic: browser only!"
   }else{
     gscope.MojoH5=function(arg){ return _module(arg, []) };
-    gscope.MojoH5Ldr=function(arg){
-      window.addEventListener("load", function(){
-        gscope.setTimeout(function(){ gscope.MojoH5(arg) }, 1000); });
-    }
+    gscope.MojoH5Ldr=function(arg){ window.addEventListener("load", ()=>  gscope.MojoH5(arg)) };
   }
 
 })(this);
