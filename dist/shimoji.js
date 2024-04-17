@@ -345,7 +345,14 @@
     /**Bootup MojoH5 */
     ////////////////////////////////////////////////////////////////////////////
     function _boot(Mojo){
+
+      //enforce canvas size
+      Mojo._canvasObj.height= _height();
+      Mojo._canvasObj.width= _width();
+      Mojo._canvasObj.focus();
+      Mojo.scroll();
       _.log(`canvas size= w:${Mojo.canvas.width},h=${Mojo.canvas.height}`);
+
       //sync to new size
       Mojo.prevHeight=_height();
       Mojo.prevWidth=_width();
@@ -492,17 +499,11 @@
         Mojo.on(["canvas.resize"], o=> S.onResize(Mojo,o))
       }
 
-      ////////////////////////////////////////////////////////////////////////////
-      //force to scroll to top
-      if(Mojo.touchDevice){
-        Mojo.scroll()
+      if(1 || Mojo.touchDevice){
+        //deal with mobile browser not opening to full screen size correctly
+        //finally boot up Mojo
+        gscope.setTimeout(function(){ _boot(Mojo ) },1000);
       }
-
-      Mojo._canvasObj.focus();
-
-      ////////////////////////////////////////////////////////////////////////////
-      //finally boot up Mojo
-      return _boot(Mojo);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1226,7 +1227,23 @@
 
     };
 
-    return _prologue(Mojo);
+    if(1){
+      let
+        plat,
+        tab=PIXI.isMobile.tablet,
+        pho=PIXI.isMobile.phone;
+      if(PIXI.isMobile.windows.device){
+        plat=tab?"tablet":(pho?"phone":"windows")
+      }else if(PIXI.isMobile.apple.device){
+        plat=tab?"ipad":(pho?"iphone":"apple")
+      }else if(PIXI.isMobile.android.device){
+        plat="android"
+      }else{
+        plat=(tab||pho)?"mobile":"desktop"
+      }
+      _.log(`we are running on a ${plat} device`);
+      _prologue(Mojo);
+    }
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
