@@ -5227,26 +5227,36 @@
         }else{
           bs=m;
         }
+
+        function tcb(obj,dir){
+          let p=obj.m5.touch;
+          obj.m5.touch=function(o,t){
+            t?_I.setKeyOn(dir):_I.setKeyOff(dir);
+            p? p.call(obj.m5, t) : 0;
+          }
+          return obj;
+        }
+
         if(bs.right){
           this.insert(_I[opstr](bs.right));
-          if(bs.right.m5.hotspot)
-            bs.right.m5.touch=(o,t)=> t?_I.setKeyOn(_I.RIGHT):_I.setKeyOff(_I.RIGHT); }
+          if(bs.right.m5.hotspot) tcb(bs.right,_I.RIGHT);
+        }
         if(bs.left){
           this.insert(_I[opstr](bs.left));
-          if(bs.left.m5.hotspot)
-            bs.left.m5.touch=(o,t)=> t?_I.setKeyOn(_I.LEFT):_I.setKeyOff(_I.LEFT); }
+          if(bs.left.m5.hotspot) tcb(bs.left,_I.LEFT);
+        }
         if(bs.up){
           this.insert(_I[opstr](bs.up));
-          if(bs.up.m5.hotspot)
-            bs.up.m5.touch=(o,t)=> t?_I.setKeyOn(_I.UP):_I.setKeyOff(_I.UP); }
+          if(bs.up.m5.hotspot) tcb(bs.up, _I.UP);
+        }
         if(bs.down){
           this.insert(_I[opstr](bs.down));
-          if(bs.down.m5.hotspot)
-            bs.down.m5.touch=(o,t)=> t?_I.setKeyOn(_I.DOWN):_I.setKeyOff(_I.DOWN); }
+          if(bs.down.m5.hotspot) tcb(bs.down, _I.DOWN);
+        }
         if(bs.fire){
           this.insert(_I[opstr](bs.fire));
-          if(bs.fire.m5.hotspot)
-            bs.fire.m5.touch= (o,t)=> t?_I.setKeyOn(_I.SPACE):_I.setKeyOff(_I.SPACE); }
+          if(bs.fire.m5.hotspot) tcb(bs.fire, _I.SPACE);
+        }
         //run any extra code...
         options.extra?.(this, options);
       }
