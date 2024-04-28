@@ -10,6 +10,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * MojoH5 - v1.3.0
+ *
  * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
@@ -5313,7 +5315,7 @@
         let _S=Mojo.Sprites;
         let self=this;
         let cameraZ = 0;
-        const fov = 20;
+        const fov = 24;//30;
         const baseSpeed = 0.025;
         let speed = 0;
         const starStretch = 5;
@@ -5349,6 +5351,7 @@
             // simple easing.
             speed += (this.warpSpeed - speed) / 20;
             cameraZ += dt * 1000 * (speed + baseSpeed);
+            //_.log(`cZ = ${cameraZ}, speed= ${speed}`);
             this.stars.forEach(s=>{
               if(s.z < cameraZ) this.rand(s);
               // map star 3D pos to 2D with simple projection

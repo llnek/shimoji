@@ -10,6 +10,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * MojoH5 - v1.3.0
+ *
  * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
