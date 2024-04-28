@@ -21,8 +21,8 @@
   const
     BMFNT_EXTS= ["fnt"],
     AUDIO_EXTS= ["mp3", "wav", "ogg"],
-    FONT_EXTS = ["ttf", "otf", "ttc", "woff"],
-    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif","webp"];
+    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif","webp"],
+    FONT_EXTS = ["ttf", "otf", "ttc", "woff", "woff2"];
 
   ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
@@ -260,6 +260,16 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    async function _directlyLoadFonts(ffiles){
+      const a= ffiles.map(f=>{ return {alias:`${f.family}`, src: `${f.url}`} });
+      PIXI.Assets.addBundle("webfonts", a);
+      await PIXI.Assets.loadBundle("webfonts");
+      a.forEach(r=> _.log(`loaded web font ${r.alias}`));
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     /** Fetch required files. */
     function _loadFiles(Mojo){
       let rc,scene,pg=[], ecnt=0, cbObj=Mojo.u.load;
@@ -275,7 +285,10 @@
           _.has(AUDIO_EXTS, _.fileExt(f)) ? sfiles.push(f) : wanted.push(f)
         }
       });
-      _trickBrowserToLoadFonts(ffiles);
+
+      if(ffiles.length>0){
+        0 ? _trickBrowserToLoadFonts(ffiles) : _directlyLoadFonts(ffiles);
+      }
 
       ////////////////////////////////////////////////////////////////////////////
       //select the loader scene
@@ -5291,6 +5304,104 @@
         this.insert(s);
       }
     });
+
+    ////////////////////////////////////////////////////////////////////////////
+    //original source: https://pixijs.com/8.x/playground?exampleId=advanced.starWarp
+    ////////////////////////////////////////////////////////////////////////////
+    Mojo.Scenes.scene("SpaceWarp",{
+      setup(o){
+        let _S=Mojo.Sprites;
+        let self=this;
+        let cameraZ = 0;
+        const fov = 20;
+        const baseSpeed = 0.025;
+        let speed = 0;
+        const starStretch = 5;
+        const starBaseSize = 0.05;
+        _.patch(o,{
+          count:1000,
+          interval: 5000
+        });
+        _.inject(this.g,{
+          stars: [],
+          inWarp:false,
+          warpSpeed:0,
+          interval: o.interval,
+          init(){
+            for(let s,i=0; i < o.count; ++i){
+              s={ sprite: _S.anchorXY(_S.sprite("boot/star.png"),0.5,0.7),  x: 0, y: 0, z:0 };
+              this.rand(s, true);
+              this.stars.push(s);
+              self.insert(s.sprite);
+            }
+          },
+          rand(s,initQ){
+            s.sprite.tint= _.rand()<0.3?Mojo.Sprites.SomeColors.yellow:Mojo.Sprites.SomeColors.white;
+            // randomize star pos so none hits the camera.
+            let deg = Math.random() * Math.PI * 2, dist = Math.random() * 50 + 1;
+            s.x = Math.cos(deg) * dist;
+            s.y = Math.sin(deg) * dist;
+            s.z = initQ ? Math.random() * 2000 : cameraZ + Math.random() * 1000 + 2000;
+          },
+          moveStars(dt){
+            const H=Mojo.height, H2=H/2, W=Mojo.width, W2=W/2;
+            let dc,ds,cx,cy,z;
+            // simple easing.
+            speed += (this.warpSpeed - speed) / 20;
+            cameraZ += dt * 1000 * (speed + baseSpeed);
+            this.stars.forEach(s=>{
+              if(s.z < cameraZ) this.rand(s);
+              // map star 3D pos to 2D with simple projection
+              z = s.z - cameraZ;
+              s.sprite.x = s.x * (fov / z) * W + W2;
+              s.sprite.y = s.y * (fov / z) * W + H2;
+            // calculate star scale & rotation.
+              cx = s.sprite.x - W2;
+              cy = s.sprite.y - H2;
+              dc = Math.sqrt(cx * cx + cy * cy);//dist to center
+              ds = Math.max(0, (2000 - z) / 2000);//dist scale
+              s.sprite.scale.x = ds * starBaseSize;
+              // Star is looking towards center so that y axis is towards center.
+              // Scale the star depending on how fast we are moving, what the stretchfactor is
+              // and depending on how far away it is from the center.
+              s.sprite.scale.y = ds * starBaseSize + (ds * speed * starStretch * dc) / W;
+              s.sprite.rotation = Math.atan2(cy,cx) + Math.PI / 2;
+            });
+          }
+        });
+        function loopy(){
+          this.g.warpSpeed = this.g.warpSpeed > 0 ? 0 : 1;
+          self.future(loopy, o.interval);
+        }
+        if(o.static){}else{
+          this.future(()=>{
+            this.g.warpSpeed=1;
+            if(o.repeat)
+              self.future(loopy, o.interval);
+            else
+              self.future(()=>{ this.g.warpSpeed=0 },o.interval);
+          },o.delayMillis);
+        }
+        this.g.init();
+      },
+      postUpdate(dt){
+        this.g.moveStars(dt)
+      },
+      isBusy(){
+        return this.g.inWarp;
+      },
+      warp(){
+        let self=this;
+        if(this.g.inWarp){}else{
+          this.g.inWarp=true;
+          this.g.warpSpeed=1;
+          self.future(()=>{
+            this.g.warpSpeed=0;
+            self.g.inWarp=false;
+          },this.g.interval);
+        }
+      }
+    },{interval: 3000, count: 1000, delayMillis: 343, repeat:false});
 
     ////////////////////////////////////////////////////////////////////////////
     //original source: https://github.com/dwmkerr/starfield/blob/master/starfield.js

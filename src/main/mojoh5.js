@@ -21,8 +21,8 @@
   const
     BMFNT_EXTS= ["fnt"],
     AUDIO_EXTS= ["mp3", "wav", "ogg"],
-    FONT_EXTS = ["ttf", "otf", "ttc", "woff"],
-    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif","webp"];
+    IMAGE_EXTS= ["jpg", "png", "jpeg", "gif","webp"],
+    FONT_EXTS = ["ttf", "otf", "ttc", "woff", "woff2"];
 
   ////////////////////////////////////////////////////////////////////////////
   /**Create the module. */
@@ -260,6 +260,16 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    /** */
+    ////////////////////////////////////////////////////////////////////////////
+    async function _directlyLoadFonts(ffiles){
+      const a= ffiles.map(f=>{ return {alias:`${f.family}`, src: `${f.url}`} });
+      PIXI.Assets.addBundle("webfonts", a);
+      await PIXI.Assets.loadBundle("webfonts");
+      a.forEach(r=> _.log(`loaded web font ${r.alias}`));
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     /** Fetch required files. */
     function _loadFiles(Mojo){
       let rc,scene,pg=[], ecnt=0, cbObj=Mojo.u.load;
@@ -275,7 +285,10 @@
           _.has(AUDIO_EXTS, _.fileExt(f)) ? sfiles.push(f) : wanted.push(f)
         }
       });
-      _trickBrowserToLoadFonts(ffiles);
+
+      if(ffiles.length>0){
+        0 ? _trickBrowserToLoadFonts(ffiles) : _directlyLoadFonts(ffiles);
+      }
 
       ////////////////////////////////////////////////////////////////////////////
       //select the loader scene
