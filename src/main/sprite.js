@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -128,12 +128,10 @@
     ////////////////////////////////////////////////////////////////////////////
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /** yaxis down, default contact points, counter clockwise */
+    /** Yaxis down, default contact points, CCW, starting at bottom right */
     ////////////////////////////////////////////////////////////////////////////
-    function _corners(a,w,h){
-      //starting with bottom right
+    function _cornersCCW(a,w,h){
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
-      //adjust for anchor?
       a ? out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); }) : 0;
       return out;
     }
@@ -614,7 +612,7 @@
             return {x1:0,x2:0,y1:0,y2:0}
           };
           s.m5.getContactPoints=function(){
-            return _corners(s.anchor,s.width,s.height)
+            return _cornersCCW(s.anchor,s.width,s.height)
           };
           //these special functions are for quadtree
           s.getGuid=function(){ return s.m5.uuid };
@@ -1025,6 +1023,7 @@
        * @return {Container}
        */
       group(...cs){
+        if(cs.length==1&&is.vec(cs[0])){ cs=cs[0] }
         const C= this.container();
         cs.forEach(c=> C.addChild(c));
         return C;
@@ -1065,7 +1064,9 @@
        */
       tilingSprite(src, width,height){
         return this.lift(_sprite(src, o=> new PIXI.TilingSprite({
-          texture:o,width:width||o.width, height:height||o.height
+          texture:o,
+          width:width||o.width,
+          height:height||o.height
         })))
       },
       /**Tile sprite repeatingly in x and/or y axis.

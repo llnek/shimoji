@@ -12,7 +12,7 @@
  *
  * MojoH5 - v1.3.0
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -53,7 +53,7 @@
      * @module mojoh5/Mojo
      */
     ////////////////////////////////////////////////////////////////////////////
-    class SSheetFrame{
+    class SSheetFrame{/*sprite-sheet frame*/
       #sheet;
       #frame;
       constructor(s,f){
@@ -132,9 +132,7 @@
           _V.set(this.bg, cx-w4, Y);
           _V.set(this.fg, cx-w4+1, Y);
           _V.set(this.perc, cx-w4+10, int(cy-this.perc.height/2));
-          this.insert(this.bg);
-          this.insert(this.fg);
-          this.insert(this.perc);
+          this.insertEx([this.bg, this.fg, this.perc]);
         },
         update(progress){
           _.log(`progr= ${progress*100}`);
@@ -246,7 +244,7 @@
     /* */
     ////////////////////////////////////////////////////////////////////////////
     function _trickBrowserToLoadFonts(ffiles){
-      let family, face, span, style;
+      let face, span, style;
       ffiles.forEach(f=>{
         style= dom.newElm("style");
         span= dom.newElm("span");
@@ -255,7 +253,7 @@
         dom.conj(style,dom.newTxt(face));
         dom.conj(document.head,style);
         span.innerHTML = "?";
-        dom.css(span,"fontFamily", family);
+        dom.css(span,"fontFamily", f.family);
         dom.conj(document.body,span);
         dom.css(span,{display: "block", opacity: "0"});
       });
@@ -687,7 +685,7 @@
       UNSCII: "unscii",
       DOKI_LOWER:"Doki Lowercase",
       BIGSHOUTBOB: "Big Shout Bob",
-      COPYRIGHT: "(c) www.zotohlab.com 2022-2024.",
+      COPYRIGHT: "(c) www.zotohlab.com 2025.",
       //secs per frame
       _frame:1/cmdArg.fps,
       /**Enum (1)
@@ -1213,9 +1211,8 @@
         return _raf(F);
       },
       _runAppStart(){
-        if(1){
-          Mojo.Input.keybd(Mojo.Input.Q,()=>{ this.takeScreenShot() })
-        }
+        if(1)
+          Mojo.Input.keybd(Mojo.Input.Q,()=>{ this.takeScreenShot() });
         return Mojo.u.start(this)
       },
       takeScreenShot(){
@@ -1264,7 +1261,7 @@
     throw "Panic: browser only!"
   }else{
     gscope.MojoH5=function(arg){ return _module(arg, []) };
-    gscope.MojoH5Ldr=function(arg){ window.addEventListener("load", ()=>  gscope.MojoH5(arg)) };
+    gscope.MojoH5Ldr=function(arg){ window.addEventListener("load", ()=> gscope.MojoH5(arg)) };
   }
 
 })(this);
@@ -1283,7 +1280,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -1401,12 +1398,10 @@
     ////////////////////////////////////////////////////////////////////////////
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /** yaxis down, default contact points, counter clockwise */
+    /** Yaxis down, default contact points, CCW, starting at bottom right */
     ////////////////////////////////////////////////////////////////////////////
-    function _corners(a,w,h){
-      //starting with bottom right
+    function _cornersCCW(a,w,h){
       let out= [_V.vec(w,h), _V.vec(w,0), _V.vec(0,0), _V.vec(0,h)];
-      //adjust for anchor?
       a ? out.forEach(r=>{ r[0] -= int(w * a.x); r[1] -= int(h * a.y); }) : 0;
       return out;
     }
@@ -1887,7 +1882,7 @@
             return {x1:0,x2:0,y1:0,y2:0}
           };
           s.m5.getContactPoints=function(){
-            return _corners(s.anchor,s.width,s.height)
+            return _cornersCCW(s.anchor,s.width,s.height)
           };
           //these special functions are for quadtree
           s.getGuid=function(){ return s.m5.uuid };
@@ -2298,6 +2293,7 @@
        * @return {Container}
        */
       group(...cs){
+        if(cs.length==1&&is.vec(cs[0])){ cs=cs[0] }
         const C= this.container();
         cs.forEach(c=> C.addChild(c));
         return C;
@@ -2338,7 +2334,9 @@
        */
       tilingSprite(src, width,height){
         return this.lift(_sprite(src, o=> new PIXI.TilingSprite({
-          texture:o,width:width||o.width, height:height||o.height
+          texture:o,
+          width:width||o.width,
+          height:height||o.height
         })))
       },
       /**Tile sprite repeatingly in x and/or y axis.
@@ -3461,7 +3459,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -4106,7 +4104,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -4961,7 +4959,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -6227,7 +6225,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -6438,7 +6436,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -7329,7 +7327,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
@@ -7610,7 +7608,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2024, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope,UNDEF){
 
