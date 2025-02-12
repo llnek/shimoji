@@ -1,4 +1,23 @@
-{
+{  
+  "name": "shimoji",
+  "version": "1.2.0",
+  "description": "2D game engine",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/llnek/shimoji.git"
+  },
+  "author": "Kenneth Leung",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/llnek/shimoji/issues"
+  },
+  "directories": {
+    "dist": "./src/main"
+  },
+  "homepage": "https://github.com/llnek/sjimoji#readme",
+
   "dependencies": {
     "gulp": "^4.0.2",
     "gulp-concat": "^2.6.1",
