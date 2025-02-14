@@ -16,7 +16,8 @@ const jsFiles = [
   "src/main/sound.js",
   "src/main/input.js",
   "src/main/touch.js",
-  "src/main/tile.js"
+  "src/main/tile.js",
+  "src/main/epilogue.js"
 ];
 
 var destDir = 'dist'; //or any folder inside your public asset folder
