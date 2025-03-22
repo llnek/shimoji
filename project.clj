@@ -1,4 +1,4 @@
-(defproject shimoji "1.5.0"
+(defproject mojoh5 "1.5.0"
   :description "FIXME: write this!"
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.10.1"]

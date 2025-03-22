@@ -15,7 +15,7 @@
 ;(function(gscope,UNDEF){
   "use strict";
 
-  console.log(`mojoh5 version: 1.2.0`);
+  console.log(`@czlab/mojoh5 version: 1.5.0`);
 
 })(this);
 
