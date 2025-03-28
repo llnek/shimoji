@@ -874,6 +874,23 @@ if (typeof JSON.retrocycle !== "function") {
         for(i=0; i<v; ++i) r += this.rand();
         return r/v;
       },
+      /**
+       * @param {array|number} arg
+       * @return {number[]}
+       */
+      randSpan(arg){
+        let len = is.vec(arg) ? arg.length : arg;
+        this.assert(is.num(len) && len > 1, "bad width to randSpan");
+        let a= this.randInt(len),
+            b= this.randInt(len);
+        if(a==b){
+          a=0; b=len-1;
+        }
+        return a<b ? [a,b] : [b,a];
+      },
+      /**
+       * @return {number}
+       */
       randSign(){ return PRNG()>0.5 ? -1 : 1 },
       /**Divide into 2 parts based on golden-ratio.
        * @memberof module:mcfud/core._
@@ -1968,7 +1985,7 @@ if (typeof JSON.retrocycle !== "function") {
        * @return {array} list of indexes
       */
       listIndexesOf(arr, scramble){
-        let xs= _.fill(arr.length,(i)=>i);
+        let xs= _.fill(arr.length, (i)=>i);
         return scramble? this.shuffle(xs) : xs;
       },
       /**Remove some arguments from the front.
