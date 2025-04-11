@@ -6034,9 +6034,9 @@ if (typeof JSON.retrocycle !== "function") {
         for(let i=0,i2=0; i<vs.length; ++i){
           i2= i+1;
           if(i2 == vs.length) i2=0;
-          let [hit,t] = this.lineIntersect2D(p,p2, vs[i],vs[i2]);
+          let [hit,t, pe] = this.lineIntersect2D(p,p2, vs[i],vs[i2]);
           if(hit)
-            return [hit,t];
+            return [hit,t, pe];
         }
         return [false];
       },
