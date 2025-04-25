@@ -4326,6 +4326,43 @@
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    /** path */
+    ////////////////////////////////////////////////////////////////////////////
+    function TweenWayPoints(s,type,points,frames){
+      return Tween(s,type,frames,points.length,{
+        start(sx,ex,sy,ey){
+          this._x=is.num(ex)?[sx,ex]:UNDEF;
+          this._y=is.num(ey)?[sy,ey]:UNDEF;
+          this._chain=points;
+          this._pos=0;
+          this._run();
+        },
+        onLoopReset(){
+          //chain values
+          let p= this._chain[this._pos];
+          if(this._x){
+            let ex= this._x[1];
+            this._x[0]= ex;
+            this._x[1]= p[0];
+          }
+          if(this._y){
+            let ey= this._y[1];
+            this._y[0]= ey;
+            this._y[1]= p[1];
+          }
+          this._pos++;
+        },
+        onFrame(end,dt){
+          if(this._x)
+            this.sprite.x= end ? this._x[1]
+                               : _M.lerp(this._x[0], this._x[1], dt);
+          if(this._y)
+            this.sprite.y= end ? this._y[1]
+                               : _M.lerp(this._y[0], this._y[1], dt);
+        }
+      })
+    }
+    ////////////////////////////////////////////////////////////////////////////
     /** position */
     ////////////////////////////////////////////////////////////////////////////
     function TweenXY(s,type,frames,loop){
@@ -4386,6 +4423,7 @@
     ////////////////////////////////////////////////////////////////////////////
     function SeqTweens(...ts){
       let c,cs=[];
+      if(is.vec(ts[0])){ts=ts[0]};console.log("YYYYYYYY");
       ts.forEach(o=>{
         cs.push(o);
         _.disj(TweensQueue,o);
@@ -4696,6 +4734,24 @@
        */
       tweenXY(s,type,endX,endY,frames=60,loop=false){
         const t= TweenXY(s,type,frames,loop);
+        let sx=s.x;
+        let sy=s.y;
+        let ex=endX;
+        let ey=endY;
+        if(is.vec(endX)){
+          sx=endX[0];
+          ex=endX[1]
+        }
+        if(is.vec(endY)){
+          sy=endY[0];
+          ey=endY[1]
+        }
+        if(!is.num(ex)){sx=ex=UNDEF}
+        if(!is.num(ey)){sy=ey=UNDEF}
+        return t.start(sx,ex,sy,ey), t;
+      },
+      tweenPath(s,type,endX,endY,points,frames=60){
+        const t= TweenWayPoints(s,type,points,frames);
         let sx=s.x;
         let sy=s.y;
         let ex=endX;
