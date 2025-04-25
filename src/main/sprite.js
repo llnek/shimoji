@@ -758,6 +758,23 @@
         //finally, update the sprite's x & y position
         return _V.add$(s,_V.mul(s.m5.vel,dt));
       },
+      /**Move sprite to a target position.
+       * @memberof module:mojoh5/Sprites
+       * @param {Sprite} s
+       * @param {number} targetX
+       * @param {number} targetY
+       * @return {number} distance
+       */
+      moveTo(s, targetX, targetY){
+        let dx = targetX - s.x;
+        let dy = targetY - s.y;
+        let dist= Math.sqrt(dx * dx + dy * dy);
+        if(!_.feq0(dist)){
+          s.x += dx * s.m5.vel[0];
+          s.y += dy * s.m5.vel[1];
+        }
+        return dist;
+      },
       /**Get the left side of this sprite.
        * @memberof module:mojoh5/Sprites
        * @param {Sprite} s
